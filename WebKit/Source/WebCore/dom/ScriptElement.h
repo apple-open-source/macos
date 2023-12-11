@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Nikolas Zimmermann <zimmermann@kde.org>
- * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,6 +29,7 @@
 #include "ScriptExecutionContextIdentifier.h"
 #include "ScriptType.h"
 #include "UserGestureIndicator.h"
+#include <JavaScriptCore/Forward.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/text/TextPosition.h>
 
@@ -48,8 +49,7 @@ public:
     Element& element() { return m_element; }
     const Element& element() const { return m_element; }
 
-    enum LegacyTypeSupport { DisallowLegacyTypeInTypeAttribute, AllowLegacyTypeInTypeAttribute };
-    bool prepareScript(const TextPosition& scriptStartPosition = TextPosition(), LegacyTypeSupport = DisallowLegacyTypeInTypeAttribute);
+    bool prepareScript(const TextPosition& scriptStartPosition = TextPosition());
 
     String scriptCharset() const { return m_characterEncoding; }
     WEBCORE_EXPORT String scriptContent() const;
@@ -78,10 +78,12 @@ public:
 
     ScriptType scriptType() const { return m_scriptType; }
 
+    JSC::SourceTaintedOrigin sourceTaintedOrigin() const { return m_taintedOrigin; }
+
     void ref();
     void deref();
 
-    static std::optional<ScriptType> determineScriptType(const String& typeAttribute, const String& languageAttribute, bool isHTMLDocument = true, LegacyTypeSupport = DisallowLegacyTypeInTypeAttribute);
+    static std::optional<ScriptType> determineScriptType(const String& typeAttribute, const String& languageAttribute, bool isHTMLDocument = true);
 
 protected:
     ScriptElement(Element&, bool createdByParser, bool isEvaluated);
@@ -108,7 +110,7 @@ protected:
 private:
     void executeScriptAndDispatchEvent(LoadableScript&);
 
-    std::optional<ScriptType> determineScriptType(LegacyTypeSupport) const;
+    std::optional<ScriptType> determineScriptType() const;
     bool ignoresLoadRequest() const;
     void dispatchLoadEventRespectingUserGestureIndicator();
 
@@ -127,6 +129,7 @@ private:
 
     Element& m_element;
     OrdinalNumber m_startLineNumber { OrdinalNumber::beforeFirst() };
+    JSC::SourceTaintedOrigin m_taintedOrigin;
     ParserInserted m_parserInserted : bitWidthOfParserInserted;
     bool m_isExternalScript : 1 { false };
     bool m_alreadyStarted : 1;

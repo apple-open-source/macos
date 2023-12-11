@@ -291,7 +291,9 @@ public:
 
     static void setCachedProcessSuspensionDelayForTesting(Seconds);
 
+#if !PLATFORM(COCOA)
     void allowSpecificHTTPSCertificateForHost(const WebCore::CertificateInfo&, const String& host);
+#endif
     void allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo&);
 
     DeviceIdHashSaltStorage& deviceIdHashSaltStorage() { return m_deviceIdHashSaltStorage.get(); }
@@ -472,7 +474,9 @@ public:
     void setProxyConfigData(Vector<std::pair<Vector<uint8_t>, WTF::UUID>>&&);
 #endif
     void setCompletionHandlerForRemovalFromNetworkProcess(CompletionHandler<void(String&&)>&&);
-    
+
+    void setOriginQuotaRatioEnabledForTesting(bool enabled, CompletionHandler<void()>&&);
+
 private:
     enum class ForceReinitialization : bool { No, Yes };
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -490,6 +494,7 @@ private:
 
     WebsiteDataStore();
     static WorkQueue& websiteDataStoreIOQueue();
+    Ref<NetworkProcessProxy> protectedNetworkProcess() const;
 
     // FIXME: Only Cocoa ports respect ShouldCreateDirectory, so you cannot rely on it to create
     // directories. This is confusing.

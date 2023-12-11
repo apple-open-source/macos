@@ -132,7 +132,7 @@ bool _SecServerRollKeysGlue(bool force, CFErrorRef *error);
 
 #define PERSISTENT_REF_UUID_BYTES_LENGTH (sizeof(uuid_t))
 
-CFArrayRef _SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error);
+CFArrayRef _SecServerCopyInitialSyncCredentials(uint32_t flags, uint64_t* tlks, uint64_t* pcs, uint64_t* bluetooth, CFErrorRef *error);
 bool _SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error);
 
 CF_RETURNS_RETAINED CFArrayRef _SecItemCopyParentCertificates(CFDataRef normalizedIssuer, CFArrayRef accessGroups, CFErrorRef *error);

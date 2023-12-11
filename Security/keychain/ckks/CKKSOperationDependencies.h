@@ -129,7 +129,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setStateForAllViews:(CKKSZoneKeyState*)newZoneKeyState;
 
 // Calling this will update the syncing policy, and also remove any active zone filter previously applied
-- (void)applyNewSyncingPolicy:(TPSyncingPolicy*)policy
+- (void)applyNewSyncingPolicy:(TPSyncingPolicy* _Nullable)policy
                    viewStates:(NSSet<CKKSKeychainViewState*>*)viewStates;
 
 - (NSSet<CKKSKeychainViewState*>*)viewsInState:(CKKSZoneKeyState*)state;

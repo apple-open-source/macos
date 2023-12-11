@@ -96,7 +96,7 @@ namespace IDBClient {
 class IDBConnectionProxy;
 }
 
-class ScriptExecutionContext : public SecurityContext, public CanMakeWeakPtr<ScriptExecutionContext>, public CanMakeCheckedPtr {
+class ScriptExecutionContext : public SecurityContext, public CanMakeCheckedPtr, public TimerAlignment {
 public:
     explicit ScriptExecutionContext(ScriptExecutionContextIdentifier = { });
     virtual ~ScriptExecutionContext();
@@ -250,6 +250,9 @@ public:
 
     void didChangeTimerAlignmentInterval();
     virtual Seconds domTimerAlignmentInterval(bool hasReachedMaxNestingLevel) const;
+
+    // TimerAlignment
+    WEBCORE_EXPORT std::optional<MonotonicTime> alignedFireTime(bool hasReachedMaxNestingLevel, MonotonicTime fireTime) const final;
 
     virtual EventTarget* errorEventTarget() = 0;
 

@@ -161,7 +161,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     if (!WebCore::AXObjectCache::accessibilityEnabled())
         WebCore::AXObjectCache::enableAccessibility();
-    
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (WebCore::AXObjectCache::isIsolatedTreeEnabled())
+        WebCore::AXObjectCache::initializeAXThreadIfNeeded();
+#endif
+
     if ([attribute isEqualToString:NSAccessibilityParentAttribute])
         return m_parent.get();
     
@@ -288,7 +293,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (protectedSelf->m_page->mainFramePlugIn())
             return convertedPoint;
 
-        if (auto* frameView = protectedSelf->m_page->mainFrameView())
+        if (auto* frameView = protectedSelf->m_page->localMainFrameView())
             convertedPoint.moveBy(frameView->scrollPosition());
         if (auto* page = protectedSelf->m_page->corePage())
             convertedPoint.move(0, -page->topContentInset());

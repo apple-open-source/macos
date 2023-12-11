@@ -7,8 +7,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+extern NSString* const CKKSStateTransitionErrorDomain;
+
 typedef OctagonState CKKSState;
 
+NSDictionary<CKKSState*, NSNumber*>* CKKSStateMap(void);
 NSSet<CKKSState*>* CKKSAllStates(void);
 
 extern CKKSState* const CKKSStateWaitForCloudKitAccountStatus;

@@ -33,6 +33,10 @@
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @interface OTClientVoucherOperation ()
 @property OTOperationDependencies* operationDependencies;
 @property NSOperation* finishedOp;
@@ -57,12 +61,12 @@
 
         _operationDependencies = dependencies;
 
-        self.peerID = peerID;
-        self.permanentInfo = permanentInfo;
-        self.permanentInfoSig = permanentInfoSig;
-        self.stableInfo = stableInfo;
-        self.stableInfoSig = stableInfoSig;
-        self.deviceInfo = deviceInfo;
+        _peerID = peerID;
+        _permanentInfo = permanentInfo;
+        _permanentInfoSig = permanentInfoSig;
+        _stableInfo = stableInfo;
+        _stableInfoSig = stableInfoSig;
+        _deviceInfo = deviceInfo;
     }
     return self;
 }
@@ -76,6 +80,14 @@
 
     WEAKIFY(self);
 
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                                  flowID:self.operationDependencies.flowID
+                                                                                         deviceSessionID:self.operationDependencies.deviceSessionID
+                                                                                               eventName:kSecurityRTCEventNameCKKSTlkFetch
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
     // Acquire the CKKS TLKs to pass in
     OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.operationDependencies
                                                                                      refetchNeeded:NO];
@@ -84,6 +96,8 @@
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"vouch-with-keys"
                                                             withBlock:^{
                                                                 STRONGIFY(self);
+                                                                BOOL success = fetchKeysOp.error == nil ? YES : NO;
+                                                                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:success error:fetchKeysOp.error];
                                                                 [self proceedWithKeys:fetchKeysOp.viewKeySets];
                                                             }];
 
@@ -104,6 +118,8 @@
                                                                 stableInfo:self.stableInfo
                                                              stableInfoSig:self.stableInfoSig
                                                                   ckksKeys:viewKeySets
+                                                                    flowID:self.operationDependencies.flowID
+                                                           deviceSessionID:self.operationDependencies.deviceSessionID
                                                                      reply:^(NSData * _Nullable voucher,
                                                                              NSData * _Nullable voucherSig,
                                                                              NSError * _Nullable error)

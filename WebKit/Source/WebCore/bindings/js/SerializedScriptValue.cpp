@@ -59,13 +59,17 @@
 #include "JSNavigator.h"
 #include "JSRTCCertificate.h"
 #include "JSRTCDataChannel.h"
+#include "JSWebCodecsAudioData.h"
+#include "JSWebCodecsEncodedAudioChunk.h"
 #include "JSWebCodecsEncodedVideoChunk.h"
 #include "JSWebCodecsVideoFrame.h"
 #include "ScriptExecutionContext.h"
 #include "SharedBuffer.h"
+#include "WebCodecsEncodedAudioChunk.h"
 #include "WebCodecsEncodedVideoChunk.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/ArrayConventions.h>
 #include <JavaScriptCore/BigIntObject.h>
 #include <JavaScriptCore/BooleanObject.h>
 #include <JavaScriptCore/CatchScope.h>
@@ -222,6 +226,10 @@ enum SerializationTag {
     InMemoryOffscreenCanvasTag = 56,
 #endif
     InMemoryMessagePortTag = 57,
+#if ENABLE(WEB_CODECS)
+    WebCodecsEncodedAudioChunkTag = 58,
+    WebCodecsAudioDataTag = 59,
+#endif
     ErrorTag = 255
 };
 
@@ -320,11 +328,15 @@ static bool isTypeExposedToGlobalObject(JSC::JSGlobalObject& globalObject, Seria
 #if ENABLE(WEB_CODECS)
     case WebCodecsEncodedVideoChunkTag:
     case WebCodecsVideoFrameTag:
+    case WebCodecsEncodedAudioChunkTag:
+    case WebCodecsAudioDataTag:
 #endif
         break;
     }
     return false;
 #else
+    UNUSED_PARAM(globalObject);
+    UNUSED_PARAM(tag);
     return true;
 #endif
 }
@@ -485,9 +497,10 @@ enum class CryptoAlgorithmIdentifierTag {
     HKDF = 20,
     PBKDF2 = 21,
     ED25519 = 22,
+    X25519 = 23,
 };
 
-const uint8_t cryptoAlgorithmIdentifierTagMaximumValue = 22;
+const uint8_t cryptoAlgorithmIdentifierTagMaximumValue = 23;
 
 static unsigned countUsages(CryptoKeyUsageBitmap usages)
 {
@@ -526,8 +539,10 @@ const uint8_t cryptoKeyOKPOpNameTagMaximumValue = 1;
  * Version 11. added support for Blob's memory cost.
  * Version 12. added support for agent cluster ID.
  * Version 13. added support for ErrorInstance objects.
+ * Version 14. encode booleans as uint8_t instead of int32_t.
+ * Version 15. changed the terminator of the indexed property section in array.
  */
-static constexpr unsigned CurrentVersion = 13;
+static constexpr unsigned CurrentVersion = 15;
 static constexpr unsigned TerminatorTag = 0xFFFFFFFF;
 static constexpr unsigned StringPoolTag = 0xFFFFFFFE;
 static constexpr unsigned NonIndexPropertiesTag = 0xFFFFFFFD;
@@ -535,6 +550,8 @@ static constexpr uint32_t ImageDataPoolTag = 0xFFFFFFFE;
 
 // The high bit of a StringData's length determines the character size.
 static constexpr unsigned StringDataIs8BitFlag = 0x80000000;
+
+static_assert(TerminatorTag > MAX_ARRAY_INDEX);
 
 /*
  * Object serialization is performed according to the following grammar, all tags
@@ -548,7 +565,7 @@ static constexpr unsigned StringDataIs8BitFlag = 0x80000000;
  * Value :- Array | Object | Map | Set | Terminal
  *
  * Array :-
- *     ArrayTag <length:uint32_t>(<index:uint32_t><value:Value>)* TerminatorTag
+ *     ArrayTag <length:uint32_t>(<index:uint32_t><value:Value>)* TerminatorTag (NonIndexPropertiesTag (<name:StringData><value:Value>)*) TerminatorTag
  *
  * Object :-
  *     ObjectTag (<name:StringData><value:Value>)* TerminatorTag
@@ -813,6 +830,8 @@ public:
 #if ENABLE(WEB_CODECS)
             Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>& serializedVideoChunks,
             Vector<RefPtr<WebCodecsVideoFrame>>& serializedVideoFrames,
+            Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>>& serializedAudioChunks,
+            Vector<RefPtr<WebCodecsAudioData>>& serializedAudioData,
 #endif
 #if ENABLE(WEBASSEMBLY)
             WasmModuleArray& wasmModules,
@@ -833,6 +852,8 @@ public:
 #if ENABLE(WEB_CODECS)
             serializedVideoChunks,
             serializedVideoFrames,
+            serializedAudioChunks,
+            serializedAudioData,
 #endif
 #if ENABLE(WEBASSEMBLY)
             wasmModules,
@@ -873,6 +894,8 @@ private:
 #if ENABLE(WEB_CODECS)
             Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>& serializedVideoChunks,
             Vector<RefPtr<WebCodecsVideoFrame>>& serializedVideoFrames,
+            Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>>& serializedAudioChunks,
+            Vector<RefPtr<WebCodecsAudioData>>& serializedAudioData,
 #endif
 #if ENABLE(WEBASSEMBLY)
             WasmModuleArray& wasmModules,
@@ -882,7 +905,7 @@ private:
         : CloneBase(lexicalGlobalObject)
         , m_buffer(out)
         , m_blobHandles(blobHandles)
-        , m_emptyIdentifier(Identifier::fromString(lexicalGlobalObject->vm(), emptyString()))
+        , m_emptyIdentifier(Identifier::fromString(lexicalGlobalObject->vm(), emptyAtom()))
         , m_context(context)
         , m_sharedBuffers(sharedBuffers)
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
@@ -896,6 +919,8 @@ private:
 #if ENABLE(WEB_CODECS)
         , m_serializedVideoChunks(serializedVideoChunks)
         , m_serializedVideoFrames(serializedVideoFrames)
+        , m_serializedAudioChunks(serializedAudioChunks)
+        , m_serializedAudioData(serializedAudioData)
 #endif
         , m_forStorage(forStorage)
     {
@@ -911,30 +936,16 @@ private:
 #endif
     }
 
-    template <class T>
-    void fillTransferMap(const Vector<RefPtr<T>>& input, ObjectPool& result)
+    template<typename T>
+    void fillTransferMap(const Vector<T>& input, ObjectPool& result)
     {
         if (input.isEmpty())
             return;
-        JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(m_lexicalGlobalObject);
-        for (size_t i = 0; i < input.size(); i++) {
-            JSC::JSValue value = toJS(m_lexicalGlobalObject, globalObject, input[i].get());
-            JSC::JSObject* obj = value.getObject();
-            if (obj && !result.contains(obj))
-                result.add(obj, i);
-        }
-    }
-    template <class T>
-    void fillTransferMap(const Vector<Ref<T>>& input, ObjectPool& result)
-    {
-        if (input.isEmpty())
-            return;
-        JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(m_lexicalGlobalObject);
-        for (size_t i = 0; i < input.size(); i++) {
-            JSC::JSValue value = toJS(m_lexicalGlobalObject, globalObject, input[i].get());
-            JSC::JSObject* obj = value.getObject();
-            if (obj && !result.contains(obj))
-                result.add(obj, i);
+
+        auto* globalObject = jsCast<JSDOMGlobalObject*>(m_lexicalGlobalObject);
+        for (size_t i = 0; i < input.size(); ++i) {
+            if (auto* object = toJS(globalObject, globalObject, input[i].get()).getObject())
+                result.add(object, i);
         }
     }
 
@@ -1123,7 +1134,7 @@ private:
 #if USE(BIGINT32)
     void dumpBigInt32Data(int32_t integer)
     {
-        write(static_cast<uint8_t>(integer < 0));
+        write(integer < 0);
         if (!integer) {
             write(static_cast<uint32_t>(0)); // Length-in-uint64_t
             return;
@@ -1138,7 +1149,7 @@ private:
 
     void dumpHeapBigIntData(JSBigInt* bigInt)
     {
-        write(static_cast<uint8_t>(bigInt->sign()));
+        write(bigInt->sign());
         if constexpr (sizeof(JSBigInt::Digit) == sizeof(uint64_t)) {
             write(static_cast<uint32_t>(bigInt->length()));
             for (unsigned index = 0; index < bigInt->length(); ++index)
@@ -1277,7 +1288,7 @@ private:
 
         auto& matrix = jsCast<JSDOMMatrixReadOnly*>(obj)->wrapped();
         bool is2D = matrix.is2D();
-        write(static_cast<uint8_t>(is2D));
+        write(is2D);
         if (is2D) {
             write(matrix.m11());
             write(matrix.m12());
@@ -1427,6 +1438,36 @@ private:
             m_serializedVideoFrames.append(WTFMove(videoFrame));
         }
         write(WebCodecsVideoFrameTag);
+        write(static_cast<uint32_t>(index));
+        return true;
+    }
+
+    void dumpWebCodecsEncodedAudioChunk(JSObject* obj)
+    {
+        auto& audioChunk = jsCast<JSWebCodecsEncodedAudioChunk*>(obj)->wrapped();
+
+        auto index = m_serializedAudioChunks.find(&audioChunk.storage());
+        if (index == notFound) {
+            index = m_serializedAudioChunks.size();
+            m_serializedAudioChunks.append(&audioChunk.storage());
+        }
+
+        write(WebCodecsEncodedAudioChunkTag);
+        write(static_cast<uint32_t>(index));
+    }
+
+    bool dumpWebCodecsAudioData(JSObject* obj)
+    {
+        Ref audioData = jsCast<JSWebCodecsAudioData*>(obj)->wrapped();
+        if (audioData->isDetached())
+            return false;
+
+        auto index = m_serializedAudioData.find(audioData.ptr());
+        if (index == notFound) {
+            index = m_serializedVideoChunks.size();
+            m_serializedAudioData.append(WTFMove(audioData));
+        }
+        write(WebCodecsAudioDataTag);
         write(static_cast<uint32_t>(index));
         return true;
     }
@@ -1622,8 +1663,7 @@ private:
                     write(index->value);
                     return true;
                 } else if (m_context == SerializationContext::CloneAcrossWorlds) {
-                    // FIXME: Only in clone accross worlds mode.
-                    write (InMemoryMessagePortTag);
+                    write(InMemoryMessagePortTag);
                     write(static_cast<uint32_t>(m_inMemoryMessagePorts.size()));
                     m_inMemoryMessagePorts.append(&jsCast<JSMessagePort*>(obj)->wrapped());
                     return true;
@@ -1695,6 +1735,8 @@ private:
 #if ENABLE(WEB_CODECS)
                 Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>> dummyVideoChunks;
                 Vector<RefPtr<WebCodecsVideoFrame>> dummyVideoFrames;
+                Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>> dummyAudioChunks;
+                Vector<RefPtr<WebCodecsAudioData>> dummyAudioData;
 #endif
 #if ENABLE(WEBASSEMBLY)
                 WasmModuleArray dummyModules;
@@ -1717,6 +1759,8 @@ private:
 #if ENABLE(WEB_CODECS)
                     dummyVideoChunks,
                     dummyVideoFrames,
+                    dummyAudioChunks,
+                    dummyAudioData,
 #endif
 #if ENABLE(WEBASSEMBLY)
                     dummyModules,
@@ -1823,6 +1867,17 @@ private:
                     return false;
                 return dumpWebCodecsVideoFrame(obj);
             }
+            if (obj->inherits<JSWebCodecsEncodedAudioChunk>()) {
+                if (m_forStorage == SerializationForStorage::Yes)
+                    return false;
+                dumpWebCodecsEncodedAudioChunk(obj);
+                return true;
+            }
+            if (obj->inherits<JSWebCodecsAudioData>()) {
+                if (m_forStorage == SerializationForStorage::Yes)
+                    return false;
+                return dumpWebCodecsAudioData(obj);
+            }
 #endif
 
             return false;
@@ -1830,6 +1885,11 @@ private:
         // Any other types are expected to serialize as null.
         write(NullTag);
         return true;
+    }
+
+    void write(SerializableErrorType errorType)
+    {
+        write(enumToUnderlyingType(errorType));
     }
 
     void write(SerializationTag tag)
@@ -1876,7 +1936,7 @@ private:
 
     void write(bool b)
     {
-        writeLittleEndian(m_buffer, static_cast<int32_t>(b));
+        write(static_cast<uint8_t>(b));
     }
 
     void write(uint8_t c)
@@ -2159,6 +2219,9 @@ private:
         case CryptoAlgorithmIdentifier::Ed25519:
             write(CryptoAlgorithmIdentifierTag::ED25519);
             break;
+        case CryptoAlgorithmIdentifier::X25519:
+            write(CryptoAlgorithmIdentifierTag::X25519);
+            break;
         }
     }
 
@@ -2199,11 +2262,6 @@ private:
             write(key.otherPrimeInfos()[i].factorCRTExponent);
             write(key.otherPrimeInfos()[i].factorCRTCoefficient);
         }
-    }
-
-    void write(SerializableErrorType errorType)
-    {
-        write(enumToUnderlyingType(errorType));
     }
 
     void write(const CryptoKey* key)
@@ -2327,6 +2385,8 @@ private:
 #if ENABLE(WEB_CODECS)
     Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>& m_serializedVideoChunks;
     Vector<RefPtr<WebCodecsVideoFrame>>& m_serializedVideoFrames;
+    Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>>& m_serializedAudioChunks;
+    Vector<RefPtr<WebCodecsAudioData>>& m_serializedAudioData;
 #endif
     SerializationForStorage m_forStorage;
 };
@@ -2369,6 +2429,7 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
                 if (index == lengthStack.last()) {
                     indexStack.removeLast();
                     lengthStack.removeLast();
+                    write(TerminatorTag); // Terminate the indexed property section.
 
                     propertyStack.append(PropertyNameArray(vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude));
                     array->getOwnNonIndexPropertyNames(m_lexicalGlobalObject, propertyStack.last(), DontEnumPropertiesMode::Exclude);
@@ -2589,7 +2650,8 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
 class CloneDeserializer : CloneBase {
     WTF_FORBID_HEAP_ALLOCATION;
 public:
-    static String deserializeString(const Vector<uint8_t>& buffer)
+    enum class ShouldAtomize : bool { No, Yes };
+    static String deserializeString(const Vector<uint8_t>& buffer, ShouldAtomize shouldAtomize = ShouldAtomize::No)
     {
         if (buffer.isEmpty())
             return String();
@@ -2607,7 +2669,7 @@ public:
         bool is8Bit = length & StringDataIs8BitFlag;
         length &= ~StringDataIs8BitFlag;
         String str;
-        if (!readString(ptr, end, str, length, is8Bit))
+        if (!readString(ptr, end, str, length, is8Bit, shouldAtomize))
             return String();
         return str;
     }
@@ -2629,6 +2691,8 @@ public:
 #if ENABLE(WEB_CODECS)
         , Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>&& serializedVideoChunks
         , Vector<WebCodecsVideoFrameData>&& serializedVideoFrames
+        , Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>>&& serializedAudioChunks
+        , Vector<WebCodecsAudioInternalData>&& serializedAudioData
 #endif
         )
     {
@@ -2650,6 +2714,8 @@ public:
 #if ENABLE(WEB_CODECS)
             , WTFMove(serializedVideoChunks)
             , WTFMove(serializedVideoFrames)
+            , WTFMove(serializedAudioChunks)
+            , WTFMove(serializedAudioData)
 #endif
             );
         if (!deserializer.isValid())
@@ -2659,8 +2725,8 @@ public:
 
 private:
     struct CachedString {
-        CachedString(const String& string)
-            : m_string(string)
+        CachedString(String&& string)
+            : m_string(WTFMove(string))
         {
         }
 
@@ -2679,11 +2745,8 @@ private:
     };
 
     struct CachedStringRef {
-        CachedStringRef()
-            : m_base(0)
-            , m_index(0)
-        {
-        }
+        CachedStringRef() = default;
+
         CachedStringRef(Vector<CachedString>* base, size_t index)
             : m_base(base)
             , m_index(index)
@@ -2693,8 +2756,8 @@ private:
         CachedString* operator->() { ASSERT(m_base); return &m_base->at(m_index); }
         
     private:
-        Vector<CachedString>* m_base;
-        size_t m_index;
+        Vector<CachedString>* m_base { nullptr };
+        size_t m_index { 0 };
     };
 
     CloneDeserializer(JSGlobalObject* lexicalGlobalObject, JSGlobalObject* globalObject, const Vector<RefPtr<MessagePort>>& messagePorts, ArrayBufferContentsArray* arrayBufferContents, Vector<std::optional<ImageBitmapBacking>>&& backingStores, const Vector<uint8_t>& buffer
@@ -2713,6 +2776,8 @@ private:
 #if ENABLE(WEB_CODECS)
         , Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>&& serializedVideoChunks = { }
         , Vector<WebCodecsVideoFrameData>&& serializedVideoFrames = { }
+        , Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>>&& serializedAudioChunks = { }
+        , Vector<WebCodecsAudioInternalData>&& serializedAudioData = { }
 #endif
         )
         : CloneBase(lexicalGlobalObject)
@@ -2746,6 +2811,10 @@ private:
         , m_videoChunks(m_serializedVideoChunks.size())
         , m_serializedVideoFrames(WTFMove(serializedVideoFrames))
         , m_videoFrames(m_serializedVideoFrames.size())
+        , m_serializedAudioChunks(WTFMove(serializedAudioChunks))
+        , m_audioChunks(m_serializedAudioChunks.size())
+        , m_serializedAudioData(WTFMove(serializedAudioData))
+        , m_audioData(m_serializedAudioData.size())
 #endif
     {
         if (!read(m_version))
@@ -2768,6 +2837,8 @@ private:
 #if ENABLE(WEB_CODECS)
         , Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>&& serializedVideoChunks = { }
         , Vector<WebCodecsVideoFrameData>&& serializedVideoFrames = { }
+        , Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>>&& serializedAudioChunks = { }
+        , Vector<WebCodecsAudioInternalData>&& serializedAudioData = { }
 #endif
         )
         : CloneBase(lexicalGlobalObject)
@@ -2804,6 +2875,10 @@ private:
         , m_videoChunks(m_serializedVideoChunks.size())
         , m_serializedVideoFrames(WTFMove(serializedVideoFrames))
         , m_videoFrames(m_serializedVideoFrames.size())
+        , m_serializedAudioChunks(WTFMove(serializedAudioChunks))
+        , m_audioChunks(m_serializedAudioChunks.size())
+        , m_serializedAudioData(WTFMove(serializedAudioData))
+        , m_audioData(m_serializedAudioData.size())
 #endif
     {
         if (!read(m_version))
@@ -2853,12 +2928,20 @@ private:
     }
 #endif
 
-    bool read(bool& b)
+    enum class ForceReadingAs8Bit : bool { No, Yes };
+    bool read(bool& b, ForceReadingAs8Bit forceReadingAs8Bit = ForceReadingAs8Bit::No)
     {
-        int32_t integer;
-        if (!readLittleEndian(integer) || integer > 1)
-            return false;
-        b = !!integer;
+        if (m_version >= 14 || forceReadingAs8Bit == ForceReadingAs8Bit::Yes) {
+            uint8_t integer;
+            if (!read(integer) || integer > 1)
+                return false;
+            b = !!integer;
+        } else {
+            int32_t integer;
+            if (!read(integer) || integer > 1)
+                return false;
+            b = !!integer;
+        }
         return true;
     }
 
@@ -2929,7 +3012,7 @@ private:
         return i;
     }
 
-    static bool readString(const uint8_t*& ptr, const uint8_t* end, String& str, unsigned length, bool is8Bit)
+    static bool readString(const uint8_t*& ptr, const uint8_t* end, String& str, unsigned length, bool is8Bit, ShouldAtomize shouldAtomize)
     {
         if (length >= std::numeric_limits<int32_t>::max() / sizeof(UChar))
             return false;
@@ -2937,7 +3020,10 @@ private:
         if (is8Bit) {
             if ((end - ptr) < static_cast<int>(length))
                 return false;
-            str = String { ptr, length };
+            if (shouldAtomize == ShouldAtomize::Yes)
+                str = AtomString { ptr, length };
+            else
+                str = String { ptr, length };
             ptr += length;
             return true;
         }
@@ -2947,7 +3033,10 @@ private:
             return false;
 
 #if ASSUME_LITTLE_ENDIAN
-        str = String(reinterpret_cast<const UChar*>(ptr), length);
+        if (shouldAtomize == ShouldAtomize::Yes)
+            str = AtomString(reinterpret_cast<const UChar*>(ptr), length);
+        else
+            str = String(reinterpret_cast<const UChar*>(ptr), length);
         ptr += length * sizeof(UChar);
 #else
         UChar* characters;
@@ -2957,11 +3046,13 @@ private:
             readLittleEndian(ptr, end, c);
             characters[i] = c;
         }
+        if (shouldAtomize == ShouldAtomize::Yes)
+            str = AtomString { str };
 #endif
         return true;
     }
 
-    bool readNullableString(String& nullableString)
+    bool readNullableString(String& nullableString, ShouldAtomize shouldAtomize = ShouldAtomize::No)
     {
         bool isNull;
         if (!read(isNull))
@@ -2969,19 +3060,19 @@ private:
         if (isNull)
             return true;
         CachedStringRef stringData;
-        if (!readStringData(stringData))
+        if (!readStringData(stringData, shouldAtomize))
             return false;
         nullableString = stringData->string();
         return true;
     }
 
-    bool readStringData(CachedStringRef& cachedString)
+    bool readStringData(CachedStringRef& cachedString, ShouldAtomize shouldAtomize = ShouldAtomize::No)
     {
         bool scratch;
-        return readStringData(cachedString, scratch);
+        return readStringData(cachedString, scratch, shouldAtomize);
     }
 
-    bool readStringData(CachedStringRef& cachedString, bool& wasTerminator)
+    bool readStringData(CachedStringRef& cachedString, bool& wasTerminator, ShouldAtomize shouldAtomize = ShouldAtomize::No)
     {
         if (m_failed)
             return false;
@@ -3004,11 +3095,11 @@ private:
         bool is8Bit = length & StringDataIs8BitFlag;
         length &= ~StringDataIs8BitFlag;
         String str;
-        if (!readString(m_ptr, m_end, str, length, is8Bit)) {
+        if (!readString(m_ptr, m_end, str, length, is8Bit, shouldAtomize)) {
             fail();
             return false;
         }
-        m_constantPool.append(str);
+        m_constantPool.append(WTFMove(str));
         cachedString = CachedStringRef(&m_constantPool, m_constantPool.size() - 1);
         return true;
     }
@@ -3152,43 +3243,40 @@ private:
                 return false;
         }
 
+        auto makeArrayBufferView = [&] (auto view) -> bool {
+            if (!view)
+                return false;
+            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, WTFMove(view));
+            if (!arrayBufferView)
+                return false;
+            return true;
+        };
+
         switch (arrayBufferViewSubtag) {
         case DataViewTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, DataView::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(DataView::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Int8ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Int8Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Int8Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Uint8ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Uint8Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Uint8Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Uint8ClampedArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Uint8ClampedArray::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Uint8ClampedArray::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Int16ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Int16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Int16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Uint16ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Uint16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Uint16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Int32ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Int32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Int32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Uint32ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Uint32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Uint32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Float32ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Float32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Float32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Float64ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, Float64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(Float64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case BigInt64ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, BigInt64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(BigInt64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case BigUint64ArrayTag:
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, BigUint64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
-            return true;
+            return makeArrayBufferView(BigUint64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         default:
             return false;
         }
@@ -3407,6 +3495,9 @@ private:
         case CryptoAlgorithmIdentifierTag::ED25519:
             result = CryptoAlgorithmIdentifier::Ed25519;
             break;
+        case CryptoAlgorithmIdentifierTag::X25519:
+            result = CryptoAlgorithmIdentifier::X25519;
+            break;
         }
         return true;
     }
@@ -3476,7 +3567,7 @@ private:
         if (!read(algorithm))
             return false;
 
-        int32_t isRestrictedToHash;
+        bool isRestrictedToHash;
         CryptoAlgorithmIdentifier hash = CryptoAlgorithmIdentifier::SHA_1;
         if (!read(isRestrictedToHash))
             return false;
@@ -3613,7 +3704,7 @@ private:
         if (!read(keyFormatVersion) || keyFormatVersion > currentKeyFormatVersion)
             return false;
 
-        int32_t extractable;
+        bool extractable;
         if (!read(extractable))
             return false;
 
@@ -3727,8 +3818,8 @@ private:
     template<class T>
     JSValue readDOMMatrix()
     {
-        uint8_t is2D;
-        if (!read(is2D))
+        bool is2D;
+        if (!read(is2D, ForceReadingAs8Bit::Yes))
             return { };
 
         if (is2D) {
@@ -4000,6 +4091,34 @@ private:
 
         return getJSValue(m_videoFrames[index].get());
     }
+    JSValue readWebCodecsEncodedAudioChunk()
+    {
+        uint32_t index;
+        bool indexSuccessfullyRead = read(index);
+        if (!indexSuccessfullyRead || index >= m_serializedAudioChunks.size()) {
+            fail();
+            return JSValue();
+        }
+
+        if (!m_audioChunks[index])
+            m_audioChunks[index] = WebCodecsEncodedAudioChunk::create(m_serializedAudioChunks.at(index).releaseNonNull());
+
+        return getJSValue(m_audioChunks[index].get());
+    }
+    JSValue readWebCodecsAudioData()
+    {
+        uint32_t index;
+        bool indexSuccessfullyRead = read(index);
+        if (!indexSuccessfullyRead || index >= m_serializedAudioData.size()) {
+            fail();
+            return JSValue();
+        }
+
+        if (!m_audioData[index])
+            m_audioData[index] = WebCodecsAudioData::create(*executionContext(m_lexicalGlobalObject), WTFMove(m_serializedAudioData.at(index)));
+
+        return getJSValue(m_audioData[index].get());
+    }
 #endif
 
     JSValue readImageBitmap()
@@ -4053,8 +4172,8 @@ private:
 
     JSValue readBigInt()
     {
-        uint8_t sign = 0;
-        if (!read(sign))
+        bool sign;
+        if (!read(sign, ForceReadingAs8Bit::Yes))
             return JSValue();
         uint32_t numberOfUint64Elements = 0;
         if (!read(numberOfUint64Elements))
@@ -4150,8 +4269,10 @@ private:
     JSValue readTerminal()
     {
         SerializationTag tag = readTag();
-        if (!isTypeExposedToGlobalObject(*m_globalObject, tag))
+        if (!isTypeExposedToGlobalObject(*m_globalObject, tag)) {
+            fail();
             return JSValue();
+        }
         switch (tag) {
         case UndefinedTag:
             return jsUndefined();
@@ -4526,7 +4647,9 @@ private:
             }
             
             RELEASE_ASSERT(m_sharedBuffers->at(index));
-            auto buffer = ArrayBuffer::create(WTFMove(m_sharedBuffers->at(index)));
+            ArrayBufferContents arrayBufferContents;
+            m_sharedBuffers->at(index).shareWith(arrayBufferContents);
+            auto buffer = ArrayBuffer::create(WTFMove(arrayBufferContents));
             JSValue result = getJSValue(buffer.get());
             m_gcBuffer.appendWithCrashOnOverflow(result);
             return result;
@@ -4601,6 +4724,10 @@ private:
             return readWebCodecsEncodedVideoChunk();
         case WebCodecsVideoFrameTag:
             return readWebCodecsVideoFrame();
+        case WebCodecsEncodedAudioChunkTag:
+            return readWebCodecsEncodedAudioChunk();
+        case WebCodecsAudioDataTag:
+            return readWebCodecsAudioData();
 #endif
         case DOMExceptionTag:
             return readDOMException();
@@ -4655,6 +4782,10 @@ private:
     Vector<RefPtr<WebCodecsEncodedVideoChunk>> m_videoChunks;
     Vector<WebCodecsVideoFrameData> m_serializedVideoFrames;
     Vector<RefPtr<WebCodecsVideoFrame>> m_videoFrames;
+    Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>> m_serializedAudioChunks;
+    Vector<RefPtr<WebCodecsEncodedAudioChunk>> m_audioChunks;
+    Vector<WebCodecsAudioInternalData> m_serializedAudioData;
+    Vector<RefPtr<WebCodecsAudioData>> m_audioData;
 #endif
 
     String blobFilePathForBlobURL(const String& blobURL)
@@ -4707,13 +4838,33 @@ DeserializationResult CloneDeserializer::deserialize()
                 fail();
                 goto error;
             }
-            if (index == TerminatorTag) {
-                JSObject* outArray = outputObjectStack.last();
-                outValue = outArray;
-                outputObjectStack.removeLast();
-                break;
-            } else if (index == NonIndexPropertiesTag) {
-                goto objectStartVisitMember;
+
+            if (m_version >= 15) {
+                if (index == TerminatorTag) {
+                    // We reached the end of the indexed properties section.
+                    if (!read(index)) {
+                        fail();
+                        goto error;
+                    }
+                    // At this point, we're either done with the array or is starting the
+                    // non-indexed property section.
+                    if (index == TerminatorTag) {
+                        JSObject* outArray = outputObjectStack.last();
+                        outValue = outArray;
+                        outputObjectStack.removeLast();
+                        break;
+                    }
+                    if (index == NonIndexPropertiesTag)
+                        goto objectStartVisitMember;
+                }
+            } else {
+                if (index == TerminatorTag) {
+                    JSObject* outArray = outputObjectStack.last();
+                    outValue = outArray;
+                    outputObjectStack.removeLast();
+                    break;
+                } else if (index == NonIndexPropertiesTag)
+                    goto objectStartVisitMember;
             }
 
             if (JSValue terminal = readTerminal()) {
@@ -4745,7 +4896,7 @@ DeserializationResult CloneDeserializer::deserialize()
         case ObjectStartVisitMember: {
             CachedStringRef cachedString;
             bool wasTerminator = false;
-            if (!readStringData(cachedString, wasTerminator)) {
+            if (!readStringData(cachedString, wasTerminator, ShouldAtomize::Yes)) {
                 if (!wasTerminator)
                     goto error;
 
@@ -4861,6 +5012,8 @@ SerializedScriptValue::SerializedScriptValue(Vector<uint8_t>&& buffer, std::uniq
 #if ENABLE(WEB_CODECS)
     , Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>&& serializedVideoChunks
     , Vector<WebCodecsVideoFrameData>&& serializedVideoFrames
+    , Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>>&& serializedAudioChunks
+    , Vector<WebCodecsAudioInternalData>&& serializedAudioData
 #endif
         )
     : m_data(WTFMove(buffer))
@@ -4871,6 +5024,8 @@ SerializedScriptValue::SerializedScriptValue(Vector<uint8_t>&& buffer, std::uniq
 #if ENABLE(WEB_CODECS)
     , m_serializedVideoChunks(WTFMove(serializedVideoChunks))
     , m_serializedVideoFrames(WTFMove(serializedVideoFrames))
+    , m_serializedAudioChunks(WTFMove(serializedAudioChunks))
+    , m_serializedAudioData(WTFMove(serializedAudioData))
 #endif
 {
     m_memoryCost = computeMemoryCost();
@@ -4892,6 +5047,8 @@ SerializedScriptValue::SerializedScriptValue(Vector<uint8_t>&& buffer, Vector<UR
 #if ENABLE(WEB_CODECS)
         , Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>&& serializedVideoChunks
         , Vector<WebCodecsVideoFrameData>&& serializedVideoFrames
+        , Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>>&& serializedAudioChunks
+        , Vector<WebCodecsAudioInternalData>&& serializedAudioData
 #endif
         )
     : m_data(WTFMove(buffer))
@@ -4913,6 +5070,8 @@ SerializedScriptValue::SerializedScriptValue(Vector<uint8_t>&& buffer, Vector<UR
 #if ENABLE(WEB_CODECS)
     , m_serializedVideoChunks(WTFMove(serializedVideoChunks))
     , m_serializedVideoFrames(WTFMove(serializedVideoFrames))
+    , m_serializedAudioChunks(WTFMove(serializedAudioChunks))
+    , m_serializedAudioData(WTFMove(serializedAudioData))
 #endif
     , m_blobHandles(crossThreadCopy(WTFMove(blobHandles)))
 {
@@ -4964,6 +5123,12 @@ size_t SerializedScriptValue::computeMemoryCost() const
     }
     for (auto& frame : m_serializedVideoFrames)
         cost += frame.memoryCost();
+    for (auto& chunk : m_serializedAudioChunks) {
+        if (chunk)
+            cost += chunk->memoryCost();
+    }
+    for (auto& data : m_serializedAudioData)
+        cost += data.memoryCost();
 #endif
 
     for (auto& handle : m_blobHandles)
@@ -5109,6 +5274,7 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
 #endif
 #if ENABLE(WEB_CODECS)
     Vector<Ref<WebCodecsVideoFrame>> transferredVideoFrames;
+    Vector<Ref<WebCodecsAudioData>> transferredAudioData;
 #endif
     HashSet<JSC::JSObject*> uniqueTransferables;
     for (auto& transferable : transferList) {
@@ -5164,6 +5330,12 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
             transferredVideoFrames.append(*videoFrame);
             continue;
         }
+        if (auto audioData = JSWebCodecsAudioData::toWrapped(vm, transferable.get())) {
+            if (audioData->isDetached())
+                return Exception { DataCloneError };
+            transferredAudioData.append(*audioData);
+            continue;
+        }
 #endif
         return Exception { DataCloneError };
     }
@@ -5193,6 +5365,8 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
 #if ENABLE(WEB_CODECS)
     Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>> serializedVideoChunks;
     Vector<RefPtr<WebCodecsVideoFrame>> serializedVideoFrames;
+    Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>> serializedAudioChunks;
+    Vector<RefPtr<WebCodecsAudioData>> serializedAudioData;
 #endif
     auto code = CloneSerializer::serialize(&lexicalGlobalObject, value, messagePorts, arrayBuffers, imageBitmaps,
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
@@ -5206,6 +5380,8 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
 #if ENABLE(WEB_CODECS)
         serializedVideoChunks,
         serializedVideoFrames,
+        serializedAudioChunks,
+        serializedAudioData,
 #endif
 #if ENABLE(WEBASSEMBLY)
         wasmModules,
@@ -5238,10 +5414,11 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
 
 #if ENABLE(WEB_CODECS)
     auto serializedVideoFrameData = map(serializedVideoFrames, [](auto& frame) -> WebCodecsVideoFrameData { return frame->data(); });
-#endif
-#if ENABLE(WEB_CODECS)
     for (auto& videoFrame : transferredVideoFrames)
         videoFrame->close();
+    auto serializedAudioInternalData = map(serializedAudioData, [](auto& data) -> WebCodecsAudioInternalData { return data->data(); });
+    for (auto& audioData : transferredAudioData)
+        audioData->close();
 #endif
 
     return adoptRef(*new SerializedScriptValue(WTFMove(buffer), WTFMove(blobHandles), arrayBufferContentsArray.releaseReturnValue(), context == SerializationContext::WorkerPostMessage ? WTFMove(sharedBuffers) : nullptr, WTFMove(backingStores)
@@ -5260,6 +5437,8 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
 #if ENABLE(WEB_CODECS)
                 , WTFMove(serializedVideoChunks)
                 , WTFMove(serializedVideoFrameData)
+                , WTFMove(serializedAudioChunks)
+                , WTFMove(serializedAudioInternalData)
 #endif
                 ));
 }
@@ -5327,6 +5506,8 @@ JSValue SerializedScriptValue::deserialize(JSGlobalObject& lexicalGlobalObject, 
 #if ENABLE(WEB_CODECS)
         , WTFMove(m_serializedVideoChunks)
         , WTFMove(m_serializedVideoFrames)
+        , WTFMove(m_serializedAudioChunks)
+        , WTFMove(m_serializedAudioData)
 #endif
         );
     if (didFail)

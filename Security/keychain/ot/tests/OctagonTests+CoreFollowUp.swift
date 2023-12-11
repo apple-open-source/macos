@@ -2,21 +2,11 @@
 
 class OctagonCoreFollowUpTests: OctagonTestsBase {
     override func setUp() {
-#if os(xrOS)
-        TPSetBecomeiPadOverride(true)
-        self.mockDeviceInfo = OTMockDeviceInfoAdapter(modelID: "iPhone9,1",
-                                                      deviceName: "asdf",
-                                                      serialNumber: "1234",
-                                                      osVersion: "asdf")
-#endif
         super.setUp()
     }
 
     override func tearDown() {
         super.tearDown()
-#if os(xrOS)
-        TPClearBecomeiPadOverride()
-#endif
     }
 
     func testAttemptedJoinStateAttempted() throws {

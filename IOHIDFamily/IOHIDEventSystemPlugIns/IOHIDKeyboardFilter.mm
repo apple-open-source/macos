@@ -13,6 +13,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDServiceFilterPlugIn.h>
 #include <IOKit/hid/IOHIDEventSystemPrivate.h>
+#include <IOKit/hid/IOHIDEventSystemConnection.h>
 #include <IOKit/hid/IOHIDEventTypes.h>
 #include <IOKit/hid/IOHIDEventData.h>
 #include <IOKit/hid/IOHIDSession.h>
@@ -99,6 +100,9 @@
 #define IOHIDEventIsSlowKeyPhaseEvent(e) \
     (IOHIDEventGetIntegerValue (e, kIOHIDEventFieldKeyboardSlowKeyPhase) == kIOHIDKeyboardSlowKeyPhaseStart || \
      IOHIDEventGetIntegerValue (e, kIOHIDEventFieldKeyboardSlowKeyPhase) == kIOHIDKeyboardSlowKeyPhaseAbort)
+
+// Allows IOHID Client to remap alphanumeric keys by setting property on the kIOHIDUserKeyUsageMapKey
+#define kIOHIDEventSystemClientAlphaNumericRemappingEntitlement "com.apple.private.hid.client.alpha-numeric-remapping"
 
 extern "C" void * IOHIDKeyboardFilterFactory(CFAllocatorRef allocator, CFUUIDRef typeUUID);
 
@@ -956,8 +960,40 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
         }
 
     } else if (CFStringCompare(key, CFSTR(kIOHIDUserKeyUsageMapKey), kNilOptions) == kCFCompareEqualTo) {
-
+        
         if (property && CFGetTypeID(property) == CFArrayGetTypeID()) {
+            if(client) {
+                CFArrayRef mappings = (CFArrayRef)property;
+                for ( CFIndex i = 0; i < CFArrayGetCount(mappings); i++ ){
+                    CFDictionaryRef    pair    = NULL;
+                    CFNumberRef     num     = NULL;
+                    uint64_t        src     = 0;
+                    uint32_t        usage   = 0;
+                    pair = (CFDictionaryRef)CFArrayGetValueAtIndex(mappings, i);
+                    if ( pair == NULL || CFGetTypeID(pair) != CFDictionaryGetTypeID()) {
+                        continue;
+                    }
+                    num = (CFNumberRef)CFDictionaryGetValue(pair, CFSTR(kIOHIDServiceModifierMappingSrcKey));
+                    if ( !num ) {
+                        continue;
+                    }
+                    CFNumberGetValue(num, kCFNumberSInt64Type, &src);
+                    Key srcKey = Key(src);
+                    usage = srcKey.usage();
+                    // Check for presence of alphanumeric/special characters in mapping
+                    if((kHIDUsage_KeyboardA <= usage && kHIDUsage_Keyboard0 >= usage) ||
+                       (kHIDUsage_Keypad1 <= usage && kHIDUsage_KeyboardNonUSBackslash >= usage) ||
+                       (kHIDUsage_KeyboardHyphen <= usage && kHIDUsage_KeyboardSlash >= usage) ||
+                       (kHIDUsage_KeypadSlash <= usage && kHIDUsage_KeypadPlus >= usage) ||
+                       (kHIDUsage_KeypadEqualSign == usage)) {
+                        // Check for entitlement on connection
+                        if(!IOHIDEventSystemConnectionHasEntitlement((IOHIDEventSystemConnectionRef)client, CFSTR(kIOHIDEventSystemClientAlphaNumericRemappingEntitlement))) {
+                            HIDLogError("Insufficient permissions to remap alphanumeric keys or special characters for UUID: %@", IOHIDEventSystemConnectionGetUUID((IOHIDEventSystemConnectionRef)client));
+                            return;
+                        }
+                    }
+                }
+            }
 
             KeyMap newUserKeys = createMapFromArrayOfPairs((CFArrayRef) property);
 
@@ -1662,11 +1698,12 @@ Key  IOHIDKeyboardFilter::remapKey(Key key) {
     if (iter != _modifiersKeyMap.end()) {
         key = Key (iter->second);
     }
-
+    
     iter = _userKeyMap.find(key);
     if (iter != _userKeyMap.end()) {
         key = Key (iter->second);
     }
+    
     return key;
 }
 

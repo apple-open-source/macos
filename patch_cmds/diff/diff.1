@@ -275,15 +275,27 @@ Produces output in a form suitable as input for the editor utility,
 .Xr ed 1 ,
 which can then be used to convert file1 into file2.
 .Pp
-Extra commands are added to the output when comparing directories with
+.\" Extra commands are added to the output when comparing directories with
+.\" .Fl e ,
+.\" so that the result is a
+.\" .Xr sh 1
+.\" script for converting text files which are common to the two directories
+.\" from their state in
+.\" .Ar dir1
+.\" to their state in
+.\" .Ar dir2 .
+Note that when comparing directories with
 .Fl e ,
-so that the result is a
-.Xr sh 1
-script for converting text files which are common to the two directories
-from their state in
-.Ar dir1
-to their state in
-.Ar dir2 .
+the resulting file may no longer be interpreted as an
+.Xr ed 1
+script.
+Output is added to indicate which file each set of
+.Xr ed 1
+commands applies to.
+These hunks can be manually extracted to produce an
+.Xr ed 1
+script, which can also be applied with
+.Xr patch 1 .
 .It Fl f -forward-ed
 Identical output to that of the
 .Fl e

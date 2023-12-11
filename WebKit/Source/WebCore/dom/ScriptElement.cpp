@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nikolas Zimmermann <zimmermann@kde.org>
  *
  * This library is free software; you can redistribute it and/or
@@ -27,6 +27,7 @@
 #include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
 #include "CachedScript.h"
+#include "CommonVM.h"
 #include "ContentSecurityPolicy.h"
 #include "CrossOriginAccessControl.h"
 #include "CurrentScriptIncrementer.h"
@@ -59,8 +60,6 @@
 #include "TextNodeTraversal.h"
 #include <JavaScriptCore/ImportMap.h>
 #include <wtf/Scope.h>
-#include <wtf/SortedArrayMap.h>
-#include <wtf/StdLibExtras.h>
 #include <wtf/SystemTracing.h>
 
 namespace WebCore {
@@ -75,6 +74,7 @@ ScriptElement::ScriptElement(Element& element, bool parserInserted, bool already
     , m_creationTime(MonotonicTime::now())
     , m_userGestureToken(UserGestureIndicator::currentUserGesture())
 {
+    m_taintedOrigin = computeNewSourceTaintedOriginFromStack(commonVM(), commonVM().topCallFrame);
     if (parserInserted) {
         Ref document = m_element.document();
         if (RefPtr parser = document->scriptableDocumentParser(); parser && !document->isInDocumentWrite())
@@ -107,52 +107,25 @@ void ScriptElement::handleAsyncAttribute()
     m_forceAsync = false;
 }
 
-static bool isLegacySupportedJavaScriptLanguage(const String& language)
-{
-    static constexpr ComparableLettersLiteral languageArray[] = {
-        "ecmascript",
-        "javascript",
-        "javascript1.0",
-        "javascript1.1",
-        "javascript1.2",
-        "javascript1.3",
-        "javascript1.4",
-        "javascript1.5",
-        "javascript1.6",
-        "javascript1.7",
-        "jscript",
-        "livescript",
-    };
-    static constexpr SortedArraySet languageSet { languageArray };
-    return languageSet.contains(language);
-}
-
 void ScriptElement::dispatchErrorEvent()
 {
     m_element.dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
 // https://html.spec.whatwg.org/multipage/scripting.html#prepare-a-script
-std::optional<ScriptType> ScriptElement::determineScriptType(const String& type, const String& language, bool isHTMLDocument, LegacyTypeSupport supportLegacyTypes)
+std::optional<ScriptType> ScriptElement::determineScriptType(const String& type, const String& language, bool isHTMLDocument)
 {
-    // FIXME: isLegacySupportedJavaScriptLanguage() is not valid HTML5. It is used here to maintain backwards compatibility with existing layout tests. The specific violations are:
-    // - Allowing type=javascript. type= should only support MIME types, such as text/javascript.
-    // - Allowing a different set of languages for language= and type=. language= supports Javascript 1.1 and 1.4-1.6, but type= does not.
     if (type.isNull()) {
         if (language.isEmpty())
-            return ScriptType::Classic; // Assume text/javascript.
-        if (MIMETypeRegistry::isSupportedJavaScriptMIMEType("text/" + language))
             return ScriptType::Classic;
-        if (isLegacySupportedJavaScriptLanguage(language))
+        if (MIMETypeRegistry::isSupportedJavaScriptMIMEType("text/" + language))
             return ScriptType::Classic;
         return std::nullopt;
     }
     if (type.isEmpty())
         return ScriptType::Classic; // Assume text/javascript.
 
-    if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.trim(deprecatedIsSpaceOrNewline)))
-        return ScriptType::Classic;
-    if (supportLegacyTypes == AllowLegacyTypeInTypeAttribute && isLegacySupportedJavaScriptLanguage(type))
+    if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.trim(isASCIIWhitespace)))
         return ScriptType::Classic;
 
     // FIXME: XHTML spec defines "defer" attribute. But WebKit does not implement it for a long time.
@@ -175,13 +148,13 @@ std::optional<ScriptType> ScriptElement::determineScriptType(const String& type,
     return std::nullopt;
 }
 
-std::optional<ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport supportLegacyTypes) const
+std::optional<ScriptType> ScriptElement::determineScriptType() const
 {
-    return determineScriptType(typeAttributeValue(), languageAttributeValue(), m_element.document().isHTMLDocument(), supportLegacyTypes);
+    return determineScriptType(typeAttributeValue(), languageAttributeValue(), m_element.document().isHTMLDocument());
 }
 
 // https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element
-bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, LegacyTypeSupport supportLegacyTypes)
+bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition)
 {
     if (m_alreadyStarted)
         return false;
@@ -204,7 +177,7 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
         return false;
 
     ScriptType scriptType = ScriptType::Classic;
-    if (std::optional<ScriptType> result = determineScriptType(supportLegacyTypes))
+    if (std::optional<ScriptType> result = determineScriptType())
         scriptType = result.value();
     else
         return false;
@@ -305,9 +278,9 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
         ASSERT(scriptType == ScriptType::Classic || scriptType == ScriptType::ImportMap);
         TextPosition position = document.isInDocumentWrite() ? TextPosition() : scriptStartPosition;
         if (scriptType == ScriptType::Classic)
-            executeClassicScript(ScriptSourceCode(sourceText, URL(document.url()), position, JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*this)));
+            executeClassicScript(ScriptSourceCode(sourceText, m_taintedOrigin, URL(document.url()), position, JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*this)));
         else
-            registerImportMap(ScriptSourceCode(sourceText, URL(document.url()), position, JSC::SourceProviderSourceType::ImportMap));
+            registerImportMap(ScriptSourceCode(sourceText, m_taintedOrigin, URL(document.url()), position, JSC::SourceProviderSourceType::ImportMap));
     }
 
     return true;
@@ -381,7 +354,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
     auto script = LoadableModuleScript::create(nonce, emptyAtom(), referrerPolicy(), fetchPriorityHint(), crossOriginMode, scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree());
 
     TextPosition position = m_element.document().isInDocumentWrite() ? TextPosition() : scriptStartPosition;
-    ScriptSourceCode sourceCode(scriptContent(), URL(m_element.document().url()), position, JSC::SourceProviderSourceType::Module, script.copyRef());
+    ScriptSourceCode sourceCode(scriptContent(), m_taintedOrigin, URL(m_element.document().url()), position, JSC::SourceProviderSourceType::Module, script.copyRef());
 
     ASSERT(m_element.document().contentSecurityPolicy());
     const auto& contentSecurityPolicy = *m_element.document().contentSecurityPolicy();
@@ -430,7 +403,7 @@ bool ScriptElement::requestImportMap(LocalFrame& frame, const String& sourceURL)
 
 void ScriptElement::executeClassicScript(const ScriptSourceCode& sourceCode)
 {
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed());
     ASSERT(m_alreadyStarted);
 
     if (sourceCode.isEmpty())
@@ -592,9 +565,9 @@ void ScriptElement::executePendingScript(PendingScript& pendingScript)
             ASSERT(!pendingScript.hasError());
             ASSERT_WITH_MESSAGE(scriptType() == ScriptType::Classic || scriptType() == ScriptType::ImportMap, "Module script always have a loadableScript pointer.");
             if (scriptType() == ScriptType::Classic)
-                executeClassicScript(ScriptSourceCode(scriptContent(), URL(m_element.document().url()), pendingScript.startingPosition(), JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*this)));
+                executeClassicScript(ScriptSourceCode(scriptContent(), m_taintedOrigin, URL(m_element.document().url()), pendingScript.startingPosition(), JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*this)));
             else
-                registerImportMap(ScriptSourceCode(scriptContent(), URL(m_element.document().url()), pendingScript.startingPosition(), JSC::SourceProviderSourceType::ImportMap));
+                registerImportMap(ScriptSourceCode(scriptContent(), m_taintedOrigin, URL(m_element.document().url()), pendingScript.startingPosition(), JSC::SourceProviderSourceType::ImportMap));
             dispatchLoadEventRespectingUserGestureIndicator();
         }
     }

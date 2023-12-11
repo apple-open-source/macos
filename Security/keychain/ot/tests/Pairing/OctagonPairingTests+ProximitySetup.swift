@@ -236,6 +236,9 @@ extension OctagonPairingTests {
 
         let rpcJoinCallbackOccurs = self.expectation(description: "rpcJoin callback occurs")
 
+        self.cuttlefishContext.flowID = "OctagonTests-flowID"
+        self.cuttlefishContext.deviceSessionID = "OctagonTests-deviceSessionID"
+
         self.cuttlefishContext.rpcJoin(v, vouchSig: vS) { error in
             XCTAssertNil(error, "error should be nil")
             rpcJoinCallbackOccurs.fulfill()
@@ -1341,6 +1344,105 @@ extension OctagonPairingTests {
          self.assertEnters(context: initiatorContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
          self.assertConsidersSelfTrusted(context: initiatorContext)
          */
+    }
+
+    func testProximityPairingWithFlowIDAndDeviceID() throws {
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
+
+        clientStateMachine.startOctagonStateMachine()
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "acceptor should not be nil")
+        XCTAssertNotNil(initiator, "initiator should not be nil")
+
+        XCTAssertNotNil(acceptor.peerVersionContext.flowID, "acceptor flowID should not be nil")
+        XCTAssertNotNil(acceptor.peerVersionContext.deviceSessionID, "acceptor deviceSessionID should not be nil")
+        XCTAssertNotNil(initiator.peerVersionContext.flowID, "requestor flowID should not be nil")
+        XCTAssertNotNil(initiator.peerVersionContext.deviceSessionID, "requestor deviceSessionID should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        /* INITIATOR FIRST RTT JOINING MESSAGE*/
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+        XCTAssertNil(initiator1Context.flowID, "flowID should be nil")
+        XCTAssertNil(initiator1Context.deviceSessionID, "deviceSessionID should be nil")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+        XCTAssertNil(self.cuttlefishContextForAcceptor.flowID, "flowID should be nil")
+        XCTAssertNil(self.cuttlefishContextForAcceptor.deviceSessionID, "deviceSessionID should be nil")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+        XCTAssertNil(initiator1Context.flowID, "flowID should be nil")
+        XCTAssertNil(initiator1Context.deviceSessionID, "deviceSessionID should be nil")
+
+        /* ACCEPTOR SECOND RTT */
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
+        XCTAssertNil(self.cuttlefishContextForAcceptor.flowID, "flowID should be nil")
+        XCTAssertNil(self.cuttlefishContextForAcceptor.deviceSessionID, "deviceSessionID should be nil")
+
+        // the tlks are in the 3rd roundtrip, but lets check here too
+        XCTAssertFalse(try self.tlkInPairingChannel(packet: acceptorVoucherPacket), "pairing channel should not transport TLKs for octagon")
+
+        /* INITIATOR THIRD STEP*/
+        self.sendPairingExpectingCompletion(channel: initiator, packet: acceptorVoucherPacket, reason: "final packet receipt")
+
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
+
+        // Initiator should join!
+        self.assertEnters(context: initiator1Context, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: initiator1Context)
+        self.verifyDatabaseMocks()
+
+        let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+
+            initiatorDumpCallback.fulfill()
+        }
+        self.wait(for: [initiatorDumpCallback], timeout: 10)
+
+        let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            acceptorDumpCallback.fulfill()
+        }
+        self.wait(for: [acceptorDumpCallback], timeout: 10)
+
+        XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
     }
 }
 

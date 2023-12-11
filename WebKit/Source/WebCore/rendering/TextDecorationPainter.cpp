@@ -67,6 +67,9 @@ namespace WebCore {
  */
 static void strokeWavyTextDecoration(GraphicsContext& context, const FloatRect& rect, WavyStrokeParameters wavyStrokeParameters)
 {
+    if (rect.isEmpty() || !wavyStrokeParameters.step)
+        return;
+
     FloatPoint p1 = rect.minXMinYCorner();
     FloatPoint p2 = rect.maxXMinYCorner();
 
@@ -276,15 +279,15 @@ void TextDecorationPainter::paintBackgroundDecorations(const RenderStyle& style,
 
             auto shadowX = m_isHorizontal ? shadow->x().value() : shadow->y().value();
             auto shadowY = m_isHorizontal ? shadow->y().value() : -shadow->x().value();
-            m_context.setShadow(FloatSize { shadowX, shadowY - extraOffset }, shadow->radius().value(), shadowColor);
+            m_context.setDropShadow({ { shadowX, shadowY - extraOffset }, shadow->radius().value(), shadowColor, ShadowRadiusMode::Default });
             shadow = shadow->next();
         };
         applyShadowIfNeeded();
 
         // FIXME: Add support to handle left/right case
-        if (decorationType.contains(TextDecorationLine::Underline))
+        if (decorationType.contains(TextDecorationLine::Underline) && !underlineRect.isEmpty())
             paintDecoration(TextDecorationLine::Underline, decorationStyle.underline.decorationStyle, decorationStyle.underline.color, underlineRect);
-        if (decorationType.contains(TextDecorationLine::Overline))
+        if (decorationType.contains(TextDecorationLine::Overline) && !overlineRect.isEmpty())
             paintDecoration(TextDecorationLine::Overline, decorationStyle.overline.decorationStyle, decorationStyle.overline.color, overlineRect);
         // We only want to paint the shadow, hence the transparent color, not the actual line-through,
         // which will be painted in paintForegroundDecorations().

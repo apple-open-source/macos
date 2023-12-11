@@ -126,23 +126,10 @@
     dispatch_assert_queue(self.queue);
 
 #if !TARGET_OS_SIMULATOR
-    NSDictionary *lockOptions;
-    CFErrorRef lockError = NULL;
-
-    lockOptions = @{
-        (__bridge NSString *)kMKBAssertionTypeKey : (__bridge NSString *)kMKBAssertionTypeOther,
-        (__bridge NSString *)kMKBAssertionTimeoutKey : @(60),
-    };
-    self.session.lockAssertion = MKBDeviceLockAssertion((__bridge CFDictionaryRef)lockOptions, &lockError);
-
-    if (self.session.lockAssertion) {
+    if ([self.session acquireLockAssertion]) {
         [self stopWaitingForDeviceUnlock];
         [self exchangePacketAndReply];
     } else {
-        os_log(OS_LOG_DEFAULT, "Failed to obtain lock assertion: %@", lockError);
-        if (lockError) {
-            CFRelease(lockError);
-        }
         [self waitForDeviceUnlock];
     }
 #else /* TARGET_OS_SIMULATOR */

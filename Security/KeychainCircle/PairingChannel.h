@@ -24,14 +24,16 @@ extern KCPairingIntent_Type KCPairingIntent_Type_SilentRepair;
 extern KCPairingIntent_Type KCPairingIntent_Type_UserDriven;
 
 @interface KCPairingChannelContext : NSObject <NSSecureCoding>
-@property (strong) NSString *model;
-@property (strong) NSString *modelVersion;
-@property (strong) NSString *modelClass;
-@property (strong) NSString *osVersion;
-@property (strong) NSString *uniqueDeviceID;
-@property (strong) NSString *uniqueClientID;
-@property (strong) NSString *altDSID;
-@property (strong) KCPairingIntent_Type intent;
+@property (nonatomic, copy) NSString *model;
+@property (nonatomic, copy) NSString *modelVersion;
+@property (nonatomic, copy) NSString *modelClass;
+@property (nonatomic, copy) NSString *osVersion;
+@property (nonatomic, copy) NSString *uniqueDeviceID;
+@property (nonatomic, copy) NSString *uniqueClientID;
+@property (nonatomic, copy) NSString *altDSID;
+@property (nonatomic, copy) NSString *flowID;
+@property (nonatomic, copy) NSString *deviceSessionID;
+@property (nonatomic, copy) KCPairingIntent_Type intent;
 @end
 
 /**
@@ -44,6 +46,8 @@ extern KCPairingIntent_Type KCPairingIntent_Type_UserDriven;
 @interface KCPairingChannel : NSObject
 
 @property (assign,readonly) BOOL needInitialSync;
+
+@property (nonatomic, readonly, strong) KCPairingChannelContext *peerVersionContext;
 
 + (instancetype)pairingChannelInitiator:(KCPairingChannelContext *)peerVersionContext;
 + (instancetype)pairingChannelAcceptor:(KCPairingChannelContext *)peerVersionContext;

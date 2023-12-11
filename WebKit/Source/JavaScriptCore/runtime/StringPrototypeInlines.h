@@ -33,6 +33,11 @@
 
 namespace JSC {
 
+inline Structure* StringPrototype::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
+{
+    return Structure::create(vm, globalObject, prototype, TypeInfo(DerivedStringObjectType, StructureFlags), info());
+}
+
 ALWAYS_INLINE std::tuple<int32_t, int32_t> extractSliceOffsets(int32_t length, int32_t startValue, std::optional<int32_t> endValue)
 {
     int32_t from;
@@ -270,7 +275,7 @@ inline JSString* replaceUsingStringSearch(VM& vm, JSGlobalObject* globalObject, 
         if (callData.type != CallData::Type::None) {
             JSValue replacement;
             if (cachedCall) {
-                auto* substring = jsSubstring(vm, string, matchStart, searchStringLength);
+                auto* substring = jsSubstring(vm, globalObject, jsString, matchStart, searchStringLength);
                 RETURN_IF_EXCEPTION(scope, nullptr);
                 cachedCall->clearArguments();
                 cachedCall->appendArgument(substring);
@@ -280,7 +285,7 @@ inline JSString* replaceUsingStringSearch(VM& vm, JSGlobalObject* globalObject, 
                 replacement = cachedCall->call();
             } else {
                 MarkedArgumentBuffer args;
-                auto* substring = jsSubstring(vm, string, matchStart, searchString.impl()->length());
+                auto* substring = jsSubstring(vm, globalObject, jsString, matchStart, searchString.impl()->length());
                 RETURN_IF_EXCEPTION(scope, nullptr);
                 args.append(substring);
                 args.append(jsNumber(matchStart));

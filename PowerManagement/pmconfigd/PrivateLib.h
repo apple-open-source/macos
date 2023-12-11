@@ -550,6 +550,7 @@ __private_extern__ bool auditTokenHasEntitlement(
                                                  CFStringRef entitlement);
 __private_extern__ bool xpcConnectionHasEntitlement(xpc_object_t connection,
                                                     CFStringRef entitlement);
+__private_extern__ bool auditTokenIsRunningboardd(audit_token_t token);
 
 __private_extern__ void                 _oneOffHacksSetup(void);
 

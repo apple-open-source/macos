@@ -26,6 +26,7 @@
 #include "RenderLayerModelObject.h"
 
 #include "InspectorInstrumentation.h"
+#include "MotionPath.h"
 #include "RenderDescendantIterator.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
@@ -42,6 +43,7 @@
 #include "SVGTextElement.h"
 #include "Settings.h"
 #include "StyleScrollSnapPoints.h"
+#include "TransformOperationData.h"
 #include "TransformState.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
@@ -286,6 +288,12 @@ TransformationMatrix* RenderLayerModelObject::layerTransform() const
 
 void RenderLayerModelObject::updateLayerTransform()
 {
+    if (is<RenderBox>(this) && style().offsetPath() && MotionPath::needsUpdateAfterContainingBlockLayout(*style().offsetPath())) {
+        if (auto* containingBlock = this->containingBlock()) {
+            view().frameView().layoutContext().setBoxNeedsTransformUpdateAfterContainerLayout(*downcast<RenderBox>(this), *containingBlock);
+            return;
+        }
+    }
     // Transform-origin depends on box size, so we need to update the layer transform after layout.
     if (hasLayer())
         layer()->updateTransform();
@@ -436,7 +444,7 @@ void RenderLayerModelObject::applySVGTransform(TransformationMatrix& transform, 
 
     // CSS transforms take precedence over SVG transforms.
     if (hasCSSTransform)
-        style.applyCSSTransform(transform, boundingBox, options);
+        style.applyCSSTransform(transform, TransformOperationData(boundingBox, this), options);
     else if (!svgTransform.isIdentity())
         transform.multiplyAffineTransform(svgTransform);
 

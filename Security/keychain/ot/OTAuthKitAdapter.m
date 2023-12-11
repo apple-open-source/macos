@@ -18,6 +18,10 @@
 #include "utilities/SecABC.h"
 
 #import <AppleAccount/ACAccount+AppleAccount.h>
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/ckks/CKKS.h"
 
 @interface OTAuthKitActualAdapter ()
 @property CKKSListenerCollection<OTAuthKitAdapterNotifier>* notifiers;
@@ -81,19 +85,34 @@
     return isDemo;
 }
 
-- (NSString* _Nullable)machineID:(NSError**)error
+- (NSString* _Nullable)machineID:(NSString* _Nullable)altDSID
+                          flowID:(NSString* _Nullable)flowID
+                 deviceSessionID:(NSString* _Nullable)deviceSessionID
+                           error:(NSError**)error
 {
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:altDSID
+                                                                                                  flowID:flowID
+                                                                                         deviceSessionID:deviceSessionID
+                                                                                               eventName:kSecurityRTCEventNameFetchMachineID
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
     if([AKAnisetteProvisioningController class] == nil || [AKAnisetteData class] == nil) {
         secnotice("authkit", "AKAnisette not available");
+        NSError* localError = [NSError errorWithDomain:OctagonErrorDomain
+                                                  code:OctagonErrorRequiredLibrariesNotPresent
+                                           description:@"AKAnisette not available"];
         if(error) {
-            *error = [NSError errorWithDomain:OctagonErrorDomain
-                                         code:OctagonErrorRequiredLibrariesNotPresent
-                                  description:@"AKAnisette not available"];
+            *error = localError;
         }
+
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
         return nil;
     }
 
     AKAnisetteProvisioningController* anisetteController = [[AKAnisetteProvisioningController alloc] init];
+    
     NSError* localError = nil;
     AKAnisetteData* anisetteData = [anisetteController anisetteDataWithError:&localError];
     if(!anisetteData) {
@@ -101,22 +120,30 @@
         if(error) {
             *error = localError;
         }
+
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
         return nil;
     }
 
     NSString* machineID = anisetteData.machineID;
+
     if(!machineID) {
         secnotice("authkit", "Anisette data does not have machineID");
+        NSError* localError = [NSError errorWithDomain:OctagonErrorDomain
+                                                  code:OctagonErrorAuthKitMachineIDMissing
+                                           description:@"Anisette data does not have machineID"];
         if(error) {
             [SecABC triggerAutoBugCaptureWithType:@"AuthKit" subType:@"missingMID"];
-            *error = [NSError errorWithDomain:OctagonErrorDomain
-                                         code:OctagonErrorAuthKitMachineIDMissing
-                                  description:@"Anisette data does not have machineID"];
+            *error = localError;
         }
+
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
         return nil;
     }
 
     secnotice("authkit", "fetched current machine ID as: %@", machineID);
+
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];    
     return machineID;
 }
 

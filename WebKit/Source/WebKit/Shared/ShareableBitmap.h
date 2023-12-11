@@ -31,6 +31,8 @@
 #include <WebCore/IntRect.h>
 #include <WebCore/PlatformImage.h>
 #include <wtf/ArgumentCoder.h>
+#include <wtf/DebugHeap.h>
+#include <wtf/ExportMacros.h>
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -93,10 +95,10 @@ private:
 };
 
 class ShareableBitmapHandle  {
-    WTF_MAKE_NONCOPYABLE(ShareableBitmapHandle);
 public:
     ShareableBitmapHandle();
     ShareableBitmapHandle(ShareableBitmapHandle&&) = default;
+    explicit ShareableBitmapHandle(const ShareableBitmapHandle&) = default;
     ShareableBitmapHandle(SharedMemory::Handle&&, const ShareableBitmapConfiguration&);
 
     ShareableBitmapHandle& operator=(ShareableBitmapHandle&&) = default;

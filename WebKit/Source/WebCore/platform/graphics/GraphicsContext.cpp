@@ -61,17 +61,22 @@ GraphicsContext::~GraphicsContext()
     ASSERT(!m_transparencyLayerCount);
 }
 
-void GraphicsContext::save()
+void GraphicsContext::save(GraphicsContextState::Purpose purpose)
 {
+    ASSERT(purpose == GraphicsContextState::Purpose::SaveRestore || purpose == GraphicsContextState::Purpose::TransparencyLayer);
     m_stack.append(m_state);
+    m_state.repurpose(purpose);
 }
 
-void GraphicsContext::restore()
+void GraphicsContext::restore(GraphicsContextState::Purpose purpose)
 {
     if (m_stack.isEmpty()) {
         LOG_ERROR("ERROR void GraphicsContext::restore() stack is empty");
         return;
     }
+
+    ASSERT_UNUSED(purpose, purpose == m_state.purpose());
+    ASSERT_UNUSED(purpose, purpose == GraphicsContextState::Purpose::SaveRestore || purpose == GraphicsContextState::Purpose::TransparencyLayer);
 
     m_state = m_stack.last();
     m_stack.removeLast();
@@ -80,6 +85,23 @@ void GraphicsContext::restore()
     // Canvas elements will immediately save() again, but that goes into inline capacity.
     if (m_stack.isEmpty())
         m_stack.clear();
+}
+
+void GraphicsContext::unwindStateStack(unsigned count)
+{
+    ASSERT(count <= stackSize());
+    while (count-- > 0) {
+        switch (m_state.purpose()) {
+        case GraphicsContextState::Purpose::SaveRestore:
+            restore();
+            break;
+        case GraphicsContextState::Purpose::TransparencyLayer:
+            endTransparencyLayer();
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+        }
+    }
 }
 
 void GraphicsContext::mergeLastChanges(const GraphicsContextState& state, const std::optional<GraphicsContextState>& lastDrawingState)
@@ -109,15 +131,6 @@ void GraphicsContext::drawRaisedEllipse(const FloatRect& rect, const Color& elli
     drawEllipse(rect);
 
     restore();
-}
-
-bool GraphicsContext::getShadow(FloatSize& offset, float& blur, Color& color) const
-{
-    offset = dropShadow().offset;
-    blur = dropShadow().blurRadius;
-    color = dropShadow().color;
-
-    return hasShadow();
 }
 
 void GraphicsContext::beginTransparencyLayer(float)
@@ -603,6 +616,42 @@ Vector<FloatPoint> GraphicsContext::centerLineAndCutOffCorners(bool isVerticalLi
     }
 
     return { point1, point2 };
+}
+
+void GraphicsContext::clearShadow()
+{
+    if (!m_state.style())
+        return;
+
+    if (!std::holds_alternative<GraphicsDropShadow>(*m_state.style()))
+        return;
+
+    m_state.setStyle(std::nullopt);
+    didUpdateState(m_state);
+}
+
+bool GraphicsContext::hasVisibleShadow() const
+{
+    if (const auto shadow = dropShadow())
+        return shadow->isVisible();
+
+    return false;
+}
+
+bool GraphicsContext::hasBlurredShadow() const
+{
+    if (const auto shadow = dropShadow())
+        return shadow->isBlurred();
+
+    return false;
+}
+
+bool GraphicsContext::hasShadow() const
+{
+    if (const auto shadow = dropShadow())
+        return shadow->hasOutsets();
+
+    return false;
 }
 
 #if ENABLE(VIDEO)

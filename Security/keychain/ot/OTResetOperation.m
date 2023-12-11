@@ -24,6 +24,8 @@
 
 #import "keychain/ot/OTResetOperation.h"
 
+#import <Security/SecInternalReleasePriv.h>
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 
@@ -75,12 +77,32 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
     self.finishedOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
+    NSString* altDSID = self.deps.activeAccount.altDSID;
+    if(altDSID == nil) {
+        secnotice("authkit", "No configured altDSID: %@", self.deps.activeAccount);
+        self.error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorNoAppleAccount
+                                  description:@"No altDSID configured"];
+        [self runBeforeGroupFinished:self.finishedOp];
+        return;
+    }
+
+    NSError* localError = nil;
+    BOOL isAccountDemo = [self.deps.authKitAdapter accountIsDemoAccountByAltDSID:altDSID error:&localError];
+    if(localError) {
+        secerror("octagon-authkit: failed to fetch demo account flag: %@", localError);
+    }
+
+    BOOL internal = SecIsInternalRelease();
+
     WEAKIFY(self);
     [self.cuttlefishXPCWrapper resetWithSpecificUser:self.deps.activeAccount
                                          resetReason:self.resetReason
                                    idmsTargetContext:self.idmsTargetContext
                               idmsCuttlefishPassword:self.idmsCuttlefishPassword
                                           notifyIdMS:self.notifyIdMS
+                                     internalAccount:internal
+                                         demoAccount:isAccountDemo
                                                reply:^(NSError * _Nullable error) {
             STRONGIFY(self);
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventReset hardFailure:true result:error];

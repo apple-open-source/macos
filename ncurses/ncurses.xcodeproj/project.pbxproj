@@ -53,6 +53,8 @@
 			buildConfigurationList = FC00FC7714E9FB13000AD1B3 /* Build configuration list for PBXAggregateTarget "executables" */;
 			buildPhases = (
 				FC00FC8914E9FB80000AD1B3 /* fix_bin.sh */,
+				2A5594AF2AC540DD001A7A55 /* Install test script */,
+				2A5594B52AC541F3001A7A55 /* Install test files */,
 			);
 			dependencies = (
 				FC00FC7E14E9FB36000AD1B3 /* PBXTargetDependency */,
@@ -115,6 +117,7 @@
 		2A1512D92939B9E90051ED9C /* transform.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512D72939B9E90051ED9C /* transform.c */; };
 		2A1512DA2939B9E90051ED9C /* transform.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512D72939B9E90051ED9C /* transform.c */; };
 		2A1512DB293AB16C0051ED9C /* transform.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1512D72939B9E90051ED9C /* transform.c */; };
+		2A5594B32AC541B6001A7A55 /* config_test.sh in Install test script */ = {isa = PBXBuildFile; fileRef = 2A5594B12AC5416F001A7A55 /* config_test.sh */; };
 		3FB35B98206F82620097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
 		3FB35B9A206F82710097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
 		3FB35B9C206F82950097BE22 /* libncurses.5.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */; };
@@ -609,6 +612,20 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		2A5594AF2AC540DD001A7A55 /* Install test script */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/ncurses;
+			dstSubfolderSpec = 0;
+			files = (
+				2A5594B32AC541B6001A7A55 /* config_test.sh in Install test script */,
+			);
+			name = "Install test script";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		2A114C62295A2698005099EA /* obsolete.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = obsolete.c; sourceTree = "<group>"; };
 		2A114C64295A2A3F005099EA /* tparm_type.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tparm_type.h; sourceTree = "<group>"; };
@@ -627,6 +644,8 @@
 		2A1512D4293875F30051ED9C /* lib_driver.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lib_driver.c; sourceTree = "<group>"; };
 		2A1512D5293876870051ED9C /* make_hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = make_hash.c; sourceTree = "<group>"; };
 		2A1512D72939B9E90051ED9C /* transform.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = transform.c; sourceTree = "<group>"; };
+		2A5594B12AC5416F001A7A55 /* config_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = config_test.sh; path = tests/config_test.sh; sourceTree = SOURCE_ROOT; };
+		2A5594B22AC5417D001A7A55 /* ncurses.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = ncurses.plist; path = tests/ncurses.plist; sourceTree = SOURCE_ROOT; };
 		4C29FA671020E62B001D8279 /* clear */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = clear; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C29FA791020E959001D8279 /* infocmp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = infocmp; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C29FA871020EB4A001D8279 /* tput */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tput; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1809,6 +1828,15 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		2A5594B02AC540F0001A7A55 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A5594B12AC5416F001A7A55 /* config_test.sh */,
+				2A5594B22AC5417D001A7A55 /* ncurses.plist */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
 		3FB35B97206F82620097BE22 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -1864,6 +1892,7 @@
 				4CF089C10FFC2BB200CE4372 /* README.emx */,
 				4CF089C20FFC2BB200CE4372 /* tar-copy.sh */,
 				4CF089C30FFC2BB200CE4372 /* test */,
+				2A5594B02AC540F0001A7A55 /* tests */,
 				4CF08A0F0FFC2BB300CE4372 /* TO-DO */,
 			);
 			path = ncurses;
@@ -3409,6 +3438,27 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2A5594B52AC541F3001A7A55 /* Install test files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tests/ncurses.plist",
+			);
+			name = "Install test files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install_test_files.sh\n";
+			showEnvVarsInLog = 0;
+		};
 		4C5C3FD6102CD13500B4B066 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 12;

@@ -92,19 +92,19 @@ void MediaPlayerPrivateRemote::layerHostingContextIdChanged(std::optional<WebKit
         return;
     }
     setLayerHostingContextID(inlineLayerHostingContextId.value());
-    player->videoInlineSizeDidChange(presentationSize);
+    player->videoLayerSizeDidChange(presentationSize);
 }
 
-WebCore::FloatSize MediaPlayerPrivateRemote::videoInlineSize() const
+WebCore::FloatSize MediaPlayerPrivateRemote::videoLayerSize() const
 {
     if (RefPtr player = m_player.get())
-        return player->videoInlineSize();
+        return player->videoLayerSize();
     return { };
 }
 
-void MediaPlayerPrivateRemote::setVideoInlineSizeFenced(const FloatSize& size, const WTF::MachSendRight& machSendRight)
+void MediaPlayerPrivateRemote::setVideoLayerSizeFenced(const FloatSize& size, WTF::MachSendRight&& machSendRight)
 {
-    connection().send(Messages::RemoteMediaPlayerProxy::SetVideoInlineSizeFenced(size, machSendRight), m_id);
+    connection().send(Messages::RemoteMediaPlayerProxy::SetVideoLayerSizeFenced(size, WTFMove(machSendRight)), m_id);
 }
 
 } // namespace WebKit

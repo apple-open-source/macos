@@ -195,10 +195,6 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
         parameters.serviceWorkerProcessTerminationDelayEnabled
     };
 #endif
-
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
-    m_networkProcess->addMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_sessionID.toUInt64(), m_notificationManager);
-#endif
 }
 
 NetworkSession::~NetworkSession()
@@ -208,10 +204,6 @@ NetworkSession::~NetworkSession()
 #endif
     for (auto& loader : std::exchange(m_keptAliveLoads, { }))
         loader->abort();
-
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
-    m_networkProcess->removeMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_sessionID.toUInt64());
-#endif
 }
 
 #if ENABLE(TRACKING_PREVENTION)
@@ -709,6 +701,11 @@ WebSharedWorkerServer& NetworkSession::ensureSharedWorkerServer()
     if (!m_sharedWorkerServer)
         m_sharedWorkerServer = makeUnique<WebSharedWorkerServer>(*this);
     return *m_sharedWorkerServer;
+}
+
+Ref<NetworkStorageManager> NetworkSession::protectedStorageManager()
+{
+    return m_storageManager.copyRef();
 }
 
 CacheStorage::Engine& NetworkSession::ensureCacheEngine()

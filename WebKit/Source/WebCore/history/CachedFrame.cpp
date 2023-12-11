@@ -92,15 +92,13 @@ void CachedFrameBase::restore()
     if (m_isMainFrame)
         m_view->setParentVisible(true);
 
-    RefPtr frame = dynamicDowncast<LocalFrame>(m_view->frame());
-    if (!frame)
-        return;
+    Ref frame = m_view->frame();
     {
         Style::PostResolutionCallbackDisabler disabler(*m_document);
         WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
         NavigationDisabler disableNavigation { nullptr }; // Disable navigation globally.
 
-        m_cachedFrameScriptData->restore(*frame);
+        m_cachedFrameScriptData->restore(frame);
 
         if (m_document->svgExtensions())
             m_document->accessSVGExtensions().unpauseAnimations();
@@ -131,7 +129,7 @@ void CachedFrameBase::restore()
         if (auto* domWindow = m_document->domWindow()) {
             // FIXME: Use Document::hasListenerType(). See <rdar://problem/9615482>.
             if (domWindow->scrollEventListenerCount() && frame->page())
-                frame->page()->chrome().client().setNeedsScrollNotifications(*frame, true);
+                frame->page()->chrome().client().setNeedsScrollNotifications(frame, true);
         }
     }
 #endif
@@ -185,8 +183,11 @@ CachedFrame::CachedFrame(LocalFrame& frame)
     // We do this for two reasons:
     // 1 - We reuse the main frame, so when it navigates to a new page load it needs to start with a blank FrameTree.
     // 2 - It's much easier to destroy a CachedFrame while it resides in the BackForwardCache if it is disconnected from its parent.
-    for (unsigned i = 0; i < m_childFrames.size(); ++i)
-        frame.tree().removeChild(m_childFrames[i]->view()->frame());
+    Vector<Ref<Frame>> children;
+    for (auto* child = frame.tree().firstChild(); child; child = child->tree().nextSibling())
+        children.append(*child);
+    for (auto& child : children)
+        frame.tree().removeChild(child);
 
 #ifndef NDEBUG
     if (m_isMainFrame)
@@ -214,8 +215,7 @@ void CachedFrame::open()
     ASSERT(m_view);
     ASSERT(m_document);
 
-    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_view->frame()))
-        localFrame->loader().open(*this);
+    m_view->frame().loader().open(*this);
 }
 
 void CachedFrame::clear()
@@ -254,8 +254,8 @@ void CachedFrame::destroy()
 
     m_document->domWindow()->willDestroyCachedFrame();
 
-    auto* localFrame = dynamicDowncast<LocalFrame>(m_view->frame());
-    if (!m_isMainFrame && m_view->frame().page() && localFrame) {
+    Ref localFrame = m_view->frame();
+    if (!m_isMainFrame && m_view->frame().page()) {
         localFrame->loader().detachViewsAndDocumentLoader();
         localFrame->detachFromPage();
     }

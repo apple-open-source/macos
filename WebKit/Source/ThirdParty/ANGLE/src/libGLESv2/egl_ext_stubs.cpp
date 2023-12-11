@@ -28,16 +28,37 @@ EGLint ClientWaitSyncKHR(Thread *thread,
                          EGLint flags,
                          EGLTimeKHR timeout)
 {
-    ANGLE_EGL_TRY_RETURN(thread, display->prepareForCall(), "eglClientWaitSync",
+    ANGLE_EGL_TRY_RETURN(thread, display->prepareForCall(), "eglClientWaitSyncKHR",
                          GetDisplayIfValid(display), EGL_FALSE);
     gl::Context *currentContext = thread->getContext();
     EGLint syncStatus           = EGL_FALSE;
     Sync *sync                  = display->getSync(syncID);
     ANGLE_EGL_TRY_RETURN(thread,
                          sync->clientWait(display, currentContext, flags, timeout, &syncStatus),
-                         "eglClientWaitSync", GetSyncIfValid(display, syncID), EGL_FALSE);
+                         "eglClientWaitSyncKHR", GetSyncIfValid(display, syncID), EGL_FALSE);
 
-    thread->setSuccess();
+    // When performing CPU wait through UnlockedTailCall we need to handle any error conditions
+    if (egl::Display::GetCurrentThreadUnlockedTailCall()->any())
+    {
+        auto handleErrorStatus = [thread, display, syncID](void *result) {
+            EGLint *eglResult = static_cast<EGLint *>(result);
+            ASSERT(eglResult);
+            if (*eglResult == EGL_FALSE)
+            {
+                thread->setError(egl::Error(EGL_BAD_ALLOC), "eglClientWaitSyncKHR",
+                                 GetSyncIfValid(display, syncID));
+            }
+            else
+            {
+                thread->setSuccess();
+            }
+        };
+        egl::Display::GetCurrentThreadUnlockedTailCall()->add(handleErrorStatus);
+    }
+    else
+    {
+        thread->setSuccess();
+    }
     return syncStatus;
 }
 
@@ -212,6 +233,7 @@ EGLDisplay GetPlatformDisplayEXT(Thread *thread,
         case EGL_PLATFORM_ANGLE_ANGLE:
         case EGL_PLATFORM_GBM_KHR:
         case EGL_PLATFORM_WAYLAND_EXT:
+        case EGL_PLATFORM_SURFACELESS_MESA:
         {
             return egl::Display::GetDisplayFromNativeDisplay(
                 platform, gl::bitCast<EGLNativeDisplayType>(native_display), attribMap);
@@ -1009,4 +1031,25 @@ void *CopyMetalSharedEventANGLE(Thread *thread, Display *display, SyncID syncID)
     return result;
 }
 
+void AcquireExternalContextANGLE(Thread *thread, egl::Display *display, SurfaceID drawAndReadPacked)
+{
+    Surface *eglSurface = display->getSurface(drawAndReadPacked);
+
+    ANGLE_EGL_TRY(thread, display->prepareForCall(), "eglAcquireExternalContextANGLE",
+                  GetDisplayIfValid(display));
+    ANGLE_EGL_TRY(thread, thread->getContext()->acquireExternalContext(eglSurface),
+                  "eglAcquireExternalContextANGLE", GetDisplayIfValid(display));
+
+    thread->setSuccess();
+}
+
+void ReleaseExternalContextANGLE(Thread *thread, egl::Display *display)
+{
+    ANGLE_EGL_TRY(thread, display->prepareForCall(), "eglReleaseExternalContextANGLE",
+                  GetDisplayIfValid(display));
+    ANGLE_EGL_TRY(thread, thread->getContext()->releaseExternalContext(),
+                  "eglReleaseExternalContextANGLE", GetDisplayIfValid(display));
+
+    thread->setSuccess();
+}
 }  // namespace egl

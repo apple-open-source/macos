@@ -54,6 +54,9 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
                       repair:(BOOL)repair
                         json:(BOOL)json;
 
+- (int)simulateReceivePush:(OTControlArguments*)arguments
+                      json:(BOOL)json;
+
 - (int)refetchCKKSPolicy:(OTControlArguments*)arguments;
 
 - (int)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar;

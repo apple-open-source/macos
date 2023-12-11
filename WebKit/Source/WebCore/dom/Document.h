@@ -99,6 +99,7 @@ class CanvasRenderingContext2D;
 class CharacterData;
 class Comment;
 class ConstantPropertyMap;
+class ContentVisibilityDocumentState;
 class DOMImplementation;
 class DOMSelection;
 class LocalDOMWindow;
@@ -148,8 +149,8 @@ class HTMLMapElement;
 class HTMLMediaElement;
 class HTMLMetaElement;
 class HTMLVideoElement;
-class HighlightRangeData;
-class HighlightRegister;
+class HighlightRange;
+class HighlightRegistry;
 class HitTestLocation;
 class HitTestRequest;
 class HitTestResult;
@@ -266,6 +267,7 @@ enum class CollectionType : uint8_t;
 enum CSSPropertyID : uint16_t;
 
 enum class CompositeOperator : uint8_t;
+enum class ContentRelevancy : uint8_t;
 enum class DOMAudioSessionType : uint8_t;
 enum class DisabledAdaptations : uint8_t;
 enum class FireEvents : bool;
@@ -329,6 +331,12 @@ enum class DimensionsCheck : uint8_t {
     Width = 1 << 0,
     Height = 1 << 1,
     All = 1 << 2, // FIXME: This is probably meant to be Width | Height instead.
+};
+
+enum class LayoutOptions : uint8_t {
+    RunPostLayoutTasksSynchronously = 1 << 0,
+    IgnorePendingStylesheets = 1 << 1,
+    ContentVisibilityForceLayout = 1 << 2,
 };
 
 enum class HttpEquivPolicy {
@@ -427,6 +435,9 @@ public:
     using TreeScope::rootNode;
 
     bool canContainRangeEndPoint() const final { return true; }
+
+    bool shouldNotFireMutationEvents() const { return m_shouldNotFireMutationEvents; }
+    void setShouldNotFireMutationEvents(bool fire) { m_shouldNotFireMutationEvents = fire; }
 
     Element* elementForAccessKey(const String& key);
     void invalidateAccessKeyCache();
@@ -659,12 +670,11 @@ public:
     bool needsStyleRecalc() const;
     unsigned lastStyleUpdateSizeForTesting() const { return m_lastStyleUpdateSizeForTesting; }
 
-    WEBCORE_EXPORT void updateLayout();
-    
+    WEBCORE_EXPORT void updateLayout(OptionSet<LayoutOptions> = { }, const Element* = nullptr);
+
     // updateLayoutIgnorePendingStylesheets() forces layout even if we are waiting for pending stylesheet loads,
     // so calling this may cause a flash of unstyled content (FOUC).
-    enum class RunPostLayoutTasks : bool { Asynchronously, Synchronously };
-    WEBCORE_EXPORT void updateLayoutIgnorePendingStylesheets(RunPostLayoutTasks = RunPostLayoutTasks::Asynchronously);
+    void updateLayoutIgnorePendingStylesheets(OptionSet<LayoutOptions> = { }, const Element* = nullptr);
 
     std::unique_ptr<RenderStyle> styleForElementIgnoringPendingStylesheets(Element&, const RenderStyle* parentStyle, PseudoId = PseudoId::None);
 
@@ -1109,7 +1119,6 @@ public:
 
     // designMode support
     enum class DesignMode : bool { Off, On };
-    void setDesignMode(DesignMode value);
     bool inDesignMode() const { return m_designMode == DesignMode::On; }
     WEBCORE_EXPORT String designMode() const;
     WEBCORE_EXPORT void setDesignMode(const String&);
@@ -1529,6 +1538,7 @@ public:
     void removeIntersectionObserver(IntersectionObserver&);
     unsigned numberOfIntersectionObservers() const { return m_intersectionObservers.size(); }
     void updateIntersectionObservations();
+    void updateIntersectionObservations(const Vector<WeakPtr<IntersectionObserver>>&);
     void scheduleInitialIntersectionObservationUpdate();
     IntersectionObserverData& ensureIntersectionObserverData();
     IntersectionObserverData* intersectionObserverDataIfExists() { return m_intersectionObserverData.get(); }
@@ -1707,16 +1717,16 @@ public:
     TextManipulationController* textManipulationControllerIfExists() { return m_textManipulationController.get(); }
 
     bool hasHighlight() const;
-    HighlightRegister* highlightRegisterIfExists() { return m_highlightRegister.get(); }
-    HighlightRegister& highlightRegister();
+    HighlightRegistry* highlightRegistryIfExists() { return m_highlightRegistry.get(); }
+    HighlightRegistry& highlightRegistry();
     void updateHighlightPositions();
 
-    HighlightRegister* fragmentHighlightRegisterIfExists() { return m_fragmentHighlightRegister.get(); }
-    HighlightRegister& fragmentHighlightRegister();
+    HighlightRegistry* fragmentHighlightRegistryIfExists() { return m_fragmentHighlightRegistry.get(); }
+    HighlightRegistry& fragmentHighlightRegistry();
         
 #if ENABLE(APP_HIGHLIGHTS)
-    HighlightRegister* appHighlightRegisterIfExists() { return m_appHighlightRegister.get(); }
-    WEBCORE_EXPORT HighlightRegister& appHighlightRegister();
+    HighlightRegistry* appHighlightRegistryIfExists() { return m_appHighlightRegistry.get(); }
+    WEBCORE_EXPORT HighlightRegistry& appHighlightRegistry();
 
     WEBCORE_EXPORT AppHighlightStorage& appHighlightStorage();
     AppHighlightStorage* appHighlightStorageIfExists() const { return m_appHighlightStorage.get(); };
@@ -1725,6 +1735,8 @@ public:
     bool allowsContentJavaScript() const;
 
     LazyLoadImageObserver& lazyLoadImageObserver();
+
+    ContentVisibilityDocumentState& contentVisibilityDocumentState();
 
     void setHasVisuallyNonEmptyCustomContent() { m_hasVisuallyNonEmptyCustomContent = true; }
     bool hasVisuallyNonEmptyCustomContent() const { return m_hasVisuallyNonEmptyCustomContent; }
@@ -1777,6 +1789,10 @@ public:
 
     virtual void didChangeViewSize() { }
     bool isNavigationBlockedByThirdPartyIFrameRedirectBlocking(LocalFrame& targetFrame, const URL& destinationURL);
+
+    void updateRelevancyOfContentVisibilityElements();
+    void scheduleContentRelevancyUpdate(ContentRelevancy);
+    void updateContentRelevancyForScrollIfNeeded(const Element& scrollAnchor);
 
 protected:
     enum class ConstructionFlag : uint8_t {
@@ -1891,7 +1907,7 @@ private:
 
     void platformSuspendOrStopActiveDOMObjects();
 
-    void collectRangeDataFromRegister(Vector<WeakPtr<HighlightRangeData>>&, const HighlightRegister&);
+    void collectHighlightRangesFromRegister(Vector<WeakPtr<HighlightRange>>&, const HighlightRegistry&);
 
     bool isBodyPotentiallyScrollable(HTMLBodyElement&);
 
@@ -1909,6 +1925,8 @@ private:
 
     RefPtr<ResizeObserver> ensureResizeObserverForContainIntrinsicSize();
     void parentOrShadowHostNode() const = delete; // Call parentNode() instead.
+
+    bool isObservingContentVisibilityTargets() const;
 
     const Ref<const Settings> m_settings;
 
@@ -1995,6 +2013,8 @@ private:
     WeakPtr<Element, WeakPtrImplWithEventTargetData> m_cssTarget;
 
     std::unique_ptr<LazyLoadImageObserver> m_lazyLoadImageObserver;
+
+    std::unique_ptr<ContentVisibilityDocumentState> m_contentVisibilityDocumentState;
 
 #if !LOG_DISABLED
     MonotonicTime m_documentCreationTime;
@@ -2116,10 +2136,10 @@ private:
     std::unique_ptr<TextAutoSizing> m_textAutoSizing;
 #endif
         
-    RefPtr<HighlightRegister> m_highlightRegister;
-    RefPtr<HighlightRegister> m_fragmentHighlightRegister;
+    RefPtr<HighlightRegistry> m_highlightRegistry;
+    RefPtr<HighlightRegistry> m_fragmentHighlightRegistry;
 #if ENABLE(APP_HIGHLIGHTS)
-    RefPtr<HighlightRegister> m_appHighlightRegister;
+    RefPtr<HighlightRegistry> m_appHighlightRegistry;
     std::unique_ptr<AppHighlightStorage> m_appHighlightStorage;
 #endif
 
@@ -2243,6 +2263,8 @@ private:
 
     MediaProducerMediaStateFlags m_mediaState;
 
+    bool m_shouldNotFireMutationEvents = false;
+
     unsigned m_writeRecursionDepth { 0 };
     unsigned m_numberOfRejectedSyncXHRs { 0 };
     unsigned m_parserYieldTokenCount { 0 };
@@ -2287,6 +2309,8 @@ private:
 #if ENABLE(DOM_AUDIO_SESSION)
     DOMAudioSessionType m_audioSessionType { };
 #endif
+
+    OptionSet<ContentRelevancy> m_contentRelevancyUpdate;
 
     StandaloneStatus m_xmlStandalone { StandaloneStatus::Unspecified };
     bool m_hasXMLDeclaration { false };
@@ -2410,6 +2434,7 @@ private:
     static bool hasEverCreatedAnAXObjectCache;
 
     RefPtr<ResizeObserver> m_resizeObserverForContainIntrinsicSize;
+    const std::optional<FrameIdentifier> m_frameIdentifier;
 };
 
 Element* eventTargetElementForDocument(Document*);

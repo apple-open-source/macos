@@ -327,4 +327,12 @@ typedef uint32_t IOHIDElementMatchOptions;
  */
 #define kIOHIDLegacyKeyModifierMapKey "LegacyKeyMaps"
 
+/*!
+ * @defined    kIOHIDServiceAccessEntitlementKey
+ * @abstract   An array or string defining entitlements required
+ *             to access the HIDService. Clients without any of the entitlements
+ *             will not be able to match to get/set properties on the HIDService.
+ */
+#define kIOHIDServiceAccessEntitlementKey "HIDServiceAccessEntitlement"
+
 #endif /* IOHIDEventServiceKeys_Private_h */

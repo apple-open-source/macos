@@ -143,7 +143,12 @@ void Scope::createOrFindSharedShadowTreeResolver()
     if (!result.isNewEntry) {
         m_resolver = result.iterator->value.ptr();
         m_resolver->setSharedBetweenShadowTrees();
+        return;
     }
+
+    static constexpr auto maximimumSharedResolverCount = 256;
+    if (documentScope().m_sharedShadowTreeResolvers.size() > maximimumSharedResolverCount)
+        documentScope().m_sharedShadowTreeResolvers.remove(documentScope().m_sharedShadowTreeResolvers.random());
 }
 
 void Scope::unshareShadowTreeResolverBeforeMutation()
@@ -845,6 +850,14 @@ void Scope::didChangeViewportSize()
     if (!resolver)
         return;
     resolver->clearCachedDeclarationsAffectedByViewportUnits();
+
+    if (customPropertyRegistry().invalidatePropertiesWithViewportUnits(m_document)) {
+        if (!m_shadowRoot) {
+            if (auto element = m_document.documentElement())
+                element->invalidateStyleForSubtree();
+        }
+        return;
+    }
 
     // FIXME: Ideally, we should save the list of elements that have viewport units and only iterate over those.
     for (RefPtr element = ElementTraversal::firstWithin(rootNode); element; element = ElementTraversal::nextIncludingPseudo(*element)) {

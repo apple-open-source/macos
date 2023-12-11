@@ -40,22 +40,24 @@
 #include "CodeCache.h"
 #include "CommonIdentifiers.h"
 #include "ControlFlowProfiler.h"
-#include "CustomGetterSetter.h"
-#include "DOMAttributeGetterSetter.h"
+#include "CustomGetterSetterInlines.h"
+#include "DOMAttributeGetterSetterInlines.h"
 #include "Debugger.h"
 #include "DeferredWorkTimer.h"
 #include "Disassembler.h"
 #include "DoublePredictionFuzzerAgent.h"
 #include "ErrorInstance.h"
-#include "EvalCodeBlock.h"
+#include "EvalCodeBlockInlines.h"
+#include "EvalExecutableInlines.h"
 #include "Exception.h"
 #include "FTLThunks.h"
 #include "FileBasedFuzzerAgent.h"
-#include "FunctionCodeBlock.h"
-#include "FunctionExecutable.h"
-#include "GetterSetter.h"
+#include "FunctionCodeBlockInlines.h"
+#include "FunctionExecutableInlines.h"
+#include "GetterSetterInlines.h"
 #include "GigacageAlignedMemoryAllocator.h"
 #include "HasOwnPropertyCache.h"
+#include "HashMapImplInlines.h"
 #include "Heap.h"
 #include "HeapProfiler.h"
 #include "IncrementalSweeper.h"
@@ -69,34 +71,35 @@
 #include "JSAPIValueWrapper.h"
 #include "JSBigInt.h"
 #include "JSGlobalObject.h"
-#include "JSImmutableButterfly.h"
+#include "JSImmutableButterflyInlines.h"
 #include "JSLock.h"
 #include "JSMap.h"
 #include "JSMicrotask.h"
 #include "JSPromise.h"
-#include "JSPropertyNameEnumerator.h"
-#include "JSScriptFetchParameters.h"
-#include "JSScriptFetcher.h"
+#include "JSPropertyNameEnumeratorInlines.h"
+#include "JSScriptFetchParametersInlines.h"
+#include "JSScriptFetcherInlines.h"
 #include "JSSet.h"
-#include "JSSourceCode.h"
-#include "JSTemplateObjectDescriptor.h"
+#include "JSSourceCodeInlines.h"
+#include "JSTemplateObjectDescriptorInlines.h"
 #include "LLIntData.h"
 #include "LLIntExceptions.h"
 #include "MarkedBlockInlines.h"
 #include "MegamorphicCache.h"
 #include "MinimumReservedZoneSize.h"
-#include "ModuleProgramCodeBlock.h"
-#include "ModuleProgramExecutable.h"
+#include "ModuleProgramCodeBlockInlines.h"
+#include "ModuleProgramExecutableInlines.h"
 #include "NarrowingNumberPredictionFuzzerAgent.h"
 #include "NativeExecutable.h"
 #include "NumberObject.h"
 #include "PredictionFileCreatingFuzzerAgent.h"
 #include "ProfilerDatabase.h"
-#include "ProgramCodeBlock.h"
-#include "ProgramExecutable.h"
-#include "PropertyTable.h"
+#include "ProgramCodeBlockInlines.h"
+#include "ProgramExecutableInlines.h"
+#include "PropertyTableInlines.h"
 #include "RandomizingFuzzerAgent.h"
 #include "RegExpCache.h"
+#include "RegExpInlines.h"
 #include "ResourceExhaustion.h"
 #include "SamplingProfiler.h"
 #include "ScopedArguments.h"
@@ -104,12 +107,19 @@
 #include "SimpleTypedArrayController.h"
 #include "SourceProviderCache.h"
 #include "StrongInlines.h"
-#include "StructureChain.h"
+#include "StructureChainInlines.h"
 #include "StructureInlines.h"
+#include "SymbolInlines.h"
+#include "SymbolTableInlines.h"
 #include "TestRunnerUtils.h"
 #include "ThunkGenerators.h"
 #include "TypeProfiler.h"
 #include "TypeProfilerLog.h"
+#include "UnlinkedEvalCodeBlockInlines.h"
+#include "UnlinkedFunctionCodeBlockInlines.h"
+#include "UnlinkedFunctionExecutableInlines.h"
+#include "UnlinkedModuleProgramCodeBlockInlines.h"
+#include "UnlinkedProgramCodeBlockInlines.h"
 #include "VMEntryScopeInlines.h"
 #include "VMInlines.h"
 #include "VMInspector.h"
@@ -577,6 +587,34 @@ SamplingProfiler& VM::ensureSamplingProfiler(Ref<Stopwatch>&& stopwatch)
     }
     return *m_samplingProfiler;
 }
+
+void VM::enableSamplingProfiler()
+{
+    SamplingProfiler* profiler = samplingProfiler();
+    if (!profiler)
+        profiler = &ensureSamplingProfiler(Stopwatch::create());
+    profiler->start();
+}
+
+void VM::disableSamplingProfiler()
+{
+    SamplingProfiler* profiler = samplingProfiler();
+    if (!profiler)
+        profiler = &ensureSamplingProfiler(Stopwatch::create());
+    {
+        Locker locker { profiler->getLock() };
+        profiler->pause();
+    }
+}
+
+RefPtr<JSON::Value> VM::takeSamplingProfilerSamplesAsJSON()
+{
+    SamplingProfiler* profiler = samplingProfiler();
+    if (!profiler)
+        return nullptr;
+    return profiler->stackTracesAsJSON();
+}
+
 #endif // ENABLE(SAMPLING_PROFILER)
 
 static StringImpl::StaticStringImpl terminationErrorString { "JavaScript execution terminated." };
@@ -893,7 +931,7 @@ Exception* VM::throwException(JSGlobalObject* globalObject, Exception* exception
 
     CallFrame* throwOriginFrame = topJSCallFrame();
     if (UNLIKELY(Options::breakOnThrow())) {
-        CodeBlock* codeBlock = throwOriginFrame && !throwOriginFrame->isWasmFrame() ? throwOriginFrame->codeBlock() : nullptr;
+        CodeBlock* codeBlock = throwOriginFrame && !throwOriginFrame->isNativeCalleeFrame() ? throwOriginFrame->codeBlock() : nullptr;
         dataLog("Throwing exception in call frame ", RawPointer(throwOriginFrame), " for code block ", codeBlock, "\n");
         WTFBreakpointTrap();
     }
@@ -1627,11 +1665,42 @@ void VM::removeDebugger(Debugger& debugger)
     m_debuggers.remove(&debugger);
 }
 
-void VM::performOpportunisticallyScheduledTasks(MonotonicTime deadline)
+void VM::performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSet<SchedulerOptions> options)
 {
     JSLockHolder locker { *this };
-    if (!deferredWorkTimer->hasAnyPendingWork())
-        heap.sweeper().doWorkUntil(*this, deadline);
+    if (deferredWorkTimer->hasAnyPendingWork())
+        return;
+
+    SetForScope insideOpportunisticTaskScope { heap.m_isInOpportunisticTask, true };
+    [&] {
+        if (options.contains(SchedulerOptions::HasImminentlyScheduledWork))
+            return;
+
+        static constexpr auto minimumDelayBeforeOpportunisticFullGC = 30_ms;
+        static constexpr auto minimumDelayBeforeOpportunisticEdenGC = 10_ms;
+        static constexpr auto extraDurationToAvoidExceedingDeadlineDuringFullGC = 2_ms;
+        static constexpr auto extraDurationToAvoidExceedingDeadlineDuringEdenGC = 1_ms;
+
+        auto secondsSinceEpoch = ApproximateTime::now().secondsSinceEpoch();
+        auto timeSinceFinishingLastFullGC = secondsSinceEpoch - heap.m_lastFullGCEndTime.secondsSinceEpoch();
+        auto remainingTime = deadline.secondsSinceEpoch() - secondsSinceEpoch;
+        if (timeSinceFinishingLastFullGC > minimumDelayBeforeOpportunisticFullGC && heap.m_shouldDoOpportunisticFullCollection && heap.m_totalBytesVisitedAfterLastFullCollect) {
+            auto estimatedGCDuration = (heap.lastFullGCLength() * heap.m_totalBytesVisited) / heap.m_totalBytesVisitedAfterLastFullCollect;
+            if (estimatedGCDuration + extraDurationToAvoidExceedingDeadlineDuringFullGC < remainingTime) {
+                heap.collectSync(CollectionScope::Full);
+                return;
+            }
+        }
+
+        auto timeSinceLastGC = secondsSinceEpoch - std::max(heap.m_lastGCEndTime, heap.m_currentGCStartTime).secondsSinceEpoch();
+        if (timeSinceLastGC > minimumDelayBeforeOpportunisticEdenGC && heap.m_bytesAllocatedThisCycle && heap.m_bytesAllocatedBeforeLastEdenCollect) {
+            auto estimatedGCDuration = (heap.lastEdenGCLength() * heap.m_bytesAllocatedThisCycle) / heap.m_bytesAllocatedBeforeLastEdenCollect;
+            if (estimatedGCDuration + extraDurationToAvoidExceedingDeadlineDuringEdenGC < remainingTime)
+                heap.collectSync(CollectionScope::Eden);
+        }
+    }();
+
+    heap.sweeper().doWorkUntil(*this, deadline);
 }
 
 void QueuedTask::run()

@@ -475,6 +475,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
 @property BOOL ignoreServersMessagesTellingUsToGoAway;
 @property BOOL disableUploads;
 @property BOOL disableClientId;
+@property BOOL terseMetrics;
 
 @property NSUInteger secondsBetweenUploads;
 @property NSUInteger maxEventsToReport;
@@ -535,6 +536,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
                                             requireiCloudAnalytics:NO]];
 #endif
     } else if ([topicName isEqualToString:SFAnalyticsTopicTransparency]) {
+        self.terseMetrics = YES;
         [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"transparency"
                                              orCreateWithStorePath:[self.class databasePathForTransparency]
                                             requireDeviceAnalytics:NO
@@ -546,6 +548,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
 
 - (instancetype)initWithDictionary:(NSDictionary *)dictionary name:(NSString *)topicName samplingRates:(NSDictionary *)rates {
     if (self = [super init]) {
+        _terseMetrics = NO;
         _internalTopicName = topicName;
         [self setupClientsForTopic:topicName];
         _splunkTopicName = dictionary[@"splunk_topic"];
@@ -799,7 +802,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     }
 }
 
-- (NSMutableDictionary*)sampleStatisticsForSamples:(NSArray*)samples withName:(NSString*)name
+- (NSDictionary*)sampleStatisticsForSamples:(NSArray*)samples withName:(NSString*)name
 {
     NSMutableDictionary* statistics = [NSMutableDictionary dictionary];
     NSUInteger count = samples.count;
@@ -809,17 +812,20 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     if (count == 1) {
         statistics[name] = samples[0];
     } else {
-        // NSExpression takes population standard deviation. Our data is a sample of whatever we sampled over time,
-        // but the difference between the two is fairly minor (divide by N before taking sqrt versus divide by N-1).
-        statistics[[NSString stringWithFormat:@"%@-dev", name]] = [[NSExpression expressionForFunction:@"stddev:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
-
-        statistics[[NSString stringWithFormat:@"%@-min", name]] = [[NSExpression expressionForFunction:@"min:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
-        statistics[[NSString stringWithFormat:@"%@-max", name]] = [[NSExpression expressionForFunction:@"max:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
         statistics[[NSString stringWithFormat:@"%@-avg", name]] = [[NSExpression expressionForFunction:@"average:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
-        statistics[[NSString stringWithFormat:@"%@-med", name]] = [[NSExpression expressionForFunction:@"median:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
+
+        if (!self.terseMetrics) {
+            // NSExpression takes population standard deviation. Our data is a sample of whatever we sampled over time,
+            // but the difference between the two is fairly minor (divide by N before taking sqrt versus divide by N-1).
+            statistics[[NSString stringWithFormat:@"%@-dev", name]] = [[NSExpression expressionForFunction:@"stddev:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
+
+            statistics[[NSString stringWithFormat:@"%@-min", name]] = [[NSExpression expressionForFunction:@"min:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
+            statistics[[NSString stringWithFormat:@"%@-max", name]] = [[NSExpression expressionForFunction:@"max:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
+            statistics[[NSString stringWithFormat:@"%@-med", name]] = [[NSExpression expressionForFunction:@"median:" arguments:samplesAsExpressionArray] expressionValueWithObject:nil context:nil];
+        }
     }
 
-    if (count > 3) {
+    if (count > 3 && !self.terseMetrics) {
         NSString* q1 = [NSString stringWithFormat:@"%@-1q", name];
         NSString* q3 = [NSString stringWithFormat:@"%@-3q", name];
         // From Wikipedia, which is never wrong
@@ -869,13 +875,31 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     __block NSInteger totalSuccessCount = 0;
     __block NSInteger totalHardFailureCount = 0;
     __block NSInteger totalSoftFailureCount = 0;
+    if (self.terseMetrics) {
+        summary[@"T"] = @1;
+    }
     [successCounts enumerateKeysAndObjectsUsingBlock:^(NSString* _Nonnull eventType, NSDictionary* _Nonnull counts, BOOL* _Nonnull stop) {
-        summary[[NSString stringWithFormat:@"%@-success", eventType]] = counts[SFAnalyticsColumnSuccessCount];
-        summary[[NSString stringWithFormat:@"%@-hardfail", eventType]] = counts[SFAnalyticsColumnHardFailureCount];
-        summary[[NSString stringWithFormat:@"%@-softfail", eventType]] = counts[SFAnalyticsColumnSoftFailureCount];
-        totalSuccessCount += [counts[SFAnalyticsColumnSuccessCount] integerValue];
-        totalHardFailureCount += [counts[SFAnalyticsColumnHardFailureCount] integerValue];
-        totalSoftFailureCount += [counts[SFAnalyticsColumnSoftFailureCount] integerValue];
+        NSInteger success = [counts[SFAnalyticsColumnSuccessCount] integerValue];
+        NSInteger hardfail = [counts[SFAnalyticsColumnHardFailureCount] integerValue];
+        NSInteger softfail = [counts[SFAnalyticsColumnSoftFailureCount] integerValue];
+        if (self.terseMetrics) {
+            if ((hardfail == 0 && softfail == 0) || success != 0) {
+                summary[[NSString stringWithFormat:@"%@-s", eventType]] = @(success);
+            }
+            if (hardfail) {
+                summary[[NSString stringWithFormat:@"%@-h", eventType]] = @(hardfail);
+            }
+            if (softfail) {
+                summary[[NSString stringWithFormat:@"%@-f", eventType]] = @(softfail);
+            }
+        } else {
+            summary[[NSString stringWithFormat:@"%@-success", eventType]] = @(success);
+            summary[[NSString stringWithFormat:@"%@-hardfail", eventType]] = @(hardfail);
+            summary[[NSString stringWithFormat:@"%@-softfail", eventType]] = @(softfail);
+        }
+        totalSuccessCount += success;
+        totalHardFailureCount += hardfail;
+        totalSoftFailureCount += softfail;
     }];
 
     summary[SFAnalyticsColumnSuccessCount] = @(totalSuccessCount);
@@ -898,8 +922,9 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
         }
         [samplesBySampler[sample[SFAnalyticsColumnSampleName]] addObject:sample[SFAnalyticsColumnSampleValue]];
     }
+
     [samplesBySampler enumerateKeysAndObjectsUsingBlock:^(NSString * _Nonnull key, NSMutableArray * _Nonnull obj, BOOL * _Nonnull stop) {
-        NSMutableDictionary* event = [self sampleStatisticsForSamples:obj withName:key];
+        NSDictionary* event = [self sampleStatisticsForSamples:obj withName:key];
         [summary addEntriesFromDictionary:event];
     }];
 

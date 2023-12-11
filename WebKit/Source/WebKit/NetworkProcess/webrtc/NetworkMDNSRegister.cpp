@@ -30,7 +30,7 @@
 
 #include "Logging.h"
 #include "NetworkConnectionToWebProcess.h"
-#include "WebMDNSRegisterMessages.h"
+#include <WebCore/MDNSRegisterError.h>
 #include <pal/SessionID.h>
 #include <wtf/UUID.h>
 #include <wtf/text/StringConcatenateNumbers.h>
@@ -45,62 +45,52 @@ NetworkMDNSRegister::NetworkMDNSRegister(NetworkConnectionToWebProcess& connecti
 {
 }
 
-NetworkMDNSRegister::~NetworkMDNSRegister()
-{
-#if ENABLE_MDNS
-    for (auto& value : m_services.values())
-        DNSServiceRefDeallocate(value);
-#endif
-}
+NetworkMDNSRegister::~NetworkMDNSRegister() = default;
 
 #if ENABLE_MDNS
+struct NetworkMDNSRegister::DNSServiceDeallocator {
+    void operator()(DNSServiceRef service) const { DNSServiceRefDeallocate(service); }
+};
+
 void NetworkMDNSRegister::unregisterMDNSNames(WebCore::ScriptExecutionContextIdentifier documentIdentifier)
 {
-    auto iterator = m_services.find(documentIdentifier);
-    if (iterator == m_services.end())
-        return;
-    DNSServiceRefDeallocate(iterator->value);
-    m_services.remove(iterator);
+    m_services.remove(documentIdentifier);
 }
 
 struct PendingRegistrationRequest {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
-    PendingRegistrationRequest(Ref<NetworkConnectionToWebProcess>&& connection, MDNSRegisterIdentifier requestIdentifier, String&& name, PAL::SessionID sessionID)
+    PendingRegistrationRequest(Ref<NetworkConnectionToWebProcess>&& connection, String&& name, PAL::SessionID sessionID, CompletionHandler<void(const String&, std::optional<WebCore::MDNSRegisterError>)>&& completionHandler)
         : connection(WTFMove(connection))
-        , requestIdentifier(requestIdentifier)
         , name(WTFMove(name))
         , sessionID(sessionID)
+        , completionHandler(WTFMove(completionHandler))
     {
     }
 
     Ref<NetworkConnectionToWebProcess> connection;
-    MDNSRegisterIdentifier requestIdentifier;
     String name;
     PAL::SessionID sessionID;
-    DNSRecordRef record;
+    CompletionHandler<void(const String&, std::optional<WebCore::MDNSRegisterError>)> completionHandler;
 };
-
-
-static uintptr_t pendingRegistrationRequestCount = 1;
-static HashMap<uintptr_t, std::unique_ptr<PendingRegistrationRequest>>& pendingRegistrationRequests()
-{
-    ASSERT(RunLoop::isMain());
-    static NeverDestroyed<HashMap<uintptr_t, std::unique_ptr<PendingRegistrationRequest>>> map;
-    return map;
-}
 
 void NetworkMDNSRegister::closeAndForgetService(DNSServiceRef service)
 {
-    DNSServiceRefDeallocate(service);
-
     m_services.removeIf([service] (auto& iterator) {
-        return iterator.value == service;
+        return iterator.value.get() == service;
     });
 }
 
-static void registerMDNSNameCallback(DNSServiceRef service, DNSRecordRef record, DNSServiceFlags, DNSServiceErrorType errorCode, void *context)
+struct PendingRegistrationRequestIdentifierType { };
+using PendingRegistrationRequestIdentifier = ObjectIdentifier<PendingRegistrationRequestIdentifierType>;
+static HashMap<PendingRegistrationRequestIdentifier, std::unique_ptr<PendingRegistrationRequest>>& pendingRegistrationRequestMap()
 {
-    auto request = pendingRegistrationRequests().take(reinterpret_cast<uintptr_t>(context));
+    static NeverDestroyed<HashMap<PendingRegistrationRequestIdentifier, std::unique_ptr<PendingRegistrationRequest>>> map;
+    return map.get();
+}
+
+static void registerMDNSNameCallback(DNSServiceRef service, DNSRecordRef record, DNSServiceFlags, DNSServiceErrorType errorCode, void* context)
+{
+    auto request = pendingRegistrationRequestMap().take(PendingRegistrationRequestIdentifier(reinterpret_cast<uintptr_t>(context)));
     if (!request)
         return;
 
@@ -108,14 +98,13 @@ static void registerMDNSNameCallback(DNSServiceRef service, DNSRecordRef record,
 
     if (errorCode) {
         request->connection->mdnsRegister().closeAndForgetService(service);
-        request->connection->connection().send(Messages::WebMDNSRegister::FinishedRegisteringMDNSName { request->requestIdentifier, request->name, WebCore::MDNSRegisterError::DNSSD }, 0);
-
+        request->completionHandler(request->name, WebCore::MDNSRegisterError::DNSSD);
         return;
     }
-    request->connection->connection().send(Messages::WebMDNSRegister::FinishedRegisteringMDNSName { request->requestIdentifier, request->name, { } }, 0);
+    request->completionHandler(request->name, { });
 }
 
-void NetworkMDNSRegister::registerMDNSName(MDNSRegisterIdentifier requestIdentifier, WebCore::ScriptExecutionContextIdentifier documentIdentifier, const String& ipAddress)
+void NetworkMDNSRegister::registerMDNSName(WebCore::ScriptExecutionContextIdentifier documentIdentifier, const String& ipAddress, CompletionHandler<void(const String&, std::optional<WebCore::MDNSRegisterError>)>&& completionHandler)
 {
     auto name = makeString(WTF::UUID::createVersion4(), ".local"_s);
 
@@ -125,78 +114,74 @@ void NetworkMDNSRegister::registerMDNSName(MDNSRegisterIdentifier requestIdentif
         auto error = DNSServiceCreateConnection(&service);
         if (error) {
             MDNS_RELEASE_LOG("registerMDNSName DNSServiceCreateConnection error %d", error);
-            m_connection.connection().send(Messages::WebMDNSRegister::FinishedRegisteringMDNSName { requestIdentifier, name, WebCore::MDNSRegisterError::DNSSD }, 0);
-            return;
+            return completionHandler(name, WebCore::MDNSRegisterError::DNSSD);
         }
         error = DNSServiceSetDispatchQueue(service, dispatch_get_main_queue());
         if (error) {
             MDNS_RELEASE_LOG("registerMDNSName DNSServiceCreateConnection error %d", error);
-            m_connection.connection().send(Messages::WebMDNSRegister::FinishedRegisteringMDNSName { requestIdentifier, name, WebCore::MDNSRegisterError::DNSSD }, 0);
-            return;
+            return completionHandler(name, WebCore::MDNSRegisterError::DNSSD);
         }
         ASSERT(service);
-        m_services.add(documentIdentifier, service);
+        m_services.add(documentIdentifier, std::unique_ptr<_DNSServiceRef_t, DNSServiceDeallocator>(service));
     } else
-        service = iterator->value;
+        service = iterator->value.get();
 
     auto ip = inet_addr(ipAddress.utf8().data());
 
     // FIXME: Add IPv6 support.
     if (ip == ( in_addr_t)(-1)) {
         MDNS_RELEASE_LOG("registerMDNSName inet_addr error");
-        m_connection.connection().send(Messages::WebMDNSRegister::FinishedRegisteringMDNSName { requestIdentifier, name, WebCore::MDNSRegisterError::BadParameter }, 0);
-        return;
+        return completionHandler(name, WebCore::MDNSRegisterError::BadParameter);
     }
 
-    auto pendingRequest = makeUnique<PendingRegistrationRequest>(m_connection, requestIdentifier, WTFMove(name), sessionID());
-    auto* record = &pendingRequest->record;
+    auto identifier = PendingRegistrationRequestIdentifier::generate();
+    auto pendingRequest = makeUnique<PendingRegistrationRequest>(m_connection.get(), WTFMove(name), sessionID(), WTFMove(completionHandler));
+    auto addResult = pendingRegistrationRequestMap().add(identifier, WTFMove(pendingRequest));
+    DNSRecordRef record { nullptr };
     auto error = DNSServiceRegisterRecord(service,
-        record,
+        &record,
 #if HAVE(MDNS_FAST_REGISTRATION)
         kDNSServiceFlagsKnownUnique,
 #else
         kDNSServiceFlagsUnique,
 #endif
         0,
-        pendingRequest->name.utf8().data(),
+        addResult.iterator->value->name.utf8().data(),
         kDNSServiceType_A,
         kDNSServiceClass_IN,
         4,
         &ip,
         0,
         registerMDNSNameCallback,
-        reinterpret_cast<void*>(pendingRegistrationRequestCount));
+        reinterpret_cast<void*>(identifier.toUInt64()));
     if (error) {
         MDNS_RELEASE_LOG("registerMDNSName DNSServiceRegisterRecord error %d", error);
-
-        DNSServiceRefDeallocate(service);
         m_services.remove(documentIdentifier);
-
-        m_connection.connection().send(Messages::WebMDNSRegister::FinishedRegisteringMDNSName { requestIdentifier, pendingRequest->name, WebCore::MDNSRegisterError::DNSSD }, 0);
+        if (auto pendingRequest = pendingRegistrationRequestMap().take(identifier))
+            pendingRequest->completionHandler(pendingRequest->name, WebCore::MDNSRegisterError::DNSSD);
         return;
     }
-    pendingRegistrationRequests().add(pendingRegistrationRequestCount++, WTFMove(pendingRequest));
 }
 
-#else
+#else // ENABLE_MDNS
 
 void NetworkMDNSRegister::unregisterMDNSNames(WebCore::ScriptExecutionContextIdentifier)
 {
 }
 
-void NetworkMDNSRegister::registerMDNSName(MDNSRegisterIdentifier requestIdentifier, WebCore::ScriptExecutionContextIdentifier documentIdentifier, const String& ipAddress)
+void NetworkMDNSRegister::registerMDNSName(WebCore::ScriptExecutionContextIdentifier documentIdentifier, const String& ipAddress, CompletionHandler<void(const String&, std::optional<WebCore::MDNSRegisterError>)>&& completionHandler)
 {
     MDNS_RELEASE_LOG("registerMDNSName not implemented");
     auto name = makeString(WTF::UUID::createVersion4(), ".local"_s);
 
-    m_connection.connection().send(Messages::WebMDNSRegister::FinishedRegisteringMDNSName { requestIdentifier, name, WebCore::MDNSRegisterError::NotImplemented }, 0);
+    completionHandler(name, WebCore::MDNSRegisterError::NotImplemented);
 }
 
-#endif
+#endif // ENABLE_MDNS
 
 PAL::SessionID NetworkMDNSRegister::sessionID() const
 {
-    return m_connection.sessionID();
+    return m_connection->sessionID();
 }
 
 } // namespace WebKit

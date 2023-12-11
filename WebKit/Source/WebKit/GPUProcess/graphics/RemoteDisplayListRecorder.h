@@ -28,7 +28,6 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "Decoder.h"
-#include "QualifiedRenderingResourceIdentifier.h"
 #include "RemoteRenderingBackend.h"
 #include "SharedVideoFrame.h"
 #include "StreamMessageReceiver.h"
@@ -36,6 +35,7 @@
 #include <WebCore/ControlFactory.h>
 #include <WebCore/DisplayListItems.h>
 #include <WebCore/ProcessIdentifier.h>
+#include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
 
@@ -46,9 +46,9 @@ class RemoteResourceCache;
 
 class RemoteDisplayListRecorder : public IPC::StreamMessageReceiver, public CanMakeWeakPtr<RemoteDisplayListRecorder> {
 public:
-    static Ref<RemoteDisplayListRecorder> create(WebCore::ImageBuffer& imageBuffer, QualifiedRenderingResourceIdentifier imageBufferIdentifier, WebCore::ProcessIdentifier webProcessIdentifier, RemoteRenderingBackend& renderingBackend)
+    static Ref<RemoteDisplayListRecorder> create(WebCore::ImageBuffer& imageBuffer, WebCore::RenderingResourceIdentifier imageBufferIdentifier, RemoteRenderingBackend& renderingBackend)
     {
-        auto instance = adoptRef(*new RemoteDisplayListRecorder(imageBuffer, imageBufferIdentifier, webProcessIdentifier, renderingBackend));
+        auto instance = adoptRef(*new RemoteDisplayListRecorder(imageBuffer, imageBufferIdentifier, renderingBackend));
         instance->startListeningForIPC();
         return instance;
     }
@@ -63,8 +63,7 @@ public:
     void setCTM(const WebCore::AffineTransform&);
     void concatenateCTM(const WebCore::AffineTransform&);
     void setInlineFillColor(WebCore::DisplayList::SetInlineFillColor&&);
-    void setInlineStrokeColor(WebCore::DisplayList::SetInlineStrokeColor&&);
-    void setStrokeThickness(float);
+    void setInlineStroke(WebCore::DisplayList::SetInlineStroke&&);
     void setState(WebCore::DisplayList::SetState&&);
     void setLineCap(WebCore::LineCap);
     void setLineDash(WebCore::DisplayList::SetLineDash&&);
@@ -111,15 +110,13 @@ public:
     void fillPathSegment(const WebCore::PathSegment&);
     void fillPath(const WebCore::Path&);
     void fillEllipse(const WebCore::FloatRect&);
-    void convertToLuminanceMask();
-    void transformToColorSpace(const WebCore::DestinationColorSpace&);
 #if ENABLE(VIDEO)
     void paintFrameForMedia(WebCore::MediaPlayerIdentifier, const WebCore::FloatRect& destination);
 #endif
     void strokeRect(const WebCore::FloatRect&, float lineWidth);
 #if ENABLE(INLINE_PATH_DATA)
     void strokeLine(const WebCore::PathDataLine&);
-    void strokeLineWithColorAndThickness(const WebCore::PathDataLine&, WebCore::DisplayList::SetInlineStrokeColor&&, float thickness);
+    void strokeLineWithColorAndThickness(const WebCore::PathDataLine&, WebCore::DisplayList::SetInlineStroke&&);
     void strokeArc(const WebCore::PathArc&);
     void strokeQuadCurve(const WebCore::PathDataQuadCurve&);
     void strokeBezierCurve(const WebCore::PathDataBezierCurve&);
@@ -134,23 +131,16 @@ public:
     void applyFillPattern();
 #endif
     void applyDeviceScaleFactor(float);
-    void flushContext(IPC::Semaphore&&);
-    void flushContextSync(CompletionHandler<void()>&&);
 
 private:
-    RemoteDisplayListRecorder(WebCore::ImageBuffer&, QualifiedRenderingResourceIdentifier, WebCore::ProcessIdentifier webProcessIdentifier, RemoteRenderingBackend&);
+    RemoteDisplayListRecorder(WebCore::ImageBuffer&, WebCore::RenderingResourceIdentifier, RemoteRenderingBackend&);
 
-    void setStateWithQualifiedIdentifiers(WebCore::DisplayList::SetState&&, QualifiedRenderingResourceIdentifier strokePatternImageIdentifier, QualifiedRenderingResourceIdentifier fillPatternImageIdentifier);
-    void clipToImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, const WebCore::FloatRect& destinationRect);
-    void drawGlyphsWithQualifiedIdentifier(WebCore::DisplayList::DrawGlyphs&&, QualifiedRenderingResourceIdentifier fontIdentifier);
-    void drawDecomposedGlyphsWithQualifiedIdentifiers(QualifiedRenderingResourceIdentifier fontIdentifier, QualifiedRenderingResourceIdentifier decomposedGlyphsIdentifier);
     void drawFilteredImageBufferInternal(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&, WebCore::FilterResults&);
-    void drawImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destinationRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&);
-    void drawNativeImageWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier imageIdentifier, const WebCore::FloatSize& imageSize, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&);
-    void drawPatternWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier imageIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint&, const WebCore::FloatSize& spacing, const WebCore::ImagePaintingOptions&);
 
-    RemoteResourceCache& resourceCache();
-    WebCore::GraphicsContext& drawingContext();
+    RemoteResourceCache& resourceCache() const;
+    WebCore::GraphicsContext& drawingContext() { return m_imageBuffer->context(); }
+    RefPtr<WebCore::ImageBuffer> imageBuffer(WebCore::RenderingResourceIdentifier) const;
+    std::optional<WebCore::SourceImage> sourceImage(WebCore::RenderingResourceIdentifier) const;
 
     template<typename T, typename ... AdditionalArgs>
     void handleItem(T&& item, AdditionalArgs&&... args)
@@ -170,9 +160,8 @@ private:
     void setSharedVideoFrameMemory(SharedMemory::Handle&&);
 #endif
 
-    WeakPtr<WebCore::ImageBuffer> m_imageBuffer;
-    QualifiedRenderingResourceIdentifier m_imageBufferIdentifier;
-    WebCore::ProcessIdentifier m_webProcessIdentifier;
+    Ref<WebCore::ImageBuffer> m_imageBuffer;
+    WebCore::RenderingResourceIdentifier m_imageBufferIdentifier;
     RefPtr<RemoteRenderingBackend> m_renderingBackend;
     std::unique_ptr<WebCore::ControlFactory> m_controlFactory;
 #if PLATFORM(COCOA) && ENABLE(VIDEO)

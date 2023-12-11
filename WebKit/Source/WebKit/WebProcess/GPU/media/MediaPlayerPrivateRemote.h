@@ -116,8 +116,8 @@ public:
     void renderingModeChanged();
 #if PLATFORM(COCOA)
     void layerHostingContextIdChanged(std::optional<WebKit::LayerHostingContextID>&&, const WebCore::IntSize&);
-    WebCore::FloatSize videoInlineSize() const final;
-    void setVideoInlineSizeFenced(const WebCore::FloatSize&, const WTF::MachSendRight&) final;
+    WebCore::FloatSize videoLayerSize() const final;
+    void setVideoLayerSizeFenced(const WebCore::FloatSize&, WTF::MachSendRight&&) final;
 #endif
 
     void currentTimeChanged(const MediaTime&, const MonotonicTime&, bool);
@@ -256,7 +256,7 @@ private:
     bool hasVideo() const final;
     bool hasAudio() const final;
 
-    void setPageIsVisible(bool, String&& sceneIdentifier) final;
+    void setPageIsVisible(bool) final;
 
     MediaTime durationMediaTime() const final;
     MediaTime currentMediaTime() const final;

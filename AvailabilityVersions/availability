@@ -35,6 +35,7 @@ class VersionSetDSL:
             minor = 0
             revision = 0
             match = re.match(r"^(\d+)(?:.(\d+))?(?:.(\d+))?$", self.vers)
+            assert match  is not None
             if (match.group(1)): major = int(match.group(1))
             if (match.group(2)): minor = int(match.group(2))
             if (match.group(3)): revision = int(match.group(3))
@@ -45,6 +46,7 @@ class VersionSetDSL:
             revision = 0
             result = ""
             match = re.match(r"^(\d+)(?:.(\d+))?(?:.(\d+))?$", self.vers)
+            assert match is not None
             if (match.group(1)): major = int(match.group(1))
             if (match.group(2)): minor = int(match.group(2))
             if (match.group(3)): revision = int(match.group(3))
@@ -53,6 +55,7 @@ class VersionSetDSL:
             return result.rjust(6)
         def symbol(self):
             match = re.match(r"^(\d+)(?:.(\d+))?(?:.(\d+))?$", self.vers)
+            assert match is not None
             if match.group(3) and match.group(3) != 0: return f"{match.group(1)}_{match.group(2)}_{match.group(3)}"
             if match.group(2): return f"{match.group(1)}_{match.group(2)}"
             if match.group(1): return match.group(1)
@@ -80,15 +83,11 @@ class VersionSetDSL:
             self.cmd_aliases                            = []
             self.availability_aliases                   = []
             self.ios_compatility_version                = None
-            self.short_version_numbers                  = False
-            self.bleached                               = False
-            self.target_os_name                         = name
-            self.supports_legacy_environment_defines    = False;
-            # Potential overrides
-            if "short_version_numbers" in optionals:
-                self.short_version_numbers = True
-            if "bleached" in optionals:
-                self.bleached = True
+            self.versioned                              = not optionals.get("unversioned", False)
+            self.short_version_numbers                  = optionals.get("short_version_numbers", False)
+            self.bleached                               = optionals.get("bleached", False)
+            self.target_os_name                         = optionals.get("target_os_name", name)
+            self.supports_legacy_environment_defines    = optionals.get("supports_legacy_environment_defines", False)
             if "platform_define_name" in optionals:
                 self.platform_define = f"PLATFORM_{optionals['platform_define_name']}"
             if "cmd_aliases" in optionals:
@@ -105,10 +104,6 @@ class VersionSetDSL:
                 self.availability_deprecation_define_name = optionals["availability_deprecation_define_name"]
             if "version_define_name" in optionals:
                 self.availability_define_prefix = f"__{optionals['version_define_name']}_"
-            if "supports_legacy_environment_defines" in optionals:
-                self.supports_legacy_environment_defines = True
-            if "target_os_name" in optionals:
-                self.target_os_name = optionals["target_os_name"]
         def add_version(self, version): return self.versions.append(version);
         def add_variant(self, variant): return self.variants.append(variant);
     class Parser:
@@ -281,6 +276,8 @@ static const std::array<VersionSetEntry, {}> sVersionMap = {{{{
     def AVAILABILITY_MIN_MAX_DEFINES(self, output):
         for platformString in versions.platforms():
             platform = versions.platforms()[platformString];
+            if not platform.versioned:
+                continue
             if platform.bleached:
                 output.write(f"#ifndef __APPLE_BLEACH_SDK__\n")
             output.write(f"#ifndef __{platform.min_max_define_name}_VERSION_MIN_REQUIRED\n")
@@ -305,27 +302,24 @@ static const std::array<VersionSetEntry, {}> sVersionMap = {{{{
                 output.write(f"#endif /* __APPLE_BLEACH_SDK__ */\n")
             output.write("\n")
     def AVAILABILITY_PLATFORM_DEFINES(self, output):
+        def writeDefines(displayName, realName, hasVersions):
+            if hasVersions:
+                output.write(f"   #define __API_AVAILABLE_PLATFORM_{displayName}(x) {realName},introduced=x\n")
+                output.write(f"   #define __API_DEPRECATED_PLATFORM_{displayName}(x,y) {realName},introduced=x,deprecated=y\n")
+            output.write(f"   #define __API_UNAVAILABLE_PLATFORM_{displayName} {realName},unavailable\n")
         output.write(f"#if defined(__has_feature) && defined(__has_attribute)\n")
         output.write(f" #if __has_attribute(availability)\n")
         for platformString in versions.platforms():
             platform = versions.platforms()[platformString];
             if platform.bleached:
                 output.write(f"#ifndef __APPLE_BLEACH_SDK__\n")
-            output.write(f"   #define __API_AVAILABLE_PLATFORM_{platformString}(x) {platformString},introduced=x\n")
-            output.write(f"   #define __API_UNAVAILABLE_PLATFORM_{platformString} {platformString},unavailable\n")
-            output.write(f"   #define __API_DEPRECATED_PLATFORM_{platformString}(x,y) {platformString},introduced=x,deprecated=y\n")
+            writeDefines(platformString, platformString, platform.versioned)
             for alias in platform.availability_aliases:
-                output.write(f"   #define __API_AVAILABLE_PLATFORM_{alias}(x) {platformString},introduced=x\n")
-                output.write(f"   #define __API_UNAVAILABLE_PLATFORM_{alias} {platformString},unavailable\n")
-                output.write(f"   #define __API_DEPRECATED_PLATFORM_{alias}(x,y) {platformString},introduced=x,deprecated=y\n")
+                writeDefines(alias, platformString, platform.versioned)
             for variant in platform.variants:
-                output.write(f"   #define __API_AVAILABLE_PLATFORM_{variant.name}(x) {variant.name},introduced=x\n")
-                output.write(f"   #define __API_UNAVAILABLE_PLATFORM_{variant.name} {variant.name},unavailable\n")
-                output.write(f"   #define __API_DEPRECATED_PLATFORM_{variant.name}(x,y) {variant.name},introduced=x,deprecated=y\n")
+                writeDefines(variant.name, variant.name, platform.versioned)
                 for alias in variant.availability_aliases:
-                    output.write(f"   #define __API_AVAILABLE_PLATFORM_{alias}(x) {variant.name},introduced=x\n")
-                    output.write(f"   #define __API_UNAVAILABLE_PLATFORM_{alias} {variant.name},unavailable\n")
-                    output.write(f"   #define __API_DEPRECATED_PLATFORM_{alias}(x,y) {variant.name},introduced=x,deprecated=y\n")
+                    writeDefines(alias, variant.name, platform.versioned)
             if platform.bleached:
                 output.write(f"#endif /* __APPLE_BLEACH_SDK__ */\n")
         output.write(f" #endif /* __has_attribute(availability) */\n")

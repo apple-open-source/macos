@@ -129,7 +129,7 @@
         abort();
 }
 
-- (void)initialSyncCredentials:(uint32_t)flags complete:(void (^)(NSArray *, NSError *))complete
+- (void)initialSyncCredentials:(uint32_t)flags altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID complete:(void (^)(NSArray *, NSError *))complete
 {
     // Make up a fake TLK
     NSMutableArray<NSDictionary *> *items = [NSMutableArray array];
@@ -198,8 +198,10 @@
     complete(self.accountPrivateKey != NULL, NULL);
 }
 
-- (void)validatedStashedAccountCredential:(void(^)(NSData *credential, NSError *error))complete
-{
+- (void)validatedStashedAccountCredential:(NSString *)altDSID 
+                                   flowID:(NSString* _Nullable)flowID
+                          deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                 complete:(void (^)(NSData *, NSError *))complete {
     NSData *key = NULL;
     CFErrorRef error = NULL;
     if (self.accountPrivateKey) {
@@ -211,7 +213,11 @@
     CFReleaseNull(error);
 }
 
-- (void)stashAccountCredential:(NSData *)credential complete:(void(^)(bool success, NSError *error))complete
+- (void)stashAccountCredential:(NSData *)credential 
+                       altDSID:(NSString*)altDSID 
+                        flowID:(NSString* _Nullable)flowID
+               deviceSessionID:(NSString* _Nullable)deviceSessionID
+                      complete:(void(^)(bool success, NSError *error))complete
 {
     SecKeyRef accountPrivateKey = NULL;
     CFErrorRef error = NULL;
@@ -235,7 +241,10 @@
     complete(true, NULL);
 }
 
-- (void)myPeerInfo:(void(^)(NSData *application, NSError *error))complete
+- (void)myPeerInfo:(NSString*)altDSID  
+            flowID:(NSString* _Nullable)flowID
+   deviceSessionID:(NSString* _Nullable)deviceSessionID 
+          complete:(void(^)(NSData *application, NSError *error))complete
 {
     CFErrorRef error = NULL;
 
@@ -253,7 +262,7 @@
     complete(data, NULL);
 }
 
-- (void)circleJoiningBlob:(NSData *)applicantData complete:(void (^)(NSData *blob, NSError *))complete
+- (void)circleJoiningBlob:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID applicant:(NSData *)applicantData complete:(void (^)(NSData *blob, NSError *))complete
 {
     CFErrorRef error = NULL;
     CFDataRef signature = NULL;
@@ -284,7 +293,7 @@
     complete(pbblob, NULL);
 }
 
-- (void)joinCircleWithBlob:(NSData *)blob version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete
+- (void)joinCircleWithBlob:(NSData *)blob altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete
 {
     SOSGenCountRef gencount = NULL;
     SecKeyRef pubKey = NULL;

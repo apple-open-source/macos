@@ -77,7 +77,6 @@ static CFRunLoopRef G_main_runloop;
 static pthread_t G_sync_thread;
 
 static int syncThreadCreate(void);
-static void cleanupUpdater(PrebootUpdater *);
 static void * syncToPreboot(void * info);
 static void syncComplete(void);
 
@@ -160,26 +159,19 @@ static void syncComplete(void);
 	});
 	CFRunLoopWakeUp(G_main_runloop);
 	CFRunLoopPerformBlock(CFRunLoopGetCurrent(), kCFRunLoopDefaultMode, ^{
-		cleanupUpdater(self);
+		[self release];
+		CFRunLoopStop(CFRunLoopGetCurrent());
 	});
 }
 
 @end
 
 static void
-cleanupUpdater(PrebootUpdater * updater)
-{
-	if (updater != nil) {
-		[updater release];
-		updater = nil;
-	}
-	CFRunLoopStop(CFRunLoopGetCurrent());
-}
-
-static void
 syncComplete(void)
 {
+#if defined(TEST_PREBOOT)
 	bool sync_started = false;
+#endif
 	int res = 0;
 
 	SC_log(LOG_NOTICE, "%s: sync complete", _LOG_PREFIX);
@@ -192,7 +184,9 @@ syncComplete(void)
 		SC_log(LOG_NOTICE, "%s: starting sync for queued request",
 		       _LOG_PREFIX);
 		sync_needed = false;
+#if defined(TEST_PREBOOT)
 		sync_started = true;
+#endif
 		res = syncThreadCreate();
 		require_noerr_quiet(res, done);
 	}
@@ -275,22 +269,54 @@ get_boot_mode(void)
 	return (mode);
 }
 
+static BOOL
+updatePrebootForVolume(PrebootUpdater * updater)
+{
+	DMDiskErrorType 	error;
+
+	error = [[updater dmapfs]
+			updatePrebootForVolume:[updater disk] options:nil];
+	if (error != 0) {
+		SC_log(LOG_NOTICE,
+		       "%s: [DMAPFS updatePrebootForVolume] failed %d",
+		       _LOG_PREFIX, error);
+	}
+	return (error == 0);
+}
+
+/*
+ * Function: silence_leak_warning
+ * Purpose:
+ *   Silence "Potential leak of an object stored into ..." static analysis
+ *   warning.
+ */
+static inline void
+silence_leak_warning(PrebootUpdater * updater)
+{
+	static PrebootUpdater * _updater;
+
+	_updater = updater;
+}
+
 static void *
 syncToPreboot(void * info)
 {
 #pragma unused(info)
 	@autoreleasepool {
-		DMDiskErrorType error = 0;
-		PrebootUpdater *updater = allocateUpdater();
-		require_action_quiet(updater != nil, done,
-				     SC_log(LOG_NOTICE,
-					    "%s: Failed to create <DMAsyncDelegate> instance",
-					    _LOG_PREFIX));
-		error = [[updater dmapfs] updatePrebootForVolume:[updater disk] options:nil];
-		require_noerr_action_quiet(error, done,
-					   SC_log(LOG_NOTICE,
-						  "%s: [DMAPFS updatePrebootForVolume] failed %d",
-						  _LOG_PREFIX, error));
+		PrebootUpdater *	updater;
+
+		updater = allocateUpdater();
+		if (updater == nil) {
+			SC_log(LOG_NOTICE,
+			       "%s: Failed to create <DMAsyncDelegate> instance",
+			       _LOG_PREFIX);
+			goto done;
+		}
+		if (!updatePrebootForVolume(updater)) {
+			[updater release];
+			goto done;
+		}
+		silence_leak_warning(updater);
 		SC_log(LOG_NOTICE, "%s: sync started", _LOG_PREFIX);
 		CFRunLoopRun();
 		return nil;

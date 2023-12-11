@@ -1119,20 +1119,28 @@ RouterAdvertisementGetDNSSL(RouterAdvertisementRef ra,
 
 PRIVATE_EXTERN CFAbsoluteTime
 RouterAdvertisementGetDNSExpirationTime(RouterAdvertisementRef ra,
-					CFAbsoluteTime now)
+					CFAbsoluteTime now,
+					bool * ret_has_rdnss,
+					bool * ret_has_expired)
 {
 	const uint8_t *		dnssl;
 	int			dnssl_length;
 	uint32_t 		dnssl_lifetime;
 	CFAbsoluteTime		expiration = 0;
+	bool			has_expired = false;
+	bool			has_rdnss = false;
 	uint32_t 		lifetime;
 	const struct in6_addr *	rdnss;
 	int			rdnss_count;
 	uint32_t		rdnss_lifetime;
 
 	rdnss = RouterAdvertisementGetRDNSS(ra, &rdnss_count, &rdnss_lifetime);
-	if (rdnss == NULL
-	    || RouterAdvertisementLifetimeHasExpired(ra, now, rdnss_lifetime)) {
+	if (rdnss == NULL) {
+		goto done;
+	}
+	has_rdnss = true;
+	if (RouterAdvertisementLifetimeHasExpired(ra, now, rdnss_lifetime)) {
+		has_expired = true;
 		goto done;
 	}
 	dnssl = RouterAdvertisementGetDNSSL(ra, &dnssl_length, &dnssl_lifetime);
@@ -1152,6 +1160,12 @@ RouterAdvertisementGetDNSExpirationTime(RouterAdvertisementRef ra,
 	}
 
  done:
+	if (ret_has_rdnss != NULL) {
+		*ret_has_rdnss = has_rdnss;
+	}
+	if (ret_has_expired != NULL) {
+		*ret_has_expired = has_expired;
+	}
 	return (expiration);
 }
 

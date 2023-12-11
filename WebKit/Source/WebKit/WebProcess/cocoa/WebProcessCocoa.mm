@@ -381,11 +381,11 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
 #if HAVE(CGIMAGESOURCE_ENABLE_RESTRICTED_DECODING)
     if (parameters.enableDecodingHEIC || parameters.enableDecodingAVIF) {
-        static std::once_flag onceFlag;
-        std::call_once(onceFlag, [] {
+        static bool restricted { false };
+        if (!std::exchange(restricted, true)) {
             OSStatus ok = CGImageSourceEnableRestrictedDecoding();
             ASSERT_UNUSED(ok, ok == noErr);
-        });
+        }
     }
 #endif
 
@@ -914,9 +914,9 @@ void WebProcess::initializeSandbox(const AuxiliaryProcessInitializationParameter
 
 static NSURL *origin(WebPage& page)
 {
-    auto& mainFrame = page.mainWebFrame();
+    Ref mainFrame = page.mainWebFrame();
 
-    URL mainFrameURL = mainFrame.url();
+    URL mainFrameURL = mainFrame->url();
     Ref<SecurityOrigin> mainFrameOrigin = SecurityOrigin::create(mainFrameURL);
     String mainFrameOriginString;
     if (!mainFrameOrigin->isOpaque())
@@ -1074,8 +1074,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
-                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(WebProcess::singleton().transformHandlesToObjects(toImpl(wrapper.object)).get())]);
+            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object)) {
+                RefPtr impl = toImpl(wrapper.object);
+                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(WebProcess::singleton().transformHandlesToObjects(impl.get()).get())]);
+            }
+
 ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
@@ -1105,8 +1108,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
                 return controller.handle;
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
-                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(transformObjectsToHandles(toImpl(wrapper.object)).get())]);
+            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object)) {
+                RefPtr impl = toImpl(wrapper.object);
+                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(transformObjectsToHandles(impl.get()).get())]);
+            }
 ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
@@ -1427,7 +1432,7 @@ void WebProcess::updatePageScreenProperties()
     }
 
     bool allPagesAreOnHDRScreens = allOf(m_pageMap.values(), [] (auto& page) {
-        return page && screenSupportsHighDynamicRange(page->mainFrameView());
+        return page && screenSupportsHighDynamicRange(page->localMainFrameView());
     });
     setShouldOverrideScreenSupportsHighDynamicRange(true, allPagesAreOnHDRScreens);
 #endif

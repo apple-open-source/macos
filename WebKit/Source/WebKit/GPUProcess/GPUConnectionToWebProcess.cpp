@@ -271,13 +271,11 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
 #if HAVE(AUDIT_TOKEN)
     , m_presentingApplicationAuditToken(WTFMove(parameters.presentingApplicationAuditToken))
 #endif
-    , m_isDOMRenderingEnabled(parameters.isDOMRenderingEnabled)
     , m_isLockdownModeEnabled(parameters.isLockdownModeEnabled)
-    , m_allowTestOnlyIPC(parameters.allowTestOnlyIPC)
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
     , m_routingArbitrator(LocalAudioSessionRoutingArbitrator::create(*this))
 #endif
-    , m_webGPUEnabled(parameters.isWebGPUEnabled)
+    , m_preferences(parameters.preferences)
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
@@ -444,7 +442,7 @@ bool GPUConnectionToWebProcess::allowsExitUnderMemoryPressure() const
     if (hasOutstandingRenderingResourceUsage())
         return false;
 
-    if (m_isDOMRenderingEnabled)
+    if (m_preferences.isDOMRenderingEnabled)
         return false;
 
 #if ENABLE(WEB_AUDIO)
@@ -511,6 +509,9 @@ void GPUConnectionToWebProcess::lowMemoryHandler(Critical critical, Synchronous 
 {
     for (auto& remoteRenderingBackend : m_remoteRenderingBackendMap.values())
         remoteRenderingBackend->lowMemoryHandler(critical, synchronous);
+#if ENABLE(VIDEO)
+    m_videoFrameObjectHeap->lowMemoryHandler();
+#endif
 }
 
 #if ENABLE(WEB_AUDIO)
@@ -671,7 +672,7 @@ void GPUConnectionToWebProcess::performWithMediaPlayerOnMainThread(MediaPlayerId
 
 void GPUConnectionToWebProcess::createRemoteGPU(WebGPUIdentifier identifier, RenderingBackendIdentifier renderingBackendIdentifier, IPC::StreamServerConnection::Handle&& connectionHandle)
 {
-    MESSAGE_CHECK(m_webGPUEnabled);
+    MESSAGE_CHECK(isWebGPUEnabled());
 
     auto it = m_remoteRenderingBackendMap.find(renderingBackendIdentifier);
     if (it == m_remoteRenderingBackendMap.end())

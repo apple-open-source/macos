@@ -35,6 +35,7 @@
 #include "ScrollingAccelerationCurve.h"
 #include "VisibleWebPageCounter.h"
 #include "WebColorPicker.h"
+#include "WebFrameProxy.h"
 #include "WebNotificationManagerMessageHandler.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessageReceiverRegistration.h"
@@ -69,10 +70,6 @@
 #if ENABLE(SPEECH_SYNTHESIS)
 #include <WebCore/PlatformSpeechSynthesisUtterance.h>
 #include <WebCore/PlatformSpeechSynthesizer.h>
-#endif
-
-#if HAVE(TOUCH_BAR)
-#include "TouchBarMenuData.h"
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
@@ -220,6 +217,9 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     HashSet<Ref<RemotePageProxy>> openedRemotePageProxies;
     WebPageProxyMessageReceiverRegistration messageReceiverRegistration;
 
+    WeakHashSet<WebPageProxy> m_openedPages;
+    HashMap<WebCore::SleepDisablerIdentifier, std::unique_ptr<WebCore::SleepDisabler>> sleepDisablers;
+
 #if ENABLE(APPLE_PAY)
     std::unique_ptr<WebPaymentCoordinatorProxy> paymentCoordinator;
 #endif
@@ -276,10 +276,6 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 
 #if ENABLE(SPEECH_SYNTHESIS)
     std::optional<SpeechSynthesisData> optionalSpeechSynthesisData;
-#endif
-
-#if HAVE(TOUCH_BAR)
-    TouchBarMenuData touchBarMenuData;
 #endif
 
 #if ENABLE(TOUCH_EVENTS)

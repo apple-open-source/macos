@@ -640,9 +640,7 @@ static WebCore::FloatRect convertRectFromFrameClientToRootView(WebCore::LocalFra
         return frameView->contentsToRootView(frameView->clientToDocumentRect(clientRect));
 
     // If the frame delegates scrolling, contentsToRootView doesn't take into account scroll/zoom/scale.
-    auto* frame = dynamicDowncast<LocalFrame>(frameView->frame());
-    if (!frame)
-        return { };
+    Ref frame = frameView->frame();
     clientRect.scale(frame->pageZoomFactor() * frame->frameScaleFactor());
     clientRect.moveBy(frameView->contentsScrollPosition());
     return clientRect;
@@ -654,9 +652,7 @@ static WebCore::FloatPoint convertPointFromFrameClientToRootView(WebCore::LocalF
         return frameView->contentsToRootView(frameView->clientToDocumentPoint(clientPoint));
 
     // If the frame delegates scrolling, contentsToRootView doesn't take into account scroll/zoom/scale.
-    auto* frame = dynamicDowncast<LocalFrame>(frameView->frame());
-    if (!frame)
-        return { };
+    Ref frame = frameView->frame();
     clientPoint.scale(frame->pageZoomFactor() * frame->frameScaleFactor());
     clientPoint.moveBy(frameView->contentsScrollPosition());
     return clientPoint;
@@ -897,7 +893,7 @@ void WebAutomationSessionProxy::setFilesForInputFileUpload(WebCore::PageIdentifi
 
 static WebCore::IntRect snapshotElementRectForScreenshot(WebPage& page, WebCore::Element* element, bool clipToViewport)
 {
-    auto* frameView = page.mainFrameView();
+    auto* frameView = page.localMainFrameView();
     if (!frameView)
         return { };
 
@@ -913,7 +909,7 @@ static WebCore::IntRect snapshotElementRectForScreenshot(WebPage& page, WebCore:
         return elementRect;
     }
 
-    if (auto* frameView = page.mainFrameView())
+    if (auto* frameView = page.localMainFrameView())
         return clipToViewport ? frameView->visibleContentRect() : WebCore::IntRect(WebCore::IntPoint(0, 0), frameView->contentsSize());
 
     return { };

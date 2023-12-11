@@ -47,6 +47,8 @@ public:
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithStream_SendString; }
     static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool isStreamEncodable = true;
     static constexpr bool isStreamBatched = false;
 
@@ -70,6 +72,8 @@ public:
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithStream_SendStringAsync; }
     static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool isStreamEncodable = true;
     static constexpr bool isReplyStreamEncodable = true;
     static constexpr bool isStreamBatched = false;
@@ -97,6 +101,8 @@ public:
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithStream_SendStringSync; }
     static constexpr bool isSync = true;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool isStreamEncodable = true;
     static constexpr bool isReplyStreamEncodable = true;
     static constexpr bool isStreamBatched = false;
@@ -123,6 +129,8 @@ public:
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithStream_CallWithIdentifier; }
     static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool isStreamEncodable = true;
     static constexpr bool isReplyStreamEncodable = true;
     static constexpr bool isStreamBatched = false;
@@ -146,11 +154,13 @@ public:
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithStream_SendMachSendRight; }
     static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool isStreamEncodable = false;
     static constexpr bool isStreamBatched = false;
 
-    explicit SendMachSendRight(const MachSendRight& a1)
-        : m_arguments(a1)
+    explicit SendMachSendRight(MachSendRight&& a1)
+        : m_arguments(WTFMove(a1))
     {
     }
 
@@ -160,7 +170,7 @@ public:
     }
 
 private:
-    std::tuple<const MachSendRight&> m_arguments;
+    std::tuple<MachSendRight&&> m_arguments;
 };
 #endif
 
@@ -171,6 +181,8 @@ public:
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithStream_ReceiveMachSendRight; }
     static constexpr bool isSync = true;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool isStreamEncodable = true;
     static constexpr bool isReplyStreamEncodable = false;
     static constexpr bool isStreamBatched = false;
@@ -194,14 +206,16 @@ public:
 
     static IPC::MessageName name() { return IPC::MessageName::TestWithStream_SendAndReceiveMachSendRight; }
     static constexpr bool isSync = true;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool isStreamEncodable = false;
     static constexpr bool isReplyStreamEncodable = false;
     static constexpr bool isStreamBatched = false;
 
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
     using ReplyArguments = std::tuple<MachSendRight>;
-    explicit SendAndReceiveMachSendRight(const MachSendRight& a1)
-        : m_arguments(a1)
+    explicit SendAndReceiveMachSendRight(MachSendRight&& a1)
+        : m_arguments(WTFMove(a1))
     {
     }
 
@@ -211,7 +225,7 @@ public:
     }
 
 private:
-    std::tuple<const MachSendRight&> m_arguments;
+    std::tuple<MachSendRight&&> m_arguments;
 };
 #endif
 

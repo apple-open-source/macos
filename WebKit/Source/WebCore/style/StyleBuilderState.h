@@ -36,6 +36,7 @@
 namespace WebCore {
 
 class FilterOperations;
+class FontCascadeDescription;
 class RenderStyle;
 class StyleImage;
 class StyleResolver;
@@ -82,9 +83,8 @@ public:
     inline const FontCascadeDescription& fontDescription();
     inline const FontCascadeDescription& parentFontDescription();
 
-    // FIXME: These are mutually exclusive, clean up the code to take that into account.
     bool applyPropertyToRegularStyle() const { return m_linkMatch != SelectorChecker::MatchVisited; }
-    bool applyPropertyToVisitedLinkStyle() const { return m_linkMatch == SelectorChecker::MatchVisited; }
+    bool applyPropertyToVisitedLinkStyle() const { return m_linkMatch != SelectorChecker::MatchLink; }
 
     bool useSVGZoomRules() const;
     bool useSVGZoomRulesForLength() const;
@@ -95,8 +95,6 @@ public:
 
     static bool isColorFromPrimitiveValueDerivedFromElement(const CSSPrimitiveValue&);
     StyleColor colorFromPrimitiveValue(const CSSPrimitiveValue&, ForVisitedLink = ForVisitedLink::No) const;
-    // FIXME: Remove. 'currentcolor' should be resolved at use time. All call sites are broken with inheritance.
-    Color colorFromPrimitiveValueWithResolvedCurrentColor(const CSSPrimitiveValue&) const;
 
     const Vector<AtomString>& registeredContentAttributes() const { return m_registeredContentAttributes; }
     void registerContentAttribute(const AtomString& attributeLocalName);
@@ -105,6 +103,11 @@ public:
     CSSToStyleMap& styleMap() { return m_styleMap; }
 
     void setIsBuildingKeyframeStyle() { m_isBuildingKeyframeStyle = true; }
+
+    bool isAuthorOrigin() const
+    {
+        return m_currentProperty && m_currentProperty->cascadeLevel == CascadeLevel::Author;
+    }
 
 private:
     // See the comment in maybeUpdateFontForLetterSpacing() about why this needs to be a friend.

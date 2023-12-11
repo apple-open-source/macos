@@ -589,6 +589,16 @@ typedef enum {
 } xp_prefix_T;
 
 /*
+ * :set operator types
+ */
+typedef enum {
+    OP_NONE = 0,
+    OP_ADDING,		// "opt+=arg"
+    OP_PREPENDING,	// "opt^=arg"
+    OP_REMOVING,	// "opt-=arg"
+} set_op_T;
+
+/*
  * used for completion on the command line
  */
 typedef struct expand
@@ -610,6 +620,7 @@ typedef struct expand
 					// file name completion
     int		xp_col;			// cursor position in line
     int		xp_selected;		// selected index in completion
+    char_u	*xp_orig;		// originally expanded string
     char_u	**xp_files;		// list of files
     char_u	*xp_line;		// text being completed
 #define EXPAND_BUF_LEN 256
@@ -620,8 +631,9 @@ typedef struct expand
  * values for xp_backslash
  */
 #define XP_BS_NONE	0	// nothing special for backslashes
-#define XP_BS_ONE	1	// uses one backslash before a space
-#define XP_BS_THREE	2	// uses three backslashes before a space
+#define XP_BS_ONE	0x1	// uses one backslash before a space
+#define XP_BS_THREE	0x2	// uses three backslashes before a space
+#define XP_BS_COMMA	0x4	// commas need to be escaped with a backslash
 
 /*
  * Variables shared between getcmdline(), redrawcmdline() and others.
@@ -1498,10 +1510,11 @@ typedef enum {
  * Entry for an object or class member variable.
  */
 typedef struct {
-    char_u	*ocm_name;   // allocated
+    char_u	*ocm_name;	// allocated
     omacc_T	ocm_access;
+    int		ocm_has_type;	// type specified explicitly
     type_T	*ocm_type;
-    char_u	*ocm_init;   // allocated
+    char_u	*ocm_init;	// allocated
 } ocmember_T;
 
 // used for the lookup table of a class member index and object method index
@@ -1791,8 +1804,11 @@ struct ufunc_S
     def_status_T uf_def_status; // UF_NOT_COMPILED, UF_TO_BE_COMPILED, etc.
     int		uf_dfunc_idx;	// only valid if uf_def_status is UF_COMPILED
 
-    class_T	*uf_class;	// for object method and constructor; does not
-				// count for class_refcount
+    class_T	*uf_class;	// for class/object method and constructor;
+				// does not count for class_refcount.
+				// class of the object which is invoking this
+				// function.
+    class_T	*uf_defclass;	// class where this function is defined.
 
     garray_T	uf_args;	// arguments, including optional arguments
     garray_T	uf_def_args;	// default argument expressions
@@ -1877,6 +1893,13 @@ struct ufunc_S
 #define FC_OBJECT   0x4000	// object method
 #define FC_NEW	    0x8000	// constructor
 #define FC_ABSTRACT 0x10000	// abstract method
+
+// Is "ufunc" an object method?
+#define IS_OBJECT_METHOD(ufunc) ((ufunc->uf_flags & FC_OBJECT) == FC_OBJECT)
+// Is "ufunc" a class new() constructor method?
+#define IS_CONSTRUCTOR_METHOD(ufunc) ((ufunc->uf_flags & FC_NEW) == FC_NEW)
+// Is "ufunc" an abstract class method?
+#define IS_ABSTRACT_METHOD(ufunc) ((ufunc->uf_flags & FC_ABSTRACT) == FC_ABSTRACT)
 
 #define MAX_FUNC_ARGS	20	// maximum number of function arguments
 #define VAR_SHORT_LEN	20	// short variable name length
@@ -4525,6 +4548,18 @@ typedef struct
  *	"tv"	    points to the (first) list item value
  *	"li"	    points to the (first) list item
  *	"range", "n1", "n2" and "empty2" indicate what items are used.
+ * For a plain class or object:
+ *	"name"	    points to the variable name.
+ *	"exp_name"  is NULL.
+ *	"tv"	    points to the variable
+ *	"is_root"   TRUE
+ * For a variable in a class/object: (class is not NULL)
+ *	"name"	    points to the (expanded) variable name.
+ *	"exp_name"  NULL or non-NULL, to be freed later.
+ *	"tv"	    May point to class/object variable.
+ *	"object"    object containing variable, NULL if class variable
+ *	"class"	    class of object or class containing variable
+ *	"oi"	    index into class/object of tv
  * For an existing Dict item:
  *	"name"	    points to the (expanded) variable name.
  *	"exp_name"  NULL or non-NULL, to be freed later.
@@ -4561,7 +4596,25 @@ typedef struct lval_S
     type_T	*ll_valtype;	// type expected for the value or NULL
     blob_T	*ll_blob;	// The Blob or NULL
     ufunc_T	*ll_ufunc;	// The function or NULL
+    object_T	*ll_object;	// The object or NULL, class is not NULL
+    class_T	*ll_class;	// The class or NULL, object may be NULL
+    int		ll_oi;		// The object/class member index
+    int		ll_is_root;	// TRUE if ll_tv is the lval_root, like a
+				// plain object/class. ll_tv is variable.
 } lval_T;
+
+/**
+ * This may be used to specify the base typval that get_lval() uses when
+ * following a chain, for example a[idx1][idx2].
+ * The lr_sync_root flags signals get_lval that the first time through
+ * the indexing loop, skip handling  '.' and '[idx]'.
+ */
+typedef struct lval_root_S {
+    typval_T	*lr_tv;
+    class_T	*lr_cl_exec;	// executing class for access checking
+    int		lr_is_arg;
+    int		lr_sync_root;
+} lval_root_T;
 
 // Structure used to save the current state.  Used when executing Normal mode
 // commands while in any other mode.
@@ -4778,14 +4831,19 @@ typedef enum {
     WT_ARGUMENT,
     WT_VARIABLE,
     WT_MEMBER,
-    WT_METHOD,
+    WT_METHOD,		// object method
+    WT_METHOD_ARG,	// object method argument type
+    WT_METHOD_RETURN	// object method return type
 } wherekind_T;
 
-// Struct used to pass to error messages about where the error happened.
+// Struct used to pass the location of a type check.  Used in error messages to
+// indicate where the error happened.  Also used for doing covariance type
+// check for object method return type and contra-variance type check for
+// object method arguments.
 typedef struct {
     char	*wt_func_name;  // function name or NULL
     char	wt_index;	// argument or variable index, 0 means unknown
-    wherekind_T	wt_kind;	// "variable" when TRUE, "argument" otherwise
+    wherekind_T	wt_kind;	// type check location
 } where_T;
 
 #define WHERE_INIT {NULL, 0, WT_UNKNOWN}
@@ -4851,6 +4909,7 @@ typedef struct
     char_u	*os_varp;
     int		os_idx;
     int		os_flags;
+    set_op_T	os_op;
 
     // old value of the option (can be a string, number or a boolean)
     union
@@ -4893,6 +4952,34 @@ typedef struct
     // message (when it is not NULL).
     char	*os_errbuf;
 } optset_T;
+
+/*
+ * Argument for the callback function (opt_expand_cb_T) invoked after a string
+ * option value is expanded for cmdline completion.
+ */
+typedef struct
+{
+    // Pointer to the option variable. It's always a string.
+    char_u	*oe_varp;
+    // The original option value, escaped.
+    char_u	*oe_opt_value;
+
+    // TRUE if using set+= instead of set=
+    int		oe_append;
+    // TRUE if we would like to add the original option value as the first
+    // choice.
+    int		oe_include_orig_val;
+
+    // Regex from the cmdline, for matching potential options against.
+    regmatch_T	*oe_regmatch;
+    // The expansion context.
+    expand_T	*oe_xp;
+
+    // The full argument passed to :set. For example, if the user inputs
+    // ':set dip=icase,algorithm:my<Tab>', oe_xp->xp_pattern will only have
+    // 'my', but oe_set_arg will contain the whole 'icase,algorithm:my'.
+    char_u	*oe_set_arg;
+} optexpand_T;
 
 /*
  * Spell checking variables passed from win_update() to win_line().

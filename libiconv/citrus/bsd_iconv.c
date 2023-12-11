@@ -92,6 +92,7 @@ __bsd___iconv_open(const char *out, const char *in, struct _citrus_iconv *handle
 	 * high profile applications depend on it.
 	 */
 	handle->cv_shared->ci_ilseq_invalid = true;
+	handle->cv_shared->ci_translit = strcasestr(out, "//TRANSLIT");
 #else
 	handle->cv_shared->ci_ilseq_invalid = false;
 #endif
@@ -300,10 +301,11 @@ __bsd_iconvctl(iconv_t cd, int request, void *argument)
 		*i = (srclen == strlen(dst)) && !memcmp(convname, dst, srclen);
 		return (0);
 	case ICONV_GET_TRANSLITERATE:
-		*i = 1;
+		*i = cv->cv_shared->ci_translit ? 1 : 0;
 		return (0);
 	case ICONV_SET_TRANSLITERATE:
-		return  ((*i == 1) ? 0 : -1);
+		cv->cv_shared->ci_translit = *i;
+		return  (0);
 	case ICONV_GET_DISCARD_ILSEQ:
 		*i = cv->cv_shared->ci_discard_ilseq ? 1 : 0;
 		return (0);

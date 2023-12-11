@@ -62,6 +62,7 @@ OBJC_CLASS VKCImageAnalysis;
 
 namespace WebCore {
 
+class AccessibilityObject;
 class AbstractRange;
 class AnimationTimeline;
 class ArtworkImageLoader;
@@ -298,6 +299,8 @@ public:
     // For animations testing, we need a way to get at pseudo elements.
     ExceptionOr<RefPtr<Element>> pseudoElement(Element&, const String&);
 
+    double preferredRenderingUpdateInterval();
+
     Node* treeScopeRootNode(Node&);
     Node* parentTreeScope(Node&);
 
@@ -345,6 +348,8 @@ public:
 
     ExceptionOr<String> viewBaseBackgroundColor();
     ExceptionOr<void> setViewBaseBackgroundColor(const String& colorValue);
+
+    ExceptionOr<String> documentBackgroundColor();
 
     ExceptionOr<void> setPagination(const String& mode, int gap, int pageLength);
     ExceptionOr<uint64_t> lineIndexAfterPageBreak(Element&);
@@ -514,9 +519,13 @@ public:
 
     ExceptionOr<void> garbageCollectDocumentResources() const;
 
+    bool isUnderMemoryWarning();
+    bool isUnderMemoryPressure();
+
+    void beginSimulatedMemoryWarning();
+    void endSimulatedMemoryWarning();
     void beginSimulatedMemoryPressure();
     void endSimulatedMemoryPressure();
-    bool isUnderMemoryPressure();
 
     ExceptionOr<void> insertAuthorCSS(const String&) const;
     ExceptionOr<void> insertUserCSS(const String&) const;
@@ -610,6 +619,9 @@ public:
     void setMockVideoPresentationModeEnabled(bool);
 #endif
 
+    void setCanvasNoiseInjectionSalt(HTMLCanvasElement&, unsigned long long salt);
+    bool doesCanvasHavePendingCanvasNoiseInjection(HTMLCanvasElement&) const;
+
     WEBCORE_TESTSUPPORT_EXPORT void setApplicationCacheOriginQuota(unsigned long long);
 
     void registerURLSchemeAsBypassingContentSecurityPolicy(const String& scheme);
@@ -680,6 +692,7 @@ public:
     void enableMockMediaCapabilities();
 
 #if ENABLE(SPEECH_SYNTHESIS)
+    void simulateSpeechSynthesizerVoiceListChange();
     void enableMockSpeechSynthesizer();
     void enableMockSpeechSynthesizerForMediaElement(HTMLMediaElement&);
     ExceptionOr<void> setSpeechUtteranceDuration(double);
@@ -897,7 +910,6 @@ public:
 
 #if ENABLE(WEBGL)
     enum class SimulatedWebGLContextEvent {
-        ContextChange,
         GPUStatusFailure,
         Timeout
     };
@@ -1395,10 +1407,16 @@ public:
         
     bool isUsingUISideCompositing() const;
 
+    bool readyToRetrieveComputedRoleOrLabel(Element&) const;
+    String getComputedLabel(Element&) const;
+    String getComputedRole(Element&) const;
+
 private:
     explicit Internals(Document&);
     Document* contextDocument() const;
     LocalFrame* frame() const;
+
+    AccessibilityObject* axObjectForElement(Element&) const;
 
     void updatePageActivityState(OptionSet<ActivityState> statesToChange, bool newValue);
 

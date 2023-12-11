@@ -35,11 +35,23 @@ class TextStream;
 
 namespace WebCore {
 
+// Legacy shadow blur radius is used for canvas, and -webkit-box-shadow.
+// It has different treatment of radii > 8px.
+enum class ShadowRadiusMode : bool {
+    Default,
+    Legacy
+};
+
 struct GraphicsDropShadow {
     FloatSize offset;
-    FloatSize radius;
+    float radius;
     Color color;
-    
+    ShadowRadiusMode radiusMode;
+
+    bool isVisible() const { return color.isVisible(); }
+    bool isBlurred() const { return isVisible() && radius; }
+    bool hasOutsets() const { return isBlurred() || (isVisible() && !offset.isZero()); }
+
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<GraphicsDropShadow> decode(Decoder&);
 };
@@ -52,26 +64,19 @@ inline bool operator==(const GraphicsDropShadow& a, const GraphicsDropShadow& b)
 struct GraphicsGaussianBlur {
     FloatSize radius;
 
+    friend bool operator==(const GraphicsGaussianBlur&, const GraphicsGaussianBlur&) = default;
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<GraphicsGaussianBlur> decode(Decoder&);
 };
 
-inline bool operator==(const GraphicsGaussianBlur& a, const GraphicsGaussianBlur& b)
-{
-    return a.radius == b.radius;
-}
-
 struct GraphicsColorMatrix {
     std::array<float, 20> values;
+
+    friend bool operator==(const GraphicsColorMatrix&, const GraphicsColorMatrix&) = default;
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<GraphicsColorMatrix> decode(Decoder&);
 };
-
-inline bool operator==(const GraphicsColorMatrix& a, const GraphicsColorMatrix& b)
-{
-    return a.values == b.values;
-}
 
 using GraphicsStyle = std::variant<
     GraphicsDropShadow,
@@ -100,7 +105,7 @@ std::optional<GraphicsDropShadow> GraphicsDropShadow::decode(Decoder& decoder)
     if (!offset)
         return std::nullopt;
 
-    std::optional<FloatSize> radius;
+    std::optional<float> radius;
     decoder >> radius;
     if (!radius)
         return std::nullopt;
@@ -110,7 +115,13 @@ std::optional<GraphicsDropShadow> GraphicsDropShadow::decode(Decoder& decoder)
     if (!color)
         return std::nullopt;
 
-    return GraphicsDropShadow { *offset, *radius, *color };
+
+    std::optional<ShadowRadiusMode> radiusMode;
+    decoder >> radiusMode;
+    if (!radius)
+        return std::nullopt;
+
+    return GraphicsDropShadow { *offset, *radius, *color, *radiusMode };
 }
 
 template<class Encoder>

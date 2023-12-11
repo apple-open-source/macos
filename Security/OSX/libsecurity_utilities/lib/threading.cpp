@@ -284,10 +284,15 @@ void *Thread::runner(void *arg)
         // otherwise it will crash if something underneath throws.
     {
         Thread *me = static_cast<Thread *>(arg);
-        pthread_setname_np(me->threadName);
-        secinfo("thread", "%p: %s starting", pthread_self(), me->threadName);
+        // me might be freed/deleted/gone after me->threadAction(), so hold onto the thread name separately.
+        // N.B.: All current usage passes a constant string as the name param to the Thread ctor.
+        // If that changes, we would need to strdup() here & free() before returning below.
+        const char *threadName = me->threadName;
+        pthread_setname_np(threadName);
+        secinfo("thread", "%p: %s starting", pthread_self(), threadName);
         me->threadAction();
-        secinfo("thread", "%p: %s terminating", pthread_self(), me->threadName);
+        me = NULL; // Don't use me after threadAction()!!!
+        secinfo("thread", "%p: %s terminating", pthread_self(), threadName);
         return NULL;
     }
     catch (...)

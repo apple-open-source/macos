@@ -389,6 +389,7 @@ public:
         case TypeKind::RefNull:
         case TypeKind::Rec:
         case TypeKind::Sub:
+        case TypeKind::Subfinal:
         case TypeKind::Struct:
         case TypeKind::Structref:
         case TypeKind::Externref:
@@ -397,6 +398,8 @@ public:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             return sizeof(EncodedJSValue);
         case TypeKind::Void:
             return 0;
@@ -420,6 +423,7 @@ public:
         case TypeKind::RefNull:
         case TypeKind::Rec:
         case TypeKind::Sub:
+        case TypeKind::Subfinal:
         case TypeKind::Struct:
         case TypeKind::Structref:
         case TypeKind::Externref:
@@ -428,6 +432,8 @@ public:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             return TypeKind::I64;
         case TypeKind::Void:
             RELEASE_ASSERT_NOT_REACHED();
@@ -795,7 +801,7 @@ public:
             : m_enclosedHeight(0)
         { }
 
-        ControlData(BBQJIT& generator, BlockType blockType, BlockSignature signature, LocalOrTempIndex enclosedHeight)
+        ControlData(BBQJIT& generator, BlockType blockType, BlockSignature signature, LocalOrTempIndex enclosedHeight, RegisterSet liveScratchGPRs = { })
             : m_signature(signature)
             , m_blockType(blockType)
             , m_enclosedHeight(enclosedHeight)
@@ -835,8 +841,8 @@ public:
             if (!isAnyCatch(*this)) {
                 auto gprSetCopy = generator.m_validGPRs;
                 auto fprSetCopy = generator.m_validFPRs;
-                // We intentionally exclude GPRInfo::nonPreservedNonArgumentGPR1 from argument locations. See explanation in addIf and emitIndirectCall.
-                gprSetCopy.remove(GPRInfo::nonPreservedNonArgumentGPR1);
+                liveScratchGPRs.forEach([&] (auto r) { gprSetCopy.remove(r); });
+
                 for (unsigned i = 0; i < functionSignature->argumentCount(); ++i)
                     m_argumentLocations.append(allocateArgumentOrResult(generator, functionSignature->argumentType(i).kind, i, gprSetCopy, fprSetCopy));
             }
@@ -845,6 +851,17 @@ public:
             auto fprSetCopy = generator.m_validFPRs;
             for (unsigned i = 0; i < functionSignature->returnCount(); ++i)
                 m_resultLocations.append(allocateArgumentOrResult(generator, functionSignature->returnType(i).kind, i, gprSetCopy, fprSetCopy));
+        }
+
+        // Re-use the argument layout of another block (eg. else will re-use the argument/result locations from if)
+        enum BranchCallingConventionReuseTag { UseBlockCallingConventionOfOtherBranch };
+        ControlData(BranchCallingConventionReuseTag, BlockType blockType, ControlData& otherBranch)
+            : m_signature(otherBranch.m_signature)
+            , m_blockType(blockType)
+            , m_argumentLocations(otherBranch.m_argumentLocations)
+            , m_resultLocations(otherBranch.m_resultLocations)
+            , m_enclosedHeight(otherBranch.m_enclosedHeight)
+        {
         }
 
         template<typename Stack>
@@ -1428,6 +1445,8 @@ public:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             result = Value::fromRef(type.kind, static_cast<EncodedJSValue>(value));
             LOG_INSTRUCTION("RefConst", makeString(type.kind), RESULT(result));
             break;
@@ -1710,6 +1729,7 @@ public:
             case TypeKind::RefNull:
             case TypeKind::Rec:
             case TypeKind::Sub:
+            case TypeKind::Subfinal:
             case TypeKind::Struct:
             case TypeKind::Structref:
             case TypeKind::Externref:
@@ -1718,6 +1738,8 @@ public:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
             case TypeKind::Nullref:
+            case TypeKind::Nullfuncref:
+            case TypeKind::Nullexternref:
                 m_jit.load64(Address(wasmScratchGPR), resultLocation.asGPR());
                 break;
             case TypeKind::Void:
@@ -1825,6 +1847,7 @@ public:
             case TypeKind::RefNull:
             case TypeKind::Rec:
             case TypeKind::Sub:
+            case TypeKind::Subfinal:
             case TypeKind::Struct:
             case TypeKind::Structref:
             case TypeKind::Externref:
@@ -1833,6 +1856,8 @@ public:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
             case TypeKind::Nullref:
+            case TypeKind::Nullfuncref:
+            case TypeKind::Nullexternref:
                 m_jit.store64(valueLocation.asGPR(), Address(wasmScratchGPR));
                 break;
             case TypeKind::Void:
@@ -6700,12 +6725,12 @@ public:
         m_jit.emitFunctionPrologue();
         m_topLevel = ControlData(*this, BlockType::TopLevel, signature, 0);
 
-        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(&m_callee)), wasmScratchGPR);
+        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxNativeCallee(&m_callee)), wasmScratchGPR);
         static_assert(CallFrameSlot::codeBlock + 1 == CallFrameSlot::callee);
         if constexpr (is32Bit()) {
             CCallHelpers::Address calleeSlot { GPRInfo::callFrameRegister, CallFrameSlot::callee * sizeof(Register) };
             m_jit.storePtr(wasmScratchGPR, calleeSlot.withOffset(PayloadOffset));
-            m_jit.store32(CCallHelpers::TrustedImm32(JSValue::WasmTag), calleeSlot.withOffset(TagOffset));
+            m_jit.store32(CCallHelpers::TrustedImm32(JSValue::NativeCalleeTag), calleeSlot.withOffset(TagOffset));
             m_jit.storePtr(GPRInfo::wasmContextInstancePointer, CCallHelpers::addressFor(CallFrameSlot::codeBlock));
         } else
             m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, wasmScratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
@@ -6813,6 +6838,7 @@ public:
             case TypeKind::Func:
             case TypeKind::Array:
             case TypeKind::Sub:
+            case TypeKind::Subfinal:
             case TypeKind::V128:
                 clear(ClearMode::Zero, type, m_locals[i]);
                 break;
@@ -6825,6 +6851,8 @@ public:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
             case TypeKind::Nullref:
+            case TypeKind::Nullfuncref:
+            case TypeKind::Nullexternref:
                 clear(ClearMode::JSNull, type, m_locals[i]);
                 break;
             default:
@@ -6858,12 +6886,12 @@ public:
         auto label = m_jit.label();
         m_jit.emitFunctionPrologue();
 
-        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(&m_callee)), wasmScratchGPR);
+        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxNativeCallee(&m_callee)), wasmScratchGPR);
         static_assert(CallFrameSlot::codeBlock + 1 == CallFrameSlot::callee);
         if constexpr (is32Bit()) {
             CCallHelpers::Address calleeSlot { GPRInfo::callFrameRegister, CallFrameSlot::callee * sizeof(Register) };
             m_jit.storePtr(wasmScratchGPR, calleeSlot.withOffset(PayloadOffset));
-            m_jit.store32(CCallHelpers::TrustedImm32(JSValue::WasmTag), calleeSlot.withOffset(TagOffset));
+            m_jit.store32(CCallHelpers::TrustedImm32(JSValue::NativeCalleeTag), calleeSlot.withOffset(TagOffset));
             m_jit.storePtr(GPRInfo::wasmContextInstancePointer, CCallHelpers::addressFor(CallFrameSlot::codeBlock));
         } else
             m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, wasmScratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
@@ -6924,6 +6952,8 @@ public:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             return B3::Type(B3::Int64);
         case TypeKind::F32:
             return B3::Type(B3::Float);
@@ -7039,7 +7069,10 @@ public:
             emitMove(condition, conditionLocation);
         consume(condition);
 
-        result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount());
+        RegisterSet liveScratchGPRs;
+        liveScratchGPRs.add(conditionLocation.asGPR(), IgnoreVectors);
+
+        result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount(), liveScratchGPRs);
 
         // Despite being conditional, if doesn't need to worry about diverging expression stacks at block boundaries, so it doesn't need multiple exits.
         currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
@@ -7052,14 +7085,14 @@ public:
         if (condition.isConst() && !condition.asI32())
             result.setIfBranch(m_jit.jump()); // Emit direct branch if we know the condition is false.
         else if (!condition.isConst()) // Otherwise, we only emit a branch at all if we don't know the condition statically.
-            result.setIfBranch(m_jit.branchTest32(ResultCondition::Zero, GPRInfo::nonPreservedNonArgumentGPR1));
+            result.setIfBranch(m_jit.branchTest32(ResultCondition::Zero, conditionLocation.asGPR()));
         return { };
     }
 
     PartialResult WARN_UNUSED_RETURN addElse(ControlData& data, Stack& expressionStack)
     {
         data.flushAndSingleExit(*this, data, expressionStack, false, true);
-        ControlData dataElse(*this, BlockType::Block, data.signature(), data.enclosedHeight());
+        ControlData dataElse(ControlData::UseBlockCallingConventionOfOtherBranch, BlockType::Block, data);
         data.linkJumps(&m_jit);
         dataElse.addBranch(m_jit.jump());
         data.linkIfBranch(&m_jit); // Link specifically the conditional branch of the preceding If
@@ -7086,7 +7119,7 @@ public:
         // state entering the else block.
         data.flushAtBlockBoundary(*this, 0, m_parser->expressionStack(), true);
 
-        ControlData dataElse(*this, BlockType::Block, data.signature(), data.enclosedHeight());
+        ControlData dataElse(ControlData::UseBlockCallingConventionOfOtherBranch, BlockType::Block, data);
         data.linkJumps(&m_jit);
         dataElse.addBranch(m_jit.jump()); // Still needed even when the parent was unreachable to avoid running code within the else block.
         data.linkIfBranch(&m_jit); // Link specifically the conditional branch of the preceding If
@@ -7173,8 +7206,11 @@ public:
                 case TypeKind::Eqref:
                 case TypeKind::Anyref:
                 case TypeKind::Nullref:
+                case TypeKind::Nullfuncref:
+                case TypeKind::Nullexternref:
                 case TypeKind::Rec:
                 case TypeKind::Sub:
+                case TypeKind::Subfinal:
                 case TypeKind::Array:
                 case TypeKind::Struct:
                 case TypeKind::Func: {
@@ -7778,10 +7814,11 @@ public:
     void emitCCall(Func function, const Vector<Value, N>& arguments)
     {
         // Currently, we assume the Wasm calling convention is the same as the C calling convention
-        Vector<Type, 1> resultTypes;
-        Vector<Type> argumentTypes;
+        Vector<Type, 16> resultTypes;
+        Vector<Type, 16> argumentTypes;
+        argumentTypes.reserveInitialCapacity(arguments.size());
         for (const Value& value : arguments)
-            argumentTypes.append(Type { value.type(), 0u });
+            argumentTypes.uncheckedAppend(Type { value.type(), 0u });
         RefPtr<TypeDefinition> functionType = TypeInformation::typeDefinitionForFunction(resultTypes, argumentTypes);
         CallInformation callInfo = wasmCallingConvention().callInformationFor(*functionType, CallRole::Caller);
         Checked<int32_t> calleeStackSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), callInfo.headerAndArgumentStackSizeInBytes);
@@ -7806,10 +7843,11 @@ public:
         ASSERT(result.isTemp());
 
         // Currently, we assume the Wasm calling convention is the same as the C calling convention
-        Vector<Type, 1> resultTypes = { Type { result.type(), 0u } };
-        Vector<Type> argumentTypes;
+        Vector<Type, 16> resultTypes = { Type { result.type(), 0u } };
+        Vector<Type, 16> argumentTypes;
+        argumentTypes.reserveInitialCapacity(arguments.size());
         for (const Value& value : arguments)
-            argumentTypes.append(Type { value.type(), 0u });
+            argumentTypes.uncheckedAppend(Type { value.type(), 0u });
         RefPtr<TypeDefinition> functionType = TypeInformation::typeDefinitionForFunction(resultTypes, argumentTypes);
         CallInformation callInfo = wasmCallingConvention().callInformationFor(*functionType, CallRole::Caller);
         Checked<int32_t> calleeStackSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), callInfo.headerAndArgumentStackSizeInBytes);
@@ -7841,8 +7879,11 @@ public:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
         case TypeKind::Rec:
         case TypeKind::Sub:
+        case TypeKind::Subfinal:
         case TypeKind::Array:
         case TypeKind::Struct:
         case TypeKind::Func: {
@@ -7936,8 +7977,7 @@ public:
         prepareForExceptions();
         saveValuesAcrossCallAndPassArguments(arguments, wasmCalleeInfo); // Keep in mind that this clobbers wasmScratchGPR and wasmScratchFPR.
 
-        // Why can we still call calleeCode after saveValuesAcrossCallAndPassArguments? This is because we ensured that calleeCode is GPRInfo::nonPreservedNonArgumentGPR1,
-        // and any argument locations will not include GPRInfo::nonPreservedNonArgumentGPR1.
+        // Why can we still call calleeCode after saveValuesAcrossCallAndPassArguments? CalleeCode is a scratch and not any argument GPR.
         m_jit.call(calleeCode, WasmEntryPtrTag);
         returnValuesFromCall(results, *signature.as<FunctionSignature>(), wasmCalleeInfo);
 
@@ -9349,6 +9389,8 @@ private:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             m_jit.store64(TrustedImm64(constant.asRef()), loc.asAddress());
             break;
         case TypeKind::I64:
@@ -9390,6 +9432,8 @@ private:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             m_jit.move(TrustedImm64(constant.asRef()), loc.asGPR());
             break;
         case TypeKind::F32:
@@ -9432,6 +9476,8 @@ private:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             m_jit.store64(src.asGPR(), dst.asAddress());
             break;
         case TypeKind::V128:
@@ -9481,6 +9527,8 @@ private:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             m_jit.transfer64(src.asAddress(), dst.asAddress());
             break;
         case TypeKind::V128: {
@@ -9522,6 +9570,8 @@ private:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             m_jit.move(src.asGPR(), dst.asGPR());
             break;
         case TypeKind::F32:
@@ -9572,6 +9622,8 @@ private:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
         case TypeKind::Nullref:
+        case TypeKind::Nullfuncref:
+        case TypeKind::Nullexternref:
             m_jit.load64(src.asAddress(), dst.asGPR());
             break;
         case TypeKind::V128:
@@ -9660,6 +9712,21 @@ private:
     void emitShuffle(Vector<Value, N, OverflowHandler>& srcVector, Vector<Location, N, OverflowHandler>& dstVector)
     {
         ASSERT(srcVector.size() == dstVector.size());
+
+#if ASSERT_ENABLED
+        for (size_t i = 0; i < dstVector.size(); ++i) {
+            for (size_t j = i + 1; j < dstVector.size(); ++j)
+                ASSERT(dstVector[i] != dstVector[j]);
+        }
+
+        // This algorithm assumes at most one cycle: https://xavierleroy.org/publi/parallel-move.pdf
+        for (size_t i = 0; i < srcVector.size(); ++i) {
+            for (size_t j = i + 1; j < srcVector.size(); ++j) {
+                ASSERT(srcVector[i].isConst() || srcVector[j].isConst()
+                    || locationOf(srcVector[i]) != locationOf(srcVector[j]));
+            }
+        }
+#endif
 
         if (srcVector.size() == 1) {
             emitMove(srcVector[0], dstVector[0]);
@@ -10294,4 +10361,4 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(Compilati
 
 } } // namespace JSC::Wasm
 
-#endif // ENABLE(WEBASSEMBLY_B3JIT)
+#endif // ENABLE(WEBASSEMBLY_OMGJIT)

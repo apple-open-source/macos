@@ -105,6 +105,7 @@ struct _citrus_iconv_shared {
 	unsigned int					 ci_used_count;
 	char						*ci_convname;
 	bool						 ci_discard_ilseq;
+	bool						 ci_translit;
 	struct iconv_hooks				*ci_hooks;
 	bool						 ci_ilseq_invalid;
 };

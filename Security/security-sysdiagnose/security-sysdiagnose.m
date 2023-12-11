@@ -24,6 +24,7 @@
 #import <Foundation/Foundation.h>
 #import <Foundation/NSXPCConnection_Private.h>
 #import <Security/Security.h>
+#import <Security/SecInternalReleasePriv.h>
 
 #import "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
 
@@ -116,11 +117,18 @@ static void printSecItems(NSString *subsystem, CFTypeRef result) {
     if (result) {
         if (CFGetTypeID(result) == CFArrayGetTypeID()) {
             NSArray *items = (__bridge NSArray *)(result);
+
+            // Stringify all items, then sort them before printing
+            NSMutableArray<NSString*>* itemStrings = [NSMutableArray array];
             NSObject *item;
             for (item in items) {
                 if ([item respondsToSelector:@selector(asOneLineString)]) {
-                    [[NSString stringWithFormat: @"%@: %@\n", subsystem, [(NSMutableDictionary *)item asOneLineString]] writeToStdOut];
+                    [itemStrings addObject:[NSString stringWithFormat: @"%@: %@\n", subsystem, [(NSMutableDictionary *)item asOneLineString]]];
                 }
+            }
+            [itemStrings sortUsingSelector:@selector(compare:)];
+            for(NSString* str in itemStrings) {
+                [str writeToStdOut];
             }
         } else {
             NSObject *item = (__bridge NSObject *)(result);
@@ -224,6 +232,57 @@ rapport_sysdiagnose(void)
 }
 
 static void
+notes_sysdiagnose(void)
+{
+    NSString *kAccessGroupNotes  = @"group.com.apple.notes";
+
+    [@"Notes keychain state:\n" writeToStdOut];
+
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccessGroup : kAccessGroupNotes,
+        (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+        (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecReturnAttributes: @YES,
+        (id)kSecReturnData: @NO,
+    };
+
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef) query, &result);
+    if (status == noErr) {
+        // Unfortunately, Notes saves the account's DSID (or the string "local") under labl.
+        // Since we don't want to log the DSID to the sysdiagnose, redact it (on external builds).
+        NSMutableArray* cleanedItems = [NSMutableArray array];
+        NSMutableDictionary* dsids = [NSMutableDictionary dictionary];
+        uint64_t redactions = 1;
+
+        for(NSDictionary* item in (__bridge NSDictionary*)result) {
+            NSMutableDictionary* mutableItem = [item mutableCopy];
+
+            NSString* labl = mutableItem[(id)kSecAttrLabel];
+            if(!SecIsInternalRelease() && labl != nil && ![labl isEqualToString:@"local"]) {
+                // redact!
+                NSString* existing = dsids[labl];
+                if(!existing) {
+                    existing = [NSString stringWithFormat:@"<REDACTED-LABL-%llu>", redactions];
+                    redactions += 1;
+                    dsids[labl] = existing;
+                }
+                mutableItem[(id)kSecAttrLabel] = existing;
+
+            } else {
+                // don't change mutableItem
+            }
+
+            [cleanedItems addObject:mutableItem];
+        }
+
+        printSecItems(@"notes", (__bridge CFTypeRef)cleanedItems);
+    }
+    CFReleaseNull(result);
+}
+
+static void
 analytics_sysdiagnose(void)
 {
     NSXPCConnection* xpcConnection = [[NSXPCConnection alloc] initWithMachServiceName:@"com.apple.securityuploadd" options:0];
@@ -267,6 +326,7 @@ main(int argc, const char ** argv)
         homekit_sysdiagnose();
         unlock_sysdiagnose();
         rapport_sysdiagnose();
+        notes_sysdiagnose();
         analytics_sysdiagnose();
         
         // Keep this one last

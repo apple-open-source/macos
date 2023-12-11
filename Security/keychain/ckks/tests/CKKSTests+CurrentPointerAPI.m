@@ -48,13 +48,20 @@
 
 @implementation CloudKitKeychainSyncingCurrentPointerAPITests
 
--(void)fetchCurrentPointer:(bool)cached persistentRef:(NSData*)persistentRef
+- (NSSet*)managedViewList
+{
+    NSMutableSet* viewSet = [[super managedViewList] mutableCopy];
+    [viewSet addObject:@"ProtectedCloudStorage"];
+    return viewSet;
+}
+
+-(void)fetchCurrentPointer:(NSString*)view fetchCloudValue:(bool)fetchCloudValue persistentRef:(NSData*)persistentRef
 {
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"callback occurs"];
     SecItemFetchCurrentItemAcrossAllDevices((__bridge CFStringRef)@"com.apple.security.ckks",
                                             (__bridge CFStringRef)@"pcsservice",
-                                            (__bridge CFStringRef)@"keychain",
-                                            cached,
+                                            (__bridge CFStringRef)view,
+                                            fetchCloudValue,
                                             ^(CFDataRef currentPersistentRef, CFErrorRef cferror) {
                                                 XCTAssertNotNil((__bridge id)currentPersistentRef, "current item exists");
                                                 XCTAssertNil((__bridge id)cferror, "no error exists when there's a current item");
@@ -64,13 +71,18 @@
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
 }
 
--(void)fetchCurrentPointerData:(bool)cached persistentRef:(NSData*)persistentRef
+-(void)fetchCurrentPointer:(bool)fetchCloudValue persistentRef:(NSData*)persistentRef
+{
+    [self fetchCurrentPointer:@"keychain" fetchCloudValue:fetchCloudValue persistentRef:persistentRef];
+}
+
+-(void)fetchCurrentPointerData:(bool)fetchCloudValue persistentRef:(NSData*)persistentRef
 {
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"callback occurs"];
     SecItemFetchCurrentItemDataAcrossAllDevices(@"com.apple.security.ckks",
                                                 @"pcsservice",
                                                 @"keychain",
-                                                cached,
+                                                fetchCloudValue,
                                             ^(SecItemCurrentItemData *cip, NSError *error) {
                                                 XCTAssertNotNil(cip, "current item exists");
                                                 XCTAssertNotNil(cip.currentItemPointerModificationTime, "cip should have mtime");
@@ -81,13 +93,13 @@
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
 }
 
--(void)fetchCurrentPointerExpectingError:(bool)fetchCloudValue
+-(void)fetchCurrentPointerExpectingError:(NSString*)view fetchCloudValue:(bool)fetchCloudValue
 {
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"callback occurs"];
     TEST_API_AUTORELEASE_BEFORE(SecItemFetchCurrentItemAcrossAllDevices);
     SecItemFetchCurrentItemAcrossAllDevices((__bridge CFStringRef)@"com.apple.security.ckks",
                                             (__bridge CFStringRef)@"pcsservice",
-                                            (__bridge CFStringRef)@"keychain",
+                                            (__bridge CFStringRef)view,
                                             fetchCloudValue,
                                             ^(CFDataRef currentPersistentRef, CFErrorRef cferror) {
                                                 XCTAssertNil((__bridge id)currentPersistentRef, "no current item exists");
@@ -96,6 +108,11 @@
                                             });
     TEST_API_AUTORELEASE_AFTER(SecItemFetchCurrentItemAcrossAllDevices);
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
+}
+
+-(void)fetchCurrentPointerExpectingError:(bool)fetchCloudValue
+{
+    [self fetchCurrentPointerExpectingError:@"keychain" fetchCloudValue:fetchCloudValue];
 }
 
 - (void)testPCSFetchCurrentPointerCachedAndUncached {
@@ -535,6 +552,103 @@
 
     [self waitForExpectations:@[setCurrentExpectation] timeout:20];
     SecResetLocalSecuritydXPCFakeEntitlements();
+}
+
+- (void)testPCSCurrentPointerFailQuickly {
+    SecResetLocalSecuritydXPCFakeEntitlements();
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSWriteCurrentItemPointers, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
+
+    NSNumber* servIdentifier = @3;
+    NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
+
+    // Create a fake ProtectedCloudStorage zone.
+    CKRecordZoneID* pcsZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"ProtectedCloudStorage" ownerName:CKCurrentUserDefaultName];
+    [self.ckksZones addObject:pcsZoneID];
+    FakeCKZone* pcsZone = [[FakeCKZone alloc] initZone:pcsZoneID];
+    self.zones[pcsZoneID] = pcsZone;
+
+    CKKSKeychainViewState* pcsView = [self.defaultCKKS.operationDependencies viewStateForName:pcsZoneID.zoneName];
+    [self.ckksViews addObject:pcsView];
+
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID]; // Make life easy for this test (prevent spurious errors)
+    [self createAndSaveFakeKeyHierarchy:pcsZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [pcsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    // Ensure there's no current pointer
+    [self fetchCurrentPointerExpectingError:@"ProtectedCloudStorage" fetchCloudValue:false];
+
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:pcsZoneID
+                          checkItem: [self checkPCSFieldsBlock:pcsZoneID
+                                          PCSServiceIdentifier:(NSNumber *)servIdentifier
+                                                  PCSPublicKey:publicKey
+                                             PCSPublicIdentity:publicIdentity]];
+
+    // Add the item
+    NSMutableDictionary* query = [self pcsAddItemQuery:@"testaccount"
+                                                  data:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding]
+                                     serviceIdentifier:servIdentifier
+                                             publicKey:publicKey
+                                        publicIdentity:publicIdentity];
+    query[(id)kSecAttrSyncViewHint] = @"ProtectedCloudStorage";
+
+    CFTypeRef cfresult = NULL;
+    XCTestExpectation* syncExpectation = [self expectationWithDescription: @"_SecItemAddAndNotifyOnSync callback occured"];
+
+    XCTAssertEqual(errSecSuccess, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, &cfresult, ^(bool didSync, CFErrorRef error) {
+        XCTAssertTrue(didSync, "item expected to sync");
+        XCTAssertNil((__bridge NSError*)error, "item expected to sync without error");
+
+        [syncExpectation fulfill];
+    }), @"_SecItemAddAndNotifyOnSync succeeded");
+
+    [self waitForExpectations:@[syncExpectation] timeout:20];
+    [self waitForCKModifications];
+
+    // Verify that item exists at expected UUID
+    CKRecordID* pcsRecordID = [[CKRecordID alloc] initWithRecordName:@"D006BA7B-BEB1-C11C-EAE3-67496860B0DD" zoneID:pcsZoneID];
+    CKRecord* pcsRecord = pcsZone.currentDatabase[pcsRecordID];
+    XCTAssertNotNil(pcsRecord, "Found PCS record in CloudKit at expected UUID");
+
+    NSDictionary* result = CFBridgingRelease(cfresult);
+    XCTAssertNotNil(result, "Received result from adding item");
+
+    NSData* persistentRef = result[(id)kSecValuePersistentRef];
+
+    // Manually add current item pointer
+    CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
+                                                                          contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                    currentItemUUID:@"D006BA7B-BEB1-C11C-EAE3-67496860B0DD"
+                                                                              state:SecCKKSProcessedStateRemote
+                                                                             zoneID:pcsZoneID
+                                                                    encodedCKRecord:nil];
+    [pcsZone addToZone:[cip CKRecordWithZoneID:pcsZoneID]];
+    CKRecordID* currentPointerRecordID = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice" zoneID:pcsZoneID];
+    CKRecord* currentPointerRecord = pcsZone.currentDatabase[currentPointerRecordID];
+    XCTAssertNotNil(currentPointerRecord, "Found current item pointer in CloudKit");
+
+    // Ensure that receiving the current item pointer generates a notification
+    XCTestExpectation* keychainChanged = [self expectChangeForView:pcsZoneID.zoneName];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    [self waitForExpectations:@[keychainChanged] timeout:8];
+
+    // Make sure we can find the current item pointer (either way)
+    [self fetchCurrentPointer:@"ProtectedCloudStorage" fetchCloudValue:false persistentRef:persistentRef];
+    [self fetchCurrentPointer:@"ProtectedCloudStorage" fetchCloudValue:true persistentRef:persistentRef];
+
+    // Now, restart with no policy...
+    self.defaultCKKS = [self.injectedManager restartCKKSAccountSyncWithoutSettingPolicy:self.defaultCKKS];
+
+    // Make sure we can find the current item pointer
+    [self fetchCurrentPointer:@"ProtectedCloudStorage" fetchCloudValue:false persistentRef:persistentRef];
+    // Make sure we can't find the current item pointer from the cloud
+    [self fetchCurrentPointerExpectingError:@"ProtectedCloudStorage" fetchCloudValue:true];
 }
 
 - (void)testPCSCurrentPointerReceive {

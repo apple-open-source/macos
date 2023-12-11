@@ -128,8 +128,11 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 
 - (void)stashedCredentialPublicKey:(void(^)(NSData *, NSError *error))complete;
 - (void)assertStashedAccountCredential:(void(^)(BOOL result, NSError *error))complete;
-- (void)validatedStashedAccountCredential:(void(^)(NSData *credential, NSError *error))complete;
-- (void)stashAccountCredential:(NSData *)credential complete:(void(^)(bool success, NSError *error))complete;
+- (void)validatedStashedAccountCredential:(NSString*)altDSID  
+                                   flowID:(NSString*)flowID
+                          deviceSessionID:(NSString*)deviceSessionID
+                                 complete:(void(^)(NSData *credential, NSError *error))complete;
+- (void)stashAccountCredential:(NSData *)credential altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID complete:(void(^)(bool success, NSError *error))complete;
 - (void)ghostBust:(SOSAccountGhostBustingOptions)options complete: (void(^)(bool ghostBusted, NSError *error))complete;
 - (void)ghostBustPeriodic:(SOSAccountGhostBustingOptions)options complete: (void(^)(bool busted, NSError *error))complete;
 - (void)ghostBustTriggerTimed:(SOSAccountGhostBustingOptions)options complete: (void(^)(bool ghostBusted, NSError *error))complete;
@@ -139,11 +142,11 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 - (void)accountStatus: (void (^)(NSData *json, NSError *error))complete;
 - (void)keyStatusFor: (int) keyType complete: (void(^)(SOSBackupPublicKeyStatus status, NSError *error))complete;
 
-- (void)myPeerInfo:(void (^)(NSData *, NSError *))complete;
+- (void)myPeerInfo:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID complete:(void (^)(NSData *, NSError *))complete;
 - (void)circleHash:(void (^)(NSString *, NSError *))complete;
-- (void)circleJoiningBlob:(NSData *)applicant complete:(void (^)(NSData *blob, NSError *))complete;
-- (void)joinCircleWithBlob:(NSData *)blob version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete;
-- (void)initialSyncCredentials:(uint32_t)flags complete:(void (^)(NSArray *, NSError *))complete;
+- (void)circleJoiningBlob:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID applicant:(NSData *)applicant complete:(void (^)(NSData *blob, NSError *))complete;
+- (void)joinCircleWithBlob:(NSData *)blob altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete;
+- (void)initialSyncCredentials:(uint32_t)flags altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID complete:(void (^)(NSArray *, NSError *))complete;
 - (void)importInitialSyncCredentials:(NSArray *)items complete:(void (^)(bool success, NSError *))complete;
 
 - (void)rpcTriggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete;

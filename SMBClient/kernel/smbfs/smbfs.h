@@ -42,11 +42,11 @@
 #include <netsmb/smb_2.h>
 
 #define SMBFS_VERMAJ	5
-#define SMBFS_VERMIN	0000
+#define SMBFS_VERMIN	1000
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 5.0"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 13"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 5.1"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 14"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 #define	SMBFS_MAXPATHCOMP	1024	/* maximum number of path components */
@@ -201,7 +201,8 @@ struct smb_byte_range_locks {
 /* smb_file flags */
 typedef enum _SMB_FILE_FLAGS
 {
-    SMB_FILE_UBC_CACHING = 0x0001
+	SMB_FILE_UBC_CACHING = 0x0001,
+	SMB_FILE_MMAPPED = 0x0002
 } _SMB_FILE_FLAGS;
 
 #define SMB_MAX_LOCKS_RETURNED 25

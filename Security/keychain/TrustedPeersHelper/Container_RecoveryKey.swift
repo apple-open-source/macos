@@ -55,9 +55,15 @@ extension Container {
                     var recoveryKeys: RecoveryKey
                     do {
                         recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
+
+                        let signingPublicKey: Data = recoveryKeys.peerKeys.signingVerificationKey.keyData
+                        let encryptionPublicKey: Data = recoveryKeys.peerKeys.encryptionVerificationKey.keyData
+
+                        logger.info("preflightVouchWithRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
+                        logger.info("preflightVouchWithRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
                     } catch {
                         logger.error("preflightRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
-                        reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
+                        reply(nil, nil, ContainerError.failedToCreateRecoveryKey(suberror: error))
                         return
                     }
 
@@ -87,6 +93,7 @@ extension Container {
                         let bestPolicy = try self.model.policy(forPeerIDs: sponsor.dynamicInfo?.includedPeerIDs ?? [sponsor.peerID],
                                                                candidatePeerID: egoPeerID,
                                                                candidateStableInfo: sponsor.stableInfo)
+
                         let syncingPolicy = try bestPolicy.syncingPolicy(forModel: selfPermanentInfo.modelID,
                                                                          syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN, isInheritedAccount: selfStableInfo.isInheritedAccount)
 
@@ -170,7 +177,7 @@ extension Container {
                         crkRecoveryKey = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: recoveryKeyString, recoverySalt: recoverySalt)
                     } catch {
                         logger.error("preflightCustodianRecoveryKey: failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
-                        reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
+                        reply(nil, nil, ContainerError.failedToCreateRecoveryKey(suberror: error))
                         return
                     }
 
@@ -199,9 +206,9 @@ extension Container {
                         let bestPolicy = try self.model.policy(forPeerIDs: sponsor.dynamicInfo?.includedPeerIDs ?? [sponsor.peerID],
                                                                candidatePeerID: egoPeerID,
                                                                candidateStableInfo: sponsor.stableInfo)
+
                         let syncingPolicy = try bestPolicy.syncingPolicy(forModel: selfPermanentInfo.modelID,
                                                                          syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN, isInheritedAccount: selfStableInfo.isInheritedAccount)
-
                         reply(crkRecoveryKey.peerKeys.peerID, syncingPolicy, nil)
                     } catch {
                         logger.error("preflightCustodianRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
@@ -236,9 +243,15 @@ extension Container {
                 var recoveryKeys: RecoveryKey
                 do {
                     recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
+
+                    let signingPublicKey: Data = recoveryKeys.peerKeys.signingVerificationKey.keyData
+                    let encryptionPublicKey: Data = recoveryKeys.peerKeys.encryptionVerificationKey.keyData
+
+                    logger.info("preflightRecoverOctagonWithRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
+                    logger.info("preflightRecoverOctagonWithRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
                 } catch {
                     logger.error("preflightRecoverOctagonWithRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
-                    reply(false, ContainerError.failedToCreateRecoveryKey)
+                    reply(false, ContainerError.failedToCreateRecoveryKey(suberror: error))
                     return
                 }
 

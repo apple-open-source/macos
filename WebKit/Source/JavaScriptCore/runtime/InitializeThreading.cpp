@@ -31,20 +31,20 @@
 
 #include "AssemblyComments.h"
 #include "ExecutableAllocator.h"
+#include "InPlaceInterpreter.h"
 #include "JITOperationList.h"
 #include "JSCConfig.h"
 #include "JSCPtrTag.h"
 #include "LLIntData.h"
+#include "NativeCalleeRegistry.h"
 #include "Options.h"
 #include "StructureAlignedMemoryAllocator.h"
 #include "SuperSampler.h"
 #include "VMTraps.h"
-#include "WasmCalleeRegistry.h"
 #include "WasmCapabilities.h"
 #include "WasmFaultSignalHandler.h"
 #include "WasmThunks.h"
 #include <mutex>
-#include <wtf/GenerateProfiles.h>
 #include <wtf/Threading.h>
 #include <wtf/threads/Signals.h>
 
@@ -53,6 +53,10 @@
 #if BUSE(LIBPAS)
 #include <bmalloc/pas_scavenger.h>
 #endif
+#endif
+
+#if ENABLE(LLVM_PROFILE_GENERATION)
+extern "C" char __llvm_profile_filename[] = "/private/tmp/WebKitPGO/JavaScriptCore_%m_pid%p%c.profraw";
 #endif
 
 namespace JSC {
@@ -102,6 +106,10 @@ void initialize()
         JITOperationList::populatePointersInJavaScriptCore();
 
         AssemblyCommentRegistry::initialize();
+#if ENABLE(WEBASSEMBLY)
+        if (Options::useWasmIPInt())
+            IPInt::initialize();
+#endif
         LLInt::initialize();
         DisallowGC::initialize();
 
@@ -109,10 +117,10 @@ void initialize()
         Thread& thread = Thread::current();
         thread.setSavedLastStackTop(thread.stack().origin());
 
+        NativeCalleeRegistry::initialize();
 #if ENABLE(WEBASSEMBLY)
         if (Wasm::isSupported()) {
             Wasm::Thunks::initialize();
-            Wasm::CalleeRegistry::initialize();
         }
 #endif
 
@@ -133,8 +141,6 @@ void initialize()
         WTF::compilerFence();
         RELEASE_ASSERT(!g_jscConfig.initializeHasBeenCalled);
         g_jscConfig.initializeHasBeenCalled = true;
-
-        WTF::registerProfileGenerationCallback<JSCProfileTag>("JavaScriptCore");
     });
 }
 

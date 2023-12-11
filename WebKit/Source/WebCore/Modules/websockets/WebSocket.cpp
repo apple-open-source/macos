@@ -336,8 +336,8 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
     };
     if (is<Document>(context))
         reportRegistrableDomain(context);
-    else
-        downcast<WorkerGlobalScope>(context).thread().workerLoaderProxy().postTaskToLoader(WTFMove(reportRegistrableDomain));
+    else if (auto* workerLoaderProxy = downcast<WorkerGlobalScope>(context).thread().workerLoaderProxy())
+        workerLoaderProxy->postTaskToLoader(WTFMove(reportRegistrableDomain));
 #endif
 
     m_pendingActivity = makePendingActivity(*this);
@@ -477,10 +477,9 @@ String WebSocket::extensions() const
     return m_extensions;
 }
 
-ExceptionOr<void> WebSocket::setBinaryType(BinaryType binaryType)
+void WebSocket::setBinaryType(BinaryType binaryType)
 {
     m_binaryType = binaryType;
-    return { };
 }
 
 EventTargetInterface WebSocket::eventTargetInterface() const

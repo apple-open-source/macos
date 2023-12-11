@@ -98,9 +98,9 @@ GraphicsContextCairo* GraphicsContextCairo::platformContext() const
     return const_cast<GraphicsContextCairo*>(this);
 }
 
-void GraphicsContextCairo::save()
+void GraphicsContextCairo::save(GraphicsContextState::Purpose purpose)
 {
-    GraphicsContext::save();
+    GraphicsContext::save(purpose);
 
     m_cairoStateStack.append(CairoState());
     m_cairoState = &m_cairoStateStack.last();
@@ -108,12 +108,12 @@ void GraphicsContextCairo::save()
     cairo_save(m_cr.get());
 }
 
-void GraphicsContextCairo::restore()
+void GraphicsContextCairo::restore(GraphicsContextState::Purpose purpose)
 {
     if (!stackSize())
         return;
 
-    GraphicsContext::restore();
+    GraphicsContext::restore(purpose);
 
     if (m_cairoStateStack.isEmpty())
         return;
@@ -268,12 +268,12 @@ void GraphicsContextCairo::didUpdateState(GraphicsContextState& state)
         Cairo::State::setStrokeStyle(*this, state.strokeStyle());
 
     // FIXME: m_state should not be changed to flip the shadow offset. This can happen when the shadow is applied to the platform context.
-    if (state.changes().contains(GraphicsContextState::Change::DropShadow)) {
-        if (state.shadowsIgnoreTransforms()) {
+    if (state.changes().contains(GraphicsContextState::Change::Style)) {
+        auto dropShadow = state.dropShadow();
+        if (dropShadow && state.shadowsIgnoreTransforms()) {
             // Meaning that this graphics context is associated with a CanvasRenderingContext
             // We flip the height since CG and HTML5 Canvas have opposite Y axis
-            auto& shadowOffset = state.dropShadow().offset;
-            m_state.m_dropShadow.offset = { shadowOffset.width(), -shadowOffset.height() };
+            m_state.m_style = GraphicsDropShadow { { dropShadow->offset.width(), -dropShadow->offset.height() }, dropShadow->radius, dropShadow->color, dropShadow->radiusMode };
         }
     }
 

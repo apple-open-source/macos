@@ -4194,7 +4194,7 @@
     }];
 
     OctagonStateTransitionWatcher *watcher = [[OctagonStateTransitionWatcher alloc] initNamed:name
-                                                                                  serialQueue:self.defaultCKKS.queue
+                                                                                 stateMachine:self.defaultCKKS.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
     [watcher timeout:20*NSEC_PER_SEC];

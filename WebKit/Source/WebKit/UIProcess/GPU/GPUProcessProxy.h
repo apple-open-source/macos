@@ -29,7 +29,6 @@
 
 #include "AuxiliaryProcessProxy.h"
 #include "ProcessLauncher.h"
-#include "ProcessTerminationReason.h"
 #include "ProcessThrottler.h"
 #include "ProcessThrottlerClient.h"
 #include "ShareableBitmap.h"
@@ -58,10 +57,15 @@ class SecurityOriginData;
 
 namespace WebKit {
 
+enum class ProcessTerminationReason : uint8_t;
+
+class SandboxExtensionHandle;
 class WebProcessProxy;
 class WebsiteDataStore;
+
 struct GPUProcessConnectionParameters;
 struct GPUProcessCreationParameters;
+struct GPUProcessPreferencesForWebProcess;
 
 class GPUProcessProxy final : public AuxiliaryProcessProxy, private ProcessThrottlerClient {
     WTF_MAKE_FAST_ALLOCATED;
@@ -73,8 +77,6 @@ public:
     ~GPUProcessProxy();
 
     void createGPUProcessConnection(WebProcessProxy&, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
-    void updateWebGPUEnabled(WebProcessProxy&, bool webGPUEnabled);
-    void updateDOMRenderingEnabled(WebProcessProxy&, bool isDOMRenderingEnabled);
 
     ProcessThrottler& throttler() final { return m_throttler; }
     void updateProcessAssertion();
@@ -91,7 +93,7 @@ public:
     void setMockMediaDeviceIsEphemeral(const String&, bool);
     void resetMockMediaDevices();
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
-    void triggerMockMicrophoneConfigurationChange();
+    void triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay);
     void updateSandboxAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture);
 #endif
 
@@ -123,7 +125,7 @@ public:
 
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
     bool hasSentGPUToolsSandboxExtensions() const { return m_hasSentGPUToolsSandboxExtensions; }
-    static Vector<SandboxExtension::Handle> createGPUToolsSandboxExtensionHandlesIfNeeded();
+    static Vector<SandboxExtensionHandle> createGPUToolsSandboxExtensionHandlesIfNeeded();
 #endif
 
 private:

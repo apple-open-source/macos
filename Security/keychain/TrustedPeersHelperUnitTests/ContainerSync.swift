@@ -23,7 +23,7 @@ extension Container {
     func resetSync(resetReason: CuttlefishResetReason, test: XCTestCase) -> Error? {
         let expectation = XCTestExpectation(description: "reset replied")
         var reterr: Error?
-        self.reset(resetReason: resetReason, idmsTargetContext: nil, idmsCuttlefishPassword: nil, notifyIdMS: false) { error in
+        self.reset(resetReason: resetReason, idmsTargetContext: nil, idmsCuttlefishPassword: nil, notifyIdMS: false, internalAccount: false, demoAccount: false) { error in
             reterr = error
             expectation.fulfill()
         }
@@ -117,7 +117,10 @@ extension Container {
                    permanentInfoSig: Data,
                    stableInfo: Data,
                    stableInfoSig: Data,
-                   ckksKeys: [CKKSKeychainBackedKeySet]) -> (Data?, Data?, Error?) {
+                   ckksKeys: [CKKSKeychainBackedKeySet],
+                   altDSID: String?,
+                   flowID: String?,
+                   deviceSessionID: String?) -> (Data?, Data?, Error?) {
         let expectation = XCTestExpectation(description: "vouch replied")
         var reta: Data?, retb: Data?, reterr: Error?
         self.vouch(peerID: peerID,
@@ -125,7 +128,10 @@ extension Container {
                    permanentInfoSig: permanentInfoSig,
                    stableInfo: stableInfo,
                    stableInfoSig: stableInfoSig,
-                   ckksKeys: ckksKeys) { a, b, err in
+                   ckksKeys: ckksKeys,
+                   altDSID: altDSID,
+                   flowID: flowID,
+                   deviceSessionID: deviceSessionID) { a, b, err in
                     reta = a
                     retb = b
                     reterr = err
@@ -171,7 +177,10 @@ extension Container {
                   voucherSig: Data,
                   ckksKeys: [CKKSKeychainBackedKeySet],
                   tlkShares: [CKKSTLKShare],
-                  preapprovedKeys: [Data]? = nil) -> (String?, [CKRecord]?, TPSyncingPolicy?, Error?) {
+                  preapprovedKeys: [Data]? = nil,
+                  altDSID: String?,
+                  flowID: String?,
+                  deviceSessionID: String?) -> (String?, [CKRecord]?, TPSyncingPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "join replied")
         var reta: String?, retkhr: [CKRecord]?, reterr: Error?
         var retpolicy: TPSyncingPolicy?
@@ -179,7 +188,10 @@ extension Container {
                   voucherSig: voucherSig,
                   ckksKeys: ckksKeys,
                   tlkShares: tlkShares,
-                  preapprovedKeys: preapprovedKeys) { a, khr, policy, err in
+                  preapprovedKeys: preapprovedKeys,
+                  altDSID: altDSID,
+                  flowID: flowID,
+                  deviceSessionID: deviceSessionID) { a, khr, policy, err in
                     reta = a
                     retkhr = khr
                     retpolicy = policy

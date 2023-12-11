@@ -74,6 +74,32 @@ namespace Integrity {
 class Analyzer;
 }
 
+class DeferredStructureTransitionWatchpointFire final : public DeferredWatchpointFire {
+    WTF_MAKE_NONCOPYABLE(DeferredStructureTransitionWatchpointFire);
+public:
+    DeferredStructureTransitionWatchpointFire(VM& vm, Structure* structure)
+        : DeferredWatchpointFire()
+        , m_vm(vm)
+        , m_structure(structure)
+    {
+    }
+
+    ~DeferredStructureTransitionWatchpointFire()
+    {
+        if (watchpointsToFire().state() == IsWatched)
+            fireAllSlow();
+    }
+
+    const Structure* structure() const { return m_structure; }
+
+
+private:
+    JS_EXPORT_PRIVATE void fireAllSlow();
+
+    VM& m_vm;
+    const Structure* m_structure;
+};
+
 // The out-of-line property storage capacity to use when first allocating out-of-line
 // storage. Note that all objects start out without having any out-of-line storage;
 // this comes into play only on the first property store that exhausts inline storage.
@@ -191,7 +217,7 @@ public:
     using SeenProperties = TinyBloomFilter<CompactPtr<UniquedStringImpl>::StorageType>;
 
     enum PolyProtoTag { PolyProto };
-    static Structure* create(VM&, JSGlobalObject*, JSValue prototype, const TypeInfo&, const ClassInfo*, IndexingType = NonArray, unsigned inlineCapacity = 0);
+    inline static Structure* create(VM&, JSGlobalObject*, JSValue prototype, const TypeInfo&, const ClassInfo*, IndexingType = NonArray, unsigned inlineCapacity = 0);
     static Structure* create(PolyProtoTag, VM&, JSGlobalObject*, JSObject* prototype, const TypeInfo&, const ClassInfo*, IndexingType = NonArray, unsigned inlineCapacity = 0);
 
     ~Structure();
@@ -600,6 +626,7 @@ public:
     PropertyOffset get(VM&, PropertyName);
     PropertyOffset get(VM&, PropertyName, unsigned& attributes);
 
+    bool canPerformFastPropertyEnumerationCommon() const;
     bool canPerformFastPropertyEnumeration() const;
 
     // This is a somewhat internalish method. It will call your functor while possibly holding the

@@ -234,7 +234,7 @@
 #include <wtf/linux/RealTimeThreads.h>
 #endif
 
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+#if ENABLE(CONTENT_FILTERING)
 #include "WebMockContentFilterManager.h"
 #endif
 
@@ -351,7 +351,7 @@ WebProcess::WebProcess()
 
     Gigacage::forbidDisablingPrimitiveGigacage();
 
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+#if ENABLE(CONTENT_FILTERING)
     WebMockContentFilterManager::singleton().startObservingSettings();
 #endif
 
@@ -445,7 +445,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
             if (m_pagesInWindows.isEmpty() && critical == Critical::No)
                 critical = Critical::Yes;
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
             // If this is a process we keep around for performance, kill it on memory pressure instead of trying to free up its memory.
             if (!m_isSuspending && (m_processType == ProcessType::CachedWebContent || m_processType == ProcessType::PrewarmedWebContent || areAllPagesSuspended())) {
                 if (m_processType == ProcessType::CachedWebContent)
@@ -852,14 +852,15 @@ void WebProcess::createWebPage(PageIdentifier pageID, WebPageCreationParameters&
     // It is necessary to check for page existence here since during a window.open() (or targeted
     // link) the WebPage gets created both in the synchronous handler and through the normal way. 
     auto result = m_pageMap.add(pageID, nullptr);
+    m_hasEverHadAnyWebPages = true;
     if (result.isNewEntry) {
         ASSERT(!result.iterator->value);
         auto page = WebPage::create(pageID, WTFMove(parameters));
         result.iterator->value = page.ptr();
 
 #if ENABLE(GPU_PROCESS)
-        if (m_gpuProcessConnection)
-            page->gpuProcessConnectionDidBecomeAvailable(*m_gpuProcessConnection);
+        if (RefPtr gpuProcessConnection = m_gpuProcessConnection)
+            page->gpuProcessConnectionDidBecomeAvailable(*gpuProcessConnection);
 #endif
 
         // Balanced by an enableTermination in removeWebPage.
@@ -1124,7 +1125,7 @@ void WebProcess::setJavaScriptGarbageCollectorTimerEnabled(bool flag)
 
 void WebProcess::handleInjectedBundleMessage(const String& messageName, const UserData& messageBody)
 {
-    InjectedBundle* injectedBundle = WebProcess::singleton().injectedBundle();
+    RefPtr injectedBundle = WebProcess::singleton().injectedBundle();
     if (!injectedBundle)
         return;
 
@@ -1133,7 +1134,7 @@ void WebProcess::handleInjectedBundleMessage(const String& messageName, const Us
 
 void WebProcess::setInjectedBundleParameter(const String& key, const IPC::DataReference& value)
 {
-    InjectedBundle* injectedBundle = WebProcess::singleton().injectedBundle();
+    RefPtr injectedBundle = WebProcess::singleton().injectedBundle();
     if (!injectedBundle)
         return;
 
@@ -1142,7 +1143,7 @@ void WebProcess::setInjectedBundleParameter(const String& key, const IPC::DataRe
 
 void WebProcess::setInjectedBundleParameters(const IPC::DataReference& value)
 {
-    InjectedBundle* injectedBundle = WebProcess::singleton().injectedBundle();
+    RefPtr injectedBundle = WebProcess::singleton().injectedBundle();
     if (!injectedBundle)
         return;
 
@@ -1198,7 +1199,7 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
 
     // If we've lost our connection to the network process (e.g. it crashed) try to re-establish it.
     if (!m_networkProcessConnection) {
-        auto connectionInfo = getNetworkProcessConnection(*parentProcessConnection());
+        auto connectionInfo = getNetworkProcessConnection(Ref { *parentProcessConnection() });
 
         m_networkProcessConnection = NetworkProcessConnection::create(IPC::Connection::Identifier { WTFMove(connectionInfo.connection) }, connectionInfo.cookieAcceptPolicy);
 #if HAVE(AUDIT_TOKEN)
@@ -1312,7 +1313,7 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
 WebFileSystemStorageConnection& WebProcess::fileSystemStorageConnection()
 {
     if (!m_fileSystemStorageConnection)
-        m_fileSystemStorageConnection = WebFileSystemStorageConnection::create(ensureNetworkProcessConnection().connection());
+        m_fileSystemStorageConnection = WebFileSystemStorageConnection::create(Ref { ensureNetworkProcessConnection().connection() });
 
     return *m_fileSystemStorageConnection;
 }
@@ -1330,13 +1331,13 @@ GPUProcessConnection& WebProcess::ensureGPUProcessConnection()
 
     // If we've lost our connection to the GPU process (e.g. it crashed) try to re-establish it.
     if (!m_gpuProcessConnection) {
-        m_gpuProcessConnection = GPUProcessConnection::create(*parentProcessConnection());
+        m_gpuProcessConnection = GPUProcessConnection::create(Ref { *parentProcessConnection() });
         if (!m_gpuProcessConnection)
             CRASH();
         for (auto& page : m_pageMap.values()) {
             // If page is null, then it is currently being constructed.
             if (page)
-                page->gpuProcessConnectionDidBecomeAvailable(*m_gpuProcessConnection);
+                page->gpuProcessConnectionDidBecomeAvailable(Ref { *m_gpuProcessConnection });
         }
     }
     return *m_gpuProcessConnection;
@@ -1348,6 +1349,11 @@ void WebProcess::gpuProcessConnectionClosed(GPUProcessConnection& connection)
     ASSERT_UNUSED(connection, m_gpuProcessConnection == &connection);
 
     m_gpuProcessConnection = nullptr;
+
+    for (auto& page : m_pageMap.values()) {
+        if (page)
+            page->gpuProcessConnectionWasDestroyed();
+    }
 
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
     if (m_audioMediaStreamTrackRendererInternalUnitManager)
@@ -1382,18 +1388,18 @@ void WebProcess::setEnhancedAccessibility(bool flag)
 
 void WebProcess::remotePostMessage(WebCore::FrameIdentifier identifier, std::optional<WebCore::SecurityOriginData> target, const WebCore::MessageWithMessagePorts& message)
 {
-    auto* webFrame = WebProcess::singleton().webFrame(identifier);
+    RefPtr webFrame = WebProcess::singleton().webFrame(identifier);
     if (!webFrame)
         return;
 
     if (!webFrame->coreLocalFrame())
         return;
 
-    auto* domWindow = webFrame->coreLocalFrame()->window();
+    RefPtr domWindow = webFrame->coreLocalFrame()->window();
     if (!domWindow)
         return;
 
-    auto* frame = domWindow->frame();
+    RefPtr frame = domWindow->frame();
     if (!frame)
         return;
 
@@ -1407,13 +1413,13 @@ void WebProcess::remotePostMessage(WebCore::FrameIdentifier identifier, std::opt
 
 void WebProcess::renderTreeAsText(WebCore::FrameIdentifier frameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior, CompletionHandler<void(String)>&& completionHandler)
 {
-    auto* webFrame = WebProcess::singleton().webFrame(frameIdentifier);
+    RefPtr webFrame = WebProcess::singleton().webFrame(frameIdentifier);
     if (!webFrame) {
         ASSERT_NOT_REACHED();
         return completionHandler({ });
     }
 
-    auto* coreLocalFrame = webFrame->coreLocalFrame();
+    RefPtr coreLocalFrame = webFrame->coreLocalFrame();
     if (!coreLocalFrame) {
         ASSERT_NOT_REACHED();
         return completionHandler({ });
@@ -1610,12 +1616,9 @@ void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estim
         platformMediaSessionManager->processWillSuspend();
 #endif
 
-#if !PLATFORM(MAC)
-    if (!m_suppressMemoryPressureHandler) {
-        MemoryPressureHandler::singleton().releaseMemory(Critical::Yes, Synchronous::Yes);
-        for (auto& page : m_pageMap.values())
-            page->releaseMemory(Critical::Yes);
-    }
+#if !ENABLE(WEBPROCESS_CACHE)
+    if (!m_suppressMemoryPressureHandler)
+        releaseMemory([] { });
 #endif
 
     freezeAllLayerTrees();
@@ -2012,16 +2015,16 @@ void WebProcess::establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWo
     // We are in the Remote Worker context process and the call below establishes our connection to the Network Process
     // by calling ensureNetworkProcessConnection. SWContextManager / SharedWorkerContextManager need to use the same underlying IPC::Connection as the
     // NetworkProcessConnection for synchronization purposes.
-    auto& ipcConnection = ensureNetworkProcessConnection().connection();
+    Ref ipcConnection = ensureNetworkProcessConnection().connection();
     switch (workerType) {
     case RemoteWorkerType::ServiceWorker:
 #if ENABLE(SERVICE_WORKER)
-        SWContextManager::singleton().setConnection(WebSWContextManagerConnection::create(ipcConnection, WTFMove(registrableDomain), serviceWorkerPageIdentifier, pageGroupID, webPageProxyID, pageID, store, WTFMove(initializationData)));
+        SWContextManager::singleton().setConnection(WebSWContextManagerConnection::create(WTFMove(ipcConnection), WTFMove(registrableDomain), serviceWorkerPageIdentifier, pageGroupID, webPageProxyID, pageID, store, WTFMove(initializationData)));
         SWContextManager::singleton().connection()->establishConnection(WTFMove(completionHandler));
 #endif
         break;
     case RemoteWorkerType::SharedWorker:
-        SharedWorkerContextManager::singleton().setConnection(makeUnique<WebSharedWorkerContextManagerConnection>(ipcConnection, WTFMove(registrableDomain), pageGroupID, webPageProxyID, pageID, store, WTFMove(initializationData)));
+        SharedWorkerContextManager::singleton().setConnection(makeUnique<WebSharedWorkerContextManagerConnection>(WTFMove(ipcConnection), WTFMove(registrableDomain), pageGroupID, webPageProxyID, pageID, store, WTFMove(initializationData)));
         SharedWorkerContextManager::singleton().connection()->establishConnection(WTFMove(completionHandler));
         break;
     }
@@ -2310,7 +2313,7 @@ bool WebProcess::shouldUseRemoteRenderingForWebGL() const
 SpeechRecognitionRealtimeMediaSourceManager& WebProcess::ensureSpeechRecognitionRealtimeMediaSourceManager()
 {
     if (!m_speechRecognitionRealtimeMediaSourceManager)
-        m_speechRecognitionRealtimeMediaSourceManager = makeUnique<SpeechRecognitionRealtimeMediaSourceManager>(*parentProcessConnection());
+        m_speechRecognitionRealtimeMediaSourceManager = makeUnique<SpeechRecognitionRealtimeMediaSourceManager>(Ref { *parentProcessConnection() });
 
     return *m_speechRecognitionRealtimeMediaSourceManager;
 }

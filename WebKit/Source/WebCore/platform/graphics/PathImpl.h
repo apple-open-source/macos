@@ -70,7 +70,7 @@ public:
     void addBeziersForRoundedRect(const FloatRoundedRect&);
 
     virtual void applySegments(const PathSegmentApplier&) const = 0;
-    virtual void applyElements(const PathElementApplier&) const = 0;
+    virtual bool applyElements(const PathElementApplier&) const = 0;
 
     virtual bool transform(const AffineTransform&) = 0;
 

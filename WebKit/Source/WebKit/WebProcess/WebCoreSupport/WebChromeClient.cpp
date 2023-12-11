@@ -28,6 +28,8 @@
 #include "WebChromeClient.h"
 
 #include "APIArray.h"
+#include "APIInjectedBundleFormClient.h"
+#include "APIInjectedBundlePageUIClient.h"
 #include "APISecurityOrigin.h"
 #include "DrawingArea.h"
 #include "FindController.h"
@@ -120,7 +122,7 @@
 #endif
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-#include "VideoFullscreenManager.h"
+#include "VideoPresentationManager.h"
 #endif
 
 #if ENABLE(ASYNC_SCROLLING)
@@ -165,26 +167,6 @@ WebChromeClient::WebChromeClient(WebPage& page)
 }
 
 WebChromeClient::~WebChromeClient() = default;
-
-void WebChromeClient::didInsertMenuElement(HTMLMenuElement& element)
-{
-    m_page.didInsertMenuElement(element);
-}
-
-void WebChromeClient::didRemoveMenuElement(HTMLMenuElement& element)
-{
-    m_page.didRemoveMenuElement(element);
-}
-
-void WebChromeClient::didInsertMenuItemElement(HTMLMenuItemElement& element)
-{
-    m_page.didInsertMenuItemElement(element);
-}
-
-void WebChromeClient::didRemoveMenuItemElement(HTMLMenuItemElement& element)
-{
-    m_page.didRemoveMenuItemElement(element);
-}
 
 void WebChromeClient::chromeDestroyed()
 {
@@ -311,7 +293,7 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
         navigationAction.shouldOpenExternalURLsPolicy(),
         navigationAction.downloadAttribute(),
         mouseEventData ? mouseEventData->locationInRootViewCoordinates : FloatPoint { },
-        false, /* isRedirect */
+        { }, /* redirectResponse */
         false, /* treatAsSameOriginNavigation */
         false, /* hasOpenedFrames */
         false, /* openedByDOMWithOpener */
@@ -463,7 +445,7 @@ bool WebChromeClient::runBeforeUnloadConfirmPanel(const String& message, LocalFr
 
     HangDetectionDisabler hangDetectionDisabler;
 
-    auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunBeforeUnloadConfirmPanel(webFrame->frameID(), webFrame->info(), message));
+    auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunBeforeUnloadConfirmPanel(webFrame->frameID(), webFrame->info(), message), IPC::SendSyncOption::InformPlatformProcessWillSuspend);
     auto [shouldClose] = sendResult.takeReplyOr(false);
     return shouldClose;
 }
@@ -509,7 +491,7 @@ void WebChromeClient::runJavaScriptAlert(LocalFrame& frame, const String& alertT
     HangDetectionDisabler hangDetectionDisabler;
     IPC::UnboundedSynchronousIPCScope unboundedSynchronousIPCScope;
 
-    m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunJavaScriptAlert(webFrame->frameID(), webFrame->info(), alertText), IPC::SendSyncOption::MaintainOrderingWithAsyncMessages);
+    m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunJavaScriptAlert(webFrame->frameID(), webFrame->info(), alertText), { IPC::SendSyncOption::MaintainOrderingWithAsyncMessages, IPC::SendSyncOption::InformPlatformProcessWillSuspend });
 }
 
 bool WebChromeClient::runJavaScriptConfirm(LocalFrame& frame, const String& message)
@@ -527,7 +509,7 @@ bool WebChromeClient::runJavaScriptConfirm(LocalFrame& frame, const String& mess
     HangDetectionDisabler hangDetectionDisabler;
     IPC::UnboundedSynchronousIPCScope unboundedSynchronousIPCScope;
 
-    auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunJavaScriptConfirm(webFrame->frameID(), webFrame->info(), message), IPC::SendSyncOption::MaintainOrderingWithAsyncMessages);
+    auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunJavaScriptConfirm(webFrame->frameID(), webFrame->info(), message), { IPC::SendSyncOption::MaintainOrderingWithAsyncMessages, IPC::SendSyncOption::InformPlatformProcessWillSuspend });
     auto [result] = sendResult.takeReplyOr(false);
     return result;
 }
@@ -547,7 +529,7 @@ bool WebChromeClient::runJavaScriptPrompt(LocalFrame& frame, const String& messa
     HangDetectionDisabler hangDetectionDisabler;
     IPC::UnboundedSynchronousIPCScope unboundedSynchronousIPCScope;
 
-    auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunJavaScriptPrompt(webFrame->frameID(), webFrame->info(), message, defaultValue), IPC::SendSyncOption::MaintainOrderingWithAsyncMessages);
+    auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunJavaScriptPrompt(webFrame->frameID(), webFrame->info(), message, defaultValue), { IPC::SendSyncOption::MaintainOrderingWithAsyncMessages, IPC::SendSyncOption::InformPlatformProcessWillSuspend });
     if (!sendResult.succeeded())
         return false;
 
@@ -635,7 +617,7 @@ void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& rect)
 
     m_page.pageDidScroll();
 #if USE(COORDINATED_GRAPHICS)
-    auto* frameView = m_page.mainFrameView();
+    auto* frameView = m_page.localMainFrameView();
     if (frameView && frameView->delegatesScrolling()) {
         m_page.drawingArea()->scroll(rect, IntSize());
         return;
@@ -777,7 +759,7 @@ void WebChromeClient::print(LocalFrame& frame, const StringWithDirection& title)
     auto truncatedTitle = truncateFromEnd(title, maxTitleLength);
 
     IPC::UnboundedSynchronousIPCScope unboundedSynchronousIPCScope;
-    m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::PrintFrame(webFrame->frameID(), truncatedTitle.string, pdfFirstPageSize));
+    m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::PrintFrame(webFrame->frameID(), truncatedTitle.string, pdfFirstPageSize), IPC::SendSyncOption::InformPlatformProcessWillSuspend);
 }
 
 void WebChromeClient::reachedMaxAppCacheSize(int64_t)
@@ -796,7 +778,7 @@ void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin& origin,
     if (!cacheStorage.calculateQuotaForOrigin(origin, currentQuota))
         return;
 
-    auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::ReachedApplicationCacheOriginQuota(origin.data().databaseIdentifier(), currentQuota, totalBytesNeeded));
+    auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::ReachedApplicationCacheOriginQuota(origin.data().databaseIdentifier(), currentQuota, totalBytesNeeded), IPC::SendSyncOption::InformPlatformProcessWillSuspend);
     auto [newQuota] = sendResult.takeReplyOr(0);
 
     cacheStorage.storeUpdatedQuotaForOrigin(&origin, newQuota);
@@ -1141,22 +1123,22 @@ std::unique_ptr<ScrollbarsController> WebChromeClient::createScrollbarsControlle
 
 void WebChromeClient::prepareForVideoFullscreen()
 {
-    m_page.videoFullscreenManager();
+    m_page.videoPresentationManager();
 }
 
 bool WebChromeClient::canEnterVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode mode) const
 {
-    return m_page.videoFullscreenManager().canEnterVideoFullscreen(mode);
+    return m_page.videoPresentationManager().canEnterVideoFullscreen(mode);
 }
 
 bool WebChromeClient::supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode mode)
 {
-    return m_page.videoFullscreenManager().supportsVideoFullscreen(mode);
+    return m_page.videoPresentationManager().supportsVideoFullscreen(mode);
 }
 
 bool WebChromeClient::supportsVideoFullscreenStandby()
 {
-    return m_page.videoFullscreenManager().supportsVideoFullscreenStandby();
+    return m_page.videoPresentationManager().supportsVideoFullscreenStandby();
 }
 
 void WebChromeClient::setMockVideoPresentationModeEnabled(bool enabled)
@@ -1171,12 +1153,12 @@ void WebChromeClient::enterVideoFullscreenForVideoElement(HTMLVideoElement& vide
 #else
     ASSERT(mode != HTMLMediaElementEnums::VideoFullscreenModeNone);
 #endif
-    m_page.videoFullscreenManager().enterVideoFullscreenForVideoElement(videoElement, mode, standby);
+    m_page.videoPresentationManager().enterVideoFullscreenForVideoElement(videoElement, mode, standby);
 }
 
 void WebChromeClient::exitVideoFullscreenForVideoElement(HTMLVideoElement& videoElement, CompletionHandler<void(bool)>&& completionHandler)
 {
-    m_page.videoFullscreenManager().exitVideoFullscreenForVideoElement(videoElement, WTFMove(completionHandler));
+    m_page.videoPresentationManager().exitVideoFullscreenForVideoElement(videoElement, WTFMove(completionHandler));
 }
 
 void WebChromeClient::setUpPlaybackControlsManager(HTMLMediaElement& mediaElement)
@@ -1217,7 +1199,7 @@ void WebChromeClient::removeMediaUsageManagerSession(MediaSessionIdentifier iden
 
 void WebChromeClient::exitVideoFullscreenToModeWithoutAnimation(HTMLVideoElement& videoElement, HTMLMediaElementEnums::VideoFullscreenMode targetMode)
 {
-    m_page.videoFullscreenManager().exitVideoFullscreenToModeWithoutAnimation(videoElement, targetMode);
+    m_page.videoPresentationManager().exitVideoFullscreenToModeWithoutAnimation(videoElement, targetMode);
 }
 
 #endif
@@ -1519,7 +1501,10 @@ void WebChromeClient::removePlaybackTargetPickerClient(PlaybackTargetClientConte
 
 void WebChromeClient::showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier contextId, const IntPoint& position, bool isVideo)
 {
-    auto* frameView = m_page.mainFrameView();
+    auto* frameView = m_page.localMainFrameView();
+    if (!frameView)
+        return;
+
     FloatRect rect(frameView->contentsToRootView(frameView->windowToContents(position)), FloatSize());
     m_page.send(Messages::WebPageProxy::ShowPlaybackTargetPicker(contextId, rect, isVideo));
 }
@@ -1691,9 +1676,9 @@ void WebChromeClient::abortApplePayAMSUISession()
 #endif // ENABLE(APPLE_PAY_AMS_UI)
 
 #if USE(SYSTEM_PREVIEW)
-void WebChromeClient::beginSystemPreview(const URL& url, const SystemPreviewInfo& systemPreviewInfo, CompletionHandler<void()>&& completionHandler)
+void WebChromeClient::beginSystemPreview(const URL& url, const SecurityOriginData& topOrigin, const SystemPreviewInfo& systemPreviewInfo, CompletionHandler<void()>&& completionHandler)
 {
-    m_page.sendWithAsyncReply(Messages::WebPageProxy::BeginSystemPreview(WTFMove(url), WTFMove(systemPreviewInfo)), WTFMove(completionHandler));
+    m_page.sendWithAsyncReply(Messages::WebPageProxy::BeginSystemPreview(WTFMove(url), topOrigin, WTFMove(systemPreviewInfo)), WTFMove(completionHandler));
 }
 #endif
 

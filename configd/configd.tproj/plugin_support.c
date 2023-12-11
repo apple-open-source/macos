@@ -732,19 +732,6 @@ plugin_term(int *status)
 #pragma mark initialization
 
 
-/*
- * ALT_CFRelease()
- *
- * An alternate CFRelease() that we can use to fake out the
- * static analyzer.
- */
-static __inline__ void
-ALT_CFRelease(CFTypeRef cf)
-{
-	CFRelease(cf);
-}
-
-
 static CFDictionaryRef
 pluginsCopy(void *arg)
 {

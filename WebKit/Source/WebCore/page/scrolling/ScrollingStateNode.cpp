@@ -94,10 +94,7 @@ Ref<ScrollingStateNode> ScrollingStateNode::cloneAndReset(ScrollingStateTree& ad
 
 void ScrollingStateNode::cloneAndResetChildren(ScrollingStateNode& clone, ScrollingStateTree& adoptiveTree)
 {
-    if (!m_children)
-        return;
-
-    for (auto& child : *m_children)
+    for (auto& child : m_children)
         clone.appendChild(child->cloneAndReset(adoptiveTree));
 }
 
@@ -105,9 +102,7 @@ void ScrollingStateNode::appendChild(Ref<ScrollingStateNode>&& childNode)
 {
     childNode->setParent(this);
 
-    if (!m_children)
-        m_children = makeUnique<Vector<RefPtr<ScrollingStateNode>>>();
-    m_children->append(WTFMove(childNode));
+    m_children.append(WTFMove(childNode));
     setPropertyChanged(Property::ChildNodes);
 }
 
@@ -115,16 +110,11 @@ void ScrollingStateNode::insertChild(Ref<ScrollingStateNode>&& childNode, size_t
 {
     childNode->setParent(this);
 
-    if (!m_children) {
-        ASSERT(!index);
-        m_children = makeUnique<Vector<RefPtr<ScrollingStateNode>>>();
-    }
-
-    if (index > m_children->size()) {
+    if (index > m_children.size()) {
         ASSERT_NOT_REACHED();  // Crash data suggest we can get here.
-        m_children->append(WTFMove(childNode));
+        m_children.append(WTFMove(childNode));
     } else
-        m_children->insert(index, WTFMove(childNode));
+        m_children.insert(index, WTFMove(childNode));
     
     setPropertyChanged(Property::ChildNodes);
 }
@@ -141,26 +131,18 @@ void ScrollingStateNode::removeFromParent()
 
 void ScrollingStateNode::removeChild(ScrollingStateNode& childNode)
 {
-    auto childIndex = indexOfChild(childNode);
-    if (childIndex != notFound)
-        removeChildAtIndex(childIndex);
-}
-
-void ScrollingStateNode::removeChildAtIndex(size_t index)
-{
-    ASSERT(m_children && index < m_children->size());
-    if (m_children && index < m_children->size()) {
-        m_children->remove(index);
+    auto didRemove = m_children.removeFirstMatching([&](auto& child) {
+        return child.ptr() == &childNode;
+    });
+    if (didRemove)
         setPropertyChanged(Property::ChildNodes);
-    }
 }
 
-size_t ScrollingStateNode::indexOfChild(ScrollingStateNode& childNode) const
+RefPtr<ScrollingStateNode> ScrollingStateNode::childAtIndex(size_t index) const
 {
-    if (!m_children)
-        return notFound;
-
-    return m_children->find(&childNode);
+    if (index >= m_children.size())
+        return nullptr;
+    return m_children[index].copyRef();
 }
 
 void ScrollingStateNode::setLayer(const LayerRepresentation& layerRepresentation)
@@ -189,13 +171,13 @@ void ScrollingStateNode::dump(TextStream& ts, OptionSet<ScrollingStateTreeAsText
     ts.increaseIndent();
     dumpProperties(ts, behavior);
 
-    if (m_children) {
+    if (!m_children.isEmpty()) {
         ts << "\n";
         ts << indent <<"(";
         {
             TextStream::IndentScope indentScope(ts);
-            ts << "children " << children()->size();
-            for (auto& child : *m_children)
+            ts << "children " << children().size();
+            for (auto& child : m_children)
                 child->dump(ts, behavior);
             ts << "\n";
         }

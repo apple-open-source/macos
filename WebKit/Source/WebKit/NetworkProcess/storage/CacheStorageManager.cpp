@@ -28,8 +28,8 @@
 
 #include "CacheStorageCache.h"
 #include "CacheStorageRegistry.h"
-#include "StorageUtilities.h"
 #include <WebCore/ClientOrigin.h>
+#include <WebCore/StorageUtilities.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/Scope.h>
 #include <wtf/persistence/PersistentEncoder.h>
@@ -191,7 +191,7 @@ HashSet<WebCore::ClientOrigin> CacheStorageManager::originsOfCacheStorageData(co
     HashSet<WebCore::ClientOrigin> result;
     for (auto& originName : FileSystem::listDirectory(rootDirectory)) {
         auto originFile = FileSystem::pathByAppendingComponents(rootDirectory, { originName, originFileName });
-        if (auto origin = readOriginFromFile(originFile))
+        if (auto origin = WebCore::StorageUtilities::readOriginFromFile(originFile))
             result.add(*origin);
     }
 
@@ -250,7 +250,7 @@ CacheStorageManager::CacheStorageManager(const String& path, CacheStorageRegistr
         return;
 
     auto originFile = FileSystem::pathByAppendingComponent(m_path, originFileName);
-    writeOriginToFile(originFile, *origin);
+    WebCore::StorageUtilities::writeOriginToFile(originFile, *origin);
 }
 
 CacheStorageManager::~CacheStorageManager()
@@ -431,8 +431,22 @@ void CacheStorageManager::dereference(IPC::Connection::UniqueID connection, WebC
     removeUnusedCache(cacheIdentifier);
 }
 
+void CacheStorageManager::lockStorage(IPC::Connection::UniqueID connection)
+{
+    ASSERT(!m_activeConnections.contains(connection));
+    m_activeConnections.add(connection);
+}
+
+void CacheStorageManager::unlockStorage(IPC::Connection::UniqueID connection)
+{
+    ASSERT(m_activeConnections.contains(connection));
+    m_activeConnections.remove(connection);
+}
+
 void CacheStorageManager::connectionClosed(IPC::Connection::UniqueID connection)
 {
+    m_activeConnections.remove(connection);
+
     HashSet<WebCore::DOMCacheIdentifier> unusedCacheIdentifiers;
     for (auto& [identifier, refConnections] : m_cacheRefConnections) {
         refConnections.removeAllMatching([&](auto refConnection) {
@@ -475,7 +489,7 @@ bool CacheStorageManager::hasDataInMemory()
 
 bool CacheStorageManager::isActive()
 {
-    return !m_cacheRefConnections.isEmpty();
+    return !m_cacheRefConnections.isEmpty() || !m_activeConnections.isEmpty();
 }
 
 String CacheStorageManager::representationString()

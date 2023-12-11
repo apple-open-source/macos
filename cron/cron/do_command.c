@@ -64,22 +64,15 @@ do_command(e, u)
 {
 #ifdef __APPLE__
 	CFArrayRef cfarray;
-	static mach_port_t master = 0;
-	static io_connect_t pmcon = 0;
 
 	Debug(DPROC, ("[%d] do_command(%s, (%s,%s,%s))\n",
 		getpid(), e->cmd, u->name, e->uname, e->gname))
 
 	if( e->flags & NOT_BATTERY ) {
-		if( master == 0 ) {
-			IOMasterPort(bootstrap_port, &master);
-			pmcon = IOPMFindPowerManagement(master);
-		}
-
-		if( IOPMCopyBatteryInfo(master, &cfarray) == kIOReturnSuccess) {
+		if( IOPMCopyBatteryInfo(kIOMainPortDefault, &cfarray) == kIOReturnSuccess) {
 			CFDictionaryRef dict;
 			CFNumberRef cfnum;
-			int flags;
+			long flags;
 	
 			dict = CFArrayGetValueAtIndex(cfarray, 0);
 			cfnum = CFDictionaryGetValue(dict, CFSTR(kIOBatteryFlagsKey));
@@ -247,7 +240,7 @@ child_process(e, u)
 		 * PID is part of the log message.
 		 */
 		/*local*/{
-			char *x = mkprints((u_char *)e->cmd, strlen(e->cmd));
+			char *x = mkprints((u_char *)e->cmd, (unsigned int)strlen(e->cmd));
 
 			log_it(usernm, getpid(), "CMD", x);
 			free(x);

@@ -1902,7 +1902,6 @@ public:
     bool hasHeapPrediction()
     {
         switch (op()) {
-        case ArithAbs:
         case ArithRound:
         case ArithFloor:
         case ArithCeil:
@@ -1944,6 +1943,7 @@ public:
         case GetArgument:
         case ArrayPop:
         case ArrayPush:
+        case ArraySpliceExtract:
         case RegExpExec:
         case RegExpExecNonGlobalOrSticky:
         case RegExpTest:
@@ -1955,16 +1955,8 @@ public:
         case StringReplace:
         case StringReplaceRegExp:
         case StringReplaceString:
-        case ToNumber:
-        case ToNumeric:
         case ToObject:
         case CallNumberConstructor:
-        case ValueBitAnd:
-        case ValueBitOr:
-        case ValueBitXor:
-        case ValueBitNot:
-        case ValueBitLShift:
-        case ValueBitRShift:
         case CallObjectConstructor:
         case LoadKeyFromMapBucket:
         case LoadValueFromMapBucket:
@@ -2259,6 +2251,8 @@ public:
         case NewAsyncGenerator:
         case NewInternalFieldObject:
         case NewStringObject:
+        case NewMap:
+        case NewSet:
             return true;
         default:
             return false;
@@ -3525,21 +3519,25 @@ public:
         out.printf(", @%u", child3()->index());
     }
 
-    NodeOrigin origin;
+    NO_UNIQUE_ADDRESS NodeOrigin origin;
 
+private:
+    NO_UNIQUE_ADDRESS NodeType m_op;
+
+    NO_UNIQUE_ADDRESS unsigned m_index { std::numeric_limits<unsigned>::max() };
+
+public:
     // References to up to 3 children, or links to a variable length set of children.
     AdjacencyList children;
 
 private:
     friend class B3::SparseCollection<Node>;
 
-    unsigned m_index { std::numeric_limits<unsigned>::max() };
-    unsigned m_op : 10; // real type is NodeType
-    unsigned m_flags : 21;
     // The virtual register number (spill location) associated with this node. For tuples this is the offset into the graph's out of line tuple buffers.
     VirtualRegister m_virtualRegister;
     // The number of uses of the result of this operation (+1 for 'must generate' nodes, which have side-effects).
     unsigned m_refCount;
+    NodeFlags m_flags { 0 };
     // The prediction ascribed to this node after propagation.
     SpeculatedType m_prediction { SpecNone };
     // Immediate values, accesses type-checked via accessors above.

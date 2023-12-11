@@ -53,13 +53,25 @@ NS_ASSUME_NONNULL_BEGIN
 @property (strong) NSString* contextID;
 @property (strong) NSString* containerName;
 @property (strong, nullable) NSString* altDSID;
+@property (strong, nullable) NSString* flowID;
+@property (strong, nullable) NSString* deviceSessionID;
 
 - (instancetype)init;
 - (instancetype)initWithConfiguration:(OTConfigurationContext*)configuration;
 - (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID;
+- (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID
+                         flowID:(NSString* _Nullable)flowID
+                deviceSessionID:(NSString* _Nullable)deviceSessionID;
 - (instancetype)initWithContainerName:(NSString* _Nullable)containerName
                             contextID:(NSString*)contextID
                               altDSID:(NSString* _Nullable)altDSID;
+
+- (instancetype)initWithContainerName:(NSString* _Nullable)containerName
+                            contextID:(NSString*)contextID
+                              altDSID:(NSString* _Nullable)altDSID
+                               flowID:(NSString* _Nullable)flowID
+                      deviceSessionID:(NSString* _Nullable)deviceSessionID;
+
 
 - (OTConfigurationContext*)makeConfigurationContext;
 @end
@@ -264,6 +276,9 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
 reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
+
+- (void)simulateReceivePush:(OTControlArguments*)arguments
+                      reply:(void (^)(NSError *_Nullable error))reply;
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply;

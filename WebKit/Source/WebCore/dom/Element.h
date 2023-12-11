@@ -105,6 +105,14 @@ struct ShadowRootInit;
 using ElementName = NodeName;
 using ExplicitlySetAttrElementsMap = HashMap<QualifiedName, Vector<WeakPtr<Element, WeakPtrImplWithEventTargetData>>>;
 
+// https://drafts.csswg.org/css-contain/#relevant-to-the-user
+enum class ContentRelevancy : uint8_t {
+    OnScreen = 1 << 0,
+    Focused = 1 << 1,
+    IsInTopLayer = 1 << 2,
+    Selected = 1 << 3,
+};
+
 namespace Style {
 class Resolver;
 enum class Change : uint8_t;
@@ -609,7 +617,10 @@ public:
     IntPoint savedLayerScrollPosition() const;
     void setSavedLayerScrollPosition(const IntPoint&);
 
-    bool dispatchMouseEvent(const PlatformMouseEvent&, const AtomString& eventType, int clickCount = 0, Element* relatedTarget = nullptr, IsSyntheticClick isSyntethicClick = IsSyntheticClick::No);
+    enum class EventIsDefaultPrevented : bool { No, Yes };
+    enum class EventIsDispatched : bool { No, Yes };
+    using DispatchMouseEventResult = std::pair<EventIsDispatched, EventIsDefaultPrevented>;
+    DispatchMouseEventResult dispatchMouseEvent(const PlatformMouseEvent& platformEvent, const AtomString& eventType, int clickCount = 0, Element* relatedTarget = nullptr, IsSyntheticClick = IsSyntheticClick::No);
     bool dispatchWheelEvent(const PlatformWheelEvent&, OptionSet<EventHandling>&, EventIsCancelable = EventIsCancelable::Yes);
     bool dispatchKeyEvent(const PlatformKeyboardEvent&);
     bool dispatchSimulatedClick(Event* underlyingEvent, SimulatedClickMouseEventOptions = SendNoEvents, SimulatedClickVisualOptions = ShowPressedLook);
@@ -727,6 +738,11 @@ public:
     ExplicitlySetAttrElementsMap& explicitlySetAttrElementsMap();
     ExplicitlySetAttrElementsMap* explicitlySetAttrElementsMapIfExists() const;
 
+    bool isRelevantToUser() const;
+
+    std::optional<OptionSet<ContentRelevancy>> contentRelevancy() const;
+    void setContentRelevancy(OptionSet<ContentRelevancy>);
+
 protected:
     Element(const QualifiedName&, Document&, ConstructionType);
 
@@ -752,6 +768,8 @@ protected:
     void ensureFormAssociatedCustomElement();
 
     void updateLabel(TreeScope&, const AtomString& oldForAttributeValue, const AtomString& newForAttributeValue);
+
+    static AtomString makeTargetBlankIfHasDanglingMarkup(const AtomString& target);
 
 private:
     LocalFrame* documentFrameWithNonNullView() const;
@@ -827,7 +845,7 @@ private:
     inline void removeShadowRoot(); // Defined in ElementRareData.h.
     void removeShadowRootSlow(ShadowRoot&);
 
-    enum class ResolveComputedStyleMode : bool { Normal, RenderedOnly };
+    enum class ResolveComputedStyleMode : uint8_t { Normal, RenderedOnly, Editability };
     const RenderStyle* resolveComputedStyle(ResolveComputedStyleMode = ResolveComputedStyleMode::Normal);
     const RenderStyle& resolvePseudoElementStyle(PseudoId);
 

@@ -126,7 +126,7 @@ private:
     bool hasVideo() const override;
     bool hasAudio() const override;
 
-    void setPageIsVisible(bool, String&& sceneIdentifier) final;
+    void setPageIsVisible(bool) final;
     void setVisibleForCanvas(bool) final;
     void setVisibleInViewport(bool) final;
 
@@ -234,7 +234,8 @@ private:
     MediaStreamTrackPrivate* activeVideoTrack() const;
 
     LayerHostingContextID hostingContextID() const final;
-    void setVideoInlineSizeFenced(const FloatSize&, const WTF::MachSendRight&) final;
+    void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&) final;
+    void requestHostingContextID(LayerHostingContextIDCallback&&) final;
 
     ThreadSafeWeakPtr<MediaPlayer> m_player;
     RefPtr<MediaStreamPrivate> m_mediaStreamPrivate;
@@ -303,6 +304,7 @@ private:
 
     std::optional<CGRect> m_storedBounds;
     static NativeImageCreator m_nativeImageCreator;
+    LayerHostingContextIDCallback m_layerHostingContextIDCallback;
 };
 
 }

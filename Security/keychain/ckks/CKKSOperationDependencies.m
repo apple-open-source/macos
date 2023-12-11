@@ -246,7 +246,7 @@
     return set;
 }
 
-- (void)applyNewSyncingPolicy:(TPSyncingPolicy*)policy
+- (void)applyNewSyncingPolicy:(TPSyncingPolicy* _Nullable)policy
                    viewStates:(NSSet<CKKSKeychainViewState*>*)viewStates
 {
     self.syncingPolicy = policy;

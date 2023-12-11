@@ -39,6 +39,7 @@
 #include <IOKit/IOKitKeysPrivate.h>
 #include <IOKit/IOUserClient.h>
 #include <libkern/c++/OSBoundedArrayRef.h>
+#include <libkern/c++/OSValueObject.h>
 #include "IOHIDLibUserClient.h"
 #include "IOHIDKeys.h"
 #include "IOHIDDevice.h"
@@ -88,12 +89,16 @@ struct AsyncCommitParam {
     IOBufferMemoryDescriptor * elementData;
 };
 
+OSDefineValueObjectForDependentType(AsyncCommitParam)
+
 struct AsyncReportParam {
     OSAsyncReference64   fAsyncRef;
     IOMemoryDescriptor * fMem;
     IOHIDReportType      reportType;
     IOHIDCompletion      fCompletion;
 };
+
+OSDefineValueObjectForDependentType(AsyncReportParam)
 
 struct AsyncGateParam {
     OSAsyncReference asyncRef;
@@ -1475,7 +1480,7 @@ IOReturn IOHIDLibUserClient::_updateElementValues(IOHIDLibUserClient * target, v
     uint32_t          timeout       = 0;
     IOOptionBits      options       = (IOOptionBits)arguments->scalarInput[2];
     IOHIDCompletion * completion    = NULL;
-    OSData          * asyncData     = NULL;
+    OSValueObject<AsyncCommitParam> * asyncData     = NULL;
     vm_size_t         inputSize     = (vm_size_t)arguments->scalarInput[1];
     IOHIDOOBReportDescriptor * buff = NULL;
     AsyncCommitParam  pb;
@@ -1491,7 +1496,7 @@ IOReturn IOHIDLibUserClient::_updateElementValues(IOHIDLibUserClient * target, v
         pb.fCompletion.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::CommitComplete);
         pb.elementData        = buff;
 
-        require((asyncData = OSData::withBytes(&pb, sizeof(AsyncCommitParam))), exit);
+        require((asyncData = OSValueObject<AsyncCommitParam>::withValue(pb)), exit);
         ((AsyncCommitParam *)asyncData->getBytesNoCopy())->fCompletion.parameter = asyncData;
         target->_pending->setObject(asyncData);
 
@@ -1589,7 +1594,7 @@ IOReturn IOHIDLibUserClient::_postElementValues(IOHIDLibUserClient * target, voi
     IOReturn          ret        = kIOReturnNoMemory;
     uint32_t          timeout    = 0;
     IOHIDCompletion * completion = NULL;
-    OSData          * asyncData  = NULL;
+    OSValueObject<AsyncCommitParam> * asyncData  = NULL;
     AsyncCommitParam  pb;
 
     if (arguments->asyncWakePort) {
@@ -1600,7 +1605,7 @@ IOReturn IOHIDLibUserClient::_postElementValues(IOHIDLibUserClient * target, voi
         pb.fCompletion.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::CommitComplete);
         pb.elementData        = NULL;
 
-        require((asyncData = OSData::withBytes(&pb, sizeof(AsyncCommitParam))), exit);
+        require((asyncData = OSValueObject<AsyncCommitParam>::withValue(pb)), exit);
         ((AsyncCommitParam *)asyncData->getBytesNoCopy())->fCompletion.parameter = asyncData;
         target->_pending->setObject(asyncData);
 
@@ -1671,7 +1676,7 @@ IOReturn IOHIDLibUserClient::CommitCompleteGated(void * param, IOReturn res, UIn
 {
     IOReturn                   ret       = kIOReturnError;
     io_user_reference_t        args[2]   = {0};
-    OSData                   * asyncData = (OSData *)param;
+    OSValueObject<AsyncCommitParam>  * asyncData = (OSValueObject<AsyncCommitParam> *)param;
     AsyncCommitParam         * pb        = NULL;
     IOHIDOOBReportDescriptor * buff;
 
@@ -1717,7 +1722,7 @@ exit:
 IOReturn IOHIDLibUserClient::_getReport(IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
 {
     IOReturn                   ret        = kIOReturnNoMemory;
-    OSData                   * asyncData  = NULL;
+    OSValueObject<AsyncReportParam> * asyncData  = NULL;
     uint32_t                   timeout    = 0;
     IOHIDCompletion          * completion = NULL;
     IOBufferMemoryDescriptor * mem        = NULL;
@@ -1730,7 +1735,7 @@ IOReturn IOHIDLibUserClient::_getReport(IOHIDLibUserClient * target, void * refe
         pb.fCompletion.target = target;
         pb.fCompletion.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::ReqComplete);
 
-        require((asyncData = OSData::withBytes(&pb, sizeof(AsyncReportParam))), exit);
+        require((asyncData = OSValueObject<AsyncReportParam>::withValue(pb)), exit);
         ((AsyncReportParam *)asyncData->getBytesNoCopy())->fCompletion.parameter = asyncData;
         target->_pending->setObject(asyncData);
 
@@ -1794,7 +1799,7 @@ IOReturn IOHIDLibUserClient::getReport(IOMemoryDescriptor * mem, uint32_t * pOut
     require_noerr((ret = mem->prepare(kIODirectionInOut)), exit);
 
     if (completion) {
-        pb              = (AsyncReportParam*)((OSData*)completion->parameter)->getBytesNoCopy();
+        pb              = (AsyncReportParam*)((OSValueObject<AsyncReportParam>*)completion->parameter)->getBytesNoCopy();
         pb->fMem        = mem;
         pb->reportType  = reportType;
         mem->retain();
@@ -1823,7 +1828,7 @@ exit:
 IOReturn IOHIDLibUserClient::_setReport(IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
 {
     IOReturn                   ret        = kIOReturnNoMemory;
-    OSData                   * asyncData  = NULL;
+    OSValueObject<AsyncReportParam> * asyncData  = NULL;
     uint32_t                   timeout    = 0;
     IOHIDCompletion          * completion = NULL;
     IOBufferMemoryDescriptor * mem        = NULL;
@@ -1836,7 +1841,7 @@ IOReturn IOHIDLibUserClient::_setReport(IOHIDLibUserClient * target, void * refe
         pb.fCompletion.target = target;
         pb.fCompletion.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::ReqComplete);
         
-        require((asyncData = OSData::withBytes(&pb, sizeof(AsyncReportParam))), exit);
+        require((asyncData = OSValueObject<AsyncReportParam>::withValue(pb)), exit);
         ((AsyncReportParam *)asyncData->getBytesNoCopy())->fCompletion.parameter = asyncData;
         target->_pending->setObject(asyncData);
 
@@ -1912,7 +1917,7 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
     }
 
     if (completion) {
-        pb             = (AsyncReportParam*)((OSData*)completion->parameter)->getBytesNoCopy();
+        pb             = (AsyncReportParam*)((OSValueObject<AsyncReportParam>*)completion->parameter)->getBytesNoCopy();
         pb->fMem       = mem;
         pb->reportType = reportType;
         mem->retain();
@@ -1947,7 +1952,7 @@ IOReturn IOHIDLibUserClient::ReqCompleteGated(void * param, IOReturn res, UInt32
 {
     IOReturn                   ret       = kIOReturnError;
     io_user_reference_t        args[2]   = {0};
-    OSData                   * asyncData = (OSData *)param;
+    OSValueObject<AsyncReportParam> * asyncData = (OSValueObject<AsyncReportParam> *)param;
     AsyncReportParam         * pb        = NULL;
     IOHIDOOBReportDescriptor * buff;
 

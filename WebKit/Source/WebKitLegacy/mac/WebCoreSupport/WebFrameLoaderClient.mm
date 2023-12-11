@@ -105,7 +105,6 @@
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/Page.h>
-#import <WebCore/PluginBlocklist.h>
 #import <WebCore/PluginViewBase.h>
 #import <WebCore/ProtectionSpace.h>
 #import <WebCore/ResourceError.h>
@@ -116,7 +115,6 @@
 #import <WebCore/SubresourceLoader.h>
 #import <WebCore/WebCoreJITOperations.h>
 #import <WebCore/WebCoreObjCExtras.h>
-#import <WebCore/WebGLBlocklist.h>
 #import <WebCore/WebScriptObjectPrivate.h>
 #import <WebCore/Widget.h>
 #import <WebKitLegacy/DOMElement.h>
@@ -783,7 +781,7 @@ void WebFrameLoaderClient::dispatchDidReachLayoutMilestone(OptionSet<WebCore::La
         CallFrameLoadDelegate(implementations->didLayoutFunc, webView, @selector(webView:didLayout:), kitLayoutMilestones(milestones));
 #endif
 
-    if (milestones & WebCore::DidFirstLayout) {
+    if (milestones & WebCore::LayoutMilestone::DidFirstLayout) {
         // FIXME: We should consider removing the old didFirstLayout API since this is doing double duty with the
         // new didLayout API.
         if (implementations->didFirstLayoutInFrameFunc)
@@ -803,7 +801,7 @@ void WebFrameLoaderClient::dispatchDidReachLayoutMilestone(OptionSet<WebCore::La
 #endif
     }
 
-    if (milestones & WebCore::DidFirstVisuallyNonEmptyLayout) {
+    if (milestones & WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout) {
         // FIXME: We should consider removing the old didFirstVisuallyNonEmptyLayoutForFrame API since this is doing
         // double duty with the new didLayout API.
         if (implementations->didFirstVisuallyNonEmptyLayoutInFrameFunc)
@@ -1147,6 +1145,11 @@ WebCore::ResourceError WebFrameLoaderClient::fileDoesNotExistError(const WebCore
 }
 
 WebCore::ResourceError WebFrameLoaderClient::httpsUpgradeRedirectLoopError(const WebCore::ResourceRequest& request) const
+{
+    RELEASE_ASSERT_NOT_REACHED(); // This error should never be created in WebKit1 because HTTPSOnly/First aren't available.
+}
+
+WebCore::ResourceError WebFrameLoaderClient::httpNavigationWithHTTPSOnlyError(const WebCore::ResourceRequest& request) const
 {
     RELEASE_ASSERT_NOT_REACHED(); // This error should never be created in WebKit1 because HTTPSOnly/First aren't available.
 }
@@ -1550,10 +1553,8 @@ NSDictionary *WebFrameLoaderClient::actionDictionary(const WebCore::NavigationAc
         auto element = adoptNS([[WebElementDictionary alloc] initWithHitTestResult:core(m_webFrame.get())->eventHandler().hitTestResultAtPoint(mouseEventData->absoluteLocation, hitType)]);
         [result setObject:element.get() forKey:WebActionElementKey];
 
-        if (mouseEventData->isTrusted)
-            [result setObject:@(mouseEventData->button) forKey:WebActionButtonKey];
-        else
-            [result setObject:@(WebCore::NoButton) forKey:WebActionButtonKey];
+        auto button = enumToUnderlyingType(mouseEventData->isTrusted ? mouseEventData->button : MouseButton::None);
+        [result setObject:@(button) forKey:WebActionButtonKey];
     }
 
     if (formState)
@@ -1774,15 +1775,9 @@ public:
 };
 #endif // PLATFORM(IOS_FAMILY)
 
-static bool shouldBlockPlugin(WebBasePluginPackage *pluginPackage)
+static bool shouldBlockPlugin(WebBasePluginPackage *)
 {
-#if PLATFORM(MAC)
-    auto loadPolicy = WebCore::PluginBlocklist::loadPolicyForPluginVersion(pluginPackage.bundleIdentifier, pluginPackage.bundleVersion);
-    return loadPolicy == WebCore::PluginBlocklist::LoadPolicy::BlockedForSecurity || loadPolicy == WebCore::PluginBlocklist::LoadPolicy::BlockedForCompatibility;
-#else
-    UNUSED_PARAM(pluginPackage);
-    return false;
-#endif
+    return true;
 }
 
 RefPtr<WebCore::Widget> WebFrameLoaderClient::createPlugin(const WebCore::IntSize& size, WebCore::HTMLPlugInElement& element, const URL& url,

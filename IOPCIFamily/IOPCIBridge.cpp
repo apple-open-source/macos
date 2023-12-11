@@ -2489,45 +2489,6 @@ bool IOPCIBridge::initializeNub( IOPCIDevice * nub,
     return (true);
 }
 
-void IOPCIBridge::waitForDartToQuiesce(IOPCIDevice *nub)
-{
-#if TARGET_CPU_ARM64 || TARGET_CPU_ARM
-    IOMapper* dartMapper = IOMapper::copyMapperForDevice(nub);
-    if(   (dartMapper != NULL)
-       && (dartMapper->metaCast("IODARTMapper") != NULL))
-    {
-        const OSSymbol *getNumAllocations = OSSymbol::withCString(kIODARTFunctionGetNumAllocations);
-        IOReturn err = kIOReturnSuccess;
-        uint32_t allocs = 0;
-
-#define DART_WAIT_TIME_S 5 // Arbitrary
-        AbsoluteTime deadline, now = 0;
-        clock_interval_to_deadline(DART_WAIT_TIME_S, kSecondScale, &deadline);
-
-        do
-        {
-            err = dartMapper->callPlatformFunction(getNumAllocations,
-                                                   false,
-                                                   &allocs,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL);
-            if (allocs != 0)
-            {
-                IOSleepWithLeeway(10, 10);
-            }
-            clock_get_uptime(&now);
-        }
-        while (   (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline))
-               && (err == kIOReturnSuccess)
-               && (allocs != 0));
-
-        OSSafeReleaseNULL(getNumAllocations);
-    }
-    OSSafeReleaseNULL(dartMapper);
-#endif
-}
-
 void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
 {
     IOReturn ret = kIOReturnSuccess;
@@ -2543,22 +2504,17 @@ void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
 
 	// If the nub was terminated as part of the clientCrashed handler, we've
 	// already torn down its mapper.
-#if TARGET_CPU_ARM64 || TARGET_CPU_ARM
-    if (device->reserved->sessionOptions & kIOPCISessionOptionDriverkit)
+    if (!device->reserved->deadMapper)
     {
-        // Wait for DART allocations to be freed by process exit cleanup or the driver.
-        waitForDartToQuiesce(device);
-    }
-#endif
-
-    device->callPlatformFunction(gIOPCIDeviceChangedKey,
-                                  /* waitForFunction */ false,
-                                  /* nub             */ device,
-                                  kOSBooleanFalse, NULL, NULL);
+        device->callPlatformFunction(gIOPCIDeviceChangedKey,
+                                      /* waitForFunction */ false,
+                                      /* nub             */ device,
+                                      kOSBooleanFalse, NULL, NULL);
 
 #if ACPI_SUPPORT
-    AppleVTD::removeDevice(device);
+        AppleVTD::removeDevice(device);
 #endif
+    }
 
     restoreQRemove(device);
     configOpParams cp = {.device = device, .op = kConfigOpTerminated, .result = nullptr};
@@ -5798,6 +5754,27 @@ IOPCIBridge::terminateChildGated(IOPCIDevice *child)
             && (pciPeer->isInactive() == false)
             && (pciPeer == child || resetType == kIOPCIResetHot))
         {
+            // The crashed process's leftover IODMACommand and IOMemoryDescriptor
+            // objects are released automatically on process exit in this thread
+            // context. If mapper teardown is performed in ::removeDevice as part of nub
+            // termination, it will race with process cleanup and can cause a PMAP
+            // assertion failure.
+            //
+            // It's safe to teardown the mapper before all IODMACommands have
+            // completed; if they're completed after, iovmUnmapMemory() becomes a no-op.
+            // Note that we've disabled Bus Leading and flushed in-flight transactions
+            // at this point.
+            pciPeer->callPlatformFunction(gIOPCIDeviceChangedKey,
+                                          /* waitForFunction */ false,
+                                          /* nub             */ pciPeer,
+                                          kOSBooleanFalse, NULL, NULL);
+
+#if ACPI_SUPPORT
+            AppleVTD::removeDevice(pciPeer);
+#endif
+
+		    pciPeer->reserved->deadMapper = true;
+
             DLOG("%s Terminating device %u:%u:%u\n", __PRETTY_FUNCTION__, PCI_ADDRESS_TUPLE(pciPeer));
             pciPeer->terminate(kIOServiceTerminateNeedWillTerminate);
         }

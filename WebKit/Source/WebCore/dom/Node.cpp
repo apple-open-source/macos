@@ -2450,7 +2450,7 @@ void Node::dispatchEvent(Event& event)
 
 void Node::dispatchSubtreeModifiedEvent()
 {
-    if (isInShadowTree())
+    if (isInShadowTree() || document().shouldNotFireMutationEvents())
         return;
 
     ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isEventDispatchAllowedInSubtree(*this));
@@ -2507,7 +2507,7 @@ void Node::defaultEventHandler(Event& event)
         }
 #if ENABLE(PAN_SCROLLING)
     } else if (eventType == eventNames.mousedownEvent && is<MouseEvent>(event)) {
-        if (downcast<MouseEvent>(event).button() == MiddleButton) {
+        if (downcast<MouseEvent>(event).button() == MouseButton::Middle) {
             if (enclosingLinkEventParentOrSelf())
                 return;
 

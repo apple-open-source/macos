@@ -55,24 +55,97 @@ struct _citrus_stdenc_traits _citrus_NONE_stdenc_traits = {
 	1,	/* mb_cur_max */
 };
 
+#ifdef __APPLE__
+typedef struct {
+	uint32_t vmask;	/* Valid mask */
+} _citrus_NONE_encoding_info;
+#endif
+
+#ifdef __APPLE__
+static int
+_citrus_NONE_encoding_module_init(_citrus_NONE_encoding_info * __restrict ei,
+    const void * __restrict var, size_t lenvar)
+{
+	const char *p;
+
+	p = var;
+
+	while (lenvar > 0) {
+		switch (_bcs_tolower(*p)) {
+		case '7':
+			/*
+			 * For 7bit, note that one mapping may consist of up to
+			 * 4 characters in the case of some transliterations;
+			 * thus, the repeating pattern.
+			 */
+			MATCH(7bit, ei->vmask = 0x7f7f7f7f);
+			break;
+		}
+		p++;
+		lenvar--;
+	}
+
+	if (ei->vmask == 0)
+		ei->vmask = ~0U;
+
+	return (0);
+}
+#endif
+
 static int
 _citrus_NONE_stdenc_init(struct _citrus_stdenc * __restrict ce,
     const void *var __unused, size_t lenvar __unused,
     struct _citrus_stdenc_traits * __restrict et)
 {
+#ifdef __APPLE__
+	_citrus_NONE_encoding_info *ei;
+	int ret;
 
+	ei = calloc(1, sizeof(*ei));
+	if (ei == NULL)
+		return (errno);
+
+	ret = _citrus_NONE_encoding_module_init(ei, var, lenvar);
+	if (ret != 0) {
+		free(ei);
+		return (ret);
+	}
+
+	ce->ce_closure = ei;
+
+	/*
+	 * Note that _citrus_NONE_stdenc_traits is effectively unused in the
+	 * Apple version.  Upstream, libiconv doesn't call this encoding's
+	 * stdenc_init at all.  We differ because we want to be able to specify,
+	 * for example, that only 7 bits are valid.  It uses slightly more
+	 * memory to do it this way, but we really need the state in case the
+	 * src is a NONE encoding that can only do 7bit, but dst is a NONE
+	 * encoding that can handle more.
+	 */
+	et->et_state_size = sizeof(_citrus_NONE_encoding_info);
+#else
 	et->et_state_size = 0;
+#endif
 	et->et_mb_cur_max = 1;
 
+#ifndef __APPLE__
 	ce->ce_closure = NULL;
+#endif
 
 	return (0);
 }
 
 static void
+#ifdef __APPLE__
+_citrus_NONE_stdenc_uninit(struct _citrus_stdenc *ce)
+#else
 _citrus_NONE_stdenc_uninit(struct _citrus_stdenc *ce __unused)
+#endif
 {
 
+#ifdef __APPLE__
+	free(ce->ce_closure);
+#endif
 }
 
 #ifndef __APPLE__
@@ -107,10 +180,19 @@ _citrus_NONE_stdenc_mbtocs(struct _citrus_stdenc * __restrict ce __unused,
 }
 
 static int
+#ifdef __APPLE__
+_citrus_NONE_stdenc_cstomb(struct _citrus_stdenc * __restrict ce,
+#else
 _citrus_NONE_stdenc_cstomb(struct _citrus_stdenc * __restrict ce __unused,
+#endif
     char *s, size_t n, _csid_t csid, _index_t idx, void *ps __unused,
     size_t *nresult, struct iconv_hooks *hooks __unused)
 {
+#ifdef __APPLE__
+	_citrus_NONE_encoding_info *ei;
+
+	ei = (_citrus_NONE_encoding_info *)ce->ce_closure;
+#endif
 
 	if (csid == _CITRUS_CSID_INVALID) {
 		*nresult = 0;
@@ -119,6 +201,10 @@ _citrus_NONE_stdenc_cstomb(struct _citrus_stdenc * __restrict ce __unused,
 	if (csid != 0)
 		return (EILSEQ);
 
+#ifdef __APPLE__
+	if ((idx & ~ei->vmask) != 0)
+		return (EILSEQ);
+#endif
 	if ((idx & 0x000000FF) == idx) {
 		if (n < 1) {
 			*nresult = (size_t)-1;

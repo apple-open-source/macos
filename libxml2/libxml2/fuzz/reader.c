@@ -8,6 +8,7 @@
 #include <libxml/xmlreader.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "fuzz.h"
 
 static bool gPrintRepro = false;

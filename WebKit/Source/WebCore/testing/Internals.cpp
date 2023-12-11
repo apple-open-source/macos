@@ -106,7 +106,7 @@
 #include "HTMLSelectElement.h"
 #include "HTMLTextAreaElement.h"
 #include "HTMLVideoElement.h"
-#include "HighlightRegister.h"
+#include "HighlightRegistry.h"
 #include "HistoryController.h"
 #include "HistoryItem.h"
 #include "HitTestResult.h"
@@ -672,6 +672,7 @@ void Internals::resetToConsistentState(Page& page)
 #if USE(AUDIO_SESSION)
     AudioSession::sharedSession().setCategoryOverride(AudioSessionCategory::None);
     AudioSession::sharedSession().tryToSetActive(false);
+    AudioSession::sharedSession().endInterruptionForTesting();
 #endif
 }
 
@@ -1337,6 +1338,17 @@ ExceptionOr<RefPtr<Element>> Internals::pseudoElement(Element& element, const St
     return pseudoId == "before"_s ? element.beforePseudoElement() : element.afterPseudoElement();
 }
 
+double Internals::preferredRenderingUpdateInterval()
+{
+    auto* document = contextDocument();
+    if (!document)
+        return 0;
+    auto* page = document->page();
+    if (!page)
+        return 0;
+    return page->preferredRenderingUpdateInterval().milliseconds();
+}
+
 ExceptionOr<String> Internals::elementRenderTreeAsText(Element& element)
 {
     element.document().updateStyleIfNeeded();
@@ -1421,7 +1433,7 @@ ExceptionOr<bool> Internals::isTimerThrottled(int timeoutId)
     if (timer->intervalClampedToMinimum() > timer->m_originalInterval)
         return true;
 
-    return !!timer->alignedFireTime(MonotonicTime { });
+    return !!scriptExecutionContext()->alignedFireTime(timer->hasReachedMaxNestingLevel(), MonotonicTime { });
 }
 
 String Internals::requestAnimationFrameThrottlingReasons() const
@@ -1560,6 +1572,20 @@ ExceptionOr<void> Internals::setFormControlStateOfPreviousHistoryItem(const Vect
 }
 
 #if ENABLE(SPEECH_SYNTHESIS)
+void Internals::simulateSpeechSynthesizerVoiceListChange()
+{
+    if (m_platformSpeechSynthesizer) {
+        m_platformSpeechSynthesizer->client().voicesDidChange();
+        return;
+    }
+
+    RefPtr document = contextDocument();
+    if (!document || !document->domWindow())
+        return;
+
+    if (RefPtr synthesis = LocalDOMWindowSpeechSynthesis::speechSynthesis(*document->domWindow()))
+        synthesis->simulateVoicesListChange();
+}
 
 void Internals::enableMockSpeechSynthesizer()
 {
@@ -1798,7 +1824,7 @@ ExceptionOr<Ref<DOMRect>> Internals::absoluteLineRectFromPoint(int x, int y)
 
     auto& frame = *document.frame();
     auto& view = *document.view();
-    document.updateLayoutIgnorePendingStylesheets();
+    document.updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     auto position = frame.visiblePositionForPoint(view.rootViewToContents(IntPoint { x, y }));
     return DOMRect::create(position.absoluteSelectionBoundsForLine());
@@ -1824,7 +1850,7 @@ ExceptionOr<bool> Internals::isCaretBlinkingSuspended()
 
 Ref<DOMRect> Internals::boundingBox(Element& element)
 {
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
     auto renderer = element.renderer();
     if (!renderer)
         return DOMRect::create();
@@ -1881,7 +1907,7 @@ ExceptionOr<unsigned> Internals::markerCountForNode(Node& node, const String& ma
 
 ExceptionOr<RenderedDocumentMarker*> Internals::markerAt(Node& node, const String& markerType, unsigned index)
 {
-    node.document().updateLayoutIgnorePendingStylesheets();
+    node.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     OptionSet<DocumentMarker::MarkerType> markerTypes;
     if (!markerTypesFrom(markerType, markerTypes))
@@ -2064,7 +2090,7 @@ ExceptionOr<Ref<DOMRect>> Internals::layoutViewportRect()
     if (!document || !document->frame())
         return Exception { InvalidAccessError };
 
-    document->updateLayoutIgnorePendingStylesheets();
+    document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     auto& frameView = *document->view();
     return DOMRect::create(frameView.layoutViewportRect());
@@ -2076,7 +2102,7 @@ ExceptionOr<Ref<DOMRect>> Internals::visualViewportRect()
     if (!document || !document->frame())
         return Exception { InvalidAccessError };
 
-    document->updateLayoutIgnorePendingStylesheets();
+    document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     auto& frameView = *document->view();
     return DOMRect::create(frameView.visualViewportRect());
@@ -2119,6 +2145,14 @@ ExceptionOr<void> Internals::setViewBaseBackgroundColor(const String& colorValue
     return Exception { SyntaxError };
 }
 
+ExceptionOr<String> Internals::documentBackgroundColor()
+{
+    Document* document = contextDocument();
+    if (!document || !document->view())
+        return Exception { InvalidAccessError };
+    return serializationForCSS(document->view()->documentBackgroundColor());
+}
+
 ExceptionOr<void> Internals::setPagination(const String& mode, int gap, int pageLength)
 {
     Document* document = contextDocument();
@@ -2152,7 +2186,7 @@ ExceptionOr<uint64_t> Internals::lineIndexAfterPageBreak(Element& element)
     if (!document || !document->frame())
         return Exception { InvalidAccessError };
 
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     if (!element.renderer() || !is<RenderBlockFlow>(element.renderer()))
         return Exception { NotFoundError };
@@ -2276,7 +2310,7 @@ Vector<String> Internals::recentSearches(const HTMLInputElement& element)
     if (!element.isSearchField())
         return { };
 
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
     auto* renderer = element.renderer();
     if (!is<RenderSearchField>(renderer))
         return { };
@@ -2540,7 +2574,7 @@ ExceptionOr<RefPtr<NodeList>> Internals::nodesFromRect(Document& document, int c
     if (!renderView)
         return nullptr;
 
-    document.updateLayoutIgnorePendingStylesheets();
+    document.updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     float zoomFactor = frame->pageZoomFactor();
     LayoutPoint point(centerX * zoomFactor + frameView->scrollX(), centerY * zoomFactor + frameView->scrollY());
@@ -3103,7 +3137,7 @@ ExceptionOr<uint64_t> Internals::layerIDForElement(Element& element)
     if (!document || !document->frame())
         return Exception { InvalidAccessError };
 
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     if (!element.renderer() || !element.renderer()->hasLayer())
         return Exception { NotFoundError };
@@ -3168,7 +3202,7 @@ ExceptionOr<ScrollableArea*> Internals::scrollableAreaForNode(Node* node) const
         return Exception { InvalidAccessError };
 
     Ref nodeRef { *node };
-    nodeRef->document().updateLayoutIgnorePendingStylesheets();
+    nodeRef->document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     ScrollableArea* scrollableArea = nullptr;
     if (is<Document>(nodeRef)) {
@@ -3263,7 +3297,7 @@ ExceptionOr<String> Internals::scrollingStateTreeAsText() const
     if (!document || !document->frame())
         return Exception { InvalidAccessError };
 
-    document->updateLayoutIgnorePendingStylesheets();
+    document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     Page* page = document->page();
     if (!page)
@@ -3278,7 +3312,7 @@ ExceptionOr<String> Internals::scrollingTreeAsText() const
     if (!document || !document->frame())
         return Exception { InvalidAccessError };
 
-    document->updateLayoutIgnorePendingStylesheets();
+    document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     auto page = document->page();
     if (!page)
@@ -3298,7 +3332,7 @@ ExceptionOr<bool> Internals::haveScrollingTree() const
     if (!document || !document->frame())
         return Exception { InvalidAccessError };
 
-    document->updateLayoutIgnorePendingStylesheets();
+    document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     auto page = document->page();
     if (!page)
@@ -3343,15 +3377,10 @@ ExceptionOr<void> Internals::setElementUsesDisplayListDrawing(Element& element, 
     if (!document || !document->renderView())
         return Exception { InvalidAccessError };
 
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     if (!element.renderer())
         return Exception { InvalidAccessError };
-
-    if (is<HTMLCanvasElement>(element)) {
-        downcast<HTMLCanvasElement>(element).setUsesDisplayListDrawing(usesDisplayListDrawing);
-        return { };
-    }
 
     if (!element.renderer()->hasLayer())
         return Exception { InvalidAccessError };
@@ -3370,7 +3399,7 @@ ExceptionOr<void> Internals::setElementTracksDisplayListReplay(Element& element,
     if (!document || !document->renderView())
         return Exception { InvalidAccessError };
 
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     if (!element.renderer())
         return Exception { InvalidAccessError };
@@ -3402,7 +3431,7 @@ ExceptionOr<String> Internals::displayListForElement(Element& element, unsigned 
     if (!document || !document->renderView())
         return Exception { InvalidAccessError };
 
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     if (!element.renderer())
         return Exception { InvalidAccessError };
@@ -3423,7 +3452,7 @@ ExceptionOr<String> Internals::replayDisplayListForElement(Element& element, uns
     if (!document || !document->renderView())
         return Exception { InvalidAccessError };
 
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     if (!element.renderer())
         return Exception { InvalidAccessError };
@@ -3457,7 +3486,7 @@ ExceptionOr<String> Internals::cachedGlyphDisplayListsForTextNode(Node& node, un
     if (!is<Text>(node))
         return Exception { InvalidAccessError };
 
-    node.document().updateLayoutIgnorePendingStylesheets();
+    node.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     if (!node.renderer())
         return Exception { InvalidAccessError };
@@ -3474,9 +3503,24 @@ ExceptionOr<void> Internals::garbageCollectDocumentResources() const
     return { };
 }
 
+bool Internals::isUnderMemoryWarning()
+{
+    return MemoryPressureHandler::singleton().isUnderMemoryWarning();
+}
+
 bool Internals::isUnderMemoryPressure()
 {
     return MemoryPressureHandler::singleton().isUnderMemoryPressure();
+}
+
+void Internals::beginSimulatedMemoryWarning()
+{
+    MemoryPressureHandler::singleton().beginSimulatedMemoryWarning();
+}
+
+void Internals::endSimulatedMemoryWarning()
+{
+    MemoryPressureHandler::singleton().endSimulatedMemoryWarning();
 }
 
 void Internals::beginSimulatedMemoryPressure()
@@ -3758,6 +3802,16 @@ void Internals::setMockVideoPresentationModeEnabled(bool enabled)
 }
 #endif
 
+void Internals::setCanvasNoiseInjectionSalt(HTMLCanvasElement& element, unsigned long long salt)
+{
+    return element.setNoiseInjectionSalt(salt);
+}
+
+bool Internals::doesCanvasHavePendingCanvasNoiseInjection(HTMLCanvasElement& element) const
+{
+    return element.havePendingCanvasNoiseInjection();
+}
+
 void Internals::setApplicationCacheOriginQuota(unsigned long long quota)
 {
     Document* document = contextDocument();
@@ -3969,7 +4023,7 @@ ExceptionOr<void> Internals::updateLayoutIgnorePendingStylesheetsAndRunPostLayou
     else
         return Exception { TypeError };
 
-    document->updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks::Synchronously);
+    document->updateLayout({ LayoutOptions::IgnorePendingStylesheets, LayoutOptions::RunPostLayoutTasksSynchronously });
     document->flushDeferredAXObjectCacheUpdate();
 
     return { };
@@ -4086,7 +4140,7 @@ JSC::JSValue Internals::evaluateInWorldIgnoringException(const String& name, con
     auto* document = contextDocument();
     auto& scriptController = document->frame()->script();
     auto world = ScriptController::createWorld(name);
-    return scriptController.executeScriptInWorldIgnoringException(world, source);
+    return scriptController.executeScriptInWorldIgnoringException(world, source, JSC::SourceTaintedOrigin::Untainted);
 }
 
 #if !PLATFORM(MAC)
@@ -4289,7 +4343,7 @@ ExceptionOr<void> Internals::setOverridePreferredDynamicRangeMode(HTMLMediaEleme
 
 bool Internals::isSelectPopupVisible(HTMLSelectElement& element)
 {
-    element.document().updateLayoutIgnorePendingStylesheets();
+    element.document().updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     auto* renderer = element.renderer();
     if (!is<RenderMenuList>(renderer))
@@ -4677,27 +4731,27 @@ ExceptionOr<void> Internals::postRemoteControlCommand(const String& commandStrin
     PlatformMediaSession::RemoteCommandArgument parameter { argument, { } };
 
     if (equalLettersIgnoringASCIICase(commandString, "play"_s))
-        command = PlatformMediaSession::PlayCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::PlayCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "pause"_s))
-        command = PlatformMediaSession::PauseCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::PauseCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "stop"_s))
-        command = PlatformMediaSession::StopCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::StopCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "toggleplaypause"_s))
-        command = PlatformMediaSession::TogglePlayPauseCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::TogglePlayPauseCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "beginseekingbackward"_s))
-        command = PlatformMediaSession::BeginSeekingBackwardCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::BeginSeekingBackwardCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "endseekingbackward"_s))
-        command = PlatformMediaSession::EndSeekingBackwardCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::EndSeekingBackwardCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "beginseekingforward"_s))
-        command = PlatformMediaSession::BeginSeekingForwardCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::BeginSeekingForwardCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "endseekingforward"_s))
-        command = PlatformMediaSession::EndSeekingForwardCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::EndSeekingForwardCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "seektoplaybackposition"_s))
-        command = PlatformMediaSession::SeekToPlaybackPositionCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::SeekToPlaybackPositionCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "beginscrubbing"_s))
-        command = PlatformMediaSession::BeginScrubbingCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::BeginScrubbingCommand;
     else if (equalLettersIgnoringASCIICase(commandString, "endscrubbing"_s))
-        command = PlatformMediaSession::EndScrubbingCommand;
+        command = PlatformMediaSession::RemoteControlCommandType::EndScrubbingCommand;
     else
         return Exception { InvalidAccessError };
 
@@ -4977,7 +5031,7 @@ ExceptionOr<String> Internals::pageOverlayLayerTreeAsText(unsigned short flags) 
     if (!document || !document->page())
         return Exception { InvalidAccessError };
 
-    document->updateLayoutIgnorePendingStylesheets();
+    document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     return MockPageOverlayClient::singleton().layerTreeAsText(*document->page(), toLayerTreeAsTextOptions(flags));
 }
@@ -5671,9 +5725,6 @@ void Internals::simulateEventForWebGLContext(SimulatedWebGLContextEvent event, W
 {
     WebGLRenderingContext::SimulatedEventForTesting contextEvent;
     switch (event) {
-    case SimulatedWebGLContextEvent::ContextChange:
-        contextEvent = WebGLRenderingContext::SimulatedEventForTesting::ContextChange;
-        break;
     case SimulatedWebGLContextEvent::GPUStatusFailure:
         contextEvent = WebGLRenderingContext::SimulatedEventForTesting::GPUStatusFailure;
         break;
@@ -6715,12 +6766,12 @@ unsigned Internals::numberOfAppHighlights()
     Document* document = contextDocument();
     if (!document)
         return 0;
-    auto appHighlightRegister = document->appHighlightRegisterIfExists();
-    if (!appHighlightRegister)
+    auto appHighlightRegistry = document->appHighlightRegistryIfExists();
+    if (!appHighlightRegistry)
         return 0;
     unsigned numHighlights = 0;
-    for (auto& highlight : appHighlightRegister->map())
-        numHighlights += highlight.value->rangesData().size();
+    for (auto& highlight : appHighlightRegistry->map())
+        numHighlights += highlight.value->highlightRanges().size();
     return numHighlights;
 }
 #endif
@@ -7133,6 +7184,46 @@ bool Internals::isUsingUISideCompositing() const
     if (!page)
         return false;
     return page->chrome().client().isUsingUISideCompositing();
+}
+
+AccessibilityObject* Internals::axObjectForElement(Element& element) const
+{
+    auto* document = contextDocument();
+    if (!document)
+        return nullptr;
+    WebCore::AXObjectCache::enableAccessibility();
+
+    auto* cache = document->axObjectCache();
+    return cache ? cache->getOrCreate(&element) : nullptr;
+}
+
+String Internals::getComputedLabel(Element& element) const
+{
+    if (auto* axObject = axObjectForElement(element))
+        return axObject->computedLabel();
+    return ""_s;
+}
+
+String Internals::getComputedRole(Element& element) const
+{
+    if (auto* axObject = axObjectForElement(element))
+        return axObject->computedRoleString();
+    return ""_s;
+}
+
+bool Internals::readyToRetrieveComputedRoleOrLabel(Element& element) const
+{
+    // If the element has a renderer, it should be ready to go.
+    if (element.renderer())
+        return true;
+
+    auto* computedStyle = element.computedStyle();
+    // If we can't get computed style for some reason, assume we can query for computed role or label.
+    if (!computedStyle)
+        return true;
+
+    // If the element needs a renderer but doesn't have one yet, we aren't ready to query the computed accessibility role or label. Doing so before the renderer has been attached will yield incorrect results.
+    return !element.rendererIsNeeded(*computedStyle);
 }
 
 } // namespace WebCore

@@ -341,10 +341,7 @@ private:
             return hash;
         }
 
-        friend bool operator==(const BufferedStructure& a, const BufferedStructure& b)
-        {
-            return a.m_structure == b.m_structure && a.m_byValId == b.m_byValId;
-        }
+        friend bool operator==(const BufferedStructure&, const BufferedStructure&) = default;
 
         struct Hash {
             static unsigned hash(const BufferedStructure& key)
@@ -482,7 +479,7 @@ inline CodeOrigin getStructureStubInfoCodeOrigin(StructureStubInfo& structureStu
     return structureStubInfo.codeOrigin;
 }
 
-inline auto appropriateOptimizingGetByIdFunction(AccessType type) -> decltype(&operationGetByIdOptimize)
+inline auto appropriateGetByIdOptimizeFunction(AccessType type) -> decltype(&operationGetByIdOptimize)
 {
     switch (type) {
     case AccessType::GetById:
@@ -500,7 +497,7 @@ inline auto appropriateOptimizingGetByIdFunction(AccessType type) -> decltype(&o
     }
 }
 
-inline auto appropriateGenericGetByIdFunction(AccessType type) -> decltype(&operationGetByIdGeneric)
+inline auto appropriateGetByIdGenericFunction(AccessType type) -> decltype(&operationGetByIdGeneric)
 {
     switch (type) {
     case AccessType::GetById:
@@ -516,6 +513,29 @@ inline auto appropriateGenericGetByIdFunction(AccessType type) -> decltype(&oper
         ASSERT_NOT_REACHED();
         return nullptr;
     }
+}
+
+inline auto appropriatePutByIdOptimizeFunction(AccessType type) -> decltype(&operationPutByIdStrictOptimize)
+{
+    switch (type) {
+    case AccessType::PutByIdStrict:
+        return operationPutByIdStrictOptimize;
+    case AccessType::PutByIdSloppy:
+        return operationPutByIdSloppyOptimize;
+    case AccessType::PutByIdDirectStrict:
+        return operationPutByIdDirectStrictOptimize;
+    case AccessType::PutByIdDirectSloppy:
+        return operationPutByIdDirectSloppyOptimize;
+    case AccessType::DefinePrivateNameById:
+        return operationPutByIdDefinePrivateFieldStrictOptimize;
+    case AccessType::SetPrivateNameById:
+        return operationPutByIdSetPrivateFieldStrictOptimize;
+    default:
+        break;
+    }
+    // Make win port compiler happy
+    RELEASE_ASSERT_NOT_REACHED();
+    return nullptr;
 }
 
 struct UnlinkedStructureStubInfo {

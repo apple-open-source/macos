@@ -358,7 +358,10 @@
     complete([self currentDeviceList], version, nil);
 }
 
-- (NSString * _Nullable)machineID:(NSError *__autoreleasing  _Nullable * _Nullable)error {
+- (NSString * _Nullable)machineID:(NSString*)altDSID 
+                           flowID:(NSString* _Nullable)flowID
+                  deviceSessionID:(NSString* _Nullable)deviceSessionID
+                            error:(NSError *__autoreleasing  _Nullable * _Nullable)error {
     return self.currentMachineID;
 }
 

@@ -30,6 +30,8 @@
 #include <gst/webrtc/webrtc.h>
 #undef GST_USE_UNSTABLE_API
 
+#include <wtf/UUID.h>
+
 GST_DEBUG_CATEGORY(webkit_webrtc_outgoing_media_debug);
 #define GST_CAT_DEFAULT webkit_webrtc_outgoing_media_debug
 
@@ -48,6 +50,7 @@ RealtimeOutgoingMediaSourceGStreamer::RealtimeOutgoingMediaSourceGStreamer(const
     m_bin = gst_bin_new(nullptr);
 
     m_inputSelector = gst_element_factory_make("input-selector", nullptr);
+    gst_util_set_object_arg(G_OBJECT(m_inputSelector.get()), "sync-mode", "clock");
 
     m_preEncoderQueue = gst_element_factory_make("queue", nullptr);
     m_postEncoderQueue = gst_element_factory_make("queue", nullptr);
@@ -67,6 +70,15 @@ RealtimeOutgoingMediaSourceGStreamer::~RealtimeOutgoingMediaSourceGStreamer()
 
     if (m_transceiver)
         g_signal_handlers_disconnect_by_data(m_transceiver.get(), this);
+
+    if (m_fallbackSource) {
+        gst_element_set_locked_state(m_fallbackSource.get(), TRUE);
+        gst_element_set_state(m_fallbackSource.get(), GST_STATE_READY);
+        gst_element_unlink(m_fallbackSource.get(), m_inputSelector.get());
+        gst_element_set_state(m_fallbackSource.get(), GST_STATE_NULL);
+        gst_element_release_request_pad(m_inputSelector.get(), m_fallbackPad.get());
+        gst_element_set_locked_state(m_fallbackSource.get(), FALSE);
+    }
 
     stopOutgoingSource();
 
@@ -238,6 +250,33 @@ void RealtimeOutgoingMediaSourceGStreamer::setSinkPad(GRefPtr<GstPad>&& pad)
         });
     }), this);
     g_object_get(m_transceiver.get(), "sender", &m_sender.outPtr(), nullptr);
+}
+
+GUniquePtr<GstStructure> RealtimeOutgoingMediaSourceGStreamer::parameters()
+{
+    if (!m_parameters) {
+        auto transactionId = createVersion4UUIDString();
+        m_parameters.reset(gst_structure_new("send-parameters", "transaction-id", G_TYPE_STRING, transactionId.ascii().data(), nullptr));
+
+        GUniquePtr<GstStructure> encodingParameters(gst_structure_new("encoding-parameters", "active", G_TYPE_BOOLEAN, TRUE, nullptr));
+
+        if (m_payloader) {
+            uint32_t ssrc;
+            g_object_get(m_payloader.get(), "ssrc", &ssrc, nullptr);
+            gst_structure_set(encodingParameters.get(), "ssrc", G_TYPE_UINT, ssrc, nullptr);
+        }
+        fillEncodingParameters(encodingParameters);
+
+        GValue encodingsValue = G_VALUE_INIT;
+        g_value_init(&encodingsValue, GST_TYPE_LIST);
+        GValue value = G_VALUE_INIT;
+        g_value_init(&value, GST_TYPE_STRUCTURE);
+        gst_value_set_structure(&value, encodingParameters.get());
+        gst_value_list_append_value(&encodingsValue, &value);
+        g_value_unset(&value);
+        gst_structure_take_value(m_parameters.get(), "encodings", &encodingsValue);
+    }
+    return GUniquePtr<GstStructure>(gst_structure_copy(m_parameters.get()));
 }
 
 #undef GST_CAT_DEFAULT

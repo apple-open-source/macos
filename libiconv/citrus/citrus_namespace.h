@@ -155,6 +155,7 @@
 #define _MAPPER_CONVERT_DST_MORE _CITRUS_MAPPER_CONVERT_DST_MORE
 #define _MAPPER_CONVERT_ILSEQ	_CITRUS_MAPPER_CONVERT_ILSEQ
 #define _MAPPER_CONVERT_FATAL	_CITRUS_MAPPER_CONVERT_FATAL
+#define _MAPPER_CONVERT_TRANSLIT _CITRUS_MAPPER_CONVERT_TRANSLIT
 #define _mapper_convert		_citrus_mapper_convert
 #define _mapper_init_state	_citrus_mapper_init_state
 #define _mapper_get_state_size	_citrus_mapper_get_state_size

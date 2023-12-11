@@ -390,24 +390,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, ScrollbarWidth);
 
 namespace WTF {
 
-template<> struct EnumTraits<WebCore::ScrollIsAnimated> {
-    using values = EnumValues<
-        WebCore::ScrollIsAnimated,
-        WebCore::ScrollIsAnimated::No,
-        WebCore::ScrollIsAnimated::Yes
-    >;
-};
-
-template<> struct EnumTraits<WebCore::ScrollGranularity> {
-    using values = EnumValues<
-        WebCore::ScrollGranularity,
-        WebCore::ScrollGranularity::Line,
-        WebCore::ScrollGranularity::Page,
-        WebCore::ScrollGranularity::Document,
-        WebCore::ScrollGranularity::Pixel
-    >;
-};
-
 template<> struct EnumTraits<WebCore::ScrollDirection> {
     using values = EnumValues<
         WebCore::ScrollDirection,
@@ -423,6 +405,15 @@ template<> struct EnumTraits<WebCore::ScrollbarOrientation> {
         WebCore::ScrollbarOrientation,
         WebCore::ScrollbarOrientation::Horizontal,
         WebCore::ScrollbarOrientation::Vertical
+    >;
+};
+
+template<> struct EnumTraits<WebCore::ScrollbarWidth> {
+    using values = EnumValues<
+        WebCore::ScrollbarWidth,
+        WebCore::ScrollbarWidth::Auto,
+        WebCore::ScrollbarWidth::Thin,
+        WebCore::ScrollbarWidth::None
     >;
 };
 } // namespace WTF

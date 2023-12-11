@@ -54,6 +54,7 @@ static StyledMarkedText resolveStyleForMarkedText(const MarkedText& markedText, 
             style.backgroundColor = renderStyle->colorResolvingCurrentColor(renderStyle->backgroundColor());
             style.textStyles.fillColor = renderStyle->computedStrokeColor();
             style.textStyles.strokeColor = renderStyle->computedStrokeColor();
+            style.textStyles.hasExplicitlySetFillColor = renderStyle->hasExplicitlySetColor();
 
             auto color = TextDecorationPainter::decorationColor(*renderStyle.get(), paintInfo.paintBehavior);
             auto decorationStyle = renderStyle->textDecorationStyle();
@@ -121,6 +122,30 @@ StyledMarkedText::Style StyledMarkedText::computeStyleForUnmarkedMarkedText(cons
     return style;
 }
 
+static TextDecorationPainter::Styles computeStylesForTextDecorations(const TextDecorationPainter::Styles& previousTextDecorationStyles, const TextDecorationPainter::Styles& currentTextDecorationStyles)
+{
+    auto textDecorations = TextDecorationPainter::textDecorationsInEffectForStyle(currentTextDecorationStyles);
+
+    if (textDecorations.isEmpty())
+        return previousTextDecorationStyles;
+
+    auto textDecorationStyles = previousTextDecorationStyles;
+
+    if (textDecorations.contains(TextDecorationLine::Underline)) {
+        textDecorationStyles.underline.color = currentTextDecorationStyles.underline.color;
+        textDecorationStyles.underline.decorationStyle = currentTextDecorationStyles.underline.decorationStyle;
+    }
+    if (textDecorations.contains(TextDecorationLine::Overline)) {
+        textDecorationStyles.overline.color = currentTextDecorationStyles.overline.color;
+        textDecorationStyles.overline.decorationStyle = currentTextDecorationStyles.overline.decorationStyle;
+    }
+    if (textDecorations.contains(TextDecorationLine::LineThrough)) {
+        textDecorationStyles.linethrough.color = currentTextDecorationStyles.linethrough.color;
+        textDecorationStyles.linethrough.decorationStyle = currentTextDecorationStyles.linethrough.decorationStyle;
+    }
+    return textDecorationStyles;
+}
+
 static Vector<StyledMarkedText> coalesceAdjacentWithSameRanges(Vector<StyledMarkedText>&& styledTexts)
 {
     ASSERT(!styledTexts.isEmpty());
@@ -136,9 +161,8 @@ static Vector<StyledMarkedText> coalesceAdjacentWithSameRanges(Vector<StyledMark
                     || !it->style.backgroundColor.isOpaque()
                     || (it->highlightName.isNull() && it->style.backgroundColor.isVisible())))
                         previousStyledMarkedText.style.backgroundColor = blendSourceOver(previousStyledMarkedText.style.backgroundColor, it->style.backgroundColor);
-            // Take text color of the StyledMarkedText that has set it, maintaining insertion order.
-            // FIXME: Case of user setting color to CanvasText, will not choose CanvasText as prioritized color to paint.
-            if (it->type != MarkedText::Type::Unmarked && it->style.textStyles.fillColor != RenderTheme::singleton().systemColor(CSSValueCanvastext, { }))
+            // Take text color of StyledMarkedText, maintaining insertion and priority order.
+            if (it->type != MarkedText::Type::Unmarked && it->style.textStyles.hasExplicitlySetFillColor)
                 previousStyledMarkedText.style.textStyles.fillColor = it->style.textStyles.fillColor;
             // Take the highlightName of the latest StyledMarkedText, regardless of priority.
             if (!it->highlightName.isNull())
@@ -146,11 +170,11 @@ static Vector<StyledMarkedText> coalesceAdjacentWithSameRanges(Vector<StyledMark
 
             if (previousStyledMarkedText.priority <= it->priority) {
                 previousStyledMarkedText.priority = it->priority;
-                // If highlight, take textDecorationStyles of latest StyledMarkedText.
-                // FIXME: Check for taking textDecorationStyles needs to be changed to accommodate other MarkedText type
+                // If highlight, combine textDecorationStyles accordingly.
+                // FIXME: Check for taking textDecorationStyles needs to accommodate other MarkedText type.
                 if (!it->highlightName.isNull())
-                    previousStyledMarkedText.style.textDecorationStyles = it->style.textDecorationStyles;
-                // If higher or same priority and opaque, just override background color.
+                    previousStyledMarkedText.style.textDecorationStyles = computeStylesForTextDecorations(previousStyledMarkedText.style.textDecorationStyles, it->style.textDecorationStyles);
+                // If higher or same priority and opaque, override background color.
                 if (it->style.backgroundColor.isOpaque())
                     previousStyledMarkedText.style.backgroundColor = it->style.backgroundColor;
             }

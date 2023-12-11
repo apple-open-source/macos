@@ -24,8 +24,8 @@
 #include "LocalFrameView.h"
 #include "Region.h"
 #include "RenderBlockFlow.h"
+#include "RenderSelection.h"
 #include "RenderWidget.h"
-#include "SelectionRangeData.h"
 #include <memory>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
@@ -77,7 +77,7 @@ public:
 
     Layout::InitialContainingBlock& initialContainingBlock() { return m_initialContainingBlock.get(); }
     const Layout::InitialContainingBlock& initialContainingBlock() const { return m_initialContainingBlock.get(); }
-    Layout::LayoutState& ensureLayoutState();
+    Layout::LayoutState& layoutState() { return *m_layoutState; }
     void updateQuirksMode();
 
     bool needsRepaintHackAfterCompositingLayerUpdateForDebugOverlaysOnly() const { return m_needsRepaintHackAfterCompositingLayerUpdateForDebugOverlaysOnly; };
@@ -96,7 +96,7 @@ public:
     // Return the renderer whose background style is used to paint the root background.
     RenderElement* rendererForRootBackground() const;
 
-    SelectionRangeData& selection() { return m_selection; }
+    RenderSelection& selection() { return m_selection; }
 
     bool printing() const;
 
@@ -230,16 +230,18 @@ private:
 
     Node* nodeForHitTest() const override;
 
+    void updateInitialContainingBlockSize();
+
     LocalFrameView& m_frameView;
 
     // Include this RenderView.
     uint64_t m_rendererCount { 1 };
 
     UniqueRef<Layout::InitialContainingBlock> m_initialContainingBlock;
-    std::unique_ptr<Layout::LayoutState> m_layoutState;
+    UniqueRef<Layout::LayoutState> m_layoutState;
 
     mutable std::unique_ptr<Region> m_accumulatedRepaintRegion;
-    SelectionRangeData m_selection;
+    RenderSelection m_selection;
 
     WeakPtr<RenderLayer> m_styleChangeLayerMutationRoot;
 

@@ -62,14 +62,17 @@ private:
     void batchPutOperation(DOMCacheIdentifier, Vector<DOMCacheEngine::CrossThreadRecord>&&, DOMCacheEngine::RecordIdentifiersCallback&& callback)  final { callback(makeUnexpected(DOMCacheEngine::Error::Stopped)); }
     void reference(DOMCacheIdentifier)  final { }
     void dereference(DOMCacheIdentifier)  final { }
+    void lockStorage(const ClientOrigin&) final { }
+    void unlockStorage(const ClientOrigin&) final { }
 };
 
 static Ref<CacheStorageConnection> createMainThreadConnection(WorkerGlobalScope& scope)
 {
     RefPtr<CacheStorageConnection> mainThreadConnection;
     callOnMainThreadAndWait([workerThread = Ref { scope.thread() }, &mainThreadConnection]() mutable {
-        if (!workerThread->runLoop().terminated())
-            mainThreadConnection = workerThread->workerLoaderProxy().createCacheStorageConnection();
+        auto* workerLoaderProxy = workerThread->workerLoaderProxy();
+        if (!workerThread->runLoop().terminated() && workerLoaderProxy)
+            mainThreadConnection = workerLoaderProxy->createCacheStorageConnection();
         if (!mainThreadConnection) {
             RELEASE_LOG_INFO(ServiceWorker, "Creating stopped WorkerCacheStorageConnection");
             mainThreadConnection = StoppedCacheStorageConnection::create();
@@ -226,6 +229,20 @@ void WorkerCacheStorageConnection::dereference(DOMCacheIdentifier cacheIdentifie
 {
     callOnMainThread([mainThreadConnection = m_mainThreadConnection, cacheIdentifier]() {
         mainThreadConnection->dereference(cacheIdentifier);
+    });
+}
+
+void WorkerCacheStorageConnection::lockStorage(const ClientOrigin& origin)
+{
+    callOnMainThread([mainThreadConnection = m_mainThreadConnection, origin = origin.isolatedCopy()]() {
+        mainThreadConnection->lockStorage(origin);
+    });
+}
+
+void WorkerCacheStorageConnection::unlockStorage(const ClientOrigin& origin)
+{
+    callOnMainThread([mainThreadConnection = m_mainThreadConnection, origin = origin.isolatedCopy()]() {
+        mainThreadConnection->unlockStorage(origin);
     });
 }
 

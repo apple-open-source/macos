@@ -42,6 +42,10 @@
 #import "CKKSPowerCollection.h"
 #include "keychain/securityd/SecItemServer.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @implementation CKKSCloudKitFetchRequest
 @end
 
@@ -68,6 +72,7 @@
 @property bool forceResync;
 
 @property bool moreComing;
+@property NSString* altDSID;
 
 @property size_t totalModifications;
 @property size_t totalDeletions;
@@ -94,6 +99,7 @@
                        apnsPushes:(NSSet<CKRecordZoneNotification*>*)apnsPushes
                       forceResync:(bool)forceResync
                  ckoperationGroup:(CKOperationGroup*)ckoperationGroup
+                          altDSID:(NSString*)altDSID
 {
     if(self = [super init]) {
         _container = container;
@@ -118,6 +124,7 @@
         _fetchCompletedOperation = [CKKSResultOperation named:@"record-zone-changes-completed" withBlock:^{}];
 
         _moreComing = false;
+        _altDSID = altDSID;
 
         // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. We need to boost our CPU priority so CK will accept our network priority <rdar://problem/49086080>
         self.qualityOfService = NSQualityOfServiceUserInitiated;
@@ -202,6 +209,11 @@
             [zoneIDsToStopFetching addObject:zoneID];
         }
     }
+    AAFAnalyticsEventSecurity* eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldIsPrioritized:@NO}
+                                                                                                 altDSID:self.altDSID
+                                                                                               eventName:kSecurityRTCEventNameZoneChangeFetch
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     if(zoneIDsToStopFetching.count > 0) {
         ckksnotice_global("ckksfetch", "Dropping the following zones from this fetch cycle: %@", zoneIDsToStopFetching);
@@ -211,6 +223,8 @@
             self.allClientOptions[zoneID] = nil;
         }
     }
+
+    [eventS addMetrics:@{kSecurityRTCFieldNumViews:@(self.fetchedZoneIDs.count)}];
 
     ckksnotice_global("ckksfetch", "Beginning fetch: %@ options: %@",
                       self.fetchedZoneIDs,
@@ -223,6 +237,9 @@
     self.fetchRecordZoneChangesOperation.group = self.ckoperationGroup;
     ckksnotice_global("ckksfetch", "Operation group is %@", self.ckoperationGroup);
 
+//    @TODO: convert this to a bitfield somehow
+//    event[kSecurityRTCFieldFetchReasons] = self.fetchReasons;
+
     if([self.fetchReasons containsObject:CKKSFetchBecauseAPIFetchRequest] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseInitialStart] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseMoreComing] ||
@@ -231,6 +248,7 @@
         if(SecCKKSHighPriorityOperations()) {
             // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
             self.fetchRecordZoneChangesOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+            [eventS addMetrics:@{kSecurityRTCFieldIsPrioritized:@(YES)}];
         }
     }
 
@@ -269,6 +287,9 @@
         self.allClientOptions[recordZoneID].previousServerChangeToken = serverChangeToken;
 
         self.moreComing |= moreComing;
+
+        [eventS addMetrics:@{kSecurityRTCFieldFullFetch:@(self.moreComing)}];
+
         if(moreComing) {
             ckksnotice_global("ckksfetch", "more changes pending for %@, will start a new fetch at change token %@", recordZoneID, self.changeTokens[recordZoneID]);
         }
@@ -303,6 +324,8 @@
         if(self.moreComing && (operationError == nil || [CKKSReachabilityTracker isNetworkFailureError:operationError])) {
             ckksnotice_global("ckksfetch", "Must issue another fetch (with potential error %@)", operationError);
             self.moreComing = false;
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:operationError];
+
             [self performFetch];
             return;
         }
@@ -384,6 +407,10 @@
 
         // Drop strong pointer to clients
         self.clientMap = @{};
+
+        [eventS addMetrics:@{kSecurityRTCFieldNumKeychainItems:@(self.fetchedItems),
+                             kSecurityRTCFieldNumCKRecords:@(self.totalDeletions + self.totalModifications)}];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:self.error];
     };
 
     [self dependOnBeforeGroupFinished:self.fetchCompletedOperation];

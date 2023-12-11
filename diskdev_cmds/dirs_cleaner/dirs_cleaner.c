@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -45,6 +45,8 @@
 
 #define USER_VOLUME_MNT_PATH "/private/var/mobile/"
 #define DATA_VOLUME_MNT_PATH "/private/var/"
+
+#define ALTUSER_VOL_MNT_PATH "/var/mobile/"
 
 #define CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY	DATA_VOLUME_MNT_PATH "dirs_cleaner/"
 #define CACHE_DELETE_USER_AUTO_PURGE_DIRECTORY	USER_VOLUME_MNT_PATH "dirs_cleaner/"
@@ -685,9 +687,15 @@ main(int argc, char *argv[])
 	for (int i = 1 + init; i < argc; i++) {
 		/* reinitialize the dcs state for a new input directory */
 		char *tmp_path = CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY;
-		if (strncmp(USER_VOLUME_MNT_PATH, argv[i], strlen(USER_VOLUME_MNT_PATH)) == 0) {
+		/*
+		 * See if the input arg is on the user volume or not; be sure to check either the pre-symlink
+		 * path (/var/mobile) or the post-symlink path (/private/var/mobile)
+		 */
+		if ((strncmp(USER_VOLUME_MNT_PATH, argv[i], strlen(USER_VOLUME_MNT_PATH)) == 0) ||
+			   (strncmp(ALTUSER_VOL_MNT_PATH, argv[i], strlen(ALTUSER_VOL_MNT_PATH)) == 0))	{
 			tmp_path = CACHE_DELETE_USER_AUTO_PURGE_DIRECTORY;
 		}
+
 		if (dc_prep_temp_dir(&ctx, tmp_path)) {
 			dc_state_set_dirs_sync(&ctx);
 		}

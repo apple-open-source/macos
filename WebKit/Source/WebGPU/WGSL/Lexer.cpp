@@ -35,7 +35,8 @@ namespace WGSL {
 template <typename T>
 Token Lexer<T>::lex()
 {
-    skipWhitespaceAndComments();
+    if (!skipWhitespaceAndComments())
+        return makeToken(TokenType::Invalid);
 
     m_tokenStartingPosition = m_currentPosition;
 
@@ -325,65 +326,175 @@ Token Lexer<T>::lex()
                 shift();
             // FIXME: a trie would be more efficient here, look at JavaScriptCore/KeywordLookupGenerator.py for an example of code autogeneration that produces such a trie.
             String view(StringImpl::createWithoutCopying(startOfToken, currentTokenLength()));
-            // FIXME: I don't think that true/false/f32/u32/i32/bool need to be their own tokens, they could just be regular identifiers.
 
-            static constexpr std::pair<ComparableASCIILiteral, TokenType> wordMappings[] {
+            static constexpr std::pair<ComparableASCIILiteral, TokenType> keywordMappings[] {
                 { "_", TokenType::Underbar },
-                { "array", TokenType::KeywordArray },
-                { "asm", TokenType::ReservedWord },
-                { "bf16", TokenType::ReservedWord },
-                { "bool", TokenType::KeywordBool },
-                { "break", TokenType::KeywordBreak },
-                { "const", TokenType::KeywordConst },
-                { "continue", TokenType::KeywordContinue },
-                { "do", TokenType::ReservedWord },
-                { "else", TokenType::KeywordElse },
-                { "enum", TokenType::ReservedWord },
-                { "f16", TokenType::ReservedWord },
-                { "f32", TokenType::KeywordF32 },
-                { "f64", TokenType::ReservedWord },
-                { "false", TokenType::LiteralFalse },
-                { "fn", TokenType::KeywordFn },
-                { "for", TokenType::KeywordFor },
-                { "function", TokenType::KeywordFunction },
-                { "handle", TokenType::ReservedWord },
-                { "i16", TokenType::ReservedWord },
-                { "i32", TokenType::KeywordI32 },
-                { "i64", TokenType::ReservedWord },
-                { "i8", TokenType::ReservedWord },
-                { "if", TokenType::KeywordIf },
-                { "let", TokenType::KeywordLet },
-                { "mat", TokenType::ReservedWord },
-                { "override", TokenType::KeywordOverride },
-                { "premerge", TokenType::ReservedWord },
-                { "private", TokenType::KeywordPrivate },
-                { "read", TokenType::KeywordRead },
-                { "read_write", TokenType::KeywordReadWrite },
-                { "regardless", TokenType::ReservedWord },
-                { "return", TokenType::KeywordReturn },
-                { "storage", TokenType::KeywordStorage },
-                { "struct", TokenType::KeywordStruct },
-                { "true", TokenType::LiteralTrue },
-                { "typedef", TokenType::ReservedWord },
-                { "u16", TokenType::ReservedWord },
-                { "u32", TokenType::KeywordU32 },
-                { "u64", TokenType::ReservedWord },
-                { "u8", TokenType::ReservedWord },
-                { "uniform", TokenType::KeywordUniform },
-                { "unless", TokenType::ReservedWord },
-                { "using", TokenType::ReservedWord },
-                { "var", TokenType::KeywordVar },
-                { "vec", TokenType::ReservedWord },
-                { "void", TokenType::ReservedWord },
-                { "while", TokenType::ReservedWord },
-                { "workgroup", TokenType::KeywordWorkgroup },
-                { "write", TokenType::KeywordWrite },
-            };
-            static constexpr SortedArrayMap words { wordMappings };
 
-            auto tokenType = words.get(view);
+#define MAPPING_ENTRY(lexeme, name)\
+                { #lexeme, TokenType::Keyword##name },
+FOREACH_KEYWORD(MAPPING_ENTRY)
+#undef MAPPING_ENTRY
+
+            };
+            static constexpr SortedArrayMap keywords { keywordMappings };
+
+            // https://www.w3.org/TR/WGSL/#reserved-words
+            static constexpr ComparableASCIILiteral reservedWords[] {
+                "NULL",
+                "Self",
+                "abstract",
+                "active",
+                "alignas",
+                "alignof",
+                "as",
+                "asm",
+                "asm_fragment",
+                "async",
+                "attribute",
+                "auto",
+                "await",
+                "become",
+                "binding_array",
+                "cast",
+                "catch",
+                "class",
+                "co_await",
+                "co_return",
+                "co_yield",
+                "coherent",
+                "column_major",
+                "common",
+                "compile",
+                "compile_fragment",
+                "concept",
+                "const_cast",
+                "consteval",
+                "constexpr",
+                "constinit",
+                "crate",
+                "debugger",
+                "decltype",
+                "delete",
+                "demote",
+                "demote_to_helper",
+                "do",
+                "dynamic_cast",
+                "enum",
+                "explicit",
+                "export",
+                "extends",
+                "extern",
+                "external",
+                "fallthrough",
+                "filter",
+                "final",
+                "finally",
+                "friend",
+                "from",
+                "fxgroup",
+                "get",
+                "goto",
+                "groupshared",
+                "highp",
+                "impl",
+                "implements",
+                "import",
+                "inline",
+                "instanceof",
+                "interface",
+                "layout",
+                "lowp",
+                "macro",
+                "macro_rules",
+                "match",
+                "mediump",
+                "meta",
+                "mod",
+                "module",
+                "move",
+                "mut",
+                "mutable",
+                "namespace",
+                "new",
+                "nil",
+                "noexcept",
+                "noinline",
+                "nointerpolation",
+                "noperspective",
+                "null",
+                "nullptr",
+                "of",
+                "operator",
+                "package",
+                "packoffset",
+                "partition",
+                "pass",
+                "patch",
+                "pixelfragment",
+                "precise",
+                "precision",
+                "premerge",
+                "priv",
+                "protected",
+                "pub",
+                "public",
+                "readonly",
+                "ref",
+                "regardless",
+                "register",
+                "reinterpret_cast",
+                "require",
+                "resource",
+                "restrict",
+                "self",
+                "set",
+                "shared",
+                "sizeof",
+                "smooth",
+                "snorm",
+                "static",
+                "static_assert",
+                "static_cast",
+                "std",
+                "subroutine",
+                "super",
+                "target",
+                "template",
+                "this",
+                "thread_local",
+                "throw",
+                "trait",
+                "try",
+                "type",
+                "typedef",
+                "typeid",
+                "typename",
+                "typeof",
+                "union",
+                "unless",
+                "unorm",
+                "unsafe",
+                "unsized",
+                "use",
+                "using",
+                "varying",
+                "virtual",
+                "volatile",
+                "wgsl",
+                "where",
+                "with",
+                "writeonly",
+                "yield",
+            };
+            static constexpr SortedArraySet reservedWordSet { reservedWords };
+
+            auto tokenType = keywords.get(view);
             if (tokenType != TokenType::Invalid)
                 return makeToken(tokenType);
+
+            if (UNLIKELY(reservedWordSet.contains(view)))
+                return makeToken(TokenType::ReservedWord);
+
             return makeIdentifierToken(WTFMove(view));
         }
         break;
@@ -394,6 +505,8 @@ Token Lexer<T>::lex()
 template <typename T>
 T Lexer<T>::shift(unsigned i)
 {
+    ASSERT(m_code + i <= m_codeEnd);
+
     T last = m_current;
     // At one point timing showed that setting m_current to 0 unconditionally was faster than an if-else sequence.
     m_current = 0;
@@ -421,7 +534,7 @@ void Lexer<T>::newLine()
 }
 
 template <typename T>
-void Lexer<T>::skipBlockComments()
+bool Lexer<T>::skipBlockComments()
 {
     ASSERT(peek(0) == '/' && peek(1) == '*');
     shift(2);
@@ -429,7 +542,7 @@ void Lexer<T>::skipBlockComments()
     T ch = 0;
     unsigned depth = 1u;
 
-    while ((ch = shift())) {
+    while (!isAtEndOfFile() && (ch = shift())) {
         if (ch == '/' && peek() == '*') {
             shift();
             depth += 1;
@@ -440,13 +553,14 @@ void Lexer<T>::skipBlockComments()
                 // This block comment is closed, so for a construction like "/* */ */"
                 // there will be a successfully parsed block comment "/* */"
                 // and " */" will be processed separately.
-                return;
+                return true;
             }
         } else if (ch == '\n')
             newLine();
     }
 
     // FIXME: Report unbalanced block comments, such as "/* this is an unbalanced comment."
+    return false;
 }
 
 template <typename T>
@@ -460,7 +574,7 @@ void Lexer<T>::skipLineComment()
 }
 
 template <typename T>
-void Lexer<T>::skipWhitespaceAndComments()
+bool Lexer<T>::skipWhitespaceAndComments()
 {
     while (!isAtEndOfFile()) {
         if (isUnicodeCompatibleASCIIWhitespace(m_current)) {
@@ -469,13 +583,15 @@ void Lexer<T>::skipWhitespaceAndComments()
         } else if (peek(0) == '/') {
             if (peek(1) == '/')
                 skipLineComment();
-            else if (peek(1) == '*')
-                skipBlockComments();
-            else
+            else if (peek(1) == '*') {
+                if (!skipBlockComments())
+                    return false;
+            } else
                 break;
         } else
             break;
     }
+    return true;
 }
 
 template <typename T>

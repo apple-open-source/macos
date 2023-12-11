@@ -40,8 +40,8 @@ _SOSControlSetupInterface(NSXPCInterface *interface)
 
         [interface setClasses:errClasses forSelector:@selector(stashedCredentialPublicKey:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(assertStashedAccountCredential:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(validatedStashedAccountCredential:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(stashAccountCredential:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(validatedStashedAccountCredential:flowID:deviceSessionID:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(stashAccountCredential:altDSID:flowID:deviceSessionID:complete:) argumentIndex:1 ofReply:YES];
 
         [interface setClasses:errClasses forSelector:@selector(ghostBust:complete:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(ghostBustPeriodic:complete:) argumentIndex:1 ofReply:YES];
@@ -52,11 +52,11 @@ _SOSControlSetupInterface(NSXPCInterface *interface)
         [interface setClasses:errClasses forSelector:@selector(accountStatus:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(keyStatusFor:complete:) argumentIndex:1 ofReply:YES];
 
-        [interface setClasses:errClasses forSelector:@selector(myPeerInfo:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(myPeerInfo:flowID:deviceSessionID:complete:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(circleHash:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(circleJoiningBlob:complete:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(joinCircleWithBlob:version:complete:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(initialSyncCredentials:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(circleJoiningBlob:flowID:deviceSessionID:applicant:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(joinCircleWithBlob:altDSID:flowID:deviceSessionID:version:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(initialSyncCredentials:altDSID:flowID:deviceSessionID:complete:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(importInitialSyncCredentials:complete:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcTriggerSync:complete:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(getWatchdogParameters:) argumentIndex:1 ofReply:YES];

@@ -160,13 +160,13 @@ static inline short pressedMouseButtons(uint32_t modifiers)
 static inline unsigned clickCount(struct wpe_input_pointer_event* event)
 {
     static const uint32_t doubleClickTime = 500; // Milliseconds.
-    static const unsigned pixelThreshold = 5;
+    static const int pixelThreshold = 5;
     static struct wpe_input_pointer_event gLastClickEvent = { };
     static unsigned gLastClickCount = 1;
 
     bool cancelPreviousClick = (event->time - gLastClickEvent.time) > doubleClickTime
-        || abs(event->x == gLastClickEvent.x) > pixelThreshold
-        || abs(event->y == gLastClickEvent.y) > pixelThreshold;
+        || std::abs(event->x - gLastClickEvent.x) > pixelThreshold
+        || std::abs(event->y - gLastClickEvent.y) > pixelThreshold;
 
     if (event->type == wpe_input_pointer_event_type_button && event->state) {
         if (!cancelPreviousClick && (event->button == gLastClickEvent.button))
@@ -198,16 +198,16 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(struct wpe_input_pointer_even
         ASSERT_NOT_REACHED();
     }
 
-    WebMouseEventButton button = WebMouseEventButton::NoButton;
+    WebMouseEventButton button = WebMouseEventButton::None;
     switch (event->type) {
     case wpe_input_pointer_event_type_motion:
     case wpe_input_pointer_event_type_button:
         if (event->button == 1)
-            button = WebMouseEventButton::LeftButton;
+            button = WebMouseEventButton::Left;
         else if (event->button == 2)
-            button = WebMouseEventButton::RightButton;
+            button = WebMouseEventButton::Right;
         else if (event->button == 3)
-            button = WebMouseEventButton::MiddleButton;
+            button = WebMouseEventButton::Middle;
         break;
     case wpe_input_pointer_event_type_null:
         ASSERT_NOT_REACHED();

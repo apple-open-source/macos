@@ -42,17 +42,17 @@ class LineBox;
 
 class InlineDisplayContentBuilder {
 public:
-    InlineDisplayContentBuilder(const InlineFormattingContext&, InlineFormattingState&, const InlineDisplay::Line&, size_t lineIndex);
+    InlineDisplayContentBuilder(const ConstraintsForInlineContent&, const InlineFormattingContext&, InlineFormattingState&, const InlineDisplay::Line&, size_t lineIndex);
 
-    InlineDisplay::Boxes build(const LineBuilder::LayoutResult&, const LineBox&);
+    InlineDisplay::Boxes build(const LineLayoutResult&, const LineBox&);
 
 private:
-    void processNonBidiContent(const LineBuilder::LayoutResult&, const LineBox&, InlineDisplay::Boxes&);
-    void processBidiContent(const LineBuilder::LayoutResult&, const LineBox&, InlineDisplay::Boxes&);
-    void processFloatBoxes(const LineBuilder::LayoutResult&);
+    void processNonBidiContent(const LineLayoutResult&, const LineBox&, InlineDisplay::Boxes&);
+    void processBidiContent(const LineLayoutResult&, const LineBox&, InlineDisplay::Boxes&);
+    void processFloatBoxes(const LineLayoutResult&);
     void collectInkOverflowForInlineBoxes(InlineDisplay::Boxes&);
     void collectInkOverflowForTextDecorations(InlineDisplay::Boxes&);
-    void truncateForEllipsisPolicy(LineEndingEllipsisPolicy, const LineBuilder::LayoutResult&, InlineDisplay::Boxes&);
+    void truncateForEllipsisPolicy(LineEndingEllipsisPolicy, const LineLayoutResult&, InlineDisplay::Boxes&);
 
     void appendTextDisplayBox(const Line::Run&, const InlineRect&, InlineDisplay::Boxes&);
     void appendSoftLineBreakDisplayBox(const Line::Run&, const InlineRect&, InlineDisplay::Boxes&);
@@ -76,14 +76,18 @@ private:
 
     bool isLineFullyTruncatedInBlockDirection() const { return m_lineIsFullyTruncatedInBlockDirection; }
 
+    const ConstraintsForInlineContent& constraints() const { return m_constraints; }
     const ElementBox& root() const { return formattingContext().root(); }
     const RenderStyle& rootStyle() const { return m_lineIndex ? root().style() : root().firstLineStyle(); }
     const InlineFormattingContext& formattingContext() const { return m_formattingContext; }
     InlineFormattingState& formattingState() const { return m_formattingState; } 
 
+private:
+    const ConstraintsForInlineContent& m_constraints;
     const InlineFormattingContext& m_formattingContext;
     InlineFormattingState& m_formattingState;
     const InlineDisplay::Line& m_displayLine;
+    IntSize m_initialContaingBlockSize;
     const size_t m_lineIndex { 0 };
     // FIXME: This should take DisplayLine::isTruncatedInBlockDirection() for non-prefixed line-clamp.
     bool m_lineIsFullyTruncatedInBlockDirection { false };

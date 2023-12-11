@@ -26,9 +26,7 @@
 #pragma once
 
 #include "AlphaPremultiplication.h"
-#include "DisplayListItemBufferIdentifier.h"
-#include "DisplayListItemType.h"
-#include "DisplayListResourceHeap.h"
+#include "DisplayListItem.h"
 #include "FloatRoundedRect.h"
 #include "Font.h"
 #include "GlyphBuffer.h"
@@ -36,15 +34,10 @@
 #include "GraphicsContext.h"
 #include "Image.h"
 #include "MediaPlayerIdentifier.h"
-#include "Pattern.h"
-#include "PixelBuffer.h"
 #include "PositionedGlyphs.h"
 #include "RenderingResourceIdentifier.h"
 #include "SharedBuffer.h"
 #include "SystemImage.h"
-#include <variant>
-#include <wtf/ArgumentCoder.h>
-#include <wtf/EnumTraits.h>
 #include <wtf/TypeCasts.h>
 
 namespace WTF {
@@ -58,41 +51,25 @@ struct ImagePaintingOptions;
 
 namespace DisplayList {
 
-enum class AsTextFlag : uint8_t;
-struct ItemHandle;
-
-/* isInlineItem indicates whether the object needs to be passed through IPC::Encoder in order to serialize,
- * or whether we can just use placement new and be done.
- * It needs to match (1) RemoteImageBufferProxy::encodeItem(), (2) RemoteRenderingBackend::decodeItem(),
- * and (3) isInlineItem() in DisplayListItemType.cpp.
- *
- * isDrawingItem indicates if this command can affect dirty rects.
- * We can do things like skip drawing items when replaying them if their extents don't intersect with the current clip.
- * It needs to match isDrawingItem() in DisplayListItemType.cpp. */
-
 class Save {
 public:
-    static constexpr ItemType itemType = ItemType::Save;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "save";
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
 };
 
 class Restore {
 public:
-    static constexpr ItemType itemType = ItemType::Restore;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "restore";
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
 };
 
 class Translate {
 public:
-    static constexpr ItemType itemType = ItemType::Translate;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "translate";
 
     Translate(float x, float y)
         : m_x(x)
@@ -104,6 +81,7 @@ public:
     float y() const { return m_y; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     float m_x { 0 };
@@ -112,9 +90,7 @@ private:
 
 class Rotate {
 public:
-    static constexpr ItemType itemType = ItemType::Rotate;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "rotate";
 
     Rotate(float angle)
         : m_angle(angle)
@@ -124,6 +100,7 @@ public:
     float angle() const { return m_angle; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     float m_angle { 0 }; // In radians.
@@ -131,9 +108,7 @@ private:
 
 class Scale {
 public:
-    static constexpr ItemType itemType = ItemType::Scale;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "scale";
 
     Scale(const FloatSize& size)
         : m_size(size)
@@ -143,6 +118,7 @@ public:
     const FloatSize& amount() const { return m_size; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatSize m_size;
@@ -150,9 +126,7 @@ private:
 
 class SetCTM {
 public:
-    static constexpr ItemType itemType = ItemType::SetCTM;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-ctm";
 
     SetCTM(const AffineTransform& transform)
         : m_transform(transform)
@@ -162,6 +136,7 @@ public:
     const AffineTransform& transform() const { return m_transform; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     AffineTransform m_transform;
@@ -169,9 +144,7 @@ private:
 
 class ConcatenateCTM {
 public:
-    static constexpr ItemType itemType = ItemType::ConcatenateCTM;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "concatenate-ctm";
 
     ConcatenateCTM(const AffineTransform& transform)
         : m_transform(transform)
@@ -181,6 +154,7 @@ public:
     const AffineTransform& transform() const { return m_transform; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     AffineTransform m_transform;
@@ -188,79 +162,72 @@ private:
 
 class SetInlineFillColor {
 public:
-    static constexpr ItemType itemType = ItemType::SetInlineFillColor;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-inline-fill-color";
 
-    SetInlineFillColor() = default;
+    SetInlineFillColor(PackedColor::RGBA colorData)
+        : m_colorData(colorData)
+    {
+    }
+
     SetInlineFillColor(SRGBA<uint8_t> colorData)
-        : m_colorData(colorData)
+        : m_colorData(*Color(colorData).tryGetAsPackedInline())
     {
     }
-    SetInlineFillColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
-        : SetInlineFillColor(SRGBA<uint8_t> { red, green, blue, alpha }) { }
 
-    Color color() const { return { m_colorData }; }
-    const SRGBA<uint8_t>& colorData() const { return m_colorData; }
+    Color color() const { return { asSRGBA(colorData()) }; }
+    const PackedColor::RGBA& colorData() const { return m_colorData; }
+
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    SRGBA<uint8_t> m_colorData;
+    PackedColor::RGBA m_colorData;
 };
 
-class SetInlineStrokeColor {
+class SetInlineStroke {
 public:
-    static constexpr ItemType itemType = ItemType::SetInlineStrokeColor;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-inline-stroke";
 
-    SetInlineStrokeColor() = default;
-    SetInlineStrokeColor(SRGBA<uint8_t> colorData)
+    SetInlineStroke(std::optional<PackedColor::RGBA> colorData, std::optional<float> thickness = std::nullopt)
         : m_colorData(colorData)
+        , m_thickness(thickness)
     {
+        ASSERT(m_colorData || m_thickness);
     }
-    SetInlineStrokeColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
-        : SetInlineStrokeColor(SRGBA<uint8_t> { red, green, blue, alpha }) { }
 
-    Color color() const { return { m_colorData }; }
-    const SRGBA<uint8_t>& colorData() const { return m_colorData; }
-    WEBCORE_EXPORT void apply(GraphicsContext&) const;
-
-private:
-    SRGBA<uint8_t> m_colorData;
-};
-
-class SetStrokeThickness {
-public:
-    static constexpr ItemType itemType = ItemType::SetStrokeThickness;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
-
-    SetStrokeThickness(float thickness)
+    SetInlineStroke(float thickness)
         : m_thickness(thickness)
     {
     }
 
-    float thickness() const { return m_thickness; }
+    SetInlineStroke(SRGBA<uint8_t> colorData)
+        : m_colorData(*Color(colorData).tryGetAsPackedInline())
+    {
+    }
+
+    std::optional<Color> color() const { return m_colorData ? std::optional<Color>(asSRGBA(*m_colorData)) : std::nullopt; }
+    std::optional<PackedColor::RGBA> colorData() const { return m_colorData; }
+    std::optional<float> thickness() const { return m_thickness; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    float m_thickness { 0 };
+    std::optional<PackedColor::RGBA> m_colorData;
+    std::optional<float> m_thickness;
 };
 
 class SetState {
 public:
-    static constexpr ItemType itemType = ItemType::SetState;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-state";
 
     WEBCORE_EXPORT SetState(const GraphicsContextState&);
 
     GraphicsContextState& state() { return m_state; }
     const GraphicsContextState& state() const { return m_state; }
 
-    WEBCORE_EXPORT void apply(GraphicsContext&);
+    WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     GraphicsContextState m_state;
@@ -268,9 +235,7 @@ private:
 
 class SetLineCap {
 public:
-    static constexpr ItemType itemType = ItemType::SetLineCap;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-line-cap";
 
     SetLineCap(LineCap lineCap)
         : m_lineCap(lineCap)
@@ -280,6 +245,7 @@ public:
     LineCap lineCap() const { return m_lineCap; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     LineCap m_lineCap;
@@ -287,9 +253,7 @@ private:
 
 class SetLineDash {
 public:
-    static constexpr ItemType itemType = ItemType::SetLineDash;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-line-dash";
 
     SetLineDash(const DashArray& dashArray, float dashOffset)
         : m_dashArray(dashArray)
@@ -301,6 +265,7 @@ public:
     float dashOffset() const { return m_dashOffset; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     DashArray m_dashArray;
@@ -309,9 +274,7 @@ private:
 
 class SetLineJoin {
 public:
-    static constexpr ItemType itemType = ItemType::SetLineJoin;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-line-join";
 
     SetLineJoin(LineJoin lineJoin)
         : m_lineJoin(lineJoin)
@@ -321,6 +284,7 @@ public:
     LineJoin lineJoin() const { return m_lineJoin; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     LineJoin m_lineJoin;
@@ -328,9 +292,7 @@ private:
 
 class SetMiterLimit {
 public:
-    static constexpr ItemType itemType = ItemType::SetMiterLimit;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-miter-limit";
 
     SetMiterLimit(float miterLimit)
         : m_miterLimit(miterLimit)
@@ -340,6 +302,7 @@ public:
     float miterLimit() const { return m_miterLimit; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     float m_miterLimit;
@@ -347,19 +310,15 @@ private:
 
 class ClearShadow {
 public:
-    static constexpr ItemType itemType = ItemType::ClearShadow;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "set-clear-shadow";
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
 };
 
-// FIXME: treat as drawing item?
 class Clip {
 public:
-    static constexpr ItemType itemType = ItemType::Clip;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "clip";
 
     Clip(const FloatRect& rect)
         : m_rect(rect)
@@ -369,6 +328,7 @@ public:
     const FloatRect& rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -376,9 +336,7 @@ private:
 
 class ClipRoundedRect {
 public:
-    static constexpr ItemType itemType = ItemType::ClipRoundedRect;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "clip-rounded-rect";
 
     ClipRoundedRect(const FloatRoundedRect& rect)
         : m_rect(rect)
@@ -388,6 +346,7 @@ public:
     const FloatRoundedRect& rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRoundedRect m_rect;
@@ -395,9 +354,7 @@ private:
 
 class ClipOut {
 public:
-    static constexpr ItemType itemType = ItemType::ClipOut;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "clip-out";
 
     ClipOut(const FloatRect& rect)
         : m_rect(rect)
@@ -407,6 +364,7 @@ public:
     const FloatRect& rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -414,9 +372,7 @@ private:
 
 class ClipOutRoundedRect {
 public:
-    static constexpr ItemType itemType = ItemType::ClipOutRoundedRect;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "clip-out-rounded-rect";
 
     ClipOutRoundedRect(const FloatRoundedRect& rect)
         : m_rect(rect)
@@ -426,6 +382,7 @@ public:
     const FloatRoundedRect& rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRoundedRect m_rect;
@@ -433,9 +390,7 @@ private:
 
 class ClipToImageBuffer {
 public:
-    static constexpr ItemType itemType = ItemType::ClipToImageBuffer;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "clip-to-image-buffer";
 
     ClipToImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destinationRect)
         : m_imageBufferIdentifier(imageBufferIdentifier)
@@ -448,6 +403,7 @@ public:
     bool isValid() const { return m_imageBufferIdentifier.isValid(); }
 
     WEBCORE_EXPORT void apply(GraphicsContext&, ImageBuffer&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     RenderingResourceIdentifier m_imageBufferIdentifier;
@@ -456,9 +412,7 @@ private:
 
 class ClipOutToPath {
 public:
-    static constexpr ItemType itemType = ItemType::ClipOutToPath;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "clip-out-to-path";
 
     ClipOutToPath(Path&& path)
         : m_path(WTFMove(path))
@@ -473,6 +427,7 @@ public:
     const Path& path() const { return m_path; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Path m_path;
@@ -480,9 +435,7 @@ private:
 
 class ClipPath {
 public:
-    static constexpr ItemType itemType = ItemType::ClipPath;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "clip-path";
 
     ClipPath(Path&& path, WindRule windRule)
         : m_path(WTFMove(path))
@@ -500,6 +453,7 @@ public:
     WindRule windRule() const { return m_windRule; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Path m_path;
@@ -508,29 +462,28 @@ private:
 
 class ResetClip {
 public:
-    static constexpr ItemType itemType = ItemType::ResetClip;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "reset-clip";
 
     ResetClip()
     {
     }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
 };
 
 class DrawFilteredImageBuffer {
 public:
-    static constexpr ItemType itemType = ItemType::DrawFilteredImageBuffer;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-filtered-image-buffer";
 
     WEBCORE_EXPORT DrawFilteredImageBuffer(std::optional<RenderingResourceIdentifier> sourceImageIdentifier, const FloatRect& sourceImageRect, Filter&);
 
     std::optional<RenderingResourceIdentifier> sourceImageIdentifier() const { return m_sourceImageIdentifier; }
     FloatRect sourceImageRect() const { return m_sourceImageRect; }
 
+    NO_RETURN_DUE_TO_ASSERT void apply(GraphicsContext&) const;
     WEBCORE_EXPORT void apply(GraphicsContext&, ImageBuffer* sourceImage, FilterResults&);
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     std::optional<RenderingResourceIdentifier> m_sourceImageIdentifier;
@@ -540,9 +493,7 @@ private:
 
 class DrawGlyphs {
 public:
-    static constexpr ItemType itemType = ItemType::DrawGlyphs;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-glyphs";
 
     RenderingResourceIdentifier fontIdentifier() const { return m_fontIdentifier; }
     PositionedGlyphs positionedGlyphs() const { return m_positionedGlyphs; }
@@ -555,6 +506,7 @@ public:
     WEBCORE_EXPORT DrawGlyphs(RenderingResourceIdentifier, PositionedGlyphs&&);
 
     WEBCORE_EXPORT void apply(GraphicsContext&, const Font&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     RenderingResourceIdentifier m_fontIdentifier;
@@ -563,9 +515,7 @@ private:
 
 class DrawDecomposedGlyphs {
 public:
-    static constexpr ItemType itemType = ItemType::DrawDecomposedGlyphs;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-decomposed-glyphs";
 
     DrawDecomposedGlyphs(RenderingResourceIdentifier fontIdentifier, RenderingResourceIdentifier decomposedGlyphsIdentifier)
         : m_fontIdentifier(fontIdentifier)
@@ -577,6 +527,7 @@ public:
     RenderingResourceIdentifier decomposedGlyphsIdentifier() const { return m_decomposedGlyphsIdentifier; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&, const Font&, const DecomposedGlyphs&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     RenderingResourceIdentifier m_fontIdentifier;
@@ -585,9 +536,7 @@ private:
 
 class DrawImageBuffer {
 public:
-    static constexpr ItemType itemType = ItemType::DrawImageBuffer;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-image-buffer";
 
     DrawImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
         : m_imageBufferIdentifier(imageBufferIdentifier)
@@ -605,6 +554,7 @@ public:
     bool isValid() const { return m_imageBufferIdentifier.isValid(); }
 
     WEBCORE_EXPORT void apply(GraphicsContext&, ImageBuffer&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     RenderingResourceIdentifier m_imageBufferIdentifier;
@@ -615,9 +565,7 @@ private:
 
 class DrawNativeImage {
 public:
-    static constexpr ItemType itemType = ItemType::DrawNativeImage;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-native-image";
 
     DrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
         : m_imageIdentifier(imageIdentifier)
@@ -635,6 +583,7 @@ public:
     bool isValid() const { return m_imageIdentifier.isValid(); }
 
     WEBCORE_EXPORT void apply(GraphicsContext&, NativeImage&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     RenderingResourceIdentifier m_imageIdentifier;
@@ -646,9 +595,7 @@ private:
 
 class DrawSystemImage {
 public:
-    static constexpr ItemType itemType = ItemType::DrawSystemImage;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-system-image";
 
     DrawSystemImage(SystemImage& systemImage, const FloatRect& destinationRect)
         : m_systemImage(systemImage)
@@ -660,6 +607,7 @@ public:
     const FloatRect& destinationRect() const { return m_destinationRect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Ref<SystemImage> m_systemImage;
@@ -668,9 +616,7 @@ private:
 
 class DrawPattern {
 public:
-    static constexpr ItemType itemType = ItemType::DrawPattern;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-pattern";
 
     WEBCORE_EXPORT DrawPattern(RenderingResourceIdentifier, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform&, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { });
 
@@ -684,6 +630,7 @@ public:
     bool isValid() const { return m_imageIdentifier.isValid(); }
 
     WEBCORE_EXPORT void apply(GraphicsContext&, SourceImage&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     RenderingResourceIdentifier m_imageIdentifier;
@@ -697,9 +644,7 @@ private:
 
 class BeginTransparencyLayer {
 public:
-    static constexpr ItemType itemType = ItemType::BeginTransparencyLayer;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true; // Is drawing item because the size of the transparency layer is implicitly the clip bounds.
+    static constexpr char name[] = "begin-transparency-layer";
 
     BeginTransparencyLayer(float opacity)
         : m_opacity(opacity)
@@ -709,6 +654,7 @@ public:
     float opacity() const { return m_opacity; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     float m_opacity;
@@ -716,18 +662,15 @@ private:
 
 class EndTransparencyLayer {
 public:
-    static constexpr ItemType itemType = ItemType::EndTransparencyLayer;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "end-transparency-layer";
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
-
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
 };
+
 class DrawRect {
 public:
-    static constexpr ItemType itemType = ItemType::DrawRect;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-rect";
 
     DrawRect(FloatRect rect, float borderThickness)
         : m_rect(rect)
@@ -739,6 +682,7 @@ public:
     float borderThickness() const { return m_borderThickness; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -747,9 +691,7 @@ private:
 
 class DrawLine {
 public:
-    static constexpr ItemType itemType = ItemType::DrawLine;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-line";
 
     DrawLine(FloatPoint point1, FloatPoint point2)
         : m_point1(point1)
@@ -761,6 +703,7 @@ public:
     FloatPoint point2() const { return m_point2; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatPoint m_point1;
@@ -769,9 +712,7 @@ private:
 
 class DrawLinesForText {
 public:
-    static constexpr ItemType itemType = ItemType::DrawLinesForText;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-lines-for-text";
 
     WEBCORE_EXPORT DrawLinesForText(const FloatPoint& blockLocation, const FloatSize& localAnchor, const DashArray& widths, float thickness, bool printing, bool doubleLines, StrokeStyle);
 
@@ -786,6 +727,7 @@ public:
     StrokeStyle style() const { return m_style; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatPoint m_blockLocation;
@@ -799,9 +741,7 @@ private:
 
 class DrawDotsForDocumentMarker {
 public:
-    static constexpr ItemType itemType = ItemType::DrawDotsForDocumentMarker;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-dots-for-document-marker";
 
     DrawDotsForDocumentMarker(const FloatRect& rect, const DocumentMarkerLineStyle& style)
         : m_rect(rect)
@@ -813,6 +753,7 @@ public:
     DocumentMarkerLineStyle style() const { return m_style; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -821,9 +762,7 @@ private:
 
 class DrawEllipse {
 public:
-    static constexpr ItemType itemType = ItemType::DrawEllipse;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-ellipse";
 
     DrawEllipse(const FloatRect& rect)
         : m_rect(rect)
@@ -833,6 +772,7 @@ public:
     FloatRect rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -840,9 +780,7 @@ private:
 
 class DrawPath {
 public:
-    static constexpr ItemType itemType = ItemType::DrawPath;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-path";
 
     DrawPath(const Path& path)
         : m_path(path)
@@ -857,6 +795,7 @@ public:
     const Path& path() const { return m_path; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Path m_path;
@@ -864,9 +803,7 @@ private:
 
 class DrawFocusRingPath {
 public:
-    static constexpr ItemType itemType = ItemType::DrawFocusRingPath;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-focus-ring-path";
 
     DrawFocusRingPath(const Path& path, float outlineWidth, const Color& color)
         : m_path(path)
@@ -887,6 +824,7 @@ public:
     const Color& color() const { return m_color; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Path m_path;
@@ -896,9 +834,7 @@ private:
 
 class DrawFocusRingRects {
 public:
-    static constexpr ItemType itemType = ItemType::DrawFocusRingRects;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-focus-ring-rects";
 
     DrawFocusRingRects(const Vector<FloatRect>& rects, float outlineOffset, float outlineWidth, const Color& color)
         : m_rects(rects)
@@ -922,6 +858,7 @@ public:
     const Color& color() const { return m_color; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Vector<FloatRect> m_rects;
@@ -932,9 +869,7 @@ private:
 
 class FillRect {
 public:
-    static constexpr ItemType itemType = ItemType::FillRect;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-rect";
 
     FillRect(const FloatRect& rect)
         : m_rect(rect)
@@ -944,6 +879,7 @@ public:
     const FloatRect& rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -951,9 +887,7 @@ private:
 
 class FillRectWithColor {
 public:
-    static constexpr ItemType itemType = ItemType::FillRectWithColor;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-rect-with-color";
 
     FillRectWithColor(const FloatRect& rect, const Color& color)
         : m_rect(rect)
@@ -965,6 +899,7 @@ public:
     const Color& color() const { return m_color; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -973,9 +908,7 @@ private:
 
 class FillRectWithGradient {
 public:
-    static constexpr ItemType itemType = ItemType::FillRectWithGradient;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-rect-with-gradient";
 
     WEBCORE_EXPORT FillRectWithGradient(const FloatRect&, Gradient&);
     WEBCORE_EXPORT FillRectWithGradient(FloatRect&&, Ref<Gradient>&&);
@@ -984,6 +917,7 @@ public:
     const Ref<Gradient>& gradient() const { return m_gradient; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -992,9 +926,7 @@ private:
 
 class FillCompositedRect {
 public:
-    static constexpr ItemType itemType = ItemType::FillCompositedRect;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-composited-rect";
 
     FillCompositedRect(const FloatRect& rect, const Color& color, CompositeOperator op, BlendMode blendMode)
         : m_rect(rect)
@@ -1010,6 +942,7 @@ public:
     BlendMode blendMode() const { return m_blendMode; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -1020,9 +953,7 @@ private:
 
 class FillRoundedRect {
 public:
-    static constexpr ItemType itemType = ItemType::FillRoundedRect;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-rounded-rect";
 
     FillRoundedRect(const FloatRoundedRect& rect, const Color& color, BlendMode blendMode)
         : m_rect(rect)
@@ -1036,6 +967,7 @@ public:
     BlendMode blendMode() const { return m_blendMode; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRoundedRect m_rect;
@@ -1045,9 +977,7 @@ private:
 
 class FillRectWithRoundedHole {
 public:
-    static constexpr ItemType itemType = ItemType::FillRectWithRoundedHole;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-rect-with-rounded-hole";
 
     FillRectWithRoundedHole(const FloatRect& rect, const FloatRoundedRect& roundedHoleRect, const Color& color)
         : m_rect(rect)
@@ -1061,6 +991,7 @@ public:
     const Color& color() const { return m_color; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -1072,9 +1003,7 @@ private:
 
 class FillLine {
 public:
-    static constexpr ItemType itemType = ItemType::FillLine;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-line";
 
     FillLine(const PathDataLine& line)
         : m_line(line)
@@ -1082,16 +1011,17 @@ public:
     }
 
     Path path() const { return Path({ PathSegment(m_line) }); }
+
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
 private:
     PathDataLine m_line;
 };
 
 class FillArc {
 public:
-    static constexpr ItemType itemType = ItemType::FillArc;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-arc";
 
     FillArc(const PathArc& arc)
         : m_arc(arc)
@@ -1100,15 +1030,15 @@ public:
 
     Path path() const { return Path({ PathSegment(m_arc) }); }
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
 private:
     PathArc m_arc;
 };
 
 class FillQuadCurve {
 public:
-    static constexpr ItemType itemType = ItemType::FillQuadCurve;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-quad-curve";
 
     FillQuadCurve(const PathDataQuadCurve& quadCurve)
         : m_quadCurve(quadCurve)
@@ -1117,15 +1047,15 @@ public:
 
     Path path() const { return Path({ PathSegment(m_quadCurve) }); }
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
 private:
     PathDataQuadCurve m_quadCurve;
 };
 
 class FillBezierCurve {
 public:
-    static constexpr ItemType itemType = ItemType::FillBezierCurve;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-bezier-curve";
 
     FillBezierCurve(const PathDataBezierCurve& bezierCurve)
         : m_bezierCurve(bezierCurve)
@@ -1134,6 +1064,8 @@ public:
 
     Path path() const { return Path({ PathSegment(m_bezierCurve) }); }
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
 private:
     PathDataBezierCurve m_bezierCurve;
 };
@@ -1142,9 +1074,7 @@ private:
 
 class FillPathSegment {
 public:
-    static constexpr ItemType itemType = ItemType::FillPathSegment;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-path-segment";
 
     FillPathSegment(const PathSegment& segment)
         : m_segment(segment)
@@ -1154,6 +1084,7 @@ public:
     Path path() const { return Path({ m_segment }); }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     PathSegment m_segment;
@@ -1161,9 +1092,7 @@ private:
 
 class FillPath {
 public:
-    static constexpr ItemType itemType = ItemType::FillPath;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-path";
 
     FillPath(Path&& path)
         : m_path(WTFMove(path))
@@ -1178,6 +1107,7 @@ public:
     const Path& path() const { return m_path; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Path m_path;
@@ -1185,9 +1115,7 @@ private:
 
 class FillEllipse {
 public:
-    static constexpr ItemType itemType = ItemType::FillEllipse;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "fill-ellipse";
 
     FillEllipse(const FloatRect& rect)
         : m_rect(rect)
@@ -1197,6 +1125,7 @@ public:
     FloatRect rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -1205,9 +1134,7 @@ private:
 #if ENABLE(VIDEO)
 class PaintFrameForMedia {
 public:
-    static constexpr ItemType itemType = ItemType::PaintFrameForMedia;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "paint-frame-for-media";
 
     PaintFrameForMedia(MediaPlayer&, const FloatRect& destination);
 
@@ -1215,6 +1142,9 @@ public:
     MediaPlayerIdentifier identifier() const { return m_identifier; }
 
     bool isValid() const { return m_identifier.isValid(); }
+
+    NO_RETURN_DUE_TO_ASSERT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     MediaPlayerIdentifier m_identifier;
@@ -1224,9 +1154,7 @@ private:
 
 class StrokeRect {
 public:
-    static constexpr ItemType itemType = ItemType::StrokeRect;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "stroke-rect";
 
     StrokeRect(const FloatRect& rect, float lineWidth)
         : m_rect(rect)
@@ -1238,6 +1166,7 @@ public:
     float lineWidth() const { return m_lineWidth; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -1246,9 +1175,7 @@ private:
 
 class StrokeLine {
 public:
-    static constexpr ItemType itemType = ItemType::StrokeLine;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "stroke-line";
 
 #if ENABLE(INLINE_PATH_DATA)
     StrokeLine(const PathDataLine& line)
@@ -1267,6 +1194,7 @@ public:
     FloatPoint end() const { return m_end; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatPoint m_start;
@@ -1277,9 +1205,7 @@ private:
 
 class StrokeArc {
 public:
-    static constexpr ItemType itemType = ItemType::StrokeArc;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "stroke-arc";
 
     StrokeArc(const PathArc& arc)
         : m_arc(arc)
@@ -1287,16 +1213,17 @@ public:
     }
 
     Path path() const { return Path({ PathSegment(m_arc) }); }
+
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
 private:
     PathArc m_arc;
 };
 
 class StrokeQuadCurve {
 public:
-    static constexpr ItemType itemType = ItemType::StrokeQuadCurve;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "stroke-quad-curve";
 
     StrokeQuadCurve(const PathDataQuadCurve& quadCurve)
         : m_quadCurve(quadCurve)
@@ -1304,16 +1231,17 @@ public:
     }
 
     Path path() const { return Path({ PathSegment(m_quadCurve) }); }
+
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
 private:
     PathDataQuadCurve m_quadCurve;
 };
 
 class StrokeBezierCurve {
 public:
-    static constexpr ItemType itemType = ItemType::StrokeBezierCurve;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "stroke-bezier-curve";
 
     StrokeBezierCurve(const PathDataBezierCurve& bezierCurve)
         : m_bezierCurve(bezierCurve)
@@ -1321,7 +1249,9 @@ public:
     }
 
     Path path() const { return Path({ PathSegment(m_bezierCurve) }); }
+
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     PathDataBezierCurve m_bezierCurve;
@@ -1331,9 +1261,7 @@ private:
 
 class StrokePathSegment {
 public:
-    static constexpr ItemType itemType = ItemType::StrokePathSegment;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "stroke-path-segment";
 
     StrokePathSegment(const PathSegment& segment)
         : m_segment(segment)
@@ -1343,6 +1271,7 @@ public:
     Path path() const { return Path({ m_segment }); }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     PathSegment m_segment;
@@ -1350,9 +1279,7 @@ private:
 
 class StrokePath {
 public:
-    static constexpr ItemType itemType = ItemType::StrokePath;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "stroke-path";
 
     StrokePath(Path&& path)
         : m_path(WTFMove(path))
@@ -1367,6 +1294,7 @@ public:
     const Path& path() const { return m_path; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Path m_path;
@@ -1374,9 +1302,7 @@ private:
 
 class StrokeEllipse {
 public:
-    static constexpr ItemType itemType = ItemType::StrokeEllipse;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "stroke-ellipse";
 
     StrokeEllipse(const FloatRect& rect)
         : m_rect(rect)
@@ -1386,6 +1312,7 @@ public:
     const FloatRect& rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -1393,9 +1320,7 @@ private:
 
 class ClearRect {
 public:
-    static constexpr ItemType itemType = ItemType::ClearRect;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "clear-rect";
 
     ClearRect(const FloatRect& rect)
         : m_rect(rect)
@@ -1405,6 +1330,7 @@ public:
     const FloatRect& rect() const { return m_rect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
@@ -1412,9 +1338,7 @@ private:
 
 class DrawControlPart {
 public:
-    static constexpr ItemType itemType = ItemType::DrawControlPart;
-    static constexpr bool isInlineItem = false;
-    static constexpr bool isDrawingItem = true;
+    static constexpr char name[] = "draw-control-part";
 
     WEBCORE_EXPORT DrawControlPart(ControlPart&, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle&);
 
@@ -1423,7 +1347,8 @@ public:
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
     const ControlStyle& style() const { return m_style; }
 
-    WEBCORE_EXPORT void apply(GraphicsContext&);
+    WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     Ref<ControlPart> m_part;
@@ -1436,29 +1361,25 @@ private:
 
 class ApplyStrokePattern {
 public:
-    static constexpr ItemType itemType = ItemType::ApplyStrokePattern;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "apply-stroke-pattern";
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
 };
 
 class ApplyFillPattern {
 public:
-    static constexpr ItemType itemType = ItemType::ApplyFillPattern;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "apply-fill-pattern";
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
 };
 
 #endif
 
 class ApplyDeviceScaleFactor {
 public:
-    static constexpr ItemType itemType = ItemType::ApplyDeviceScaleFactor;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
+    static constexpr char name[] = "apply-device-scale-factor";
 
     ApplyDeviceScaleFactor(float scaleFactor)
         : m_scaleFactor(scaleFactor)
@@ -1468,262 +1389,11 @@ public:
     float scaleFactor() const { return m_scaleFactor; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     float m_scaleFactor { 1 };
 };
 
-using DisplayListItem = std::variant
-    < ApplyDeviceScaleFactor
-    , BeginTransparencyLayer
-    , ClearRect
-    , ClearShadow
-    , Clip
-    , ClipRoundedRect
-    , ClipOut
-    , ClipOutRoundedRect
-    , ClipOutToPath
-    , ClipPath
-    , ClipToImageBuffer
-    , ConcatenateCTM
-    , DrawControlPart
-    , DrawDotsForDocumentMarker
-    , DrawEllipse
-    , DrawFilteredImageBuffer
-    , DrawFocusRingPath
-    , DrawFocusRingRects
-    , DrawGlyphs
-    , DrawDecomposedGlyphs
-    , DrawImageBuffer
-    , DrawLine
-    , DrawLinesForText
-    , DrawNativeImage
-    , DrawPath
-    , DrawPattern
-    , DrawRect
-    , DrawSystemImage
-    , EndTransparencyLayer
-    , FillCompositedRect
-    , FillEllipse
-    , FillPathSegment
-    , FillPath
-    , FillRect
-    , FillRectWithColor
-    , FillRectWithGradient
-    , FillRectWithRoundedHole
-    , FillRoundedRect
-    , ResetClip
-    , Restore
-    , Rotate
-    , Save
-    , Scale
-    , SetCTM
-    , SetInlineFillColor
-    , SetInlineStrokeColor
-    , SetLineCap
-    , SetLineDash
-    , SetLineJoin
-    , SetMiterLimit
-    , SetState
-    , SetStrokeThickness
-    , StrokeEllipse
-    , StrokeLine
-    , StrokePathSegment
-    , StrokePath
-    , StrokeRect
-    , Translate
-
-#if ENABLE(INLINE_PATH_DATA)
-    , FillLine
-    , FillArc
-    , FillQuadCurve
-    , FillBezierCurve
-    , StrokeArc
-    , StrokeQuadCurve
-    , StrokeBezierCurve
-#endif
-
-#if ENABLE(VIDEO)
-    , PaintFrameForMedia
-#endif
-
-#if USE(CG)
-    , ApplyFillPattern
-    , ApplyStrokePattern
-#endif
->;
-
-size_t paddedSizeOfTypeAndItemInBytes(const DisplayListItem&);
-ItemType displayListItemType(const DisplayListItem&);
-
-WEBCORE_EXPORT void dumpItem(TextStream&, const Translate&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const Rotate&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const Scale&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetCTM&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ConcatenateCTM&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetInlineFillColor&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetInlineStrokeColor&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetStrokeThickness&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetState&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetLineCap&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetLineDash&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetLineJoin&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const SetMiterLimit&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const Clip&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ClipRoundedRect&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ClipOut&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ClipOutRoundedRect&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ClipToImageBuffer&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ClipOutToPath&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ClipPath&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ResetClip&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawControlPart&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawFilteredImageBuffer&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawGlyphs&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawDecomposedGlyphs&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawImageBuffer&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawNativeImage&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawSystemImage&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawPattern&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawRect&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawLine&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawLinesForText&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawDotsForDocumentMarker&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawEllipse&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawPath&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawFocusRingPath&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const DrawFocusRingRects&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillRect&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillRectWithColor&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillRectWithGradient&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillCompositedRect&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillRoundedRect&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillRectWithRoundedHole&, OptionSet<AsTextFlag>);
-#if ENABLE(INLINE_PATH_DATA)
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillLine&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillArc&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillQuadCurve&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillBezierCurve&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeArc&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeQuadCurve&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeBezierCurve&, OptionSet<AsTextFlag>);
-#endif // ENABLE(INLINE_PATH_DATA)
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillPathSegment&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillPath&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const FillEllipse&, OptionSet<AsTextFlag>);
-#if ENABLE(VIDEO)
-WEBCORE_EXPORT void dumpItem(TextStream&, const PaintFrameForMedia&, OptionSet<AsTextFlag>);
-#endif // ENABLE(VIDEO)
-WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeRect&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const StrokePathSegment&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const StrokePath&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeEllipse&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeLine&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ClearRect&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const BeginTransparencyLayer&, OptionSet<AsTextFlag>);
-WEBCORE_EXPORT void dumpItem(TextStream&, const ApplyDeviceScaleFactor&, OptionSet<AsTextFlag>);
-
-template <typename T>
-TextStream& operator<<(TextStream& ts, const T& item)
-{
-    dumpItem(ts, item, { AsTextFlag::IncludePlatformOperations, AsTextFlag::IncludeResourceIdentifiers });
-    return ts;
-}
-
-void dumpItemHandle(TextStream&, const ItemHandle&, OptionSet<AsTextFlag>);
-
-inline TextStream& operator<<(TextStream& ts, const ItemHandle& itemHandle)
-{
-    dumpItemHandle(ts, itemHandle, { AsTextFlag::IncludePlatformOperations, AsTextFlag::IncludeResourceIdentifiers });
-    return ts;
-}
-
-TextStream& operator<<(TextStream&, ItemType);
-
 } // namespace DisplayList
 } // namespace WebCore
-
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::DisplayList::ItemType> {
-    using values = EnumValues<
-    WebCore::DisplayList::ItemType,
-    WebCore::DisplayList::ItemType::Save,
-    WebCore::DisplayList::ItemType::Restore,
-    WebCore::DisplayList::ItemType::Translate,
-    WebCore::DisplayList::ItemType::Rotate,
-    WebCore::DisplayList::ItemType::Scale,
-    WebCore::DisplayList::ItemType::SetCTM,
-    WebCore::DisplayList::ItemType::ConcatenateCTM,
-    WebCore::DisplayList::ItemType::SetInlineFillColor,
-    WebCore::DisplayList::ItemType::SetInlineStrokeColor,
-    WebCore::DisplayList::ItemType::SetStrokeThickness,
-    WebCore::DisplayList::ItemType::SetState,
-    WebCore::DisplayList::ItemType::SetLineCap,
-    WebCore::DisplayList::ItemType::SetLineDash,
-    WebCore::DisplayList::ItemType::SetLineJoin,
-    WebCore::DisplayList::ItemType::SetMiterLimit,
-    WebCore::DisplayList::ItemType::ClearShadow,
-    WebCore::DisplayList::ItemType::Clip,
-    WebCore::DisplayList::ItemType::ClipRoundedRect,
-    WebCore::DisplayList::ItemType::ClipOut,
-    WebCore::DisplayList::ItemType::ClipOutRoundedRect,
-    WebCore::DisplayList::ItemType::ClipToImageBuffer,
-    WebCore::DisplayList::ItemType::ClipOutToPath,
-    WebCore::DisplayList::ItemType::ClipPath,
-    WebCore::DisplayList::ItemType::ResetClip,
-    WebCore::DisplayList::ItemType::DrawGlyphs,
-    WebCore::DisplayList::ItemType::DrawDecomposedGlyphs,
-    WebCore::DisplayList::ItemType::DrawImageBuffer,
-    WebCore::DisplayList::ItemType::DrawNativeImage,
-    WebCore::DisplayList::ItemType::DrawSystemImage,
-    WebCore::DisplayList::ItemType::DrawPattern,
-    WebCore::DisplayList::ItemType::DrawRect,
-    WebCore::DisplayList::ItemType::DrawLine,
-    WebCore::DisplayList::ItemType::DrawLinesForText,
-    WebCore::DisplayList::ItemType::DrawDotsForDocumentMarker,
-    WebCore::DisplayList::ItemType::DrawEllipse,
-    WebCore::DisplayList::ItemType::DrawPath,
-    WebCore::DisplayList::ItemType::DrawFocusRingPath,
-    WebCore::DisplayList::ItemType::DrawFocusRingRects,
-    WebCore::DisplayList::ItemType::FillRect,
-    WebCore::DisplayList::ItemType::FillRectWithColor,
-    WebCore::DisplayList::ItemType::FillRectWithGradient,
-    WebCore::DisplayList::ItemType::FillCompositedRect,
-    WebCore::DisplayList::ItemType::FillRoundedRect,
-    WebCore::DisplayList::ItemType::FillRectWithRoundedHole,
-#if ENABLE(INLINE_PATH_DATA)
-    WebCore::DisplayList::ItemType::FillLine,
-    WebCore::DisplayList::ItemType::FillArc,
-    WebCore::DisplayList::ItemType::FillQuadCurve,
-    WebCore::DisplayList::ItemType::FillBezierCurve,
-#endif
-    WebCore::DisplayList::ItemType::FillPathSegment,
-    WebCore::DisplayList::ItemType::FillPath,
-    WebCore::DisplayList::ItemType::FillEllipse,
-#if ENABLE(VIDEO)
-    WebCore::DisplayList::ItemType::PaintFrameForMedia,
-#endif
-    WebCore::DisplayList::ItemType::StrokeRect,
-    WebCore::DisplayList::ItemType::StrokeLine,
-#if ENABLE(INLINE_PATH_DATA)
-    WebCore::DisplayList::ItemType::StrokeArc,
-    WebCore::DisplayList::ItemType::StrokeQuadCurve,
-    WebCore::DisplayList::ItemType::StrokeBezierCurve,
-#endif
-    WebCore::DisplayList::ItemType::StrokePathSegment,
-    WebCore::DisplayList::ItemType::StrokePath,
-    WebCore::DisplayList::ItemType::StrokeEllipse,
-    WebCore::DisplayList::ItemType::ClearRect,
-    WebCore::DisplayList::ItemType::BeginTransparencyLayer,
-    WebCore::DisplayList::ItemType::EndTransparencyLayer,
-#if USE(CG)
-    WebCore::DisplayList::ItemType::ApplyStrokePattern,
-    WebCore::DisplayList::ItemType::ApplyFillPattern,
-#endif
-    WebCore::DisplayList::ItemType::ApplyDeviceScaleFactor
-    >;
-
-};
-
-} // namespace WTF

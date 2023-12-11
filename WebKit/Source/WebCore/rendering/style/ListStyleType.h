@@ -44,7 +44,7 @@ struct ListStyleType {
     bool isDisc() const;
     bool isDisclosureClosed() const;
 
-    bool operator==(const ListStyleType& other) const { return type == other.type && identifier == other.identifier; }
+    friend bool operator==(const ListStyleType&, const ListStyleType&) = default;
 
     Type type { Type::None };
     // The identifier is the string when the type is String and is the @counter-style name when the type is CounterStyle.
@@ -56,16 +56,3 @@ WTF::TextStream& operator<<(WTF::TextStream&, ListStyleType);
 
 
 } // namespace WebCore
-
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::ListStyleType::Type> {
-    using values = EnumValues<
-        WebCore::ListStyleType::Type,
-        WebCore::ListStyleType::Type::CounterStyle,
-        WebCore::ListStyleType::Type::String,
-        WebCore::ListStyleType::Type::None
-    >;
-};
-
-} // namespace WTF

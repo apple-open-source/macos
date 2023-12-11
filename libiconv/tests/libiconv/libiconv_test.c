@@ -589,6 +589,7 @@ ATF_TC_BODY(test_autoconf, tc)
 	char str[] = "\xe2\x82\xac";
 	char *inbuf = str, outbuf[20], *outptr = outbuf;
 	size_t insz, outsz, res;
+	int on;
 
 	insz = sizeof(str) - 1;
 	outsz = sizeof(outbuf) - 1;
@@ -598,13 +599,110 @@ ATF_TC_BODY(test_autoconf, tc)
 	ATF_REQUIRE(cd != (iconv_t)-1);
 	ATF_REQUIRE(errno == 0);
 
-	/*
-	 * XXX with //TRANSLIT, we'll want to verify that the same conversion
-	 * works but returns 1.
-	 */
 	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
-	ATF_REQUIRE(res == (size_t)(iconv_t)-1);
+	ATF_REQUIRE(res == (size_t)-1);
 	ATF_REQUIRE(errno == EILSEQ);
+
+	/* Reset and try with transliteration. */
+	iconv(cd, NULL, NULL, NULL, NULL);
+	on = 1;
+	iconvctl(cd, ICONV_SET_TRANSLITERATE, &on);
+
+	insz = sizeof(str) - 1;
+	inbuf = str;
+	outsz = sizeof(outbuf) - 1;
+	outptr = &outbuf[0];
+	memset(outbuf, '\0', sizeof(outbuf));
+	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res == 1);
+	ATF_REQUIRE(strcmp(outbuf, "EUR") == 0);
+	iconv_close(cd);
+}
+
+ATF_TC_WITHOUT_HEAD(test_translit);
+ATF_TC_BODY(test_translit, tc)
+{
+	iconv_t cd;
+	char instr[] = "\x00\x00\x00y\x00\x00\x00\xa0\x00\x00\x00\xa9";
+	char outbuf[sizeof(instr) + 4];
+	const char expectedbuf[] = "y (c)";
+	char *inbuf, *outptr;
+	size_t insz, outbufsz, outsz, res;
+
+	outbufsz = sizeof(outbuf) - 1;
+	outbuf[outbufsz] = '\0';
+
+	/* Try it with no transliteration first. */
+	cd = iconv_open("ASCII", "UTF-32BE");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	inbuf = instr;
+	insz = sizeof(instr) - 1;
+	outptr = outbuf;
+	outsz = outbufsz;
+	memset(outptr, '\0', outsz);
+
+	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res == -1);
+	ATF_REQUIRE_INTEQ(EILSEQ, errno);
+
+	iconv_close(cd);
+
+	/*
+	 * Next, try it with transliteration.  Return value should reflect
+	 * two invalid conversions to match our two sequences requiring
+	 * transliteration.
+	 */
+	cd = iconv_open("ASCII//TRANSLIT", "UTF-32BE");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	inbuf = instr;
+	insz = sizeof(instr) - 1;
+	outptr = outbuf;
+	outsz = outbufsz;
+	memset(outptr, '\0', outsz);
+
+	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res == 2);
+	/* Should have consumed the whole buffer. */
+	ATF_REQUIRE_INTEQ(0, insz);
+
+	ATF_REQUIRE_STREQ(expectedbuf, outbuf);
+
+	iconv_close(cd);
+}
+
+/*
+ * rdar://problem/115458746 - the "GNU behavior" that libiconv implements should
+ * still increment inval count if we hit a character that we can't map into the
+ * destination encoding.
+ */
+ATF_TC_WITHOUT_HEAD(test_invalid_ignore);
+ATF_TC_BODY(test_invalid_ignore, tc)
+{
+	iconv_t cd;
+	char str[] = "\xe2\x82\xac Z";
+	char *inbuf = str, outbuf[20], *outptr = outbuf;
+	size_t insz, outsz, res;
+	int on;
+
+	insz = sizeof(str) - 1;
+	outsz = sizeof(outbuf) - 1;
+	memset(outbuf, '\0', sizeof(outbuf));
+
+	errno = 0;
+	cd = iconv_open("ISO-8859-1//IGNORE", "UTF-8");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+	ATF_REQUIRE(errno == 0);
+
+	/* This is the default now, but to be sure... */
+	on = 1;
+	iconvctl(cd, ICONV_SET_ILSEQ_INVALID, &on);
+
+	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res == 1);
+
+	ATF_REQUIRE(strcmp(outbuf, " Z") == 0);
 
 	iconv_close(cd);
 }
@@ -627,6 +725,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, test_eilseq_out);
 	ATF_TP_ADD_TC(tp, test_eilseq_out_all);
 	ATF_TP_ADD_TC(tp, test_autoconf);
+	ATF_TP_ADD_TC(tp, test_translit);
+	ATF_TP_ADD_TC(tp, test_invalid_ignore);
 	return (atf_no_error());
 }
 

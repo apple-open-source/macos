@@ -122,7 +122,7 @@ void RemoteVideoFrameObjectHeap::getVideoFrameBuffer(RemoteVideoFrameReadReferen
             canSendIOSurface);
         // FIXME: We should ASSERT(result) once we support enough pixel buffer types.
     }
-    m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::NewVideoFrameBuffer { identifier, buffer }, 0);
+    m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::NewVideoFrameBuffer { identifier, WTFMove(buffer) }, 0);
 }
 
 void RemoteVideoFrameObjectHeap::pixelBuffer(RemoteVideoFrameReadReference&& read, CompletionHandler<void(RetainPtr<CVPixelBufferRef>)>&& completionHandler)
@@ -161,7 +161,10 @@ void RemoteVideoFrameObjectHeap::convertFrameBuffer(SharedVideoFrame&& sharedVid
     destinationColorSpace = DestinationColorSpace(createCGColorSpaceForCVPixelBuffer(buffer.get()));
 
     if (CVPixelBufferGetPixelFormatType(buffer.get()) != kCVPixelFormatType_32BGRA) {
-        createPixelConformerIfNeeded();
+        Locker locker { m_pixelBufferConformerLock };
+        if (!m_pixelBufferConformer)
+            m_pixelBufferConformer = createPixelConformer().moveToUniquePtr();
+
         auto convertedBuffer = m_pixelBufferConformer->convert(buffer.get());
         if (!convertedBuffer) {
             RELEASE_LOG_ERROR(WebRTC, "RemoteVideoFrameObjectHeap::convertFrameBuffer conformer failed");
@@ -176,7 +179,7 @@ void RemoteVideoFrameObjectHeap::convertFrameBuffer(SharedVideoFrame&& sharedVid
         [&](auto& semaphore) { m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::SetSharedVideoFrameSemaphore { semaphore }, 0); },
         [&](auto&& handle) { m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::SetSharedVideoFrameMemory { WTFMove(handle) }, 0); },
         canSendIOSurface);
-    m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::NewConvertedVideoFrameBuffer { result }, 0);
+    m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::NewConvertedVideoFrameBuffer { WTFMove(result) }, 0);
 }
 
 void RemoteVideoFrameObjectHeap::setSharedVideoFrameSemaphore(IPC::Semaphore&& semaphore)
@@ -190,6 +193,14 @@ void RemoteVideoFrameObjectHeap::setSharedVideoFrameMemory(SharedMemory::Handle&
 }
 
 #endif
+
+void RemoteVideoFrameObjectHeap::lowMemoryHandler()
+{
+#if PLATFORM(COCOA)
+    Locker locker { m_pixelBufferConformerLock };
+    m_pixelBufferConformer = nullptr;
+#endif
+}
 
 }
 

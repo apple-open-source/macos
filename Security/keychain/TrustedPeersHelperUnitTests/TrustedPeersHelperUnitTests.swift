@@ -28,12 +28,13 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     var mcAdapterPlaceholder: OTManagedConfigurationAdapter!
 
     var manateeKeySet: CKKSKeychainBackedKeySet!
-#if SEC_XR
-    var overrideBecomeiPad: Bool!
-#endif
 
     override static func setUp() {
         super.setUp()
+
+#if SEC_XR
+        TPSetBecomeiPadOverride(false)
+#endif
 
         SecTapToRadar.disableTTRsEntirely()
 
@@ -47,11 +48,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-
-#if SEC_XR
-        self.overrideBecomeiPad = TPBecomeiPadOverride()
-        TPClearBecomeiPadOverride()
-#endif
 
         autoreleasepool {
             let testName = self.name.components(separatedBy: CharacterSet(charactersIn: " ]"))[1]
@@ -88,12 +84,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         self.cuttlefish = nil
         self.manateeKeySet = nil
 
-#if SEC_XR
-        TPSetBecomeiPadOverride(self.overrideBecomeiPad)
-#endif
-
         autoreleasepool {
             if let nskeychainDir: NSURL = SecCopyHomeURL(), let keychainDir: URL = nskeychainDir as URL? {
+                CKKSAnalytics.logger().removeState()
+
                 SecItemDataSourceFactoryReleaseAll()
                 SecKeychainDbForceClose()
                 SecKeychainDbReset(nil)
@@ -113,6 +107,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     }
 
     override static func tearDown() {
+
+#if SEC_XR
+        TPClearBecomeiPadOverride()
+#endif
     }
 
     func makeFakeKeyHierarchy(zoneID: CKRecordZone.ID) throws -> CKKSKeychainBackedKeySet {
@@ -316,9 +314,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     }
 
     func testEstablishWithoutUserSyncableViewsOnWatch() throws {
-#if SEC_XR
-        TPSetBecomeiPadOverride(false)
-#endif
         let description = tmpStoreDescription(name: "container.db")
 
         // Watches will listen to the input here. If we set FOLLOWING, it should remain FOLLOWING (as some watches don't have UI to change this value)
@@ -337,9 +332,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNotNil(policy, "Should have a syncing policy")
 
         XCTAssertEqual(policy?.syncUserControllableViews, .FOLLOWING, "Peer should desire to sync user controllable views (ignoring the request)")
-#if SEC_XR
-        TPClearBecomeiPadOverride()
-#endif
     }
 
     func testEstablishNotOnAllowListErrors() throws {
@@ -404,7 +396,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                   permanentInfoSig: permanentInfoSig!,
                                   stableInfo: stableInfo!,
                                   stableInfoSig: stableInfoSig!,
-                                  ckksKeys: [self.manateeKeySet])
+                                  ckksKeys: [self.manateeKeySet],
+                                  altDSID: nil,
+                                  flowID: nil,
+                                  deviceSessionID: nil)
             XCTAssertNil(vouchError)
             XCTAssertNotNil(voucherData)
             XCTAssertNotNil(voucherSig)
@@ -419,7 +414,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                              voucherData: voucherData!,
                                                              voucherSig: voucherSig!,
                                                              ckksKeys: [],
-                                                             tlkShares: [])
+                                                             tlkShares: [],
+                                                             altDSID: nil,
+                                                             flowID: nil,
+                                                             deviceSessionID: nil)
             XCTAssertNil(joinError)
             XCTAssertEqual(joinedPeerID, peerID!)
 
@@ -499,7 +497,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [])
+                                     ckksKeys: [],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(errorVouchingWithoutTLKs, "Should be no error vouching without uploading TLKShares")
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
@@ -514,7 +515,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [provisionalManateeKeySet])
+                                     ckksKeys: [provisionalManateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(errorVouchingWithProvisionalTLKs, "Should be no error vouching without uploading TLKShares for a non-existent key")
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
@@ -526,7 +530,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [self.manateeKeySet])
+                                     ckksKeys: [self.manateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(error3)
             XCTAssertNotNil(voucherData)
             XCTAssertNotNil(voucherSig)
@@ -539,7 +546,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                                   voucherData: voucherData!,
                                                                   voucherSig: voucherSig!,
                                                                   ckksKeys: [],
-                                                                  tlkShares: [])
+                                                                  tlkShares: [],
+                                                                  altDSID: nil,
+                                                                  flowID: nil,
+                                                                  deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
 
@@ -582,7 +592,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: cPermanentInfoSig!,
                                      stableInfo: cStableInfo!,
                                      stableInfoSig: cStableInfoSig!,
-                                     ckksKeys: [self.manateeKeySet])
+                                     ckksKeys: [self.manateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertNotNil(voucherData)
             XCTAssertNotNil(voucherSig)
@@ -594,7 +607,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                                    voucherData: voucherData!,
                                                                    voucherSig: voucherSig!,
                                                                    ckksKeys: [self.manateeKeySet, provisionalEngramKeySet],
-                                                                   tlkShares: [])
+                                                                   tlkShares: [],
+                                                                   altDSID: nil,
+                                                                   flowID: nil,
+                                                                   deviceSessionID: nil)
             XCTAssertNil(error2)
             XCTAssertEqual(peerID, cPeerID!)
 
@@ -693,7 +709,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [])
+                                     ckksKeys: [],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(errorVouchingWithoutTLKs, "Should be no error vouching without uploading TLKShares")
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
@@ -708,7 +727,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [provisionalManateeKeySet])
+                                     ckksKeys: [provisionalManateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(errorVouchingWithProvisionalTLKs, "Should be no error vouching without uploading TLKShares for a non-existent key")
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
@@ -720,7 +742,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [self.manateeKeySet])
+                                     ckksKeys: [self.manateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(error3)
             XCTAssertNotNil(voucherData)
             XCTAssertNotNil(voucherSig)
@@ -733,7 +758,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                                   voucherData: voucherData!,
                                                                   voucherSig: voucherSig!,
                                                                   ckksKeys: [],
-                                                                  tlkShares: [])
+                                                                  tlkShares: [],
+                                                                  altDSID: nil,
+                                                                  flowID: nil,
+                                                                  deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
 
@@ -792,7 +820,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [])
+                                     ckksKeys: [],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(error3, "Should be no error vouching for B")
             XCTAssertNotNil(voucherData, "Should have a voucher from A")
             XCTAssertNotNil(voucherSig, "Should have a signature from A")
@@ -802,7 +833,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                             voucherData: voucherData!,
                                                             voucherSig: voucherSig!,
                                                             ckksKeys: [],
-                                                            tlkShares: [])
+                                                            tlkShares: [],
+                                                            altDSID: nil,
+                                                            flowID: nil,
+                                                            deviceSessionID: nil)
             XCTAssertNotNil(error, "Should have an error joining with an unapproved machine ID")
             XCTAssertNil(peerID, "Should not receive a peer ID joining with an unapproved machine ID")
         }
@@ -959,14 +993,20 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                                     permanentInfoSig: bPermanentInfoSig!,
                                                                     stableInfo: bStableInfo!,
                                                                     stableInfoSig: bStableInfoSig!,
-                                                                    ckksKeys: [])
+                                                                    ckksKeys: [],
+                                                                    altDSID: nil,
+                                                                    flowID: nil,
+                                                                    deviceSessionID: nil)
 
             print("B joins")
             _ = containerB.joinSync(test: self,
                                     voucherData: voucherData!,
                                     voucherSig: voucherSig!,
                                     ckksKeys: [],
-                                    tlkShares: [])
+                                    tlkShares: [],
+                                    altDSID: nil,
+                                    flowID: nil,
+                                    deviceSessionID: nil)
         }
 
         print("A updates")
@@ -988,14 +1028,20 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                                     permanentInfoSig: cPermanentInfoSig!,
                                                                     stableInfo: cStableInfo!,
                                                                     stableInfoSig: cStableInfoSig!,
-                                                                    ckksKeys: [])
+                                                                    ckksKeys: [],
+                                                                    altDSID: nil,
+                                                                    flowID: nil,
+                                                                    deviceSessionID: nil)
 
             print("C joins")
             _ = containerC.joinSync(test: self,
                                     voucherData: voucherData!,
                                     voucherSig: voucherSig!,
                                     ckksKeys: [],
-                                    tlkShares: [])
+                                    tlkShares: [],
+                                    altDSID: nil,
+                                    flowID: nil,
+                                    deviceSessionID: nil)
         }
 
         print("B updates")
@@ -1283,7 +1329,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             let cliqueChangedNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: OTCliqueChanged))
 
             print("B joins")
-            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [], altDSID: nil, flowID: nil, deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
 
@@ -1371,7 +1417,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [], altDSID: nil, flowID: nil, deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
 
@@ -2144,7 +2190,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [], altDSID: nil, flowID: nil, deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
 
@@ -2461,7 +2507,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [], altDSID: nil, flowID: nil, deviceSessionID: nil)
             XCTAssertNil(error, "Should be no error joining with a fetch error")
             XCTAssertNotNil(peerID, "Should have a peer ID")
         }
@@ -2525,7 +2571,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [])
+                                     ckksKeys: [],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(errorVouchingWithoutTLKs, "Should be no error vouching without uploading TLKShares")
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
@@ -2540,7 +2589,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [provisionalManateeKeySet])
+                                     ckksKeys: [provisionalManateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(errorVouchingWithProvisionalTLKs, "Should be no error vouching without uploading TLKShares for a non-existent key")
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
@@ -2552,7 +2604,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [self.manateeKeySet])
+                                     ckksKeys: [self.manateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(error3)
             XCTAssertNotNil(voucherData)
             XCTAssertNotNil(voucherSig)
@@ -2565,7 +2620,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                             voucherData: voucherData!,
                                                             voucherSig: voucherSig!,
                                                             ckksKeys: [],
-                                                            tlkShares: [])
+                                                            tlkShares: [],
+                                                            altDSID: nil,
+                                                            flowID: nil,
+                                                            deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
         }
@@ -3454,7 +3512,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [])
+                                     ckksKeys: [],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(errorVouchingWithoutTLKs, "Should be no error vouching without uploading TLKShares")
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
@@ -3469,7 +3530,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [provisionalManateeKeySet])
+                                     ckksKeys: [provisionalManateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(errorVouchingWithProvisionalTLKs, "Should be no error vouching without uploading TLKShares for a non-existent key")
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
@@ -3481,7 +3545,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: bPermanentInfoSig!,
                                      stableInfo: bStableInfo!,
                                      stableInfoSig: bStableInfoSig!,
-                                     ckksKeys: [self.manateeKeySet])
+                                     ckksKeys: [self.manateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(error3)
             XCTAssertNotNil(voucherData)
             XCTAssertNotNil(voucherSig)
@@ -3494,7 +3561,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                             voucherData: voucherData!,
                                                             voucherSig: voucherSig!,
                                                             ckksKeys: [],
-                                                            tlkShares: [])
+                                                            tlkShares: [],
+                                                            altDSID: nil,
+                                                            flowID: nil,
+                                                            deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
         }
@@ -3534,7 +3604,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                      permanentInfoSig: cPermanentInfoSig!,
                                      stableInfo: cStableInfo!,
                                      stableInfoSig: cStableInfoSig!,
-                                     ckksKeys: [self.manateeKeySet])
+                                     ckksKeys: [self.manateeKeySet],
+                                     altDSID: nil,
+                                     flowID: nil,
+                                     deviceSessionID: nil)
             XCTAssertNil(error)
             XCTAssertNotNil(voucherData)
             XCTAssertNotNil(voucherSig)
@@ -3546,7 +3619,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                              voucherData: voucherData!,
                                                              voucherSig: voucherSig!,
                                                              ckksKeys: [self.manateeKeySet, provisionalEngramKeySet],
-                                                             tlkShares: [])
+                                                             tlkShares: [],
+                                                             altDSID: nil,
+                                                             flowID: nil,
+                                                             deviceSessionID: nil)
             XCTAssertNil(error2)
             XCTAssertEqual(peerID, cPeerID!)
 
@@ -3921,6 +3997,8 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             XCTAssertNotNil(policy, "Should have some policy")
             XCTAssertNil(policyError, "Should have no error fetching policy")
         }
+
+        TPSetBecomeiPadOverride(false)
     }
     #endif // SEC_XR
 }

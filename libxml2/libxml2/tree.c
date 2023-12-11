@@ -4354,6 +4354,14 @@ xmlStaticCopyNode(xmlNodePtr node, xmlDocPtr doc, xmlNodePtr parent,
 	if ((__xmlRegisterCallbacks) && (xmlRegisterNodeDefaultValue))
 	    xmlRegisterNodeDefaultValue((xmlNodePtr)ret);
 
+        /*
+         * Note that since ret->parent is already set, xmlAddChild will
+         * return early and not actually insert the node. It will only
+         * coalesce text nodes and unnecessarily call xmlSetTreeDoc.
+         * Assuming that the subtree to be copied always has its text
+         * nodes coalesced, the somewhat confusing call to xmlAddChild
+         * could be removed.
+         */
         tmp = xmlAddChild(parent, ret);
 	/* node could have coalesced */
 	if (tmp != ret)
@@ -4409,8 +4417,49 @@ xmlStaticCopyNode(xmlNodePtr node, xmlDocPtr doc, xmlNodePtr parent,
 	}
 	ret->last = ret->children;
     } else if ((node->children != NULL) && (extended != 2)) {
-        ret->children = xmlStaticCopyNodeList(node->children, doc, ret);
-	UPDATE_LAST_CHILD_AND_PARENT(ret)
+        xmlNodePtr cur, insert;
+
+        cur = node->children;
+        insert = ret;
+        while (cur != NULL) {
+            xmlNodePtr copy = xmlStaticCopyNode(cur, doc, insert, 2);
+            if (copy == NULL) {
+                xmlFreeNode(ret);
+                return(NULL);
+            }
+
+            /* Check for coalesced text nodes */
+            if (insert->last != copy) {
+                if (insert->last == NULL) {
+                    insert->children = copy;
+                } else {
+                    copy->prev = insert->last;
+                    insert->last->next = copy;
+                }
+                insert->last = copy;
+            }
+
+            if ((cur->type != XML_ENTITY_REF_NODE) &&
+                (cur->children != NULL)) {
+                cur = cur->children;
+                insert = copy;
+                continue;
+            }
+
+            while (1) {
+                if (cur->next != NULL) {
+                    cur = cur->next;
+                    break;
+                }
+
+                cur = cur->parent;
+                insert = insert->parent;
+                if (cur == node) {
+                    cur = NULL;
+                    break;
+                }
+            }
+        }
     }
 
 out:
@@ -4425,29 +4474,28 @@ static xmlNodePtr
 xmlStaticCopyNodeList(xmlNodePtr node, xmlDocPtr doc, xmlNodePtr parent) {
     xmlNodePtr ret = NULL;
     xmlNodePtr p = NULL,q;
+    xmlDtdPtr newSubset = NULL;
 
     while (node != NULL) {
-#ifdef LIBXML_TREE_ENABLED
 	if (node->type == XML_DTD_NODE ) {
-	    if (doc == NULL) {
+#ifdef LIBXML_TREE_ENABLED
+	    if ((doc == NULL) || (doc->intSubset != NULL)) {
 		node = node->next;
 		continue;
 	    }
-	    if (doc->intSubset == NULL) {
-		q = (xmlNodePtr) xmlCopyDtd( (xmlDtdPtr) node );
-		if (q == NULL) return(NULL);
-		q->doc = doc;
-		q->parent = parent;
-		doc->intSubset = (xmlDtdPtr) q;
-		xmlAddChild(parent, q);
-	    } else {
-		q = (xmlNodePtr) doc->intSubset;
-		xmlAddChild(parent, q);
-	    }
-	} else
+            q = (xmlNodePtr) xmlCopyDtd( (xmlDtdPtr) node );
+            if (q == NULL) goto error;
+            q->doc = doc;
+            q->parent = parent;
+            newSubset = (xmlDtdPtr) q;
+#else
+            node = node->next;
+            continue;
 #endif /* LIBXML_TREE_ENABLED */
+	} else {
 	    q = xmlStaticCopyNode(node, doc, parent, 1);
-	if (q == NULL) return(NULL);
+	    if (q == NULL) goto error;
+        }
 	if (ret == NULL) {
 	    q->prev = NULL;
 	    ret = p = q;
@@ -4459,7 +4507,12 @@ xmlStaticCopyNodeList(xmlNodePtr node, xmlDocPtr doc, xmlNodePtr parent) {
 	}
 	node = node->next;
     }
+    if (newSubset != NULL)
+        doc->intSubset = newSubset;
     return(ret);
+error:
+    xmlFreeNodeList(ret);
+    return(NULL);
 }
 
 /**

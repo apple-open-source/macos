@@ -1255,10 +1255,18 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         CFStringInsert( options, 0, kDAFileSystemMountArgumentNoWrite );
     }
 
+    /*
+     * override with 'nosuid' for non-internal volumes
+     * override with 'owners' for internal volumes.
+     */
     if ( DAMountGetPreference( disk, kDAMountPreferenceTrust ) == FALSE )
     {
-        CFStringInsert( options, 0, CFSTR( "," ) );
-        CFStringInsert( options, 0, kDAFileSystemMountArgumentNoSetUserID );
+        CFStringTrim( options, CFSTR( "," ) );
+
+        CFStringAppend( options, CFSTR( "," ) );
+        CFStringAppend( options, kDAFileSystemMountArgumentNoSetUserID );
+  
+        CFStringTrim( options, CFSTR( "," ) );
 
         CFStringInsert( options, 0, CFSTR( "," ) );
         CFStringInsert( options, 0, kDAFileSystemMountArgumentNoOwnership );
@@ -1266,6 +1274,16 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         CFStringInsert( options, 0, CFSTR( "," ) );
         CFStringInsert( options, 0, kDAFileSystemMountArgumentNoDevice );
     }
+    else
+    {
+        CFStringTrim( options, CFSTR( "," ) );
+
+        CFStringAppend( options, CFSTR( "," ) );
+        CFStringAppend( options, kDAFileSystemMountArgumentOwnership );
+  
+        CFStringTrim( options, CFSTR( "," ) );
+    }
+    
 ///w:start
     if ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs" ) ) )
     {
@@ -1293,6 +1311,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
     CFStringTrim( options, CFSTR( "," ) );
     
+    DALogInfo(" Mount options %@", options);
     /*
      * Determine whether the volume is to be repaired.
      */

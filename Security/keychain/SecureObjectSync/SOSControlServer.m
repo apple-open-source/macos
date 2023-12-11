@@ -98,19 +98,29 @@
     [self.account assertStashedAccountCredential:reply];
 }
 
-- (void)validatedStashedAccountCredential:(void(^)(NSData *credential, NSError *error))complete
+- (void)validatedStashedAccountCredential:(NSString *)altDSID  
+                                   flowID:(NSString* _Nullable)flowID
+                          deviceSessionID:(NSString* _Nullable)deviceSessionID 
+                                 complete:(void (^)(NSData *, NSError *))complete
 {
-    [self.account validatedStashedAccountCredential:complete];
+    [self.account validatedStashedAccountCredential:altDSID flowID:flowID deviceSessionID:deviceSessionID complete:complete];
 }
 
-- (void)stashAccountCredential:(NSData *)credential complete:(void(^)(bool success, NSError *error))complete
+- (void)stashAccountCredential:(NSData *)credential 
+                       altDSID:(NSString*)altDSID
+                        flowID:(NSString* _Nullable)flowID
+               deviceSessionID:(NSString* _Nullable)deviceSessionID
+                      complete:(void(^)(bool success, NSError *error))complete
 {
-    [self.account stashAccountCredential:credential complete:complete];
+    [self.account stashAccountCredential:credential altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID complete:complete];
 }
 
-- (void)myPeerInfo:(void (^)(NSData *, NSError *))complete
+- (void)myPeerInfo:(NSString*)altDSID  
+            flowID:(NSString* _Nullable)flowID
+   deviceSessionID:(NSString* _Nullable)deviceSessionID
+          complete:(void (^)(NSData *, NSError *))complete
 {
-    [self.account myPeerInfo:complete];
+    [self.account myPeerInfo:altDSID flowID:flowID deviceSessionID:deviceSessionID complete:complete];
 }
 
 - (void)circleHash:(void (^)(NSString *, NSError *))complete
@@ -119,24 +129,36 @@
 }
 
 
-- (void)circleJoiningBlob:(NSData *)applicant complete:(void (^)(NSData *blob, NSError *))complete
+- (void)circleJoiningBlob:(NSString*)altDSID 
+                   flowID:(NSString* _Nullable)flowID
+          deviceSessionID:(NSString* _Nullable)deviceSessionID  
+                applicant:(NSData *)applicant 
+                 complete:(void (^)(NSData *blob, NSError *))complete
 {
-    [self.account circleJoiningBlob:applicant complete:complete];
+    [self.account circleJoiningBlob:altDSID flowID:flowID deviceSessionID:deviceSessionID applicant:applicant complete:complete];
 }
 
-- (void)joinCircleWithBlob:(NSData *)blob version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete
+- (void)joinCircleWithBlob:(NSData *)blob altDSID:(NSString*)altDSID 
+                    flowID:(NSString* _Nullable)flowID
+           deviceSessionID:(NSString* _Nullable)deviceSessionID
+                   version:(PiggyBackProtocolVersion)version 
+                  complete:(void (^)(bool success, NSError *))complete
 {
-    [self.account joinCircleWithBlob:blob version:version complete:complete];
+    [self.account joinCircleWithBlob:blob altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID version:version complete:complete];
 }
 
-- (void)initialSyncCredentials:(uint32_t)flags complete:(void (^)(NSArray *, NSError *))complete
+- (void)initialSyncCredentials:(uint32_t)flags 
+                       altDSID:(NSString*)altDSID
+                        flowID:(NSString* _Nullable)flowID
+               deviceSessionID:(NSString* _Nullable)deviceSessionID
+                      complete:(void (^)(NSArray *, NSError *))complete
 {
     if (![self checkEntitlement:(__bridge NSString *)kSecEntitlementKeychainInitialSync]) {
         complete(@[], [NSError errorWithDomain:(__bridge NSString *)kSOSErrorDomain code:kSOSEntitlementMissing userInfo:NULL]);
         return;
     }
 
-    [self.account initialSyncCredentials:flags complete:complete];
+    [self.account initialSyncCredentials:flags altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID complete:complete];
 }
 
 - (void)importInitialSyncCredentials:(NSArray *)items complete:(void (^)(bool success, NSError *))complete

@@ -72,6 +72,10 @@
 #import <SecurityFoundation/SFKey_Private.h>
 
 #import "CKKSAnalytics.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+
 #endif
 
 #if !OCTAGON
@@ -89,11 +93,6 @@
 
 @property NSMutableDictionary<NSString*, SecBoolNSErrorCallback>* pendingSyncCallbacks;
 @property NSOperationQueue* operationQueue;
-
-
-// Make writable
-@property (nullable) TPSyncingPolicy* policy;
-@property CKKSCondition* policyLoaded;
 
 #endif
 @end
@@ -137,9 +136,6 @@
         _pendingSyncCallbacks = [[NSMutableDictionary alloc] init];
 
         _completedSecCKKSInitialize = [[CKKSCondition alloc] init];
-
-        _policy = nil;
-        _policyLoaded = [[CKKSCondition alloc] init];
 
         _listener = [NSXPCListener anonymousListener];
         _listener.delegate = self;
@@ -644,6 +640,24 @@ dispatch_once_t globalZoneStateQueueOnce;
                               complete:complete];
 }
 
+- (void)sendMetricForFirstManateeAccess {
+    NSError *localError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&localError];
+    if (!view.firstManateeKeyFetched) {
+        NSString* altDSID = view.operationDependencies.activeAccount.altDSID;
+        AAFAnalyticsEventSecurity* eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                     altDSID:altDSID
+                                                                                                   eventName:kSecurityRTCEventNameFirstManateeKeyFetch
+                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success: localError ? NO : YES error:localError];
+        view.firstManateeKeyFetched = true;
+    }
+}
+
 + (instancetype)manager
 {
     return [OTManager manager].viewManager;
@@ -950,6 +964,8 @@ dispatch_once_t globalZoneStateQueueOnce;
 
 - (void)rpcFetchAndProcessChanges:(NSString* _Nullable __unused)viewName classA:(bool)classAError onlyIfNoRecentFetch:(bool)onlyIfNoRecentFetch reply:(void(^)(NSError* _Nullable result))reply
 {
+    BOOL skipFetch = NO;
+
     if(!SecCKKSIsEnabled()) {
         ckksinfo_global("ckks", "Skipping fetchAndProcessCKChanges due to disabled CKKS");
         reply([NSError errorWithDomain:CKKSErrorDomain code:CKKSNotInitialized description:@"CKKS disabled"]);
@@ -982,9 +998,8 @@ dispatch_once_t globalZoneStateQueueOnce;
     if(onlyIfNoRecentFetch) {
         NSDate *earliestFetchTime = view.earliestFetchTime;
         if(earliestFetchTime.timeIntervalSinceNow > -600) {
-            ckksnotice_global("ckks", "Skipping rpcFetchAndProcessChanges because a recent fetch was performed");
-            reply(nil);
-            return;
+            ckksnotice_global("ckks", "Skipping fetch because a recent fetch was performed");
+            skipFetch = YES;
         }
     }
 
@@ -1000,9 +1015,15 @@ dispatch_once_t globalZoneStateQueueOnce;
 
     ckksnotice("ckks", view, "Beginning fetch for %@", view);
 
-    CKKSResultOperation* op = [view rpcFetchAndProcessIncomingQueue:nil
-                                                            because:CKKSFetchBecauseAPIFetchRequest
-                                               errorOnClassAFailure:classAError];
+    CKKSResultOperation* op = nil;
+    if (skipFetch) {
+        op = [view rpcProcessIncomingQueue:nil
+                      errorOnClassAFailure:classAError];
+    } else {
+        op = [view rpcFetchAndProcessIncomingQueue:nil
+                                           because:CKKSFetchBecauseAPIFetchRequest
+                              errorOnClassAFailure:classAError];
+    }
     [blockOp addSuccessDependency:op];
 
     [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 5 : NSEC_PER_SEC * 300)]];

@@ -753,7 +753,9 @@ bool ContentSecurityPolicy::allowBaseURI(const URL& url, bool overrideContentSec
 
 static bool shouldReportProtocolOnly(const URL& url)
 {
-    return !url.isHierarchical() || url.protocolIsFile();
+    // FIXME: https://w3c.github.io/webappsec-csp/#strip-url-for-use-in-reports suggests this should
+    // be url.protocolIsInHTTPFamily().
+    return url.hasOpaquePath() || url.protocolIsFile();
 }
 
 String ContentSecurityPolicy::createURLForReporting(const URL& url, const String& violatedDirective, bool usesReportingAPI) const
@@ -892,7 +894,7 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
         m_client->enqueueSecurityPolicyViolationEvent(WTFMove(violationEventInit));
     else {
         auto& document = downcast<Document>(*m_scriptExecutionContext);
-        if (element && element->document() == document)
+        if (element && &element->document() == &document)
             element->enqueueSecurityPolicyViolationEvent(WTFMove(violationEventInit));
         else
             document.enqueueSecurityPolicyViolationEvent(WTFMove(violationEventInit));

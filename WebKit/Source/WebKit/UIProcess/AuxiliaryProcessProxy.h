@@ -25,24 +25,30 @@
 
 #pragma once
 
-#include "AuxiliaryProcessCreationParameters.h"
 #include "Connection.h"
 #include "MessageReceiverMap.h"
 #include "ProcessLauncher.h"
 #include "ProcessThrottler.h"
 #include "ResponsivenessTimer.h"
-#include "SandboxExtension.h"
 #include <WebCore/ProcessIdentifier.h>
 #include <memory>
+#include <wtf/CheckedRef.h>
 #include <wtf/ProcessID.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueRef.h>
 
+namespace WebCore {
+class SharedBuffer;
+}
+
 namespace WebKit {
 
 class ProcessThrottler;
 class ProcessAssertion;
+class SandboxExtensionHandle;
+
+struct AuxiliaryProcessCreationParameters;
 
 class AuxiliaryProcessProxy : public ThreadSafeRefCounted<AuxiliaryProcessProxy, WTF::DestructionThread::MainRunLoop>, public ResponsivenessTimer::Client, private ProcessLauncher::Client, public IPC::Connection::Client {
     WTF_MAKE_NONCOPYABLE(AuxiliaryProcessProxy);
@@ -161,7 +167,7 @@ public:
 
     bool operator==(const AuxiliaryProcessProxy& other) const { return (this == &other); }
 
-    std::optional<SandboxExtension::Handle> createMobileGestaltSandboxExtensionIfNeeded() const;
+    std::optional<SandboxExtensionHandle> createMobileGestaltSandboxExtensionIfNeeded() const;
 
 #if USE(RUNNINGBOARD)
     void wakeUpTemporarilyForIPC();

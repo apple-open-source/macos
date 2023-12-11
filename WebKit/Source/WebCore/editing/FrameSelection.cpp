@@ -473,6 +473,8 @@ void FrameSelection::setSelection(const VisibleSelection& selection, OptionSet<S
     m_selectionRevealIntent = intent;
     m_pendingSelectionUpdate = true;
 
+    protectedDocument->scheduleContentRelevancyUpdate(ContentRelevancy::Selected);
+
     if (protectedDocument->hasPendingStyleRecalc())
         return;
 
@@ -1855,8 +1857,7 @@ bool FrameSelection::recomputeCaretRect()
 bool CaretBase::shouldRepaintCaret(const RenderView* view, bool isContentEditable) const
 {
     ASSERT(view);
-    auto* frame = dynamicDowncast<LocalFrame>(view->frameView().frame()); // The frame where the selection started.
-    bool caretBrowsing = frame && frame->settings().caretBrowsingEnabled();
+    bool caretBrowsing = view->frameView().frame().settings().caretBrowsingEnabled(); // The frame where the selection started.
     return (caretBrowsing || isContentEditable);
 }
 
@@ -1895,44 +1896,37 @@ void CaretBase::invalidateCaretRect(Node* node, bool caretRectChanged, CaretAnim
 void FrameSelection::paintCaret(GraphicsContext& context, const LayoutPoint& paintOffset)
 {
     if (m_selection.isCaret() && m_selection.start().deprecatedNode())
-        CaretBase::paintCaret(*m_selection.start().deprecatedNode(), context, paintOffset, m_caretAnimator.ptr(), this->selection());
+        CaretBase::paintCaret(*m_selection.start().deprecatedNode(), context, paintOffset, m_caretAnimator.ptr());
 }
 
-Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* node, const std::optional<VisibleSelection>& selection)
+Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* node)
 {
     // On iOS, we want to fall back to the tintColor, and only override if CSS has explicitly specified a custom color.
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     UNUSED_PARAM(node);
-    UNUSED_PARAM(selection);
-    if (elementStyle.hasAutoCaretColor())
+    if (elementStyle.hasAutoCaretColor() && !elementStyle.hasExplicitlySetColor())
         return { };
     return elementStyle.colorResolvingCurrentColor(elementStyle.caretColor());
 #elif HAVE(REDESIGNED_TEXT_CURSOR)
-    const RenderStyle* elementStyleToUse = [&] {
-        if (!selection)
-            return &elementStyle;
+#if HAVE(APP_ACCENT_COLORS) && PLATFORM(MAC)
+    auto appUsesCustomAccentColor = node && node->document().page() && node->document().page()->appUsesCustomAccentColor();
+#else
+    auto appUsesCustomAccentColor = false;
+#endif
 
-        RefPtr editableRoot = selection->rootEditableElement();
-        if (!editableRoot || !editableRoot->renderer())
-            return &elementStyle;
-
-        return &editableRoot->renderer()->style();
-    }();
-
-    if (elementStyleToUse->hasAutoCaretColor()) {
+    if (elementStyle.hasAutoCaretColor() && (!elementStyle.hasExplicitlySetColor() || appUsesCustomAccentColor)) {
 #if PLATFORM(MAC)
         auto cssColorValue = CSSValueAppleSystemControlAccent;
 #else
         auto cssColorValue = CSSValueAppleSystemBlue;
 #endif
-        auto styleColorOptions = node->document().styleColorOptions(elementStyleToUse);
+        auto styleColorOptions = node->document().styleColorOptions(&elementStyle);
         auto systemAccentColor = RenderTheme::singleton().systemColor(cssColorValue, styleColorOptions | StyleColorOptions::UseSystemAppearance);
-        return elementStyleToUse->colorByApplyingColorFilter(systemAccentColor);
+        return elementStyle.colorByApplyingColorFilter(systemAccentColor);
     }
 
-    return elementStyleToUse->colorByApplyingColorFilter(elementStyleToUse->colorResolvingCurrentColor(elementStyleToUse->caretColor()));
+    return elementStyle.visitedDependentColorWithColorFilter(CSSPropertyCaretColor);
 #else
-    UNUSED_PARAM(selection);
     RefPtr parentElement = node ? node->parentElement() : nullptr;
     auto* parentStyle = parentElement && parentElement->renderer() ? &parentElement->renderer()->style() : nullptr;
     // CSS value "auto" is treated as an invalid color.
@@ -1947,7 +1941,7 @@ Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* 
 #endif
 }
 
-void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const LayoutPoint& paintOffset, CaretAnimator* caretAnimator, const std::optional<VisibleSelection>& selection) const
+void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const LayoutPoint& paintOffset, CaretAnimator* caretAnimator) const
 {
 #if ENABLE(TEXT_CARET)
     auto caretPresentationProperties = caretAnimator ? caretAnimator->presentationProperties() : CaretAnimator::PresentationProperties();
@@ -1964,7 +1958,7 @@ void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const Lay
     Color caretColor = Color::black;
     auto* element = is<Element>(node) ? downcast<Element>(&node) : node.parentElement();
     if (element && element->renderer())
-        caretColor = CaretBase::computeCaretColor(element->renderer()->style(), &node, selection);
+        caretColor = CaretBase::computeCaretColor(element->renderer()->style(), &node);
 
     auto pixelSnappedCaretRect = snapRectToDevicePixels(caret, node.document().deviceScaleFactor());
     if (caretAnimator)
@@ -1976,7 +1970,6 @@ void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const Lay
     UNUSED_PARAM(context);
     UNUSED_PARAM(paintOffset);
     UNUSED_PARAM(caretAnimator);
-    UNUSED_PARAM(selection);
 #endif
 }
 
@@ -2413,7 +2406,7 @@ void DragCaretController::paintDragCaret(LocalFrame* frame, GraphicsContext& p, 
 {
 #if ENABLE(TEXT_CARET)
     if (m_position.deepEquivalent().deprecatedNode() && m_position.deepEquivalent().deprecatedNode()->document().frame() == frame)
-        paintCaret(*m_position.deepEquivalent().deprecatedNode(), p, paintOffset, nullptr, std::nullopt);
+        paintCaret(*m_position.deepEquivalent().deprecatedNode(), p, paintOffset, nullptr);
 #else
     UNUSED_PARAM(frame);
     UNUSED_PARAM(p);

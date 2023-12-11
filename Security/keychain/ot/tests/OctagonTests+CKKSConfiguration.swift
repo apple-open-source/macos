@@ -90,4 +90,38 @@ class OctagonCKKSConfigurationTestsPolicyEnabledTests: OctagonTestsBase {
         XCTAssertNotNil(self.defaultCKKS.syncingPolicy, "Should have given CKKS a TPPolicy during refetch")
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.version, prevailingPolicyVersion, "Policy given to CKKS should be prevailing policy")
     }
+
+    func testUCVWithoutPolicyInWaitForCDP() throws {
+        self.startCKAccountStatusMock()
+        self.accountStateTracker.notifyCKAccountStatusChangeAndWaitForSignal()
+
+        // Tell SOS that it is absent, so we don't enable CDP on bringup
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfWaitingForCDP(context: self.cuttlefishContext)
+
+        // Simulate that CKKS does not have a policy configured (which could happen if TPH errors on accounts during Octagon bringup, etc.)
+        self.defaultCKKS.testDropPolicy()
+
+        XCTAssertNil(self.defaultCKKS.syncingPolicy, "Syncing policy should be nil")
+
+        // Fetching the syncing status from 'waitforcdp' should be fast
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
+
+        XCTAssertNil(self.defaultCKKS.syncingPolicy, "CKKS policy should be nil")
+
+        self.assertResetAndBecomeTrusted(context: self.cuttlefishContext)
+        XCTAssertNotNil(self.defaultCKKS.syncingPolicy, "CKKS policy should be set by reset")
+
+#if os(tvOS) || os(watchOS)
+        // Watches and TVs will always say that UCVs are syncing; there's no UI to control the value
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+#else
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
+#endif
+    }
 }

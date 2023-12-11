@@ -315,7 +315,9 @@ void main()
         std::vector<GLint> firsts(kTriCount);
         std::vector<GLsizei> counts(kTriCount, 3);
         for (uint32_t i = 0; i < kTriCount; ++i)
+        {
             firsts[i] = i * 3;
+        }
 
         if (IsInstancedTest())
         {
@@ -344,7 +346,9 @@ void main()
         std::vector<GLsizei> counts(kTriCount, 3);
         std::vector<const GLvoid *> indices(kTriCount);
         for (uint32_t i = 0; i < kTriCount; ++i)
+        {
             indices[i] = reinterpret_cast<GLvoid *>(static_cast<uintptr_t>(i * 3 * 2));
+        }
 
         if (IsInstancedTest())
         {
@@ -363,15 +367,24 @@ void main()
         }
     }
 
-    void CheckDrawResult()
+    enum class DrawIDOptionOverride
+    {
+        Default,
+        NoDrawID,
+        UseDrawID,
+    };
+
+    void CheckDrawResult(DrawIDOptionOverride overrideDrawID)
     {
         for (uint32_t y = 0; y < kCountY; ++y)
         {
             for (uint32_t x = 0; x < kCountX; ++x)
             {
-                uint32_t center_x             = x * kTilePixelSize[0] + kTilePixelSize[0] / 2;
-                uint32_t center_y             = y * kTilePixelSize[1] + kTilePixelSize[1] / 2;
-                uint32_t quadID               = IsDrawIDTest() ? y * kCountX + x : 0;
+                uint32_t center_x = x * kTilePixelSize[0] + kTilePixelSize[0] / 2;
+                uint32_t center_y = y * kTilePixelSize[1] + kTilePixelSize[1] / 2;
+                uint32_t quadID = IsDrawIDTest() && overrideDrawID != DrawIDOptionOverride::NoDrawID
+                                      ? y * kCountX + x
+                                      : 0;
                 uint32_t colorID              = quadID % 3u;
                 std::array<GLColor, 3> colors = {GLColor(255, 0, 0, 255), GLColor(0, 255, 0, 255),
                                                  GLColor(0, 0, 255, 255)};
@@ -457,6 +470,9 @@ void main()
     GLint mPositionLoc;
     GLint mInstanceLoc;
 };
+
+class MultiDrawTestES3 : public MultiDrawTest
+{};
 
 class MultiDrawNoInstancingSupportTest : public MultiDrawTest
 {
@@ -595,7 +611,32 @@ TEST_P(MultiDrawTest, MultiDrawArrays)
     SetupProgram();
     DoDrawArrays();
     EXPECT_GL_NO_ERROR();
-    CheckDrawResult();
+    CheckDrawResult(DrawIDOptionOverride::Default);
+}
+
+// Tests basic functionality of glMultiDrawArraysANGLE after a failed program relink
+TEST_P(MultiDrawTestES3, MultiDrawArraysAfterFailedRelink)
+{
+    ANGLE_SKIP_TEST_IF(!requestExtensions());
+
+    // http://anglebug.com/5265
+    ANGLE_SKIP_TEST_IF(IsInstancedTest() && IsMac() && IsIntelUHD630Mobile() && IsDesktopOpenGL());
+
+    SetupBuffers();
+    SetupProgram();
+
+    // mProgram is already installed.  Destroy its state by a failed relink.
+    const char *tfVaryings = "invalidvaryingname";
+    glTransformFeedbackVaryings(mProgram, 1, &tfVaryings, GL_SEPARATE_ATTRIBS);
+    glLinkProgram(mProgram);
+    GLint linkStatus = 0;
+    glGetProgramiv(mProgram, GL_LINK_STATUS, &linkStatus);
+    ASSERT_GL_NO_ERROR();
+    ASSERT_EQ(linkStatus, GL_FALSE);
+
+    DoDrawArrays();
+    EXPECT_GL_NO_ERROR();
+    CheckDrawResult(DrawIDOptionOverride::Default);
 }
 
 // Tests basic functionality of glMultiDrawElementsANGLE
@@ -606,7 +647,44 @@ TEST_P(MultiDrawTest, MultiDrawElements)
     SetupProgram();
     DoDrawElements();
     EXPECT_GL_NO_ERROR();
-    CheckDrawResult();
+    CheckDrawResult(DrawIDOptionOverride::Default);
+}
+
+// Tests that glMultiDrawArraysANGLE followed by glDrawArrays works.  gl_DrawID in the second call
+// must be 0.
+TEST_P(MultiDrawTest, MultiDrawArraysThenDrawArrays)
+{
+    ANGLE_SKIP_TEST_IF(!requestExtensions());
+
+    // http://anglebug.com/5265
+    ANGLE_SKIP_TEST_IF(IsInstancedTest() && IsMac() && IsIntelUHD630Mobile() && IsDesktopOpenGL());
+
+    SetupBuffers();
+    SetupProgram();
+    DoDrawArrays();
+    EXPECT_GL_NO_ERROR();
+    CheckDrawResult(DrawIDOptionOverride::Default);
+
+    if (IsInstancedTest())
+    {
+        ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_instanced_arrays") &&
+                           !IsGLExtensionEnabled("GL_ANGLE_instanced_arrays"));
+        if (IsGLExtensionEnabled("GL_EXT_instanced_arrays"))
+        {
+            glDrawArraysInstancedEXT(GL_TRIANGLES, 0, 3 * kTriCount, 4);
+        }
+        else
+        {
+            glDrawArraysInstancedANGLE(GL_TRIANGLES, 0, 3 * kTriCount, 4);
+        }
+        ASSERT_GL_NO_ERROR();
+    }
+    else
+    {
+        glDrawArrays(GL_TRIANGLES, 0, 3 * kTriCount);
+        ASSERT_GL_NO_ERROR();
+    }
+    CheckDrawResult(DrawIDOptionOverride::NoDrawID);
 }
 
 // Tests basic functionality of glMultiDrawArraysIndirectEXT
@@ -1170,15 +1248,16 @@ TEST_P(MultiDrawNoInstancingSupportTest, InvalidOperation)
 }
 
 const angle::PlatformParameters platforms[] = {
-    ES2_D3D9(),  ES2_OPENGL(), ES2_OPENGLES(), ES2_VULKAN(),
-    ES3_D3D11(), ES3_OPENGL(), ES3_OPENGLES(),
+    ES2_D3D9(),     ES2_OPENGL(), ES2_OPENGLES(),           ES2_VULKAN(), ES3_D3D11(), ES3_OPENGL(),
+    ES3_OPENGLES(), ES3_VULKAN(), ES3_VULKAN_SWIFTSHADER(),
 };
 
 const angle::PlatformParameters es2_platforms[] = {
-    ES2_D3D9(),
-    ES2_OPENGL(),
-    ES2_OPENGLES(),
-    ES2_VULKAN(),
+    ES2_D3D9(), ES2_OPENGL(), ES2_OPENGLES(), ES2_VULKAN(), ES2_VULKAN_SWIFTSHADER(),
+};
+
+const angle::PlatformParameters es3_platforms[] = {
+    ES3_D3D11(), ES3_OPENGL(), ES3_OPENGLES(), ES3_VULKAN(), ES3_VULKAN_SWIFTSHADER(),
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1201,8 +1280,17 @@ INSTANTIATE_TEST_SUITE_P(
         testing::Values(BufferDataUsageOption::StaticDraw, BufferDataUsageOption::DynamicDraw)),
     PrintToStringParamName());
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MultiDrawIndirectTest);
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    MultiDrawTestES3,
+    testing::Combine(
+        testing::ValuesIn(::angle::FilterTestParams(es3_platforms, ArraySize(es3_platforms))),
+        testing::Values(DrawIDOption::NoDrawID, DrawIDOption::UseDrawID),
+        testing::Values(InstancingOption::NoInstancing, InstancingOption::UseInstancing),
+        testing::Values(BufferDataUsageOption::StaticDraw, BufferDataUsageOption::DynamicDraw)),
+    PrintToStringParamName());
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MultiDrawIndirectTest);
 ANGLE_INSTANTIATE_TEST_ES31_AND(MultiDrawIndirectTest,
                                 ES31_VULKAN().disable(Feature::SupportsMultiDrawIndirect));
 }  // namespace

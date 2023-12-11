@@ -74,7 +74,7 @@ public:
     }
     
     ScopedArgumentsTable* trySet(VM&, uint32_t index, ScopeOffset);
-    
+
     DECLARE_INFO;
     
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue prototype);

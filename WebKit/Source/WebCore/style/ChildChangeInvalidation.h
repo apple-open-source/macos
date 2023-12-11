@@ -46,10 +46,13 @@ private:
     void invalidateAfterChange();
     void checkForSiblingStyleChanges();
     using MatchingHasSelectors = HashSet<const CSSSelector*>;
-    void invalidateForChangedElement(Element&, MatchingHasSelectors&);
+    enum class ChangedElementRelation : uint8_t { SelfOrDescendant, Sibling };
+    void invalidateForChangedElement(Element&, MatchingHasSelectors&, ChangedElementRelation);
+    void invalidateForChangeOutsideHasScope();
 
     template<typename Function> void traverseRemovedElements(Function&&);
     template<typename Function> void traverseAddedElements(Function&&);
+    template<typename Function> void traverseRemainingExistingSiblings(Function&&);
 
     Element& parentElement() { return *m_parentElement; }
 

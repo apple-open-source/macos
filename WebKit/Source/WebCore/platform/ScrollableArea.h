@@ -31,6 +31,7 @@
 #include "ScrollSnapOffsetsInfo.h"
 #include "ScrollTypes.h"
 #include "Scrollbar.h"
+#include "ScrollbarColor.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/Forward.h>
 #include <wtf/WeakPtr.h>
@@ -53,6 +54,9 @@ class GraphicsLayer;
 class TiledBacking;
 
 enum class WheelScrollGestureState : uint8_t;
+
+struct ScrollbarColor;
+struct ScrollbarGutter;
 
 inline int offsetForOrientation(ScrollOffset offset, ScrollbarOrientation orientation)
 {
@@ -141,6 +145,9 @@ public:
     virtual OverscrollBehavior horizontalOverscrollBehavior() const { return OverscrollBehavior::Auto; }
     virtual OverscrollBehavior verticalOverscrollBehavior() const { return OverscrollBehavior::Auto; }
 
+    WEBCORE_EXPORT virtual Color scrollbarThumbColorStyle() const;
+    WEBCORE_EXPORT virtual Color scrollbarTrackColorStyle() const;
+    WEBCORE_EXPORT virtual ScrollbarGutter scrollbarGutterStyle() const;
     virtual ScrollbarWidth scrollbarWidthStyle() const { return ScrollbarWidth::Auto; }
 
     bool allowsHorizontalScrolling() const;

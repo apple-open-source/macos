@@ -2,7 +2,7 @@
 import Foundation
 
 class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
-    
+
     let bottleID: String?
     let entropy: Data?
     var recoveryKey: String?
@@ -77,9 +77,9 @@ class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
         }
         let result = (recoveryKey == self.recoveryKey ? true : false)
         if result == false {
-            error!.pointee = NSError(domain: OctagonErrorDomain, code: OctagonError.recoveryKeyIncorrect.rawValue, userInfo: [NSLocalizedDescriptionKey : "Recovery key is incorrect"])
+            error!.pointee = NSError(domain: OctagonErrorDomain, code: OctagonError.recoveryKeyIncorrect.rawValue, userInfo: [NSLocalizedDescriptionKey: "Recovery key is incorrect"])
         }
-        return result;
+        return result
     }
 
     func removeRecoveryKey(fromBackup error: NSErrorPointer) -> Bool {

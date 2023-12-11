@@ -353,6 +353,32 @@ __private_extern__ bool xpcConnectionHasEntitlement(xpc_object_t connection, CFS
     return is_allowed;
 }
 
+__private_extern__ bool auditTokenIsRunningboardd(audit_token_t token)
+{
+    SecTaskRef task = NULL;
+    CFTypeRef val = NULL;
+    bool caller_is_runningboardd = false;
+    CFErrorRef      errorp = NULL;
+
+    task = SecTaskCreateWithAuditToken(kCFAllocatorDefault, token);
+    if (task) {
+        val = SecTaskCopyValueForEntitlement(task, CFSTR("com.apple.private.xpc.launchd.job-manager"), &errorp);
+        CFRelease(task);
+
+        if (val && CFEqual(val, CFSTR("com.apple.runningboard"))) {
+            caller_is_runningboardd = true;
+        }
+        if (val) {
+            CFRelease(val);
+        }
+
+        if (errorp) {
+            CFRelease(errorp);
+        }
+    }
+    return caller_is_runningboardd;
+}
+
 #define kIOPMSystemDefaultOverrideKey    "SystemPowerProfileOverrideDict"
 
 __private_extern__ IOReturn

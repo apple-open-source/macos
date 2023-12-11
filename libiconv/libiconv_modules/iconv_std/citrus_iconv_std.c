@@ -129,7 +129,8 @@ mbtocsx(struct _citrus_iconv_std_encoding *se,
 	int ret;
 
 	ret = _stdenc_mbtocsn(se->se_handle, csid, idx, delta, cnt, s, n,
-	    se->se_ps, nresult, hooks);
+	    se->se_ps, nresult, hooks, (void (*)(void *))&save_encoding_state,
+	    se);
 
 	if (ret == EOPNOTSUPP) {
 		size_t accum;
@@ -140,6 +141,8 @@ mbtocsx(struct _citrus_iconv_std_encoding *se,
 		accum = 0;
 		start = *s;
 		for (i = 0; i < *cnt && n > 0; i++) {
+			save_encoding_state(se);
+
 			ret = _stdenc_mbtocs(se->se_handle, &csid[i], &idx[i],
 			    s, n, se->se_ps, &accum, hooks);
 			if (ret != 0)
@@ -183,12 +186,13 @@ cstombx(struct _citrus_iconv_std_encoding *se,
 	int ret;
 
 	ret = _stdenc_cstombn(se->se_handle, s, n, csid, idx, cnt, se->se_ps,
-	    nresult, hooks);
+	    nresult, hooks, (void (*)(void *))&save_encoding_state, se);
 	if (ret == EOPNOTSUPP) {
 		size_t acc, tmp;
 
 		acc = 0;
 		for (int i = 0; i < *cnt; i++) {
+			save_encoding_state(se);
 			ret = _stdenc_cstomb(se->se_handle, s, n, csid[i],
 			    idx[i], se->se_ps, &tmp, hooks);
 			if (ret != 0) {
@@ -443,10 +447,10 @@ err:
 #ifdef __APPLE__
 static __inline int
 do_conv_map_one(struct _citrus_iconv_std_dst *sd, _csid_t *csid, _index_t *idx,
-    int *cnt)
+    int *cnt, _index_t *tentative_entry)
 {
 	_index_t tmpidx[_ICONV_STD_PERCVT];
-	int ret;
+	int last, ret;
 
 	if (sd->sd_idmap) {
 		/*
@@ -462,16 +466,31 @@ do_conv_map_one(struct _citrus_iconv_std_dst *sd, _csid_t *csid, _index_t *idx,
 	ret = _csmapper_convert(sd->sd_mapper, &tmpidx[0], idx, cnt, NULL);
 
 	/*
+	 * *cnt needs to reflect the total including our tentative entry, but
+	 * we need to make sure we don't clobber csid or idx for it in case we
+	 * have a later destination set with an exact match.
+	 */
+	last = *cnt;
+	if (ret == _MAPPER_CONVERT_TRANSLIT) {
+		last--;
+
+		*tentative_entry = tmpidx[last];
+		tmpidx[last] = idx[last];
+	}
+
+	/*
 	 * The mo_convert() implementation may fail part-way through the array,
 	 * we should still update csid/idx for the characters that *did*
 	 * succeed to match the behavior of the upstream implementation.
 	 */
-	for (int i = 0; i < *cnt; i++) {
+	for (int i = 0; i < last; i++) {
 		csid[i] = sd->sd_csid;
 		idx[i] = tmpidx[i];
 	}
 
 	switch (ret) {
+	case _MAPPER_CONVERT_TRANSLIT:
+		return (EAGAIN);
 	case _MAPPER_CONVERT_SUCCESS:
 		return (0);
 	case _MAPPER_CONVERT_NONIDENTICAL:
@@ -495,8 +514,9 @@ do_conv_map_one(struct _citrus_iconv_std_dst *sd, _csid_t *csid, _index_t *idx,
 static int
 /*ARGSUSED*/
 #ifdef __APPLE__
-do_conv(const struct _citrus_iconv_std_shared *is,
-	_csid_t *csid, _index_t *idx, int *cnt)
+do_conv(const struct _citrus_iconv * __restrict cv,
+	const struct _citrus_iconv_std_shared *is,
+	_csid_t *csid, _index_t *idx, int *cnt, size_t *invalp)
 #else
 do_conv(const struct _citrus_iconv_std_shared *is,
 	_csid_t *csid, _index_t *idx)
@@ -504,14 +524,16 @@ do_conv(const struct _citrus_iconv_std_shared *is,
 {
 	struct _citrus_iconv_std_dst *sd;
 	struct _citrus_iconv_std_src *ss;
-#ifndef __APPLE__
 	_index_t tmpidx;
+#ifdef __APPLE__
+	int off = 0, tmpcnt = *cnt, total = 0;
 #endif
 	int ret;
 
 #ifdef __APPLE__
+	tmpidx = 0;
 	if (is->is_lone_dst != NULL) {
-		for (int i = 0; i < *cnt; i++) {
+		for (int i = 0; i < tmpcnt; i++) {
 			if (csid[i] != is->is_lone_dst_csid) {
 				*cnt = i;
 				if (i == 0)
@@ -520,12 +542,43 @@ do_conv(const struct _citrus_iconv_std_shared *is,
 			}
 		}
 
-		ret = do_conv_map_one(is->is_lone_dst, csid, idx, cnt);
-		if (ret == 0 || ret != ENOENT)
-			return (ret);
+		while (total < *cnt) {
+			ret = do_conv_map_one(is->is_lone_dst, &csid[off],
+			    &idx[off], &tmpcnt, &tmpidx);
+
+			if (ret == 0)
+				assert(tmpcnt + total == *cnt);
+			else if (ret == EAGAIN)
+				assert(tmpcnt > 0);
+			else
+				assert(tmpcnt + total < *cnt);
+
+			if (ret == EAGAIN && !cv->cv_shared->ci_translit) {
+				ret = ENOENT;
+				tmpcnt--;
+			}
+
+			if (ret != 0 && ret != EAGAIN) {
+				*cnt = total + tmpcnt;
+				if (ret == ENOENT)
+					break;
+				return (ret);
+			} else if (ret == 0) {
+				return (ret);
+			} else if (ret == EAGAIN) {
+				/* Transliteration */
+				total += tmpcnt;
+				idx[total - 1] = tmpidx;
+
+				tmpcnt = *cnt - total;
+				off += total;
+				(*invalp)++;
+			}
+		}
 	} else {
-		_csid_t checkid;
-		int elen = 0, len = 0, off = 0, tmpcnt = *cnt, total = 0;
+		_csid_t checkid, tmpcsid;
+		int elen = 0, len = 0;
+		bool tentative;
 
 next:
 		if (tmpcnt == 0)
@@ -535,20 +588,22 @@ next:
 		 * First grab a contiguous block; in the common case, the whole
 		 * block is of the same csid.
 		 */
-		checkid = csid[off];
+		tmpcsid = checkid = csid[off];
 		len = 0;
 		for (int i = off; i < off + tmpcnt; i++) {
 			if (csid[i] == checkid)
 				len++;
 		}
 
+		tentative = false;
 		TAILQ_FOREACH(ss, &is->is_srcs, ss_entry) {
 			if (ss->ss_csid == *csid) {
 				TAILQ_FOREACH(sd, &ss->ss_dsts, sd_entry) {
 					elen = len;
 					ret = do_conv_map_one(sd, &csid[off],
-					    &idx[off], &elen);
-					if (ret != 0 && ret != ENOENT) {
+					    &idx[off], &elen, &tmpidx);
+					if (ret != 0 && ret != ENOENT &&
+					    ret != EAGAIN) {
 						*cnt = total + elen;
 						return (ret);
 					}
@@ -562,11 +617,35 @@ next:
 					 * will indicate that we failed to
 					 * update *cnt in a _csmapper_convert
 					 * somewhere.
+					 *
+					 * In the EAGAIN case, we must have
+					 * reflected the translit mapping in the
+					 * *cnt so we can't tell anything about
+					 * it relative to `len`, but we know it
+					 * can't be 0.
 					 */
 					if (ret == 0)
 						assert(elen == len);
-					else
+					else if (ret != EAGAIN)
 						assert(elen < len);
+					else
+						assert(elen > 0);
+
+					if (ret == EAGAIN) {
+						/*
+						 * If we hit a translit mapping,
+						 * we'll drop the last entry and
+						 * keep going, but note that we
+						 * do have a tentative entry for
+						 * the next character.
+						 */
+						tentative = true;
+						tmpcsid = checkid;
+						elen--;
+					} else if (ret == 0) {
+						/* Reset once we succeed. */
+						tentative = false;
+					}
 
 					/*
 					 * If we could convert at least one
@@ -585,8 +664,25 @@ next:
 					}
 				}
 
+				if (tentative)
+					continue;
+
 				break;
 			}
+		}
+
+		/*
+		 * Commit the tentative mapping if we have transliteration
+		 * enabled.
+		 */
+		if (tentative && cv->cv_shared->ci_translit) {
+			idx[off] = tmpidx;
+			csid[off] = tmpcsid;
+			total++;
+			tmpcnt--;
+			off++;
+			(*invalp)++;
+			goto next;
 		}
 
 		*cnt = total;
@@ -833,9 +929,15 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 				break;
 		}
 
+#ifndef __APPLE__
+		/*
+		 * In Darwin, this is pushed into mbtocsx/cstombx because we
+		 * batch up characters to process.
+		 */
 		/* save the encoding states for the error recovery */
 		save_encoding_state(&sc->sc_src_encoding);
 		save_encoding_state(&sc->sc_dst_encoding);
+#endif
 
 		/* mb -> csid/index */
 		tmpin = *in;
@@ -899,6 +1001,8 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 		 */
 		if (ret != 0 && tmpcnt == 0) {
 			goto err;
+		} else if (ret != 0) {
+			restore_encoding_state(&sc->sc_src_encoding);
 		}
 #else
 		ret = mbtocsx(&sc->sc_src_encoding, &csid, &idx, &tmpin,
@@ -937,7 +1041,7 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 		}
 		/* convert the character */
 #ifdef __APPLE__
-		ret = do_conv(is, &csid[0], &idx[0], &tmpcnt);
+		ret = do_conv(cv, is, &csid[0], &idx[0], &tmpcnt, &inval);
 		if (ret && tmpcnt != 0) {
 			/*
 			 * Rewind tmpin so that we hit the invalid seq again in
@@ -960,6 +1064,28 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 				if (cv->cv_shared->ci_ilseq_invalid != 0) {
 					ret = EILSEQ;
 #ifdef __APPLE__
+					if (cv->cv_shared->ci_discard_ilseq) {
+						/*
+						 * This will all be audited as
+						 * part of a different problem,
+						 * but for now the combination
+						 * of GNU behavior + //IGNORE
+						 * just moves us on past.
+						 */
+						restore_encoding_state(&sc->sc_dst_encoding);
+						inval++;
+						ret = 0;
+
+						/*
+						 * Advance just past the invalid
+						 * character.  We wouldn't have
+						 * made it this far if delta[0]
+						 * wasn't valid; tmpcnt > 0
+						 * after the previous mbtocsx().
+						 */
+						tmpin = *in + delta[0];
+						goto next;
+					}
 					goto converr;
 #else
 					goto err;

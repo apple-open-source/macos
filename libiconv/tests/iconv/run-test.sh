@@ -11,8 +11,8 @@ ENCODING="UTF-8-MAC ASCII ISO8859-1 ISO8859-2 ISO8859-3 ISO8859-4 \
 	CP1251 CP866 CP949 GB18030 GB2312 GBK VISCII KOI8-R KOI8-U \
 	PT154 SHIFT_JIS EUC-CN EUC-JP EUC-KR"
 
-GEN_FWD="tablegen/tablegen -t"
-GEN_REV="tablegen/tablegen -tr"
+GEN_FWD="tablegen/tablegen --gnu"
+GEN_REV="tablegen/tablegen --gnu -r"
 CMP="tablegen/cmp.sh"
 
 mkdir -p output

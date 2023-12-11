@@ -183,7 +183,8 @@ _FUNCNAME(stdenc_mbtocsn)(struct _citrus_stdenc * __restrict ce,
     _citrus_csid_t * __restrict csid, _citrus_index_t * __restrict idx,
     unsigned short * __restrict delta, int * __restrict cnt,
     char ** __restrict s, size_t n, void * __restrict ps,
-    size_t * __restrict nresult, struct iconv_hooks *hooks)
+    size_t * __restrict nresult, struct iconv_hooks *hooks,
+    _citrus_save_encoding_state_t *save_state, void *save_state_cookie)
 {
 	wchar_t wc;
 	size_t accum, i, upper;
@@ -198,6 +199,7 @@ _FUNCNAME(stdenc_mbtocsn)(struct _citrus_stdenc * __restrict ce,
 	for (i = 0; i < upper && n != 0; i++) {
 		last = *s;
 
+		(*save_state)(save_state_cookie);
 		ret = _FUNCNAME(mbrtowc_priv)(_CE_TO_EI(ce), &wc, s, n,
 		    _TO_STATE(ps), &accum);
 
@@ -235,7 +237,8 @@ _FUNCNAME(stdenc_cstombn)(struct _citrus_stdenc * __restrict ce,
     char * __restrict s, size_t n, _citrus_csid_t * __restrict csid,
     _citrus_index_t * __restrict idx, int * __restrict cnt,
     void * __restrict ps, size_t * __restrict nresult,
-    struct iconv_hooks *hooks __unused)
+    struct iconv_hooks *hooks __unused,
+    _citrus_save_encoding_state_t *save_state, void *save_state_cookie)
 {
 	wchar_t wc;
 	size_t acc, tmp;
@@ -246,6 +249,8 @@ _FUNCNAME(stdenc_cstombn)(struct _citrus_stdenc * __restrict ce,
 	ret = 0;
 	for (int i = 0; i < *cnt; i++) {
 		wc = ret = 0;
+
+		(*save_state)(save_state_cookie);
 
 		if (csid[i] != _CITRUS_CSID_INVALID)
 			ret = _FUNCNAME(stdenc_cstowc)(_CE_TO_EI(ce), &wc,

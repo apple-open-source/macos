@@ -67,7 +67,7 @@ void PendingDownload::willSendRedirectedRequest(WebCore::ResourceRequest&&, WebC
 {
     send(Messages::DownloadProxy::WillSendRequest(WTFMove(redirectRequest), WTFMove(redirectResponse)));
 };
-    
+
 void PendingDownload::continueWillSendRequest(WebCore::ResourceRequest&& newRequest)
 {
     m_networkLoad->continueWillSendRequest(WTFMove(newRequest));

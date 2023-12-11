@@ -33,7 +33,8 @@
 #include "keychain/securityd/SecItemDataSource.h"
 
 #import "Analytics/Clients/SOSAnalytics.h"
-
+#import "Analytics/Clients/LocalKeychainAnalytics.h"
+#import "keychain/ckks/CKKSAnalytics.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -69,6 +70,8 @@ bool secd_test_teardown_delete_temp_keychain(const char* test_prefix)
 
     // Drop analytics dbs here
     [[SOSAnalytics logger] removeStateAndUnlinkFile:NO];
+    [[LocalKeychainAnalytics logger] removeStateAndUnlinkFile:NO];
+    [[CKKSAnalytics logger] removeStateAndUnlinkFile:NO];
 
     secd_test_clear_testviews();
     SecItemDataSourceFactoryReleaseAll();

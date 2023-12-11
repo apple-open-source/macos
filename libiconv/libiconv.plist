@@ -34,6 +34,10 @@
 			<string>many: process many characters at once (110883172)</string>
 			<string>citrus_iconv_std.c: handle EILSEQ on output (113828035)</string>
 			<string>mkcsmapper: support / TRANSLIT in mapping data (115429361)</string>
+			<string>tablegen.c: support --filter (112723280)</string>
+			<string>many: implement transliteration (112723280)</string>
+			<string>citrus_none.c, ISO646.src: enforce a 7bit restriction for ASCII (112723280)</string>
+			<string>citrus_iconv_std.c: "GNU-compatible" EILSEQ + //IGNORE should increment inval (115458746)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

@@ -260,7 +260,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
     int 			error = 0;
 	u_int32_t		nb;
     struct ppp_comp *cp;
-    u_char 			ccp_option[CCP_MAX_OPTION_LENGTH];
+	u_char 			ccp_option[CCP_MAX_OPTION_LENGTH] = { 0 };
     user_addr_t		ptr;
     int				transmit;
     

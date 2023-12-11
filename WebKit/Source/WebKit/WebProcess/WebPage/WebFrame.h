@@ -58,6 +58,7 @@ class HTMLFrameOwnerElement;
 class IntPoint;
 class IntRect;
 class LocalFrame;
+class PlatformMouseEvent;
 class RemoteFrame;
 struct GlobalWindowIdentifier;
 }
@@ -69,7 +70,9 @@ class InjectedBundleHitTestResult;
 class InjectedBundleNodeHandle;
 class InjectedBundleRangeHandle;
 class InjectedBundleScriptWorld;
+class WebKeyboardEvent;
 class WebImage;
+class WebMouseEvent;
 class WebPage;
 struct FrameInfoData;
 struct FrameTreeNodeData;
@@ -79,7 +82,7 @@ class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame>, public 
 public:
     static Ref<WebFrame> create(WebPage& page, WebCore::FrameIdentifier frameID) { return adoptRef(*new WebFrame(page, frameID)); }
     static Ref<WebFrame> createSubframe(WebPage&, WebFrame& parent, const AtomString& frameName, WebCore::HTMLFrameOwnerElement&);
-    static Ref<WebFrame> createRemoteSubframe(WebPage&, WebFrame& parent, WebCore::FrameIdentifier, WebCore::ProcessIdentifier);
+    static Ref<WebFrame> createRemoteSubframe(WebPage&, WebFrame& parent, WebCore::FrameIdentifier);
     ~WebFrame();
 
     void initWithCoreMainFrame(WebPage&, WebCore::Frame&, bool receivedMainFrameIdentifierFromUIProcess);
@@ -106,13 +109,11 @@ public:
     enum class ForNavigationAction : bool { No, Yes };
     uint64_t setUpPolicyListener(WebCore::PolicyCheckIdentifier, WebCore::FramePolicyFunction&&, ForNavigationAction);
     void invalidatePolicyListeners();
-    void didReceivePolicyDecision(uint64_t listenerID, PolicyDecision&&);
+    void didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyCheckIdentifier, PolicyDecision&&);
 
-    FormSubmitListenerIdentifier setUpWillSubmitFormListener(CompletionHandler<void()>&&);
-    void continueWillSubmitForm(FormSubmitListenerIdentifier);
-
-    void didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHostingContextIdentifier>, WebCore::ProcessIdentifier);
+    void didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHostingContextIdentifier>);
     void didFinishLoadInAnotherProcess();
+    void removeFromTree();
 
     void startDownload(const WebCore::ResourceRequest&, const String& suggestedName = { });
     void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
@@ -226,6 +227,10 @@ public:
 
     OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections() const;
     OptionSet<WebCore::AdvancedPrivacyProtections> originatorAdvancedPrivacyProtections() const;
+
+    bool handleContextMenuEvent(const WebCore::PlatformMouseEvent&);
+    bool handleMouseEvent(const WebMouseEvent&);
+    bool handleKeyEvent(const WebKeyboardEvent&);
 private:
     WebFrame(WebPage&, WebCore::FrameIdentifier);
 
@@ -243,7 +248,6 @@ private:
     };
     HashMap<uint64_t, PolicyCheck> m_pendingPolicyChecks;
 
-    HashMap<FormSubmitListenerIdentifier, CompletionHandler<void()>> m_willSubmitFormCompletionHandlers;
     std::optional<DownloadID> m_policyDownloadID;
 
     WeakPtr<LoadListener> m_loadListener;

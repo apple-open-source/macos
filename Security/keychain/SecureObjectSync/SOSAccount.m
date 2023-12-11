@@ -40,6 +40,7 @@
 #import "keychain/SecureObjectSync/SOSPeerOTRTimer.h"
 #import "keychain/SecureObjectSync/SOSPeerRateLimiter.h"
 #import "keychain/SecureObjectSync/SOSTypes.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #if OCTAGON
 #import "keychain/ckks/CKKSViewManager.h"
@@ -79,6 +80,18 @@
 #include <corecrypto/ccder.h>
 
 #include <Security/SecItemBackup.h>
+
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
+#import <SoftLinking/SoftLinking.h>
+#import "KeychainCircle/MetricsOverrideForTests.h"
+
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, KeychainCircle);
+SOFT_LINK_FUNCTION(KeychainCircle, MetricsEnable, soft_MetricsEnable, bool, (void), ());
+SOFT_LINK_FUNCTION(KeychainCircle, MetricsDisable, soft_MetricsDisable, bool, (void), ());
+SOFT_LINK_FUNCTION(KeychainCircle, MetricsOverrideTestsAreEnabled, soft_MetricsOverrideTestsAreEnabled, bool, (void), ());
 
 const CFStringRef kSOSAccountName = CFSTR("AccountName");
 const CFStringRef kSOSEscrowRecord = CFSTR("EscrowRecord");
@@ -429,38 +442,76 @@ static bool Flush(CFErrorRef *error) {
     return success;
 }
 
-- (bool)syncWaitAndFlush:(CFErrorRef *)error
+- (bool)syncWaitAndFlush:(NSString*)altDSID 
+                  flowID:(NSString* _Nullable)flowID
+         deviceSessionID:(NSString* _Nullable)deviceSessionID
+                   error:(CFErrorRef *)error
 {
     secnotice("pairing", "sync and wait starting");
 
+    AAFAnalyticsEventSecurity *eventSyncKVSAndWait = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                              altDSID:altDSID flowID:flowID
+                                                                                                      deviceSessionID:deviceSessionID
+                                                                                                            eventName:kSecurityRTCEventNameKVSSyncAndWait
+                                                                                                      testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                                             category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     if (!SyncKVSAndWait(error)) {
         secnotice("pairing", "failed sync and wait: %@", error ? *error : NULL);
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventSyncKVSAndWait success:NO error:(__bridge NSError *)*error];
         return false;
+    } else {
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventSyncKVSAndWait success:YES error:nil];
     }
+
+    AAFAnalyticsEventSecurity *eventFlush = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                     altDSID:altDSID
+                                                                                                      flowID:flowID
+                                                                                             deviceSessionID:deviceSessionID
+                                                                                                   eventName:kSecurityRTCEventNameFlush
+                                                                                             testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     if (!Flush(error)) {
         secnotice("pairing", "failed flush: %@", error ? *error : NULL);
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventFlush success:NO error:(__bridge NSError*)*error];
         return false;
+    } else {
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventFlush success:YES error:nil];
     }
+
     secnotice("pairing", "finished sync and wait");
     return true;
 }
 
-- (void)validatedStashedAccountCredential:(void(^)(NSData *credential, NSError *error))complete
+- (void)validatedStashedAccountCredential:(NSString*)altDSID 
+                                   flowID:(NSString* _Nullable)flowID
+                          deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                 complete:(void(^)(NSData *credential, NSError *error))complete
 {
     CFErrorRef syncerror = NULL;
-
-    if (![self syncWaitAndFlush:&syncerror]) {
+    if (![self syncWaitAndFlush:altDSID 
+                         flowID:flowID
+                deviceSessionID:deviceSessionID
+                          error:&syncerror]) {
         complete(NULL, (__bridge NSError *)syncerror);
         CFReleaseNull(syncerror);
         return;
     }
 
     dispatch_async(self.queue, ^{
+        AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                     altDSID:altDSID
+                                                                                                      flowID:flowID
+                                                                                             deviceSessionID:deviceSessionID
+                                                                                                   eventName:kSecurityRTCEventNameValidatedStashedAccountCredential
+                                                                                             testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
         CFErrorRef error = NULL;
         SecKeyRef key = NULL;
         key = SOSAccountCopyStashedUserPrivateKey(self, &error);
         if (key == NULL) {
             secnotice("pairing", "no stashed credential");
+            [eventS addMetrics:@{kSecurityRTCFieldNumberOfKeychainItemsCollected : @(0)}];
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:(__bridge NSError*)error];
             complete(NULL, (__bridge NSError *)error);
             CFReleaseNull(error);
             return;
@@ -476,15 +527,21 @@ static bool Flush(CFErrorRef *error) {
         CFReleaseNull(key);
         complete(keydata, (__bridge NSError *)error);
         CFReleaseNull(error);
+        [eventS addMetrics:@{kSecurityRTCFieldNumberOfKeychainItemsCollected : @(1)}];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
     });
 }
-- (void)stashAccountCredential:(NSData *)credential complete:(void(^)(bool success, NSError *error))complete
+- (void)stashAccountCredential:(NSData *)credential 
+                       altDSID:(NSString*)altDSID
+                        flowID:(NSString* _Nullable)flowID
+               deviceSessionID:(NSString* _Nullable)deviceSessionID
+                      complete:(void(^)(bool success, NSError *error))complete
 {
     CFErrorRef localError = NULL;
     SOSDoWithCredentialsWhileUnlocked(&localError, ^bool(CFErrorRef *error) {
         CFErrorRef syncerror = NULL;
 
-        if (![self syncWaitAndFlush:&syncerror]) {
+        if (![self syncWaitAndFlush:altDSID flowID:flowID deviceSessionID:deviceSessionID error:&syncerror]) {
             complete(NULL, (__bridge NSError *)syncerror);
             CFReleaseNull(syncerror);
         } else {
@@ -542,8 +599,18 @@ static bool Flush(CFErrorRef *error) {
     CFReleaseNull(localError);
 }
 
-- (void)myPeerInfo:(void (^)(NSData *, NSError *))complete
+- (void)myPeerInfo:(NSString*)altDSID  
+            flowID:(NSString* _Nullable)flowID
+   deviceSessionID:(NSString* _Nullable)deviceSessionID 
+          complete:(void (^)(NSData *, NSError *))complete
 {
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:altDSID
+                                                                                                  flowID:flowID
+                                                                                         deviceSessionID:deviceSessionID
+                                                                                               eventName:kSecurityRTCEventNameCreatesSOSApplication
+                                                                                         testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     __block CFErrorRef localError = NULL;
     __block NSData *applicationBlob = NULL;
     [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
@@ -553,6 +620,8 @@ static bool Flush(CFErrorRef *error) {
             CFReleaseNull(application);
         }
     }];
+
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(applicationBlob ? YES : NO) error:(__bridge NSError*)localError];
     complete(applicationBlob, (__bridge NSError *)localError);
     CFReleaseNull(localError);
 }
@@ -855,12 +924,23 @@ static bool Flush(CFErrorRef *error) {
 
 #endif // !(TARGET_OS_OSX || TARGET_OS_IOS)
 
-- (void)circleJoiningBlob:(NSData *)applicant complete:(void (^)(NSData *blob, NSError *))complete
+- (void)circleJoiningBlob:(NSString*)altDSID  
+                   flowID:(NSString* _Nullable)flowID
+          deviceSessionID:(NSString* _Nullable)deviceSessionID 
+                applicant:(NSData *)applicant complete:(void (^)(NSData *blob, NSError *))complete
 {
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:altDSID
+                                                                                                  flowID:flowID
+                                                                                         deviceSessionID:deviceSessionID
+                                                                                               eventName:kSecurityRTCEventNameCreateSOSCircleBlob
+                                                                                         testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     __block CFErrorRef localError = NULL;
     __block NSData *blob = NULL;
     SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(NULL, &localError, (__bridge CFDataRef)applicant);
     if (peer == NULL) {
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:(__bridge NSError*)localError];
         complete(NULL, (__bridge NSError *)localError);
         CFReleaseNull(localError);
         return;
@@ -869,23 +949,37 @@ static bool Flush(CFErrorRef *error) {
     // user_only_keybag_handle ok to use here, since we don't call SOS from securityd_system
     SecAKSDoWithKeybagLockAssertionSoftly(user_only_keybag_handle, ^{
         [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-            blob = CFBridgingRelease(SOSAccountCopyCircleJoiningBlob(txn.account, peer, &localError));
+            blob = CFBridgingRelease(SOSAccountCopyCircleJoiningBlob(txn.account, altDSID, flowID, deviceSessionID, peer, &localError));
         }];
     });
 
     CFReleaseNull(peer);
-
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(blob ? YES : NO) error:(__bridge NSError*)localError];
     complete(blob, (__bridge NSError *)localError);
     CFReleaseNull(localError);
 }
 
-- (void)joinCircleWithBlob:(NSData *)blob version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete
+- (void)joinCircleWithBlob:(NSData *)blob 
+                   altDSID:(NSString*)altDSID
+                    flowID:(NSString* _Nullable)flowID
+           deviceSessionID:(NSString* _Nullable)deviceSessionID
+                   version:(PiggyBackProtocolVersion)version
+                  complete:(void (^)(bool success, NSError *))complete
 {
     __block CFErrorRef localError = NULL;
     __block bool res = false;
 
     [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                     altDSID:altDSID
+                                                                                                      flowID:flowID
+                                                                                             deviceSessionID:deviceSessionID
+                                                                                                   eventName:kSecurityRTCEventNameInitiatorJoinsSOS
+                                                                                             testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
         res = SOSAccountJoinWithCircleJoiningBlob(txn.account, (__bridge CFDataRef)blob, version, &localError);
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:blob ? YES : NO error:(__bridge NSError*)localError];
     }];
 #if OCTAGON
     bool inCircle = [self.trust isInCircleOnly:NULL];
@@ -908,7 +1002,10 @@ static bool Flush(CFErrorRef *error) {
     CFReleaseNull(localError);
 }
 
-- (void)initialSyncCredentials:(uint32_t)flags complete:(void (^)(NSArray *, NSError *))complete
+- (void)initialSyncCredentials:(uint32_t)flags altDSID:(NSString*)altDSID
+                        flowID:(NSString* _Nullable)flowID
+               deviceSessionID:(NSString* _Nullable)deviceSessionID
+                      complete:(void (^)(NSArray *, NSError *))complete
 {
     CFErrorRef error = NULL;
     uint32_t isflags = 0;
@@ -922,8 +1019,26 @@ static bool Flush(CFErrorRef *error) {
     if (flags & SOSControlInitialSyncFlagBluetoothMigration)
         isflags |= SecServerInitialSyncCredentialFlagBluetoothMigration;
 
+    uint64_t tlks = 0;
+    uint64_t pcs = 0;
+    uint64_t bluetooth = 0;
 
-    NSArray *array = CFBridgingRelease(_SecServerCopyInitialSyncCredentials(isflags, &error));
+    AAFAnalyticsEventSecurity * eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                  altDSID:altDSID
+                                                                                                   flowID:flowID
+                                                                                          deviceSessionID:deviceSessionID
+                                                                                                eventName:kSecurityRTCEventNameAcceptorFetchesInitialSyncData
+                                                                                          testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
+    NSArray *array = CFBridgingRelease(_SecServerCopyInitialSyncCredentials(isflags, &tlks, &pcs, &bluetooth, &error));
+
+    NSDictionary* counts = @{ kSecurityRTCFieldNumberOfTLKsFetched : @(tlks),
+                              kSecurityRTCFieldNumberOfPCSItemsFetched : @(pcs),
+                              kSecurityRTCFieldNumberOfBluetoothMigrationItemsFetched : @(bluetooth)};
+
+    [eventS addMetrics:counts];
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(error == nil) ? YES : NO error:(__bridge NSError*)error];
     complete(array, (__bridge NSError *)error);
     CFReleaseNull(error);
 }
@@ -2924,13 +3039,15 @@ static void pbNotice(CFStringRef operation, SOSAccount*  account, SOSGenCountRef
     CFReleaseNull(genString);
 }
 
-CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, SOSPeerInfoRef applicant, CFErrorRef *error) {
+CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSID, NSString* flowID, NSString* deviceSessionID, SOSPeerInfoRef applicant, CFErrorRef *error) {
     SOSGenCountRef gencount = NULL;
     CFDataRef signature = NULL;
     SecKeyRef ourKey = NULL;
 
     CFDataRef pbblob = NULL;
     SOSCircleRef prunedCircle = NULL;
+    AAFAnalyticsEventSecurity *eventS = NULL;
+
 
 	secnotice("circleOps", "Making circle joining piggyback blob as sponsor (SOSAccountCopyCircleJoiningBlob)");
 
@@ -2944,8 +3061,17 @@ CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, SOSPeerInfoRef a
     require_quiet(userKey, errOut);
 
     require_action_quiet(applicant, errOut, SOSCreateError(kSOSErrorProcessingFailure, CFSTR("No applicant provided"), (error != NULL) ? *error : NULL, error));
-    require_action_quiet(SOSPeerInfoApplicationVerify(applicant, userKey, error), errOut,
+
+    eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                      altDSID:altDSID
+                                                                       flowID:flowID deviceSessionID:deviceSessionID
+                                                                    eventName:kSecurityRTCEventNameVerifySOSApplication
+                                                              testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                     category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    
+    require_action_quiet(SOSPeerInfoApplicationVerify(applicant, userKey, error), verifyFail,
                          secnotice("circleOps", "Peer application wasn't signed with the correct userKey"));
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
 
     {
         SOSFullPeerInfoRef fpi = account.fullPeerInfo;
@@ -2967,6 +3093,13 @@ CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, SOSPeerInfoRef a
     pbNotice(CFSTR("Accepting"), account, gencount, ourKey, signature, kPiggyV1);
     pbblob = SOSPiggyBackBlobCopyEncodedData(gencount, ourKey, signature, error);
     
+verifyFail:
+    if (error != nil && *error != nil) {
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:(__bridge NSError*)*error];
+    } else {
+        NSError* localError = [NSError errorWithDomain:(__bridge NSString*)kSOSErrorDomain code:kSOSErrorFailedToVerifyApplication description:@"Peer application wasn't signed with the correct userKey"];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+    }
 errOut:
     CFReleaseNull(prunedCircle);
     CFReleaseNull(gencount);
@@ -3236,11 +3369,12 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
     self.stateMachineQueue = dispatch_queue_create("SOS-statemachine", NULL);
 
     self.stateMachine = [[OctagonStateMachine alloc] initWithName:@"sosaccount"
-                                                           states:[NSSet setWithArray:[SOSStateMap() allKeys]]
+                                                           states:SOSStateMap()
                                                             flags:SOSFlagsSet()
                                                      initialState:SOSStateReady
                                                             queue:self.stateMachineQueue
                                                       stateEngine:self
+                                       unexpectedStateErrorDomain:@"com.apple.security.sosaccount.state"
                                                  lockStateTracker:[CKKSLockStateTracker globalTracker]
                                               reachabilityTracker:nil];
 

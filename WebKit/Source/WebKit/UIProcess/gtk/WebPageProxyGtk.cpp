@@ -37,6 +37,7 @@
 #include "WebPasteboardProxy.h"
 #include "WebProcessProxy.h"
 #include <WebCore/PlatformDisplay.h>
+#include <WebCore/PlatformEvent.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebKit {
@@ -76,11 +77,6 @@ void WebPageProxy::setInputMethodState(std::optional<InputMethodState>&& state)
     webkitWebViewBaseSetInputMethodState(WEBKIT_WEB_VIEW_BASE(viewWidget()), WTFMove(state));
 }
 
-bool WebPageProxy::makeGLContextCurrent()
-{
-    return webkitWebViewBaseMakeGLContextCurrent(WEBKIT_WEB_VIEW_BASE(viewWidget()));
-}
-
 void WebPageProxy::showEmojiPicker(const WebCore::IntRect& caretRect, CompletionHandler<void(String)>&& completionHandler)
 {
     webkitWebViewBaseShowEmojiChooser(WEBKIT_WEB_VIEW_BASE(viewWidget()), caretRect, WTFMove(completionHandler));
@@ -115,6 +111,32 @@ void WebPageProxy::accentColorDidChange()
     WebCore::Color accentColor = pageClient().accentColor();
 
     send(Messages::WebPage::SetAccentColor(accentColor));
+}
+
+OptionSet<WebCore::PlatformEvent::Modifier> WebPageProxy::currentStateOfModifierKeys()
+{
+#if USE(GTK4)
+    auto* device = gdk_seat_get_keyboard(gdk_display_get_default_seat(gtk_widget_get_display(viewWidget())));
+    auto gdkModifiers = gdk_device_get_modifier_state(device);
+    bool capsLockActive = gdk_device_get_caps_lock_state(device);
+#else
+    auto* keymap = gdk_keymap_get_for_display(gtk_widget_get_display(viewWidget()));
+    auto gdkModifiers = gdk_keymap_get_modifier_state(keymap);
+    bool capsLockActive = gdk_keymap_get_caps_lock_state(keymap);
+#endif
+
+    OptionSet<WebCore::PlatformEvent::Modifier> modifiers;
+    if (gdkModifiers & GDK_SHIFT_MASK)
+        modifiers.add(WebCore::PlatformEvent::Modifier::ShiftKey);
+    if (gdkModifiers & GDK_CONTROL_MASK)
+        modifiers.add(WebCore::PlatformEvent::Modifier::ControlKey);
+    if (gdkModifiers & GDK_MOD1_MASK)
+        modifiers.add(WebCore::PlatformEvent::Modifier::AltKey);
+    if (gdkModifiers & GDK_META_MASK)
+        modifiers.add(WebCore::PlatformEvent::Modifier::MetaKey);
+    if (capsLockActive)
+        modifiers.add(WebCore::PlatformEvent::Modifier::CapsLockKey);
+    return modifiers;
 }
 
 } // namespace WebKit

@@ -35,27 +35,26 @@
 
 namespace WebCore {
 
-Ref<RemoteFrame> RemoteFrame::createMainFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, ProcessIdentifier remoteProcessIdentifier)
+Ref<RemoteFrame> RemoteFrame::createMainFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier)
 {
-    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, nullptr, nullptr, std::nullopt, remoteProcessIdentifier));
+    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, nullptr, nullptr, std::nullopt));
 }
 
-Ref<RemoteFrame> RemoteFrame::createSubframe(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, Frame& parent, ProcessIdentifier remoteProcessIdentifier)
+Ref<RemoteFrame> RemoteFrame::createSubframe(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, Frame& parent)
 {
-    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, nullptr, &parent, std::nullopt, remoteProcessIdentifier));
+    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, nullptr, &parent, std::nullopt));
 }
 
-Ref<RemoteFrame> RemoteFrame::createSubframeWithContentsInAnotherProcess(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, HTMLFrameOwnerElement& ownerElement, std::optional<LayerHostingContextIdentifier> layerHostingContextIdentifier, ProcessIdentifier remoteProcessIdentifier)
+Ref<RemoteFrame> RemoteFrame::createSubframeWithContentsInAnotherProcess(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, HTMLFrameOwnerElement& ownerElement, std::optional<LayerHostingContextIdentifier> layerHostingContextIdentifier)
 {
-    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, &ownerElement, ownerElement.document().frame(), layerHostingContextIdentifier, remoteProcessIdentifier));
+    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, &ownerElement, ownerElement.document().frame(), layerHostingContextIdentifier));
 }
 
-RemoteFrame::RemoteFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement, Frame* parent, Markable<LayerHostingContextIdentifier> layerHostingContextIdentifier, ProcessIdentifier remoteProcessIdentifier)
+RemoteFrame::RemoteFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement, Frame* parent, Markable<LayerHostingContextIdentifier> layerHostingContextIdentifier)
     : Frame(page, frameID, FrameType::Remote, ownerElement, parent)
     , m_window(RemoteDOMWindow::create(*this, GlobalWindowIdentifier { Process::identifier(), WindowIdentifier::generate() }))
     , m_client(WTFMove(client))
     , m_layerHostingContextIdentifier(layerHostingContextIdentifier)
-    , m_remoteProcessIdentifier(remoteProcessIdentifier)
 {
 }
 
@@ -73,7 +72,6 @@ RemoteDOMWindow& RemoteFrame::window() const
 
 void RemoteFrame::didFinishLoadInAnotherProcess()
 {
-    // FIXME: We also need to set this to false if the load fails in another process.
     m_preventsParentFromBeingComplete = false;
 
     if (auto* ownerElement = this->ownerElement())
@@ -88,6 +86,11 @@ bool RemoteFrame::preventsParentFromBeingComplete() const
 void RemoteFrame::changeLocation(FrameLoadRequest&& request)
 {
     m_client->changeLocation(WTFMove(request));
+}
+
+void RemoteFrame::broadcastFrameRemovalToOtherProcesses()
+{
+    m_client->broadcastFrameRemovalToOtherProcesses();
 }
 
 FrameView* RemoteFrame::virtualView() const
@@ -107,7 +110,7 @@ void RemoteFrame::frameDetached()
 
 String RemoteFrame::renderTreeAsText(size_t baseIndent, OptionSet<RenderAsTextFlag> behavior)
 {
-    return m_client->renderTreeAsText(m_remoteProcessIdentifier, frameID(), baseIndent, behavior);
+    return m_client->renderTreeAsText(baseIndent, behavior);
 }
 
 } // namespace WebCore

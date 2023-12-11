@@ -571,8 +571,9 @@ Seconds ScriptExecutionContext::minimumDOMTimerInterval() const
 
 void ScriptExecutionContext::didChangeTimerAlignmentInterval()
 {
+    auto& eventLoop = this->eventLoop();
     for (auto& timer : m_timeouts.values())
-        timer->didChangeAlignmentInterval();
+        eventLoop.didChangeTimerAlignmentInterval(timer->timer());
 }
 
 Seconds ScriptExecutionContext::domTimerAlignmentInterval(bool) const
@@ -775,9 +776,11 @@ void ScriptExecutionContext::postTaskToResponsibleDocument(Function<void(Documen
 
     auto* thread = downcast<WorkerOrWorkletGlobalScope>(this)->workerOrWorkletThread();
     if (thread) {
-        thread->workerLoaderProxy().postTaskToLoader([callback = WTFMove(callback)](auto&& context) {
-            callback(downcast<Document>(context));
-        });
+        if (auto* workerLoaderProxy = thread->workerLoaderProxy()) {
+            workerLoaderProxy->postTaskToLoader([callback = WTFMove(callback)](auto&& context) {
+                callback(downcast<Document>(context));
+            });
+        }
         return;
     }
 

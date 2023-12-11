@@ -29,6 +29,7 @@
 #include "BorderPainter.h"
 #include "CachedResourceLoader.h"
 #include "ContentData.h"
+#include "ContentVisibilityDocumentState.h"
 #include "CursorList.h"
 #include "DocumentInlines.h"
 #include "ElementChildIteratorInlines.h"
@@ -795,6 +796,22 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
     ASSERT(settings().shouldAllowUserInstalledFonts() || newStyle.fontDescription().shouldAllowUserInstalledFonts() == AllowUserInstalledFonts::No);
 
     auto* oldStyle = hasInitializedStyle() ? &style() : nullptr;
+
+    auto updateContentVisibilityDocumentStateIfNeeded = [&] () {
+        if (!element())
+            return;
+        bool contentVisibilityChanged = oldStyle && oldStyle->contentVisibility() != newStyle.contentVisibility();
+        if (contentVisibilityChanged) {
+            if (oldStyle->contentVisibility() == ContentVisibility::Auto)
+                ContentVisibilityDocumentState::unobserve(*element());
+            auto wasSkippedContent = oldStyle->contentVisibility() == ContentVisibility::Hidden ? IsSkippedContent::Yes : IsSkippedContent::No;
+            auto isSkippedContent = newStyle.contentVisibility() == ContentVisibility::Hidden ? IsSkippedContent::Yes : IsSkippedContent::No;
+            ContentVisibilityDocumentState::updateAnimations(*element(), wasSkippedContent, isSkippedContent);
+        }
+        if ((contentVisibilityChanged || !oldStyle) && newStyle.contentVisibility() == ContentVisibility::Auto)
+            ContentVisibilityDocumentState::observe(*element());
+    };
+
     if (oldStyle) {
         // If our z-index changes value or our visibility changes,
         // we need to dirty our stacking context's z-order list.
@@ -811,9 +828,11 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         }
 
         // Keep layer hierarchy visibility bits up to date if visibility changes.
-        if (m_style.visibility() != newStyle.visibility()) {
+        bool wasVisible = m_style.visibility() == Visibility::Visible && !m_style.skippedContentReason().has_value();
+        bool willBeVisible = newStyle.visibility() == Visibility::Visible && !newStyle.skippedContentReason().has_value();
+        if (wasVisible != willBeVisible) {
             if (RenderLayer* layer = enclosingLayer()) {
-                if (newStyle.visibility() == Visibility::Visible)
+                if (willBeVisible)
                     layer->setHasVisibleContent();
                 else if (layer->hasVisibleContent() && (this == &layer->renderer() || layer->renderer().style().visibility() != Visibility::Visible))
                     layer->dirtyVisibleContentStatus();
@@ -866,6 +885,8 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         setHasTransformRelatedProperty(false);
         setHasReflection(false);
     }
+
+    updateContentVisibilityDocumentStateIfNeeded();
 
     bool hadOutline = oldStyle && oldStyle->hasOutline();
     bool hasOutline = newStyle.hasOutline();
@@ -923,7 +944,7 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
         updateFillImages(oldStyle ? &oldStyle->backgroundLayers() : nullptr, style ? &style->backgroundLayers() : nullptr);
         updateFillImages(oldStyle ? &oldStyle->maskLayers() : nullptr, style ? &style->maskLayers() : nullptr);
         updateImage(oldStyle ? oldStyle->borderImage().image() : nullptr, style ? style->borderImage().image() : nullptr);
-        updateImage(oldStyle ? oldStyle->maskBoxImage().image() : nullptr, style ? style->maskBoxImage().image() : nullptr);
+        updateImage(oldStyle ? oldStyle->maskBorder().image() : nullptr, style ? style->maskBorder().image() : nullptr);
         updateShapeImage(oldStyle ? oldStyle->shapeOutside() : nullptr, style ? style->shapeOutside() : nullptr);
     };
 
@@ -1064,7 +1085,7 @@ void RenderElement::willBeDestroyed()
         for (auto* maskLayer = &style.maskLayers(); maskLayer; maskLayer = maskLayer->next())
             unregisterImage(maskLayer->image());
         unregisterImage(style.borderImage().image());
-        unregisterImage(style.maskBoxImage().image());
+        unregisterImage(style.maskBorder().image());
         if (auto shapeValue = style.shapeOutside())
             unregisterImage(shapeValue->image());
     };
@@ -1081,6 +1102,9 @@ void RenderElement::willBeDestroyed()
 
     if (m_hasPausedImageAnimations)
         view().removeRendererWithPausedImageAnimations(*this);
+
+    if (style().contentVisibility() == ContentVisibility::Auto && element())
+        ContentVisibilityDocumentState::unobserve(*element());
 }
 
 void RenderElement::setNeedsPositionedMovementLayout(const RenderStyle* oldStyle)
@@ -1378,7 +1402,7 @@ bool RenderElement::borderImageIsLoadedAndCanBeRendered() const
     ASSERT(style().hasBorder());
 
     StyleImage* borderImage = style().borderImage().image();
-    return borderImage && borderImage->canRender(this, style().effectiveZoom()) && borderImage->isLoaded();
+    return borderImage && borderImage->canRender(this, style().effectiveZoom()) && borderImage->isLoaded(this);
 }
 
 bool RenderElement::mayCauseRepaintInsideViewport(const IntRect* optionalViewportRect) const
@@ -2062,8 +2086,7 @@ static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderOb
 
 void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWidth)
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(view().frameView().frame());
-    auto* document = localFrame ? localFrame->document() : nullptr;
+    auto* document = view().frameView().frame().document();
     if (!document)
         return;
 
@@ -2093,8 +2116,7 @@ void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWid
 
 void RenderElement::resetTextAutosizing()
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(view().frameView().frame());
-    auto* document = localFrame ? localFrame->document() : nullptr;
+    auto* document = view().frameView().frame().document();
     if (!document)
         return;
 
@@ -2230,11 +2252,11 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
     };
 
     switch (boxType) {
-    case CSSBoxType::BoxMissing:
     case CSSBoxType::ContentBox:
     case CSSBoxType::PaddingBox:
     case CSSBoxType::FillBox:
         return alignReferenceBox(objectBoundingBox());
+    case CSSBoxType::BoxMissing:
     case CSSBoxType::BorderBox:
     case CSSBoxType::MarginBox:
     case CSSBoxType::StrokeBox:
@@ -2245,6 +2267,46 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
 
     ASSERT_NOT_REACHED();
     return { };
+}
+
+bool RenderElement::isSkippedContentRoot() const
+{
+    return WebCore::isSkippedContentRoot(style(), element());
+}
+
+bool RenderElement::hasEligibleContainmentForSizeQuery() const
+{
+    if (!shouldApplyLayoutContainment())
+        return false;
+
+    switch (style().containerType()) {
+    case ContainerType::InlineSize:
+        return shouldApplyInlineSizeContainment();
+    case ContainerType::Size:
+        return shouldApplySizeContainment();
+    case ContainerType::Normal:
+        return true;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+void RenderElement::clearNeedsLayoutForDescendants()
+{
+    for (auto& descendant : descendantsOfType<RenderObject>(*this))
+        descendant.clearNeedsLayout();
+}
+
+void RenderElement::layoutIfNeeded()
+{
+    if (!needsLayout())
+        return;
+    if (isSkippedContentForLayout()) {
+        clearNeedsLayoutForDescendants();
+        clearNeedsLayout();
+        return;
+    }
+    layout();
 }
 
 }

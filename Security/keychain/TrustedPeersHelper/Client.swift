@@ -146,11 +146,18 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func reset(with user: TPSpecificUser?, resetReason: CuttlefishResetReason, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
+    func reset(with user: TPSpecificUser?,
+               resetReason: CuttlefishResetReason,
+               idmsTargetContext: String?,
+               idmsCuttlefishPassword: String?,
+               notifyIdMS: Bool,
+               internalAccount: Bool,
+               demoAccount: Bool,
+               reply: @escaping (Error?) -> Void) {
         do {
             logger.info("Resetting for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.reset(resetReason: resetReason, idmsTargetContext: idmsTargetContext, idmsCuttlefishPassword: idmsCuttlefishPassword, notifyIdMS: notifyIdMS) { error in
+            container.reset(resetReason: resetReason, idmsTargetContext: idmsTargetContext, idmsCuttlefishPassword: idmsCuttlefishPassword, notifyIdMS: notifyIdMS, internalAccount: internalAccount, demoAccount: demoAccount) { error in
                 self.logComplete(function: "Resetting", container: container.name, error: error)
                 reply(error?.sanitizeForClientXPC()) }
         } catch {
@@ -364,6 +371,8 @@ class Client: TrustedPeersHelperProtocol {
                stableInfo: Data,
                stableInfoSig: Data,
                ckksKeys: [CKKSKeychainBackedKeySet],
+               flowID: String?,
+               deviceSessionID: String?,
                reply: @escaping (Data?, Data?, Error?) -> Void) {
         do {
             logger.info("Vouching \(String(describing: user), privacy: .public)")
@@ -373,7 +382,10 @@ class Client: TrustedPeersHelperProtocol {
                             permanentInfoSig: permanentInfoSig,
                             stableInfo: stableInfo,
                             stableInfoSig: stableInfoSig,
-                            ckksKeys: ckksKeys) { voucher, voucherSig, error in
+                            ckksKeys: ckksKeys,
+                            altDSID: user?.altDSID,
+                            flowID: flowID,
+                            deviceSessionID: deviceSessionID) { voucher, voucherSig, error in
                                 self.logComplete(function: "Vouching", container: container.name, error: error)
                                 reply(voucher, voucherSig, error?.sanitizeForClientXPC()) }
         } catch {
@@ -501,6 +513,8 @@ class Client: TrustedPeersHelperProtocol {
               ckksKeys: [CKKSKeychainBackedKeySet],
               tlkShares: [CKKSTLKShare],
               preapprovedKeys: [Data]?,
+              flowID: String?,
+              deviceSessionID: String?,
               reply: @escaping (String?, [CKRecord]?, TPSyncingPolicy?, Error?) -> Void) {
         do {
             logger.info("Joining \(String(describing: user), privacy: .public)")
@@ -509,8 +523,11 @@ class Client: TrustedPeersHelperProtocol {
                            voucherSig: voucherSig,
                            ckksKeys: ckksKeys,
                            tlkShares: tlkShares,
-                           preapprovedKeys: preapprovedKeys) { peerID, keyHierarchyRecords, policy, error in
-                            reply(peerID, keyHierarchyRecords, policy, error?.sanitizeForClientXPC())
+                           preapprovedKeys: preapprovedKeys,
+                           altDSID: user?.altDSID,
+                           flowID: flowID,
+                           deviceSessionID: deviceSessionID) { peerID, keyHierarchyRecords, policy, error in
+                reply(peerID, keyHierarchyRecords, policy, error?.sanitizeForClientXPC())
             }
         } catch {
             logger.error("Joining failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
@@ -893,11 +910,11 @@ class Client: TrustedPeersHelperProtocol {
             reply(error.sanitizeForClientXPC())
         }
     }
-    func resetAccountCDPContents(with user: TPSpecificUser?, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
+    func resetAccountCDPContents(with user: TPSpecificUser?, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, internalAccount: Bool, demoAccount: Bool, reply: @escaping (Error?) -> Void) {
         do {
             logger.info("resetAccountCDPContents for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.resetCDPAccountData(idmsTargetContext: idmsTargetContext, idmsCuttlefishPassword: idmsCuttlefishPassword, notifyIdMS: notifyIdMS) { error in
+            container.resetCDPAccountData(idmsTargetContext: idmsTargetContext, idmsCuttlefishPassword: idmsCuttlefishPassword, notifyIdMS: notifyIdMS, internalAccount: internalAccount, demoAccount: demoAccount) { error in
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {

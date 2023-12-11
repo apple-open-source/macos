@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "FontMetrics.h"
 #include <variant>
 #include <wtf/Markable.h>
 #include <wtf/text/TextStream.h>
@@ -44,12 +45,9 @@ struct FloatMarkableTraits {
 };
 
 struct FontSizeAdjust {
-    bool operator==(const FontSizeAdjust& other) const
-    {
-        return metric == other.metric && value == other.value
-            && isFromFont == other.isFromFont;
-    }
+    friend bool operator==(const FontSizeAdjust&, const FontSizeAdjust&) = default;
 
+    enum class ValueType : bool { Number, FromFont };
     enum class Metric : uint8_t {
         ExHeight,
         CapHeight,
@@ -57,14 +55,47 @@ struct FontSizeAdjust {
         IcWidth,
         IcHeight
     };
+
+    std::optional<float> resolve(float computedSize, const FontMetrics& fontMetrics) const
+    {
+        std::optional<float> metricValue;
+        switch (metric) {
+        case FontSizeAdjust::Metric::CapHeight:
+            if (fontMetrics.hasCapHeight())
+                metricValue = fontMetrics.floatCapHeight();
+            break;
+        case FontSizeAdjust::Metric::ChWidth:
+            if (fontMetrics.zeroWidth())
+                metricValue = fontMetrics.zeroWidth();
+            break;
+        // FIXME: Are ic-height and ic-width the same? Gecko treats them the same.
+        case FontSizeAdjust::Metric::IcWidth:
+        case FontSizeAdjust::Metric::IcHeight:
+            if (fontMetrics.ideogramWidth() > 0)
+                metricValue = fontMetrics.ideogramWidth();
+            break;
+        case FontSizeAdjust::Metric::ExHeight:
+        default:
+            if (fontMetrics.hasXHeight())
+                metricValue = fontMetrics.xHeight();
+        }
+
+        return metricValue.has_value() && computedSize
+            ? std::make_optional(*metricValue / computedSize)
+            : std::nullopt;
+    }
+
+    bool isNone() const { return !value && type != ValueType::FromFont; }
+    bool isFromFont() const { return type == ValueType::FromFont; }
+
     Metric metric { Metric::ExHeight };
-    bool isFromFont { false };
+    ValueType type { ValueType::Number };
     Markable<float, FloatMarkableTraits> value { };
 };
 
 inline void add(Hasher& hasher, const FontSizeAdjust& fontSizeAdjust)
 {
-    add(hasher, fontSizeAdjust.metric, *fontSizeAdjust.value);
+    add(hasher, fontSizeAdjust.metric, fontSizeAdjust.type, *fontSizeAdjust.value);
 }
 
 inline TextStream& operator<<(TextStream& ts, const FontSizeAdjust& fontSizeAdjust)
@@ -84,14 +115,14 @@ inline TextStream& operator<<(TextStream& ts, const FontSizeAdjust& fontSizeAdju
         break;
     case FontSizeAdjust::Metric::ExHeight:
     default:
-        if (fontSizeAdjust.isFromFont)
+        if (fontSizeAdjust.isFromFont())
             return ts << "from-font";
         return ts << *fontSizeAdjust.value;
     }
 
-    if (fontSizeAdjust.isFromFont)
+    if (fontSizeAdjust.isFromFont())
         return ts << " " << "from-font";
-    return ts << " " << fontSizeAdjust.value;
+    return ts << " " << *fontSizeAdjust.value;
 }
 
 }

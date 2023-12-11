@@ -696,7 +696,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     JSC::JSLockHolder jscLock(lexicalGlobalObject);
 #endif
 
-    JSC::JSValue result = _private->coreFrame->script().executeScriptIgnoringException(string, forceUserGesture);
+    JSC::JSValue result = _private->coreFrame->script().executeScriptIgnoringException(string, JSC::SourceTaintedOrigin::Untainted, forceUserGesture);
 
     if (!_private->coreFrame) // In case the script removed our frame from the page.
         return @"";
@@ -951,7 +951,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return;
     // FIXME: These are fake modifier keys here, but they should be real ones instead.
     WebCore::PlatformMouseEvent event(WebCore::IntPoint(windowLoc), WebCore::IntPoint(WebCore::globalPoint(windowLoc, [view->platformWidget() window])),
-        WebCore::LeftButton, WebCore::PlatformEvent::Type::MouseMoved, 0, { }, WallTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap);
+        WebCore::MouseButton::Left, WebCore::PlatformEvent::Type::MouseMoved, 0, { }, WallTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap);
     _private->coreFrame->eventHandler().dragSourceEndedAt(event, coreDragOperationMask(dragOperationMask));
 }
 #endif // ENABLE(DRAG_SUPPORT) && PLATFORM(MAC)
@@ -1388,7 +1388,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
     auto* renderer = focusedElement->renderer();
     if (!renderer)
         return nil;
-    auto color = WebCore::CaretBase::computeCaretColor(renderer->style(), renderer->element(), std::nullopt);
+    auto color = WebCore::CaretBase::computeCaretColor(renderer->style(), renderer->element());
     return color.isValid() ? cachedCGColor(color).autorelease() : nil;
 }
 

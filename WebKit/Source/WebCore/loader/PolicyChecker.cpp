@@ -102,7 +102,9 @@ URLKeepingBlobAlive FrameLoader::PolicyChecker::extendBlobURLLifetimeIfNecessary
     if (mode != PolicyDecisionMode::Asynchronous || !request.url().protocolIsBlob())
         return { };
 
-    return { request.url(), document.topOrigin().data() };
+    bool haveTriggeringRequester = m_frame.loader().policyDocumentLoader() && !m_frame.loader().policyDocumentLoader()->triggeringAction().isEmpty() && m_frame.loader().policyDocumentLoader()->triggeringAction().requester();
+    auto& topOrigin = haveTriggeringRequester ? m_frame.loader().policyDocumentLoader()->triggeringAction().requester()->topOrigin->data() : document.topOrigin().data();
+    return { request.url(), topOrigin };
 }
 
 void FrameLoader::PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const ResourceResponse& redirectResponse, DocumentLoader* loader, RefPtr<FormState>&& formState, NavigationPolicyDecisionFunction&& function, PolicyDecisionMode policyDecisionMode)
@@ -218,9 +220,9 @@ void FrameLoader::PolicyChecker::checkNavigationPolicy(ResourceRequest&& request
         case PolicyAction::Ignore:
             POLICYCHECKER_RELEASE_LOG("checkNavigationPolicy: ignoring because policyAction from dispatchDecidePolicyForNavigationAction is Ignore");
             return function({ }, nullptr, NavigationPolicyDecision::IgnoreLoad);
-        case PolicyAction::StopAllLoads:
-            POLICYCHECKER_RELEASE_LOG("checkNavigationPolicy: stopping because policyAction from dispatchDecidePolicyForNavigationAction is StopAllLoads");
-            function({ }, nullptr, NavigationPolicyDecision::StopAllLoads);
+        case PolicyAction::LoadWillContinueInAnotherProcess:
+            POLICYCHECKER_RELEASE_LOG("checkNavigationPolicy: stopping because policyAction from dispatchDecidePolicyForNavigationAction is LoadWillContinueInAnotherProcess");
+            function({ }, nullptr, NavigationPolicyDecision::LoadWillContinueInAnotherProcess);
             return;
         case PolicyAction::Use:
             if (!requestIsJavaScriptURL && !m_frame.loader().client().canHandleRequest(request)) {
@@ -293,7 +295,7 @@ void FrameLoader::PolicyChecker::checkNewWindowPolicy(NavigationAction&& navigat
         case PolicyAction::Ignore:
             function({ }, nullptr, { }, { }, ShouldContinuePolicyCheck::No);
             return;
-        case PolicyAction::StopAllLoads:
+        case PolicyAction::LoadWillContinueInAnotherProcess:
             ASSERT_NOT_REACHED();
             function({ }, nullptr, { }, { }, ShouldContinuePolicyCheck::No);
             return;

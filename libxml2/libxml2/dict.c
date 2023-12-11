@@ -442,7 +442,7 @@ xmlDictComputeBigKey(const xmlChar* data, int namelen, int seed) {
 
     hash = seed;
 
-    for (i = 0;i < namelen; i++) {
+    for (i = 0; i < namelen; i++) {
         hash += data[i];
 	hash += (hash << 10);
 	hash ^= (hash >> 6);
@@ -926,7 +926,7 @@ xmlDictLookup(xmlDictPtr dict, const xmlChar *name, int len) {
     xmlDictEntryPtr entry;
     xmlDictEntryPtr insert;
     const xmlChar *ret;
-    unsigned int l;
+    size_t l;
 
     if ((dict == NULL) || (name == NULL))
 	return(NULL);
@@ -1064,7 +1064,7 @@ const xmlChar *
 xmlDictExists(xmlDictPtr dict, const xmlChar *name, int len) {
     unsigned long key, okey, nbi = 0;
     xmlDictEntryPtr insert;
-    unsigned int l;
+    size_t l;
 
     if ((dict == NULL) || (name == NULL))
 	return(NULL);
@@ -1174,7 +1174,7 @@ xmlDictQLookup(xmlDictPtr dict, const xmlChar *prefix, const xmlChar *name) {
     xmlDictEntryPtr entry;
     xmlDictEntryPtr insert;
     const xmlChar *ret;
-    unsigned int len, plen, l;
+    size_t len, plen, l;
 
     if ((dict == NULL) || (name == NULL))
 	return(NULL);
@@ -1183,6 +1183,8 @@ xmlDictQLookup(xmlDictPtr dict, const xmlChar *prefix, const xmlChar *name) {
 
     l = len = strlen((const char *) name);
     plen = strlen((const char *) prefix);
+    if ((len > INT_MAX / 2) || (plen > INT_MAX / 2))
+        return(NULL);
     len += 1 + plen;
 
     /*

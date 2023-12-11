@@ -168,8 +168,6 @@ bool WebProcessPool::s_shouldCrashWhenCreatingWebProcess = false;
 
 static constexpr Seconds audibleActivityClearDelay = 5_s;
 
-bool WebProcessPool::s_didGlobalStaticInitialization = false;
-
 Ref<WebProcessPool> WebProcessPool::create(API::ProcessPoolConfiguration& configuration)
 {
     InitializeWebKit2();
@@ -238,7 +236,9 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     , m_audibleActivityTimer(RunLoop::main(), this, &WebProcessPool::clearAudibleActivity)
     , m_webProcessWithMediaStreamingCounter([this](RefCounterEvent) { updateMediaStreamingActivity(); })
 {
-    if (!s_didGlobalStaticInitialization) {
+    static auto s_needsGlobalStaticInitialization = NeedsGlobalStaticInitialization::Yes;
+    auto needsGlobalStaticInitialization = std::exchange(s_needsGlobalStaticInitialization, NeedsGlobalStaticInitialization::No);
+    if (needsGlobalStaticInitialization == NeedsGlobalStaticInitialization::Yes) {
         WTF::setProcessPrivileges(allPrivileges());
         WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
         Process::setIdentifier(WebCore::ProcessIdentifier::generate());
@@ -262,7 +262,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     for (const auto& urlScheme : m_configuration->cachePartitionedURLSchemes())
         m_schemesToRegisterAsCachePartitioned.add(urlScheme);
 
-    platformInitialize();
+    platformInitialize(needsGlobalStaticInitialization);
 
 #if OS(LINUX)
     MemoryPressureMonitor::singleton().start();
@@ -301,8 +301,6 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
         });
     }
 #endif
-
-    s_didGlobalStaticInitialization = true;
 }
 
 WebProcessPool::~WebProcessPool()
@@ -515,14 +513,7 @@ void WebProcessPool::createGPUProcessConnection(WebProcessProxy& webProcessProxy
 #endif
 
     parameters.isLockdownModeEnabled = webProcessProxy.lockdownMode() == WebProcessProxy::LockdownMode::Enabled;
-    parameters.isWebGPUEnabled = WTF::anyOf(webProcessProxy.pages(), [](const auto& page) {
-        return page->preferences().webGPUEnabled();
-    });
-    parameters.isDOMRenderingEnabled = WTF::anyOf(webProcessProxy.pages(), [](const auto& page) {
-        return page->preferences().useGPUProcessForDOMRenderingEnabled();
-    });
-    parameters.allowTestOnlyIPC = webProcessProxy.allowTestOnlyIPC();
-    
+
     ensureGPUProcess().createGPUProcessConnection(webProcessProxy, WTFMove(connectionIdentifier), WTFMove(parameters));
 }
 #endif
@@ -605,9 +596,14 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
 
     ASSERT(preferencesStore);
 
-    remoteWorkerProcessProxy->establishRemoteWorkerContext(workerType, *preferencesStore, registrableDomain, serviceWorkerPageIdentifier, [completionHandler = WTFMove(completionHandler), remoteProcessIdentifier = remoteWorkerProcessProxy->coreProcessIdentifier()] () mutable {
+    remoteWorkerProcessProxy->addAllowedFirstPartyForCookies(registrableDomain);
+    auto aggregator = CallbackAggregator::create([completionHandler = WTFMove(completionHandler), remoteProcessIdentifier = remoteWorkerProcessProxy->coreProcessIdentifier()]() mutable {
         completionHandler(remoteProcessIdentifier);
     });
+
+    websiteDataStore->networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(remoteWorkerProcessProxy->coreProcessIdentifier(), registrableDomain, LoadedWebArchive::No), [aggregator] { });
+
+    remoteWorkerProcessProxy->establishRemoteWorkerContext(workerType, *preferencesStore, registrableDomain, serviceWorkerPageIdentifier, [aggregator] { });
 
     if (!processPool->m_remoteWorkerUserAgent.isNull())
         remoteWorkerProcessProxy->setRemoteWorkerUserAgent(processPool->m_remoteWorkerUserAgent);
@@ -914,7 +910,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     if (websiteDataStore)
         parameters.websiteDataStoreParameters = webProcessDataStoreParameters(process, *websiteDataStore);
 
-    process.send(Messages::WebProcess::InitializeWebProcess(parameters), 0);
+    process.send(Messages::WebProcess::InitializeWebProcess(WTFMove(parameters)), 0);
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     setMediaAccessibilityPreferences(process);
@@ -1055,17 +1051,17 @@ void WebProcessPool::disconnectProcess(WebProcessProxy& process)
     removeProcessFromOriginCacheSet(process);
 }
 
-Ref<WebProcessProxy> WebProcessPool::processForRegistrableDomain(WebsiteDataStore& websiteDataStore, const RegistrableDomain& registrableDomain, WebProcessProxy::LockdownMode lockdownMode)
+Ref<WebProcessProxy> WebProcessPool::processForRegistrableDomain(WebsiteDataStore& websiteDataStore, const RegistrableDomain& registrableDomain, WebProcessProxy::LockdownMode lockdownMode, const API::PageConfiguration& pageConfiguration)
 {
     if (!registrableDomain.isEmpty()) {
-        if (auto process = webProcessCache().takeProcess(registrableDomain, websiteDataStore, lockdownMode)) {
+        if (auto process = webProcessCache().takeProcess(registrableDomain, websiteDataStore, lockdownMode, pageConfiguration)) {
             WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForRegistrableDomain: Using WebProcess from WebProcess cache (process=%p, PID=%i)", process.get(), process->processID());
             ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
             return process.releaseNonNull();
         }
 
         // Check if we have a suspended page for the given registrable domain and use its process if we do, for performance reasons.
-        if (auto process = SuspendedPageProxy::findReusableSuspendedPageProcess(*this, registrableDomain, websiteDataStore, lockdownMode)) {
+        if (auto process = SuspendedPageProxy::findReusableSuspendedPageProcess(*this, registrableDomain, websiteDataStore, lockdownMode, pageConfiguration)) {
             WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForRegistrableDomain: Using WebProcess from a SuspendedPage (process=%p, PID=%i)", process.get(), process->processID());
             ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
             return process.releaseNonNull();
@@ -1130,7 +1126,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
     RefPtr<WebProcessProxy> process;
     auto lockdownMode = pageConfiguration->lockdownModeEnabled() ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled;
     auto* relatedPage = pageConfiguration->relatedPage();
-    if (relatedPage && !relatedPage->isClosed()) {
+    if (relatedPage && !relatedPage->isClosed() && relatedPage->hasSameGPUProcessPreferencesAs(pageConfiguration)) {
         // Sharing processes, e.g. when creating the page via window.open().
         process = &pageConfiguration->relatedPage()->ensureRunningProcess();
         // We do not support several WebsiteDataStores sharing a single process.
@@ -1147,7 +1143,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         }
     } else {
         WEBPROCESSPOOL_RELEASE_LOG(Process, "createWebPage: Not delaying WebProcess launch");
-        process = processForRegistrableDomain(*pageConfiguration->websiteDataStore(), { }, lockdownMode);
+        process = processForRegistrableDomain(*pageConfiguration->websiteDataStore(), { }, lockdownMode, pageConfiguration);
     }
 
     RefPtr<WebUserContentControllerProxy> userContentController = pageConfiguration->userContentController();
@@ -1851,33 +1847,24 @@ void WebProcessPool::removeProcessFromOriginCacheSet(WebProcessProxy& process)
     });
 }
 
-void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& frame, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& sourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral, DidCreateNewProcess)>&& completionHandler)
+void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& frame, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& sourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral)>&& completionHandler)
 {
     auto registrableDomain = RegistrableDomain { navigation.currentRequest().url() };
     RegistrableDomain mainFrameDomain(URL(page.pageLoadState().activeURL()));
     if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled()) {
         if (!registrableDomain.isEmpty()) {
             if (registrableDomain == mainFrameDomain) {
-                completionHandler(Ref { page.mainFrame()->process() }, nullptr, "Found process for the same registration domain as mainFrame domain"_s, DidCreateNewProcess::No);
+                completionHandler(Ref { page.mainFrame()->process() }, nullptr, "Found process for the same registration domain as mainFrame domain"_s);
                 return;
             }
             if (auto* remotePageProxy = page.remotePageProxyForRegistrableDomain(registrableDomain)) {
-                completionHandler(Ref { remotePageProxy->process() }, nullptr, "Found process for the same registration domain"_s, DidCreateNewProcess::No);
+                completionHandler(Ref { remotePageProxy->process() }, nullptr, "Found process for the same registration domain"_s);
                 return;
             }
         }
     }
 
     auto [process, suspendedPage, reason] = processForNavigationInternal(page, navigation, sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, lockdownMode, frameInfo, dataStore.copyRef());
-
-    if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled()) {
-        RegistrableDomain navigationDomain(navigation.currentRequest().url());
-        if (!navigationDomain.isEmpty() && navigationDomain != mainFrameDomain) {
-            auto remotePageProxy = RemotePageProxy::create(page, process, navigationDomain);
-            frame.setRemotePageProxy(remotePageProxy);
-            remotePageProxy->injectPageIntoNewProcess();
-        }
-    }
 
     // We are process-swapping so automatic process prewarming would be beneficial if the client has not explicitly enabled / disabled it.
     bool doingAnAutomaticProcessSwap = processSwapRequestedByClient == ProcessSwapRequestedByClient::No && process.ptr() != sourceProcess.ptr();
@@ -1915,8 +1902,14 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
         }
         if (suspendedPage && (!navigation->targetItem() || suspendedPage != navigation->targetItem()->suspendedPage()))
             suspendedPage = nullptr;
-        completionHandler(WTFMove(process), suspendedPage, reason, DidCreateNewProcess::Yes);
+        completionHandler(WTFMove(process), suspendedPage, reason);
     };
+
+    // Cookie access will be given in WebFrameProxy::prepareForProvisionalNavigationInProcess and
+    // we need there to be no time between process selection and RemotePageProxy creation so that
+    // remotePageProxyForRegistrableDomain will always give the same process for the same domain.
+    if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled())
+        return callCompletionHandler(suspendedPage);
 
     page.websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(processIdentifier, registrableDomain, loadedWebArchive), [callCompletionHandler = WTFMove(callCompletionHandler), suspendedPage = WeakPtr { suspendedPage }] () mutable {
         if (suspendedPage)
@@ -1931,8 +1924,8 @@ std::tuple<Ref<WebProcessProxy>, SuspendedPageProxy*, ASCIILiteral> WebProcessPo
     auto& targetURL = navigation.currentRequest().url();
     auto targetRegistrableDomain = WebCore::RegistrableDomain { targetURL };
 
-    auto createNewProcess = [this, protectedThis = Ref { *this }, targetRegistrableDomain, dataStore, lockdownMode] () -> Ref<WebProcessProxy> {
-        return processForRegistrableDomain(dataStore, targetRegistrableDomain, lockdownMode);
+    auto createNewProcess = [&] () -> Ref<WebProcessProxy> {
+        return processForRegistrableDomain(dataStore, targetRegistrableDomain, lockdownMode, page.configuration());
     };
 
     if (usesSingleWebProcess())
@@ -1950,18 +1943,19 @@ std::tuple<Ref<WebProcessProxy>, SuspendedPageProxy*, ASCIILiteral> WebProcessPo
     if (m_automationSession)
         return { WTFMove(sourceProcess), nullptr, "An automation session is active"_s };
 
-    if (!sourceProcess->hasCommittedAnyProvisionalLoads()) {
+    // FIXME: We ought to be able to re-use processes that haven't committed anything with site isolation enabled, but cross-site redirects are tricky.
+    if (!sourceProcess->hasCommittedAnyProvisionalLoads() && !page.preferences().siteIsolationEnabled()) {
         tryPrewarmWithDomainInformation(sourceProcess, targetRegistrableDomain);
         return { WTFMove(sourceProcess), nullptr, "Process has not yet committed any provisional loads"_s };
     }
 
     // FIXME: We should support process swap when a window has been opened via window.open() without 'noopener'.
     // The issue is that the opener has a handle to the WindowProxy.
-    if (navigation.openedByDOMWithOpener() && !page.preferences().processSwapOnCrossSiteWindowOpenEnabled())
+    if (navigation.openedByDOMWithOpener() && !!page.openerFrame() && !page.preferences().processSwapOnCrossSiteWindowOpenEnabled())
         return { WTFMove(sourceProcess), nullptr, "Browsing context been opened by DOM without 'noopener'"_s };
 
     // FIXME: We should support process swap when a window has opened other windows via window.open.
-    if (navigation.hasOpenedFrames())
+    if (navigation.hasOpenedFrames() && page.hasOpenedPage() && !page.preferences().processSwapOnCrossSiteWindowOpenEnabled())
         return { WTFMove(sourceProcess), nullptr, "Browsing context has opened other windows"_s };
 
     if (auto* targetItem = navigation.targetItem()) {
@@ -1969,7 +1963,7 @@ std::tuple<Ref<WebProcessProxy>, SuspendedPageProxy*, ASCIILiteral> WebProcessPo
             return { suspendedPage->process(), suspendedPage, "Using target back/forward item's process and suspended page"_s };
 
         if (auto process = WebProcessProxy::processForIdentifier(targetItem->lastProcessIdentifier())) {
-            if (process->state() != WebProcessProxy::State::Terminated) {
+            if (process->state() != WebProcessProxy::State::Terminated && process->hasSameGPUProcessPreferencesAs(page.configuration())) {
                 // Make sure we remove the process from the cache if it is in there since we're about to use it.
                 if (process->isInProcessCache()) {
                     webProcessCache().removeProcess(*process, WebProcessCache::ShouldShutDownProcess::No);
@@ -2079,20 +2073,6 @@ void WebProcessPool::resetMockMediaDevices()
 #if ENABLE(GPU_PROCESS)
     ensureGPUProcess().resetMockMediaDevices();
 #endif
-#endif
-}
-
-void WebProcessPool::sendDisplayConfigurationChangedMessageForTesting()
-{
-#if PLATFORM(MAC)
-    auto display = CGSMainDisplayID();
-    CGDisplayChangeSummaryFlags flags = kCGDisplaySetModeFlag | kCGDisplayDesktopShapeChangedFlag;
-    for (auto& processPool : WebProcessPool::allProcessPools()) {
-        processPool->sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(display, kCGDisplayBeginConfigurationFlag));
-        processPool->sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(display, flags));
-        if (auto gpuProcess = processPool->gpuProcess())
-            gpuProcess->displayConfigurationChanged(display, flags);
-    }
 #endif
 }
 

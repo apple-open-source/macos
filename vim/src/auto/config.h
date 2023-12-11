@@ -236,6 +236,8 @@
 /* #undef HAVE_BIND_TEXTDOMAIN_CODESET */
 #define HAVE_MBLEN 1
 /* #define HAVE_TIMER_CREATE 1 */  /* only for macOS via Xcode */
+/* #define HAVE_CLOCK_GETTIME 1 */  /* only for macOS via Xcode */
+/* #define HAVE_XATTR 1 */ /* currently not support in Darwin */
 
 /* Define, if needed, for accessing large files. */
 /* #undef _LARGE_FILES */

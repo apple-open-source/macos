@@ -82,6 +82,19 @@ CFMutableSetRef	_plugins_verbose	= NULL;		/* bundle identifiers to enable verbos
 
 static CFMachPortRef termRequested	= NULL;		/* Mach port used to notify runloop of a shutdown request */
 
+/*
+ * ALT_CFRelease()
+ *
+ * An alternate CFRelease() that we can use to fake out the
+ * static analyzer.
+ */
+__private_extern__ void
+ALT_CFRelease(CFTypeRef cf)
+{
+	CFRelease(cf);
+}
+
+
 
 static const struct option longopts[] = {
 //	{ "no-bundles",		no_argument,		0,	'b' },
@@ -538,9 +551,6 @@ main(int argc, char * const argv[])
 		/* register for watchdog monitoring */
 		if (wd_endpoint_register != NULL) { /* "weak_import" */
 			wd_endpoint_register(CONFIGD_WATCHDOG);
-#if !(TARGET_OS_WATCH || TARGET_OS_IOS)
-			wd_endpoint_add_queue(dispatch_get_main_queue());
-#endif // !(TARGET_OS_WATCH || TARGET_OS_IOS)
 			wd_endpoint_add_queue(server_queue());
 			wd_endpoint_activate();
 		}

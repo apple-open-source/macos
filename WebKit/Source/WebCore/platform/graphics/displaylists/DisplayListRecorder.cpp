@@ -74,14 +74,10 @@ void Recorder::appendStateChangeItem(const GraphicsContextState& state)
     
     if (state.containsOnlyInlineChanges()) {
         if (state.changes().contains(GraphicsContextState::Change::FillBrush))
-            recordSetInlineFillColor(*fillColor().tryGetAsSRGBABytes());
+            recordSetInlineFillColor(*fillColor().tryGetAsPackedInline());
 
-        if (state.changes().contains(GraphicsContextState::Change::StrokeBrush))
-            recordSetInlineStrokeColor(*strokeColor().tryGetAsSRGBABytes());
-
-        if (state.changes().contains(GraphicsContextState::Change::StrokeThickness))
-            recordSetStrokeThickness(strokeThickness());
-
+        if (state.changes().containsAny({ GraphicsContextState::Change::StrokeBrush, GraphicsContextState::Change::StrokeThickness }))
+            recordSetInlineStroke(buildSetInlineStroke(state));
         return;
     }
 
@@ -119,6 +115,21 @@ void Recorder::appendStateChangeItemIfNecessary()
     appendStateChangeItem(state);
     state.didApplyChanges();
     currentState().lastDrawingState = state;
+}
+
+SetInlineStroke Recorder::buildSetInlineStroke(const GraphicsContextState& state)
+{
+    ASSERT(state.containsOnlyInlineChanges());
+    ASSERT(state.changes().containsAny({ GraphicsContextState::Change::StrokeBrush, GraphicsContextState::Change::StrokeThickness }));
+
+    if (!state.changes().contains(GraphicsContextState::Change::StrokeBrush))
+        return SetInlineStroke(strokeThickness());
+
+    ASSERT(strokeColor().tryGetAsPackedInline());
+    if (!state.changes().contains(GraphicsContextState::Change::StrokeThickness))
+        return SetInlineStroke(*strokeColor().tryGetAsPackedInline());
+
+    return SetInlineStroke(*strokeColor().tryGetAsPackedInline(), strokeThickness());
 }
 
 const GraphicsContextState& Recorder::state() const
@@ -279,18 +290,22 @@ void Recorder::drawPattern(ImageBuffer& imageBuffer, const FloatRect& destRect, 
     recordDrawPattern(imageBuffer.renderingResourceIdentifier(), destRect, tileRect, patternTransform, phase, spacing, options);
 }
 
-void Recorder::save()
+void Recorder::save(GraphicsContextState::Purpose purpose)
 {
+    ASSERT(purpose == GraphicsContextState::Purpose::SaveRestore);
+
     appendStateChangeItemIfNecessary();
-    GraphicsContext::save();
+    GraphicsContext::save(purpose);
     recordSave();
     m_stateStack.append(m_stateStack.last());
 }
 
-void Recorder::restore()
+void Recorder::restore(GraphicsContextState::Purpose purpose)
 {
+    ASSERT(purpose == GraphicsContextState::Purpose::SaveRestore);
+
     appendStateChangeItemIfNecessary();
-    GraphicsContext::restore();
+    GraphicsContext::restore(purpose);
 
     if (!m_stateStack.size())
         return;
@@ -350,10 +365,8 @@ void Recorder::beginTransparencyLayer(float opacity)
     appendStateChangeItemIfNecessary();
     recordBeginTransparencyLayer(opacity);
 
-    GraphicsContext::save();
+    GraphicsContext::save(GraphicsContextState::Purpose::TransparencyLayer);
     m_stateStack.append(m_stateStack.last().cloneForTransparencyLayer());
-    
-    m_state.didBeginTransparencyLayer();
 }
 
 void Recorder::endTransparencyLayer()
@@ -364,7 +377,7 @@ void Recorder::endTransparencyLayer()
     recordEndTransparencyLayer();
 
     m_stateStack.removeLast();
-    GraphicsContext::restore();
+    GraphicsContext::restore(GraphicsContextState::Purpose::TransparencyLayer);
 }
 
 void Recorder::drawRect(const FloatRect& rect, float borderThickness)
@@ -492,7 +505,7 @@ void Recorder::strokePath(const Path& path)
     auto& state = currentState().state;
     if (state.containsOnlyInlineStrokeChanges()) {
         if (auto line = path.singleDataLine()) {
-            recordStrokeLineWithColorAndThickness(*line, *strokeColor().tryGetAsSRGBABytes(), strokeThickness());
+            recordStrokeLineWithColorAndThickness(*line, buildSetInlineStroke(state));
             state.didApplyChanges();
             currentState().lastDrawingState = state;
             return;

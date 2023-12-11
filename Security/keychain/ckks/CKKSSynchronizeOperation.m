@@ -105,7 +105,9 @@
                                                                                                            fetchReasons:[NSSet setWithObject:CKKSFetchBecauseResync]
                                                                                                              apnsPushes:nil
                                                                                                             forceResync:true
-                                                                                                       ckoperationGroup:operationGroup];
+                                                                                                       ckoperationGroup:operationGroup
+                                                                                                                altDSID:self.deps.activeAccount.altDSID
+    ];
     fetchOp.name = [NSString stringWithFormat: @"resync-step%u-fetch", self.restartCount * steps + 1];
     [self runBeforeGroupFinished: fetchOp];
 

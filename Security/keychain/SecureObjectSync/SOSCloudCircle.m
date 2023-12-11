@@ -1886,24 +1886,6 @@ SOSCCAccountGetPublicKey(void (^reply)(BOOL trusted, NSData *data, NSError *erro
 }
 
 void
-SOSCCAccountGetAccountPrivateCredential(void (^complete)(NSData *data, NSError *error))
-{
-    IF_SOS_DISABLED {
-        complete(NULL, sosDisabledNSError());
-        return;
-    }
-    CFErrorRef error = NULL;
-    id<SOSControlProtocol> status = SOSCCGetStatusObject(&error);
-    if (status == NULL) {
-        complete(NULL, (__bridge NSError *)error);
-        CFReleaseNull(error);
-        return;
-    }
-
-    [status validatedStashedAccountCredential:complete];
-}
-
-void
 SOSCCAccountGetKeyCircleGeneration(void (^reply)(NSData *data, NSError *error))
 {
     IF_SOS_DISABLED {

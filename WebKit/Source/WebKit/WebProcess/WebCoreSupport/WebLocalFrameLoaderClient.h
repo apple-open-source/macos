@@ -182,6 +182,7 @@ private:
     WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&) const final;
     WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&) const final;
     WebCore::ResourceError httpsUpgradeRedirectLoopError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError httpNavigationWithHTTPSOnlyError(const WebCore::ResourceRequest&) const final;
     WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&) const final;
     
     bool shouldFallBack(const WebCore::ResourceError&) const final;
@@ -274,6 +275,8 @@ private:
     void getLoadDecisionForIcons(const Vector<std::pair<WebCore::LinkIcon&, uint64_t>>&) final;
 
     inline bool hasPlugInView() const;
+
+    void broadcastFrameRemovalToOtherProcesses() final;
 
     ScopeExit<Function<void()>> m_frameInvalidator;
 

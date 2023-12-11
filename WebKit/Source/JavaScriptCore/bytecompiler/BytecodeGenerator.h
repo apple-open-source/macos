@@ -138,16 +138,7 @@ namespace JSC {
 
         void dump(PrintStream&) const;
 
-        bool operator==(const Variable& other) const
-        {
-            return m_ident == other.m_ident
-                && m_offset == other.m_offset
-                && m_local == other.m_local
-                && m_attributes == other.m_attributes
-                && m_kind == other.m_kind
-                && m_symbolTableConstantIndex == other.m_symbolTableConstantIndex
-                && m_isLexicallyScoped == other.m_isLexicallyScoped;
-        }
+        friend bool operator==(const Variable&, const Variable&) = default;
 
     private:
         Identifier m_ident;
@@ -476,7 +467,8 @@ namespace JSC {
 
         void emitNode(RegisterID* dst, StatementNode* n)
         {
-            SetForScope tailPositionPoisoner(m_inTailPosition, false);
+            SetForScope tailPositionPoisoner(m_allowTailCallOptimization, false);
+            SetForScope callIgnoreResultPositionPoisoner(m_allowCallIgnoreResultOptimization, false);
             return emitNodeInTailPosition(dst, n);
         }
 
@@ -498,6 +490,11 @@ namespace JSC {
             return m_codeBlock->metadata().addEntry(opcodeID);
         }
 
+        ALWAYS_INLINE unsigned nextValueProfileIndex()
+        {
+            return m_codeBlock->metadata().addValueProfile();
+        }
+
         void emitNode(StatementNode* n)
         {
             emitNode(nullptr, n);
@@ -510,7 +507,20 @@ namespace JSC {
 
         RegisterID* emitNode(RegisterID* dst, ExpressionNode* n)
         {
-            SetForScope tailPositionPoisoner(m_inTailPosition, false);
+            SetForScope tailPositionPoisoner(m_allowTailCallOptimization, false);
+            SetForScope callIgnoreResultPositionPoisoner(m_allowCallIgnoreResultOptimization, false);
+            return emitNodeInTailPosition(dst, n);
+        }
+
+        RegisterID* emitNodeInTailPositionFromReturnNode(RegisterID* dst, ExpressionNode* n)
+        {
+            SetForScope callIgnoreResultPositionPoisoner(m_allowCallIgnoreResultOptimization, false);
+            return emitNodeInTailPosition(dst, n);
+        }
+
+        RegisterID* emitNodeInTailPositionFromExprStatementNode(RegisterID* dst, ExpressionNode* n)
+        {
+            SetForScope tailPositionPoisoner(m_allowTailCallOptimization, false);
             return emitNodeInTailPosition(dst, n);
         }
 
@@ -672,12 +682,13 @@ namespace JSC {
         template<typename BinaryOp>
         RegisterID* emitBinaryOp(RegisterID* dst, RegisterID* src1, RegisterID* src2, OperandTypes types = { })
         {
-            if constexpr (BinaryOp::opcodeID == op_add || BinaryOp::opcodeID == op_mul || BinaryOp::opcodeID == op_sub || BinaryOp::opcodeID == op_div)
+            UNUSED_PARAM(types);
+            if constexpr (BinaryOp::opcodeID == op_add || BinaryOp::opcodeID == op_mul || BinaryOp::opcodeID == op_sub || BinaryOp::opcodeID == op_div || BinaryOp::opcodeID == op_bitand || BinaryOp::opcodeID == op_bitor || BinaryOp::opcodeID == op_bitxor)
                 BinaryOp::emit(this, dst, src1, src2, m_codeBlock->addBinaryArithProfile(), types);
-            else {
-                UNUSED_PARAM(types);
+            else if constexpr (BinaryOp::opcodeID == op_lshift || BinaryOp::opcodeID == op_rshift)
+                BinaryOp::emit(this, dst, src1, src2, m_codeBlock->addBinaryArithProfile());
+            else
                 BinaryOp::emit(this, dst, src1, src2);
-            }
             return dst;
         }
 
@@ -763,7 +774,7 @@ namespace JSC {
             move(args.thisRegister(), base);
             move(args.argumentRegister(0), prototype);
 
-            emitCall(newTemporary(), setPrototypeDirect.get(), NoExpectedFunction, args, divot, divotStart, divotEnd, DebuggableCall::No);
+            emitCallIgnoreResult(newTemporary(), setPrototypeDirect.get(), NoExpectedFunction, args, divot, divotStart, divotEnd, DebuggableCall::No);
             return base;
         }
 
@@ -817,6 +828,8 @@ namespace JSC {
         RegisterID* emitCallVarargsInTailPosition(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall);
         RegisterID* emitCallForwardArgumentsInTailPosition(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall);
 
+        void emitCallIgnoreResult(RegisterID* dst, RegisterID* func, ExpectedFunction, CallArguments&, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall);
+
         enum PropertyDescriptorOption {
             PropertyConfigurable = 1,
             PropertyWritable     = 1 << 1,
@@ -845,6 +858,7 @@ namespace JSC {
         RegisterID* emitResolveScope(RegisterID* dst, const Variable&);
         RegisterID* emitGetFromScope(RegisterID* dst, RegisterID* scope, const Variable&, ResolveMode);
         RegisterID* emitPutToScope(RegisterID* scope, const Variable&, RegisterID* value, ResolveMode, InitializationMode);
+        RegisterID* emitPutToScopeDynamic(RegisterID* scope, const Identifier&, RegisterID* value, ResolveMode, InitializationMode);
 
         RegisterID* emitResolveScopeForHoistingFuncDeclInEval(RegisterID* dst, const Identifier&);
 
@@ -1323,7 +1337,8 @@ namespace JSC {
         bool m_expressionTooDeep { false };
         bool m_isBuiltinFunction { false };
         bool m_usesSloppyEval { false };
-        bool m_inTailPosition { false };
+        bool m_allowTailCallOptimization { false };
+        bool m_allowCallIgnoreResultOptimization { false };
         bool m_needsToUpdateArrowFunctionContext : 1;
         ECMAMode m_ecmaMode;
         DerivedContextType m_derivedContextType { DerivedContextType::None };

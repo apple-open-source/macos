@@ -80,6 +80,7 @@ static int enableWebAccess = false;
 static int disableWebAccess = false;
 
 static int health = false;
+static int simulateReceivePush = false;
 static int tlkRecoverability = false;
 static int machineIDOverride = false;
 
@@ -185,6 +186,7 @@ int main(int argc, char** argv)
         {.command = "er-store", .flag = &er_store, .flagval = true, .description = "Store any pending Escrow Request prerecords"},
 
         {.command = "health", .flag = &health, .flagval = true, .description = "Check Octagon Health status"},
+        {.command = "simulate-receive-push", .flag = &simulateReceivePush, .flagval = true, .description = "Simulate receiving a Octagon push notification", .internal_only = true},
         {.command = "ckks-policy", .flag = &ckks_policy_flag, .flagval = true, .description = "Trigger a refetch of the CKKS policy"},
 
         {.command = "taptoradar", .flag = &ttr_flag, .flagval = true, .description = "Trigger a TapToRadar", .internal_only = true},
@@ -275,7 +277,9 @@ int main(int argc, char** argv)
 
         OTControlArguments* arguments = [[OTControlArguments alloc] initWithContainerName:container
                                                                                 contextID:context
-                                                                                  altDSID:altDSID];
+                                                                                  altDSID:altDSID
+                                                                                   flowID:[NSString stringWithFormat:@"otctl-flowID-%@", [NSUUID UUID].UUIDString]
+                                                                          deviceSessionID:[NSString stringWithFormat:@"otctl-deviceSessionID-%@", [NSUUID UUID].UUIDString]];
 
         NSError* escrowRequestError = nil;
         EscrowRequestCLI* escrowctl = [[EscrowRequestCLI alloc] initWithEscrowRequest:[SecEscrowRequest request:&escrowRequestError]];
@@ -384,6 +388,10 @@ int main(int argc, char** argv)
                 skip = NO;
             }
             return [ctl healthCheck:arguments skipRateLimitingCheck:skip repair:repair json:json];
+        }
+
+        if(simulateReceivePush) {
+            return [ctl simulateReceivePush:arguments json:json];
         }
         if(tlkRecoverability) {
             return [ctl tlkRecoverability:arguments];

@@ -476,7 +476,7 @@ void InteractionRegionOverlay::drawSettings(GraphicsContext& context)
 
     {
         GraphicsContextStateSaver stateSaver(context);
-        context.setShadow({ }, 5, Color(Color::black).colorWithAlpha(0.5));
+        context.setDropShadow({ { }, 5, Color(Color::black).colorWithAlpha(0.5), ShadowRadiusMode::Default });
         context.fillRoundedRect(FloatRoundedRect { rect, FloatRoundedRect::Radii { 6 } }, Color(Color::white).colorWithAlpha(0.85));
     }
 
@@ -595,7 +595,7 @@ bool InteractionRegionOverlay::mouseEvent(PageOverlay& overlay, const PlatformMo
         if (!rectForSettingAtIndex(i).contains(eventInContentsCoordinates))
             continue;
         cursorToSet = handCursor();
-        if (event.button() == LeftButton && event.type() == PlatformEvent::Type::MousePressed) {
+        if (event.button() == MouseButton::Left && event.type() == PlatformEvent::Type::MousePressed) {
             m_settings[i].value = !m_settings[i].value;
             m_page.forceRepaintAllFrames();
             return true;

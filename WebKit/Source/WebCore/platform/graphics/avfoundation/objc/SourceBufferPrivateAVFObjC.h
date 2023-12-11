@@ -120,14 +120,15 @@ public:
     bool waitingForKey() const { return m_waitingForKey; }
 
     void flush();
+#if PLATFORM(IOS_FAMILY)
     void flushIfNeeded();
+#endif
 
     void registerForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
     void unregisterForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
     void layerDidReceiveError(AVSampleBufferDisplayLayer *, NSError *);
     void rendererWasAutomaticallyFlushed(AVSampleBufferAudioRenderer *, const CMTime&);
     void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
-    void layerRequiresFlushToResumeDecodingChanged(AVSampleBufferDisplayLayer *, bool);
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     void rendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *);
 ALLOW_NEW_API_WITHOUT_GUARDS_END
@@ -190,7 +191,6 @@ private:
     void destroyRenderers();
     void clearTracks();
 
-    bool requiresFlush() const;
     void flushVideo();
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     void flushAudio(AVSampleBufferAudioRenderer *);
@@ -258,7 +258,6 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     bool m_parsingSucceeded { true };
     bool m_waitingForKey { true };
     bool m_seeking { false };
-    bool m_layerRequiresFlush { false };
     uint64_t m_enabledVideoTrackID { notFound };
     uint64_t m_protectedTrackID { notFound };
     uint64_t m_mapID;

@@ -25,7 +25,6 @@ format,                                                                         
 
 @property NSMutableDictionary<OctagonState*, CKKSCondition*>* mutableStateConditions;
 
-@property dispatch_queue_t queue;
 @property NSOperationQueue* operationQueue;
 
 @property NSString* name;
@@ -60,11 +59,12 @@ format,                                                                         
 @implementation OctagonStateMachine
 
 - (instancetype)initWithName:(NSString*)name
-                      states:(NSSet<OctagonState*>*)possibleStates
+                      states:(NSDictionary<OctagonState*, NSNumber*>*)possibleStates
                        flags:(NSSet<OctagonFlag*>*)possibleFlags
                 initialState:(OctagonState*)initialState
                        queue:(dispatch_queue_t)queue
                  stateEngine:(id<OctagonStateMachineEngine>)stateEngine
+  unexpectedStateErrorDomain:(NSString*)unexpectedStateErrorDomain
             lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
          reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
 {
@@ -77,7 +77,14 @@ format,                                                                         
         _currentConditions = 0;
 
         // Every state machine starts in OctagonStateMachineNotStarted, so help them out a bit.
-        _allowableStates = [possibleStates setByAddingObjectsFromArray:@[OctagonStateMachineNotStarted, OctagonStateMachineHalted]];
+        NSMutableDictionary<OctagonState*, NSNumber*>* actualPossibleStates = [possibleStates mutableCopy];
+        actualPossibleStates[OctagonStateMachineNotStarted] = @-1;
+        actualPossibleStates[OctagonStateMachineHalted] = @-2;
+
+        _stateNumberMap = actualPossibleStates;
+        _unexpectedStateErrorDomain = unexpectedStateErrorDomain;
+
+        _allowableStates = [NSSet setWithArray:[actualPossibleStates allKeys]];
 
         _queue = queue;
         _operationQueue = [[NSOperationQueue alloc] init];
@@ -90,9 +97,9 @@ format,                                                                         
         _halted = false;
 
         _mutableStateConditions = [[NSMutableDictionary alloc] init];
-        [possibleStates enumerateObjectsUsingBlock:^(OctagonState * _Nonnull obj, BOOL * _Nonnull stop) {
-            self.mutableStateConditions[obj] = [[CKKSCondition alloc] init];
-        }];
+        for(OctagonState* state in actualPossibleStates.allKeys) {
+            self.mutableStateConditions[state] = [[CKKSCondition alloc] init];
+        };
 
         // Use the setter method to set the condition variables
         self.currentState = OctagonStateMachineNotStarted;
@@ -690,7 +697,7 @@ format,                                                                         
                                                                             transitionOp:initialTransitionOp];
 
     OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:[NSString stringWithFormat:@"watcher-%@", name]
-                                                                                  serialQueue:self.queue
+                                                                                  stateMachine:self
                                                                                          path:path
                                                                                initialRequest:request];
     [watcher timeout:self.timeout?:120*NSEC_PER_SEC];

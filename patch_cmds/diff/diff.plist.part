@@ -19,6 +19,7 @@
 			<string>diff.c, diff.h, diffdir.c, diffreg.c: POSIX conformance for type mismatches in directory comparisons (87480531)</string>
 			<string>diff.1, diff.c, diff.h, diffreg.c: POSIX conformant unified diff timestamps (92753335)</string>
 			<string>diffreg.c: clistlen can overflow (93984430)</string>
+			<string>diff.1: correct explanation of diff -e -r behavior (115482996)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

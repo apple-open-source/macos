@@ -2,6 +2,7 @@
 
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/OctagonStateMachine.h"
 #import "keychain/ot/OctagonStateMachineObservers.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
@@ -75,6 +76,10 @@
     return self;
 }
 
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<OctagonStateTransitionPath: %@ %@", self.initialState, self.pathStep];
+}
+
 - (OctagonStateTransitionPathStep*)asPathStep
 {
     return [[OctagonStateTransitionPathStep alloc] initWithPath:@{
@@ -111,6 +116,9 @@
 @property (nullable) OctagonStateTransitionRequest* initialRequest;
 @property (nullable) CKKSResultOperation* initialTimeoutListenerOp;
 
+@property NSDictionary<OctagonState*, NSNumber*>* stateNumberMap;
+@property NSString* unexpectedStateErrorDomain;
+
 @property bool timeoutCanOccur;
 @property dispatch_queue_t queue;
 @end
@@ -118,7 +126,7 @@
 @implementation OctagonStateTransitionWatcher
 
 - (instancetype)initNamed:(NSString*)name
-              serialQueue:(dispatch_queue_t)queue
+             stateMachine:(OctagonStateMachine*)stateMachine
                      path:(OctagonStateTransitionPath*)pathBeginning
            initialRequest:(OctagonStateTransitionRequest* _Nullable)initialRequest
 {
@@ -130,7 +138,10 @@
         _result = [CKKSResultOperation named:[NSString stringWithFormat:@"watcher-%@", name] withBlock:^{}];
         _operationQueue = [[NSOperationQueue alloc] init];
 
-        _queue = queue;
+        // Be careful not to take a strong reference to stateMachine; that'll likely cause a retain loop
+        _queue = stateMachine.queue;
+        _stateNumberMap = stateMachine.stateNumberMap;
+        _unexpectedStateErrorDomain = stateMachine.unexpectedStateErrorDomain;
 
         _timeoutCanOccur = true;
         _initialRequest = initialRequest;
@@ -241,9 +252,19 @@
         if(attempt.error) {
             self.result.error = attempt.error;
         } else {
+            // Do we have an error code for this other state?
+            NSNumber* number = self.stateNumberMap[attempt.nextState];
+            NSError* underlying = nil;
+            if(number != nil) {
+                underlying = [NSError errorWithDomain:self.unexpectedStateErrorDomain
+                                                 code:[number integerValue]
+                                          description:[NSString stringWithFormat:@"unexpected state '%@'", attempt.nextState]];
+            }
+
             self.result.error = [NSError errorWithDomain:OctagonErrorDomain
                                                     code:OctagonErrorUnexpectedStateTransition
-                                             description:[NSString stringWithFormat:@"state became %@, was expecting %@", attempt.nextState, self.remainingPath]];
+                                             description:[NSString stringWithFormat:@"state became %@, was expecting %@", attempt.nextState, self.remainingPath]
+                                              underlying:underlying];
         }
         [[CKKSAnalytics logger] logUnrecoverableError:self.result.error
                                              forEvent:OctagonEventStateTransition

@@ -26,6 +26,7 @@
 #import <notify.h>
 #import <os/feature_private.h>
 #import <Security/Security.h>
+#import <Security/SecInternalReleasePriv.h>
 #import <Security/SecLaunchSequence.h>
 #include <Security/SecRandomP.h>
 #import <Security/SecXPCHelper.h>
@@ -112,6 +113,10 @@
 
 #import "utilities/SecFileLocations.h"
 #import "utilities/SecTapToRadar.h"
+
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
 
 #if TARGET_OS_WATCH
 #import "keychain/otpaird/OTPairingClient.h"
@@ -235,11 +240,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         [_accountMetadataStore registerNotification:self];
 
         _stateMachine = [[OctagonStateMachine alloc] initWithName:[contextID isEqualToString:OTDefaultContext] ? @"octagon" : [NSString stringWithFormat:@"octagon-%@", contextID]
-                                                           states:[NSSet setWithArray:[[OTStates OctagonStateMap] allKeys]]
+                                                           states:[OTStates OctagonStateMap]
                                                             flags:[OTStates AllOctagonFlags]
                                                      initialState:OctagonStateInitializing
                                                             queue:_queue
                                                       stateEngine:self
+                                       unexpectedStateErrorDomain:OctagonStateTransitionErrorDomain
                                                  lockStateTracker:lockStateTracker
                                               reachabilityTracker:reachabilityTracker];
 
@@ -469,6 +475,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         self.cloudKitAccountInfo = currentAccountInfo;
 
         if(currentAccountInfo.accountStatus == CKAccountStatusAvailable && self.activeAccount == nil) {
+            AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                         altDSID:self.activeAccount.altDSID
+                                                                                                          flowID:self.flowID deviceSessionID:self.deviceSessionID
+                                                                                                       eventName:kSecurityRTCEventNameCloudKitAccountAvailability
+                                                                                                 testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
             // There's probably an account. Let's optimistically fill in our account specifier if it's missing.
             // Do this off the queue just in case of deadlocks.
             NSError* accountError = nil;
@@ -483,6 +496,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             } else {
                 secnotice("octagon-account", "Unable to find a current account (context %@): %@", self.contextID, accountError);
             }
+            [eventS addMetrics:@{kSecurityRTCFieldAccountAvailability : @(YES)}];
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:self.activeAccount ? YES : NO error:accountError];
+
         } else {
             secnotice("octagon-account", "skipping account fetch %@", self.contextID);
         }
@@ -502,13 +518,24 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
     if(!(currentAccountInfo.accountStatus == CKAccountStatusAvailable)) {
         secnotice("octagon", "Informed that the CK account is now unavailable: %@", currentAccountInfo);
+        AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                     altDSID:self.activeAccount.altDSID
+                                                                                                      flowID:self.flowID
+                                                                                             deviceSessionID:self.deviceSessionID
+                                                                                                   eventName:kSecurityRTCEventNameCloudKitAccountAvailability
+                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
         // Add a state machine request to return to OctagonStateWaitingForCloudKitAccount
         [self.stateMachine doSimpleStateMachineRPC:@"cloudkit-account-gone"
                                                 op:[OctagonStateTransitionOperation named:@"cloudkit-account-gone"
                                                                                  entering:OctagonStateWaitingForCloudKitAccount]
                                       sourceStates:[OTStates OctagonInAccountStates]
-                                             reply:^(NSError* error) {}];
+                                             reply:^(NSError* error) {
+            [eventS addMetrics:@{kSecurityRTCFieldAccountAvailability : @(NO)}];
+            BOOL success = (error == nil) ? YES : NO;
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:success error:error];
+        }];
     }
 }
 
@@ -877,7 +904,10 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     if ([self.deviceAdapter isMachineIDOverridden]) {
         machineID = [self.deviceAdapter getOverriddenMachineID];
     } else {
-        machineID = [self.authKitAdapter machineID:&error];
+        machineID = [self.authKitAdapter machineID:self.activeAccount.altDSID
+                                            flowID:self.flowID
+                                   deviceSessionID:self.deviceSessionID
+                                             error:&error];
     }
 
     if(!machineID || error) {
@@ -911,7 +941,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                             lockStateTracker:self.lockStateTracker
                                         cuttlefishXPCWrapper:self.cuttlefishXPCWrapper
                                           escrowRequestClass:self.escrowRequestClass
-                                               notifierClass:self.notifierClass];
+                                               notifierClass:self.notifierClass
+                                                      flowID:self.flowID
+                                             deviceSessionID:self.deviceSessionID];
 }
 
 - (void)startOctagonStateMachine
@@ -1050,14 +1082,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                   errorState:OctagonStateBecomeUntrusted];
     }
 #pragma mark --- Octagon Health Check States
-    if([currentState isEqualToString:OctagonStateCDPCapableHealthCheck]) {
-        return [[OTDetermineCDPCapableAccountStatusOperation alloc] initWithDependencies:self.operationDependencies
-                                                                       stateIfCDPCapable:OctagonStateCDPHealthCheck
-                                                                    stateIfNotCDPCapable:OctagonStateWaitForCDPCapableSecurityLevel
-                                                                        stateIfNoAccount:OctagonStateNoAccount
-                                                                              errorState:OctagonStateError];
-    }
-
     if([currentState isEqualToString:OctagonStateCDPHealthCheck]) {
         return [[OTDetermineCDPBitStatusOperation alloc] initWithDependencies:self.operationDependencies
                                                        intendedState:OctagonStateSecurityTrustCheck
@@ -1086,14 +1110,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return [OctagonStateTransitionOperation named:@"begin-reset"
                                              entering:OctagonStateResetBecomeUntrusted];
     }
-
-#pragma mark --- Watch Pairing States
-
-#if TARGET_OS_WATCH
-    if([currentState isEqualToString:OctagonStateStartCompanionPairing]) {
-        return [self startCompanionPairingOperation];
-    }
-#endif /* TARGET_OS_WATCH */
 
     if([currentState isEqualToString:OctagonStateBecomeUntrusted]) {
         return [self becomeUntrustedOperation:OctagonStateUntrusted];
@@ -2285,27 +2301,19 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 }
 
 #if TARGET_OS_WATCH
-- (CKKSResultOperation<OctagonStateTransitionOperationProtocol>* _Nullable)startCompanionPairingOperation
+- (void)startCompanionPairing
 {
-    WEAKIFY(self);
-    return [OctagonStateTransitionOperation named:@"start-companion-pairing"
-                                        intending:OctagonStateBecomeUntrusted
-                                       errorState:OctagonStateError
-                              withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
-        STRONGIFY(self);
-        OTPairingInitiateWithCompletion(self.queue, ^(bool success, NSError *error) {
-            if (success) {
-                secnotice("octagon", "companion pairing succeeded");
-            } else {
-                if (error == nil) {
-                    error = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
-                }
-                secnotice("octagon", "companion pairing failed: %@", error);
+    OTPairingInitiateWithCompletion(self.queue, ^(bool success, NSError *error) {
+        if (success) {
+            secnotice("octagon", "companion pairing succeeded");
+        } else {
+            if (error == nil) {
+                error = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
             }
-            [[CKKSAnalytics logger] logResultForEvent:OctagonEventCompanionPairing hardFailure:false result:error];
-        });
-        op.nextState = op.intendedState;
-    }];
+            secnotice("octagon", "companion pairing failed: %@", error);
+        }
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventCompanionPairing hardFailure:false result:error];
+    });
 }
 #endif /* TARGET_OS_WATCH */
 
@@ -2343,6 +2351,10 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                       op.nextState = OctagonStateWaitForUnlock;
                                       return;
                                   }
+
+#if TARGET_OS_WATCH
+                                  [self startCompanionPairing];
+#endif /* TARGET_OS_WATCH */
 
                                   [self.accountMetadataStore persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
                                       metadata.trustState = OTAccountMetadataClassC_TrustState_UNTRUSTED;
@@ -2647,7 +2659,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     [self notifyContainerChangeWithUserInfo:notification.userInfo];
 }
 
-- (void)notifyContainerChangeWithUserInfo:(NSDictionary*)userInfo
+- (void)notifyContainerChangeWithUserInfo:(NSDictionary* _Nullable)userInfo
 {
     secnotice("octagonpush", "received a cuttlefish push notification (%@): %@",
              self.containerName, userInfo);
@@ -4574,11 +4586,23 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
     WEAKIFY(self);
 
+    // If we're not in a CDP-capable account yet, double-check by simulating an IDMS level change.
+    // But, likely this is in the right state (unless we missed a notification), so there's no need to continue on and perform the whole health check.
+    // Report a failure, as we won't have a healthcheckresult, but afterward, double-check that our understanding of the account type is still correct
+    if([[self.stateMachine currentState] isEqualToString:OctagonStateWaitForCDPCapableSecurityLevel]) {
+        [self.stateMachine handleFlag:OctagonFlagIDMSLevelChanged];
+
+        NSError* localError = [NSError errorWithDomain:OctagonErrorDomain
+                                                  code:OctagonErrorUnsupportedAccount
+                                           description:@"Unable to perform health check on this account type"];
+        reply(nil, localError);
+        return;
+    }
+
     // Ending in "waitforunlock" is okay for a health check
     [self.stateMachine doWatchedStateMachineRPC:@"octagon-trust-health-check"
                                    sourceStates:[OTStates OctagonHealthSourceStates]
                                            path:[OctagonStateTransitionPath pathFromDictionary:@{
-                                            OctagonStateCDPCapableHealthCheck: @{
                                                 OctagonStateCDPHealthCheck: @{
                                                     OctagonStateSecurityTrustCheck: @{
                                                         OctagonStateTPHTrustCheck: @{
@@ -4598,8 +4622,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                     },
                                                     OctagonStateWaitForCDP: [OctagonStateTransitionPathStep success],
                                                 },
-                                                OctagonStateWaitForCDPCapableSecurityLevel: [OctagonStateTransitionPathStep success],
-                                            }
                                            }]
                                           reply:^(NSError *_Nullable error) {
             STRONGIFY(self);
@@ -4734,9 +4756,31 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return;
     }
 
+    NSString* altDSID = self.activeAccount.altDSID;
+    if(altDSID == nil) {
+        secnotice("authkit", "No configured altDSID: %@", self.activeAccount);
+        NSError *error = [NSError errorWithDomain:OctagonErrorDomain
+                                             code:OctagonErrorNoAppleAccount
+                                      description:@"No altDSID configured"];
+        reply(error);
+        return;
+    }
+
+    NSError* localError = nil;
+    BOOL isAccountDemo = [self.authKitAdapter accountIsDemoAccountByAltDSID:altDSID error:&localError];
+    if(localError) {
+        secerror("octagon-authkit: failed to fetch demo account flag: %@", localError);
+    }
+
+    BOOL internal = SecIsInternalRelease();
+
     // As this isn't a state-modifying operation, we don't need to go through the state machine.
     [self.cuttlefishXPCWrapper resetAccountCDPContentsWithSpecificUser:self.activeAccount
-                                                                 idmsTargetContext:idmsTargetContext idmsCuttlefishPassword:idmsCuttlefishPassword notifyIdMS:notifyIdMS
+                                                     idmsTargetContext:idmsTargetContext
+                                                idmsCuttlefishPassword:idmsCuttlefishPassword
+                                                            notifyIdMS:notifyIdMS
+                                                       internalAccount:internal
+                                                           demoAccount:isAccountDemo
                                                                  reply:^(NSError * resetError) {
         if (resetError){
             secerror("octagon: failed to reset cdp account contents: %@", resetError);

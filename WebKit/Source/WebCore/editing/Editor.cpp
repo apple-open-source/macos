@@ -2659,7 +2659,7 @@ void Editor::markMisspellingsAfterTypingToWord(const VisiblePosition& wordStart,
 {
     Ref<Document> protectedDocument(m_document);
 
-    if (platformDrivenTextCheckerEnabled())
+    if (platformOrClientDrivenTextCheckerEnabled())
         return;
 
 #if PLATFORM(IOS_FAMILY)
@@ -2867,7 +2867,7 @@ void Editor::markBadGrammar(const VisibleSelection& selection)
 
 void Editor::markAllMisspellingsAndBadGrammarInRanges(OptionSet<TextCheckingType> textCheckingOptions, const std::optional<SimpleRange>& spellingRange, const std::optional<SimpleRange>& automaticReplacementRange, const std::optional<SimpleRange>& grammarRange)
 {
-    if (platformDrivenTextCheckerEnabled())
+    if (platformOrClientDrivenTextCheckerEnabled())
         return;
 
     ASSERT(unifiedTextCheckerEnabled());
@@ -3169,7 +3169,7 @@ void Editor::changeBackToReplacedString(const String& replacedString)
 
 void Editor::markMisspellingsAndBadGrammar(const VisibleSelection& spellingSelection, bool markGrammar, const VisibleSelection& grammarSelection)
 {
-    if (platformDrivenTextCheckerEnabled())
+    if (platformOrClientDrivenTextCheckerEnabled())
         return;
 
     if (unifiedTextCheckerEnabled()) {
@@ -3532,17 +3532,16 @@ void Editor::removeTextPlaceholder(TextPlaceholderElement& placeholder)
 {
     ASSERT(placeholder.isConnected());
 
-    Ref<Document> document { this->document() };
+    Ref document { this->document() };
 
     // Save off state so that we can set the text insertion position to just before the placeholder element after removal.
     RefPtr savedRootEditableElement { placeholder.rootEditableElement() };
-    auto savedPositionBeforePlaceholder = positionBeforeNode(&placeholder).parentAnchoredEquivalent();
+    auto savedPositionBeforePlaceholder = positionInParentBeforeNode(&placeholder);
 
     // FIXME: Save the current selection if it has changed since the placeholder was inserted
     // and restore it after text insertion.
     placeholder.remove();
-
-    // To match the Legacy WebKit implementation, set the text insertion point to be before where the placeholder use to be.
+    // To match the Legacy WebKit implementation, set the text insertion point to be before where the placeholder used to be.
     if (m_document.selection().isFocusedAndActive() && document->focusedElement() == savedRootEditableElement)
         m_document.selection().setSelection(VisibleSelection { savedPositionBeforePlaceholder }, FrameSelection::defaultSetSelectionOptions(UserTriggered::Yes));
 }

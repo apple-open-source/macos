@@ -26,6 +26,10 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         // We should reach 'waitforcdp', as we cached the CK value
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfWaitingForCDP(context: self.cuttlefishContext)
+
+        // Fetching the syncing status from 'waitforcdp' should be fast
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
     }
 
     func testSignInPausesForCloudKit() throws {

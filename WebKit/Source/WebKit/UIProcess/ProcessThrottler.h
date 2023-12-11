@@ -57,7 +57,7 @@ enum class IsSuspensionImminent : bool { No, Yes };
 enum class ProcessThrottleState : uint8_t { Suspended, Background, Foreground };
 enum class ProcessThrottlerActivityType : bool { Background, Foreground };
 
-class ProcessThrottlerActivity {
+class ProcessThrottlerActivity : public CanMakeWeakPtr<ProcessThrottlerActivity> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(ProcessThrottlerActivity);
 public:
@@ -80,7 +80,7 @@ private:
 
     void invalidate();
 
-    ProcessThrottler* m_throttler { nullptr };
+    WeakPtr<ProcessThrottler> m_throttler;
     ASCIILiteral m_name;
     ProcessThrottlerActivityType m_type;
 };
@@ -90,18 +90,18 @@ class ProcessThrottlerTimedActivity {
     WTF_MAKE_NONCOPYABLE(ProcessThrottlerTimedActivity);
     using Activity = ProcessThrottlerActivity;
     using ActivityVariant = std::variant<std::nullptr_t, UniqueRef<Activity>>;
-    public:
-        explicit ProcessThrottlerTimedActivity(Seconds timeout, ActivityVariant&& = nullptr);
-        ProcessThrottlerTimedActivity& operator=(ActivityVariant&&);
-        const ActivityVariant& activity() const { return m_activity; }
+public:
+    explicit ProcessThrottlerTimedActivity(Seconds timeout, ActivityVariant&& = nullptr);
+    ProcessThrottlerTimedActivity& operator=(ActivityVariant&&);
+    const ActivityVariant& activity() const { return m_activity; }
 
-    private:
-        void activityTimedOut();
-        void updateTimer();
+private:
+    void activityTimedOut();
+    void updateTimer();
 
-        RunLoop::Timer m_timer;
-        Seconds m_timeout;
-        ActivityVariant m_activity;
+    RunLoop::Timer m_timer;
+    Seconds m_timeout;
+    ActivityVariant m_activity;
 };
 
 class ProcessThrottler : public CanMakeWeakPtr<ProcessThrottler> {
@@ -130,7 +130,7 @@ public:
 
     void didConnectToProcess(ProcessID);
     void didDisconnectFromProcess();
-    bool shouldBeRunnable() const { return m_foregroundActivities.size() || m_backgroundActivities.size(); }
+    bool shouldBeRunnable() const { return !m_foregroundActivities.isEmptyIgnoringNullReferences() || !m_backgroundActivities.isEmptyIgnoringNullReferences(); }
     void setAllowsActivities(bool);
     void setShouldDropNearSuspendedAssertionAfterDelay(bool);
     void setShouldTakeNearSuspendedAssertion(bool);
@@ -168,6 +168,9 @@ private:
     void numberOfPagesAllowedToRunInTheBackgroundChanged();
     void clearAssertion();
 
+    class ProcessAssertionCache;
+
+    UniqueRef<ProcessAssertionCache> m_assertionCache;
     ProcessThrottlerClient& m_process;
     ProcessID m_processID { 0 };
     RefPtr<ProcessAssertion> m_assertion;
@@ -175,18 +178,18 @@ private:
     RunLoop::Timer m_prepareToSuspendTimeoutTimer;
     RunLoop::Timer m_dropNearSuspendedAssertionTimer;
     RunLoop::Timer m_prepareToDropLastAssertionTimeoutTimer;
-    HashSet<Activity*> m_foregroundActivities;
-    HashSet<Activity*> m_backgroundActivities;
+    WeakHashSet<Activity> m_foregroundActivities;
+    WeakHashSet<Activity> m_backgroundActivities;
     std::optional<uint64_t> m_pendingRequestToSuspendID;
     ProcessThrottleState m_state { ProcessThrottleState::Suspended };
     PageAllowedToRunInTheBackgroundCounter m_pageAllowedToRunInTheBackgroundCounter;
     bool m_shouldDropNearSuspendedAssertionAfterDelay { false };
-    bool m_shouldTakeUIBackgroundAssertion { false };
+    const bool m_shouldTakeUIBackgroundAssertion { false };
     bool m_shouldTakeNearSuspendedAssertion { true };
     bool m_allowsActivities { true };
 };
 
-#define PROCESSTHROTTLER_ACTIVITY_RELEASE_LOG(msg, ...) RELEASE_LOG(ProcessSuspension, "%p - [PID=%d, throttler=%p] ProcessThrottler::Activity::" msg, this, m_throttler->m_processID, m_throttler, ##__VA_ARGS__)
+#define PROCESSTHROTTLER_ACTIVITY_RELEASE_LOG(msg, ...) RELEASE_LOG(ProcessSuspension, "%p - [PID=%d, throttler=%p] ProcessThrottler::Activity::" msg, this, m_throttler->m_processID, m_throttler.get(), ##__VA_ARGS__)
 
 inline ProcessThrottlerActivity::ProcessThrottlerActivity(ProcessThrottler& throttler, ASCIILiteral name, ProcessThrottlerActivityType type)
     : m_throttler(&throttler)

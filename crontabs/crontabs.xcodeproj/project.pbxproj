@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -42,6 +42,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		D01BE97C2A7C4B210025AD95 /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D01BE97B2A7C4B210025AD95 /* CoreAnalytics.framework */; };
 		FDB436531492D37200D5E278 /* newsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB4364E1492D37200D5E278 /* newsyslog.c */; };
 		FDB436541492D37200D5E278 /* ptimes.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436511492D37200D5E278 /* ptimes.c */; };
 		FDB436551492D3A300D5E278 /* newsyslog.conf.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = FDB4364F1492D37200D5E278 /* newsyslog.conf.5 */; };
@@ -203,6 +204,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D01BE97B2A7C4B210025AD95 /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = DEVELOPER_DIR; };
 		FDB436301492D25500D5E278 /* newsyslog */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = newsyslog; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDB4364A1492D37200D5E278 /* extern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
 		FDB4364D1492D37200D5E278 /* newsyslog.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = newsyslog.8; sourceTree = "<group>"; };
@@ -222,7 +224,7 @@
 		FDB4367D1492DB0B00D5E278 /* periodic.conf */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = periodic.conf; sourceTree = "<group>"; };
 		FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = periodic.conf.5; sourceTree = "<group>"; };
 		FDB436811492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
-		FDCEF0A9162E12DC002D6429 /* periodic-wrapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "periodic-wrapper.c"; sourceTree = "<group>"; };
+		FDCEF0A9162E12DC002D6429 /* periodic-wrapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "periodic-wrapper.c"; sourceTree = "<group>"; usesTabs = 1; };
 		FDCEF0AC162E140E002D6429 /* periodic-wrapper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "periodic-wrapper"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDCEF0AD162E1653002D6429 /* periodic-wrapper.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "periodic-wrapper.8"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -239,12 +241,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D01BE97C2A7C4B210025AD95 /* CoreAnalytics.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D01BE97A2A7C4B210025AD95 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D01BE97B2A7C4B210025AD95 /* CoreAnalytics.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		FDB4361B1492D22C00D5E278 = {
 			isa = PBXGroup;
 			children = (
@@ -252,6 +263,7 @@
 				FDB436491492D37200D5E278 /* newsyslog */,
 				FDB436581492D3D900D5E278 /* periodic */,
 				FDB436311492D25500D5E278 /* Products */,
+				D01BE97A2A7C4B210025AD95 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -382,7 +394,8 @@
 		FDB4361D1492D22C00D5E278 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1400;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
 			};
 			buildConfigurationList = FDB436201492D22C00D5E278 /* Build configuration list for PBXProject "crontabs" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -525,6 +538,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -569,6 +583,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -637,6 +652,10 @@
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "periodic-wrapper";
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 			};
 			name = Debug;
 		};
@@ -648,6 +667,10 @@
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "periodic-wrapper";
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 			};
 			name = Release;
 		};

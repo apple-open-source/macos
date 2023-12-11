@@ -100,7 +100,6 @@ extension Container {
             throw ContainerError.sponsorNotRegistered(bottleMO.peerID ?? "no peer ID given")
         }
 
-        // We need to extract the syncing policy that the remote peer would have used (if they were the type of device that we are)
         let policy = try self.syncingPolicyFor(modelID: egoPermanentInfo.modelID, stableInfo: sponsorPeerStableInfo)
         return (bottleMO, sponsorPeer.peerID, policy)
     }

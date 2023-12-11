@@ -56,7 +56,6 @@
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "TextSizeAdjustment.h"
-#include "WillChangeData.h"
 
 namespace WebCore {
 namespace Style {
@@ -89,12 +88,13 @@ public:
     DECLARE_PROPERTY_CUSTOM_HANDLERS(BoxShadow);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(CaretColor);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(Clip);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(Contain);
+    DECLARE_PROPERTY_CUSTOM_HANDLERS(Color);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(ContainIntrinsicWidth);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(ContainIntrinsicHeight);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(Content);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(CounterIncrement);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(CounterReset);
+    DECLARE_PROPERTY_CUSTOM_HANDLERS(CounterSet);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(Cursor);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(Fill);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontFamily);
@@ -111,6 +111,10 @@ public:
 #if ENABLE(TEXT_AUTOSIZING)
     DECLARE_PROPERTY_CUSTOM_HANDLERS(LineHeight);
 #endif
+    DECLARE_PROPERTY_CUSTOM_HANDLERS(MaskBorderOutset);
+    DECLARE_PROPERTY_CUSTOM_HANDLERS(MaskBorderRepeat);
+    DECLARE_PROPERTY_CUSTOM_HANDLERS(MaskBorderSlice);
+    DECLARE_PROPERTY_CUSTOM_HANDLERS(MaskBorderWidth);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(OutlineStyle);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(Size);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(Stroke);
@@ -118,10 +122,6 @@ public:
     DECLARE_PROPERTY_CUSTOM_HANDLERS(TextIndent);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(TextShadow);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(WebkitBoxShadow);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(WebkitMaskBoxImageOutset);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(WebkitMaskBoxImageRepeat);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(WebkitMaskBoxImageSlice);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(WebkitMaskBoxImageWidth);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(Zoom);
 
     // Custom handling of initial + inherit value setting only.
@@ -133,8 +133,6 @@ public:
     static void applyInheritWebkitMaskImage(BuilderState&) { }
 
     // Custom handling of inherit + value setting only.
-    static void applyInheritDisplay(BuilderState&);
-    static void applyValueDisplay(BuilderState&, CSSValue&);
     static void applyInheritVerticalAlign(BuilderState&);
     static void applyValueVerticalAlign(BuilderState&, CSSValue&);
     static void applyInheritBaselineShift(BuilderState&);
@@ -150,7 +148,6 @@ public:
     static void applyValueWebkitTextZoom(BuilderState&, CSSValue&);
     static void applyValueWritingMode(BuilderState&, CSSValue&);
     static void applyValueAlt(BuilderState&, CSSValue&);
-    static void applyValueWillChange(BuilderState&, CSSValue&);
     static void applyValueFontSizeAdjust(BuilderState&, CSSValue&);
 
 #if ENABLE(DARK_MODE_CSS)
@@ -164,8 +161,6 @@ public:
     static void applyInheritCustomProperty(BuilderState&, const CSSRegisteredCustomProperty*, const AtomString& name);
     static void applyValueCustomProperty(BuilderState&, const CSSRegisteredCustomProperty*, const CSSCustomPropertyValue&);
 
-    static void applyValueColor(BuilderState&, CSSValue&);
-
 private:
     static void resetEffectiveZoom(BuilderState&);
 
@@ -176,7 +171,7 @@ private:
     template <CSSPropertyID id>
     static void applyTextOrBoxShadowValue(BuilderState&, CSSValue&);
 
-    enum CounterBehavior {Increment = 0, Reset};
+    enum CounterBehavior { Increment, Reset, Set };
     template <CounterBehavior counterBehavior>
     static void applyInheritCounter(BuilderState&);
     template <CounterBehavior counterBehavior>
@@ -460,7 +455,7 @@ inline void BuilderCustom::applyValueTextIndent(BuilderState& builderState, CSSV
     builderState.style().setTextIndentType(textIndentTypeValue);
 }
 
-enum BorderImageType { BorderImage, WebkitMaskBoxImage };
+enum BorderImageType { BorderImage, MaskBorder };
 enum BorderImageModifierType { Outset, Repeat, Slice, Width };
 template<BorderImageType type, BorderImageModifierType modifier>
 class ApplyPropertyBorderImageModifier {
@@ -499,7 +494,7 @@ public:
         case Slice:
             // Masks have a different initial value for slices. Preserve the value of "0 fill" for backwards compatibility.
             image.setImageSlices(type == BorderImage ? LengthBox(Length(100, LengthType::Percent), Length(100, LengthType::Percent), Length(100, LengthType::Percent), Length(100, LengthType::Percent)) : LengthBox(LengthType::Fixed));
-            image.setFill(type != BorderImage);
+            image.setFill(false);
             break;
         case Width:
             // FIXME: This is a local variable to work around a bug in the GCC 8.1 Address Sanitizer.
@@ -537,12 +532,12 @@ public:
 private:
     static const NinePieceImage& getValue(const RenderStyle& style)
     {
-        return type == BorderImage ? style.borderImage() : style.maskBoxImage();
+        return type == BorderImage ? style.borderImage() : style.maskBorder();
     }
 
     static void setValue(RenderStyle& style, const NinePieceImage& value)
     {
-        return type == BorderImage ? style.setBorderImage(value) : style.setMaskBoxImage(value);
+        return type == BorderImage ? style.setBorderImage(value) : style.setMaskBorder(value);
     }
 };
 
@@ -564,10 +559,10 @@ DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(BorderImage, Outset)
 DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(BorderImage, Repeat)
 DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(BorderImage, Slice)
 DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(BorderImage, Width)
-DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(WebkitMaskBoxImage, Outset)
-DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(WebkitMaskBoxImage, Repeat)
-DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(WebkitMaskBoxImage, Slice)
-DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(WebkitMaskBoxImage, Width)
+DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(MaskBorder, Outset)
+DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(MaskBorder, Repeat)
+DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(MaskBorder, Slice)
+DEFINE_BORDER_IMAGE_MODIFIER_HANDLER(MaskBorder, Width)
 
 static inline void applyLetterSpacing(BuilderState& builderState, float letterSpacing)
 {
@@ -976,7 +971,10 @@ inline void BuilderCustom::applyValueFontFamily(BuilderState& builderState, CSSV
 
     if (is<CSSPrimitiveValue>(value)) {
         auto valueID = value.valueID();
-        ASSERT(CSSPropertyParserHelpers::isSystemFontShorthand(valueID));
+        if (!CSSPropertyParserHelpers::isSystemFontShorthand(valueID)) {
+            // Early return if the invalid CSSValueID is set while using CSSOM API.
+            return;
+        }
         AtomString family = SystemFontDatabase::singleton().systemFontShorthandFamily(CSSPropertyParserHelpers::lowerFontShorthand(valueID));
         ASSERT(!family.isEmpty());
         fontDescription.setIsSpecifiedFont(false);
@@ -995,8 +993,9 @@ inline void BuilderCustom::applyValueFontFamily(BuilderState& builderState, CSSV
             else {
                 isGenericFamily = true;
                 family = CSSPropertyParserHelpers::genericFontFamily(contentValue.valueID());
+                ASSERT(!family.isEmpty());
             }
-            if (family.isEmpty())
+            if (family.isNull())
                 continue;
             if (families.isEmpty())
                 fontDescription.setIsSpecifiedFont(!isGenericFamily);
@@ -1181,56 +1180,6 @@ inline void BuilderCustom::applyValueAspectRatio(BuilderState& builderState, CSS
     builderState.style().setAspectRatio(width, height);
 }
 
-inline void BuilderCustom::applyInitialContain(BuilderState& builderState)
-{
-    builderState.style().setContain(RenderStyle::initialContainment());
-}
-
-inline void BuilderCustom::applyInheritContain(BuilderState& builderState)
-{
-    builderState.style().setContain(forwardInheritedValue(builderState.parentStyle().contain()));
-}
-
-inline void BuilderCustom::applyValueContain(BuilderState& builderState, CSSValue& value)
-{
-    if (is<CSSPrimitiveValue>(value)) {
-        if (value.valueID() == CSSValueNone)
-            return builderState.style().setContain(RenderStyle::initialContainment());
-        if (value.valueID() == CSSValueStrict)
-            return builderState.style().setContain(RenderStyle::strictContainment());
-        return builderState.style().setContain(RenderStyle::contentContainment());
-    }
-
-    if (!is<CSSValueList>(value))
-        return;
-
-    OptionSet<Containment> containment;
-    auto& list = downcast<CSSValueList>(value);
-    for (auto& item : list) {
-        auto& value = downcast<CSSPrimitiveValue>(item);
-        switch (value.valueID()) {
-        case CSSValueSize:
-            containment.add(Containment::Size);
-            break;
-        case CSSValueInlineSize:
-            containment.add(Containment::InlineSize);
-            break;
-        case CSSValueLayout:
-            containment.add(Containment::Layout);
-            break;
-        case CSSValuePaint:
-            containment.add(Containment::Paint);
-            break;
-        case CSSValueStyle:
-            containment.add(Containment::Style);
-            break;
-        default:
-            break;
-        };
-    }
-    return builderState.style().setContain(containment);
-}
-
 inline void BuilderCustom::applyValueTextEmphasisStyle(BuilderState& builderState, CSSValue& value)
 {
     if (is<CSSValueList>(value)) {
@@ -1275,8 +1224,10 @@ inline void BuilderCustom::applyInheritCounter(BuilderState& builderState)
         auto& directives = map.add(keyValue.key, CounterDirectives { }).iterator->value;
         if (counterBehavior == Reset)
             directives.resetValue = keyValue.value.resetValue;
-        else
+        else if (counterBehavior == Increment)
             directives.incrementValue = keyValue.value.incrementValue;
+        else
+            directives.setValue = keyValue.value.setValue;
     }
 }
 
@@ -1292,8 +1243,10 @@ inline void BuilderCustom::applyValueCounter(BuilderState& builderState, CSSValu
     for (auto& keyValue : map) {
         if (counterBehavior == Reset)
             keyValue.value.resetValue = std::nullopt;
-        else
+        else if (counterBehavior == Increment)
             keyValue.value.incrementValue = std::nullopt;
+        else
+            keyValue.value.setValue = std::nullopt;
     }
 
     if (setCounterIncrementToNone)
@@ -1305,8 +1258,10 @@ inline void BuilderCustom::applyValueCounter(BuilderState& builderState, CSSValu
         auto& directives = map.add(identifier, CounterDirectives { }).iterator->value;
         if (counterBehavior == Reset)
             directives.resetValue = value;
-        else
+        else if (counterBehavior == Increment)
             directives.incrementValue = saturatedSum(directives.incrementValue.value_or(0), value);
+        else
+            directives.setValue = value;
     }
 }
 
@@ -1336,6 +1291,20 @@ inline void BuilderCustom::applyInheritCounterReset(BuilderState& builderState)
 inline void BuilderCustom::applyValueCounterReset(BuilderState& builderState, CSSValue& value)
 {
     applyValueCounter<Reset>(builderState, value);
+}
+
+inline void BuilderCustom::applyInitialCounterSet(BuilderState&)
+{
+}
+
+inline void BuilderCustom::applyInheritCounterSet(BuilderState& builderState)
+{
+    applyInheritCounter<Set>(builderState);
+}
+
+inline void BuilderCustom::applyValueCounterSet(BuilderState& builderState, CSSValue& value)
+{
+    applyValueCounter<Set>(builderState, value);
 }
 
 inline void BuilderCustom::applyInitialCursor(BuilderState& builderState)
@@ -1879,8 +1848,8 @@ inline void BuilderCustom::applyValueGridTemplateAreas(BuilderState& builderStat
 
     NamedGridLinesMap implicitNamedGridColumnLines;
     NamedGridLinesMap implicitNamedGridRowLines;
-    BuilderConverter::createImplicitNamedGridLinesFromGridArea(newNamedGridAreas, implicitNamedGridColumnLines, ForColumns);
-    BuilderConverter::createImplicitNamedGridLinesFromGridArea(newNamedGridAreas, implicitNamedGridRowLines, ForRows);
+    BuilderConverter::createImplicitNamedGridLinesFromGridArea(newNamedGridAreas, implicitNamedGridColumnLines, GridTrackSizingDirection::ForColumns);
+    BuilderConverter::createImplicitNamedGridLinesFromGridArea(newNamedGridAreas, implicitNamedGridRowLines, GridTrackSizingDirection::ForRows);
     builderState.style().setImplicitNamedGridColumnLines(implicitNamedGridColumnLines);
     builderState.style().setImplicitNamedGridRowLines(implicitNamedGridRowLines);
 
@@ -1964,43 +1933,6 @@ void BuilderCustom::applyValueAlt(BuilderState& builderState, CSSValue& value)
         builderState.style().setContentAltText(emptyAtom());
 }
 
-inline void BuilderCustom::applyValueWillChange(BuilderState& builderState, CSSValue& value)
-{
-    if (value.valueID() == CSSValueAuto) {
-        builderState.style().setWillChange(nullptr);
-        return;
-    }
-
-    auto willChange = WillChangeData::create();
-    auto processSingleValue = [&](const CSSValue& item) {
-        if (!is<CSSPrimitiveValue>(item))
-            return;
-        auto& primitiveValue = downcast<CSSPrimitiveValue>(item);
-        switch (primitiveValue.valueID()) {
-        case CSSValueScrollPosition:
-            willChange->addFeature(WillChangeData::Feature::ScrollPosition);
-            break;
-        case CSSValueContents:
-            willChange->addFeature(WillChangeData::Feature::Contents);
-            break;
-        default:
-            if (primitiveValue.isPropertyID()) {
-                if (!isExposed(primitiveValue.propertyID(), &builderState.document().settings()))
-                    break;
-                willChange->addFeature(WillChangeData::Feature::Property, primitiveValue.propertyID());
-            }
-            break;
-        }
-    };
-    if (is<CSSValueList>(value)) {
-        for (auto& item : downcast<CSSValueList>(value))
-            processSingleValue(item);
-    } else
-        processSingleValue(value);
-
-    builderState.style().setWillChange(WTFMove(willChange));
-}
-
 inline void BuilderCustom::applyValueStrokeWidth(BuilderState& builderState, CSSValue& value)
 {
     builderState.style().setStrokeWidth(BuilderConverter::convertLengthAllowingNumber(builderState, value));
@@ -2017,24 +1949,44 @@ inline void BuilderCustom::applyValueStrokeColor(BuilderState& builderState, CSS
     builderState.style().setHasExplicitlySetStrokeColor(true);
 }
 
+// For the color property, "currentcolor" is actually the inherited computed color.
 inline void BuilderCustom::applyValueColor(BuilderState& builderState, CSSValue& value)
 {
     auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
 
-    // For the color property, current color is actually the inherited computed color.
-    auto resolveColor = [&](const StyleColor& color) {
-        return color.resolveColor(builderState.parentStyle().color());
-    };
-
     if (builderState.applyPropertyToRegularStyle()) {
         auto color = builderState.colorFromPrimitiveValue(primitiveValue, ForVisitedLink::No);
-        builderState.style().setColor(resolveColor(color));
+        builderState.style().setColor(color.resolveColor(builderState.parentStyle().color()));
     }
     if (builderState.applyPropertyToVisitedLinkStyle()) {
         auto color = builderState.colorFromPrimitiveValue(primitiveValue, ForVisitedLink::Yes);
-        builderState.style().setVisitedLinkColor(resolveColor(color));
+        builderState.style().setVisitedLinkColor(color.resolveColor(builderState.parentStyle().visitedLinkColor()));
     }
+
     builderState.style().setDisallowsFastPathInheritance();
+    builderState.style().setHasExplicitlySetColor(builderState.isAuthorOrigin());
+}
+
+inline void BuilderCustom::applyInitialColor(BuilderState& builderState)
+{
+    if (builderState.applyPropertyToRegularStyle())
+        builderState.style().setColor(RenderStyle::initialColor());
+    if (builderState.applyPropertyToVisitedLinkStyle())
+        builderState.style().setVisitedLinkColor(RenderStyle::initialColor());
+
+    builderState.style().setDisallowsFastPathInheritance();
+    builderState.style().setHasExplicitlySetColor(builderState.isAuthorOrigin());
+}
+
+inline void BuilderCustom::applyInheritColor(BuilderState& builderState)
+{
+    if (builderState.applyPropertyToRegularStyle())
+        builderState.style().setColor(builderState.parentStyle().color());
+    if (builderState.applyPropertyToVisitedLinkStyle())
+        builderState.style().setVisitedLinkColor(builderState.parentStyle().color());
+
+    builderState.style().setDisallowsFastPathInheritance();
+    builderState.style().setHasExplicitlySetColor(builderState.isAuthorOrigin());
 }
 
 inline void BuilderCustom::applyInitialCustomProperty(BuilderState& builderState, const CSSRegisteredCustomProperty* registered, const AtomString& name)
@@ -2044,7 +1996,7 @@ inline void BuilderCustom::applyInitialCustomProperty(BuilderState& builderState
         return;
     }
 
-    auto invalid = CSSCustomPropertyValue::createUnresolved(name, CSSValueInvalid);
+    auto invalid = CSSCustomPropertyValue::createWithID(name, CSSValueInvalid);
     applyValueCustomProperty(builderState, registered, invalid.get());
 }
 

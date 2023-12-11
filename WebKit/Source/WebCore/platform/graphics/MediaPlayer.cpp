@@ -127,7 +127,7 @@ public:
     bool hasVideo() const final { return false; }
     bool hasAudio() const final { return false; }
 
-    void setPageIsVisible(bool, String&&) final { }
+    void setPageIsVisible(bool) final { }
 
     double durationDouble() const final { return 0; }
 
@@ -452,7 +452,7 @@ Ref<MediaPlayer> MediaPlayer::create(MediaPlayerClient& client, MediaPlayerEnums
 }
 
 MediaPlayer::MediaPlayer(MediaPlayerClient& client)
-    : m_client(&client)
+    : m_client(client)
     , m_reloadTimer(*this, &MediaPlayer::reloadTimerFired)
     , m_private(makeUnique<NullMediaPlayerPrivate>(this))
     , m_preferredDynamicRangeMode(DynamicRangeMode::Standard)
@@ -460,7 +460,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient& client)
 }
 
 MediaPlayer::MediaPlayer(MediaPlayerClient& client, MediaPlayerEnums::MediaEngineIdentifier mediaEngineIdentifier)
-    : m_client(&client)
+    : m_client(client)
     , m_reloadTimer(*this, &MediaPlayer::reloadTimerFired)
     , m_private(makeUnique<NullMediaPlayerPrivate>(this))
     , m_activeEngineIdentifier(mediaEngineIdentifier)
@@ -475,7 +475,7 @@ MediaPlayer::~MediaPlayer()
 
 void MediaPlayer::invalidate()
 {
-    m_client = &nullMediaPlayerClient();
+    m_client = nullMediaPlayerClient();
 }
 
 bool MediaPlayer::load(const URL& url, const ContentType& contentType, const String& keySystem, bool requiresRemotePlayback)
@@ -923,19 +923,19 @@ bool MediaPlayer::isVideoFullscreenStandby() const
 
 #endif
 
-FloatSize MediaPlayer::videoInlineSize() const
+FloatSize MediaPlayer::videoLayerSize() const
 {
-    return client().mediaPlayerVideoInlineSize();
+    return client().mediaPlayerVideoLayerSize();
 }
 
-void MediaPlayer::videoInlineSizeDidChange(const FloatSize& size)
+void MediaPlayer::videoLayerSizeDidChange(const FloatSize& size)
 {
-    client().mediaPlayerVideoInlineSizeDidChange(size);
+    client().mediaPlayerVideoLayerSizeDidChange(size);
 }
 
-void MediaPlayer::setVideoInlineSizeFenced(const FloatSize& size, const WTF::MachSendRight& fence)
+void MediaPlayer::setVideoLayerSizeFenced(const FloatSize& size, WTF::MachSendRight&& fence)
 {
-    m_private->setVideoInlineSizeFenced(size, fence);
+    m_private->setVideoLayerSizeFenced(size, WTFMove(fence));
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -1094,10 +1094,10 @@ void MediaPlayer::setPresentationSize(const IntSize& size)
     m_private->setPresentationSize(size);
 }
 
-void MediaPlayer::setPageIsVisible(bool visible, String&& sceneIdentifier)
+void MediaPlayer::setPageIsVisible(bool visible)
 {
     m_pageIsVisible = visible;
-    m_private->setPageIsVisible(visible, WTFMove(sceneIdentifier));
+    m_private->setPageIsVisible(visible);
 }
 
 void MediaPlayer::setVisibleForCanvas(bool visible)

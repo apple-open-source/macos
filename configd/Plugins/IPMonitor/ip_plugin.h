@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2012-2023 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,6 +33,10 @@
 #include <netinet/in.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
+
+#define kLoopbackInterface	"lo0"
+
+typedef unsigned int	IFIndex;	/* interface index */
 
 #ifdef TEST_IPV4_ROUTELIST
 #define TEST_ROUTELIST
@@ -70,6 +74,49 @@ my_if_nametoindex(const char * ifname);
 
 const char *
 my_if_indextoname(unsigned int idx, char if_name[IFNAMSIZ]);
+
+void
+my_if_freenameindex(void);
+
+void
+my_if_nameindex(void);
+
+IFIndex
+effective_ifindex_get(const char * ifname, IFIndex ifindex);
+
+void
+effective_ifindex_free(void);
+
+IFIndex
+lo0_ifindex(void);
+
+const char *
+my_if_indextoname2(IFIndex ifindex, char ifname[IFNAMSIZ]);
+
+int
+open_inet_dgram_socket(void);
+
+void
+close_inet_dgram_socket(void);
+
+int
+open_inet6_dgram_socket(void);
+
+void
+close_inet6_dgram_socket(void);
+
+int
+siocdradd_in6(int s, int if_index, const struct in6_addr * addr, u_char flags);
+
+int
+siocdrdel_in6(int s, int if_index, const struct in6_addr * addr);
+
+int
+siocsifnetsignature(int s, const char * ifname, int af,
+		    const uint8_t * signature, size_t signature_length);
+
+boolean_t
+set_ipv6_default_interface(IFIndex ifindex);
 
 boolean_t
 service_is_routable(CFDictionaryRef service_dict, int af);

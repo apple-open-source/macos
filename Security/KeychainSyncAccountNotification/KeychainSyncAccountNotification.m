@@ -16,6 +16,10 @@
 #import "keychain/ot/OTControl.h"
 #include "utilities/SecCFRelease.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 #import "ipc/securityd_client.h"
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 #import <UserManagement/UserManagement.h>
@@ -66,14 +70,22 @@
         } else {
             OTControlArguments* arguments = [[OTControlArguments alloc] initWithAltDSID:altDSID];
 
+            AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                         altDSID:altDSID
+                                                                                                       eventName:kSecurityRTCEventNamePrimaryAccountAdded category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
             [otcontrol appleAccountSignedIn:arguments reply:^(NSError * _Nullable signedInError) {
                 // take a retain on otcontrol so it won't invalidate the connection
                 (void)otcontrol;
 
                 if(signedInError) {
                     secerror("octagon-account: error signing in: %s", [[signedInError description] UTF8String]);
+                    [eventS addMetrics:@{kSecurityRTCFieldOctagonSignInResult : @(NO)}];
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:signedInError];
                 } else {
                     secnotice("octagon-account", "account now signed in for octagon operation");
+                    [eventS addMetrics:@{kSecurityRTCFieldOctagonSignInResult : @(YES)}];
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
                 }
             }];
         }
@@ -135,6 +147,12 @@
                 secerror("octagon-account: Failed to get OTControl: %@", error);
             } else {
                 OTControlArguments* arguments = [[OTControlArguments alloc] initWithAltDSID:altDSID];
+               
+                AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:@{kSecurityRTCFieldSecurityLevel : @(newSecurityLevel)} 
+                                                                                                             altDSID:altDSID 
+                                                                                                           eventName:kSecurityRTCEventNameIdMSSecurityLevel
+                                                                                                            category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
                 [otcontrol notifyIDMSTrustLevelChangeForAltDSID:arguments reply:^(NSError * _Nullable idmsError) {
                     // take a retain on otcontrol so it won't invalidate the connection
                     (void)otcontrol;
@@ -144,6 +162,9 @@
                     } else {
                         secnotice("octagon-account", "informed octagon of IDMS trust level change");
                     }
+                    
+                    BOOL success = (idmsError == nil) ? YES : NO;
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:success error:idmsError];
                 }];
             }
 

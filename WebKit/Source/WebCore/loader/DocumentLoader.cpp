@@ -128,6 +128,10 @@
 #include "NetworkStorageSession.h"
 #endif
 
+#if PLATFORM(COCOA)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#endif
+
 #define PAGE_ID ((m_frame ? valueOrDefault(m_frame->pageID()) : PageIdentifier()).toUInt64())
 #define FRAME_ID ((m_frame ? m_frame->frameID() : FrameIdentifier()).object().toUInt64())
 #define IS_MAIN_FRAME (m_frame ? m_frame->isMainFrame() : false)
@@ -768,7 +772,7 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
         m_waitingForNavigationPolicy = false;
         switch (navigationPolicyDecision) {
         case NavigationPolicyDecision::IgnoreLoad:
-        case NavigationPolicyDecision::StopAllLoads:
+        case NavigationPolicyDecision::LoadWillContinueInAnotherProcess:
             stopLoadingForPolicyChange();
             break;
         case NavigationPolicyDecision::ContinueLoad:
@@ -1182,7 +1186,7 @@ void DocumentLoader::continueAfterContentPolicy(PolicyAction policy)
         stopLoadingForPolicyChange();
         return;
     }
-    case PolicyAction::StopAllLoads:
+    case PolicyAction::LoadWillContinueInAnotherProcess:
         ASSERT_NOT_REACHED();
 #if !ASSERT_ENABLED
         FALLTHROUGH;
@@ -2107,6 +2111,25 @@ static bool canUseServiceWorkers(LocalFrame* frame)
 }
 #endif
 
+static bool shouldCancelLoadingAboutURL(const URL& url)
+{
+    if (!url.protocolIsAbout())
+        return false;
+
+    if (url.isAboutBlank() || url.isAboutSrcDoc())
+        return false;
+
+    if (!url.hasOpaquePath())
+        return false;
+
+#if PLATFORM(COCOA)
+    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::OnlyLoadWellKnownAboutURLs))
+        return false;
+#endif
+
+    return true;
+}
+
 void DocumentLoader::startLoadingMainResource()
 {
 #if ENABLE(SERVICE_WORKER)
@@ -2120,17 +2143,19 @@ void DocumentLoader::startLoadingMainResource()
 
     Ref<DocumentLoader> protectedThis(*this);
 
+    if (shouldCancelLoadingAboutURL(m_request.url())) {
+        cancelMainResourceLoad(frameLoader()->client().cannotShowURLError(m_request));
+        return;
+    }
+
     if (maybeLoadEmpty()) {
         DOCUMENTLOADER_RELEASE_LOG("startLoadingMainResource: Returning empty document");
         return;
     }
 
 #if ENABLE(CONTENT_FILTERING)
-    contentFilterInDocumentLoader() = true;
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     // Always filter in WK1
     contentFilterInDocumentLoader() = m_frame && m_frame->view() && m_frame->view()->platformWidget();
-#endif
     if (contentFilterInDocumentLoader())
         m_contentFilter = !m_substituteData.isValid() ? ContentFilter::create(*this) : nullptr;
 #endif
@@ -2256,9 +2281,9 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
         }
     }
 
-    m_mainResource = m_cachedResourceLoader->requestMainResource(WTFMove(mainResourceRequest)).value_or(nullptr);
+    auto mainResourceOrError = m_cachedResourceLoader->requestMainResource(WTFMove(mainResourceRequest));
 
-    if (!m_mainResource) {
+    if (!mainResourceOrError) {
         // The frame may have gone away if this load was cancelled synchronously and this was the last pending load.
         // This is because we may have fired the load event in a parent frame.
         if (!m_frame) {
@@ -2272,6 +2297,15 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
             return;
         }
 
+        if (advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnly)) {
+            if (auto httpNavigationWithHTTPSOnlyError = frameLoader()->client().httpNavigationWithHTTPSOnlyError(m_request); mainResourceOrError.error().domain() == httpNavigationWithHTTPSOnlyError.domain()
+                && mainResourceOrError.error().errorCode() == httpNavigationWithHTTPSOnlyError.errorCode()) {
+                DOCUMENTLOADER_RELEASE_LOG("loadMainResource: Unable to load main resource, URL has HTTP scheme with HTTPSOnly enabled");
+                cancelMainResourceLoad(mainResourceOrError.error());
+                return;
+            }
+        }
+
         DOCUMENTLOADER_RELEASE_LOG("loadMainResource: Unable to load main resource, returning empty document");
 
         setRequest(ResourceRequest());
@@ -2282,6 +2316,8 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
         maybeLoadEmpty();
         return;
     }
+
+    m_mainResource = mainResourceOrError.value();
 
     ASSERT(m_frame);
 
@@ -2556,17 +2592,17 @@ ResourceError DocumentLoader::handleContentFilterDidBlock(ContentFilterUnblockHa
     unblockHandler.setUnreachableURL(documentURL());
     if (!unblockRequestDeniedScript.isEmpty() && frame()) {
         unblockHandler.wrapWithDecisionHandler([scriptController = WeakPtr { frame()->script() }, script = WTFMove(unblockRequestDeniedScript).isolatedCopy()](bool unblocked) {
-            if (!unblocked && scriptController)
-                scriptController->executeScriptIgnoringException(script);
+            if (!unblocked && scriptController) {
+                // FIXME: This probably needs to figure out if the origin is considered tanited.
+                scriptController->executeScriptIgnoringException(script, JSC::SourceTaintedOrigin::Untainted);
+            }
         });
     }
     frameLoader()->client().contentFilterDidBlockLoad(WTFMove(unblockHandler));
     auto error = frameLoader()->blockedByContentFilterError(request());
 
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     m_blockedByContentFilter = true;
     m_blockedError = error;
-#endif
 
     return error;
 }
@@ -2577,11 +2613,7 @@ bool DocumentLoader::contentFilterWillHandleProvisionalLoadFailure(const Resourc
         return true;
     if (contentFilterInDocumentLoader())
         return false;
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     return m_blockedByContentFilter && m_blockedError.errorCode() == error.errorCode() && m_blockedError.domain() == error.domain();
-#else
-    return false;
-#endif
 }
 
 void DocumentLoader::contentFilterHandleProvisionalLoadFailure(const ResourceError& error)
@@ -2590,9 +2622,7 @@ void DocumentLoader::contentFilterHandleProvisionalLoadFailure(const ResourceErr
         m_contentFilter->handleProvisionalLoadFailure(error);
     if (contentFilterInDocumentLoader())
         return;
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     handleProvisionalLoadFailureFromContentFilter(m_blockedPageURL, m_substituteDataFromContentFilter);
-#endif
 }
 
 #endif // ENABLE(CONTENT_FILTERING)

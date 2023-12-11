@@ -76,6 +76,8 @@ namespace WebCore {
     macro(AudioBuffer) \
     macro(AudioBufferSourceNode) \
     macro(AudioContext) \
+    macro(AudioData) \
+    macro(AudioDecoder) \
     macro(AudioDestinationNode) \
     macro(AudioListener) \
     macro(AudioNode) \
@@ -115,6 +117,7 @@ namespace WebCore {
     macro(CompressionStreamTransform) \
     macro(ConstantSourceNode) \
     macro(ContactsManager) \
+    macro(ContentVisibilityAutoStateChangeEvent) \
     macro(ConvolverNode) \
     macro(Credential) \
     macro(CredentialsContainer) \
@@ -159,7 +162,9 @@ namespace WebCore {
     macro(CSSUnitValue) \
     macro(CSSUnparsedValue) \
     macro(CSSVariableReferenceValue) \
+    macro(CookieChangeEvent) \
     macro(CookieStore) \
+    macro(CookieStoreManager) \
     macro(CustomElementRegistry) \
     macro(CustomEffect) \
     macro(Database) \
@@ -173,7 +178,9 @@ namespace WebCore {
     macro(DocumentTimeline) \
     macro(DynamicsCompressorNode) \
     macro(ElementInternals) \
+    macro(EncodedAudioChunk) \
     macro(EncodedVideoChunk) \
+    macro(ExtendableCookieChangeEvent) \
     macro(ExtendableEvent) \
     macro(ExtendableMessageEvent) \
     macro(FakeXRDevice) \
@@ -234,14 +241,13 @@ namespace WebCore {
     macro(GamepadButton) \
     macro(GamepadEvent) \
     macro(GamepadHapticActuator) \
-    macro(HighlightRegister) \
+    macro(HighlightRegistry) \
     macro(Highlight) \
     macro(HTMLAttachmentElement) \
     macro(HTMLAudioElement) \
     macro(HTMLDialogElement) \
     macro(HTMLDataListElement) \
     macro(HTMLEmbedElement) \
-    macro(HTMLMenuItemElement) \
     macro(HTMLModelElement) \
     macro(Headers) \
     macro(IDBCursor) \
@@ -449,6 +455,12 @@ namespace WebCore {
     macro(WebKitMediaKeySession) \
     macro(WebKitMediaKeys) \
     macro(WebSocket) \
+    macro(WebTransport) \
+    macro(WebTransportBidirectionalStream) \
+    macro(WebTransportDatagramDuplexStream) \
+    macro(WebTransportError) \
+    macro(WebTransportReceiveStream) \
+    macro(WebTransportSendStream) \
     macro(WindowClient) \
     macro(Worklet) \
     macro(WorkletGlobalScope) \
@@ -575,11 +587,13 @@ namespace WebCore {
     macro(onbackgroundfetchfail) \
     macro(onbackgroundfetchabort) \
     macro(onbackgroundfetchclick) \
+    macro(oncookiechange) \
     macro(onnotificationclick) \
     macro(onnotificationclose) \
     macro(onpush) \
     macro(onpushsubscriptionchange) \
     macro(onrtctransform) \
+    macro(onsearch) \
     macro(ontouchcancel) \
     macro(ontouchend) \
     macro(ontouchmove) \

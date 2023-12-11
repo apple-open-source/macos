@@ -311,7 +311,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 void WebContextMenuProxyMac::appendRemoveBackgroundItemToControlledImageMenuIfNeeded()
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    auto* page = this->page();
+    RefPtr page = this->page();
     if (!page || !page->preferences().removeBackgroundEnabled())
         return;
 
@@ -385,6 +385,7 @@ void WebContextMenuProxyMac::removeBackgroundFromControlledImage()
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 }
 
+#if !HAVE(SHARING_SERVICE_PICKER_STANDARD_SHARE_MENU_ITEM)
 static void getStandardShareMenuItem(NSArray *items, void (^completionHandler)(NSMenuItem *))
 {
 #if HAVE(NSSHARINGSERVICEPICKER_ASYNC_MENUS)
@@ -403,6 +404,7 @@ static void getStandardShareMenuItem(NSArray *items, void (^completionHandler)(N
     completionHandler([NSMenuItem standardShareMenuItemForItems:items]);
 #endif
 }
+#endif
 
 void WebContextMenuProxyMac::getShareMenuItem(CompletionHandler<void(NSMenuItem *)>&& completionHandler)
 {
@@ -446,15 +448,13 @@ void WebContextMenuProxyMac::getShareMenuItem(CompletionHandler<void(NSMenuItem 
         return;
     }
 
+#if HAVE(SHARING_SERVICE_PICKER_STANDARD_SHARE_MENU_ITEM)
     auto sharingServicePicker = adoptNS([[NSSharingServicePicker alloc] initWithItems:items.get()]);
-    if ([sharingServicePicker respondsToSelector:@selector(standardShareMenuItem)]) {
-        NSMenuItem *shareMenuItem = [sharingServicePicker standardShareMenuItem];
-        [shareMenuItem setRepresentedObject:sharingServicePicker.get()];
-        shareMenuItem.identifier = _WKMenuItemIdentifierShareMenu;
-        completionHandler(shareMenuItem);
-        return;
-    }
-
+    NSMenuItem *shareMenuItem = [sharingServicePicker standardShareMenuItem];
+    [shareMenuItem setRepresentedObject:sharingServicePicker.get()];
+    shareMenuItem.identifier = _WKMenuItemIdentifierShareMenu;
+    completionHandler(shareMenuItem);
+#else
     getStandardShareMenuItem(items.get(), makeBlockPtr([completionHandler = WTFMove(completionHandler), protectedThis = Ref { *this }, this](NSMenuItem *item) mutable {
         if (!item) {
             completionHandler(nil);
@@ -476,6 +476,7 @@ void WebContextMenuProxyMac::getShareMenuItem(CompletionHandler<void(NSMenuItem 
 
         completionHandler(item);
     }).get());
+#endif
 }
 #endif
 
@@ -841,7 +842,7 @@ void WebContextMenuProxyMac::showContextMenuWithItems(Vector<Ref<WebContextMenuI
 #endif
 
     if (page()->contextMenuClient().canShowContextMenu()) {
-        page()->contextMenuClient().showContextMenu(*page(), m_context.menuLocation(), items);
+        page()->contextMenuClient().showContextMenu(Ref { *page() }, m_context.menuLocation(), items);
         return;
     }
 
@@ -889,7 +890,8 @@ void WebContextMenuProxyMac::useContextMenuItems(Vector<Ref<WebContextMenuItem>>
         }
         
         ASSERT(m_context.webHitTestResultData());
-        page()->contextMenuClient().menuFromProposedMenu(*page(), menu, m_context, m_userData.object(), WTFMove(menuFromProposedMenu));
+        Ref page = *this->page();
+        page->contextMenuClient().menuFromProposedMenu(page, menu, m_context, m_userData.object(), WTFMove(menuFromProposedMenu));
     });
 }
 

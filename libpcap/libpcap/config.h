@@ -134,7 +134,7 @@
 /* #undef HAVE_NET_PFILT_H */
 
 /* Define to 1 if you have the <net/pfvar.h> header file. */
-/* #undef HAVE_NET_PFVAR_H */
+#define HAVE_NET_PFVAR_H 1
 
 /* Define to 1 if you have the <net/raw.h> header file. */
 /* #undef HAVE_NET_RAW_H */
@@ -146,7 +146,7 @@
 /* #undef HAVE_OS_PROTO_H */
 
 /* define if net/pfvar.h defines PF_NAT through PF_NORDR */
-/* #undef HAVE_PF_NAT_THROUGH_PF_NORDR */
+#define HAVE_PF_NAT_THROUGH_PF_NORDR 1
 
 /* Define to 1 if you have a POSIX-style `strerror_r' function. */
 #define HAVE_POSIX_STRERROR_R /**/

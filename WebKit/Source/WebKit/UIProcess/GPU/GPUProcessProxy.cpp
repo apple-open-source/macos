@@ -413,9 +413,9 @@ void GPUProcessProxy::setMockCaptureDevicesInterrupted(bool isCameraInterrupted,
     send(Messages::GPUProcess::SetMockCaptureDevicesInterrupted { isCameraInterrupted, isMicrophoneInterrupted }, 0);
 }
 
-void GPUProcessProxy::triggerMockMicrophoneConfigurationChange()
+void GPUProcessProxy::triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay)
 {
-    send(Messages::GPUProcess::TriggerMockMicrophoneConfigurationChange { }, 0);
+    send(Messages::GPUProcess::TriggerMockCaptureConfigurationChange { forMicrophone, forDisplay }, 0);
 }
 #endif // ENABLE(MEDIA_STREAM)
 
@@ -448,16 +448,6 @@ std::optional<bool> GPUProcessProxy::s_hasVP9HardwareDecoder;
 std::optional<bool> GPUProcessProxy::s_hasVP9ExtensionSupport;
 #endif
 
-void GPUProcessProxy::updateWebGPUEnabled(WebProcessProxy& webProcessProxy, bool webGPUEnabled)
-{
-    send(Messages::GPUProcess::UpdateWebGPUEnabled(webProcessProxy.coreProcessIdentifier(), webGPUEnabled), 0);
-}
-
-void GPUProcessProxy::updateDOMRenderingEnabled(WebProcessProxy& webProcessProxy, bool isDOMRenderingEnabled)
-{
-    send(Messages::GPUProcess::UpdateDOMRenderingEnabled(webProcessProxy.coreProcessIdentifier(), isDOMRenderingEnabled), 0);
-}
-
 void GPUProcessProxy::createGPUProcessConnection(WebProcessProxy& webProcessProxy, IPC::Connection::Handle&& connectionIdentifier, GPUProcessConnectionParameters&& parameters)
 {
 #if ENABLE(VP9)
@@ -470,7 +460,7 @@ void GPUProcessProxy::createGPUProcessConnection(WebProcessProxy& webProcessProx
 
     RELEASE_LOG(ProcessSuspension, "%p - GPUProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), WTFMove(connectionIdentifier), parameters }, [this, weakThis = WeakPtr { *this }]() mutable {
+    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), WTFMove(connectionIdentifier), WTFMove(parameters) }, [this, weakThis = WeakPtr { *this }]() mutable {
         if (!weakThis)
             return;
         stopResponsivenessTimer();
@@ -716,8 +706,8 @@ void GPUProcessProxy::updatePreferences(WebProcessProxy& webProcess)
     // In practice, all web pages' preferences should agree on these feature flag values.
     GPUProcessPreferences gpuPreferences;
     for (auto page : webProcess.pages()) {
-        auto& webPreferences = page->preferences();
-        if (!webPreferences.useGPUProcessForMediaEnabled())
+        Ref webPreferences = page->preferences();
+        if (!webPreferences->useGPUProcessForMediaEnabled())
             continue;
         gpuPreferences.copyEnabledWebPreferences(webPreferences);
     }

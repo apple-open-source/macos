@@ -160,6 +160,7 @@ struct IOPCIDeviceExpansionData
 	IONotifier*             _matchedNotifier;
 
 	uint32_t probeTimeMS;
+	bool deadMapper;
 };
 
 enum

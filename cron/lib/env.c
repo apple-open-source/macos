@@ -256,7 +256,7 @@ env_get(name, envp)
 	register char	*name;
 	register char	**envp;
 {
-	register int	len = strlen(name);
+	register size_t	len = strlen(name);
 	register char	*p, *q;
 
 	while ((p = *envp++)) {

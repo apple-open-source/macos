@@ -3823,14 +3823,20 @@ fail:
     return result;
 }
 
+
 CFArrayRef
-_SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error)
+_SecServerCopyInitialSyncCredentials(uint32_t flags, uint64_t* tlks, uint64_t* pcs, uint64_t* bluetooth, CFErrorRef *error)
 {
     CFMutableArrayRef items = CFArrayCreateMutableForCFTypes(NULL);
+
+    uint64_t numberOfTlks = 0;
+    uint64_t numberOfPCS = 0;
+    uint64_t numberOfBluetooth = 0;
 
     if (flags & SecServerInitialSyncCredentialFlagTLK) {
         require_action(InitialSyncItems(items, false, CFSTR("com.apple.security.ckks"), NULL, inet_class(), error), fail,
                        secerror("failed to collect CKKS-inet keys: %@", error ? *error : NULL));
+        numberOfTlks = CFArrayGetCount(items);
     }
     if (flags & SecServerInitialSyncCredentialFlagPCS) {
         bool onlyCurrent = !(flags & SecServerInitialSyncCredentialFlagPCSNonCurrent);
@@ -3839,6 +3845,8 @@ _SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error)
                        secerror("failed to collect PCS-genp keys: %@", error ? *error : NULL));
         require_action(InitialSyncItems(items, onlyCurrent, CFSTR("com.apple.ProtectedCloudStorage"), NULL, inet_class(), error), fail,
                        secerror("failed to collect PCS-inet keys: %@", error ? *error : NULL));
+        numberOfPCS = CFArrayGetCount(items) - numberOfTlks;
+
     }
     if (flags & SecServerInitialSyncCredentialFlagBluetoothMigration) {
         require_action(InitialSyncItems(items, false, CFSTR("com.apple.nanoregistry.migration"), NULL, genp_class(), error), fail,
@@ -3848,8 +3856,12 @@ _SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error)
         require_action(InitialSyncItems(items, false, CFSTR("com.apple.bluetooth"), CFSTR("BluetoothLESync"), genp_class(), error), fail,
                        secerror("failed to collect com.apple.bluetooth-genp item: %@", error ? *error : NULL));
 
+        numberOfBluetooth = CFArrayGetCount(items) - numberOfTlks - numberOfPCS;
     }
 
+    *tlks = numberOfTlks;
+    *pcs = numberOfPCS;
+    *bluetooth = numberOfBluetooth;
 fail:
     return items;
 }

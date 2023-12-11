@@ -6,7 +6,7 @@
 #import <XCTest/XCTest.h>
 #import "utilities/SecXPCHelper.h"
 
-@interface UnsafeType : NSObject
+@interface UnsafeType : NSObject <NSCopying>
 @property(class, readonly) BOOL supportsSecureCoding;
 - (id)initWithCoder:(NSCoder *)decoder;
 @end
@@ -15,6 +15,14 @@
 
 - (id)init {
     return [super init];
+}
+
+- (NSString *)description {
+    return @"UnsafeType";
+}
+
+- (id)copyWithZone:(nullable NSZone *)zone {
+    return [[UnsafeType alloc] init];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -90,6 +98,18 @@
     XCTAssertTrue(cleansed.domain == error.domain);
     XCTAssertTrue([cleansed.userInfo isEqualToDictionary:sanitizedInfo]);
 }
+
+- (void)testSanitizerWithDirtyUnsafeKey {
+    UnsafeType *unsafe = [[UnsafeType alloc] init];
+    NSDictionary *unsafeInfo = @{ unsafe: @"value"};
+    NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:-1 userInfo:unsafeInfo];
+    NSError *cleansed = [SecXPCHelper cleanseErrorForXPC:error];
+    XCTAssertNotNil(cleansed);
+    XCTAssertTrue(cleansed.code == error.code);
+    XCTAssertTrue(cleansed.domain == error.domain);
+    XCTAssertEqualObjects(cleansed.userInfo, @{@"UnsafeType": @"value"});
+}
+
 
 - (void)testErrorEncodingUnsafe {
     NSDictionary *unsafeInfo = @{ @"info" : [[NSObject alloc] init] };

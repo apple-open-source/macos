@@ -255,7 +255,7 @@ func Test_uncrypt_xchacha20_2()
   call assert_match("Note: Encryption of swapfile not supported, disabling swap file", execute(':messages'))
   w!
   " encrypted using xchacha20
-  call assert_match("\[xchacha20\]", execute(':messages'))
+  call assert_match('\[xchacha20\]', execute(':messages'))
   bw!
   call feedkeys(":sp Xcrypt_sodium.txt\<CR>sodium\<CR>", 'xt')
   " successfully decrypted
@@ -288,7 +288,7 @@ func Test_uncrypt_xchacha20v2_2()
     throw 'Skipped: sodium_mlock() not possible'
   endtry
   " encrypted using xchacha20
-  call assert_match("\[xchachav2\]", execute(':messages'))
+  call assert_match('\[xchacha20v2\]', execute(':messages'))
   bw!
 	try
 		call feedkeys(":verbose :sp Xcrypt_sodium_v2.txt\<CR>sodium\<CR>", 'xt')
@@ -434,6 +434,29 @@ func Test_crypt_set_key_segfault()
   bwipe!
 
   set cryptmethod&
+  set key=
+  bwipe!
+endfunc
+
+func Test_crypt_set_key_disallow_append_subtract()
+  new Xtest4
+
+  set key=foobar
+  call assert_true(&modified)
+  setl nomodified
+
+  call assert_fails('set key-=foo', 'E474:')
+  call assert_fails('set key-=bar', 'E474:')
+  call assert_fails('set key-=foobar', 'E474:')
+  call assert_fails('set key-=test1', 'E474:')
+
+  call assert_false(&modified)
+  call assert_equal('*****', &key)
+
+  call assert_fails('set key+=test2', 'E474:')
+  call assert_fails('set key^=test3', 'E474:')
+
+  call assert_false(&modified)
   set key=
   bwipe!
 endfunc

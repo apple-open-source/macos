@@ -49,7 +49,7 @@ public:
 
     void addPath(const PathCG&, const AffineTransform&);
 
-    void applyElements(const PathElementApplier&) const final;
+    bool applyElements(const PathElementApplier&) const final;
 
     bool transform(const AffineTransform&) final;
 

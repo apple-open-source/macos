@@ -78,6 +78,7 @@ class JITStubRoutine;
 class JITStubRoutineSet;
 class JSCell;
 class JSImmutableButterfly;
+class JSRopeString;
 class JSString;
 class JSValue;
 class MachineThreads;
@@ -133,7 +134,7 @@ class Heap;
     v(propertyTableSpace, destructibleCellHeapCellType, PropertyTable) \
     v(regExpSpace, destructibleCellHeapCellType, RegExp) \
     v(regExpObjectSpace, cellHeapCellType, RegExpObject) \
-    v(ropeStringSpace, stringHeapCellType, JSRopeString) \
+    v(ropeStringSpace, ropeStringHeapCellType, JSRopeString) \
     v(scopedArgumentsSpace, cellHeapCellType, ScopedArguments) \
     v(sparseArrayValueMapSpace, destructibleCellHeapCellType, SparseArrayValueMap) \
     v(stringSpace, stringHeapCellType, JSString) \
@@ -327,6 +328,7 @@ public:
     JS_EXPORT_PRIVATE GCActivityCallback* fullActivityCallback();
     JS_EXPORT_PRIVATE GCActivityCallback* edenActivityCallback();
     JS_EXPORT_PRIVATE void setGarbageCollectionTimerEnabled(bool);
+    JS_EXPORT_PRIVATE void scheduleOpportunisticFullCollectionIfNeeded();
 
     JS_EXPORT_PRIVATE IncrementalSweeper& sweeper();
 
@@ -383,10 +385,15 @@ public:
 
     void completeAllJITPlans();
     
-    // Use this API to report non-GC memory referenced by GC objects. Be sure to
+    // Note that:
+    // 1. Use this API to report non-GC memory referenced by GC objects. Be sure to
     // call both of these functions: Calling only one may trigger catastropic
     // memory growth.
+    // 2. Use this API may trigger JSRopeString::resolveRope. If this API need
+    // to be used when resolving a rope string, then make sure to call this API
+    // after the rope string is completely resolved.
     void reportExtraMemoryAllocated(size_t);
+    void reportExtraMemoryAllocated(GCDeferralContext*, size_t);
     JS_EXPORT_PRIVATE void reportExtraMemoryVisited(size_t);
 
 #if ENABLE(RESOURCE_USAGE)
@@ -611,7 +618,7 @@ private:
 
     Lock& lock() { return m_lock; }
 
-    JS_EXPORT_PRIVATE void reportExtraMemoryAllocatedSlowCase(size_t);
+    JS_EXPORT_PRIVATE void reportExtraMemoryAllocatedSlowCase(GCDeferralContext*, size_t);
     JS_EXPORT_PRIVATE void deprecatedReportExtraMemorySlowCase(size_t);
     
     bool shouldCollectInCollectorThread(const AbstractLocker&);
@@ -756,6 +763,7 @@ private:
     MutatorState m_mutatorState { MutatorState::Running };
     const size_t m_ramSize;
     const size_t m_minBytesPerCycle;
+    size_t m_bytesAllocatedBeforeLastEdenCollect { 0 };
     size_t m_sizeAfterLastCollect { 0 };
     size_t m_sizeAfterLastFullCollect { 0 };
     size_t m_sizeBeforeLastFullCollect { 0 };
@@ -767,10 +775,13 @@ private:
     size_t m_maxEdenSize;
     size_t m_maxEdenSizeWhenCritical;
     size_t m_maxHeapSize;
+    size_t m_totalBytesVisitedAfterLastFullCollect { 0 };
     size_t m_totalBytesVisited { 0 };
     size_t m_totalBytesVisitedThisCycle { 0 };
     double m_incrementBalance { 0 };
     
+    bool m_shouldDoOpportunisticFullCollection { false };
+    bool m_isInOpportunisticTask { false };
     bool m_shouldDoFullCollection { false };
     Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_collectionScope;
     Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_lastCollectionScope;
@@ -903,6 +914,7 @@ private:
     MonotonicTime m_lastGCStartTime;
     MonotonicTime m_lastGCEndTime;
     MonotonicTime m_currentGCStartTime;
+    MonotonicTime m_lastFullGCEndTime;
     Seconds m_totalGCTime;
     
     uintptr_t m_barriersExecuted { 0 };
@@ -943,6 +955,7 @@ public:
     IsoHeapCellType moduleNamespaceObjectHeapCellType;
     IsoHeapCellType nativeStdFunctionHeapCellType;
     IsoInlinedHeapCellType<JSString> stringHeapCellType;
+    IsoInlinedHeapCellType<JSRopeString> ropeStringHeapCellType;
     IsoHeapCellType weakMapHeapCellType;
     IsoHeapCellType weakSetHeapCellType;
     JSDestructibleObjectHeapCellType destructibleObjectHeapCellType;

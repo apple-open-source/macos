@@ -222,31 +222,49 @@ _citrus_mapper_serial_mapper_convert(struct _citrus_mapper * __restrict cm,
 	int ret;
 #ifdef __APPLE__
 	int incnt = *cnt;
+	bool tentative;
 #endif
 
 	sr = cm->cm_closure;
+#ifdef __APPLE__
+	tentative = false;
+
+	/*
+	 * Upper levels should generally not have a problem
+	 * with dst[n] being potentially bogus, and we don't want to
+	 * clobber src[n] with invalid mappings because we could
+	 * ourselves be chained with another mapper in parallel.
+	 */
+	memcpy(&dst[0], &src[0], *cnt * sizeof(dst[0]));
+#endif
 	STAILQ_FOREACH(ml, &sr->sr_mappers, ml_entry) {
 #ifdef __APPLE__
-		ret = _mapper_convert(ml->ml_mapper, &src[0], &src[0], cnt,
+
+		/*
+		 * We let the underlying mo_convert() implementation
+		 * update *cnt.  Each iteration of this loop is expected
+		 * to succeed for the entire *cnt; if it doesn't, we
+		 * can just leave *cnt to whatever the first failure
+		 * set it to.
+		 */
+		ret = _mapper_convert(ml->ml_mapper, &dst[0], &dst[0], cnt,
 		    NULL);
+		if (ret == _MAPPER_CONVERT_TRANSLIT) {
+			/*
+			 * Note that this is a translit mapping and move on.
+			 * Note that one TRANSLIT entry in the chain of mappers
+			 * will dirty the whole conversion, meaning the end
+			 * result is a transliteration.
+			 */
+			tentative = true;
+			continue;
+		}
 #else
 		ret = _mapper_convert(ml->ml_mapper, &src, src, NULL);
 #endif
 		if (ret != _MAPPER_CONVERT_SUCCESS) {
 #ifdef __APPLE__
 			assert(*cnt < incnt);
-
-			/*
-			 * We let the underlying mo_convert() implementation
-			 * update *cnt.  Each iteration of this loop is expected
-			 * to succeed for the entire *cnt; if it doesn't, we
-			 * can just leave *cnt to whatever the first failure
-			 * set it at and output all of the dst csindexes up to
-			 * that point.
-			 */
-			for (int i = 0; i < *cnt; i++) {
-				dst[i] = src[i];
-			}
 #endif
 			return (ret);
 		}
@@ -257,9 +275,8 @@ _citrus_mapper_serial_mapper_convert(struct _citrus_mapper * __restrict cm,
 #endif
 	}
 #ifdef __APPLE__
-	for (int i = 0; i < *cnt; i++) {
-		dst[i] = src[i];
-	}
+	if (tentative)
+		return (_MAPPER_CONVERT_TRANSLIT);
 #else
 	*dst = src;
 #endif
@@ -283,12 +300,14 @@ _citrus_mapper_parallel_mapper_convert(struct _citrus_mapper * __restrict cm,
 	int ret;
 #ifdef __APPLE__
 	int i, incnt, tmpcnt;
+	bool tentative = false;
 #endif
 
 	sr = cm->cm_closure;
 #ifdef __APPLE__
 	incnt = *cnt;
 	for (i = 0; i < incnt; i++) {
+		tentative = false;
 		STAILQ_FOREACH(ml, &sr->sr_mappers, ml_entry) {
 			/*
 			 * Parallel mapper takes a penalty because we don't want
@@ -301,10 +320,32 @@ _citrus_mapper_parallel_mapper_convert(struct _citrus_mapper * __restrict cm,
 			ret = _mapper_convert(ml->ml_mapper, &tmp, &src[i],
 			     &tmpcnt, NULL);
 			if (ret == _MAPPER_CONVERT_SUCCESS) {
+				tentative = false;
 				dst[i] = tmp;
 
-				goto next;
+				goto nextchar;
+			} else if (ret == _MAPPER_CONVERT_TRANSLIT) {
+				tentative = true;
+				dst[i] = tmp;
+
+				/*
+				 * Continue checking other mappers in case
+				 * another one has a non-tentative match.
+				 */
+				continue;
 			} else if (ret == _MAPPER_CONVERT_ILSEQ) {
+				if (tentative) {
+					/*
+					 * The error can be ignored if we had a
+					 * valid transliteration before this; it
+					 * is as good as a 'previous success' if
+					 * the alternative is pushing into
+					 * character sets in which it's invalid.
+					 */
+					*cnt = i + 1;
+					return (_MAPPER_CONVERT_TRANSLIT);
+				}
+
 				*cnt = i;
 				return (_MAPPER_CONVERT_ILSEQ);
 			}
@@ -315,12 +356,17 @@ _citrus_mapper_parallel_mapper_convert(struct _citrus_mapper * __restrict cm,
 		 * and report the short *cnt + ENOENT.
 		 */
 		goto out;
-next:
+nextchar:
 		continue;
 	}
 
 out:
 	*cnt = i;
+	if (tentative) {
+		(*cnt)++;
+		return (_MAPPER_CONVERT_TRANSLIT);
+	}
+
 	if (i == incnt)
 		return (_MAPPER_CONVERT_SUCCESS);
 #else

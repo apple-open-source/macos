@@ -300,7 +300,7 @@ inline void JIT::emitValueProfilingSite(const Bytecode& bytecode, JSValueRegs va
     if (!shouldEmitProfiling())
         return;
 
-    ptrdiff_t offset = m_profiledCodeBlock->metadataTable()->offsetInMetadataTable(bytecode) + valueProfileOffsetFor<Bytecode>(m_bytecodeIndex.checkpoint()) + ValueProfile::offsetOfFirstBucket();
+    ptrdiff_t offset = -static_cast<ptrdiff_t>(valueProfileOffsetFor<Bytecode>(bytecode, m_bytecodeIndex.checkpoint())) * sizeof(ValueProfile) + ValueProfile::offsetOfFirstBucket() - sizeof(UnlinkedMetadataTable::LinkingData);
     storeValue(value, Address(s_metadataGPR, offset));
 }
 
@@ -492,7 +492,7 @@ ALWAYS_INLINE void JIT::loadConstant(CCallHelpers& jit, JITConstantPool::Constan
 
 ALWAYS_INLINE void JIT::loadGlobalObject(CCallHelpers& jit, GPRReg result)
 {
-    loadConstant(jit, s_globalObjectConstant, result);
+    jit.loadPtr(Address(s_constantsGPR, BaselineJITData::offsetOfGlobalObject()), result);
 }
 
 ALWAYS_INLINE void JIT::loadConstant(JITConstantPool::Constant constantIndex, GPRReg result)

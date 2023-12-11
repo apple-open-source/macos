@@ -356,6 +356,10 @@ check_error(msg)
 
 
 #ifdef __APPLE__
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /* Different semantics from libmd's MD5File: does not convert output to hex. */
 static unsigned char *
 MD5File(const char *filename, unsigned char *output)
@@ -373,7 +377,7 @@ MD5File(const char *filename, unsigned char *output)
 			} else {
 				ptr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0);
 				if (ptr != MAP_FAILED) {
-					result = CC_MD5(ptr, sb.st_size, output);
+					result = CC_MD5(ptr, (uint32_t)sb.st_size, output);
 					(void)munmap(ptr, sb.st_size);
 				}
 			}
@@ -383,6 +387,9 @@ MD5File(const char *filename, unsigned char *output)
 
 	return result;
 }
+
+#pragma clang pop
+
 #endif /* __APPLE__ */
 
 static void

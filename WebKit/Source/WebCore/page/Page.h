@@ -22,13 +22,8 @@
 
 #include "ActivityState.h"
 #include "AnimationFrameRate.h"
-#include "BadgeClient.h"
 #include "Color.h"
 #include "ContentSecurityPolicy.h"
-#include "DisabledAdaptations.h"
-#include "Document.h"
-#include "EventTrackingRegions.h"
-#include "FilterRenderingMode.h"
 #include "FindOptions.h"
 #include "FrameLoaderTypes.h"
 #include "IntRectHash.h"
@@ -47,12 +42,10 @@
 #include "RegistrableDomain.h"
 #include "ScrollTypes.h"
 #include "ShouldRelaxThirdPartyCookieBlocking.h"
-#include "SpeechRecognitionConnection.h"
 #include "Supplementable.h"
 #include "Timer.h"
 #include "UserInterfaceLayoutDirection.h"
 #include "ViewportArguments.h"
-#include "VisibilityState.h"
 #include <memory>
 #include <pal/SessionID.h>
 #include <wtf/Assertions.h>
@@ -69,20 +62,8 @@
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(COCOA)
-#include <wtf/SchedulePair.h>
-#endif
-
 #if ENABLE(APPLICATION_MANIFEST)
 #include "ApplicationManifest.h"
-#endif
-
-#if ENABLE(WIRELESS_PLAYBACK_TARGET)
-#include "MediaPlaybackTargetContext.h"
-#endif
-
-#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
-#include "DeviceOrientationUpdateProvider.h"
 #endif
 
 namespace JSC {
@@ -94,7 +75,10 @@ class HysteresisActivity;
 }
 
 namespace WTF {
+class SchedulePair;
 class TextStream;
+struct SchedulePairHash;
+using SchedulePairHashSet = HashSet<RefPtr<SchedulePair>, SchedulePairHash>;
 }
 
 namespace WebCore {
@@ -111,6 +95,7 @@ class ApplicationCacheStorage;
 class AttachmentElementClient;
 class AuthenticatorCoordinator;
 class BackForwardController;
+class BadgeClient;
 class BroadcastChannelRegistry;
 class CacheStorageProvider;
 class Chrome;
@@ -118,6 +103,7 @@ class ContextMenuController;
 class CookieJar;
 class DOMRectList;
 class DatabaseProvider;
+class DeviceOrientationUpdateProvider;
 class DiagnosticLoggingClient;
 class DragCaretController;
 class DragController;
@@ -167,13 +153,13 @@ class Settings;
 class SocketProvider;
 class SpeechRecognitionProvider;
 class SpeechSynthesisClient;
+class SpeechRecognitionConnection;
 class StorageNamespace;
 class StorageNamespaceProvider;
 class StorageProvider;
 class ThermalMitigationNotifier;
 class UserContentProvider;
 class UserContentURLPattern;
-class UserInputBridge;
 class UserScript;
 class UserStyleSheet;
 class ValidationMessageClient;
@@ -182,6 +168,7 @@ class VisitedLinkStore;
 class WebGLStateTracker;
 class WheelEventDeltaFilter;
 class WheelEventTestMonitor;
+class WindowEventLoop;
 
 struct AXTreeData;
 struct ApplePayAMSUIRequest;
@@ -191,13 +178,19 @@ struct TextRecognitionResult;
 using PlatformDisplayID = uint32_t;
 using SharedStringHash = uint32_t;
 
+enum class ActivityState : uint16_t;
 enum class CanWrap : bool;
 enum class DidWrap : bool;
+enum class DisabledAdaptations : uint8_t;
+enum class EventTrackingRegionsEventType : uint8_t;
+enum class FilterRenderingMode : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
 enum class ShouldTreatAsContinuingLoad : uint8_t;
+enum class MediaPlaybackTargetContextMockState : uint8_t;
 enum class MediaProducerMediaState : uint32_t;
 enum class MediaProducerMediaCaptureKind : uint8_t;
 enum class MediaProducerMutedState : uint8_t;
+enum class VisibilityState : bool;
 
 using MediaProducerMediaStateFlags = OptionSet<MediaProducerMediaState>;
 using MediaProducerMutedStateFlags = OptionSet<MediaProducerMutedState>;
@@ -224,26 +217,27 @@ enum class RenderingUpdateStep : uint32_t {
     Animations                      = 1 << 3,
     Fullscreen                      = 1 << 4,
     AnimationFrameCallbacks         = 1 << 5,
-    IntersectionObservations        = 1 << 6,
-    ResizeObservations              = 1 << 7,
-    Images                          = 1 << 8,
-    WheelEventMonitorCallbacks      = 1 << 9,
-    CursorUpdate                    = 1 << 10,
-    EventRegionUpdate               = 1 << 11,
-    LayerFlush                      = 1 << 12,
+    UpdateContentRelevancy          = 1 << 6,
+    IntersectionObservations        = 1 << 7,
+    ResizeObservations              = 1 << 8,
+    Images                          = 1 << 9,
+    WheelEventMonitorCallbacks      = 1 << 10,
+    CursorUpdate                    = 1 << 11,
+    EventRegionUpdate               = 1 << 12,
+    LayerFlush                      = 1 << 13,
 #if ENABLE(ASYNC_SCROLLING)
-    ScrollingTreeUpdate             = 1 << 13,
+    ScrollingTreeUpdate             = 1 << 14,
 #endif
-    FlushAutofocusCandidates        = 1 << 14,
-    VideoFrameCallbacks             = 1 << 15,
-    PrepareCanvasesForDisplay       = 1 << 16,
-    CaretAnimation                  = 1 << 17,
-    FocusFixup                      = 1 << 18,
-    UpdateValidationMessagePositions= 1 << 19,
+    FlushAutofocusCandidates        = 1 << 15,
+    VideoFrameCallbacks             = 1 << 16,
+    PrepareCanvasesForDisplay       = 1 << 17,
+    CaretAnimation                  = 1 << 18,
+    FocusFixup                      = 1 << 19,
+    UpdateValidationMessagePositions= 1 << 20,
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    AccessibilityRegionUpdate       = 1 << 20,
+    AccessibilityRegionUpdate       = 1 << 21,
 #endif
-    RestoreScrollPositionAndViewState = 1 << 21,
+    RestoreScrollPositionAndViewState = 1 << 22,
 };
 
 enum class LinkDecorationFilteringTrigger : uint8_t {
@@ -272,6 +266,7 @@ constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
 #endif
     RenderingUpdateStep::PrepareCanvasesForDisplay,
     RenderingUpdateStep::CaretAnimation,
+    RenderingUpdateStep::UpdateContentRelevancy,
 };
 
 constexpr auto allRenderingUpdateSteps = updateRenderingSteps | OptionSet<RenderingUpdateStep> {
@@ -380,7 +375,6 @@ public:
     ContextMenuController& contextMenuController() { return m_contextMenuController.get(); }
     const ContextMenuController& contextMenuController() const { return m_contextMenuController.get(); }
 #endif
-    UserInputBridge& userInputBridge() { return m_userInputBridge.get(); }
     InspectorController& inspectorController() { return m_inspectorController.get(); }
     PointerCaptureController& pointerCaptureController() { return m_pointerCaptureController.get(); }
 #if ENABLE(POINTER_LOCK)
@@ -406,7 +400,7 @@ public:
     WEBCORE_EXPORT String synchronousScrollingReasonsAsText();
     WEBCORE_EXPORT Ref<DOMRectList> nonFastScrollableRectsForTesting();
 
-    WEBCORE_EXPORT Ref<DOMRectList> touchEventRectsForEventForTesting(EventTrackingRegions::EventType);
+    WEBCORE_EXPORT Ref<DOMRectList> touchEventRectsForEventForTesting(EventTrackingRegionsEventType);
     WEBCORE_EXPORT Ref<DOMRectList> passiveTouchEventListenerRectsForTesting();
 
     WEBCORE_EXPORT void settingsDidChange();
@@ -453,11 +447,11 @@ public:
 
 #if PLATFORM(COCOA)
     void platformInitialize();
-    WEBCORE_EXPORT void addSchedulePair(Ref<SchedulePair>&&);
-    WEBCORE_EXPORT void removeSchedulePair(Ref<SchedulePair>&&);
-    SchedulePairHashSet* scheduledRunLoopPairs() { return m_scheduledRunLoopPairs.get(); }
+    WEBCORE_EXPORT void addSchedulePair(Ref<WTF::SchedulePair>&&);
+    WEBCORE_EXPORT void removeSchedulePair(Ref<WTF::SchedulePair>&&);
+    WTF::SchedulePairHashSet* scheduledRunLoopPairs() { return m_scheduledRunLoopPairs.get(); }
 
-    std::unique_ptr<SchedulePairHashSet> m_scheduledRunLoopPairs;
+    std::unique_ptr<WTF::SchedulePairHashSet> m_scheduledRunLoopPairs;
 #endif
 
     WEBCORE_EXPORT const VisibleSelection& selection() const;
@@ -484,7 +478,8 @@ public:
     void didStartProvisionalLoad();
     void didCommitLoad();
     void didFinishLoad();
-    void didFirstMeaningfulPaint();
+
+    void willChangeLocationInCompletelyLoadedSubframe();
 
     bool delegatesScaling() const { return m_delegatesScaling; }
     WEBCORE_EXPORT void setDelegatesScaling(bool);
@@ -560,6 +555,8 @@ public:
     WEBCORE_EXPORT void setFullscreenAutoHideDuration(Seconds);
     WEBCORE_EXPORT void setFullscreenControlsHidden(bool);
 
+    Document* outermostFullscreenDocument() const;
+
     bool shouldSuppressScrollbarAnimations() const { return m_suppressScrollbarAnimations; }
     WEBCORE_EXPORT void setShouldSuppressScrollbarAnimations(bool suppressAnimations);
     void lockAllOverlayScrollbarsToHidden(bool lockOverlayScrollbars);
@@ -620,7 +617,7 @@ public:
 #endif
 
 #if USE(SYSTEM_PREVIEW)
-    void beginSystemPreview(const URL&, const SystemPreviewInfo&, CompletionHandler<void()>&&);
+    void beginSystemPreview(const URL&, const SecurityOriginData& topOrigin, const SystemPreviewInfo&, CompletionHandler<void()>&&);
 #endif
 
 #if ENABLE(WEB_AUTHN)
@@ -702,10 +699,12 @@ public:
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     void updatePlayStateForAllAnimations();
     WEBCORE_EXPORT void setImageAnimationEnabled(bool);
+    WEBCORE_EXPORT void setSystemAllowsAnimationControls(bool isAllowed);
     void addIndividuallyPlayingAnimationElement(HTMLImageElement&);
     void removeIndividuallyPlayingAnimationElement(HTMLImageElement&);
 #endif
     bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
+    bool systemAllowsAnimationControls() const { return m_systemAllowsAnimationControls; }
 
     void userStyleSheetLocationChanged();
     const String& userStyleSheet() const;
@@ -768,6 +767,11 @@ public:
     WEBCORE_EXPORT Color themeColor() const;
     WEBCORE_EXPORT Color pageExtendedBackgroundColor() const;
     WEBCORE_EXPORT Color sampledPageTopColor() const;
+
+#if HAVE(APP_ACCENT_COLORS) && PLATFORM(MAC)
+    WEBCORE_EXPORT void setAppUsesCustomAccentColor(bool);
+    WEBCORE_EXPORT bool appUsesCustomAccentColor() const;
+#endif
 
     Color underPageBackgroundColorOverride() const { return m_underPageBackgroundColorOverride; }
     WEBCORE_EXPORT void setUnderPageBackgroundColorOverride(Color&&);
@@ -887,7 +891,7 @@ public:
     void showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier, const IntPoint&, bool, RouteSharingPolicy, const String&);
     void playbackTargetPickerClientStateDidChange(PlaybackTargetClientContextIdentifier, MediaProducerMediaStateFlags);
     WEBCORE_EXPORT void setMockMediaPlaybackTargetPickerEnabled(bool);
-    WEBCORE_EXPORT void setMockMediaPlaybackTargetPickerState(const String&, MediaPlaybackTargetContext::MockState);
+    WEBCORE_EXPORT void setMockMediaPlaybackTargetPickerState(const String&, MediaPlaybackTargetContextMockState);
     WEBCORE_EXPORT void mockMediaPlaybackTargetPickerDismissPopup();
 
     WEBCORE_EXPORT void setPlaybackTarget(PlaybackTargetClientContextIdentifier, Ref<MediaPlaybackTarget>&&);
@@ -989,6 +993,7 @@ public:
     void forEachMediaElement(const Function<void(HTMLMediaElement&)>&);
     static void forEachDocumentFromMainFrame(const LocalFrame&, const Function<void(Document&)>&);
     void forEachFrame(const Function<void(LocalFrame&)>&);
+    void forEachWindowEventLoop(const Function<void(WindowEventLoop&)>&);
 
     bool shouldDisableCorsForRequestTo(const URL&) const;
     const HashSet<String>& maskedURLSchemes() const { return m_maskedURLSchemes; }
@@ -1055,13 +1060,12 @@ public:
 
     const WeakHashSet<LocalFrame>& rootFrames() const { return m_rootFrames; }
     WEBCORE_EXPORT void addRootFrame(LocalFrame&);
+    WEBCORE_EXPORT void removeRootFrame(LocalFrame&);
 
+    void opportunisticallyRunIdleCallbacks();
     void performOpportunisticallyScheduledTasks(MonotonicTime deadline);
 
-#if PLATFORM(IOS_FAMILY)
-    WEBCORE_EXPORT void setSceneIdentifier(String&&);
-#endif
-    WEBCORE_EXPORT String sceneIdentifier() const;
+    bool isWaitingForLoadToFinish() const { return m_isWaitingForLoadToFinish; }
 
 private:
     struct Navigation {
@@ -1128,7 +1132,6 @@ private:
 #if ENABLE(CONTEXT_MENUS)
     UniqueRef<ContextMenuController> m_contextMenuController;
 #endif
-    UniqueRef<UserInputBridge> m_userInputBridge;
     UniqueRef<InspectorController> m_inspectorController;
     UniqueRef<PointerCaptureController> m_pointerCaptureController;
 #if ENABLE(POINTER_LOCK)
@@ -1231,6 +1234,7 @@ private:
 
     bool m_canStartMedia { true };
     bool m_imageAnimationEnabled { true };
+    bool m_systemAllowsAnimationControls { false };
     // Elements containing animations that are individually playing (potentially overriding the page-wide m_imageAnimationEnabled state).
     WeakHashSet<HTMLImageElement, WeakPtrImplWithEventTargetData> m_individuallyPlayingAnimationElements;
 
@@ -1420,7 +1424,7 @@ private:
     std::unique_ptr<AttachmentElementClient> m_attachmentElementClient;
 #endif
 
-    std::unique_ptr<OpportunisticTaskDeferralScope> m_opportunisticTaskDeferralScopeForFirstPaint;
+    bool m_isWaitingForLoadToFinish { false };
     Ref<OpportunisticTaskScheduler> m_opportunisticTaskScheduler;
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -1438,8 +1442,8 @@ private:
 
     HashMap<RegistrableDomain, uint64_t> m_noiseInjectionHashSalts;
 
-#if PLATFORM(IOS_FAMILY)
-    String m_sceneIdentifier;
+#if HAVE(APP_ACCENT_COLORS) && PLATFORM(MAC)
+    bool m_appUsesCustomAccentColor { false };
 #endif
 };
 

@@ -418,7 +418,7 @@ void RenderEmbeddedObject::handleUnavailablePluginIndicatorEvent(Event* event)
 
     MouseEvent& mouseEvent = downcast<MouseEvent>(*event);
     HTMLPlugInElement& element = downcast<HTMLPlugInElement>(frameOwnerElement());
-    if (mouseEvent.type() == eventNames().mousedownEvent && mouseEvent.button() == LeftButton) {
+    if (mouseEvent.type() == eventNames().mousedownEvent && mouseEvent.button() == MouseButton::Left) {
         m_mouseDownWasInUnavailablePluginIndicator = isInUnavailablePluginIndicator(mouseEvent);
         if (m_mouseDownWasInUnavailablePluginIndicator) {
             frame().eventHandler().setCapturingMouseEventsElement(&element);
@@ -427,7 +427,7 @@ void RenderEmbeddedObject::handleUnavailablePluginIndicatorEvent(Event* event)
         }
         mouseEvent.setDefaultHandled();
     }
-    if (mouseEvent.type() == eventNames().mouseupEvent && mouseEvent.button() == LeftButton) {
+    if (mouseEvent.type() == eventNames().mouseupEvent && mouseEvent.button() == MouseButton::Left) {
         if (m_unavailablePluginIndicatorIsPressed) {
             frame().eventHandler().setCapturingMouseEventsElement(nullptr);
             element.setIsCapturingMouseEvents(false);

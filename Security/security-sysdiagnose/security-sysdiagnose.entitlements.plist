@@ -10,6 +10,7 @@
 		<string>com.apple.hap.metadata</string>
 		<string>com.apple.continuity.unlock</string>
 		<string>com.apple.rapport</string>
+		<string>group.com.apple.notes</string>
 	</array>
 	<key>keychain-cloud-circle</key>
 	<true/>

@@ -16,6 +16,8 @@
 #import "keychain/escrowrequest/generated_source/SecEscrowPendingRecord.h"
 #import "keychain/escrowrequest/SecEscrowPendingRecord+KeychainSupport.h"
 
+NSString* const EscrowRequestTransitionErrorDomain = @"com.apple.security.escrowrequest.state";
+
 OctagonState* const EscrowRequestStateNothingToDo = (OctagonState*)@"nothing_to_do";
 OctagonState* const EscrowRequestStateTriggerCloudServices = (OctagonState*)@"trigger_cloudservices";
 
@@ -37,14 +39,17 @@ OctagonState* const EscrowRequestStateWaitForUnlock = (OctagonState*)@"wait_for_
         _lockStateTracker = lockStateTracker;
 
         _stateMachine = [[OctagonStateMachine alloc] initWithName:@"escrowrequest"
-                                                           states:[NSSet setWithArray:@[EscrowRequestStateNothingToDo,
-                                                                                        EscrowRequestStateTriggerCloudServices,
-                                                                                        EscrowRequestStateAttemptEscrowUpload,
-                                                                                        EscrowRequestStateWaitForUnlock]]
+                                                           states:@{
+            EscrowRequestStateNothingToDo : @0,
+            EscrowRequestStateTriggerCloudServices : @1,
+            EscrowRequestStateAttemptEscrowUpload : @2,
+            EscrowRequestStateWaitForUnlock : @3,
+        }
                                                             flags: [NSSet setWithArray:@[OctagonFlagEscrowRequestInformCloudServicesOperation]]
                                                      initialState:EscrowRequestStateNothingToDo
                                                             queue:_queue
                                                       stateEngine:self
+                                       unexpectedStateErrorDomain:EscrowRequestTransitionErrorDomain
                                                  lockStateTracker:lockStateTracker
                                               reachabilityTracker:nil];
 

@@ -97,6 +97,7 @@ static void moveWidgetToParentSoon(Widget& child, LocalFrameView* parent)
 RenderWidget::RenderWidget(HTMLFrameOwnerElement& element, RenderStyle&& style)
     : RenderReplaced(element, WTFMove(style))
 {
+    relaxAdoptionRequirement();
     setInline(false);
 }
 
@@ -120,10 +121,7 @@ void RenderWidget::willBeDestroyed()
     RenderReplaced::willBeDestroyed();
 }
 
-RenderWidget::~RenderWidget()
-{
-    ASSERT(!m_refCount);
-}
+RenderWidget::~RenderWidget() = default;
 
 // Widgets are always placed on integer boundaries, so rounding the size is actually
 // the desired behavior. This function is here because it's otherwise seldom what we
@@ -376,9 +374,8 @@ RenderWidget::ChildWidgetState RenderWidget::updateWidgetPosition()
     if (is<LocalFrameView>(*m_widget)) {
         LocalFrameView& frameView = downcast<LocalFrameView>(*m_widget);
         // Check the frame's page to make sure that the frame isn't in the process of being destroyed.
-        auto* localFrame = dynamicDowncast<LocalFrame>(frameView.frame());
+        Ref localFrame = frameView.frame();
         if ((widgetSizeChanged || frameView.needsLayout())
-            && localFrame
             && localFrame->page()
             && localFrame->document())
             frameView.layoutContext().layout();
@@ -418,10 +415,7 @@ bool RenderWidget::nodeAtPoint(const HitTestRequest& request, HitTestResult& res
         HitTestRequest newHitTestRequest(request.type() | HitTestRequest::Type::ChildFrameHitTest);
         HitTestResult childFrameResult(newHitTestLocation);
 
-        auto* localFrame = dynamicDowncast<LocalFrame>(childFrameView.frame());
-        if (!localFrame)
-            return false;
-        auto* document = localFrame->document();
+        auto* document = childFrameView.frame().document();
         if (!document)
             return false;
         bool isInsideChildFrame = document->hitTest(newHitTestRequest, newHitTestLocation, childFrameResult);

@@ -31,7 +31,7 @@
 
 namespace JSC {
 
-DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StringReplaceCache);
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER_AND_EXPORT(StringReplaceCache, WTF_INTERNAL);
 
 class JSImmutableButterfly;
 class RegExp;
@@ -39,6 +39,7 @@ class RegExp;
 class StringReplaceCache {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(StringReplaceCache);
+
 public:
     static constexpr unsigned cacheSize = 64;
 

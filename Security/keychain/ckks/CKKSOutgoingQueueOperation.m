@@ -45,6 +45,10 @@
 #import "CKKSPowerCollection.h"
 #import "utilities/SecCoreAnalytics.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @interface CKKSOutgoingQueueOperation ()
 @property OctagonState* ckErrorState;
 @end
@@ -149,7 +153,13 @@
             ckksnotice("ckksoutgoing", viewState, "Item syncing for this view is disabled");
             continue;
         }
-        
+
+        AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                     altDSID:self.deps.activeAccount.altDSID
+                                                                                                   eventName:kSecurityRTCEventNameProcessOutgoingQueue
+                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
         // Each zone should get its own transaction, in case errors cause us to roll back queue modifications after marking entries as in-flight
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* error = nil;
@@ -161,10 +171,12 @@
             if(!queueEntries || error) {
                 ckkserror("ckksoutgoing", viewState.zoneID, "Error fetching outgoing queue records: %@", error);
                 self.error = error;
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
                 return CKKSDatabaseTransactionRollback;
             }
 
             bool fullUpload = queueEntries.count >= SecCKKSOutgoingQueueItemsAtOnce;
+            [eventS addMetrics:@{kSecurityRTCFieldNumKeychainItems:@(queueEntries.count), kSecurityRTCFieldIsFullUpload:@(fullUpload)}];
 
             [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventOutgoingQueue zone:viewState.zoneID.zoneName count:[queueEntries count]];
 
@@ -189,6 +201,8 @@
             if(error != nil) {
                 ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't load current class keys: %@", error);
                 self.error = error;
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+
                 return CKKSDatabaseTransactionRollback;
             }
 
@@ -314,6 +328,9 @@
                     self.deps.currentOutgoingQueueOperationGroup = nil;
                 }
 
+                [eventS addMetrics:@{kSecurityRTCFieldItemsToAdd:@0, kSecurityRTCFieldItemsToDelete:@0, kSecurityRTCFieldItemsToModify:@0, kSecurityRTCFieldErrorItemsProcessed:@0, kSecurityRTCFieldSuccessfulItemsProcessed:@0}];
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+
                 self.nextState = self.intendedState;
                 return true;
             }
@@ -345,7 +362,12 @@
             }
 
             ckksinfo("ckksoutgoing", viewState.zoneID, "Saving records %@ to CloudKit zone %@", recordsToSave, viewState.zoneID);
-
+            AAFAnalyticsEventSecurity *uploadOQEsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNeedsReencryption:@(needsReencrypt),
+                                                                                                                             kSecurityRTCFieldIsFullUpload:@(fullUpload)}
+                                                                                                                   altDSID:self.deps.activeAccount.altDSID
+                                                                                                                 eventName:kSecurityRTCEventNameUploadOQEsToCK
+                                                                                                           testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                  category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
             NSBlockOperation* modifyComplete = [[NSBlockOperation alloc] init];
             modifyComplete.name = @"modifyRecordsComplete";
             [self dependOnBeforeGroupFinished: modifyComplete];
@@ -372,10 +394,14 @@
                 ckksinfo("ckksoutgoing", recordID.zoneID, "Record to delete: %@", recordID);
             }
 
+            __block int successfulItemsProcessed = 0;
+            __block int errorItemsProcessed = 0;
             modifyRecordsOperation.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
                 if(!error) {
+                    successfulItemsProcessed++;
                     ckksnotice("ckksoutgoing", recordID.zoneID, "Record upload successful for %@ (%@)", recordID.recordName, record.recordChangeTag);
                 } else {
+                    errorItemsProcessed++;
                     ckkserror("ckksoutgoing", recordID.zoneID, "error on row: %@ %@", error, recordID);
                 }
             };
@@ -391,12 +417,22 @@
                                 savedRecords:savedRecords
                             deletedRecordIDs:deletedRecordIDs
                                      ckerror:ckerror];
+
+                [uploadOQEsEventS addMetrics:@{kSecurityRTCFieldItemsToAdd:@(recordsToSave.count),
+                                               kSecurityRTCFieldItemsToDelete:@(recordIDsToDelete.count),
+                                               kSecurityRTCFieldItemsToModify:@(recordIDsModified.count)}];
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadOQEsEventS success:ckerror ? NO : YES error:ckerror];
+
+
+                [eventS addMetrics:@{kSecurityRTCFieldItemsToAdd:@(recordsToSave.count), kSecurityRTCFieldItemsToDelete:@(recordIDsToDelete.count), kSecurityRTCFieldItemsToModify:@(recordIDsModified.count), kSecurityRTCFieldErrorItemsProcessed:@(errorItemsProcessed), kSecurityRTCFieldSuccessfulItemsProcessed:@(successfulItemsProcessed)}];
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:ckerror ? NO : YES error:ckerror];
             };
             [self dependOnBeforeGroupFinished:modifyRecordsOperation];
             [self.deps.ckdatabase addOperation:modifyRecordsOperation];
 
             return CKKSDatabaseTransactionCommit;
         }];
+        
     }
 }
 
@@ -517,6 +553,12 @@
         NSError* viewError = NULL;
         CKKSPowerCollection *plstats = [[CKKSPowerCollection alloc] init];
 
+        AAFAnalyticsEventSecurity *saveCKMirrorEntriesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumCKRecords: @(savedRecords.count)}
+                                                                                                                        altDSID:self.deps.activeAccount.altDSID
+                                                                                                                      eventName:kSecurityRTCEventNameSaveCKMirrorEntries
+                                                                                                                testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+        
         for(CKRecord* record in savedRecords) {
             // Save the item records
             if([record.recordType isEqualToString: SecCKRecordItemType]) {
@@ -564,7 +606,7 @@
             }
         }
         localError = nil;
-
+        
         // Delete the deleted record IDs
         for(CKRecordID* ckrecordID in deletedRecordIDs) {
 
@@ -591,7 +633,8 @@
 
             [plstats deletedOQE:oqe];
         }
-
+        
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:saveCKMirrorEntriesEventS success:self.error ? NO : YES error:self.error];
         [plstats commit];
 
         [self.deps.overallLaunch addEvent:@"process-outgoing-queue-complete"];

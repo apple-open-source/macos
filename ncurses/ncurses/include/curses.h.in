@@ -871,6 +871,11 @@ extern NCURSES_EXPORT(int) wtouchln (WINDOW *,int,int,int);		/* implemented */
 extern NCURSES_EXPORT(int) wvline (WINDOW *,chtype,int);		/* implemented */
 
 /*
+ * These entry points are used only by the ncurses utilities such as tic
+ */
+extern NCURSES_EXPORT(char *) _nc_tiparm(int, const char *, ...);
+
+/*
  * These are also declared in <term.h>:
  */
 extern NCURSES_EXPORT(int) tigetflag (NCURSES_CONST char *);		/* implemented */
@@ -888,6 +893,8 @@ extern NCURSES_EXPORT(char *) tparm_varargs (NCURSES_CONST char *, ...);	/* spec
 __OSX_AVAILABLE(14.0) __IOS_AVAILABLE(17.0) __WATCHOS_AVAILABLE(10.0)
 __TVOS_AVAILABLE(17.0)
 extern NCURSES_EXPORT(char *) tiparm (const char *, ...);		/* special */
+
+extern NCURSES_EXPORT(char *) tiparm_s(int, int, const char *, ...); /* special */
 
 /*
  * These functions are not in X/Open, but we use them in macro definitions:

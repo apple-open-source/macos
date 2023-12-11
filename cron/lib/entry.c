@@ -143,7 +143,7 @@ load_entry(file, error_func, pw, envp)
 	 * of a list of minutes.
 	 */
 
-	e = (entry *) calloc(sizeof(entry), sizeof(char));
+	e = (entry *) calloc(1, sizeof(entry));
 
 	if (e == NULL) {
 		warn("load_entry: calloc failed");
@@ -333,7 +333,7 @@ load_entry(file, error_func, pw, envp)
 		strcpy(e->uname, uname);
 		strcpy(e->gname, "");
 	}
-	Debug(DPARS, ("load_entry()...user: %s group:\n",e->uname,e->gname))
+	Debug(DPARS, ("load_entry()...user: %s group: %s\n",e->uname,e->gname))
 #else /* __APPLE__ */
 		grp = NULL;
 		if ((s = strrchr(username, ':')) != NULL) {
@@ -386,8 +386,8 @@ load_entry(file, error_func, pw, envp)
 			goto eof;
 		}
 	}
-	prev_env = e->envp;
 #ifndef __APPLE__
+	prev_env = e->envp;
 	sprintf(envstr, "HOME=%s", pw->pw_dir);
 	e->envp = env_set(e->envp, envstr);
 	if (e->envp == NULL) {

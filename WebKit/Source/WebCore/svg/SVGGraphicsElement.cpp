@@ -36,6 +36,7 @@
 #include "SVGRenderSupport.h"
 #include "SVGSVGElement.h"
 #include "SVGStringList.h"
+#include "TransformOperationData.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 
@@ -97,7 +98,7 @@ AffineTransform SVGGraphicsElement::animatedLocalTransform() const
         // Note: objectBoundingBox is an emptyRect for elements like pattern or clipPath.
         // See the "Object bounding box units" section of http://dev.w3.org/csswg/css3-transforms/
         TransformationMatrix transform;
-        style->applyTransform(transform, renderer()->transformReferenceBoxRect());
+        style->applyTransform(transform, TransformOperationData(renderer()->transformReferenceBoxRect(), renderer()));
 
         // Flatten any 3D transform.
         matrix = transform.toAffineTransform();

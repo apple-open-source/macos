@@ -895,7 +895,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         establishContext.preflightJoin(with: crk2) { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
-            XCTAssertEqual((error! as NSError).code, ContainerError.failedToCreateRecoveryKey.errorCode, "error code mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.failedToCreateRecoveryKey(suberror: ContainerError.unknownInternalError).errorCode, "error code mismatch")
             preflightJoinWithCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [preflightJoinWithCustodianRecoveryKeyExpectation], timeout: 20)
@@ -912,7 +912,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         recoveryContext.join(with: crk2) { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
-            XCTAssertEqual((error! as NSError).code, ContainerError.failedToCreateRecoveryKey.errorCode, "error code mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.failedToCreateRecoveryKey(suberror: ContainerError.unknownInternalError).errorCode, "error code mismatch")
             joinWithCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithCustodianRecoveryKeyExpectation], timeout: 20)

@@ -29,11 +29,10 @@
 #include "NetworkDataTask.h"
 #include "NetworkLoadClient.h"
 #include "NetworkLoadParameters.h"
-#include <WebCore/AuthenticationChallenge.h>
-#include <wtf/CompletionHandler.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+class AuthenticationChallenge;
 class BlobRegistryImpl;
 }
 

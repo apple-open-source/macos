@@ -46,7 +46,7 @@ public:
         String host;
         std::optional<uint16_t> port;
 
-        bool operator==(const Tuple& other) const { return protocol == other.protocol && host == other.host && port == other.port; }
+        friend bool operator==(const Tuple&, const Tuple&) = default;
         Tuple isolatedCopy() const & { return { protocol.isolatedCopy(), host.isolatedCopy(), port }; }
         Tuple isolatedCopy() && { return { WTFMove(protocol).isolatedCopy(), WTFMove(host).isolatedCopy(), port }; }
     };
@@ -184,7 +184,9 @@ struct SecurityOriginDataHashTraits : SimpleClassHashTraits<SecurityOriginData> 
 
 struct SecurityOriginDataHash {
     static unsigned hash(const SecurityOriginData& data) { return computeHash(data); }
+    static unsigned hash(const std::optional<SecurityOriginData>& data) { return computeHash(data); }
     static bool equal(const SecurityOriginData& a, const SecurityOriginData& b) { return a == b; }
+    static bool equal(const std::optional<SecurityOriginData>& a, const std::optional<SecurityOriginData>& b) { return a == b; }
     static const bool safeToCompareToEmptyOrDeleted = false;
 };
 
@@ -198,5 +200,6 @@ namespace WTF {
 
 template<> struct HashTraits<WebCore::SecurityOriginData> : WebCore::SecurityOriginDataHashTraits { };
 template<> struct DefaultHash<WebCore::SecurityOriginData> : WebCore::SecurityOriginDataHash { };
+template<> struct DefaultHash<std::optional<WebCore::SecurityOriginData>> : WebCore::SecurityOriginDataHash { };
 
 } // namespace WTF

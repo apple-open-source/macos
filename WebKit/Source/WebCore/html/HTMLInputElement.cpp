@@ -512,6 +512,8 @@ void HTMLInputElement::updateType(const AtomString& typeAttributeValue)
         return;
     ASSERT(m_inputType->type() != newType->type());
 
+    Style::PseudoClassChangeInvalidation defaultInvalidation(*this, CSSSelector::PseudoClassType::Default, Style::PseudoClassChangeInvalidation::AnyValue);
+
     removeFromRadioButtonGroup();
     resignStrongPasswordAppearance();
 
@@ -534,13 +536,15 @@ void HTMLInputElement::updateType(const AtomString& typeAttributeValue)
     m_inputType->detachFromElement();
     auto oldType = m_inputType->type();
 
+    bool didDirAutoUseValue = m_inputType->dirAutoUsesValue();
     bool previouslySelectable = m_inputType->supportsSelectionAPI();
 
     m_inputType = WTFMove(newType);
     m_inputType->createShadowSubtreeIfNeeded();
 
-    if (oldType == InputType::Type::Telephone || m_inputType->type() == InputType::Type::Telephone)
-        updateTextDirectionalityAfterTelephoneInputTypeChange();
+    // https://html.spec.whatwg.org/multipage/dom.html#auto-directionality
+    if (oldType == InputType::Type::Telephone || m_inputType->type() == InputType::Type::Telephone || (hasDirectionAuto() && didDirAutoUseValue != m_inputType->dirAutoUsesValue()))
+        updateTextDirectionalityAfterInputTypeChange();
 
     if (UNLIKELY(didSupportReadOnly != willSupportReadOnly && hasAttributeWithoutSynchronization(readonlyAttr))) {
         emplace(readWriteInvalidation, *this, { { CSSSelector::PseudoClassType::ReadWrite, !willSupportReadOnly }, { CSSSelector::PseudoClassType::ReadOnly, willSupportReadOnly } });
@@ -784,8 +788,7 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
         HTMLTextFormControlElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
         break;
     case AttributeNames::checkedAttr:
-        if (m_inputType->isCheckable())
-            invalidateStyleForSubtree();
+        setDefaultCheckedState(!newValue.isNull());
         // Another radio button in the same group might be checked by state
         // restore. We shouldn't call setChecked() even if this has the checked
         // attribute. So, delay the setChecked() call until
@@ -941,7 +944,7 @@ String HTMLInputElement::altText() const
         alt = attributeWithoutSynchronization(titleAttr);
     if (alt.isNull())
         alt = attributeWithoutSynchronization(valueAttr);
-    if (alt.isEmpty())
+    if (alt.isNull())
         alt = inputElementAltText();
     return alt;
 }
@@ -958,7 +961,7 @@ bool HTMLInputElement::matchesDefaultPseudoClass() const
     ASSERT(m_inputType);
     if (m_inputType->canBeSuccessfulSubmitButton())
         return !isDisabledFormControl() && form() && form()->defaultButton() == this;
-    return m_inputType->isCheckable() && hasAttributeWithoutSynchronization(checkedAttr);
+    return m_inputType->isCheckable() && m_isDefaultChecked;
 }
 
 bool HTMLInputElement::isActivatedSubmit() const
@@ -984,6 +987,7 @@ void HTMLInputElement::reset()
         updateValidity();
     }
 
+    setInteractedWithSinceLastFormSubmitEvent(false);
     setAutoFilled(false);
     setAutoFilledAndViewable(false);
     setAutoFilledAndObscured(false);
@@ -1000,6 +1004,17 @@ bool HTMLInputElement::isTextField() const
 bool HTMLInputElement::isTextType() const
 {
     return m_inputType->isTextType();
+}
+
+void HTMLInputElement::setDefaultCheckedState(bool isDefaultChecked)
+{
+    if (m_isDefaultChecked == isDefaultChecked)
+        return;
+
+    std::optional<Style::PseudoClassChangeInvalidation> defaultInvalidation;
+    if (m_inputType->isCheckable())
+        defaultInvalidation.emplace(*this, CSSSelector::PseudoClassType::Default, isDefaultChecked);
+    m_isDefaultChecked = isDefaultChecked;
 }
 
 void HTMLInputElement::setChecked(bool isChecked)
@@ -1061,6 +1076,7 @@ void HTMLInputElement::copyNonAttributePropertiesFromElement(const Element& sour
     m_valueIfDirty = sourceElement.m_valueIfDirty;
     m_wasModifiedByUser = false;
     setChecked(sourceElement.m_isChecked);
+    m_isDefaultChecked = sourceElement.m_isDefaultChecked;
     m_dirtyCheckednessFlag = sourceElement.m_dirtyCheckednessFlag;
     m_isIndeterminate = sourceElement.m_isIndeterminate;
 
@@ -1198,7 +1214,7 @@ void HTMLInputElement::willDispatchEvent(Event& event, InputElementClickState& s
     auto& eventNames = WebCore::eventNames();
     if (event.type() == eventNames.textInputEvent && m_inputType->shouldSubmitImplicitly(event))
         event.stopPropagation();
-    if (event.type() == eventNames.clickEvent && is<MouseEvent>(event) && downcast<MouseEvent>(event).button() == LeftButton) {
+    if (event.type() == eventNames.clickEvent && is<MouseEvent>(event) && downcast<MouseEvent>(event).button() == MouseButton::Left) {
         m_inputType->willDispatchClick(state);
         state.stateful = true;
     }
@@ -1216,7 +1232,7 @@ void HTMLInputElement::didBlur()
 
 void HTMLInputElement::defaultEventHandler(Event& event)
 {
-    if (auto* mouseEvent = dynamicDowncast<MouseEvent>(event); mouseEvent && mouseEvent->type() == eventNames().clickEvent && mouseEvent->button() == LeftButton) {
+    if (auto* mouseEvent = dynamicDowncast<MouseEvent>(event); mouseEvent && mouseEvent->type() == eventNames().clickEvent && mouseEvent->button() == MouseButton::Left) {
         m_inputType->handleClickEvent(*mouseEvent);
         if (mouseEvent->defaultHandled())
             return;
@@ -1273,7 +1289,8 @@ void HTMLInputElement::defaultEventHandler(Event& event)
     if (m_inputType->shouldSubmitImplicitly(event)) {
         if (isSearchField()) {
             addSearchResult();
-            onSearch();
+            if (document().settings().searchInputIncrementalAttributeAndSearchEventEnabled())
+                onSearch();
         }
         // Form submission finishes editing, just as loss of focus does.
         // If there was a change, send the event now.
@@ -2241,7 +2258,7 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
         // Do not allow line-height to be smaller than our default.
         if (textBlockStyle.metricsOfPrimaryFont().lineSpacing() > style.computedLineHeight())
             return true;
-        return isText() && !style.logicalHeight().isAuto();
+        return isText() && !style.logicalHeight().isAuto() && !hasAutoFillStrongPasswordButton();
     };
     if (shouldUseInitialLineHeight())
         textBlockStyle.setLineHeight(RenderStyle::initialLineHeight());
@@ -2267,6 +2284,11 @@ String HTMLInputElement::placeholder() const
     return attributeValue.removeCharacters([](UChar c) {
         return c == newlineCharacter || c == carriageReturn;
     });
+}
+
+bool HTMLInputElement::dirAutoUsesValue() const
+{
+    return m_inputType->dirAutoUsesValue();
 }
 
 } // namespace

@@ -32,6 +32,7 @@
 #include "WebPageProxyMessageReceiverRegistration.h"
 #include "WebProcessProxy.h"
 #include <WebCore/FrameIdentifier.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
 
@@ -41,6 +42,7 @@ class RegistrableDomain;
 
 namespace WebKit {
 
+class RemotePageProxy;
 class WebBackForwardCache;
 class WebPageProxy;
 class WebProcessPool;
@@ -58,12 +60,13 @@ public:
     SuspendedPageProxy(WebPageProxy&, Ref<WebProcessProxy>&&, Ref<WebFrameProxy>&& mainFrame, ShouldDelayClosingUntilFirstLayerFlush);
     ~SuspendedPageProxy();
 
-    static RefPtr<WebProcessProxy> findReusableSuspendedPageProcess(WebProcessPool&, const WebCore::RegistrableDomain&, WebsiteDataStore&, WebProcessProxy::LockdownMode);
+    static RefPtr<WebProcessProxy> findReusableSuspendedPageProcess(WebProcessPool&, const WebCore::RegistrableDomain&, WebsiteDataStore&, WebProcessProxy::LockdownMode, const API::PageConfiguration&);
 
-    WebPageProxy& page() const { return m_page; }
+    WebPageProxy& page() const { return m_page.get(); }
     WebCore::PageIdentifier webPageID() const { return m_webPageID; }
     WebProcessProxy& process() const { return m_process.get(); }
     WebFrameProxy& mainFrame() { return m_mainFrame.get(); }
+    HashMap<WebCore::RegistrableDomain, WeakPtr<RemotePageProxy>> takeRemotePageMap();
 
     WebBackForwardCache& backForwardCache() const;
 
@@ -87,6 +90,8 @@ public:
 #endif
 
 private:
+    Ref<WebPageProxy> protectedPage() const;
+
     enum class SuspensionState : uint8_t { Suspending, FailedToSuspend, Suspended, Resumed };
     void didProcessRequestToSuspend(SuspensionState);
     void suspensionTimedOut();
@@ -104,7 +109,7 @@ private:
     bool sendMessage(UniqueRef<IPC::Encoder>&&, OptionSet<IPC::SendOption>) final;
     bool sendMessageWithAsyncReply(UniqueRef<IPC::Encoder>&&, AsyncReplyHandler, OptionSet<IPC::SendOption>) final;
 
-    WebPageProxy& m_page;
+    CheckedRef<WebPageProxy> m_page;
     WebCore::PageIdentifier m_webPageID;
     Ref<WebProcessProxy> m_process;
     Ref<WebFrameProxy> m_mainFrame;
@@ -125,6 +130,7 @@ private:
     LayerHostingContextID m_contextIDForVisibilityPropagationInGPUProcess { 0 };
 #endif
 #endif
+    HashMap<WebCore::RegistrableDomain, WeakPtr<RemotePageProxy>> m_remotePageMap;
 };
 
 } // namespace WebKit

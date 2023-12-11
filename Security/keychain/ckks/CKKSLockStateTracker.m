@@ -89,6 +89,7 @@
     dispatch_sync(_queue, ^{
         locked = self->_queueIsLocked;
     });
+    
     return locked;
 }
 

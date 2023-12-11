@@ -336,6 +336,33 @@
 			<key>mode</key>
 			<integer>1</integer>
 			<key>name</key>
+			<string>MaxCapacityPercent</string>
+			<key>category</key>
+			<string>BDC_Daily</string>
+			<key>unit</key>
+			<dict>
+				<key>symbol</key>
+				<string>percentage</string>
+			</dict>
+			<key>version</key>
+			<real>2.6</real>
+			<key>datatype</key>
+			<integer>7</integer>
+			<key>storage</key>
+			<integer>1</integer>
+			<key>enabledPopulation</key>
+			<integer>3</integer>
+			<key>privacyClassification</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>timeToLive</key>
+			<integer>1095</integer>
+			<key>subsystem</key>
+			<string>BatteryDataCollection</string>
+			<key>mode</key>
+			<integer>1</integer>
+			<key>name</key>
 			<string>RaTableRaw0</string>
 			<key>category</key>
 			<string>BDC_Weekly</string>
@@ -1308,7 +1335,7 @@
 			<key>mode</key>
 			<integer>1</integer>
 			<key>name</key>
-			<string>LowVoltageResidency</string>
+			<string>LowVoltageResidencyCounters</string>
 			<key>category</key>
 			<string>BDC_Weekly</string>
 			<key>unit</key>
@@ -1354,7 +1381,6 @@
 			<key>privacyClassification</key>
 			<integer>1</integer>
 		</dict>
-
 	</array>
 </dict>
 </plist>

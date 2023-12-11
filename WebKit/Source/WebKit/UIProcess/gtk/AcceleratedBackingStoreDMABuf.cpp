@@ -28,6 +28,7 @@
 
 #include "AcceleratedBackingStoreDMABufMessages.h"
 #include "AcceleratedSurfaceDMABufMessages.h"
+#include "DMABufRendererBufferMode.h"
 #include "LayerTreeContext.h"
 #include "ShareableBitmap.h"
 #include "WebPageProxy.h"
@@ -49,23 +50,32 @@
 
 namespace WebKit {
 
-bool AcceleratedBackingStoreDMABuf::checkRequirements()
+OptionSet<DMABufRendererBufferMode> AcceleratedBackingStoreDMABuf::rendererBufferMode()
 {
-    static bool available;
+    static OptionSet<DMABufRendererBufferMode> mode;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
         const char* disableDMABuf = getenv("WEBKIT_DISABLE_DMABUF_RENDERER");
-        if (disableDMABuf && strcmp(disableDMABuf, "0")) {
-            available = false;
+        if (disableDMABuf && strcmp(disableDMABuf, "0"))
+            return;
+
+        const char* platformExtensions = eglQueryString(nullptr, EGL_EXTENSIONS);
+        if (!WebCore::GLContext::isExtensionSupported(platformExtensions, "EGL_KHR_platform_gbm")
+            && !WebCore::GLContext::isExtensionSupported(platformExtensions, "EGL_MESA_platform_surfaceless")) {
             return;
         }
 
+        mode.add(DMABufRendererBufferMode::SharedMemory);
+
         const auto& eglExtensions = WebCore::PlatformDisplay::sharedDisplay().eglExtensions();
-        available = eglExtensions.KHR_image_base
-            && eglExtensions.KHR_surfaceless_context
-            && WebCore::GLContext::isExtensionSupported(eglQueryString(nullptr, EGL_EXTENSIONS), "EGL_MESA_platform_surfaceless");
+        if (eglExtensions.KHR_image_base && eglExtensions.EXT_image_dma_buf_import)
+            mode.add(DMABufRendererBufferMode::Hardware);
     });
-    return available;
+    return mode;
+}
+bool AcceleratedBackingStoreDMABuf::checkRequirements()
+{
+    return !rendererBufferMode().isEmpty();
 }
 
 std::unique_ptr<AcceleratedBackingStoreDMABuf> AcceleratedBackingStoreDMABuf::create(WebPageProxy& webPage)
@@ -433,12 +443,6 @@ void AcceleratedBackingStoreDMABuf::frame()
     if (m_committedSource) {
         m_committedSource->frame();
         gtk_widget_queue_draw(m_webPage.viewWidget());
-    } else {
-        if (m_isSoftwareRast)
-            std::swap(m_surface.frontBitmap, m_surface.displayBitmap);
-        else
-            std::swap(m_surface.frontFD, m_surface.displayFD);
-        frameDone();
     }
 }
 
@@ -469,7 +473,7 @@ void AcceleratedBackingStoreDMABuf::realize()
         return;
 
     m_committedSource = createSource();
-    if (m_committedSource->prepareForRendering())
+    if (m_frameCompletionHandler || m_committedSource->prepareForRendering())
         gtk_widget_queue_draw(m_webPage.viewWidget());
 }
 
@@ -504,26 +508,16 @@ void AcceleratedBackingStoreDMABuf::ensureGLContext()
         g_error("GDK failed to realize the GL context: %s.", error->message);
 }
 
-bool AcceleratedBackingStoreDMABuf::makeContextCurrent()
-{
-    if (!WebCore::PlatformDisplay::sharedDisplay().gtkEGLDisplay())
-        return false;
-
-    if (!gtk_widget_get_realized(m_webPage.viewWidget()))
-        return false;
-
-    ensureGLContext();
-    gdk_gl_context_make_current(m_gdkGLContext.get());
-    return true;
-}
-
 void AcceleratedBackingStoreDMABuf::update(const LayerTreeContext& context)
 {
     if (m_surface.id == context.contextID)
         return;
 
     if (m_surface.id) {
-        frameDone();
+        if (m_frameCompletionHandler) {
+            willDisplayFrame();
+            frameDone();
+        }
         m_webPage.process().removeMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surface.id);
     }
 
@@ -535,14 +529,13 @@ void AcceleratedBackingStoreDMABuf::update(const LayerTreeContext& context)
 #if USE(GTK4)
 void AcceleratedBackingStoreDMABuf::snapshot(GtkSnapshot* gtkSnapshot)
 {
-    if (m_frameCompletionHandler)
-        willDisplayFrame();
-
     if (!m_committedSource)
         return;
 
-    if (m_frameCompletionHandler)
+    if (m_frameCompletionHandler) {
+        willDisplayFrame();
         m_committedSource->prepareForRendering();
+    }
 
     m_committedSource->snapshot(gtkSnapshot);
     frameDone();
@@ -550,14 +543,13 @@ void AcceleratedBackingStoreDMABuf::snapshot(GtkSnapshot* gtkSnapshot)
 #else
 bool AcceleratedBackingStoreDMABuf::paint(cairo_t* cr, const WebCore::IntRect& clipRect)
 {
-    if (m_frameCompletionHandler)
-        willDisplayFrame();
-
     if (!m_committedSource)
         return false;
 
-    if (m_frameCompletionHandler)
+    if (m_frameCompletionHandler) {
+        willDisplayFrame();
         m_committedSource->prepareForRendering();
+    }
 
     m_committedSource->paint(m_webPage.viewWidget(), cr, clipRect);
     frameDone();

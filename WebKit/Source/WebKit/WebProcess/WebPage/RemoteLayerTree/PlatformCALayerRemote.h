@@ -25,9 +25,11 @@
 
 #pragma once
 
+#include "LayerProperties.h"
 #include "RemoteLayerTreeTransaction.h"
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/PlatformCALayer.h>
+#include <WebCore/PlatformCALayerDelegatedContents.h>
 #include <WebCore/PlatformLayer.h>
 
 namespace WebCore {
@@ -41,6 +43,12 @@ struct AcceleratedEffectValues;
 namespace WebKit {
 
 class RemoteLayerTreeContext;
+
+struct PlatformCALayerRemoteDelegatedContents {
+    ImageBufferBackendHandle surface;
+    RefPtr<WebCore::PlatformCALayerDelegatedContentsFence> finishedFence;
+    std::optional<WebCore::RenderingResourceIdentifier> surfaceIdentifier;
+};
 
 class PlatformCALayerRemote : public WebCore::PlatformCALayer {
 public:
@@ -142,6 +150,7 @@ public:
     CFTypeRef contents() const override;
     void setContents(CFTypeRef) override;
     void setDelegatedContents(const WebCore::PlatformCALayerDelegatedContents&) override;
+    void setRemoteDelegatedContents(const PlatformCALayerRemoteDelegatedContents&);
     void setContentsRect(const WebCore::FloatRect&) override;
 
     void setMinificationFilter(WebCore::PlatformCALayer::FilterType) override;
@@ -228,8 +237,8 @@ public:
 
     void setClonedLayer(const PlatformCALayer*);
 
-    RemoteLayerTreeTransaction::LayerProperties& properties() { return m_properties; }
-    const RemoteLayerTreeTransaction::LayerProperties& properties() const { return m_properties; }
+    LayerProperties& properties() { return m_properties; }
+    const LayerProperties& properties() const { return m_properties; }
 
     void didCommit();
 
@@ -259,7 +268,7 @@ private:
 
     WebCore::LayerPool& layerPool() override;
 
-    RemoteLayerTreeTransaction::LayerProperties m_properties;
+    LayerProperties m_properties;
     WebCore::PlatformCALayerList m_children;
     PlatformCALayerRemote* m_superlayer { nullptr };
     HashMap<String, RefPtr<WebCore::PlatformCAAnimation>> m_animations;

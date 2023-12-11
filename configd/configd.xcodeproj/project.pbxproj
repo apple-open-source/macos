@@ -1227,6 +1227,9 @@
 		F95B8A430B03E07A00993BA3 /* SCNetworkSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */; };
 		F95B8A460B03E09300993BA3 /* SCNetworkSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F95B8A470B03E09300993BA3 /* SCNetworkSignaturePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F968AA2F2ABE4EBC00D16C87 /* ifutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F968AA2E2ABE4E8200D16C87 /* ifutil.c */; };
+		F968AA302ABE4ED700D16C87 /* ifutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F968AA2E2ABE4E8200D16C87 /* ifutil.c */; };
+		F968AA312ABE4EDE00D16C87 /* ifutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F968AA2E2ABE4E8200D16C87 /* ifutil.c */; };
 		F97A40ED293A8D6E00645955 /* SCNetworkCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A40EE293A8D6E00645955 /* SCNetworkCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A40EF293A8D6E00645955 /* SCNetworkCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2487,6 +2490,7 @@
 		F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SCNetworkSignature.c; sourceTree = "<group>"; };
 		F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignature.h; sourceTree = "<group>"; };
 		F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignaturePrivate.h; sourceTree = "<group>"; };
+		F968AA2E2ABE4E8200D16C87 /* ifutil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ifutil.c; sourceTree = "<group>"; };
 		F97A40EA293A8D6E00645955 /* SCNetworkCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategory.h; sourceTree = "<group>"; };
 		F97A40EB293A8D6E00645955 /* SCNetworkCategoryTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategoryTypes.h; sourceTree = "<group>"; };
 		F97A40EC293A8D6E00645955 /* SCNetworkCategoryManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategoryManager.h; sourceTree = "<group>"; };
@@ -3079,6 +3083,7 @@
 		159D53A607528B36004F8947 /* IPMonitor */ = {
 			isa = PBXGroup;
 			children = (
+				F968AA2E2ABE4E8200D16C87 /* ifutil.c */,
 				D6AEB89815AE4446009F2FAF /* ip_plugin.h */,
 				159D53A707528B36004F8947 /* ip_plugin.c */,
 				155D22380AF13A7300D52ED0 /* dns-configuration.h */,
@@ -6666,6 +6671,7 @@
 				159FFD5F2110EA44009311DD /* dnsinfo_flatfile.c in Sources */,
 				150BEC1A14CA252200237116 /* dnsinfo_server.c in Sources */,
 				7280158E1BE16863009F4F60 /* dnsAgent.m in Sources */,
+				F968AA302ABE4ED700D16C87 /* ifutil.c in Sources */,
 				F9B7AE69186211CE00C78D18 /* IPMonitorControlServer.c in Sources */,
 				728015881BE16851009F4F60 /* configAgent.m in Sources */,
 				728015911BE1686C009F4F60 /* proxyAgent.m in Sources */,
@@ -6788,6 +6794,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F968AA2F2ABE4EBC00D16C87 /* ifutil.c in Sources */,
 				159D541807528E09004F8947 /* dns-configuration.c in Sources */,
 				728015871BE1684E009F4F60 /* configAgent.m in Sources */,
 				15D48EBF0F67061600B4711E /* dnsinfo_create.c in Sources */,
@@ -7051,6 +7058,7 @@
 				159FFD612110EA71009311DD /* dnsinfo_flatfile.c in Sources */,
 				15E1B04D16EBAE3C00E5F06F /* dnsinfo_server.c in Sources */,
 				15E1B04E16EBAE3C00E5F06F /* ip_plugin.c in Sources */,
+				F968AA312ABE4EDE00D16C87 /* ifutil.c in Sources */,
 				15E1B04F16EBAE3C00E5F06F /* network_state_information_priv.c in Sources */,
 				15E1B05016EBAE3C00E5F06F /* network_information_server.c in Sources */,
 				15E1B05116EBAE3C00E5F06F /* proxy-configuration.c in Sources */,

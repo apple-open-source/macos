@@ -1173,10 +1173,6 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
         if (m_page->preferences().siteIsolationEnabled())
             result = true;
 
-        // FIXME: Either make this work with TiledCoreAnimationDrawingArea or only enable it where remote layer trees are used.
-        if (m_page->preferences().processSwapOnCrossSiteWindowOpenEnabled())
-            result = true;
-
         if (isInRecoveryOS()) {
             // Temporarily disable UI side compositing in Recovery OS <rdar://107964149>.
             WTFLogAlways("Disabling UI side compositing in Recovery OS");
@@ -1934,7 +1930,7 @@ bool WebViewImpl::supportsArbitraryLayoutModes() const
     if ([m_fullScreenWindowController isFullScreen])
         return false;
 
-    WebFrameProxy* frame = m_page->mainFrame();
+    RefPtr frame = m_page->mainFrame();
     if (!frame)
         return true;
 
@@ -5188,7 +5184,10 @@ void WebViewImpl::setMarkedText(id string, NSRange selectedRange, NSRange replac
 #if HAVE(INLINE_PREDICTIONS)
 bool WebViewImpl::allowsInlinePredictions() const
 {
-    return m_page->preferences().inlinePredictionsEnabled() && [NSSpellChecker respondsToSelector:@selector(isAutomaticInlineCompletionEnabled)] && NSSpellChecker.isAutomaticInlineCompletionEnabled;
+    if (!inlinePredictionsEnabled() && !m_page->preferences().inlinePredictionsInAllEditableElementsEnabled())
+        return false;
+
+    return NSSpellChecker.isAutomaticInlineCompletionEnabled;
 }
 
 void WebViewImpl::showInlinePredictionsForCandidate(NSTextCheckingResult *candidate, NSRange absoluteSelectedRange, NSRange oldRelativeSelectedRange)

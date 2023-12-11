@@ -184,6 +184,9 @@ au BufNewFile,BufRead *.atl,*.as		setf atlas
 " Atom is based on XML
 au BufNewFile,BufRead *.atom			setf xml
 
+" Authzed
+au BufNewFile,BufRead *.zed			setf authzed
+
 " Autoit v3
 au BufNewFile,BufRead *.au3			setf autoit
 
@@ -1010,7 +1013,7 @@ au BufNewFile,BufRead ipf.conf,ipf6.conf,ipf.rules	setf ipfilter
 au BufNewFile,BufRead *.4gl,*.4gh,*.m4gl	setf fgl
 
 " .INI file for MSDOS
-au BufNewFile,BufRead *.ini			setf dosini
+au BufNewFile,BufRead *.ini,*.INI		setf dosini
 
 " SysV Inittab
 au BufNewFile,BufRead inittab			setf inittab
@@ -1089,6 +1092,9 @@ au BufNewFile,BufRead *.jsonnet,*.libsonnet	setf jsonnet
 
 " Julia
 au BufNewFile,BufRead *.jl			setf julia
+
+" Just
+au BufNewFile,BufRead [jJ]ustfile,.justfile,*.just setf just
 
 " KDL
 au BufNewFile,BufRead *.kdl			setf kdl
@@ -1180,6 +1186,9 @@ endif
 
 " SBCL implementation of Common Lisp
 au BufNewFile,BufRead sbclrc,.sbclrc		setf lisp
+
+" Liquidsoap
+au BufNewFile,BufRead *.liq			setf liquidsoap
 
 " Liquid
 au BufNewFile,BufRead *.liquid			setf liquid

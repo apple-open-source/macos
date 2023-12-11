@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2020 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,11 +42,13 @@
 #include "Logging.h"
 #include "Performance.h"
 #include "RenderBlock.h"
+#include "RenderBoxInlines.h"
 #include "RenderInline.h"
 #include "RenderLineBreak.h"
 #include "RenderView.h"
 #include "WebCoreOpaqueRootInlines.h"
 #include <JavaScriptCore/AbstractSlotVisitorInlines.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -54,6 +57,7 @@ static ExceptionOr<LengthBox> parseRootMargin(String& rootMargin)
 {
     CSSTokenizer tokenizer(rootMargin);
     auto tokenRange = tokenizer.tokenRange();
+    tokenRange.consumeWhitespace();
     Vector<Length, 4> margins;
     while (!tokenRange.atEnd()) {
         if (margins.size() == 4)
@@ -115,6 +119,9 @@ ExceptionOr<Ref<IntersectionObserver>> IntersectionObserver::create(Document& do
         thresholds = WTFMove(initThresholds);
     });
 
+    if (thresholds.isEmpty())
+        thresholds.append(0.f);
+
     for (auto threshold : thresholds) {
         if (!(threshold >= 0 && threshold <= 1))
             return Exception { RangeError, "Failed to construct 'IntersectionObserver': all thresholds must lie in the range [0.0, 1.0]."_s };
@@ -122,6 +129,8 @@ ExceptionOr<Ref<IntersectionObserver>> IntersectionObserver::create(Document& do
 
     return adoptRef(*new IntersectionObserver(document, WTFMove(callback), root.get(), rootMarginOrException.releaseReturnValue(), WTFMove(thresholds)));
 }
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(IntersectionObserver);
 
 IntersectionObserver::IntersectionObserver(Document& document, Ref<IntersectionObserverCallback>&& callback, ContainerNode* root, LengthBox&& parsedRootMargin, Vector<double>&& thresholds)
     : m_root(root)
@@ -338,7 +347,7 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
             return;
         }
 
-        ASSERT(is<LocalFrame>(frameView.frame()) && downcast<LocalFrame>(frameView.frame()).isMainFrame());
+        ASSERT(frameView.frame().isMainFrame());
         // FIXME: Handle the case of an implicit-root observer that has a target in a different frame tree.
         if (dynamicDowncast<LocalFrame>(targetRenderer->frame().mainFrame()) != &frameView.frame())
             return;

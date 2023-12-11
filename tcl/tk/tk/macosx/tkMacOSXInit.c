@@ -27,6 +27,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define OSVERLEN 32
+
 static char tkLibPath[PATH_MAX + 1] = "";
 
 /*

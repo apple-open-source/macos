@@ -199,6 +199,8 @@ NS_ASSUME_NONNULL_BEGIN
             idmsTargetContext:(NSString*_Nullable)idmsTargetContext
        idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
                    notifyIdMS:(bool)notifyIdMS
+              internalAccount:(bool)internalAccount
+                  demoAccount:(bool)demoAccount
                         reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)localResetWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
@@ -303,6 +305,8 @@ NS_ASSUME_NONNULL_BEGIN
                    stableInfo:(NSData *)stableInfo
                 stableInfoSig:(NSData *)stableInfoSig
                      ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
+                       flowID:(NSString * _Nullable)flowID
+              deviceSessionID:(NSString * _Nullable)deviceSessionID
                         reply:(void (^)(NSData * _Nullable voucher,
                                         NSData * _Nullable voucherSig,
                                         NSError * _Nullable error))reply;
@@ -385,6 +389,8 @@ NS_ASSUME_NONNULL_BEGIN
                     ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
                    tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
              preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
+                      flowID:(NSString * _Nullable)flowID
+             deviceSessionID:(NSString * _Nullable)deviceSessionID
                        reply:(void (^)(NSString * _Nullable peerID,
                                        NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                        TPSyncingPolicy* _Nullable syncingPolicy,
@@ -524,9 +530,11 @@ NS_ASSUME_NONNULL_BEGIN
                                     reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply;
 
 - (void)resetAccountCDPContentsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-idmsTargetContext:(NSString*_Nullable)idmsTargetContext
-idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
-notifyIdMS:(bool)notifyIdMS
+                              idmsTargetContext:(NSString*_Nullable)idmsTargetContext
+                         idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+                                     notifyIdMS:(bool)notifyIdMS
+                                internalAccount:(bool)internalAccount
+                                    demoAccount:(bool)demoAccount
                                           reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)removeEscrowCacheWithSpecificUser:(TPSpecificUser* _Nullable)specificUser

@@ -762,13 +762,14 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	    /* if needed, set a DNS expiration timer */
 	    now = RouterAdvertisementGetReceiveTime(rtadv->ra);
 	    dns_expiration
-		= RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now);
+		= RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now,
+							  NULL, NULL);
 	}
 	if (dns_expiration != 0) {
 	    CFDateRef	date;
 
 	    date = CFDateCreate(NULL, dns_expiration);
-	    my_log(LOG_INFO, "RTADV %s: DNS expiration timeout %@",
+	    my_log(LOG_INFO, "RTADV %s: DNS expiration time %@",
 		   if_name(if_p), date);
 	    CFRelease(date);
 	    timer_callout_set_absolute(rtadv->timer,
@@ -796,12 +797,13 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	/* check if we need to set another timer */
 	now = timer_get_current_time();
 	dns_expiration
-	    = RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now);
+	    = RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now,
+						      NULL, NULL);
 	if (dns_expiration != 0) {
 	    CFDateRef	date;
 
 	    date = CFDateCreate(NULL, dns_expiration);
-	    my_log(LOG_INFO, "RTADV %s: DNS expiration timeout %@",
+	    my_log(LOG_INFO, "RTADV %s: DNS expiration time %@",
 		   if_name(if_p), date);
 	    CFRelease(date);
 	    timer_callout_set_absolute(rtadv->timer,
@@ -1371,6 +1373,69 @@ rtadv_provide_summary(ServiceRef service_p, CFMutableDictionaryRef summary)
     return;
 }
 
+/*
+ * Function: rtadv_handle_wake
+ * Purpose:
+ *   If DNS information is present in the RA and has not expired, set a new
+ *   expiration timer. If the DNS information has expired, return `true`.
+ *
+ * Returns:
+ *   `true` if we need to call `rtadv_init()`, false otherwise.
+ *
+ * Note:
+ *   This function assumes that the link status is active.
+ */
+STATIC bool
+rtadv_handle_wake(ServiceRef service_p)
+{
+    CFAbsoluteTime	dns_expiration;
+    bool		has_dns = false;
+    bool		has_expired = false;
+    interface_t *	if_p = service_interface(service_p);
+    bool		need_init = false;
+    CFAbsoluteTime	now;
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+
+    /* get the DNS expiration time */
+    if (rtadv->ra == NULL) {
+	/* no RA, no DNS */
+	goto done;
+    }
+    now = timer_get_current_time();
+    dns_expiration
+	= RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now,
+						  &has_dns, &has_expired);
+    if (!has_dns) {
+	/* no DNS */
+	goto done;
+    }
+    if (has_expired) {
+	/* DNS has expired */
+	need_init = true;
+	my_log(LOG_NOTICE, "RTADV %s: DNS expired", if_name(if_p));
+	timer_cancel(rtadv->timer);
+	goto done;
+    }
+
+    /* set a new expiration timer */
+    if (dns_expiration != 0) {
+	CFDateRef		date;
+
+	date = CFDateCreate(NULL, dns_expiration);
+	my_log(LOG_INFO, "%s %s: DNS expiration time %@",
+	       __func__, if_name(if_p), date);
+	CFRelease(date);
+	timer_callout_set_absolute(rtadv->timer,
+				   dns_expiration,
+				   (timer_func_t *)rtadv_acquired,
+				   service_p,
+				   (void *)IFEventID_timeout_e,
+				   NULL);
+    }
+
+ done:
+    return (need_init);
+}
 
 STATIC void
 rtadv_start(ServiceRef service_p, __unused void * arg2, __unused void * arg3)
@@ -1497,24 +1562,35 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 
 	link_status_p = &link_event->link_status;
 	if (link_status_is_active(link_status_p)) {
+	    boolean_t		need_init = FALSE;
 	    boolean_t		network_changed;
 
 	    network_changed = (link_event->info == kLinkInfoNetworkChanged);
 	    if (network_changed) {
 		rtadv->restart_count = 0;
 		rtadv_flush(service_p);
+		need_init = TRUE;
 	    }
-	    else if (evid != IFEventID_renew_e
-		     && rtadv->try == 1
-		     && rtadv->ra == NULL) {
-		/* we're already on it */
-		break;
+	    else if (evid == IFEventID_renew_e) {
+		need_init = TRUE;
+	    }
+	    else {
+		if (evid == IFEventID_wake_e) {
+		    need_init = rtadv_handle_wake(service_p);
+		}
+		else {
+		    need_init = TRUE;
+		}
+		if (rtadv->try == 1 && rtadv->ra == NULL) {
+		    /* we're already on it, don't call init (debounce) */
+		    need_init = FALSE;
+		}
 	    }
 	    if (evid == IFEventID_renew_e 
 		&& if_ift_type(if_p) == IFT_CELLULAR) {
 		rtadv->renew = TRUE;
 	    }
-	    if (evid != IFEventID_wake_e || network_changed) {
+	    if (need_init) {
 		rtadv_init(service_p);
 	    }
 	}

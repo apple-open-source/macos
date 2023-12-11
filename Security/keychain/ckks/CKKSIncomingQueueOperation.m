@@ -42,6 +42,10 @@
 #include "keychain/securityd/SecItemDb.h"
 #include <Security/SecItemPriv.h>
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 #import <utilities/SecCoreAnalytics.h>
 
 #if OCTAGON
@@ -392,6 +396,13 @@
         ckkserror_global("ckksincoming", "Will handle mismatched view items along the way");
     }
 
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldMissingKey: @(NO),
+                                                                                                           kSecurityRTCFieldPendingClassA: @(NO),
+                                                                                                           kSecurityRTCFieldNumViews: @(viewsToProcess.count)}
+                                                                                                 altDSID:self.deps.activeAccount.altDSID
+                                                                                               eventName:kSecurityRTCEventNameProcessIncomingQueue
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     [self.deps.overallLaunch addEvent:@"incoming-processing-begin"];
 
     for(CKKSKeychainViewState* viewState in viewsToProcess) {
@@ -400,30 +411,36 @@
         // First, process all item deletions.
         // Then, process all modifications and additions.
         // Therefore, if there's both a delete and a re-add of a single Primary Key item in the queue,
-        // we should end up with the item still existing in tthe keychain afterward.
+        // we should end up with the item still existing in the keychain afterward.
         // But, since we're dropping off the queue inbetween, we might accidentally tell our clients that
         // their item doesn't exist. Fixing that would take quite a bit of complexity and memory.
 
         BOOL success = [self loadAndProcessEntries:viewState withActionFilter:SecCKKSActionDelete];
         if(!success) {
             ckksnotice("ckksincoming", viewState, "Early-exiting from IncomingQueueOperation (after processing deletes): %@", self.error);
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
             return;
         }
 
         success = [self loadAndProcessEntries:viewState withActionFilter:nil];
         if(!success) {
             ckksnotice("ckksincoming", viewState, "Early-exiting from IncomingQueueOperation (after processing all incoming entries): %@", self.error);
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
             return;
         }
 
         if(self.successfulItemsProcessed > 0 || self.errorItemsProcessed > 0) {
             ckksnotice("ckksincoming", viewState, "Processed %lu items in incoming queue (%lu errors)", (unsigned long)self.successfulItemsProcessed, (unsigned long)self.errorItemsProcessed);
         }
-
+        
         if(![self fixMismatchedViewItems:viewState]) {
             ckksnotice("ckksincoming", viewState, "Early-exiting from IncomingQueueOperation due to failure fixing mismatched items");
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
             return;
         }
+
+        [eventS addMetrics:@{kSecurityRTCFieldSuccessfulItemsProcessed : @(self.successfulItemsProcessed),
+                             kSecurityRTCFieldErrorItemsProcessed : @(self.errorItemsProcessed)}];
 
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* error = nil;
@@ -497,8 +514,13 @@
                                    zoneName:viewState.zoneID.zoneName
                              withAttributes:NULL];
             }
+            
         }
     }
+
+    [eventS addMetrics:@{kSecurityRTCFieldPendingClassA: @(self.pendingClassAEntries), 
+                         kSecurityRTCFieldMissingKey: @(self.missingKey)}];
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:!(self.pendingClassAEntries || self.missingKey) error:self.error];
 
     [self.deps.overallLaunch addEvent:@"incoming-processing-complete"];
 }
@@ -514,6 +536,13 @@
     __block NSString* lastMaxUUID = nil;
 
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
+
+    AAFAnalyticsEventSecurity *loadAndProcessIQEsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                                   altDSID:self.deps.activeAccount.altDSID
+                                                                                                                 eventName:kSecurityRTCEventNameLoadAndProcessIQEs
+                                                                                                           testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                  category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    __block long numQueueEntries = 0;
 
     while(lastCount == SecCKKSIncomingQueueItemsAtOnce) {
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
@@ -541,7 +570,7 @@
             }
 
             lastCount = queueEntries.count;
-
+            numQueueEntries += queueEntries.count;
             if([queueEntries count] == 0) {
                 // Nothing to do! exit.
                 ckksinfo("ckksincoming", viewState, "Nothing in incoming queue to process (filter: %@)", actionFilter);
@@ -564,11 +593,16 @@
             return CKKSDatabaseTransactionCommit;
         }];
 
+        [loadAndProcessIQEsEventS addMetrics:@{kSecurityRTCFieldNumCKRecords:@(numQueueEntries)}];
+
         if(errored) {
             ckksnotice("ckksincoming", viewState, "Early-exiting from IncomingQueueOperation");
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:loadAndProcessIQEsEventS success:NO error:self.error];
             return false;
         }
     }
+
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:loadAndProcessIQEsEventS success:YES error:nil];
 
     return true;
 }
@@ -578,11 +612,18 @@
         return YES;
     }
 
+    AAFAnalyticsEventSecurity *fixMismatchedViewItemsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                                       altDSID:self.deps.activeAccount.altDSID
+                                                                                                                     eventName:kSecurityRTCEventNameFixMismatchedViewItems
+                                                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
     ckksnotice("ckksincoming", viewState, "Handling policy-mismatched items");
     __block NSUInteger lastCount = SecCKKSIncomingQueueItemsAtOnce;
     __block NSString* lastMaxUUID = nil;
     __block BOOL errored = NO;
-
+    __block long numMismatchedItems = 0;
+    
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     while(lastCount == SecCKKSIncomingQueueItemsAtOnce) {
@@ -610,7 +651,8 @@
             }
 
             ckksnotice("ckksincoming", viewState, "Inspecting %lu mismatched items", (unsigned long)queueEntries.count);
-
+            numMismatchedItems += queueEntries.count;
+            
             if (![self intransaction:viewState processQueueEntries:queueEntries]) {
                 ckksnotice("ckksincoming", viewState, "processQueueEntries didn't complete successfully");
                 errored = true;
@@ -624,6 +666,9 @@
             return CKKSDatabaseTransactionCommit;
         }];
     }
+
+    [fixMismatchedViewItemsEventS addMetrics:@{kSecurityRTCFieldNumMismatchedItems:@(numMismatchedItems)}];
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:fixMismatchedViewItemsEventS success:!errored error:self.error];
 
     return !errored;
 }

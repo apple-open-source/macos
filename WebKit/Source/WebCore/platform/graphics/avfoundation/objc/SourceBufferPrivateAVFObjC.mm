@@ -72,7 +72,6 @@
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
 @interface AVSampleBufferDisplayLayer (WebCoreAVSampleBufferDisplayLayerQueueManagementPrivate)
-- (void)prerollDecodeWithCompletionHandler:(void (^)(BOOL success))block;
 - (void)expectMinimumUpcomingSampleBufferPresentationTime: (CMTime)minimumUpcomingPresentationTime;
 - (void)resetUpcomingSampleBufferPresentationTimeExpectations;
 @end
@@ -147,7 +146,6 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     [layer addObserver:self forKeyPath:@"error" options:NSKeyValueObservingOptionNew context:nullptr];
     [layer addObserver:self forKeyPath:@"outputObscuredDueToInsufficientExternalProtection" options:NSKeyValueObservingOptionNew context:nullptr];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(layerFailedToDecode:) name:AVSampleBufferDisplayLayerFailedToDecodeNotification object:layer];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(layerRequiresFlushToResumeDecodingChanged:) name:AVSampleBufferDisplayLayerRequiresFlushToResumeDecodingDidChangeNotification object:layer];
 }
 
 - (void)stopObservingLayer:(AVSampleBufferDisplayLayer*)layer
@@ -245,20 +243,6 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     });
 }
 
-- (void)layerRequiresFlushToResumeDecodingChanged:(NSNotification *)note
-{
-    RetainPtr<AVSampleBufferDisplayLayer> layer = (AVSampleBufferDisplayLayer *)[note object];
-    if (!_layers.contains(layer.get()))
-        return;
-
-    bool requiresFlush = [layer requiresFlushToResumeDecoding];
-
-    callOnMainThread([parent = _parent, layer = WTFMove(layer), requiresFlush] {
-        if (auto strongParent = RefPtr { parent.get() })
-            strongParent->layerRequiresFlushToResumeDecodingChanged(layer.get(), requiresFlush);
-    });
-}
-
 - (void)audioRendererWasAutomaticallyFlushed:(NSNotification*)note
 {
     RetainPtr<AVSampleBufferAudioRenderer> renderer = (AVSampleBufferAudioRenderer *)[note object];
@@ -304,28 +288,6 @@ static bool sampleBufferRenderersSupportKeySession()
     return supports;
 }
 
-static void bufferWasConsumedCallback(CMNotificationCenterRef, const void* listener, CFStringRef notificationName, const void*, CFTypeRef)
-{
-    if (!CFEqual(PAL::kCMSampleBufferConsumerNotification_BufferConsumed, notificationName))
-        return;
-
-    if (!isMainThread()) {
-        callOnMainThread([notificationName, listener] {
-            bufferWasConsumedCallback(nullptr, listener, notificationName, nullptr, nullptr);
-        });
-        return;
-    }
-
-    uint64_t mapID = reinterpret_cast<uint64_t>(listener);
-    if (!mapID) {
-        RELEASE_LOG(MediaSource, "bufferWasConsumedCallback - ERROR: didn't find ID %llu in map", mapID);
-        return;
-    }
-
-    if (auto sourceBuffer = sourceBufferMap().get(mapID).get())
-        sourceBuffer->bufferWasConsumed();
-}
-
 Ref<SourceBufferPrivateAVFObjC> SourceBufferPrivateAVFObjC::create(MediaSourcePrivateAVFObjC* parent, Ref<SourceBufferParser>&& parser)
 {
     return adoptRef(*new SourceBufferPrivateAVFObjC(parent, WTFMove(parser)));
@@ -347,9 +309,6 @@ SourceBufferPrivateAVFObjC::SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    if (![PAL::getAVSampleBufferDisplayLayerClass() instancesRespondToSelector:@selector(prerollDecodeWithCompletionHandler:)])
-        PAL::CMNotificationCenterAddListener(PAL::CMNotificationCenterGetDefaultLocalCenter(), reinterpret_cast<void*>(m_mapID), bufferWasConsumedCallback, PAL::kCMSampleBufferConsumerNotification_BufferConsumed, nullptr, 0);
-
 #if !RELEASE_LOG_DISABLED
     m_parser->setLogger(m_logger.get(), m_logIdentifier);
 #endif
@@ -365,9 +324,6 @@ SourceBufferPrivateAVFObjC::~SourceBufferPrivateAVFObjC()
     destroyStreamDataParser();
     destroyRenderers();
     clearTracks();
-
-    if (![PAL::getAVSampleBufferDisplayLayerClass() instancesRespondToSelector:@selector(prerollDecodeWithCompletionHandler:)])
-        PAL::CMNotificationCenterRemoveListener(PAL::CMNotificationCenterGetDefaultLocalCenter(), this, bufferWasConsumedCallback, PAL::kCMSampleBufferConsumerNotification_BufferConsumed, nullptr);
 
     abort();
 }
@@ -1013,16 +969,6 @@ void SourceBufferPrivateAVFObjC::attemptToDecrypt()
 #endif
 }
 
-bool SourceBufferPrivateAVFObjC::requiresFlush() const
-{
-#if PLATFORM(IOS_FAMILY)
-    if (m_displayLayerWasInterrupted)
-        return true;
-#endif
-
-    return m_layerRequiresFlush;
-}
-
 void SourceBufferPrivateAVFObjC::flush()
 {
     if (m_videoTracks.size())
@@ -1035,15 +981,13 @@ void SourceBufferPrivateAVFObjC::flush()
         flushAudio(renderer.get());
 }
 
+#if PLATFORM(IOS_FAMILY)
 void SourceBufferPrivateAVFObjC::flushIfNeeded()
 {
-    if (!requiresFlush())
+    if (!m_displayLayerWasInterrupted)
         return;
 
-#if PLATFORM(IOS_FAMILY)
     m_displayLayerWasInterrupted = false;
-#endif
-    m_layerRequiresFlush = false;
     if (m_videoTracks.size())
         flushVideo();
 
@@ -1056,6 +1000,7 @@ void SourceBufferPrivateAVFObjC::flushIfNeeded()
 
     reenqueSamples(AtomString::number(m_enabledVideoTrackID));
 }
+#endif
 
 void SourceBufferPrivateAVFObjC::registerForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient* client)
 {
@@ -1149,15 +1094,6 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     }
     if (anyIgnored)
         return;
-}
-
-void SourceBufferPrivateAVFObjC::layerRequiresFlushToResumeDecodingChanged(AVSampleBufferDisplayLayer *layer, bool requiresFlush)
-{
-    if (layer != m_displayLayer || m_layerRequiresFlush == requiresFlush)
-        return;
-
-    ALWAYS_LOG(LOGIDENTIFIER, requiresFlush);
-    m_layerRequiresFlush = requiresFlush;
 }
 
 void SourceBufferPrivateAVFObjC::flush(const AtomString& trackIDString)
@@ -1330,34 +1266,20 @@ void SourceBufferPrivateAVFObjC::enqueueSample(Ref<MediaSampleAVFObjC>&& sample,
         if (player && !player->hasAvailableVideoFrame() && !sample->isNonDisplaying()) {
             DEBUG_LOG(logSiteIdentifier, "adding buffer attachment");
 
-            bool havePrerollDecodeWithCompletionHandler = [PAL::getAVSampleBufferDisplayLayerClass() instancesRespondToSelector:@selector(prerollDecodeWithCompletionHandler:)];
+            [m_displayLayer enqueueSampleBuffer:platformSample.sample.cmSampleBuffer];
+            [m_displayLayer prerollDecodeWithCompletionHandler:[this, logSiteIdentifier, weakThis = WeakPtr { *this }] (BOOL success) mutable {
+                callOnMainThread([this, logSiteIdentifier, weakThis = WTFMove(weakThis), success] () {
+                    if (!weakThis)
+                        return;
 
-            if (!havePrerollDecodeWithCompletionHandler) {
-                CMSampleBufferRef rawSampleCopy;
-                PAL::CMSampleBufferCreateCopy(kCFAllocatorDefault, platformSample.sample.cmSampleBuffer, &rawSampleCopy);
-                auto sampleCopy = adoptCF(rawSampleCopy);
-                PAL::CMSetAttachment(sampleCopy.get(), PAL::kCMSampleBufferAttachmentKey_PostNotificationWhenConsumed, (__bridge CFDictionaryRef)@{ (__bridge NSString *)PAL::kCMSampleBufferAttachmentKey_PostNotificationWhenConsumed : @YES }, kCMAttachmentMode_ShouldNotPropagate);
-                [m_displayLayer enqueueSampleBuffer:sampleCopy.get()];
-#if PLATFORM(IOS_FAMILY)
-                player->setHasAvailableVideoFrame(true);
-#endif
-            } else {
+                    if (!success) {
+                        ERROR_LOG(logSiteIdentifier, "prerollDecodeWithCompletionHandler failed");
+                        return;
+                    }
 
-                [m_displayLayer enqueueSampleBuffer:platformSample.sample.cmSampleBuffer];
-                [m_displayLayer prerollDecodeWithCompletionHandler:[this, logSiteIdentifier, weakThis = WeakPtr { *this }] (BOOL success) mutable {
-                    callOnMainThread([this, logSiteIdentifier, weakThis = WTFMove(weakThis), success] () {
-                        if (!weakThis)
-                            return;
-
-                        if (!success) {
-                            ERROR_LOG(logSiteIdentifier, "prerollDecodeWithCompletionHandler failed");
-                            return;
-                        }
-
-                        weakThis->bufferWasConsumed();
-                    });
-                }];
-            }
+                    weakThis->bufferWasConsumed();
+                });
+            }];
         } else
             [m_displayLayer enqueueSampleBuffer:platformSample.sample.cmSampleBuffer];
 
@@ -1390,8 +1312,10 @@ bool SourceBufferPrivateAVFObjC::isReadyForMoreSamples(const AtomString& trackID
 {
     auto trackID = parseIntegerAllowingTrailingJunk<uint64_t>(trackIDString).value_or(0);
     if (trackID == m_enabledVideoTrackID) {
-        if (requiresFlush())
+#if PLATFORM(IOS_FAMILY)
+        if (m_displayLayerWasInterrupted)
             return false;
+#endif
 
         if (m_decompressionSession)
             return m_decompressionSession->isReadyForMoreMediaData();

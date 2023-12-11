@@ -50,7 +50,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithContainer:(CKContainer*)container
                        fetchClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
-              reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker;
+              reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
+                          altDSID:(NSString*)altDSID;
 
 - (void)registerClient:(id<CKKSChangeFetcherClient>)client zoneID:(CKRecordZoneID*)zoneID;
 

@@ -47,15 +47,16 @@ class WorkerOrWorkletThread : public SerialFunctionDispatcher, public ThreadSafe
 public:
     virtual ~WorkerOrWorkletThread();
 
+    // SerialFunctionDispatcher methods
     void dispatch(Function<void()>&&) final;
-#if ASSERT_ENABLED
-    void assertIsCurrent() const final;
-#endif
+    bool isCurrent() const final;
 
     Thread* thread() const { return m_thread.get(); }
 
+    virtual void clearProxies() = 0;
+
     virtual WorkerDebuggerProxy* workerDebuggerProxy() const = 0;
-    virtual WorkerLoaderProxy& workerLoaderProxy() = 0;
+    virtual WorkerLoaderProxy* workerLoaderProxy() = 0;
 
     WorkerOrWorkletGlobalScope* globalScope() const { return m_globalScope.get(); }
     WorkerRunLoop& runLoop() { return m_runLoop; }

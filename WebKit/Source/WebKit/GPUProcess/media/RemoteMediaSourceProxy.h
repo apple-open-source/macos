@@ -90,6 +90,7 @@ private:
     void unmarkEndOfStream();
     void setReadyState(WebCore::MediaPlayerEnums::ReadyState);
     void setTimeFudgeFactor(const MediaTime&);
+    void disconnect();
 
     WeakPtr<GPUConnectionToWebProcess> m_connectionToWebProcess;
     RemoteMediaSourceIdentifier m_identifier;

@@ -32,13 +32,6 @@
 #import <Foundation/NSProcessInfo.h>
 #import <wtf/MainThread.h>
 
-namespace WebCore {
-static bool isThermalMitigationEnabled()
-{
-    return NSProcessInfo.processInfo.thermalState >= NSProcessInfoThermalStateSerious;
-}
-}
-
 @interface WebThermalMitigationObserver : NSObject
 @property (nonatomic) WeakPtr<WebCore::ThermalMitigationNotifier> notifier;
 @property (nonatomic, readonly) BOOL thermalMitigationEnabled;
@@ -73,7 +66,7 @@ static bool isThermalMitigationEnabled()
 
 - (BOOL)thermalMitigationEnabled
 {
-    return WebCore::isThermalMitigationEnabled();
+    return NSProcessInfo.processInfo.thermalState >= NSProcessInfoThermalStateSerious;
 }
 
 @end
@@ -94,11 +87,6 @@ ThermalMitigationNotifier::~ThermalMitigationNotifier()
 bool ThermalMitigationNotifier::thermalMitigationEnabled() const
 {
     return [m_observer thermalMitigationEnabled];
-}
-
-bool ThermalMitigationNotifier::isThermalMitigationEnabled()
-{
-    return WebCore::isThermalMitigationEnabled();
 }
 
 void ThermalMitigationNotifier::notifyThermalMitigationChanged(bool enabled)

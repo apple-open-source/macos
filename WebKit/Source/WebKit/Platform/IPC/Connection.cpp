@@ -26,6 +26,7 @@
 #include "config.h"
 #include "Connection.h"
 
+#include "Encoder.h"
 #include "Logging.h"
 #include "MessageFlags.h"
 #include "MessageReceiveQueues.h"
@@ -50,6 +51,10 @@
 #if USE(UNIX_DOMAIN_SOCKETS)
 #include "ArgumentCodersUnix.h"
 #include "UnixMessage.h"
+#endif
+
+#if OS(WINDOWS)
+#include "ArgumentCodersWin.h"
 #endif
 
 namespace IPC {
@@ -1493,5 +1498,9 @@ const char* errorAsString(Error error)
 
     return "";
 }
+
+Connection::DecoderOrError::DecoderOrError(DecoderOrError&&) = default;
+
+Connection::DecoderOrError::~DecoderOrError() = default;
 
 } // namespace IPC

@@ -30,6 +30,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+extern NSString* const OctagonStateTransitionErrorDomain;
+
 // Two 'bad states':
 //   No iCloud Account (the state machine won't help at all)
 //   Untrusted (user interaction is required to resolve)
@@ -148,7 +150,6 @@ extern OctagonState* const OctagonStateEstablishAfterCKKSReset;
 // End of account reset state flow
 
 /* used for trust health checks */
-extern OctagonState* const OctagonStateCDPCapableHealthCheck;
 extern OctagonState* const OctagonStateCDPHealthCheck;
 extern OctagonState* const OctagonStateSecurityTrustCheck;
 extern OctagonState* const OctagonStateTPHTrustCheck;
@@ -191,9 +192,6 @@ extern OctagonState* const OctagonStateDetermineiCloudAccountState;
 extern OctagonState* const OctagonStateAssistCKKSTLKUpload;
 extern OctagonState* const OctagonStateAssistCKKSTLKUploadCKKSReset;
 extern OctagonState* const OctagonStateAssistCKKSTLKUploadAfterCKKSReset;
-
-// Call out to otpaird (KCPairing via IDS), then proceed to BecomeUntrusted
-extern OctagonState* const OctagonStateStartCompanionPairing;
 
 // Cuttlefish notification while waiting for CDP
 extern OctagonState* const OctagonStateWaitForCDPUpdated;

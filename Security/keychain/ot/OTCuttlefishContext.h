@@ -89,12 +89,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly, nullable) TPSpecificUser               *activeAccount;
 
-@property (nonatomic,strong) NSString                       *_Nullable pairingUUID;
+@property (nonatomic, strong, nullable) NSString            *pairingUUID;
 @property (nonatomic, readonly) CKKSLockStateTracker        *lockStateTracker;
 @property (nonatomic, readonly) OTCuttlefishAccountStateHolder* accountMetadataStore;
 @property (readonly) OctagonStateMachine* stateMachine;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* apsRateLimiter;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* sosConsistencyRateLimiter;
+
+@property (nonatomic, strong, nullable) NSString* flowID;
+@property (nonatomic, strong, nullable) NSString* deviceSessionID;
 
 @property (readonly, nullable) CKKSKeychainView*            ckks;
 
@@ -211,7 +214,7 @@ NS_ASSUME_NONNULL_BEGIN
                            reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)notifyContainerChange:(APSIncomingMessage* _Nullable)notification;
-- (void)notifyContainerChangeWithUserInfo:(NSDictionary*)userInfo;
+- (void)notifyContainerChangeWithUserInfo:(NSDictionary* _Nullable)userInfo;
 
 - (void)rpcStatus:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply;
 - (void)rpcFetchEgoPeerID:(void (^)(NSString* _Nullable peerID, NSError* _Nullable error))reply;

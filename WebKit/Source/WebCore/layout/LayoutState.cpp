@@ -187,25 +187,13 @@ FlexFormattingState& LayoutState::ensureFlexFormattingState(const ElementBox& fo
 void LayoutState::destroyBlockFormattingState(const ElementBox& formattingContextRoot)
 {
     ASSERT(formattingContextRoot.establishesBlockFormattingContext());
-    m_inlineFormattingStates.remove(&formattingContextRoot);
+    m_blockFormattingStates.remove(&formattingContextRoot);
 }
 
 void LayoutState::destroyInlineFormattingState(const ElementBox& formattingContextRoot)
 {
     ASSERT(formattingContextRoot.establishesInlineFormattingContext());
-    m_blockFormattingStates.remove(&formattingContextRoot);
-}
-
-void LayoutState::setViewportSize(const LayoutSize& viewportSize)
-{
-    ASSERT(isInlineFormattingContextIntegration());
-    m_viewportSize = viewportSize;
-}
-
-LayoutSize LayoutState::viewportSize() const
-{
-    ASSERT(isInlineFormattingContextIntegration());
-    return m_viewportSize;
+    m_inlineFormattingStates.remove(&formattingContextRoot);
 }
 
 bool LayoutState::shouldNotSynthesizeInlineBlockBaseline() const

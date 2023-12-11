@@ -57,14 +57,14 @@ class URLKeepingBlobAlive;
 enum class NavigationPolicyDecision : uint8_t {
     ContinueLoad,
     IgnoreLoad,
-    StopAllLoads,
+    LoadWillContinueInAnotherProcess,
 };
 
 enum class PolicyDecisionMode { Synchronous, Asynchronous };
 
 class FrameLoader::PolicyChecker : public CanMakeWeakPtr<FrameLoader::PolicyChecker> {
     WTF_MAKE_NONCOPYABLE(PolicyChecker);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
 public:
     explicit PolicyChecker(LocalFrame&);
 

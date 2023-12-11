@@ -40,6 +40,7 @@
 #include "HRTFElevation.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNameCache.h"
+#include "ImmutableStyleProperties.h"
 #include "InlineStyleSheetOwner.h"
 #include "InspectorInstrumentation.h"
 #include "LayoutIntegrationLineLayout.h"
@@ -49,6 +50,7 @@
 #include "Page.h"
 #include "PerformanceLogging.h"
 #include "RenderTheme.h"
+#include "SVGPathElement.h"
 #include "ScrollingThread.h"
 #include "SelectorQuery.h"
 #include "StyleScope.h"
@@ -87,6 +89,8 @@ static void releaseNoncriticalMemory(MaintainMemoryCache maintainMemoryCache)
 
     InlineStyleSheetOwner::clearCache();
     HTMLNameCache::clear();
+    ImmutableStyleProperties::clearDeduplicationMap();
+    SVGPathElement::clearCache();
 }
 
 static void releaseCriticalMemory(Synchronous synchronous, MaintainBackForwardCache maintainBackForwardCache, MaintainMemoryCache maintainMemoryCache)

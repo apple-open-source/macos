@@ -18,8 +18,8 @@
  *		     displayed (excluding text written by external commands).
  * ScreenAttrs[off]  Contains the associated attributes.
  * ScreenCols[off]   Contains the virtual columns in the line. -1 means not
- *		     available (below last line), MAXCOL means after the end
- *		     of the line.
+ *		     available or before buffer text, MAXCOL means after the
+ *		     end of the line.
  *
  * LineOffset[row]   Contains the offset into ScreenLines*[], ScreenAttrs[]
  *		     and ScreenCols[] for each line.
@@ -4658,6 +4658,45 @@ get_encoded_char_adv(char_u **p)
     return mb_ptr2char_adv(p);
 }
 
+struct charstab
+{
+    int	    *cp;
+    char    *name;
+};
+static fill_chars_T fill_chars;
+static struct charstab filltab[] =
+{
+    {&fill_chars.stl,		"stl"},
+    {&fill_chars.stlnc,		"stlnc"},
+    {&fill_chars.vert,		"vert"},
+    {&fill_chars.fold,		"fold"},
+    {&fill_chars.foldopen,	"foldopen"},
+    {&fill_chars.foldclosed,	"foldclose"},
+    {&fill_chars.foldsep,	"foldsep"},
+    {&fill_chars.diff,		"diff"},
+    {&fill_chars.eob,		"eob"},
+    {&fill_chars.lastline,	"lastline"},
+};
+static lcs_chars_T lcs_chars;
+static struct charstab lcstab[] =
+{
+    {&lcs_chars.eol,		"eol"},
+    {&lcs_chars.ext,		"extends"},
+    {&lcs_chars.nbsp,		"nbsp"},
+    {&lcs_chars.prec,		"precedes"},
+    {&lcs_chars.space,		"space"},
+    {&lcs_chars.tab2,		"tab"},
+    {&lcs_chars.trail,		"trail"},
+    {&lcs_chars.lead,		"lead"},
+#ifdef FEAT_CONCEAL
+    {&lcs_chars.conceal,	"conceal"},
+#else
+    {NULL,			"conceal"},
+#endif
+    {NULL,			"multispace"},
+    {NULL,			"leadmultispace"},
+};
+
 /*
  * Handle setting 'listchars' or 'fillchars'.
  * "value" points to either the global or the window-local value.
@@ -4669,7 +4708,7 @@ get_encoded_char_adv(char_u **p)
     static char *
 set_chars_option(win_T *wp, char_u *value, int is_listchars, int apply)
 {
-    int	    round, i, len, len2, entries;
+    int	    round, i, len, entries;
     char_u  *p, *s;
     int	    c1 = 0, c2 = 0, c3 = 0;
     char_u  *last_multispace = NULL;  // Last occurrence of "multispace:"
@@ -4677,45 +4716,7 @@ set_chars_option(win_T *wp, char_u *value, int is_listchars, int apply)
     int	    multispace_len = 0;	      // Length of lcs-multispace string
     int	    lead_multispace_len = 0;  // Length of lcs-leadmultispace string
 
-    struct charstab
-    {
-	int	*cp;
-	char	*name;
-    };
     struct charstab *tab;
-
-    static fill_chars_T fill_chars;
-    static struct charstab filltab[] =
-    {
-	{&fill_chars.stl,	"stl"},
-	{&fill_chars.stlnc,	"stlnc"},
-	{&fill_chars.vert,	"vert"},
-	{&fill_chars.fold,	"fold"},
-	{&fill_chars.foldopen,	"foldopen"},
-	{&fill_chars.foldclosed, "foldclose"},
-	{&fill_chars.foldsep,	"foldsep"},
-	{&fill_chars.diff,	"diff"},
-	{&fill_chars.eob,	"eob"},
-	{&fill_chars.lastline,	"lastline"},
-    };
-
-    static lcs_chars_T lcs_chars;
-    struct charstab lcstab[] =
-    {
-	{&lcs_chars.eol,	"eol"},
-	{&lcs_chars.ext,	"extends"},
-	{&lcs_chars.nbsp,	"nbsp"},
-	{&lcs_chars.prec,	"precedes"},
-	{&lcs_chars.space,	"space"},
-	{&lcs_chars.tab2,	"tab"},
-	{&lcs_chars.trail,	"trail"},
-	{&lcs_chars.lead,	"lead"},
-#ifdef FEAT_CONCEAL
-	{&lcs_chars.conceal,	"conceal"},
-#else
-	{NULL,			"conceal"},
-#endif
-    };
 
     if (is_listchars)
     {
@@ -4785,58 +4786,12 @@ set_chars_option(win_T *wp, char_u *value, int is_listchars, int apply)
 	    for (i = 0; i < entries; ++i)
 	    {
 		len = (int)STRLEN(tab[i].name);
-		if (STRNCMP(p, tab[i].name, len) == 0
+		if (!(STRNCMP(p, tab[i].name, len) == 0
 			&& p[len] == ':'
-			&& p[len + 1] != NUL)
-		{
-		    c2 = c3 = 0;
-		    s = p + len + 1;
-		    c1 = get_encoded_char_adv(&s);
-		    if (char2cells(c1) > 1)
-			return e_invalid_argument;
-		    if (tab[i].cp == &lcs_chars.tab2)
-		    {
-			if (*s == NUL)
-			    return e_invalid_argument;
-			c2 = get_encoded_char_adv(&s);
-			if (char2cells(c2) > 1)
-			    return e_invalid_argument;
-			if (!(*s == ',' || *s == NUL))
-			{
-			    c3 = get_encoded_char_adv(&s);
-			    if (char2cells(c3) > 1)
-				return e_invalid_argument;
-			}
-		    }
+			&& p[len + 1] != NUL))
+		    continue;
 
-		    if (*s == ',' || *s == NUL)
-		    {
-			if (round > 0)
-			{
-			    if (tab[i].cp == &lcs_chars.tab2)
-			    {
-				lcs_chars.tab1 = c1;
-				lcs_chars.tab2 = c2;
-				lcs_chars.tab3 = c3;
-			    }
-			    else if (tab[i].cp != NULL)
-				*(tab[i].cp) = c1;
-
-			}
-			p = s;
-			break;
-		    }
-		}
-	    }
-
-	    if (i == entries)
-	    {
-		len = (int)STRLEN("multispace");
-		len2 = (int)STRLEN("leadmultispace");
-		if (is_listchars
-			&& STRNCMP(p, "multispace", len) == 0
-			&& p[len] == ':'
-			&& p[len + 1] != NUL)
+		if (is_listchars && strcmp(tab[i].name, "multispace") == 0)
 		{
 		    s = p + len + 1;
 		    if (round == 0)
@@ -4868,14 +4823,12 @@ set_chars_option(win_T *wp, char_u *value, int is_listchars, int apply)
 			}
 			p = s;
 		    }
+		    break;
 		}
 
-		else if (is_listchars
-			&& STRNCMP(p, "leadmultispace", len2) == 0
-			&& p[len2] == ':'
-			&& p[len2 + 1] != NUL)
+		if (is_listchars && strcmp(tab[i].name, "leadmultispace") == 0)
 		{
-		    s = p + len2 + 1;
+		    s = p + len + 1;
 		    if (round == 0)
 		    {
 			// get length of lcs-leadmultispace string in first
@@ -4906,10 +4859,50 @@ set_chars_option(win_T *wp, char_u *value, int is_listchars, int apply)
 			}
 			p = s;
 		    }
+		    break;
 		}
-		else
+
+		c2 = c3 = 0;
+		s = p + len + 1;
+		c1 = get_encoded_char_adv(&s);
+		if (char2cells(c1) > 1)
 		    return e_invalid_argument;
+		if (tab[i].cp == &lcs_chars.tab2)
+		{
+		    if (*s == NUL)
+			return e_invalid_argument;
+		    c2 = get_encoded_char_adv(&s);
+		    if (char2cells(c2) > 1)
+			return e_invalid_argument;
+		    if (!(*s == ',' || *s == NUL))
+		    {
+			c3 = get_encoded_char_adv(&s);
+			if (char2cells(c3) > 1)
+			    return e_invalid_argument;
+		    }
+		}
+
+		if (*s == ',' || *s == NUL)
+		{
+		    if (round > 0)
+		    {
+			if (tab[i].cp == &lcs_chars.tab2)
+			{
+			    lcs_chars.tab1 = c1;
+			    lcs_chars.tab2 = c2;
+			    lcs_chars.tab3 = c3;
+			}
+			else if (tab[i].cp != NULL)
+			    *(tab[i].cp) = c1;
+
+		    }
+		    p = s;
+		    break;
+		}
 	    }
+
+	    if (i == entries)
+		return e_invalid_argument;
 
 	    if (*p == ',')
 		++p;
@@ -4954,6 +4947,32 @@ set_fillchars_option(win_T *wp, char_u *val, int apply)
 set_listchars_option(win_T *wp, char_u *val, int apply)
 {
     return set_chars_option(wp, val, TRUE, apply);
+}
+
+/*
+ * Function given to ExpandGeneric() to obtain possible arguments of the
+ * 'fillchars' option.
+ */
+    char_u *
+get_fillchars_name(expand_T *xp UNUSED, int idx)
+{
+    if (idx >= (int)(sizeof(filltab) / sizeof(filltab[0])))
+	return NULL;
+
+    return (char_u*)filltab[idx].name;
+}
+
+/*
+ * Function given to ExpandGeneric() to obtain possible arguments of the
+ * 'listchars' option.
+ */
+    char_u *
+get_listchars_name(expand_T *xp UNUSED, int idx)
+{
+    if (idx >= (int)(sizeof(lcstab) / sizeof(lcstab[0])))
+	return NULL;
+
+    return (char_u*)lcstab[idx].name;
 }
 
 /*

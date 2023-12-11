@@ -30,6 +30,8 @@
 #import "keychain/ot/OTConstants.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
+NSString* const OctagonStateTransitionErrorDomain = @"com.apple.security.octagon.state";
+
 OctagonState* const OctagonStateNoAccount = (OctagonState*)@"NoAccount";
 
 OctagonState* const OctagonStateWaitForCDPCapableSecurityLevel = (OctagonState*)@"WaitForCDPCapableSecurityLevel";
@@ -86,8 +88,6 @@ OctagonState* const OctagonStateVouchWithCustodianRecoveryKey = (OctagonState*)@
 OctagonState* const OctagonStateJoinSOSAfterCKKSFetch = (OctagonState*)@"JoinSOSAfterCKKSFetch";
 OctagonState* const OctagonStatePrepareAndRecoverTLKSharesForInheritancePeer = (OctagonState*)@"PrepareAndRecoverTLKSharesForInheritancePeer";
 
-OctagonState* const OctagonStateStartCompanionPairing = (OctagonState*)@"StartCompanionPairing";
-
 OctagonState* const OctagonStateWaitForCDPUpdated = (OctagonState*)@"WaitForCDPUpdated";
 
 // Untrusted cuttlefish notification.
@@ -128,7 +128,6 @@ OctagonState* const OctagonStateCuttlefishReset = (OctagonState*)@"CuttlefishRes
 OctagonState* const OctagonStateCKKSResetAfterOctagonReset = (OctagonState*)@"CKKSResetAfterOctagonReset";
 
 /* used for trust health checks */
-OctagonState* const OctagonStateCDPCapableHealthCheck = (OctagonState*)@"CDPCapableHealthCheck";
 OctagonState* const OctagonStateCDPHealthCheck = (OctagonState*)@"CDPHealthCheck";
 OctagonState* const OctagonStateTPHTrustCheck = (OctagonState*)@"TPHTrustCheck";
 OctagonState* const OctagonStateCuttlefishTrustCheck = (OctagonState*)@"CuttlefishTrustCheck";
@@ -213,7 +212,7 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
                                      @[OctagonStateUpdateSOSPreapprovals,                    @27U,],
                                      @[OctagonStateWaitForCDPCapableSecurityLevel,           @28U,],
                                      @[OctagonStateAssistCKKSTLKUpload,                      @29U,],
-                                     @[OctagonStateStartCompanionPairing,                    @30U,],
+                                     //Removed: @[OctagonStateStartCompanionPairing,                    @30U,],
                                      @[OctagonStateEscrowTriggerUpdate,                      @31U,],
                                      @[OctagonStateEnsureConsistency,                        @32U,],
                                      @[OctagonStateResetBecomeUntrusted,                     @33U,],
@@ -232,7 +231,7 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
                                      @[OctagonStateSOSUpgradeAfterCKKSReset,                 @46U,],
                                      @[OctagonStateInitiatorJoinCKKSReset,                   @47U,],
                                      @[OctagonStateInitiatorJoinAfterCKKSReset,              @48U,],
-                                     @[OctagonStateCDPCapableHealthCheck,                    @49U,],
+                                     //Removed: @[OctagonStateCDPCapableHealthCheck,                    @49U,],
                                      @[OctagonStateHealthCheckReset,                         @50U,],
                                      @[OctagonStateAssistCKKSTLKUploadCKKSReset,             @51U,],
                                      @[OctagonStateAssistCKKSTLKUploadAfterCKKSReset,        @52U,],
@@ -363,6 +362,7 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
         [sourceStates addObject:OctagonStateWaitingForCloudKitAccount];
         [sourceStates addObject:OctagonStateCloudKitNewlyAvailable];
         [sourceStates addObject:OctagonStateWaitForCDPCapableSecurityLevel];
+        [sourceStates addObject:OctagonStateWaitForCDP];
         [sourceStates addObject:OctagonStateUntrusted];
 
         s = sourceStates;

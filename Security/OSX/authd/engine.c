@@ -638,7 +638,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 				agent_t agent1;
 				for (j = 0; j < i; j++) {
 					agent1 = _get_agent(engine, (mechanism_t)CFArrayGetValueAtIndex(mechanisms, j), false, j == 0);
-					if(agent1 && agent_get_state(agent1) == interrupting) {
+					if (agent1 && agent_get_state(agent1) == interrupting) {
 						break;
 					}
 				}
@@ -665,9 +665,14 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 
 				result = agent_run(agent, hints, context, engine->immutable_hints);
 
-				auth_items_copy(context, agent_get_context(agent));
-				auth_items_copy(hints, agent_get_hints(agent));
+                if (engine->dismissed) {
+                    os_log_debug(AUTHD_LOG, "engine %llu: caller dismissed, doing cleanup", engine->engine_index);
+                    break;
+                }
 
+                auth_items_copy(context, agent_get_context(agent));
+                auth_items_copy(hints, agent_get_hints(agent));
+                
 				bool interrupted = false;
 				for (CFIndex i2 = 0; i2 != i; i2++) {
 					agent_t agent2 = _get_agent(engine, (mechanism_t)CFArrayGetValueAtIndex(mechanisms, i2), false, i == 0);
@@ -687,7 +692,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 
 				// Empty token name means that token doesn't exist (e.g. SC was removed).
 				// Remove empty token name from hints for UI drawing logic.
-				const char * token_name = auth_items_get_string(hints, AGENT_HINT_TOKEN_NAME);
+				const char *token_name = auth_items_get_string(hints, AGENT_HINT_TOKEN_NAME);
 				if (token_name && strlen(token_name) == 0) {
 					auth_items_remove(hints, AGENT_HINT_TOKEN_NAME);
 				}
@@ -853,6 +858,10 @@ _evaluate_authentication(engine_t engine, rule_t rule)
         } else if (status == errAuthorizationDenied) {
 			os_log_error(AUTHD_LOG, "Evaluate denied (engine %llu)", engine->engine_index);
 			engine->reason = invalidPassphrase;
+        }
+        if (engine->dismissed) {
+            // caller dismisssed, no need to run other mechanisms
+            break;
         }
     }
     
@@ -1823,7 +1832,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     }
     
     if (engine->dismissed) {
-		os_log_error(AUTHD_LOG, "Dismissed (engine %llu)", engine->engine_index);
+		os_log_error(AUTHD_LOG, "Caller dismissed (engine %llu)", engine->engine_index);
         status = errAuthorizationDenied;
     }
     
@@ -2070,7 +2079,7 @@ void engine_destroy_agents(engine_t engine)
     
     dispatch_sync(dispatch_get_main_queue(), ^{
         _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
-            os_log_debug(AUTHD_LOG, "engine %llu: Destroying %{public}s", engine->engine_index, mechanism_get_string((mechanism_t)key));
+            os_log_debug(AUTHD_LOG, "engine %llu: destroying %{public}s", engine->engine_index, mechanism_get_string((mechanism_t)key));
             agent_t agent = (agent_t)value;
             agent_destroy(agent);
             

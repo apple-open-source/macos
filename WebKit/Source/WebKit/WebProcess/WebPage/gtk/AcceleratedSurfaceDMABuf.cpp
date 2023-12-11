@@ -137,7 +137,7 @@ std::unique_ptr<AcceleratedSurfaceDMABuf::RenderTarget> AcceleratedSurfaceDMABuf
             WTFLogAlways("Failed to create GBM buffer of size %dx%d: no GBM device found", size.width(), size.height());
             return { };
         }
-        auto* bo = gbm_bo_create(device, size.width(), size.height(), uint32_t(WebCore::DMABufFormat::FourCC::ARGB8888), 0);
+        auto* bo = gbm_bo_create(device, size.width(), size.height(), uint32_t(WebCore::DMABufFormat::FourCC::ARGB8888), GBM_BO_USE_RENDERING);
         if (!bo) {
             WTFLogAlways("Failed to create GBM buffer of size %dx%d: %s", size.width(), size.height(), safeStrerror(errno).data());
             return { };
@@ -442,14 +442,17 @@ void AcceleratedSurfaceDMABuf::clientResize(const WebCore::IntSize& size)
     auto& display = WebCore::PlatformDisplay::sharedDisplayForCompositing();
     switch (display.type()) {
     case WebCore::PlatformDisplay::Type::Surfaceless:
-        if (display.eglExtensions().MESA_image_dma_buf_export)
+        if (display.eglExtensions().MESA_image_dma_buf_export && WebProcess::singleton().dmaBufRendererBufferMode().contains(DMABufRendererBufferMode::Hardware))
             m_target = RenderTargetTexture::create(m_id, size);
         else
             m_target = RenderTargetSHMImage::create(m_id, size);
         break;
 #if USE(GBM)
     case WebCore::PlatformDisplay::Type::GBM:
-        m_target = RenderTargetEGLImage::create(m_id, size);
+        if (display.eglExtensions().EXT_image_dma_buf_import)
+            m_target = RenderTargetEGLImage::create(m_id, size);
+        else
+            m_target = RenderTargetSHMImage::create(m_id, size);
         break;
 #endif
     default:

@@ -202,15 +202,15 @@ struct MotionEvent {
             modifiers.add(WebEventModifier::MetaKey);
 
         if (state & GDK_BUTTON1_MASK) {
-            button = WebMouseEventButton::LeftButton;
+            button = WebMouseEventButton::Left;
             buttons |= 1;
         }
         if (state & GDK_BUTTON2_MASK) {
-            button = WebMouseEventButton::MiddleButton;
+            button = WebMouseEventButton::Middle;
             buttons |= 4;
         }
         if (state & GDK_BUTTON3_MASK) {
-            button = WebMouseEventButton::RightButton;
+            button = WebMouseEventButton::Right;
             buttons |= 2;
         }
     }
@@ -224,7 +224,7 @@ struct MotionEvent {
 
     FloatPoint position;
     FloatPoint globalPosition;
-    WebMouseEventButton button { WebMouseEventButton::NoButton };
+    WebMouseEventButton button { WebMouseEventButton::None };
     unsigned short buttons { 0 };
     OptionSet<WebEventModifier> modifiers;
 };
@@ -316,6 +316,7 @@ struct _WebKitWebViewBasePrivate {
     unsigned long toplevelIsActiveID { 0 };
     unsigned long toplevelWindowStateChangedID { 0 };
     unsigned long toplevelWindowUnrealizedID { 0 };
+    GdkToplevelState toplevelWindowState;
 #else
     unsigned long toplevelFocusInEventID { 0 };
     unsigned long toplevelFocusOutEventID { 0 };
@@ -417,13 +418,15 @@ static gboolean toplevelWindowStateEvent(GtkWidget*, GdkEventWindowState* event,
         return FALSE;
 
     bool visible = !(event->new_window_state & GDK_WINDOW_STATE_ICONIFIED);
-    if ((visible && priv->activityState & ActivityState::IsVisible) || (!visible && !(priv->activityState & ActivityState::IsVisible)))
-        return FALSE;
-
-    if (visible)
+    if (visible) {
+        if (priv->activityState & ActivityState::IsVisible || !gtk_widget_get_mapped(GTK_WIDGET(webViewBase)))
+            return FALSE;
         priv->activityState.add(ActivityState::IsVisible);
-    else
+    } else {
+        if (!(priv->activityState & ActivityState::IsVisible))
+            return FALSE;
         priv->activityState.remove(ActivityState::IsVisible);
+    }
     webkitWebViewBaseScheduleUpdateActivityState(webViewBase, ActivityState::IsVisible);
 
     return FALSE;
@@ -840,6 +843,14 @@ static void webkitWebViewBaseChildAllocate(GtkWidget* child, gpointer userData)
 }
 #endif
 
+static void webkitWebViewBaseSetSize(WebKitWebViewBase* webViewBase, const IntSize& size)
+{
+    auto* priv = webViewBase->priv;
+    priv->viewSize = size;
+    if (auto* drawingArea = static_cast<DrawingAreaProxyCoordinatedGraphics*>(priv->pageProxy->drawingArea()))
+        drawingArea->setSize(priv->viewSize);
+}
+
 #if USE(GTK4)
 static void webkitWebViewBaseSizeAllocate(GtkWidget* widget, int width, int height, int baseline)
 #else
@@ -899,10 +910,7 @@ static void webkitWebViewBaseSizeAllocate(GtkWidget* widget, GtkAllocation* allo
     }
 #endif
 
-    priv->viewSize = viewRect.size();
-
-    if (auto* drawingArea = static_cast<DrawingAreaProxyCoordinatedGraphics*>(priv->pageProxy->drawingArea()))
-        drawingArea->setSize(priv->viewSize);
+    webkitWebViewBaseSetSize(webViewBase, viewRect.size());
 }
 
 #if USE(GTK4)
@@ -942,6 +950,11 @@ static void webkitWebViewBaseMap(GtkWidget* widget)
 
     WebKitWebViewBase* webViewBase = WEBKIT_WEB_VIEW_BASE(widget);
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
+    if (priv->viewSize.isEmpty()) {
+        auto size = webkitWebViewBaseGetViewSize(webViewBase);
+        if (!size.isEmpty())
+            webkitWebViewBaseSetSize(webViewBase, size);
+    }
     OptionSet<ActivityState> flagsToUpdate;
     if (!(priv->activityState & ActivityState::IsVisible))
         flagsToUpdate.add(ActivityState::IsVisible);
@@ -1918,11 +1931,16 @@ static void toplevelWindowIsActiveChanged(GtkWindow* window, GParamSpec*, WebKit
 
 static void toplevelWindowStateChanged(GdkSurface* surface, GParamSpec*, WebKitWebViewBase* webViewBase)
 {
-    auto state = gdk_toplevel_get_state(GDK_TOPLEVEL(surface));
-    bool visible = !(state & GDK_TOPLEVEL_STATE_MINIMIZED);
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
+    auto state = gdk_toplevel_get_state(GDK_TOPLEVEL(surface));
+    auto changedMask = priv->toplevelWindowState ^ state;
+    priv->toplevelWindowState = state;
+    if (!(changedMask & GDK_TOPLEVEL_STATE_MINIMIZED))
+        return;
+
+    bool visible = !(state & GDK_TOPLEVEL_STATE_MINIMIZED);
     if (visible) {
-        if (priv->activityState & ActivityState::IsVisible)
+        if (priv->activityState & ActivityState::IsVisible || !gtk_widget_get_mapped(GTK_WIDGET(webViewBase)))
             return;
         priv->activityState.add(ActivityState::IsVisible);
     } else {
@@ -1937,8 +1955,10 @@ static void toplevelWindowRealized(WebKitWebViewBase* webViewBase)
 {
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
     g_clear_signal_handler(&priv->toplevelWindowRealizedID, priv->toplevelOnScreenWindow);
+    auto* surface = gtk_native_get_surface(GTK_NATIVE(priv->toplevelOnScreenWindow));
+    priv->toplevelWindowState = gdk_toplevel_get_state(GDK_TOPLEVEL(surface));
     priv->toplevelWindowStateChangedID =
-        g_signal_connect(gtk_native_get_surface(GTK_NATIVE(priv->toplevelOnScreenWindow)), "notify::state", G_CALLBACK(toplevelWindowStateChanged), webViewBase);
+        g_signal_connect(surface, "notify::state", G_CALLBACK(toplevelWindowStateChanged), webViewBase);
 }
 
 static void toplevelWindowUnrealized(WebKitWebViewBase* webViewBase)
@@ -1971,8 +1991,10 @@ static void webkitWebViewBaseRoot(GtkWidget* widget)
     priv->toplevelIsActiveID =
         g_signal_connect(priv->toplevelOnScreenWindow, "notify::is-active", G_CALLBACK(toplevelWindowIsActiveChanged), widget);
     if (gtk_widget_get_realized(GTK_WIDGET(priv->toplevelOnScreenWindow))) {
+        auto* surface = gtk_native_get_surface(GTK_NATIVE(priv->toplevelOnScreenWindow));
+        priv->toplevelWindowState = gdk_toplevel_get_state(GDK_TOPLEVEL(surface));
         priv->toplevelWindowStateChangedID =
-            g_signal_connect(gtk_native_get_surface(GTK_NATIVE(priv->toplevelOnScreenWindow)), "notify::state", G_CALLBACK(toplevelWindowStateChanged), widget);
+            g_signal_connect(surface, "notify::state", G_CALLBACK(toplevelWindowStateChanged), widget);
     } else {
         priv->toplevelWindowRealizedID =
             g_signal_connect_swapped(priv->toplevelOnScreenWindow, "realize", G_CALLBACK(toplevelWindowRealized), widget);
@@ -2139,6 +2161,24 @@ static void webkitWebViewBaseTouchPress(WebKitWebViewBase* webViewBase, int nPre
     webViewBase->priv->isLongPressed = false;
 }
 
+static unsigned modifiersForSynthesizedEvent(GdkEvent* event)
+{
+    if (!event)
+        return 0;
+
+    GdkModifierType state;
+    if (!gdk_event_get_state(event, &state))
+        return 0;
+
+    unsigned modifiers = state;
+    // For synthesized events we assume GDK_LOCK_MASK is always CapsLock
+    // so we remove the flag if present and caps lock state is disabled.
+    if (modifiers & GDK_LOCK_MASK && !eventModifiersContainCapsLock(event))
+        modifiers &= ~GDK_LOCK_MASK;
+
+    return modifiers;
+}
+
 static void webkitWebViewBaseTouchRelease(WebKitWebViewBase* webViewBase, int nPress, double x, double y, GtkGesture* gesture)
 {
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
@@ -2157,7 +2197,7 @@ static void webkitWebViewBaseTouchRelease(WebKitWebViewBase* webViewBase, int nP
         buttons = GDK_BUTTON1_MASK;
     }
 
-    unsigned modifiers = gtk_event_controller_get_current_event_state(GTK_EVENT_CONTROLLER(gesture));
+    unsigned modifiers = modifiersForSynthesizedEvent(gtk_event_controller_get_current_event(GTK_EVENT_CONTROLLER(gesture)));
     webkitWebViewBaseSynthesizeMouseEvent(webViewBase, MouseEventType::Motion, 0, 0, x, y, modifiers, nPress, mousePointerEventType(), PlatformMouseEvent::IsTouch::Yes);
     webkitWebViewBaseSynthesizeMouseEvent(webViewBase, MouseEventType::Press, button, 0, x, y, modifiers, nPress, mousePointerEventType(), PlatformMouseEvent::IsTouch::Yes);
     webkitWebViewBaseSynthesizeMouseEvent(webViewBase, MouseEventType::Release, button, buttons, x, y, modifiers, nPress, mousePointerEventType(), PlatformMouseEvent::IsTouch::Yes);
@@ -2187,7 +2227,7 @@ static void webkitWebViewBaseTouchDragUpdate(WebKitWebViewBase* webViewBase, dou
     auto* sequence = gtk_gesture_single_get_current_sequence(GTK_GESTURE_SINGLE(gesture));
     auto* event = gtk_gesture_get_last_event(gesture, sequence);
 
-    unsigned modifiers = gtk_event_controller_get_current_event_state(GTK_EVENT_CONTROLLER(gesture));
+    unsigned modifiers = modifiersForSynthesizedEvent(gtk_event_controller_get_current_event(GTK_EVENT_CONTROLLER(gesture)));
     if (!priv->isBeingDragged) {
         if (!gtk_drag_check_threshold(GTK_WIDGET(webViewBase), 0, 0, static_cast<int>(offsetX), static_cast<int>(offsetY)))
             return;
@@ -2231,7 +2271,7 @@ static void webkitWebViewBaseTouchDragEnd(WebKitWebViewBase* webViewBase, gdoubl
     if (priv->isLongPressed) {
         double x, y;
         gtk_gesture_drag_get_start_point(GTK_GESTURE_DRAG(gesture), &x, &y);
-        unsigned modifiers = gtk_event_controller_get_current_event_state(GTK_EVENT_CONTROLLER(gesture));
+        unsigned modifiers = modifiersForSynthesizedEvent(gtk_event_controller_get_current_event(GTK_EVENT_CONTROLLER(gesture)));
         webkitWebViewBaseSynthesizeMouseEvent(webViewBase, MouseEventType::Release, GDK_BUTTON_PRIMARY, GDK_BUTTON1_MASK, x + offsetX, y + offsetY, modifiers, 0, mousePointerEventType(), PlatformMouseEvent::IsTouch::Yes);
     }
 }
@@ -2801,12 +2841,6 @@ void webkitWebViewBaseExitAcceleratedCompositingMode(WebKitWebViewBase* webkitWe
     webkitWebViewBase->priv->acceleratedBackingStore->update(LayerTreeContext());
 }
 
-bool webkitWebViewBaseMakeGLContextCurrent(WebKitWebViewBase* webkitWebViewBase)
-{
-    ASSERT(webkitWebViewBase->priv->acceleratedBackingStore);
-    return webkitWebViewBase->priv->acceleratedBackingStore->makeContextCurrent();
-}
-
 void webkitWebViewBaseWillSwapWebProcess(WebKitWebViewBase* webkitWebViewBase)
 {
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
@@ -3049,7 +3083,7 @@ static inline OptionSet<WebEventModifier> toWebKitModifiers(unsigned modifiers)
         webEventModifiers.add(WebEventModifier::AltKey);
     if (modifiers & GDK_META_MASK)
         webEventModifiers.add(WebEventModifier::MetaKey);
-    if (PlatformKeyboardEvent::modifiersContainCapsLock(modifiers))
+    if (modifiers & GDK_LOCK_MASK)
         webEventModifiers.add(WebEventModifier::CapsLockKey);
     return webEventModifiers;
 }
@@ -3076,19 +3110,19 @@ void webkitWebViewBaseSynthesizeMouseEvent(WebKitWebViewBase* webViewBase, Mouse
         return;
     }
 
-    WebMouseEventButton webEventButton = WebMouseEventButton::NoButton;
+    WebMouseEventButton webEventButton = WebMouseEventButton::None;
     switch (button) {
     case 0:
-        webEventButton = WebMouseEventButton::NoButton;
+        webEventButton = WebMouseEventButton::None;
         break;
     case 1:
-        webEventButton = WebMouseEventButton::LeftButton;
+        webEventButton = WebMouseEventButton::Left;
         break;
     case 2:
-        webEventButton = WebMouseEventButton::MiddleButton;
+        webEventButton = WebMouseEventButton::Middle;
         break;
     case 3:
-        webEventButton = WebMouseEventButton::RightButton;
+        webEventButton = WebMouseEventButton::Right;
         break;
     }
 
@@ -3107,7 +3141,7 @@ void webkitWebViewBaseSynthesizeMouseEvent(WebKitWebViewBase* webViewBase, Mouse
         webEventType = WebEventType::MouseDown;
         priv->inputMethodFilter.cancelComposition();
 #if !USE(GTK4)
-        if (webEventButton == WebMouseEventButton::RightButton) {
+        if (webEventButton == WebMouseEventButton::Right) {
             GUniquePtr<GdkEvent> event(gdk_event_new(GDK_BUTTON_PRESS));
             event->button.window = gtk_widget_get_window(GTK_WIDGET(webViewBase));
             g_object_ref(event->button.window);
@@ -3136,11 +3170,11 @@ void webkitWebViewBaseSynthesizeMouseEvent(WebKitWebViewBase* webViewBase, Mouse
     case MouseEventType::Motion:
         webEventType = WebEventType::MouseMove;
         if (buttons & GDK_BUTTON1_MASK)
-            webEventButton = WebMouseEventButton::LeftButton;
+            webEventButton = WebMouseEventButton::Left;
         else if (buttons & GDK_BUTTON2_MASK)
-            webEventButton = WebMouseEventButton::MiddleButton;
+            webEventButton = WebMouseEventButton::Middle;
         else if (buttons & GDK_BUTTON3_MASK)
-            webEventButton = WebMouseEventButton::RightButton;
+            webEventButton = WebMouseEventButton::Right;
 
         if (priv->lastMotionEvent)
             movementDelta = FloatPoint(x, y) - priv->lastMotionEvent->globalPosition;

@@ -70,12 +70,10 @@
 #import "RenderTextControl.h"
 #import "RenderView.h"
 #import "RenderWidget.h"
-#import "RuntimeApplicationChecks.h"
 #import "ScrollView.h"
 #import "TextIterator.h"
 #import "VisibleUnits.h"
 #import "WebCoreFrameView.h"
-#import <pal/SessionID.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
@@ -206,14 +204,6 @@ using namespace WebCore;
 
 #ifndef NSAccessibilityIsMultiSelectableAttribute
 #define NSAccessibilityIsMultiSelectableAttribute @"AXIsMultiSelectable"
-#endif
-
-#ifndef NSAccessibilityDocumentURIAttribute
-#define NSAccessibilityDocumentURIAttribute @"AXDocumentURI"
-#endif
-
-#ifndef NSAccessibilityDocumentEncodingAttribute
-#define NSAccessibilityDocumentEncodingAttribute @"AXDocumentEncoding"
 #endif
 
 #define NSAccessibilityDOMIdentifierAttribute @"AXDOMIdentifier"
@@ -434,10 +424,6 @@ using namespace WebCore;
 
 #ifndef NSAccessibilityCaretBrowsingEnabledAttribute
 #define NSAccessibilityCaretBrowsingEnabledAttribute @"AXCaretBrowsingEnabled"
-#endif
-
-#ifndef NSAccessibilityWebSessionIDAttribute
-#define NSAccessibilityWebSessionIDAttribute @"AXWebSessionID"
 #endif
 
 #ifndef NSAccessibilitFocusableAncestorAttribute
@@ -969,7 +955,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         [tempArray addObject:NSAccessibilityURLAttribute];
         [tempArray addObject:NSAccessibilityCaretBrowsingEnabledAttribute];
         [tempArray addObject:NSAccessibilityPreventKeyboardDOMEventDispatchAttribute];
-        [tempArray addObject:NSAccessibilityWebSessionIDAttribute];
         return tempArray;
     }();
     static NeverDestroyed textAttrs = [] {
@@ -1621,8 +1606,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             return [NSNumber numberWithBool:backingObject->preventKeyboardDOMEventDispatch()];
         if ([attributeName isEqualToString:NSAccessibilityCaretBrowsingEnabledAttribute])
             return [NSNumber numberWithBool:backingObject->caretBrowsingEnabled()];
-        if ([attributeName isEqualToString:NSAccessibilityWebSessionIDAttribute])
-            return @(backingObject->sessionID().toUInt64());
     }
 
     if (backingObject->isTextControl()) {
@@ -1734,8 +1717,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if ([attributeName isEqualToString: NSAccessibilityHelpAttribute])
         return [self baseAccessibilityHelpText];
 
-    if ([attributeName isEqualToString: NSAccessibilityFocusedAttribute])
-        return [NSNumber numberWithBool: backingObject->isFocused()];
+    if ([attributeName isEqualToString:NSAccessibilityFocusedAttribute])
+        return @(backingObject->isFocused());
 
     if ([attributeName isEqualToString: NSAccessibilityEnabledAttribute])
         return [NSNumber numberWithBool: backingObject->isEnabled()];
@@ -2180,12 +2163,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if ([attributeName isEqualToString:@"AXARIAPressedIsPresent"])
         return [NSNumber numberWithBool:backingObject->pressedIsPresent()];
 
-    if ([attributeName isEqualToString:@"AXIsMultiline"])
-        return [NSNumber numberWithBool:backingObject->ariaIsMultiline()];
-
-    if ([attributeName isEqualToString:@"AXReadOnlyValue"])
-        return backingObject->readOnlyValue();
-
     if ([attributeName isEqualToString:AXHasDocumentRoleAncestorAttribute])
         return [NSNumber numberWithBool:backingObject->hasDocumentRoleAncestor()];
 
@@ -2224,13 +2201,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     // Multi-selectable
     if ([attributeName isEqualToString:NSAccessibilityIsMultiSelectableAttribute])
         return [NSNumber numberWithBool:backingObject->isMultiSelectable()];
-
-    // Document attributes
-    if ([attributeName isEqualToString:NSAccessibilityDocumentURIAttribute])
-        return backingObject->documentURI();
-
-    if ([attributeName isEqualToString:NSAccessibilityDocumentEncodingAttribute])
-        return backingObject->documentEncoding();
 
     if ([attributeName isEqualToString:NSAccessibilityFocusableAncestorAttribute]) {
         AXCoreObject* object = backingObject->focusableAncestor();
@@ -3627,7 +3597,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 }
 
 // API that AppKit uses for faster access
-- (NSUInteger)accessibilityIndexOfChild:(id)child
+- (NSUInteger)accessibilityIndexOfChild:(id)targetChild
 {
     RefPtr<AXCoreObject> backingObject = self.updateObjectBackingStore;
     if (!backingObject)
@@ -3636,29 +3606,27 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     // Tree objects return their rows as their children. We can use the original method
     // here, because we won't gain any speed up.
     if (backingObject->isTree())
-        return [super accessibilityIndexOfChild:child];
+        return [super accessibilityIndexOfChild:targetChild];
 
-    NSArray *children = self.childrenVectorArray;
-    if (!children.count) {
+    const auto& children = backingObject->children();
+    if (!children.size()) {
         if (auto *renderWidgetChildren = [self renderWidgetChildren])
-            return [renderWidgetChildren indexOfObject:child];
+            return [renderWidgetChildren indexOfObject:targetChild];
 #if ENABLE(MODEL_ELEMENT)
         if (backingObject->isModel())
-            return backingObject->modelElementChildren().find(child);
+            return backingObject->modelElementChildren().find(targetChild);
 #endif
     }
 
-    NSUInteger count = [children count];
-    for (NSUInteger i = 0; i < count; ++i) {
-        WebAccessibilityObjectWrapper *wrapper = children[i];
-        auto* object = wrapper.axBackingObject;
-        if (!object)
+    size_t childCount = children.size();
+    for (size_t i = 0; i < childCount; i++) {
+        const auto& child = children[i];
+        if (!child)
             continue;
-
-        if (wrapper == child || (object->isAttachment() && [wrapper attachmentView] == child))
+        WebAccessibilityObjectWrapper *childWrapper = child->wrapper();
+        if (childWrapper == targetChild || (child->isAttachment() && [childWrapper attachmentView] == targetChild))
             return i;
     }
-
     return NSNotFound;
 }
 
@@ -3697,7 +3665,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 // until it finds something that responds to this method.
 - (pid_t)accessibilityPresenterProcessIdentifier
 {
-    return WebCore::presentingApplicationPID();
+    RefPtr<AXCoreObject> backingObject = self.axBackingObject;
+    return backingObject ? backingObject->processID() : 0;
 }
 
 - (NSArray *)accessibilityArrayAttributeValues:(NSString *)attribute index:(NSUInteger)index maxCount:(NSUInteger)maxCount

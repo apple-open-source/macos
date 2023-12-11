@@ -92,6 +92,8 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 @property NSMutableSet<CKKSFetchBecause*>* currentFetchReasons;
 @property NSMutableSet<CKRecordZoneNotification*>* apnsPushes;
 @property bool newRequests; // true if there's someone pending on successfulFetchDependency
+
+@property NSString* altDSID; // used for sending RTC metrics
 @property CKKSZoneChangeFetchDependencyOperation* successfulFetchDependency;
 
 @property NSMutableSet<CKKSZoneChangeFetchDependencyOperation*>* inflightFetchDependencies;
@@ -106,6 +108,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 - (instancetype)initWithContainer:(CKContainer*)container
                        fetchClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
               reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
+                          altDSID:(NSString*)altDSID
 {
     if((self = [super init])) {
         _container = container;
@@ -126,6 +129,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
         _inflightFetchDependency = nil;
 
         _newRequests = false;
+        _altDSID = altDSID;
 
         // If we're testing, for the initial delay, use 0.5 second. Otherwise, 2s.
         dispatch_time_t initialDelay = (SecCKKSReduceRateLimiting() ? 500 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
@@ -335,7 +339,9 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
                                                                                                                    fetchReasons:lastFetchReasons
                                                                                                                      apnsPushes:lastAPNSPushes
                                                                                                                     forceResync:false
-                                                                                                               ckoperationGroup:operationGroup];
+                                                                                                               ckoperationGroup:operationGroup
+                                                                                                                        altDSID:self.altDSID
+    ];
 
     if ([lastFetchReasons containsObject:CKKSFetchBecauseNetwork]) {
         ckksnotice_global("ckksfetcher", "blocking fetch on network reachability");

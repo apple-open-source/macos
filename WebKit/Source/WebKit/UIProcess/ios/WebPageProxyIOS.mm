@@ -57,12 +57,13 @@
 #import "TapHandlingResult.h"
 #import "UIKitSPI.h"
 #import "UserData.h"
-#import "VideoFullscreenManagerProxy.h"
+#import "VideoPresentationManagerProxy.h"
 #import "ViewUpdateDispatcherMessages.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WebAutocorrectionContext.h"
 #import "WebAutocorrectionData.h"
 #import "WebCoreArgumentCoders.h"
+#import "WebPage.h"
 #import "WebPageMessages.h"
 #import "WebPageProxyInternals.h"
 #import "WebProcessMessages.h"
@@ -231,7 +232,7 @@ WebCore::FloatRect WebPageProxy::computeLayoutViewportRect(const FloatRect& unob
         constrainedUnobscuredRect.intersect(documentRect);
 
     double minimumScale = pageClient().minimumZoomScale();
-    bool isBelowMinimumScale = displayedContentScale < minimumScale;
+    bool isBelowMinimumScale = displayedContentScale < minimumScale && !WebKit::scalesAreEssentiallyEqual(displayedContentScale, minimumScale);
     if (isBelowMinimumScale) {
         const CGFloat slope = 12;
         CGFloat factor = std::max<CGFloat>(1 - slope * (minimumScale - displayedContentScale), 0);
@@ -301,12 +302,6 @@ void WebPageProxy::setViewportConfigurationViewLayoutSize(const WebCore::FloatSi
         m_provisionalPage->send(Messages::WebPage::SetViewportConfigurationViewLayoutSize(size, scaleFactor, minimumEffectiveDeviceWidth));
     if (hasRunningProcess())
         m_process->send(Messages::WebPage::SetViewportConfigurationViewLayoutSize(size, scaleFactor, minimumEffectiveDeviceWidth), webPageID());
-}
-
-void WebPageProxy::setSceneIdentifier(String&& sceneIdentifier)
-{
-    if (hasRunningProcess())
-        m_process->send(Messages::WebPage::SetSceneIdentifier(WTFMove(sceneIdentifier)), webPageID());
 }
 
 void WebPageProxy::setForceAlwaysUserScalable(bool userScalable)
@@ -691,8 +686,8 @@ void WebPageProxy::applicationWillEnterForegroundForMedia()
 void WebPageProxy::applicationDidBecomeActive()
 {
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-    if (m_videoFullscreenManager)
-        m_videoFullscreenManager->applicationDidBecomeActive();
+    if (m_videoPresentationManager)
+        m_videoPresentationManager->applicationDidBecomeActive();
 #endif
     m_process->send(Messages::WebPage::ApplicationDidBecomeActive(), webPageID());
 }

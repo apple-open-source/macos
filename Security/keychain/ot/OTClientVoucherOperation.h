@@ -54,6 +54,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic) NSData* voucher;
 @property (nonatomic) NSData* voucherSig;
+
 @end
 
 NS_ASSUME_NONNULL_END

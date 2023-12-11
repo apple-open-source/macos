@@ -30,11 +30,16 @@
 #import "keychain/ot/proto/generated_source/OTWalrus.h"
 #import "keychain/ot/proto/generated_source/OTWebAccess.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @interface OTSOSUpgradeOperation ()
 @property OTOperationDependencies* deps;
 @property OTDeviceInformation* deviceInfo;
 
 @property OctagonState* ckksConflictState;
+@property (nonatomic, strong) AAFAnalyticsEventSecurity* eventS;
 
 // Since we're making callback based async calls, use this operation trick to hold off the ending of this operation
 @property NSOperation* finishedOp;
@@ -91,9 +96,17 @@
 {
     WEAKIFY(self);
 
+    self.eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                           altDSID:self.deps.activeAccount.altDSID
+                                                                            flowID:self.deps.flowID
+                                                                   deviceSessionID:self.deps.deviceSessionID
+                                                                         eventName:kSecurityRTCEventNamePreApprovedJoin
+                                                                   testsAreEnabled:SecCKKSTestsEnabled()
+                                                                          category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     if(!self.deps.sosAdapter.sosEnabled) {
         secnotice("octagon-sos", "SOS not enabled on this platform?");
         self.nextState = OctagonStateBecomeUntrusted;
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorSOSDisabled description:@"SOS not enabled on this platform"]];
         return;
     }
 
@@ -104,6 +117,7 @@
     if(error || sosCircleStatus == kSOSCCError) {
         secnotice("octagon-sos", "Error fetching circle status: %@", error);
         self.nextState = OctagonStateBecomeUntrusted;
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInSOS description:@"Device not in SOS circle"]];
         return;
     }
 
@@ -121,6 +135,7 @@
     if(sosCircleStatus != kSOSCCInCircle) {
         secnotice("octagon-sos", "Device is not in SOS circle (state: %@), quitting SOS upgrade", SOSAccountGetSOSCCStatusString(sosCircleStatus));
         self.nextState = OctagonStateBecomeUntrusted;
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInSOS description:@"Device not in SOS circle"]];
         return;
     }
 
@@ -128,6 +143,7 @@
     if(!sosSelf || error) {
         secnotice("octagon-sos", "Failed to get the current SOS self: %@", error);
         [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:error];
         return;
     }
 
@@ -136,6 +152,7 @@
     if (signingKeyPersistRef == NULL) {
         secnotice("octagon-sos", "Failed to get the persistent ref for our SOS signing key: %@", error);
         [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:error];
         return;
     }
 
@@ -143,6 +160,7 @@
     if (encryptionKeyPersistRef == NULL) {
         secnotice("octagon-sos", "Failed to get the persistent ref for our SOS encryption key: %@", error);
         [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:error];
         return;
     }
 
@@ -158,6 +176,9 @@
             } else {
                 secnotice("octagon-sos", "SOS upgrade error is: %@; not retrying", self.error);
             }
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:self.error];
+        } else {
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:YES error:nil];
         }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];

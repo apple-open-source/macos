@@ -1342,7 +1342,7 @@ unsigned int GetMaxViewportAndScissorRectanglesPerPipeline(D3D_FEATURE_LEVEL fea
 
 bool IsMultiviewSupported(D3D_FEATURE_LEVEL featureLevel)
 {
-    // The ANGLE_multiview extension can always be supported in D3D11 through geometry shaders.
+    // The multiview extensions can always be supported in D3D11 through geometry shaders.
     switch (featureLevel)
     {
         case D3D_FEATURE_LEVEL_11_1:
@@ -2603,6 +2603,9 @@ void InitializeFrontendFeatures(const DXGI_ADAPTER_DESC &adapterDesc,
     bool isAMD = IsAMD(adapterDesc.VendorId);
 
     ANGLE_FEATURE_CONDITION(features, forceDepthAttachmentInitOnClear, isAMD);
+
+    // The D3D backend's handling of link is thread-safe
+    ANGLE_FEATURE_CONDITION(features, linkJobIsThreadSafe, true);
 }
 
 void InitConstantBufferDesc(D3D11_BUFFER_DESC *constantBufferDescription, size_t byteWidth)

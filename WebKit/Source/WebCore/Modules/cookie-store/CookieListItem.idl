@@ -27,14 +27,14 @@
 
 typedef double DOMHighResTimeStamp;
 
-dictionary CookieListItem {
+[
+  JSGenerateToJSObject
+] dictionary CookieListItem {
     USVString name;
     USVString value;
-
-    // FIXME: These dictionary members are present in the specification. We should evaluate if we want to expose them.
-    // USVString? domain;
-    // USVString path;
-    // DOMHighResTimeStamp? expires;
-    // boolean secure;
-    // CookieSameSite sameSite;
+    [EnabledBySetting=CookieStoreAPIExtendedAttributesEnabled] USVString? domain;
+    [EnabledBySetting=CookieStoreAPIExtendedAttributesEnabled] USVString path;
+    [EnabledBySetting=CookieStoreAPIExtendedAttributesEnabled] DOMHighResTimeStamp? expires;
+    [EnabledBySetting=CookieStoreAPIExtendedAttributesEnabled] boolean secure = false;
+    [EnabledBySetting=CookieStoreAPIExtendedAttributesEnabled] CookieSameSite sameSite = "strict";
 };

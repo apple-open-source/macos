@@ -289,7 +289,7 @@ bool defaultPopoverAttributeEnabled()
     static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::PopoverAttributeEnabled);
     return newSDK;
 #else
-    return false;
+    return true;
 #endif
 }
 
@@ -309,6 +309,16 @@ bool defaultUseGPUProcessForDOMRenderingEnabled()
 #endif
 
     return false;
+}
+
+bool defaultSearchInputIncrementalAttributeAndSearchEventEnabled()
+{
+#if PLATFORM(COCOA)
+    static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoSearchInputIncrementalAttributeAndSearchEvent);
+    return !newSDK;
+#else
+    return false;
+#endif
 }
 
 } // namespace WebKit

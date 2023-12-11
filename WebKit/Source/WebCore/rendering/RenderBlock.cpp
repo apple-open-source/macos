@@ -243,25 +243,6 @@ static PositionedDescendantsMap& positionedDescendantsMap()
 
 typedef HashMap<RenderBlock*, std::unique_ptr<ListHashSet<RenderInline*>>> ContinuationOutlineTableMap;
 
-struct UpdateScrollInfoAfterLayoutTransaction {
-    UpdateScrollInfoAfterLayoutTransaction(const RenderView& view)
-        : nestedCount(0)
-        , view(&view)
-    {
-    }
-
-    int nestedCount;
-    const RenderView* view;
-    HashSet<RenderBlock*> blocks;
-};
-
-typedef Vector<UpdateScrollInfoAfterLayoutTransaction> DelayedUpdateScrollInfoStack;
-static std::unique_ptr<DelayedUpdateScrollInfoStack>& updateScrollInfoAfterLayoutTransactionStack()
-{
-    static NeverDestroyed<std::unique_ptr<DelayedUpdateScrollInfoStack>> delayedUpdatedScrollInfoStack;
-    return delayedUpdatedScrollInfoStack;
-}
-
 // Allocated only when some of these fields have non-default values
 
 struct RenderBlockRareData {
@@ -539,41 +520,26 @@ bool RenderBlock::isSelfCollapsingBlock() const
     return false;
 }
 
-static inline UpdateScrollInfoAfterLayoutTransaction* currentUpdateScrollInfoAfterLayoutTransaction()
-{
-    if (!updateScrollInfoAfterLayoutTransactionStack())
-        return nullptr;
-    return &updateScrollInfoAfterLayoutTransactionStack()->last();
-}
-
 void RenderBlock::beginUpdateScrollInfoAfterLayoutTransaction()
 {
-    if (!updateScrollInfoAfterLayoutTransactionStack())
-        updateScrollInfoAfterLayoutTransactionStack() = makeUnique<DelayedUpdateScrollInfoStack>();
-    if (updateScrollInfoAfterLayoutTransactionStack()->isEmpty() || currentUpdateScrollInfoAfterLayoutTransaction()->view != &view())
-        updateScrollInfoAfterLayoutTransactionStack()->append(UpdateScrollInfoAfterLayoutTransaction(view()));
-    ++currentUpdateScrollInfoAfterLayoutTransaction()->nestedCount;
+    ++view().frameView().layoutContext().updateScrollInfoAfterLayoutTransaction().nestedCount;
 }
 
 void RenderBlock::endAndCommitUpdateScrollInfoAfterLayoutTransaction()
 {
-    UpdateScrollInfoAfterLayoutTransaction* transaction = currentUpdateScrollInfoAfterLayoutTransaction();
+    auto* transaction = view().frameView().layoutContext().updateScrollInfoAfterLayoutTransactionIfExists();
     ASSERT(transaction);
-    ASSERT(transaction->view == &view());
     if (--transaction->nestedCount)
         return;
 
     // Calling RenderLayer::updateScrollInfoAfterLayout() may cause its associated block to layout again and
-    // updates its scroll info (i.e. call RenderBlock::updateScrollInfoAfterLayout()). We remove |transaction|
-    // from the transaction stack to ensure that all subsequent calls to RenderBlock::updateScrollInfoAfterLayout()
-    // are dispatched immediately. That is, to ensure that such subsequent calls aren't added to |transaction|
-    // while we are processing it.
+    // updates its scroll info (i.e. call RenderBlock::updateScrollInfoAfterLayout()). We decrement the nestedCount first
+    // so that all subsequent calls to RenderBlock::updateScrollInfoAfterLayout() are dispatched immediately.
+    // That is, to ensure that such subsequent calls aren't added to |transaction| while we are processing it.
     auto blocksToUpdate = copyToVector(transaction->blocks);
-    updateScrollInfoAfterLayoutTransactionStack()->removeLast();
-    if (updateScrollInfoAfterLayoutTransactionStack()->isEmpty())
-        updateScrollInfoAfterLayoutTransactionStack() = nullptr;
+    transaction->blocks.clear();
 
-    for (auto* block : blocksToUpdate) {
+    for (auto block : blocksToUpdate) {
         ASSERT(block->hasNonVisibleOverflow());
         block->layer()->updateScrollInfoAfterLayout();
     }
@@ -581,12 +547,8 @@ void RenderBlock::endAndCommitUpdateScrollInfoAfterLayoutTransaction()
 
 void RenderBlock::removeFromUpdateScrollInfoAfterLayoutTransaction()
 {
-    if (UNLIKELY(updateScrollInfoAfterLayoutTransactionStack().get() != 0)) {
-        UpdateScrollInfoAfterLayoutTransaction* transaction = currentUpdateScrollInfoAfterLayoutTransaction();
-        ASSERT(transaction);
-        if (transaction->view == &view())
-            transaction->blocks.remove(this);
-    }
+    if (auto* transaction = view().frameView().layoutContext().updateScrollInfoAfterLayoutTransactionIfExists(); transaction && transaction->nestedCount)
+        transaction->blocks.remove(*this);
 }
 
 void RenderBlock::updateScrollInfoAfterLayout()
@@ -599,9 +561,8 @@ void RenderBlock::updateScrollInfoAfterLayout()
     // for items with opposite writing directions, as the contents needs
     // to overflow in that direction
     if (!style().isFlippedBlocksWritingMode()) {
-        UpdateScrollInfoAfterLayoutTransaction* transaction = currentUpdateScrollInfoAfterLayoutTransaction();
-        if (transaction && transaction->view == &view()) {
-            transaction->blocks.add(this);
+        if (auto* transaction = view().frameView().layoutContext().updateScrollInfoAfterLayoutTransactionIfExists(); transaction && transaction->nestedCount) {
+            transaction->blocks.add(*this);
             return;
         }
     }
@@ -620,8 +581,8 @@ void RenderBlock::layout()
     
     // It's safe to check for control clip here, since controls can never be table cells.
     // If we have a lightweight clip, there can never be any overflow from children.
-    UpdateScrollInfoAfterLayoutTransaction* transaction = currentUpdateScrollInfoAfterLayoutTransaction();
-    bool isDelayingUpdateScrollInfoAfterLayoutInView = transaction && transaction->view == &view();
+    auto* transaction = view().frameView().layoutContext().updateScrollInfoAfterLayoutTransactionIfExists();
+    bool isDelayingUpdateScrollInfoAfterLayoutInView = transaction && transaction->nestedCount;
     if (hasControlClip() && m_overflow && !isDelayingUpdateScrollInfoAfterLayoutInView)
         clearLayoutOverflow();
 
@@ -992,6 +953,12 @@ LayoutUnit RenderBlock::marginIntrinsicLogicalWidthForChild(RenderBox& child) co
 
 void RenderBlock::layoutPositionedObject(RenderBox& r, bool relayoutChildren, bool fixedPositionObjectsOnly)
 {
+    if (isSkippedContentRoot()) {
+        r.clearNeedsLayoutForDescendants();
+        r.clearNeedsLayout();
+        return;
+    }
+
     estimateFragmentRangeForBoxChild(r);
 
     // A fixed position element with an absolute positioned ancestor has no way of knowing if the latter has changed position. So
@@ -2316,7 +2283,7 @@ void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth
     ASSERT(!shouldApplyInlineSizeContainment());
 
     const RenderStyle& styleToUse = style();
-    bool nowrap = styleToUse.whiteSpace() == WhiteSpace::NoWrap;
+    auto nowrap = styleToUse.textWrap() == TextWrap::NoWrap && styleToUse.whiteSpaceCollapse() == WhiteSpaceCollapse::Collapse;
 
     RenderObject* child = firstChild();
     RenderBlock* containingBlock = this->containingBlock();
@@ -3356,7 +3323,7 @@ RenderBox* RenderBlock::findFieldsetLegend(FieldsetFindLegendOption option) cons
 
 void RenderBlock::adjustBorderBoxRectForPainting(LayoutRect& paintRect)
 {
-    if (!isFieldset() || !intrinsicBorderForFieldset())
+    if (!isFieldset() || isSkippedContentRoot() || !intrinsicBorderForFieldset())
         return;
     
     auto* legend = findFieldsetLegend();
@@ -3366,12 +3333,12 @@ void RenderBlock::adjustBorderBoxRectForPainting(LayoutRect& paintRect)
     if (style().isHorizontalWritingMode()) {
         LayoutUnit yOff = std::max(0_lu, (legend->height() - RenderBox::borderBefore()) / 2);
         paintRect.setHeight(paintRect.height() - yOff);
-        if (style().writingMode() == WritingMode::TopToBottom)
+        if (style().blockFlowDirection() == BlockFlowDirection::TopToBottom)
             paintRect.setY(paintRect.y() + yOff);
     } else {
         LayoutUnit xOff = std::max(0_lu, (legend->width() - RenderBox::borderBefore()) / 2);
         paintRect.setWidth(paintRect.width() - xOff);
-        if (style().writingMode() == WritingMode::LeftToRight)
+        if (style().blockFlowDirection() == BlockFlowDirection::LeftToRight)
             paintRect.setX(paintRect.x() + xOff);
     }
 }
@@ -3379,7 +3346,7 @@ void RenderBlock::adjustBorderBoxRectForPainting(LayoutRect& paintRect)
 LayoutRect RenderBlock::paintRectToClipOutFromBorder(const LayoutRect& paintRect)
 {
     LayoutRect clipRect;
-    if (!isFieldset())
+    if (!isFieldset() || isSkippedContentRoot())
         return clipRect;
     auto* legend = findFieldsetLegend();
     if (!legend)
@@ -3388,11 +3355,11 @@ LayoutRect RenderBlock::paintRectToClipOutFromBorder(const LayoutRect& paintRect
     LayoutUnit borderExtent = RenderBox::borderBefore();
     if (style().isHorizontalWritingMode()) {
         clipRect.setX(paintRect.x() + legend->x());
-        clipRect.setY(style().writingMode() == WritingMode::TopToBottom ? paintRect.y() : paintRect.y() + paintRect.height() - borderExtent);
+        clipRect.setY(style().blockFlowDirection() == BlockFlowDirection::TopToBottom ? paintRect.y() : paintRect.y() + paintRect.height() - borderExtent);
         clipRect.setWidth(legend->width());
         clipRect.setHeight(borderExtent);
     } else {
-        clipRect.setX(style().writingMode() == WritingMode::LeftToRight ? paintRect.x() : paintRect.x() + paintRect.width() - borderExtent);
+        clipRect.setX(style().blockFlowDirection() == BlockFlowDirection::LeftToRight ? paintRect.x() : paintRect.x() + paintRect.width() - borderExtent);
         clipRect.setY(paintRect.y() + legend->y());
         clipRect.setWidth(borderExtent);
         clipRect.setHeight(legend->height());
@@ -3419,28 +3386,28 @@ void RenderBlock::setIntrinsicBorderForFieldset(LayoutUnit padding)
 
 LayoutUnit RenderBlock::borderTop() const
 {
-    if (style().writingMode() != WritingMode::TopToBottom || !intrinsicBorderForFieldset())
+    if (style().blockFlowDirection() != BlockFlowDirection::TopToBottom || !intrinsicBorderForFieldset())
         return RenderBox::borderTop();
     return RenderBox::borderTop() + intrinsicBorderForFieldset();
 }
 
 LayoutUnit RenderBlock::borderLeft() const
 {
-    if (style().writingMode() != WritingMode::LeftToRight || !intrinsicBorderForFieldset())
+    if (style().blockFlowDirection() != BlockFlowDirection::LeftToRight || !intrinsicBorderForFieldset())
         return RenderBox::borderLeft();
     return RenderBox::borderLeft() + intrinsicBorderForFieldset();
 }
 
 LayoutUnit RenderBlock::borderBottom() const
 {
-    if (style().writingMode() != WritingMode::BottomToTop || !intrinsicBorderForFieldset())
+    if (style().blockFlowDirection() != BlockFlowDirection::BottomToTop || !intrinsicBorderForFieldset())
         return RenderBox::borderBottom();
     return RenderBox::borderBottom() + intrinsicBorderForFieldset();
 }
 
 LayoutUnit RenderBlock::borderRight() const
 {
-    if (style().writingMode() != WritingMode::RightToLeft || !intrinsicBorderForFieldset())
+    if (style().blockFlowDirection() != BlockFlowDirection::RightToLeft || !intrinsicBorderForFieldset())
         return RenderBox::borderRight();
     return RenderBox::borderRight() + intrinsicBorderForFieldset();
 }
@@ -3522,7 +3489,7 @@ LayoutUnit RenderBlock::adjustIntrinsicLogicalHeightForBoxSizing(LayoutUnit heig
 
 void RenderBlock::paintExcludedChildrenInBorder(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (!isFieldset())
+    if (!isFieldset() || isSkippedContentRoot())
         return;
     
     RenderBox* box = findFieldsetLegend();
@@ -3585,6 +3552,15 @@ LayoutUnit RenderBlock::layoutOverflowLogicalBottom(const RenderBlock& renderer)
         maxChildLogicalBottom = std::max(maxChildLogicalBottom, childLogicalBottom);
     }
     return std::max(renderer.clientLogicalBottom(), maxChildLogicalBottom + renderer.paddingAfter());
+}
+
+void RenderBlock::updateDescendantTransformsAfterLayout()
+{
+    auto boxes = view().frameView().layoutContext().takeBoxesNeedingTransformUpdateAfterContainerLayout(*this);
+    for (auto& box : boxes) {
+        if (box && box->hasLayer())
+            box->layer()->updateTransform();
+    }
 }
 
 } // namespace WebCore

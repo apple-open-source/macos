@@ -81,6 +81,10 @@ extern NSString* kSecEntitlementPrivateOctagonWalrus;
 @property (nonatomic) BOOL overrideForSetupAccountScript; // this should only be used for the account setup script
 @property (nonatomic) BOOL overrideForJoinAfterRestore; // this should only be used in tests
 
+// Use these when tracking metrics for RTC
+@property (nonatomic, copy, nullable) NSString* flowID;
+@property (nonatomic, copy, nullable) NSString* deviceSessionID;
+
 // Use this to inject your own OTControl object. It must be configured as synchronous.
 @property (nullable, strong) OTControl* otControl;
 

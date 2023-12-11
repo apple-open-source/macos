@@ -5,14 +5,15 @@ add_library(${PROJECT_NAME} INTERFACE)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
-set(APPLE_INTERNAL        "${DSTROOT}/AppleInternal")
-set(OS_INCLUDE            "${DSTROOT}${DRIVERKITROOT}/usr/include/os")
-set(USR_LOCAL_LIBEXEC     "${DSTROOT}${DRIVERKITROOT}/usr/local/libexec")
-set(USR_LOCAL_INCLUDE     "${DSTROOT}${DRIVERKITROOT}/usr/local/include")
-set(USR_INCLUDE           "${DSTROOT}${DRIVERKITROOT}/usr/include")
-set(RUNTIME               "${DSTROOT}${DRIVERKITROOT}/Runtime/usr/include")
-set(RUNTIME_LOCAL         "${DSTROOT}${DRIVERKITROOT}/Runtime/usr/local/include")
-set(DYLD_HEADERS_LOCATION "${USR_LOCAL_INCLUDE}/dyld")
+set(APPLE_INTERNAL          "${DSTROOT}/AppleInternal")
+set(OS_INCLUDE              "${DSTROOT}${SYSTEM_PREFIX}/usr/include/os")
+set(USR_LOCAL_LIBEXEC       "${DSTROOT}${SYSTEM_PREFIX}/usr/local/libexec")
+set(USR_LOCAL_INCLUDE       "${DSTROOT}${SYSTEM_PREFIX}/usr/local/include")
+set(USR_INCLUDE             "${DSTROOT}${SYSTEM_PREFIX}/usr/include")
+set(RUNTIME                 "${DSTROOT}${SYSTEM_PREFIX}/Runtime/usr/include")
+set(RUNTIME_LOCAL           "${DSTROOT}${SYSTEM_PREFIX}/Runtime/usr/local/include")
+set(DYLD_HEADERS_LOCATION   "${USR_LOCAL_INCLUDE}/dyld")
+set(INSTALL_KERNEL_HEADERS  "${INSTALL_KERNEL_HEADERS}")
 
 include(CMakePrintHelpers)
 cmake_print_variables(SRCROOT)
@@ -64,16 +65,6 @@ add_custom_command(
 
 install(DIRECTORY DESTINATION ${APPLE_INTERNAL})
 
-# Early exit for now so we can get the _exclavekit alias building
-if (CONFIG_EXCLAVEKIT EQUAL "1")
-  return()
-endif()
-
-# Early exit for now so we can get the _exclavecore alias building
-if (CONFIG_EXCLAVECORE EQUAL "1")
-  return()
-endif()
-
 if (DRIVERKIT EQUAL "1")
   set(DYLD_HEADERS_LOCATION "${RUNTIME_LOCAL}/dyld")
   foreach(header ${PUBLIC_HEADERS})
@@ -92,7 +83,9 @@ if (DRIVERKIT EQUAL "1")
   foreach(header ${LOCAL_HEADERS})
     install(FILES "${OBJROOT}/${header}" DESTINATION ${RUNTIME_LOCAL} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
   endforeach()
-elseif(NOT DEFINED(ENV{RC_INDIGO}))
+endif()
+
+if(INSTALL_KERNEL_HEADERS EQUAL "1")
   foreach(header ${LOCAL_HEADERS})
     install_symlink("../../../../../../../usr/local/include/${header}" "${DSTROOT}/System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/${header}")
   endforeach()

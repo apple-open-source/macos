@@ -133,7 +133,11 @@ main(argc, argv)
 	} else {
 #ifdef __APPLE__
 		/* Don't daemonize when run by launchd */
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		if (getppid() != 1 && daemon(1, 0) == -1) {
+#pragma clang diagnostic pop
 #else
 		if (daemon(1, 0) == -1) {
 #endif

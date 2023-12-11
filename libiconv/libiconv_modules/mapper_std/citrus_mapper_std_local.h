@@ -32,6 +32,10 @@
 #ifndef _CITRUS_MAPPER_STD_LOCAL_H_
 #define _CITRUS_MAPPER_STD_LOCAL_H_
 
+#ifdef __APPLE__
+#include <stdbool.h>
+#endif
+
 typedef uint32_t (*_citrus_mapper_std_getvalfunc_t)(const void *, uint32_t);
 
 struct _citrus_mapper_std_linear_zone {
@@ -41,6 +45,9 @@ struct _citrus_mapper_std_linear_zone {
 };
 struct _citrus_mapper_std_rowcol {
 	struct _citrus_region	rc_table;
+#ifdef __APPLE__
+	struct _citrus_region	rc_translit_table;
+#endif
 	size_t			rc_src_rowcol_len;
 	struct _citrus_mapper_std_linear_zone
 				*rc_src_rowcol;
@@ -54,9 +61,16 @@ struct _citrus_mapper_std_rowcol {
 
 struct _citrus_mapper_std;
 
+#ifdef __APPLE__
+typedef int (*_citrus_mapper_std_convert_t)(
+	struct _citrus_mapper_std *__restrict,
+	_index_t *__restrict, _index_t, void *__restrict,
+	bool translit);
+#else
 typedef int (*_citrus_mapper_std_convert_t)(
 	struct _citrus_mapper_std *__restrict,
 	_index_t *__restrict, _index_t, void *__restrict);
+#endif
 typedef void (*_citrus_mapper_std_uninit_t)(struct _citrus_mapper_std *);
 
 struct _citrus_mapper_std {

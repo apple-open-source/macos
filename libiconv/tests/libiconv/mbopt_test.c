@@ -522,7 +522,7 @@ ATF_TC_BODY(mbconv_outerr, tc)
 	const char short_inject[] = "\xa3\x00\x00\x00";
 	struct mbconv_tc_params tcp = {
 		.tcp_src = "UTF-32LE",
-		.tcp_dst = "GBK",
+		.tcp_dst = "GBK//TRANSLIT",
 		.tcp_oscale = MB_LEN_MAX,
 	};
 
@@ -554,6 +554,49 @@ ATF_TC_BODY(mbconv_partial, tc)
 	ATF_REQUIRE_EQ(EINVAL, err);
 }
 
+ATF_TC_WITHOUT_HEAD(mbconv_serial_clobber);
+ATF_TC_BODY(mbconv_serial_clobber, tc)
+{
+	const char short_inject[] = "\x83N";
+	const char expected[] = "\xe3\x82\xaf\x0a";
+	char *str;
+	size_t outsz;
+	struct mbconv_tc_params tcp = {
+		.tcp_src = "SHIFT_JISX0213",
+		.tcp_dst = "UTF-8",
+		.tcp_ostr = &str,
+		.tcp_osz = &outsz,
+	};
+
+	test_one(&tcp, 0, short_inject, sizeof(short_inject) - 1);
+
+	ATF_REQUIRE(memcmp(expected, str, outsz) == 0);
+	free(str);
+}
+
+ATF_TC_WITHOUT_HEAD(mbconv_statereset);
+ATF_TC_BODY(mbconv_statereset, tc)
+{
+	const char inject[] = "Copyright \x83 ";
+	const char expected[] = "Copyright ";
+	char *str;
+	size_t outsz;
+	int err;
+	struct mbconv_tc_params tcp = {
+		.tcp_src = "CP949",
+		.tcp_dst = "UTF-8",
+		.tcp_oerr = &err,
+		.tcp_ostr = &str,
+		.tcp_osz = &outsz,
+	};
+
+	test_one(&tcp, 0, inject, sizeof(inject) - 1);
+	ATF_REQUIRE_EQ(EILSEQ, err);
+
+	ATF_REQUIRE(memcmp(expected, str, outsz) == 0);
+	free(str);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 
@@ -566,6 +609,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, mbconv_lenreset);
 	ATF_TP_ADD_TC(tp, mbconv_outerr);
 	ATF_TP_ADD_TC(tp, mbconv_partial);
+	ATF_TP_ADD_TC(tp, mbconv_serial_clobber);
+	ATF_TP_ADD_TC(tp, mbconv_statereset);
 
 	return (atf_no_error());
 }

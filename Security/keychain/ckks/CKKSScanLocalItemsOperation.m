@@ -50,6 +50,10 @@
 #include <Security/SecItemPriv.h>
 #include <utilities/SecInternalReleasePriv.h>
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @interface CKKSScanLocalItemsOperation ()
 @property (assign) NSUInteger processedItems;
 
@@ -403,6 +407,13 @@
     ckksnotice_global("ckksscan", "Scanning for views: %@", self.deps.activeManagedViews);
 
     NSMutableSet<CKRecordZoneID*>* allZoneIDs = [NSMutableSet set];
+
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumViews: @(self.deps.activeManagedViews.count)}
+                                                                                                 altDSID:self.deps.activeAccount.altDSID
+                                                                                               eventName:kSecurityRTCEventNameScanLocalItems
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
         [allZoneIDs addObject:viewState.zoneID];
 
@@ -427,6 +438,11 @@
         __block CKKSMemoryKeyCache* keyCache = [[CKKSMemoryKeyCache alloc] init];
 
         // Must query per-class, so:
+        AAFAnalyticsEventSecurity *querySyncableItemsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                                       altDSID:self.deps.activeAccount.altDSID
+                                                                                                                     eventName:kSecurityRTCEventNameQuerySyncableItems
+                                                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
         const SecDbSchema *newSchema = current_schema();
         for (const SecDbClass *const *class = newSchema->classes; *class != NULL; class++) {
             if(!((*class)->itemclass)) {
@@ -575,7 +591,7 @@
                 [classUUIDs addObject:uuid];
             }];
         }
-
+        
         // We're done checking local keychain for extra items, now let's make sure the mirror doesn't have extra items that the keychain doesn't have, either
         if (mirrorUUIDs.count > 0) {
             ckksnotice_global("ckksscan", "keychain missing %lu items from mirror, proceeding with queue scanning", (unsigned long)mirrorUUIDs.count);
@@ -584,6 +600,7 @@
             if (error) {
                 ckkserror_global("ckksscan", "unable to inspect incoming queue: %@", error);
                 self.error = error;
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:querySyncableItemsEventS success:NO error:self.error];
                 return;
             }
 
@@ -591,18 +608,29 @@
             if (error) {
                 ckkserror_global("ckksscan", "unable to inspect outgoing queue: %@", error);
                 self.error = error;
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:querySyncableItemsEventS success:NO error:self.error];
                 return;
             }
         }
 
+        [eventS addMetrics:@{kSecurityRTCFieldItemsScanned:@(self.processedItems), kSecurityRTCFieldNewItemsScanned:@(self.recordsFound)}];
+        [querySyncableItemsEventS addMetrics:@{kSecurityRTCFieldNewItemsScanned : @(self.recordsFound)}];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:querySyncableItemsEventS success:self.error ? YES : NO error:self.error];
         // Drop off of read-only transaction
     }];
 
     if(self.error) {
         ckksnotice_global("ckksscan", "Exiting due to previous error: %@", self.error);
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
         return;
     }
-
+    
+    AAFAnalyticsEventSecurity *onboardMissingItemsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                                    altDSID:self.deps.activeAccount.altDSID
+                                                                                                                  eventName:kSecurityRTCEventNameOnboardMissingItems
+                                                                                                            testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                   category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    
     ckksnotice_global("ckksscan", "Found %d views with missing items for %@", (int)itemUUIDsNotYetInCKKS.count, self.deps.activeManagedViews);
     for(CKKSKeychainViewState* viewState in [itemUUIDsNotYetInCKKS allKeys]) {
         NSMutableDictionary* itemClassesForView = itemUUIDsNotYetInCKKS[viewState];
@@ -616,7 +644,7 @@
                     databaseProvider:databaseProvider];
         }
     }
-
+    
     for(CKKSKeychainViewState* viewState in [primaryKeysWithNoUUIDs allKeys]) {
         [self fixUUIDlessItemsInZone:viewState
                          primaryKeys:primaryKeysWithNoUUIDs[viewState]
@@ -673,6 +701,11 @@
         [self.deps.flagHandler handleFlag:CKKSFlagProcessOutgoingQueue];
         // TODO self.nextState = CKKSStateProcessOutgoingQueue;
     }
+
+    [onboardMissingItemsEventS addMetrics:@{kSecurityRTCFieldNumViewsWithNewEntries:@(self.viewsWithNewCKKSEntries.count)}];
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:onboardMissingItemsEventS success:YES error:self.error];
+   
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:self.error];
 
     self.nextState = self.intendedState;
 

@@ -47,7 +47,7 @@ public:
     LayoutUnit distributionOffset;
 };
 
-enum GridAxisPosition {GridAxisStart, GridAxisEnd, GridAxisCenter};
+enum class GridAxisPosition : uint8_t { GridAxisStart, GridAxisEnd, GridAxisCenter };
 
 class RenderGrid final : public RenderBlock {
     WTF_MAKE_ISO_ALLOCATED(RenderGrid);
@@ -98,18 +98,18 @@ public:
     bool isSubgrid(GridTrackSizingDirection) const;
     bool isSubgridRows() const
     {
-        return isSubgrid(ForRows);
+        return isSubgrid(GridTrackSizingDirection::ForRows);
     }
     bool isSubgridColumns() const
     {
-        return isSubgrid(ForColumns);
+        return isSubgrid(GridTrackSizingDirection::ForColumns);
     }
     bool isSubgridInParentDirection(GridTrackSizingDirection parentDirection) const;
 
     // Returns true if this grid is inheriting subgridded tracks for
     // the given direction from the specified ancestor. This handles
     // nested subgrids, where ancestor may not be our direct parent.
-    bool isSubgridOf(GridTrackSizingDirection, const RenderGrid& ancestor);
+    bool isSubgridOf(GridTrackSizingDirection, const RenderGrid& ancestor) const;
 
     bool isMasonry() const;
     bool isMasonry(GridTrackSizingDirection) const;
@@ -163,7 +163,7 @@ private:
 
     void placeItemsOnGrid(std::optional<LayoutUnit> availableLogicalWidth);
     void populateExplicitGridAndOrderIterator();
-    std::unique_ptr<GridArea> createEmptyGridAreaAtSpecifiedPositionsOutsideGrid(const RenderBox&, GridTrackSizingDirection, const GridSpan&) const;
+    GridArea createEmptyGridAreaAtSpecifiedPositionsOutsideGrid(const RenderBox&, GridTrackSizingDirection, const GridSpan&) const;
     void placeSpecifiedMajorAxisItemsOnGrid(const Vector<RenderBox*>&);
     void placeAutoMajorAxisItemsOnGrid(const Vector<RenderBox*>&);
     void placeItemUsingMasonryPositioning(Grid&, RenderBox*) const;
@@ -174,7 +174,7 @@ private:
 
     static bool itemGridAreaIsWithinImplicitGrid(const GridArea& area, unsigned gridAxisLinesCount, GridTrackSizingDirection gridAxisDirection)
     {
-        auto itemSpan = gridAxisDirection == ForColumns ? area.columns : area.rows;
+        auto itemSpan = gridAxisDirection == GridTrackSizingDirection::ForColumns ? area.columns : area.rows;
         return itemSpan.startLine() <  gridAxisLinesCount && itemSpan.endLine() < gridAxisLinesCount;
     }
 

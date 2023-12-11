@@ -65,6 +65,7 @@
 #include "StyleScope.h"
 #include "StyledElement.h"
 #include "TimingFunction.h"
+#include "TransformOperationData.h"
 #include "TranslateTransformOperation.h"
 #include <JavaScriptCore/Exception.h>
 #include <wtf/IsoMallocInlines.h>
@@ -680,7 +681,7 @@ auto KeyframeEffect::getKeyframes(Document& document) -> Vector<ComputedKeyframe
             return { };
 
         auto& backingAnimation = downcast<CSSAnimation>(*animation()).backingAnimation();
-        auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.nameStyleScopeOrdinal());
+        auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.name().scopeOrdinal);
         if (!styleScope)
             return { };
 
@@ -1007,7 +1008,7 @@ void KeyframeEffect::setBlendingKeyframes(KeyframeList&& blendingKeyframes)
     computedNeedsForcedLayout();
     computeStackingContextImpact();
     computeAcceleratedPropertiesState();
-    computeSomeKeyframesUseStepsTimingFunction();
+    computeSomeKeyframesUseStepsOrLinearTimingFunctionWithPoints();
     computeHasImplicitKeyframeForAcceleratedProperty();
     computeHasKeyframeComposingAcceleratedProperty();
     computeHasExplicitlyInheritedKeyframeProperty();
@@ -1072,8 +1073,8 @@ void KeyframeEffect::computeCSSAnimationBlendingKeyframes(const RenderStyle& una
 
     auto& backingAnimation = downcast<CSSAnimation>(*animation()).backingAnimation();
 
-    KeyframeList keyframeList(AtomString { backingAnimation.name().string });
-    if (auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.nameStyleScopeOrdinal()))
+    KeyframeList keyframeList(AtomString { backingAnimation.name().name });
+    if (auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.name().scopeOrdinal))
         styleScope->resolver().keyframeStylesForAnimation(*m_target, unanimatedStyle, resolutionContext, keyframeList);
 
     // Ensure resource loads for all the frames.
@@ -1399,31 +1400,50 @@ void KeyframeEffect::computeAcceleratedPropertiesState()
         m_acceleratedPropertiesState = AcceleratedProperties::All;
 }
 
-void KeyframeEffect::computeSomeKeyframesUseStepsTimingFunction()
+static bool isLinearTimingFunctionWithPoints(const TimingFunction* timingFunction)
+{
+    return is<LinearTimingFunction>(timingFunction) && !downcast<LinearTimingFunction>(*timingFunction).points().isEmpty();
+}
+
+void KeyframeEffect::computeSomeKeyframesUseStepsOrLinearTimingFunctionWithPoints()
 {
     m_someKeyframesUseStepsTimingFunction = false;
+    m_someKeyframesUseLinearTimingFunctionWithPoints = false;
 
-    // If we're dealing with a CSS Animation and it specifies a default steps() timing function,
+    // If we're dealing with a CSS Animation and it specifies a default steps() or linear() timing function,
     // we need to check that any of the specified keyframes either does not have an explicit timing
-    // function or specifies an explicit steps() timing function.
-    if (is<CSSAnimation>(animation()) && is<StepsTimingFunction>(downcast<DeclarativeAnimation>(*animation()).backingAnimation().timingFunction())) {
-        for (auto& keyframe : m_blendingKeyframes) {
-            auto* timingFunction = keyframe.timingFunction();
-            if (!timingFunction || is<StepsTimingFunction>(timingFunction)) {
-                m_someKeyframesUseStepsTimingFunction = true;
-                return;
+    // function or specifies an explicit steps() or linear() timing function.
+    if (is<CSSAnimation>(animation())) {
+        auto* defaultTimingFunction = downcast<DeclarativeAnimation>(*animation()).backingAnimation().timingFunction();
+        auto defaultTimingFunctionIsSteps = is<StepsTimingFunction>(defaultTimingFunction);
+        auto defaultTimingFunctionIsLinearWithPoints = isLinearTimingFunctionWithPoints(defaultTimingFunction);
+        if (defaultTimingFunctionIsSteps || defaultTimingFunctionIsLinearWithPoints) {
+            for (auto& keyframe : m_blendingKeyframes) {
+                auto* timingFunction = keyframe.timingFunction();
+                if (!m_someKeyframesUseStepsTimingFunction) {
+                    if ((!timingFunction && defaultTimingFunctionIsSteps) || is<StepsTimingFunction>(timingFunction))
+                        m_someKeyframesUseStepsTimingFunction = true;
+                } else if (!m_someKeyframesUseLinearTimingFunctionWithPoints) {
+                    if ((!timingFunction && defaultTimingFunctionIsLinearWithPoints) || isLinearTimingFunctionWithPoints(timingFunction))
+                        m_someKeyframesUseStepsTimingFunction = true;
+                }
+                if (m_someKeyframesUseStepsTimingFunction && m_someKeyframesUseLinearTimingFunctionWithPoints)
+                    return;
             }
+            return;
         }
-        return;
     }
 
     // For any other type of animation, we just need to check whether any of the keyframes specify
-    // an explicit steps() timing function.
+    // an explicit steps() or linear() timing function.
     for (auto& keyframe : m_blendingKeyframes) {
-        if (is<StepsTimingFunction>(keyframe.timingFunction())) {
+        auto* timingFunction = keyframe.timingFunction();
+        if (!m_someKeyframesUseStepsTimingFunction && is<StepsTimingFunction>(timingFunction))
             m_someKeyframesUseStepsTimingFunction = true;
+        if (!m_someKeyframesUseLinearTimingFunctionWithPoints && isLinearTimingFunctionWithPoints(timingFunction))
+            m_someKeyframesUseLinearTimingFunctionWithPoints = true;
+        if (m_someKeyframesUseStepsTimingFunction && m_someKeyframesUseLinearTimingFunctionWithPoints)
             return;
-        }
     }
 }
 
@@ -1719,6 +1739,9 @@ bool KeyframeEffect::canBeAccelerated() const
     if (m_someKeyframesUseStepsTimingFunction || is<StepsTimingFunction>(timingFunction()))
         return false;
 
+    if (m_someKeyframesUseLinearTimingFunctionWithPoints || isLinearTimingFunctionWithPoints(timingFunction()))
+        return false;
+
     if (m_compositeOperation != CompositeOperation::Replace)
         return false;
 
@@ -1832,7 +1855,7 @@ void KeyframeEffect::animationDidTick()
 
 void KeyframeEffect::animationDidChangeTimingProperties()
 {
-    computeSomeKeyframesUseStepsTimingFunction();
+    computeSomeKeyframesUseStepsOrLinearTimingFunctionWithPoints();
     updateAcceleratedAnimationIfNecessary();
     invalidate();
 }
@@ -2314,7 +2337,7 @@ bool KeyframeEffect::computeTransformedExtentViaTransformList(const FloatRect& r
 bool KeyframeEffect::computeTransformedExtentViaMatrix(const FloatRect& rendererBox, const RenderStyle& style, LayoutRect& bounds) const
 {
     TransformationMatrix transform;
-    style.applyTransform(transform, rendererBox);
+    style.applyTransform(transform, TransformOperationData(rendererBox, renderer()));
     if (!transform.isAffine())
         return false;
 

@@ -110,11 +110,8 @@ public:
     static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | StructureIsImmortal | OverridesPut;
 
     static constexpr bool needsDestruction = true;
-    static ALWAYS_INLINE void destroy(JSCell* cell)
-    {
-        static_cast<JSString*>(cell)->JSString::~JSString();
-    }
-    
+    static void destroy(JSCell*);
+
     // We specialize the string subspace to get the fastest possible sweep. This wouldn't be
     // necessary if JSString didn't have a destructor.
     template<typename, SubspaceAccess>
@@ -178,6 +175,14 @@ private:
         vm.heap.reportExtraMemoryAllocated(cost);
     }
 
+    void finishCreation(VM& vm, GCDeferralContext* deferralContext, unsigned length, size_t cost)
+    {
+        ASSERT_UNUSED(length, length > 0);
+        ASSERT(!valueInternal().isNull());
+        Base::finishCreation(vm);
+        vm.heap.reportExtraMemoryAllocated(deferralContext, cost);
+    }
+
     static JSString* createEmptyString(VM&);
 
     static JSString* create(VM& vm, Ref<StringImpl>&& value)
@@ -187,6 +192,16 @@ private:
         size_t cost = value->cost();
         JSString* newString = new (NotNull, allocateCell<JSString>(vm)) JSString(vm, WTFMove(value));
         newString->finishCreation(vm, length, cost);
+        return newString;
+    }
+
+    static JSString* create(VM& vm, GCDeferralContext* deferralContext, Ref<StringImpl>&& value)
+    {
+        unsigned length = value->length();
+        ASSERT(length > 0);
+        size_t cost = value->cost();
+        JSString* newString = new (NotNull, allocateCell<JSString>(vm, deferralContext)) JSString(vm, WTFMove(value));
+        newString->finishCreation(vm, deferralContext, length, cost);
         return newString;
     }
     static JSString* createHasOtherOwner(VM& vm, Ref<StringImpl>&& value)
@@ -201,8 +216,6 @@ protected:
     DECLARE_DEFAULT_FINISH_CREATION;
 
 public:
-    ~JSString();
-
     Identifier toIdentifier(JSGlobalObject*) const;
     AtomString toAtomString(JSGlobalObject*) const;
     AtomString toExistingAtomString(JSGlobalObject*) const;
@@ -292,6 +305,8 @@ private:
 class JSRopeString final : public JSString {
     friend class JSString;
 public:
+    static void destroy(JSCell*);
+
     template<typename, SubspaceAccess>
     static GCClient::IsoSubspace* subspaceFor(VM& vm)
     {
@@ -573,22 +588,6 @@ public:
     static ptrdiff_t offsetOfFiber2() { return OBJECT_OFFSETOF(JSRopeString, m_compactFibers) + CompactFibers::offsetOfFiber2(); }
 
     static constexpr unsigned s_maxInternalRopeLength = 3;
-
-    // This JSRopeString is only used to simulate half-baked JSRopeString in DFG and FTL MakeRope. If OSR exit happens in
-    // the middle of MakeRope due to string length overflow, we have half-baked JSRopeString which is the same to the result
-    // of this function. This half-baked JSRopeString will not be exposed to users, but still collectors can see it due to
-    // the conservative stack scan. This JSRopeString is used to test the collector with such a half-baked JSRopeString.
-    // Because this JSRopeString breaks the JSString's invariant (only one singleton JSString can be zero length), almost all the
-    // operations in JS fail to handle this string correctly.
-    static JSRopeString* createNullForTesting(VM& vm)
-    {
-        JSRopeString* newString = new (NotNull, allocateCell<JSRopeString>(vm)) JSRopeString(vm);
-        newString->finishCreation(vm);
-        ASSERT(!newString->length());
-        ASSERT(newString->isRope());
-        ASSERT(newString->fiber0() == nullptr);
-        return newString;
-    }
 
     // If nullOrExecForOOM is null, resolveRope() will be do nothing in the event of an OOM error.
     // The rope value will remain a null string in that case.
@@ -987,24 +986,6 @@ inline JSString* jsSubstring(VM& vm, JSGlobalObject* globalObject, JSString* bas
         RETURN_IF_EXCEPTION(scope, nullptr);
     }
     return jsSubstringOfResolved(vm, nullptr, base, offset, length);
-}
-
-inline JSString* jsSubstringOfResolved(VM& vm, GCDeferralContext* deferralContext, JSString* s, unsigned offset, unsigned length)
-{
-    ASSERT(offset <= s->length());
-    ASSERT(length <= s->length());
-    ASSERT(offset + length <= s->length());
-    ASSERT(!s->isRope());
-    if (!length)
-        return vm.smallStrings.emptyString();
-    if (!offset && length == s->length())
-        return s;
-    if (length == 1) {
-        auto& base = s->valueInternal();
-        if (auto c = base.characterAt(offset); c <= maxSingleCharacterString)
-            return vm.smallStrings.singleCharacterString(c);
-    }
-    return JSRopeString::createSubstringOfResolved(vm, deferralContext, s, offset, length);
 }
 
 inline JSString* jsSubstringOfResolved(VM& vm, JSString* s, unsigned offset, unsigned length)

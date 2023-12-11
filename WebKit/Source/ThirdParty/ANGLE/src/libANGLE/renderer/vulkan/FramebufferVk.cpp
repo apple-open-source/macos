@@ -309,32 +309,10 @@ bool IsAnyAttachment3DWithoutAllLayers(const RenderTargetCache<RenderTargetVk> &
 
     return false;
 }
-
-// Determine read-only mode for depth or stencil
-bool GetReadOnlyMode(RenderTargetVk *depthStencilRenderTarget,
-                     bool renderPassHasWriteOrClear,
-                     bool isReadOnlyFeedbackLoopMode)
-{
-    const bool readOnlyMode = depthStencilRenderTarget &&
-                              !depthStencilRenderTarget->hasResolveAttachment() &&
-                              (isReadOnlyFeedbackLoopMode || !renderPassHasWriteOrClear);
-
-    // If readOnlyMode is false, we are switching out of read only mode due to depth/stencil write.
-    // We must not be in the read only feedback loop mode because the logic in
-    // DIRTY_BIT_READ_ONLY_DEPTH_FEEDBACK_LOOP_MODE should ensure we end the previous renderpass and
-    // a new renderpass will start with feedback loop disabled.
-    ASSERT(readOnlyMode || !isReadOnlyFeedbackLoopMode);
-
-    return readOnlyMode;
-}
 }  // anonymous namespace
 
 FramebufferVk::FramebufferVk(RendererVk *renderer, const gl::FramebufferState &state)
-    : FramebufferImpl(state),
-      mBackbuffer(nullptr),
-      mActiveColorComponentMasksForClear(0),
-      mReadOnlyDepthFeedbackLoopMode(false),
-      mReadOnlyStencilFeedbackLoopMode(false)
+    : FramebufferImpl(state), mBackbuffer(nullptr), mActiveColorComponentMasksForClear(0)
 {
     if (mState.isDefault())
     {
@@ -422,11 +400,11 @@ angle::Result FramebufferVk::invalidateSub(const gl::Context *context,
         return invalidate(context, count, attachments);
     }
 
-    // If there are deferred clears, redefer them.  syncState may have accumulated deferred clears,
+    // If there are deferred clears, restage them.  syncState may have accumulated deferred clears,
     // but if the framebuffer's attachments are used after this call not through the framebuffer,
     // those clears wouldn't get flushed otherwise (for example as the destination of
     // glCopyTex[Sub]Image, shader storage image, etc).
-    redeferClears(contextVk);
+    restageDeferredClears(contextVk);
 
     if (contextVk->hasActiveRenderPass() &&
         rotatedInvalidateArea.encloses(contextVk->getStartedRenderPassCommands().getRenderArea()))
@@ -478,7 +456,11 @@ angle::Result FramebufferVk::clearImpl(const gl::Context *context,
     ContextVk *contextVk = vk::GetImpl(context);
 
     const gl::Rectangle scissoredRenderArea = getRotatedScissoredRenderArea(contextVk);
-    ASSERT(scissoredRenderArea.width != 0 && scissoredRenderArea.height != 0);
+    if (scissoredRenderArea.width == 0 || scissoredRenderArea.height == 0)
+    {
+        restageDeferredClears(contextVk);
+        return angle::Result::Continue;
+    }
 
     // This function assumes that only enabled attachments are asked to be cleared.
     ASSERT((clearColorBuffers & mState.getEnabledDrawBuffers()) == clearColorBuffers);
@@ -642,7 +624,7 @@ angle::Result FramebufferVk::clearImpl(const gl::Context *context,
             }
             else
             {
-                redeferClears(contextVk);
+                restageDeferredClears(contextVk);
             }
         }
 
@@ -835,15 +817,6 @@ angle::Result FramebufferVk::readPixels(const gl::Context *context,
                                         gl::Buffer *packBuffer,
                                         void *pixels)
 {
-    // Note that GL_RGBX8_ANGLE is the only format where the upload format is 3-channel RGB, while
-    // the download format is 4-channel RGBX.  As such, the internal format corresponding to
-    // format+type expects 3-byte input/output.  The format is fixed here for readPixels to output
-    // 4 bytes per pixel.
-    if (format == GL_RGBX8_ANGLE)
-    {
-        format = GL_RGBA8;
-    }
-
     // Clip read area to framebuffer.
     const gl::Extents &fbSize = getState().getReadPixelsAttachment(format)->getSize();
     const gl::Rectangle fbRect(0, 0, fbSize.width, fbSize.height);
@@ -1027,7 +1000,7 @@ angle::Result FramebufferVk::blit(const gl::Context *context,
     RendererVk *renderer = contextVk->getRenderer();
     UtilsVk &utilsVk     = contextVk->getUtils();
 
-    // If any clears were picked up when syncing the read framebuffer (as the blit source), redefer
+    // If any clears were picked up when syncing the read framebuffer (as the blit source), restage
     // them.  They correspond to attachments that are not used in the blit.  This will cause the
     // read framebuffer to become dirty, so the attachments will be synced again on the next command
     // that might be using them.
@@ -1036,7 +1009,7 @@ angle::Result FramebufferVk::blit(const gl::Context *context,
     FramebufferVk *srcFramebufferVk       = vk::GetImpl(srcFramebuffer);
     if (srcFramebufferVk->mDeferredClears.any())
     {
-        srcFramebufferVk->redeferClearsForReadFramebuffer(contextVk);
+        srcFramebufferVk->restageDeferredClearsForReadFramebuffer(contextVk);
     }
 
     // We can sometimes end up in a blit with some clear commands saved. Ensure all clear commands
@@ -1280,7 +1253,8 @@ angle::Result FramebufferVk::blit(const gl::Context *context,
             areChannelsBlitCompatible =
                 areChannelsBlitCompatible &&
                 AreSrcAndDstColorChannelsBlitCompatible(readRenderTarget, drawRenderTarget);
-            areFormatsIdentical = AreSrcAndDstFormatsIdentical(readRenderTarget, drawRenderTarget);
+            areFormatsIdentical = areFormatsIdentical &&
+                                  AreSrcAndDstFormatsIdentical(readRenderTarget, drawRenderTarget);
         }
 
         // Now that all flipping is done, adjust the offsets for resolve and prerotation
@@ -1718,8 +1692,8 @@ angle::Result FramebufferVk::invalidateImpl(ContextVk *contextVk,
         }
     }
 
-    // If there are still deferred clears, redefer them.  See relevant comment in invalidateSub.
-    redeferClears(contextVk);
+    // If there are still deferred clears, restage them. See relevant comment in invalidateSub.
+    restageDeferredClears(contextVk);
 
     const auto &colorRenderTargets           = mRenderTargetCache.getColors();
     RenderTargetVk *depthStencilRenderTarget = mRenderTargetCache.getDepthStencil();
@@ -2237,6 +2211,8 @@ void FramebufferVk::updateRenderPassDesc(ContextVk *contextVk)
 
     mCurrentFramebufferDesc.updateUnresolveMask({});
     mRenderPassDesc.setWriteControlMode(mCurrentFramebufferDesc.getWriteControlMode());
+
+    updateLegacyDither(contextVk);
 }
 
 angle::Result FramebufferVk::getAttachmentsAndRenderTargets(
@@ -2624,23 +2600,23 @@ VkClearValue FramebufferVk::getCorrectedColorClearValue(size_t colorIndexGL,
     return clearValue;
 }
 
-void FramebufferVk::redeferClears(ContextVk *contextVk)
+void FramebufferVk::restageDeferredClears(ContextVk *contextVk)
 {
-    // Called when redeferring clears of the draw framebuffer.  In that case, there can't be any
+    // Called when restaging clears of the draw framebuffer.  In that case, there can't be any
     // render passes open, otherwise the clear would have applied to the render pass.  In the
     // exceptional occasion in blit where the read framebuffer accumulates deferred clears, it can
-    // be deferred while this assumption doesn't hold (and redeferClearsForReadFramebuffer should be
-    // used instead).
+    // be deferred while this assumption doesn't hold (and restageDeferredClearsForReadFramebuffer
+    // should be used instead).
     ASSERT(!contextVk->hasActiveRenderPass() || !mDeferredClears.any());
-    redeferClearsImpl(contextVk);
+    restageDeferredClearsImpl(contextVk);
 }
 
-void FramebufferVk::redeferClearsForReadFramebuffer(ContextVk *contextVk)
+void FramebufferVk::restageDeferredClearsForReadFramebuffer(ContextVk *contextVk)
 {
-    redeferClearsImpl(contextVk);
+    restageDeferredClearsImpl(contextVk);
 }
 
-void FramebufferVk::redeferClearsImpl(ContextVk *contextVk)
+void FramebufferVk::restageDeferredClearsImpl(ContextVk *contextVk)
 {
     // Set the appropriate aspect and clear values for depth and stencil.
     VkImageAspectFlags dsAspectFlags  = 0;
@@ -2756,7 +2732,8 @@ void FramebufferVk::clearWithCommand(ContextVk *contextVk,
 
         // Because we may have changed the depth/stencil access mode, update read only depth/stencil
         // mode.
-        updateRenderPassDepthStencilReadOnlyMode(contextVk, dsAspectFlags, renderPassCommands);
+        renderPassCommands->updateDepthStencilReadOnlyMode(
+            contextVk->getDepthStencilAttachmentFlags(), dsAspectFlags);
     }
 
     if (attachments.empty())
@@ -2830,7 +2807,8 @@ void FramebufferVk::clearWithLoadOp(ContextVk *contextVk)
         renderPassCommands->updateRenderPassDepthStencilClear(dsAspects, dsClearValue);
 
         // The render pass can no longer be in read-only depth/stencil mode.
-        updateRenderPassDepthStencilReadOnlyMode(contextVk, dsAspects, renderPassCommands);
+        renderPassCommands->updateDepthStencilReadOnlyMode(
+            contextVk->getDepthStencilAttachmentFlags(), dsAspects);
     }
 }
 
@@ -3254,42 +3232,6 @@ angle::Result FramebufferVk::flushDeferredClears(ContextVk *contextVk)
     return contextVk->startRenderPass(getRotatedCompleteRenderArea(contextVk), nullptr, nullptr);
 }
 
-void FramebufferVk::updateRenderPassDepthReadOnlyMode(ContextVk *contextVk,
-                                                      vk::RenderPassCommandBufferHelper *renderPass)
-{
-    const bool readOnlyDepthMode =
-        GetReadOnlyMode(getDepthStencilRenderTarget(), renderPass->hasDepthWriteOrClear(),
-                        mReadOnlyDepthFeedbackLoopMode);
-
-    renderPass->updateStartedRenderPassWithDepthMode(readOnlyDepthMode);
-}
-
-void FramebufferVk::updateRenderPassStencilReadOnlyMode(
-    ContextVk *contextVk,
-    vk::RenderPassCommandBufferHelper *renderPass)
-{
-    const bool readOnlyStencilMode =
-        GetReadOnlyMode(getDepthStencilRenderTarget(), renderPass->hasStencilWriteOrClear(),
-                        mReadOnlyStencilFeedbackLoopMode);
-
-    renderPass->updateStartedRenderPassWithStencilMode(readOnlyStencilMode);
-}
-
-void FramebufferVk::updateRenderPassDepthStencilReadOnlyMode(
-    ContextVk *contextVk,
-    VkImageAspectFlags dsAspectFlags,
-    vk::RenderPassCommandBufferHelper *renderPass)
-{
-    if ((dsAspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT) != 0)
-    {
-        updateRenderPassDepthReadOnlyMode(contextVk, renderPass);
-    }
-    if ((dsAspectFlags & VK_IMAGE_ASPECT_STENCIL_BIT) != 0)
-    {
-        updateRenderPassStencilReadOnlyMode(contextVk, renderPass);
-    }
-}
-
 void FramebufferVk::switchToFramebufferFetchMode(ContextVk *contextVk, bool hasFramebufferFetch)
 {
     // The switch happens once, and is permanent.
@@ -3311,5 +3253,17 @@ void FramebufferVk::switchToFramebufferFetchMode(ContextVk *contextVk, bool hasF
         ASSERT(hasFramebufferFetch);
         releaseCurrentFramebuffer(contextVk);
     }
+}
+
+bool FramebufferVk::updateLegacyDither(ContextVk *contextVk)
+{
+    if (contextVk->getFeatures().supportsLegacyDithering.enabled &&
+        mRenderPassDesc.isLegacyDitherEnabled() != contextVk->isDitherEnabled())
+    {
+        mRenderPassDesc.setLegacyDither(contextVk->isDitherEnabled());
+        return true;
+    }
+
+    return false;
 }
 }  // namespace rx

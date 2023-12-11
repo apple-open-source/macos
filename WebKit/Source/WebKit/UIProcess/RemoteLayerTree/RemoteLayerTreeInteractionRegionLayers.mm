@@ -94,11 +94,6 @@ static void configureLayerForInteractionRegion(CALayer *layer, NSString *groupNa
         group.userInfo = interactionRegionEffectUserInfo();
     }];
 }
-#else
-static Class interactionRegionLayerClass() { return [CALayer class]; }
-static void configureLayerForInteractionRegion(CALayer *, NSString *) { }
-static NSDictionary *interactionRegionEffectUserInfo() { return @{ }; }
-#endif // !PLATFORM(VISION)
 
 static void configureLayerAsGuard(CALayer *layer, NSString *groupName)
 {
@@ -108,6 +103,11 @@ static void configureLayerAsGuard(CALayer *layer, NSString *groupName)
     group.userInfo = interactionRegionEffectUserInfo();
     layer.remoteEffects = @[ group ];
 }
+#else
+static Class interactionRegionLayerClass() { return [CALayer class]; }
+static void configureLayerForInteractionRegion(CALayer *, NSString *) { }
+static void configureLayerAsGuard(CALayer *, NSString *) { }
+#endif // !PLATFORM(VISION)
 
 static NSString *interactionRegionGroupNameForRegion(const WebCore::PlatformLayerIdentifier& layerID, const WebCore::InteractionRegion& interactionRegion)
 {

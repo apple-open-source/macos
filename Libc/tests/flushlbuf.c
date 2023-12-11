@@ -45,8 +45,8 @@ static int writefn(void *cookie, const char *buf, int len)
 T_DECL(flushlbuf_partial,
     "Flush a line-buffered stream with partial write failure")
 {
-	struct stream s = { 0 };
-	char buf[BUFSIZE + 1] = { 0 };
+	static struct stream s;
+	static char buf[BUFSIZE + 1];
 	FILE *f;
 	unsigned int i = 0;
 	int ret = 0;
@@ -102,8 +102,8 @@ T_DECL(flushlbuf_partial,
 T_DECL(flushlbuf_full,
     "Flush a line-buffered stream with full write failure")
 {
-	struct stream s = { 0 };
-	char buf[BUFSIZE] = { 0 };
+	static struct stream s;
+	static char buf[BUFSIZE];
 	FILE *f;
 	unsigned int i = 0;
 	int ret = 0;

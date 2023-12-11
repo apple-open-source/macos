@@ -29,20 +29,21 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "LLIntExceptions.h"
-#include "WasmCalleeRegistry.h"
+#include "NativeCalleeRegistry.h"
 #include "WasmCallingConvention.h"
 #include "WasmModuleInformation.h"
 
 namespace JSC { namespace Wasm {
 
 Callee::Callee(Wasm::CompilationMode compilationMode)
-    : m_compilationMode(compilationMode)
-    , m_implementationVisibility(ImplementationVisibility::Private)
+    : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Private)
+    , m_compilationMode(compilationMode)
 {
 }
 
 Callee::Callee(Wasm::CompilationMode compilationMode, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
-    : m_compilationMode(compilationMode)
+    : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Public)
+    , m_compilationMode(compilationMode)
     , m_indexOrName(index, WTFMove(name))
 {
 }
@@ -51,10 +52,13 @@ template<typename Func>
 inline void Callee::runWithDowncast(const Func& func)
 {
     switch (m_compilationMode) {
+    case CompilationMode::IPIntMode:
+        func(static_cast<IPIntCallee*>(this));
+        break;
     case CompilationMode::LLIntMode:
         func(static_cast<LLIntCallee*>(this));
         break;
-#if ENABLE(WEBASSEMBLY_B3JIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT)
     case CompilationMode::BBQMode:
         func(static_cast<BBQCallee*>(this));
         break;
@@ -124,9 +128,8 @@ RegisterAtOffsetList* Callee::calleeSaveRegisters()
     return result;
 }
 
-void Callee::operator delete(Callee* callee, std::destroying_delete_t)
+void Callee::destroy(Callee* callee)
 {
-    CalleeRegistry::singleton().unregisterCallee(callee);
     callee->runWithDowncast([](auto* derived) {
         std::destroy_at(derived);
         std::decay_t<decltype(*derived)>::freeAfterDestruction(derived);
@@ -152,13 +155,63 @@ JITCallee::JITCallee(Wasm::CompilationMode compilationMode, size_t index, std::p
 void JITCallee::setEntrypoint(Wasm::Entrypoint&& entrypoint)
 {
     m_entrypoint = WTFMove(entrypoint);
-    CalleeRegistry::singleton().registerCallee(this);
+    NativeCalleeRegistry::singleton().registerCallee(this);
 }
 
 WasmToJSCallee::WasmToJSCallee()
     : Callee(Wasm::CompilationMode::WasmToJSMode)
 {
-    CalleeRegistry::singleton().registerCallee(this);
+    NativeCalleeRegistry::singleton().registerCallee(this);
+}
+
+IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
+    : Callee(Wasm::CompilationMode::IPIntMode, index, WTFMove(name))
+    , m_functionIndex(generator.m_functionIndex)
+    , m_signatures(WTFMove(generator.m_signatures))
+    , m_bytecode(generator.m_bytecode + generator.m_bytecodeOffset)
+    , m_bytecodeLength(generator.m_bytecodeLength - generator.m_bytecodeOffset)
+    , m_metadataVector(WTFMove(generator.m_metadata))
+    , m_metadata(m_metadataVector.data())
+    , m_argumINTBytecode(WTFMove(generator.m_argumINTBytecode))
+    , m_argumINTBytecodePointer(m_argumINTBytecode.data())
+    , m_returnMetadata(generator.m_returnMetadata)
+    , m_localSizeToAlloc(roundUpToMultipleOf(2, generator.m_numLocals))
+    , m_numLocals(generator.m_numLocals)
+    , m_numArgumentsOnStack(generator.m_numArgumentsOnStack)
+    , m_tierUpCounter(WTFMove(generator.m_tierUpCounter))
+{
+}
+
+void IPIntCallee::setEntrypoint(CodePtr<WasmEntryPtrTag> entrypoint)
+{
+    ASSERT(!m_entrypoint);
+    m_entrypoint = entrypoint;
+    NativeCalleeRegistry::singleton().registerCallee(this);
+}
+
+RegisterAtOffsetList* IPIntCallee::calleeSaveRegistersImpl()
+{
+    static LazyNeverDestroyed<RegisterAtOffsetList> calleeSaveRegisters;
+    static std::once_flag initializeFlag;
+    std::call_once(initializeFlag, [] {
+        RegisterSet registers;
+        registers.add(GPRInfo::regCS0, IgnoreVectors); // Wasm::Instance
+#if CPU(X86_64)
+        registers.add(GPRInfo::regCS1, IgnoreVectors); // PM (pointer to metadata)
+        registers.add(GPRInfo::regCS2, IgnoreVectors); // PB
+#elif CPU(ARM64) || CPU(RISCV64)
+        registers.add(GPRInfo::regCS6, IgnoreVectors); // PM
+        registers.add(GPRInfo::regCS7, IgnoreVectors); // PB
+#elif CPU(ARM)
+        registers.add(GPRInfo::regCS0, IgnoreVectors); // PM
+        registers.add(GPRInfo::regCS1, IgnoreVectors); // PB
+#else
+#error Unsupported architecture.
+#endif
+        ASSERT(registers.numberOfSetRegisters() == numberOfIPIntCalleeSaveRegisters);
+        calleeSaveRegisters.construct(WTFMove(registers));
+    });
+    return &calleeSaveRegisters.get();
 }
 
 LLIntCallee::LLIntCallee(FunctionCodeBlockGenerator& generator, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
@@ -198,7 +251,7 @@ void LLIntCallee::setEntrypoint(CodePtr<WasmEntryPtrTag> entrypoint)
 {
     ASSERT(!m_entrypoint);
     m_entrypoint = entrypoint;
-    CalleeRegistry::singleton().registerCallee(this);
+    NativeCalleeRegistry::singleton().registerCallee(this);
 }
 
 RegisterAtOffsetList* LLIntCallee::calleeSaveRegistersImpl()
@@ -236,7 +289,7 @@ const WasmInstruction* LLIntCallee::outOfLineJumpTarget(const WasmInstruction* p
     return m_instructions->at(offset + target).ptr();
 }
 
-#if ENABLE(WEBASSEMBLY_B3JIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT)
 void OptimizingJITCallee::addCodeOrigin(unsigned firstInlineCSI, unsigned lastInlineCSI, const Wasm::ModuleInformation& info, uint32_t functionIndex)
 {
     if (!nameSections.size())

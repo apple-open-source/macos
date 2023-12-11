@@ -375,6 +375,54 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>libiconv.libiconv_test.test_translit</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libiconv/libiconv/libiconv_test</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/libiconv/libiconv</string>
+				<string>-r</string>
+				<string>libiconv_test.test_translit.results.txt</string>
+				<string>test_translit</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>libiconv.libiconv_test.test_invalid_ignore</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libiconv/libiconv/libiconv_test</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/libiconv/libiconv</string>
+				<string>-r</string>
+				<string>libiconv_test.test_invalid_ignore.results.txt</string>
+				<string>test_invalid_ignore</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>libiconv.mbopt_test.mbconv_simple</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -583,6 +631,54 @@
 				<string>-r</string>
 				<string>mbopt_test.mbconv_partial.results.txt</string>
 				<string>mbconv_partial</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>libiconv.mbopt_test.mbconv_serial_clobber</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libiconv/libiconv/mbopt_test</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/libiconv/libiconv</string>
+				<string>-r</string>
+				<string>mbopt_test.mbconv_serial_clobber.results.txt</string>
+				<string>mbconv_serial_clobber</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>libiconv.mbopt_test.mbconv_statereset</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libiconv/libiconv/mbopt_test</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/libiconv/libiconv</string>
+				<string>-r</string>
+				<string>mbopt_test.mbconv_statereset.results.txt</string>
+				<string>mbconv_statereset</string>
 			</array>
 			<key>MayRunConcurrently</key>
 			<true/>

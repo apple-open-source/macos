@@ -200,7 +200,7 @@ private:
     bool hasVideo() const override;
     bool hasAudio() const override;
 
-    void setPageIsVisible(bool, String&& sceneIdentifier) final;
+    void setPageIsVisible(bool) final;
 
     MediaTime durationMediaTime() const override;
     MediaTime startTime() const override;
@@ -237,7 +237,7 @@ private:
     void notifyActiveSourceBuffersChanged() override;
 
     void setPresentationSize(const IntSize&) final;
-    void setVideoInlineSizeFenced(const FloatSize&, const WTF::MachSendRight&) final;
+    void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&) final;
 
     void updateDisplayLayerAndDecompressionSession();
 
@@ -332,18 +332,17 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     MediaTime m_mediaTimeDuration { MediaTime::invalidTime() };
     MediaTime m_lastSeekTime;
     FloatSize m_naturalSize;
-    double m_rate;
-    bool m_playing;
-    bool m_synchronizerSeeking;
+    double m_rate { 1 };
+    bool m_playing { false };
+    bool m_synchronizerSeeking { false };
     SeekState m_seekState { SeekCompleted };
-    mutable bool m_loadingProgressed;
+    mutable bool m_loadingProgressed { false };
 #if !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
     bool m_hasBeenAskedToPaintGL { false };
 #endif
     bool m_hasAvailableVideoFrame { false };
     bool m_allRenderersHaveAvailableSamples { false };
     bool m_visible { false };
-    bool m_flushingActiveSourceBuffersDueToVisibilityChange { false };
     RetainPtr<CVOpenGLTextureRef> m_lastTexture;
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     RefPtr<MediaPlaybackTarget> m_playbackTarget;

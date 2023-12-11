@@ -133,6 +133,12 @@ static inline void __end_prewarm(const char* envp[]);
 
 __attribute__((__visibility__("default"))) void libSystem_init_after_boot_tasks_4launchd(void);
 
+// should_enable_posix_spawn_filtering can only be used after
+// _libxpc_initializer() has run
+#define should_enable_posix_spawn_filtering() \
+	(os_variant_has_internal_content("com.apple.libsystem") && \
+	os_feature_enabled(Libsystem, posix_spawn_filtering))
+
 #if SUPPORT_ASAN
 const char *__asan_default_options(void);
 #endif
@@ -385,7 +391,7 @@ libSystem_initializer(int argc,
 	 * volume is not mounted yet. We'll query posix_spawn_filtering via the
 	 * libSystem_init_after_boot_tasks_4launchd call below instead.
 	 */
-	if (getpid() != 1 && os_feature_enabled(Libsystem, posix_spawn_filtering)) {
+	if (getpid() != 1 && should_enable_posix_spawn_filtering()) {
 		enable_posix_spawn_filtering = true;
 	}
 #endif // POSIX_SPAWN_FILTERING_ENABLED
@@ -420,7 +426,7 @@ void
 libSystem_init_after_boot_tasks_4launchd()
 {
 #if POSIX_SPAWN_FILTERING_ENABLED
-	if (os_feature_enabled(Libsystem, posix_spawn_filtering)) {
+	if (should_enable_posix_spawn_filtering()) {
 		struct _libkernel_init_after_boot_tasks_config config = {
 			.version = 1,
 			.enable_posix_spawn_filtering = true,

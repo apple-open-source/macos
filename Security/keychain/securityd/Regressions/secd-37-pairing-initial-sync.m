@@ -112,7 +112,11 @@ int secd_37_pairing_initial_sync(int argc, char *const *argv)
     AddItem(pcsgenpattrs);
     AddItem(ckksattrs);
 
-    CFArrayRef items = _SecServerCopyInitialSyncCredentials(SecServerInitialSyncCredentialFlagTLK | SecServerInitialSyncCredentialFlagPCS, &error);
+    uint64_t tlks = 0;
+    uint64_t pcs = 0;
+    uint64_t bluetooth = 0;
+
+    CFArrayRef items = _SecServerCopyInitialSyncCredentials(SecServerInitialSyncCredentialFlagTLK | SecServerInitialSyncCredentialFlagPCS, &tlks, &pcs, &bluetooth, &error);
     ok(items, "_SecServerCopyInitialSyncCredentials: %@", error);
     CFReleaseNull(error);
 

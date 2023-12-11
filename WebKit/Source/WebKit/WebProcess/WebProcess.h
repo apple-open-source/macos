@@ -198,6 +198,7 @@ public:
     void createWebPage(WebCore::PageIdentifier, WebPageCreationParameters&&);
     void removeWebPage(WebCore::PageIdentifier);
     WebPage* focusedWebPage() const;
+    bool hasEverHadAnyWebPages() const { return m_hasEverHadAnyWebPages; }
 
     InjectedBundle* injectedBundle() const { return m_injectedBundle.get(); }
     
@@ -424,6 +425,10 @@ public:
     void revokeLaunchServicesSandboxExtension();
 #endif
 
+#if PLATFORM(GTK)
+    const OptionSet<DMABufRendererBufferMode>& dmaBufRendererBufferMode() const { return m_dmaBufRendererBufferMode; }
+#endif
+
 private:
     WebProcess();
     ~WebProcess();
@@ -589,9 +594,11 @@ private:
     void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
 #endif
 
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK)
     void setScreenProperties(const WebCore::ScreenProperties&);
+#endif
 
+#if PLATFORM(COCOA)
     enum class IsInProcessInitialization : bool { No, Yes };
     void updateProcessName(IsInProcessInitialization);
 #endif
@@ -753,8 +760,9 @@ private:
 
     WeakHashMap<WebCore::UserGestureToken, uint64_t> m_userGestureTokens;
 
-#if PLATFORM(GTK) && USE(EGL)
+#if PLATFORM(GTK)
     std::unique_ptr<WebCore::PlatformDisplay> m_displayForCompositing;
+    OptionSet<DMABufRendererBufferMode> m_dmaBufRendererBufferMode;
 #endif
 
     bool m_hasSuspendedPageProxy { false };
@@ -805,6 +813,7 @@ private:
 #endif
     bool m_hadMainFrameMainResourcePrivateRelayed { false };
     bool m_imageAnimationEnabled { true };
+    bool m_hasEverHadAnyWebPages { false };
 
     HashSet<WebCore::RegistrableDomain> m_allowedFirstPartiesForCookies;
 };

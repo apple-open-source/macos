@@ -39,7 +39,6 @@ class Decoder;
 namespace WebKit {
 
 class CGDisplayList {
-    WTF_MAKE_NONCOPYABLE(CGDisplayList);
 public:
     CGDisplayList() = default;
     CGDisplayList(WebCore::SharedBuffer& displayList, Vector<MachSendRight>&& surfaces)
@@ -47,6 +46,7 @@ public:
         , m_surfaces(WTFMove(surfaces))
     {
     }
+    explicit CGDisplayList(const CGDisplayList&) = default;
 
     CGDisplayList(CGDisplayList&&) = default;
     CGDisplayList& operator=(CGDisplayList&&) = default;
@@ -54,7 +54,7 @@ public:
     RefPtr<WebCore::SharedBuffer> buffer() const { return m_displayList; }
     Vector<MachSendRight> takeSurfaces() { return std::exchange(m_surfaces, { }); }
 
-    void encode(IPC::Encoder&) const;
+    void encode(IPC::Encoder&) &&;
     static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, CGDisplayList&);
 
 private:

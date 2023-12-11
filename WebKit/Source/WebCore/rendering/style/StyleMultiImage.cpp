@@ -110,9 +110,9 @@ bool StyleMultiImage::isPending() const
     return m_isPending;
 }
 
-bool StyleMultiImage::isLoaded() const
+bool StyleMultiImage::isLoaded(const RenderElement* renderer) const
 {
-    return m_selectedImage && m_selectedImage->isLoaded();
+    return m_selectedImage && m_selectedImage->isLoaded(renderer);
 }
 
 bool StyleMultiImage::errorOccurred() const
@@ -177,11 +177,11 @@ bool StyleMultiImage::hasClient(RenderElement& renderer) const
     return m_selectedImage->hasClient(renderer);
 }
 
-RefPtr<Image> StyleMultiImage::image(const RenderElement* renderer, const FloatSize& size) const
+RefPtr<Image> StyleMultiImage::image(const RenderElement* renderer, const FloatSize& size, bool isForFirstLine) const
 {
     if (!m_selectedImage)
         return nullptr;
-    return m_selectedImage->image(renderer, size);
+    return m_selectedImage->image(renderer, size, isForFirstLine);
 }
 
 float StyleMultiImage::imageScaleFactor() const

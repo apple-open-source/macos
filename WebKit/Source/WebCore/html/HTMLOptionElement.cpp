@@ -189,6 +189,11 @@ void HTMLOptionElement::attributeChanged(const QualifiedName& name, const AtomSt
             setSelected(!newValue.isNull());
         break;
     }
+    case AttributeNames::labelAttr: {
+        if (RefPtr select = ownerSelectElement())
+            select->optionElementChildrenChanged();
+        break;
+    }
 #if ENABLE(DATALIST_ELEMENT)
     case AttributeNames::valueAttr:
         for (auto& dataList : ancestorsOfType<HTMLDataListElement>(*this))
@@ -256,8 +261,10 @@ void HTMLOptionElement::childrenChanged(const ChildChange& change)
     for (auto& dataList : ancestors)
         dataList->optionElementChildrenChanged();
 #endif
-    if (RefPtr select = ownerSelectElement())
-        select->optionElementChildrenChanged();
+    if (change.source != ChildChange::Source::Clone) {
+        if (RefPtr select = ownerSelectElement())
+            select->optionElementChildrenChanged();
+    }
     HTMLElement::childrenChanged(change);
 }
 

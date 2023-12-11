@@ -52,6 +52,7 @@
 #include "CompositionEvent.h"
 #include "ConstantPropertyMap.h"
 #include "ContentSecurityPolicy.h"
+#include "ContentVisibilityDocumentState.h"
 #include "ContentfulPaintChecker.h"
 #include "CookieJar.h"
 #include "CustomEffect.h"
@@ -129,7 +130,7 @@
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
 #include "HashChangeEvent.h"
-#include "HighlightRegister.h"
+#include "HighlightRegistry.h"
 #include "History.h"
 #include "HitTestResult.h"
 #include "IDBConnectionProxy.h"
@@ -171,6 +172,7 @@
 #include "NodeWithIndex.h"
 #include "NoiseInjectionPolicy.h"
 #include "NotificationController.h"
+#include "OpportunisticTaskScheduler.h"
 #include "OverflowEvent.h"
 #include "PageConsoleClient.h"
 #include "PageGroup.h"
@@ -190,6 +192,7 @@
 #include "PointerLockController.h"
 #include "PolicyChecker.h"
 #include "PopStateEvent.h"
+#include "Position.h"
 #include "ProcessingInstruction.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "PublicSuffix.h"
@@ -201,6 +204,7 @@
 #include "RenderChildIterator.h"
 #include "RenderInline.h"
 #include "RenderLayerCompositor.h"
+#include "RenderLayoutState.h"
 #include "RenderLineBreak.h"
 #include "RenderTreeUpdater.h"
 #include "RenderView.h"
@@ -271,6 +275,7 @@
 #include "ValidationMessageClient.h"
 #include "ViolationReportType.h"
 #include "VisibilityChangeClient.h"
+#include "VisibilityState.h"
 #include "VisitedLinkState.h"
 #include "VisualViewport.h"
 #include "WakeLockManager.h"
@@ -639,6 +644,7 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
 #endif
     , m_isSynthesized(constructionFlags.contains(ConstructionFlag::Synthesized))
     , m_isNonRenderedPlaceholder(constructionFlags.contains(ConstructionFlag::NonRenderedPlaceholder))
+    , m_frameIdentifier(frame ? std::optional(frame->frameID()) : std::nullopt)
 {
     addToDocumentsMap();
 
@@ -873,13 +879,13 @@ void Document::commonTeardown()
 
     scriptRunner().clearPendingScripts();
 
-    if (m_highlightRegister)
-        m_highlightRegister->clear();
-    if (m_fragmentHighlightRegister)
-        m_fragmentHighlightRegister->clear();
+    if (m_highlightRegistry)
+        m_highlightRegistry->clear();
+    if (m_fragmentHighlightRegistry)
+        m_fragmentHighlightRegistry->clear();
 #if ENABLE(APP_HIGHLIGHTS)
-    if (m_appHighlightRegister)
-        m_appHighlightRegister->clear();
+    if (m_appHighlightRegistry)
+        m_appHighlightRegistry->clear();
 #endif
     m_pendingScrollEventTargetList = nullptr;
 
@@ -1490,9 +1496,9 @@ void Document::setVisualUpdatesAllowed(bool visualUpdatesAllowed)
 
     if (Page* page = this->page()) {
         if (frame()->isMainFrame()) {
-            frameView->addPaintPendingMilestones(DidFirstPaintAfterSuppressedIncrementalRendering);
-            if (page->requestedLayoutMilestones() & DidFirstLayoutAfterSuppressedIncrementalRendering)
-                frame()->loader().didReachLayoutMilestone(DidFirstLayoutAfterSuppressedIncrementalRendering);
+            frameView->addPaintPendingMilestones(LayoutMilestone::DidFirstPaintAfterSuppressedIncrementalRendering);
+            if (page->requestedLayoutMilestones() & LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering)
+                frame()->loader().didReachLayoutMilestone(LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering);
         }
     }
 
@@ -2100,8 +2106,15 @@ void Document::resolveStyle(ResolveStyleType type)
     auto& frameView = m_renderView->frameView();
     Ref protectedFrameView { frameView };
 
-    RELEASE_ASSERT(!frameView.isPainting());
-    RELEASE_ASSERT(!m_inStyleRecalc);
+    if (isInWebProcess()) {
+        RELEASE_ASSERT(!frameView.isPainting());
+        RELEASE_ASSERT(!m_inStyleRecalc);
+    } else {
+        if (frameView.isPainting())
+            return;
+        if (m_inStyleRecalc)
+            return;
+    }
 
     TraceScope tracingScope(StyleRecalcStart, StyleRecalcEnd);
 
@@ -2185,9 +2198,10 @@ void Document::resolveStyle(ResolveStyleType type)
         // As a result of the style recalculation, the currently hovered element might have been
         // detached (for example, by setting display:none in the :hover style), schedule another mouseMove event
         // to check if any other elements ended up under the mouse pointer due to re-layout.
-        if (m_hoveredElement && !m_hoveredElement->renderer() && is<LocalFrame>(frameView.frame()))
-            if (auto* localMainFrame = dynamicDowncast<LocalFrame>(downcast<LocalFrame>(frameView.frame()).mainFrame()))
+        if (m_hoveredElement && !m_hoveredElement->renderer()) {
+            if (auto* localMainFrame = dynamicDowncast<LocalFrame>(frameView.frame().mainFrame()))
                 localMainFrame->eventHandler().dispatchFakeMouseMoveEventSoon();
+        }
 
         ++m_styleRecalcCount;
         // FIXME: Assert ASSERT(!needsStyleRecalc()) here. fast/events/media-element-focus-tab.html hits this assertion.
@@ -2278,8 +2292,26 @@ bool Document::updateStyleIfNeeded()
     return true;
 }
 
-void Document::updateLayout()
+void Document::updateLayoutIgnorePendingStylesheets(OptionSet<LayoutOptions> layoutOptions, const Element* context)
 {
+    layoutOptions.add(LayoutOptions::IgnorePendingStylesheets);
+    updateLayout(layoutOptions, context);
+}
+
+void Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Element* context)
+{
+    bool oldIgnore = m_ignorePendingStylesheets;
+
+    if (layoutOptions.contains(LayoutOptions::IgnorePendingStylesheets)) {
+        if (!haveStylesheetsLoaded()) {
+            m_ignorePendingStylesheets = true;
+            // FIXME: This should just invalidate elements with missing styles.
+            if (m_hasNodesWithMissingStyle)
+                scheduleFullStyleRebuild();
+        }
+        updateRelevancyOfContentVisibilityElements();
+    }
+
     ASSERT(isMainThread());
 
     RefPtr frameView = view();
@@ -2289,38 +2321,32 @@ void Document::updateLayout()
         return;
     }
 
-    RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
-    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
+    {
+        RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
+        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
-    if (RefPtr owner = ownerElement())
-        owner->document().updateLayout();
+        if (RefPtr owner = ownerElement())
+            owner->document().updateLayout(layoutOptions, context);
 
-    updateStyleIfNeeded();
+        updateStyleIfNeeded();
 
-    StackStats::LayoutCheckPoint layoutCheckPoint;
+        StackStats::LayoutCheckPoint layoutCheckPoint;
 
-    if (!frameView || !renderView())
-        return;
-    if (!frameView->layoutContext().isLayoutPending() && !renderView()->needsLayout())
-        return;
-
-    frameView->layoutContext().layout();
-}
-
-void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks runPostLayoutTasks)
-{
-    bool oldIgnore = m_ignorePendingStylesheets;
-
-    if (!haveStylesheetsLoaded()) {
-        m_ignorePendingStylesheets = true;
-        // FIXME: This should just invalidate elements with missing styles.
-        if (m_hasNodesWithMissingStyle)
-            scheduleFullStyleRebuild();
+        if (frameView && renderView()) {
+            if (context && layoutOptions.contains(LayoutOptions::ContentVisibilityForceLayout)) {
+                if (context->renderer() && context->renderer()->style().skippedContentReason().has_value())
+                    context->renderer()->setNeedsLayout();
+                else
+                    context = nullptr;
+            }
+            if (frameView->layoutContext().isLayoutPending() || renderView()->needsLayout()) {
+                ContentVisibilityForceLayoutScope scope(*renderView(), context);
+                frameView->layoutContext().layout();
+            }
+        }
     }
 
-    updateLayout();
-
-    if (runPostLayoutTasks == RunPostLayoutTasks::Synchronously && view())
+    if (layoutOptions.contains(LayoutOptions::RunPostLayoutTasksSynchronously) && view())
         view()->flushAnyPendingPostLayoutTasks();
 
     m_ignorePendingStylesheets = oldIgnore;
@@ -2332,6 +2358,12 @@ std::unique_ptr<RenderStyle> Document::styleForElementIgnoringPendingStylesheets
     ASSERT(!element.isPseudoElement() || pseudoElementSpecifier == PseudoId::None);
     ASSERT(pseudoElementSpecifier == PseudoId::None || parentStyle);
     ASSERT(Style::postResolutionCallbacksAreSuspended());
+
+    std::optional<RenderStyle> updatedDocumentStyle;
+    if (!parentStyle && m_needsFullStyleRebuild && hasLivingRenderTree()) {
+        updatedDocumentStyle.emplace(Style::resolveForDocument(*this));
+        parentStyle = &*updatedDocumentStyle;
+    }
 
     SetForScope change(m_ignorePendingStylesheets, true);
     auto& resolver = element.styleResolver();
@@ -2379,6 +2411,8 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
         if (owner->document().updateLayoutIfDimensionsOutOfDate(*owner))
             requireFullLayout = true;
     }
+
+    updateRelevancyOfContentVisibilityElements();
 
     updateStyleIfNeeded();
 
@@ -2454,7 +2488,7 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
 
     // Only do a layout if changes have occurred that make it necessary.
     if (requireFullLayout)
-        updateLayout();
+        updateLayout({ }, &element);
 
     return requireFullLayout;
 }
@@ -2625,7 +2659,7 @@ void Document::attachToCachedFrame(CachedFrameBase& cachedFrame)
     RELEASE_ASSERT(cachedFrame.document() == this);
     ASSERT(cachedFrame.view());
     ASSERT(m_backForwardCacheState == Document::InBackForwardCache);
-    observeFrame(dynamicDowncast<LocalFrame>(cachedFrame.view()->frame()));
+    observeFrame(&cachedFrame.view()->frame());
 }
 
 void Document::detachFromCachedFrame(CachedFrameBase& cachedFrame)
@@ -2943,37 +2977,37 @@ Ref<DocumentParser> Document::createParser()
 
 bool Document::hasHighlight() const
 {
-    return (m_highlightRegister && !m_highlightRegister->isEmpty())
-        || (m_fragmentHighlightRegister && !m_fragmentHighlightRegister->isEmpty())
+    return (m_highlightRegistry && !m_highlightRegistry->isEmpty())
+        || (m_fragmentHighlightRegistry && !m_fragmentHighlightRegistry->isEmpty())
 #if ENABLE(APP_HIGHLIGHTS)
-        || (m_appHighlightRegister && !m_appHighlightRegister->isEmpty())
+        || (m_appHighlightRegistry && !m_appHighlightRegistry->isEmpty())
 #endif
     ;
 }
 
-HighlightRegister& Document::highlightRegister()
+HighlightRegistry& Document::highlightRegistry()
 {
-    if (!m_highlightRegister)
-        m_highlightRegister = HighlightRegister::create();
-    return *m_highlightRegister;
+    if (!m_highlightRegistry)
+        m_highlightRegistry = HighlightRegistry::create();
+    return *m_highlightRegistry;
 }
 
-HighlightRegister& Document::fragmentHighlightRegister()
+HighlightRegistry& Document::fragmentHighlightRegistry()
 {
-    if (!m_fragmentHighlightRegister)
-        m_fragmentHighlightRegister = HighlightRegister::create();
-    return *m_fragmentHighlightRegister;
+    if (!m_fragmentHighlightRegistry)
+        m_fragmentHighlightRegistry = HighlightRegistry::create();
+    return *m_fragmentHighlightRegistry;
 }
 
 #if ENABLE(APP_HIGHLIGHTS)
-HighlightRegister& Document::appHighlightRegister()
+HighlightRegistry& Document::appHighlightRegistry()
 {
-    if (!m_appHighlightRegister) {
-        m_appHighlightRegister = HighlightRegister::create();
+    if (!m_appHighlightRegistry) {
+        m_appHighlightRegistry = HighlightRegistry::create();
         if (auto* currentPage = page())
-            m_appHighlightRegister->setHighlightVisibility(currentPage->chrome().client().appHighlightsVisiblility());
+            m_appHighlightRegistry->setHighlightVisibility(currentPage->chrome().client().appHighlightsVisiblility());
     }
-    return *m_appHighlightRegister;
+    return *m_appHighlightRegistry;
 }
 
 AppHighlightStorage& Document::appHighlightStorage()
@@ -2983,46 +3017,63 @@ AppHighlightStorage& Document::appHighlightStorage()
     return *m_appHighlightStorage;
 }
 #endif
-void Document::collectRangeDataFromRegister(Vector<WeakPtr<HighlightRangeData>>& rangesData, const HighlightRegister& highlightRegister)
+void Document::collectHighlightRangesFromRegister(Vector<WeakPtr<HighlightRange>>& highlightRanges, const HighlightRegistry& highlightRegistry)
 {
-    for (auto& highlight : highlightRegister.map()) {
-        for (auto& rangeData : highlight.value->rangesData()) {
-            if (rangeData->startPosition().isNotNull() && rangeData->endPosition().isNotNull())
+    for (auto& highlight : highlightRegistry.map()) {
+        for (auto& highlightRange : highlight.value->highlightRanges()) {
+            if (highlightRange->startPosition().isNotNull() && highlightRange->endPosition().isNotNull() && !highlightRange->range().isLiveRange())
                 continue;
-            auto simpleRange = makeSimpleRange(rangeData->range());
+
+            if (RefPtr liveRange = RefPtr { dynamicDowncast<Range>(highlightRange->range()) }; liveRange && !liveRange->didChangeForHighlight())
+                continue;
+
+            auto simpleRange = makeSimpleRange(highlightRange->range());
             if (&simpleRange.startContainer().treeScope() != &simpleRange.endContainer().treeScope())
                 continue;
-            rangesData.append(rangeData.get());
+            highlightRanges.append(highlightRange.get());
+        }
+    }
+
+    // One range can belong to multiple highlights so resetting a range's flag cannot be done in the loops above.
+    for (auto& highlight : highlightRegistry.map()) {
+        for (auto& highlightRange : highlight.value->highlightRanges()) {
+            if (RefPtr liveRange = RefPtr { dynamicDowncast<Range>(highlightRange->range()) }; liveRange && liveRange->didChangeForHighlight())
+                liveRange->resetDidChangeForHighlight();
         }
     }
 }
 
 void Document::updateHighlightPositions()
 {
-    Vector<WeakPtr<HighlightRangeData>> rangesData;
-    if (m_highlightRegister)
-        collectRangeDataFromRegister(rangesData, *m_highlightRegister.get());
-    if (m_fragmentHighlightRegister)
-        collectRangeDataFromRegister(rangesData, *m_fragmentHighlightRegister.get());
+    Vector<WeakPtr<HighlightRange>> highlightRanges;
+    if (m_highlightRegistry)
+        collectHighlightRangesFromRegister(highlightRanges, *m_highlightRegistry.get());
+    if (m_fragmentHighlightRegistry)
+        collectHighlightRangesFromRegister(highlightRanges, *m_fragmentHighlightRegistry.get());
 #if ENABLE(APP_HIGHLIGHTS)
-    if (m_appHighlightRegister)
-        collectRangeDataFromRegister(rangesData, *m_appHighlightRegister.get());
+    if (m_appHighlightRegistry)
+        collectHighlightRangesFromRegister(highlightRanges, *m_appHighlightRegistry.get());
 #endif
 
-    for (auto& weakRangeData : rangesData) {
-        if (auto* rangeData = weakRangeData.get()) {
-            VisibleSelection visibleSelection(makeSimpleRange(rangeData->range()));
-            Position startPosition;
-            Position endPosition;
-            if (rangeData->startPosition().isNull())
-                startPosition = visibleSelection.visibleStart().deepEquivalent();
-            if (rangeData->endPosition().isNull())
-                endPosition = visibleSelection.visibleEnd().deepEquivalent();
+    for (auto& weakRangeData : highlightRanges) {
+        if (auto* highlightRange = weakRangeData.get()) {
+            VisibleSelection visibleSelection(makeSimpleRange(highlightRange->range()));
+            auto range = makeSimpleRange(highlightRange->range());
+
+            auto startPosition = visibleSelection.visibleStart().deepEquivalent();
+            auto endPosition = visibleSelection.visibleEnd().deepEquivalent();
             if (!weakRangeData.get())
                 continue;
 
-            rangeData->setStartPosition(WTFMove(startPosition));
-            rangeData->setEndPosition(WTFMove(endPosition));
+            if (auto simpleRange = makeSimpleRange(highlightRange->startPosition(), highlightRange->endPosition()))
+                Highlight::repaintRange(StaticRange::create(*simpleRange));
+
+            if (!startPosition.isNull())
+                highlightRange->setStartPosition(WTFMove(startPosition));
+            if (!endPosition.isNull())
+                highlightRange->setEndPosition(WTFMove(endPosition));
+
+            Highlight::repaintRange(highlightRange->range());
         }
     }
 }
@@ -3439,6 +3490,9 @@ void Document::enqueuePaintTimingEntryIfNeeded()
     if (!ContentfulPaintChecker::qualifiesForContentfulPaint(*view()))
         return;
 
+    if (frame() && frame()->isMainFrame())
+        WTFEmitSignpost(this, "Page Load: First Contentful Paint");
+
     domWindow()->performance().reportFirstContentfulPaint();
     m_didEnqueueFirstContentfulPaint = true;
 }
@@ -3702,20 +3756,18 @@ void Document::processBaseElement()
         }
     }
 
-    // FIXME: Since this doesn't share code with completeURL it may not handle encodings correctly.
     URL baseElementURL;
-    if (href) {
-        auto trimmedHref = href->string().trim(isASCIIWhitespace);
-        if (!trimmedHref.isEmpty())
-            baseElementURL = URL(fallbackBaseURL(), trimmedHref);
-    }
-    if (m_baseElementURL != baseElementURL && contentSecurityPolicy()->allowBaseURI(baseElementURL)) {
-        if (settings().shouldRestrictBaseURLSchemes() && !SecurityPolicy::isBaseURLSchemeAllowed(baseElementURL))
+    if (href)
+        baseElementURL = completeURL(href->string(), fallbackBaseURL());
+    if (m_baseElementURL != baseElementURL) {
+        if (!contentSecurityPolicy()->allowBaseURI(baseElementURL))
+            m_baseElementURL = { };
+        else if (settings().shouldRestrictBaseURLSchemes() && !SecurityPolicy::isBaseURLSchemeAllowed(baseElementURL)) {
+            m_baseElementURL = { };
             addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Blocked setting " + baseElementURL.stringCenterEllipsizedToLength() + " as the base URL because it does not have an allowed scheme.");
-        else {
+        } else
             m_baseElementURL = baseElementURL;
-            updateBaseURL();
-        }
+        updateBaseURL();
     }
 
     m_baseTarget = target ? *target : nullAtom();
@@ -4118,13 +4170,25 @@ ViewportArguments Document::viewportArguments() const
 
 void Document::updateViewportArguments()
 {
-    if (page() && frame()->isMainFrame()) {
-#if ASSERT_ENABLED
-        m_didDispatchViewportPropertiesChanged = true;
+    auto page = this->page();
+    if (!page)
+        return;
+
+    bool isViewportDocument = [&] {
+#if ENABLE(FULLSCREEN_API)
+        if (auto* outermostFullscreenDocument = page->outermostFullscreenDocument())
+            return outermostFullscreenDocument == this;
 #endif
-        page()->chrome().dispatchViewportPropertiesDidChange(viewportArguments());
-        page()->chrome().didReceiveDocType(*frame());
-    }
+        return frame()->isMainFrame();
+    }();
+    if (!isViewportDocument)
+        return;
+
+#if ASSERT_ENABLED
+    m_didDispatchViewportPropertiesChanged = true;
+#endif
+    page->chrome().dispatchViewportPropertiesDidChange(viewportArguments());
+    page->chrome().didReceiveDocType(*frame());
 }
 
 void Document::metaElementThemeColorChanged(HTMLMetaElement& metaElement)
@@ -4923,6 +4987,8 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
         oldFocusedElement->setFocus(false);
         setFocusNavigationStartingNode(nullptr);
 
+        scheduleContentRelevancyUpdate(ContentRelevancy::Focused);
+
         if (options.removalEventsMode == FocusRemovalEventsMode::Dispatch) {
             // Dispatch a change event for form control elements that have been edited.
             if (is<HTMLFormControlElement>(*oldFocusedElement)) {
@@ -5001,6 +5067,8 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
         m_focusedElement->setFocus(true, options.visibility);
         if (options.trigger != FocusTrigger::Bindings)
             m_latestFocusTrigger = options.trigger;
+
+        scheduleContentRelevancyUpdate(ContentRelevancy::Focused);
 
         // The setFocus call triggers a blur and a focus event. Event handlers could cause the focused element to be cleared.
         if (m_focusedElement != newFocusedElement) {
@@ -5874,6 +5942,7 @@ URL Document::completeURL(const String& url, const URL& baseURLOverride, ForceUT
         return URL();
 
     URL baseURL = baseURLForComplete(baseURLOverride);
+    // Same logic as openFunc() in XMLDocumentParserLibxml2.cpp. Keep them in sync.
     if (!m_decoder || forceUTF8 == ForceUTF8::Yes)
         return URL(baseURL, url);
     return URL(baseURL, url, m_decoder->encodingForURLParsing());
@@ -5940,7 +6009,7 @@ void Document::setBackForwardCacheState(BackForwardCacheState state)
             // called too early on in the process of a page exiting the cache for that work to be possible in this
             // function. It would be nice if there was more symmetry here.
             // https://bugs.webkit.org/show_bug.cgi?id=98698
-            v->cacheCurrentScrollPosition();
+            v->cacheCurrentScrollState();
             if (page && m_frame->isMainFrame()) {
                 v->resetScrollbarsAndClearContentsSize();
                 if (RefPtr scrollingCoordinator = page->scrollingCoordinator())
@@ -6310,12 +6379,6 @@ void Document::setTransformSource(std::unique_ptr<TransformSource> source)
 
 #endif
 
-void Document::setDesignMode(DesignMode value)
-{
-    m_designMode = value;
-    scheduleFullStyleRebuild();
-}
-
 String Document::designMode() const
 {
     return inDesignMode() ? onAtom() : offAtom();
@@ -6324,7 +6387,8 @@ String Document::designMode() const
 void Document::setDesignMode(const String& value)
 {
     DesignMode mode = equalLettersIgnoringASCIICase(value, "on"_s) ? DesignMode::On : DesignMode::Off;
-    setDesignMode(mode);
+    m_designMode = mode;
+    scheduleFullStyleRebuild();
 }
 
 Document* Document::parentDocument() const
@@ -6476,7 +6540,15 @@ void Document::finishedParsing()
     bool isInMiddleOfInitializingIframe = documentLoader && documentLoader->isInFinishedLoadingOfEmptyDocument();
     if (!isInMiddleOfInitializingIframe)
         eventLoop().performMicrotaskCheckpoint();
+
+    bool isMainFrame = m_frame && m_frame->isMainFrame();
+    if (isMainFrame)
+        WTFBeginSignpost(this, "Page Load: DOM Content Loaded");
+
     dispatchEvent(Event::create(eventNames().DOMContentLoadedEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
+
+    if (isMainFrame)
+        WTFEndSignpost(this, "Page Load: DOM Content Loaded");
 
     if (!m_eventTiming.domContentLoadedEventEnd) {
         auto now = MonotonicTime::now();
@@ -7299,6 +7371,8 @@ int Document::requestIdleCallback(Ref<IdleRequestCallback>&& callback, Seconds t
 {
     if (!m_idleCallbackController)
         m_idleCallbackController = makeUnique<IdleCallbackController>(*this);
+    if (auto* page = this->page())
+        page->opportunisticTaskScheduler().willQueueIdleCallback();
     return m_idleCallbackController->queueIdleCallback(WTFMove(callback), timeout);
 }
 
@@ -8059,7 +8133,7 @@ void Document::ensurePlugInsInjectedScript(DOMWrapperWorld& world)
     if (!jsString)
         jsString = StringImpl::createWithoutCopying(plugInsJavaScript, sizeof(plugInsJavaScript));
 
-    scriptController.evaluateInWorldIgnoringException(ScriptSourceCode(jsString), world);
+    scriptController.evaluateInWorldIgnoringException(ScriptSourceCode(jsString, JSC::SourceTaintedOrigin::Untainted), world);
 
     m_hasInjectedPlugInsScript = true;
 }
@@ -8326,9 +8400,15 @@ void Document::updateIntersectionObservations()
     if (needsLayout || hasPendingStyleRecalc())
         return;
 
+    updateIntersectionObservations(m_intersectionObservers);
+}
+
+void Document::updateIntersectionObservations(const Vector<WeakPtr<IntersectionObserver>>& intersectionObservers)
+{
+    RELEASE_ASSERT(view() && !(view()->layoutContext().isLayoutPending() || (renderView() && renderView()->needsLayout())) && !hasPendingStyleRecalc());
     Vector<WeakPtr<IntersectionObserver>> intersectionObserversWithPendingNotifications;
 
-    for (auto& weakObserver : m_intersectionObservers) {
+    for (auto& weakObserver : intersectionObservers) {
         RefPtr observer = weakObserver.get();
         if (!observer)
             continue;
@@ -8432,20 +8512,26 @@ void Document::updateResizeObservations(Page& page)
         addConsoleMessage(MessageSource::Other, MessageLevel::Info, "ResizeObservers silenced due to: http://webkit.org/b/258597"_s);
         return;
     }
-    if (!hasResizeObservers() && !m_resizeObserverForContainIntrinsicSize)
+    if (!hasResizeObservers() && !m_resizeObserverForContainIntrinsicSize && !m_contentVisibilityDocumentState)
         return;
 
-    // We need layout the whole frame tree here. Because ResizeObserver could observe element in other frame,
-    // and it could change other frame in deliverResizeObservations().
-    page.layoutIfNeeded();
-
-    // Start check resize observers;
-    if (gatherResizeObservationsForContainIntrinsicSize() != ResizeObserver::maxElementDepth())
-        deliverResizeObservations();
-
-    for (size_t depth = gatherResizeObservations(0); depth != ResizeObserver::maxElementDepth(); depth = gatherResizeObservations(depth)) {
-        deliverResizeObservations();
+    size_t resizeObserverDepth = 0;
+    while (true) {
+        // We need layout the whole frame tree here. Because ResizeObserver could observe element in other frame,
+        // and it could change other frame in deliverResizeObservations().
         page.layoutIfNeeded();
+        // If we have determined a change because of visibility we need to get up-to-date layout before reporting any values to resize observers.
+        if (m_contentVisibilityDocumentState && m_contentVisibilityDocumentState->determineInitialVisibleContentVisibility() == HadInitialVisibleContentVisibilityDetermination::Yes)
+            continue;
+
+        // Start check resize observers;
+        if (!resizeObserverDepth && gatherResizeObservationsForContainIntrinsicSize() != ResizeObserver::maxElementDepth())
+            deliverResizeObservations();
+
+        resizeObserverDepth = gatherResizeObservations(resizeObserverDepth);
+        if (resizeObserverDepth == ResizeObserver::maxElementDepth())
+            break;
+        deliverResizeObservations();
     }
 
     if (hasSkippedResizeObservations()) {
@@ -8608,7 +8694,7 @@ std::optional<PageIdentifier> Document::pageID() const
 
 std::optional<FrameIdentifier> Document::frameID() const
 {
-    return m_frame ? std::optional<FrameIdentifier>(m_frame->loader().frameID()) : std::nullopt;
+    return m_frameIdentifier;
 }
 
 void Document::registerArticleElement(Element& article)
@@ -8625,7 +8711,7 @@ void Document::unregisterArticleElement(Element& article)
 
 void Document::updateMainArticleElementAfterLayout()
 {
-    ASSERT(page() && page()->requestedLayoutMilestones().contains(DidRenderSignificantAmountOfText));
+    ASSERT(page() && page()->requestedLayoutMilestones().contains(LayoutMilestone::DidRenderSignificantAmountOfText));
 
     // If there are too many article elements on the page, don't consider any one of them to be "main content".
     const unsigned maxNumberOfArticlesBeforeIgnoringMainContentArticle = 10;
@@ -9563,6 +9649,43 @@ std::optional<uint64_t> Document::noiseInjectionHashSalt() const
     if (!page() || noiseInjectionPolicy() == NoiseInjectionPolicy::None)
         return std::nullopt;
     return page()->noiseInjectionHashSaltForDomain(RegistrableDomain { m_url });
+}
+
+ContentVisibilityDocumentState& Document::contentVisibilityDocumentState()
+{
+    if (!m_contentVisibilityDocumentState)
+        m_contentVisibilityDocumentState = makeUnique<ContentVisibilityDocumentState>();
+    return *m_contentVisibilityDocumentState;
+}
+
+bool Document::isObservingContentVisibilityTargets() const
+{
+    return m_contentVisibilityDocumentState && m_contentVisibilityDocumentState->hasObservationTargets();
+}
+
+void Document::updateRelevancyOfContentVisibilityElements()
+{
+    if (m_contentRelevancyUpdate.isEmpty() || !isObservingContentVisibilityTargets())
+        return;
+    if (m_contentVisibilityDocumentState->updateRelevancyOfContentVisibilityElements(m_contentRelevancyUpdate) == DidUpdateAnyContentRelevancy::Yes)
+        updateLayoutIgnorePendingStylesheets();
+    m_contentRelevancyUpdate = { };
+}
+
+void Document::scheduleContentRelevancyUpdate(ContentRelevancy contentRelevancy)
+{
+    if (!isObservingContentVisibilityTargets())
+        return;
+    m_contentRelevancyUpdate.add(contentRelevancy);
+    scheduleRenderingUpdate(RenderingUpdateStep::UpdateContentRelevancy);
+}
+
+// FIXME: remove when scroll anchoring is implemented (https://bugs.webkit.org/show_bug.cgi?id=259269).
+void Document::updateContentRelevancyForScrollIfNeeded(const Element& scrollAnchor)
+{
+    if (!m_contentVisibilityDocumentState)
+        return;
+    return m_contentVisibilityDocumentState->updateContentRelevancyForScrollIfNeeded(scrollAnchor);
 }
 
 } // namespace WebCore

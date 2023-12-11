@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -117,7 +117,9 @@ RouterAdvertisementGetDNSSL(RouterAdvertisementRef ra,
 
 CFAbsoluteTime
 RouterAdvertisementGetDNSExpirationTime(RouterAdvertisementRef ra,
-					CFAbsoluteTime now);
+					CFAbsoluteTime now,
+					bool * has_dns,
+					bool * has_expired);
 
 CFStringRef
 RouterAdvertisementCopyCaptivePortal(RouterAdvertisementRef ra);

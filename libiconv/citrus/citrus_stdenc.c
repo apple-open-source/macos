@@ -60,8 +60,23 @@ _citrus_stdenc_open(struct _citrus_stdenc * __restrict * __restrict rce,
 	int ret;
 
 	if (!strcmp(encname, _CITRUS_DEFAULT_STDENC_NAME)) {
+#ifdef __APPLE__
+		/*
+		 * We still want to initialize citrus_none, in case there are
+		 * some variables that we care about or whatnot.
+		 */
+		ce = malloc(sizeof(*ce));
+		if (ce == NULL) {
+			ret = errno;
+			goto bad;
+		}
+
+		*ce = _citrus_stdenc_default;
+		goto doinit;
+#else
 		*rce = &_citrus_stdenc_default;
 		return (0);
+#endif
 	}
 	ce = malloc(sizeof(*ce));
 	if (ce == NULL) {
@@ -111,6 +126,9 @@ _citrus_stdenc_open(struct _citrus_stdenc * __restrict * __restrict rce,
 		goto bad;
 	}
 
+#ifdef __APPLE__
+doinit:
+#endif
 	/* allocate traits */
 	ce->ce_traits = malloc(sizeof(*ce->ce_traits));
 	if (ce->ce_traits == NULL) {
@@ -147,5 +165,20 @@ _citrus_stdenc_close(struct _citrus_stdenc *ce)
 		free(ce->ce_traits);
 		_citrus_unload_module(ce->ce_module);
 	}
+#ifdef __APPLE__
+	else if (ce->ce_ops != NULL) {
+		/*
+		 * If ce_module == NULL but ce_ops != NULL, then we must be
+		 * looking at a _citrus_stdenc_default clone.  We don't have our
+		 * own copy of ce_ops and we have no ce_module to unload, we
+		 * just need to uninit the module and free the traits.
+		 */
+		if (ce->ce_closure != NULL && ce->ce_ops->eo_uninit != NULL)
+			(*ce->ce_ops->eo_uninit)(ce);
+		free(ce->ce_traits);
+	} else {
+		assert(ce->ce_closure == NULL);
+	}
+#endif
 	free(ce);
 }

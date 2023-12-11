@@ -101,14 +101,14 @@ std::optional<WebPasteboardProxy::PasteboardAccessType> WebPasteboardProxy::acce
 {
     MESSAGE_CHECK_WITH_RETURN_VALUE(!pasteboardName.isEmpty(), std::nullopt);
 
-    auto* process = webProcessProxyForConnection(connection);
+    RefPtr process = webProcessProxyForConnection(connection);
     MESSAGE_CHECK_WITH_RETURN_VALUE(process, std::nullopt);
 
     for (auto& page : process->pages()) {
         if (!page)
             continue;
-        auto& preferences = page->preferences();
-        if (!preferences.domPasteAllowed() || !preferences.javaScriptCanAccessClipboard())
+        Ref preferences = page->preferences();
+        if (!preferences->domPasteAllowed() || !preferences->javaScriptCanAccessClipboard())
             continue;
 
         // If a web page already allows JavaScript to programmatically read pasteboard data,
@@ -220,7 +220,7 @@ void WebPasteboardProxy::getPasteboardStringsForType(IPC::Connection& connection
     });
 }
 
-void WebPasteboardProxy::getPasteboardBufferForType(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, std::optional<PageIdentifier> pageID, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
+void WebPasteboardProxy::getPasteboardBufferForType(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, std::optional<PageIdentifier> pageID, CompletionHandler<void(WebCore::PasteboardBuffer&&)>&& completionHandler)
 {
     MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler({ }));
 
@@ -231,7 +231,8 @@ void WebPasteboardProxy::getPasteboardBufferForType(IPC::Connection& connection,
     MESSAGE_CHECK_COMPLETION(dataOwner, completionHandler({ }));
 
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
-        completionHandler(PlatformPasteboard(pasteboardName).bufferForType(pasteboardType));
+        auto pasteboardBuffer = PlatformPasteboard(pasteboardName).bufferForType(pasteboardType);
+        completionHandler(WTFMove(pasteboardBuffer));
     });
 }
 

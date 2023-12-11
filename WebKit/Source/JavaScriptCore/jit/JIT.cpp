@@ -71,8 +71,6 @@ JIT::JIT(VM& vm, CodeBlock* codeBlock, BytecodeIndex loopOSREntryBytecodeIndex)
     , m_profiledCodeBlock(codeBlock)
     , m_unlinkedCodeBlock(codeBlock->unlinkedCodeBlock())
 {
-    auto globalObjectConstant = addToConstantPool(JITConstantPool::Type::GlobalObject);
-    ASSERT_UNUSED(globalObjectConstant, globalObjectConstant == s_globalObjectConstant);
 }
 
 JIT::~JIT()
@@ -231,9 +229,8 @@ void JIT::privateCompileMainPass()
 #if ASSERT_ENABLED
         if (opcodeID != op_catch) {
             loadPtr(addressFor(CallFrameSlot::codeBlock), regT0);
-            loadPtr(Address(regT0, CodeBlock::offsetOfMetadataTable()), regT1);
-            loadPtr(Address(regT0, CodeBlock::offsetOfJITData()), regT2);
-
+            ASSERT(static_cast<ptrdiff_t>(CodeBlock::offsetOfJITData() + sizeof(void*)) == CodeBlock::offsetOfMetadataTable());
+            loadPairPtr(Address(regT0, CodeBlock::offsetOfJITData()), regT2, regT1);
             m_consistencyCheckCalls.append(nearCall());
         }
 #endif
@@ -302,6 +299,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_bitor)
         DEFINE_OP(op_bitxor)
         DEFINE_OP(op_call)
+        DEFINE_OP(op_call_ignore_result)
         DEFINE_OP(op_tail_call)
         DEFINE_OP(op_call_direct_eval)
         DEFINE_OP(op_call_varargs)
@@ -539,6 +537,7 @@ void JIT::privateCompileSlowCases()
         switch (currentInstruction->opcodeID()) {
         DEFINE_SLOWCASE_OP(op_add)
         DEFINE_SLOWCASE_OP(op_call)
+        DEFINE_SLOWCASE_OP(op_call_ignore_result)
         DEFINE_SLOWCASE_OP(op_tail_call)
         DEFINE_SLOWCASE_OP(op_call_direct_eval)
         DEFINE_SLOWCASE_OP(op_call_varargs)
@@ -666,8 +665,8 @@ void JIT::privateCompileSlowCases()
 void JIT::emitMaterializeMetadataAndConstantPoolRegisters()
 {
     loadPtr(addressFor(CallFrameSlot::codeBlock), regT0);
-    loadPtr(Address(regT0, CodeBlock::offsetOfMetadataTable()), s_metadataGPR);
-    loadPtr(Address(regT0, CodeBlock::offsetOfJITData()), s_constantsGPR);
+    ASSERT(static_cast<ptrdiff_t>(CodeBlock::offsetOfJITData() + sizeof(void*)) == CodeBlock::offsetOfMetadataTable());
+    loadPairPtr(Address(regT0, CodeBlock::offsetOfJITData()), s_constantsGPR, s_metadataGPR);
 }
 
 void JIT::emitSaveCalleeSaves()
@@ -699,8 +698,8 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::consistencyCheckGenerator(VM&)
         jit.subPtr(TrustedImm32(delta), expectedStackPointerGPR);
 
     jit.loadPtr(addressFor(CallFrameSlot::codeBlock), expectedConstantsGPR);
-    jit.loadPtr(Address(expectedConstantsGPR, CodeBlock::offsetOfMetadataTable()), expectedMetadataGPR);
-    jit.loadPtr(Address(expectedConstantsGPR, CodeBlock::offsetOfJITData()), expectedConstantsGPR);
+    ASSERT(static_cast<ptrdiff_t>(CodeBlock::offsetOfJITData() + sizeof(void*)) == CodeBlock::offsetOfMetadataTable());
+    jit.loadPairPtr(Address(expectedConstantsGPR, CodeBlock::offsetOfJITData()), expectedConstantsGPR, expectedMetadataGPR);
 
     auto stackPointerOK = jit.branchPtr(Equal, expectedStackPointerGPR, stackPointerRegister);
     jit.breakpoint();
@@ -808,7 +807,7 @@ std::tuple<std::unique_ptr<LinkBuffer>, RefPtr<BaselineJITCode>> JIT::compileAnd
         ASSERT(!m_bytecodeIndex);
         if (shouldEmitProfiling() && (!m_unlinkedCodeBlock->isConstructor() || m_unlinkedCodeBlock->numParameters() > 1)) {
             emitGetFromCallFrameHeaderPtr(CallFrameSlot::codeBlock, regT2);
-            loadPtr(Address(regT2, CodeBlock::offsetOfArgumentValueProfiles() + FixedVector<ValueProfile>::offsetOfStorage()), regT2);
+            loadPtr(Address(regT2, CodeBlock::offsetOfArgumentValueProfiles() + FixedVector<ArgumentValueProfile>::offsetOfStorage()), regT2);
 
             for (unsigned argument = 0; argument < m_unlinkedCodeBlock->numParameters(); ++argument) {
                 // If this is a constructor, then we want to put in a dummy profiling site (to
@@ -817,7 +816,7 @@ std::tuple<std::unique_ptr<LinkBuffer>, RefPtr<BaselineJITCode>> JIT::compileAnd
                     continue;
                 int offset = CallFrame::argumentOffsetIncludingThis(argument) * static_cast<int>(sizeof(Register));
                 loadValue(Address(callFrameRegister, offset), jsRegT10);
-                storeValue(jsRegT10, Address(regT2, FixedVector<ValueProfile>::Storage::offsetOfData() + argument * sizeof(ValueProfile) + ValueProfile::offsetOfFirstBucket()));
+                storeValue(jsRegT10, Address(regT2, FixedVector<ArgumentValueProfile>::Storage::offsetOfData() + argument * sizeof(ArgumentValueProfile) + ArgumentValueProfile::offsetOfFirstBucket()));
             }
         }
     }

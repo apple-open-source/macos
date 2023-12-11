@@ -84,13 +84,13 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "RenderedPosition.h"
+#include "RuntimeApplicationChecks.h"
 #include "Settings.h"
 #include "TextCheckerClient.h"
 #include "TextCheckingHelper.h"
 #include "TextIterator.h"
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
-#include <pal/SessionID.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
@@ -105,6 +105,16 @@ using namespace HTMLNames;
 AccessibilityObject::~AccessibilityObject()
 {
     ASSERT(isDetached());
+}
+
+void AccessibilityObject::init()
+{
+    m_role = determineAccessibilityRole();
+}
+
+inline ProcessID AccessibilityObject::processID() const
+{
+    return presentingApplicationPID();
 }
 
 void AccessibilityObject::detachRemoteParts(AccessibilityDetachmentType detachmentType)
@@ -566,10 +576,7 @@ static void appendAccessibilityObject(RefPtr<AXCoreObject> object, Accessibility
         auto* frameView = dynamicDowncast<LocalFrameView>(widget);
         if (!frameView)
             return;
-        auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
-        if (!localFrame)
-            return;
-        auto* document = localFrame->document();
+        auto* document = frameView->frame().document();
         if (!document || !document->hasLivingRenderTree())
             return;
         
@@ -1406,10 +1413,7 @@ VisiblePosition AccessibilityObject::visiblePositionForPoint(const IntPoint& poi
         auto* frameView = dynamicDowncast<LocalFrameView>(widget);
         if (!frameView)
             break;
-        auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
-        if (!localFrame)
-            break;
-        auto* document = localFrame->document();
+        auto* document = frameView->frame().document();
         if (!document)
             break;
 
@@ -1688,17 +1692,29 @@ static RenderListItem* renderListItemContainerForNode(Node* node)
     return nullptr;
 }
 
-// Returns the text representing a list marker if node is contained within a list item.
-StringView AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, const VisiblePosition& visiblePositionStart)
+// Returns the text representing a list marker.
+static StringView listMarkerText(RenderListItem& listItem, const VisiblePosition& startVisiblePosition)
+{
+    // Only include the list marker if the range includes the line start (where the marker would be), and is in the same line as the marker.
+    if (!isStartOfLine(startVisiblePosition) || !inSameLine(startVisiblePosition, firstPositionInNode(&listItem.element())))
+        return { };
+    return listItem.markerTextWithSuffix();
+}
+
+StringView AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, Position&& startPosition)
 {
     auto* listItem = renderListItemContainerForNode(node);
-    if (!listItem)
+    // Constructing a VisiblePosition from a Position can be extraordinarily expensive, so only do it if there's actually marker text.
+    if (!listItem || listItem->markerTextWithSuffix().isEmpty())
         return { };
 
-    // Only include the list marker if the range includes the line start (where the marker would be), and is in the same line as the marker.
-    if (!isStartOfLine(visiblePositionStart) || !inSameLine(visiblePositionStart, firstPositionInNode(&listItem->element())))
-        return { };
-    return listItem->markerTextWithSuffix();
+    return listMarkerText(*listItem, WTFMove(startPosition));
+}
+
+StringView AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, const VisiblePosition& startVisiblePosition)
+{
+    auto* listItem = renderListItemContainerForNode(node);
+    return listItem ? listMarkerText(*listItem, startVisiblePosition) : StringView();
 }
 
 String AccessibilityObject::stringForRange(const SimpleRange& range) const
@@ -2040,11 +2056,7 @@ Document* AccessibilityObject::document() const
     if (!frameView)
         return nullptr;
 
-    auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
-    if (!localFrame)
-        return nullptr;
-
-    return localFrame->document();
+    return frameView->frame().document();
 }
     
 Page* AccessibilityObject::page() const
@@ -2192,17 +2204,6 @@ void AccessibilityObject::ariaTreeRows(AccessibilityChildrenVector& rows)
     ariaTreeRows(rows, ancestors);
 }
     
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::ariaTreeItemContent()
-{
-    AccessibilityChildrenVector result;
-    // The content of a treeitem excludes other treeitems or their containing groups.
-    for (const auto& child : children()) {
-        if (!child->isGroup() && child->roleValue() != AccessibilityRole::TreeItem)
-            result.append(child);
-    }
-    return result;
-}
-
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::disclosedRows()
 {
     AccessibilityChildrenVector result;
@@ -2717,8 +2718,8 @@ AccessibilityRole AccessibilityObject::ariaRoleToWebCoreRole(const String& value
 {
     if (value.isNull() || value.isEmpty())
         return AccessibilityRole::Unknown;
-
-    for (auto roleName : StringView(value).split(' ')) {
+    auto simplifiedValue = value.simplifyWhiteSpace(isASCIIWhitespace);
+    for (auto roleName : StringView(simplifiedValue).split(' ')) {
         AccessibilityRole role = ariaRoleMap().get<ASCIICaseInsensitiveStringViewHashTranslator>(roleName);
         if (static_cast<int>(role))
             return role;
@@ -2760,6 +2761,16 @@ String AccessibilityObject::computedRoleString() const
         return reverseAriaRoleMap().get(static_cast<int>(AccessibilityRole::LandmarkRegion));
 
     return reverseAriaRoleMap().get(static_cast<int>(role));
+}
+
+void AccessibilityObject::updateRole()
+{
+    auto previousRole = m_role;
+    m_role = determineAccessibilityRole();
+    if (previousRole != m_role) {
+        if (auto* cache = axObjectCache())
+            cache->handleRoleChanged(this);
+    }
 }
 
 bool AccessibilityObject::hasHighlighting() const
@@ -3130,25 +3141,6 @@ AXCoreObject* AccessibilityObject::focusedUIElement() const
     return page && axObjectCache ? axObjectCache->focusedObjectForPage(page) : nullptr;
 }
 
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::selectedCells()
-{
-    if (!isTable())
-        return { };
-
-    AXCoreObject::AccessibilityChildrenVector selectedCells;
-    for (auto& cell : cells()) {
-        if (cell->isSelected())
-            selectedCells.append(cell);
-    }
-
-    if (auto* activeDescendant = this->activeDescendant()) {
-        if (activeDescendant->isExposedTableCell() && !selectedCells.contains(activeDescendant))
-            selectedCells.append(activeDescendant);
-    }
-
-    return selectedCells;
-}
-
 void AccessibilityObject::setSelectedRows(AccessibilityChildrenVector&& selectedRows)
 {
     // Setting selected only makes sense in trees and tables (and tree-tables).
@@ -3355,7 +3347,7 @@ bool AccessibilityObject::supportsPressed() const
     const AtomString& expanded = getAttribute(aria_pressedAttr);
     return equalLettersIgnoringASCIICase(expanded, "true"_s) || equalLettersIgnoringASCIICase(expanded, "false"_s);
 }
-    
+
 bool AccessibilityObject::supportsExpanded() const
 {
     // If this object can toggle an HTML popover, it supports the reporting of its expanded state (which is based on the expanded / collapsed state of that popover).
@@ -3406,7 +3398,7 @@ double AccessibilityObject::loadingProgress() const
 bool AccessibilityObject::isExpanded() const
 {
     if (is<HTMLDetailsElement>(node()))
-        return downcast<HTMLDetailsElement>(node())->isOpen();
+        return downcast<HTMLDetailsElement>(node())->hasAttribute(openAttr);
     
     // Summary element should use its details parent's expanded status.
     if (isSummary()) {
@@ -3851,6 +3843,11 @@ void AccessibilityObject::setLastKnownIsIgnoredValue(bool isIgnored)
     m_lastKnownIsIgnoredValue = isIgnored ? AccessibilityObjectInclusion::IgnoreObject : AccessibilityObjectInclusion::IncludeObject;
 }
 
+bool AccessibilityObject::ignoredFromPresentationalRole() const
+{
+    return roleValue() == AccessibilityRole::Presentational || inheritsPresentationalRole();
+}
+
 bool AccessibilityObject::pressedIsPresent() const
 {
     return !getAttribute(aria_pressedAttr).isEmpty();
@@ -3893,6 +3890,11 @@ bool AccessibilityObject::accessibilityIsIgnoredByDefault() const
     return defaultObjectInclusion() == AccessibilityObjectInclusion::IgnoreObject;
 }
 
+bool AccessibilityObject::isARIAHidden() const
+{
+    return equalLettersIgnoringASCIICase(getAttribute(aria_hiddenAttr), "true"_s) && !isFocused();
+}
+
 // ARIA component of hidden definition.
 // https://www.w3.org/TR/wai-aria/#dfn-hidden
 bool AccessibilityObject::isAXHidden() const
@@ -3901,7 +3903,7 @@ bool AccessibilityObject::isAXHidden() const
         return false;
     
     return Accessibility::findAncestor<AccessibilityObject>(*this, true, [] (const AccessibilityObject& object) {
-        return equalLettersIgnoringASCIICase(object.getAttribute(aria_hiddenAttr), "true"_s) && !object.isFocused();
+        return object.isARIAHidden();
     }) != nullptr;
 }
 
@@ -3947,10 +3949,16 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
     }
 
     bool useParentData = !m_isIgnoredFromParentData.isNull();
-    if (useParentData ? m_isIgnoredFromParentData.isAXHidden : isAXHidden())
+    if (useParentData && (m_isIgnoredFromParentData.isAXHidden || m_isIgnoredFromParentData.isPresentationalChildOfAriaRole))
         return AccessibilityObjectInclusion::IgnoreObject;
 
-    if (useParentData ? m_isIgnoredFromParentData.isPresentationalChildOfAriaRole : isPresentationalChildOfAriaRole())
+    if (isARIAHidden())
+        return AccessibilityObjectInclusion::IgnoreObject;
+
+    bool ignoreARIAHidden = isFocused();
+    if (Accessibility::findAncestor<AccessibilityObject>(*this, false, [&] (const auto& object) {
+        return (!ignoreARIAHidden && object.isARIAHidden()) || object.ariaRoleHasPresentationalChildren() || !object.canHaveChildren();
+    }))
         return AccessibilityObjectInclusion::IgnoreObject;
 
     // Include <dialog> elements and elements with role="dialog".
@@ -4073,29 +4081,6 @@ AccessibilityObject* AccessibilityObject::radioGroupAncestor() const
     return Accessibility::findAncestor<AccessibilityObject>(*this, false, [] (const AccessibilityObject& object) {
         return object.isRadioGroup();
     });
-}
-
-String AccessibilityObject::documentURI() const
-{
-    if (auto* document = this->document())
-        return document->documentURI();
-    return String();
-}
-
-String AccessibilityObject::documentEncoding() const
-{
-    if (auto* document = this->document())
-        return document->encoding();
-    return String();
-}
-
-PAL::SessionID AccessibilityObject::sessionID() const
-{
-    if (auto* document = topDocument()) {
-        if (auto* page = document->page())
-            return page->sessionID();
-    }
-    return PAL::SessionID(PAL::SessionID::SessionConstants::HashTableEmptyValueID);
 }
 
 AtomString AccessibilityObject::tagName() const
@@ -4308,15 +4293,6 @@ bool AccessibilityObject::shouldFocusActiveDescendant() const
     }
 }
 
-AccessibilityObject* AccessibilityObject::activeDescendant() const
-{
-    auto activeDescendants = relatedObjects(AXRelationType::ActiveDescendant);
-    ASSERT(activeDescendants.size() <= 1);
-    if (!activeDescendants.isEmpty())
-        return dynamicDowncast<AccessibilityObject>(activeDescendants[0].get());
-    return nullptr;
-}
-
 bool AccessibilityObject::isActiveDescendantOfFocusedContainer() const
 {
     auto containers = activeDescendantOfObjects();
@@ -4342,13 +4318,6 @@ bool AccessibilityObject::ariaRoleHasPresentationalChildren() const
     }
 }
 
-bool AccessibilityObject::isPresentationalChildOfAriaRole() const
-{
-    return Accessibility::findAncestor(*this, false, [] (const auto& ancestor) {
-        return ancestor.ariaRoleHasPresentationalChildren();
-    });
-}
-
 void AccessibilityObject::setIsIgnoredFromParentDataForChild(AccessibilityObject* child)
 {
     if (!child)
@@ -4360,9 +4329,20 @@ void AccessibilityObject::setIsIgnoredFromParentDataForChild(AccessibilityObject
         result.isPresentationalChildOfAriaRole = m_isIgnoredFromParentData.isPresentationalChildOfAriaRole || ariaRoleHasPresentationalChildren();
         result.isDescendantOfBarrenParent = m_isIgnoredFromParentData.isDescendantOfBarrenParent || !canHaveChildren();
     } else {
-        result.isAXHidden = child->isAXHidden();
-        result.isPresentationalChildOfAriaRole = child->isPresentationalChildOfAriaRole();
-        result.isDescendantOfBarrenParent = child->isDescendantOfBarrenParent();
+        if (child->isARIAHidden())
+            result.isAXHidden = true;
+
+        bool ignoreARIAHidden = child->isFocused();
+        for (auto* object = child->parentObject(); object; object = object->parentObject()) {
+            if (!result.isAXHidden && !ignoreARIAHidden && object->isARIAHidden())
+                result.isAXHidden = true;
+
+            if (!result.isPresentationalChildOfAriaRole && object->ariaRoleHasPresentationalChildren())
+                result.isPresentationalChildOfAriaRole = true;
+
+            if (!result.isDescendantOfBarrenParent && !object->canHaveChildren())
+                result.isDescendantOfBarrenParent = true;
+        }
     }
 
     child->setIsIgnoredFromParentData(result);

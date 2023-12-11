@@ -115,6 +115,12 @@ static std::optional<size_t> damagedLineIndex(std::optional<DamagedContent> dama
         if (!damagedContent->offset)
             return candidateLineIndex(leadingIndexForDisplayBox);
 
+        if (damagedContent->offset > displayBoxes[leadingIndexForDisplayBox].text().end()) {
+            // Protect against text updater providing bogus damage offset (offset is _after_ the last display box here).
+            // Let's just fallback to full invalidation.
+            return { };
+        }
+
         for (auto index = leadingIndexForDisplayBox; index > 0; --index) {
             auto& displayBox = displayBoxes[index];
             if (displayBox.isRootInlineBox() || (displayBox.isInlineBox() && !displayBox.isFirstForLayoutBox())) {
@@ -229,10 +235,16 @@ static std::optional<InlineItemPosition> inlineItemPositionForDamagedContentPosi
         return is<InlineTextItem>(inlineItem) ? downcast<InlineTextItem>(inlineItem).start() : downcast<InlineSoftLineBreakItem>(inlineItem).position();
     };
 
-    if (startPosition(candidateInlineItem) + candidatePosition.offset <= *damagedContent.offset)
+    auto contentOffset = startPosition(candidateInlineItem) + candidatePosition.offset;
+    if (contentOffset < *damagedContent.offset) {
+        // The damaged content is after the start of this inline item.
+        return candidatePosition;
+    }
+    // When the inline item's entire content is being removed, we need to find the previous inline item that belongs to this damaged layout box.
+    if (contentOffset == *damagedContent.offset && damagedContent.type != DamagedContent::Type::Removal)
         return candidatePosition;
 
-    // The damage offset is in front of the first display box we managed to find for this layout box.
+    // The damage offset is before the first display box we managed to find for this layout box.
     // Let's adjust the candidate position by moving it over to the damaged offset.
     for (auto index = candidatePosition.index; index--;) {
         auto& previousInlineItem = inlineItems[index];
@@ -310,6 +322,19 @@ void InlineInvalidation::updateInlineDamage(InlineDamage::Type type, std::option
 {
     if (type == InlineDamage::Type::Invalid || !damagedLine)
         return m_inlineDamage.reset();
+    auto isValidDamage = [&] {
+        // Check for consistency.
+        if (!damagedLine->leadingInlineItemPosition) {
+            // We have to start at the first line if damage points to the leading inline item.
+            return !damagedLine->index;
+        }
+        return true;
+    };
+    if (!isValidDamage()) {
+        ASSERT_NOT_REACHED();
+        m_inlineDamage.reset();
+        return;
+    }
 
     m_inlineDamage.setDamageType(type);
     m_inlineDamage.setDamagedPosition({ damagedLine->index, damagedLine->leadingInlineItemPosition });

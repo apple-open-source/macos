@@ -501,7 +501,7 @@ void NetworkDataTaskSoup::dispatchDidReceiveResponse()
         case PolicyAction::Download:
             download();
             break;
-        case PolicyAction::StopAllLoads:
+        case PolicyAction::LoadWillContinueInAnotherProcess:
             ASSERT_NOT_REACHED();
             break;
         }

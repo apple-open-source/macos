@@ -88,6 +88,7 @@
 #include "Settings.h"
 #include "StyleReflection.h"
 #include "StyleScrollSnapPoints.h"
+#include "TransformOperationData.h"
 #include "TransformState.h"
 #include <algorithm>
 #include <math.h>
@@ -254,6 +255,19 @@ static RenderBlockFlow* outermostBlockContainingFloatingObject(RenderBox& box)
     return parentBlock;
 }
 
+void RenderBox::removeFloatingAndInvalidateForLayout()
+{
+    ASSERT(isFloating());
+
+    if (renderTreeBeingDestroyed())
+        return;
+
+    if (auto* ancestor = outermostBlockContainingFloatingObject(*this)) {
+        ancestor->markSiblingsWithFloatsForLayout(this);
+        ancestor->markAllDescendantsWithFloatsForLayout(this, false);
+    }
+}
+
 void RenderBox::removeFloatingOrPositionedChildFromBlockLists()
 {
     ASSERT(isFloatingOrOutOfFlowPositioned());
@@ -261,12 +275,8 @@ void RenderBox::removeFloatingOrPositionedChildFromBlockLists()
     if (renderTreeBeingDestroyed())
         return;
 
-    if (isFloating()) {
-        if (RenderBlockFlow* parentBlock = outermostBlockContainingFloatingObject(*this)) {
-            parentBlock->markSiblingsWithFloatsForLayout(this);
-            parentBlock->markAllDescendantsWithFloatsForLayout(this, false);
-        }
-    }
+    if (isFloating())
+        removeFloatingAndInvalidateForLayout();
 
     if (isOutOfFlowPositioned())
         RenderBlock::removePositionedObject(*this);
@@ -355,6 +365,13 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
             scrollableArea->setPostLayoutScrollPosition(scrollPosition);
         }
     }
+
+#if ENABLE(DARK_MODE_CSS)
+    if (layer() && oldStyle && oldStyle->colorScheme() != newStyle.colorScheme()) {
+        if (auto* scrollableArea = layer()->scrollableArea())
+            scrollableArea->invalidateScrollbars();
+    }
+#endif
 
     // Our opaqueness might have changed without triggering layout.
     if (diff >= StyleDifference::Repaint && diff <= StyleDifference::RepaintLayer) {
@@ -621,7 +638,7 @@ void RenderBox::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
 
 void RenderBox::applyTransform(TransformationMatrix& t, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
 {
-    style.applyTransform(t, boundingBox, options);
+    style.applyTransform(t, TransformOperationData(boundingBox, this), options);
 }
 
 void RenderBox::constrainLogicalMinMaxSizesByAspectRatio(LayoutUnit& computedMinSize, LayoutUnit& computedMaxSize, LayoutUnit computedSize, MinimumSizeIsAutomaticContentBased minimumSizeType, ConstrainDimension dimension) const
@@ -1915,10 +1932,10 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, const LayoutRect& pa
         pushTransparencyLayer = true;
 
         // Don't render a masked element until all the mask images have loaded, to prevent a flash of unmasked content.
-        if (auto* maskBoxImage = style().maskBoxImage().image())
-            allMaskImagesLoaded &= maskBoxImage->isLoaded();
+        if (auto* maskBorder = style().maskBorder().image())
+            allMaskImagesLoaded &= maskBorder->isLoaded(this);
 
-        allMaskImagesLoaded &= style().maskLayers().imagesAreLoaded();
+        allMaskImagesLoaded &= style().maskLayers().imagesAreLoaded(this);
 
         paintInfo.context().setCompositeOperation(CompositeOperator::DestinationIn);
         paintInfo.context().beginTransparencyLayer(1);
@@ -1927,7 +1944,7 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, const LayoutRect& pa
 
     if (allMaskImagesLoaded) {
         BackgroundPainter { *this, paintInfo }.paintFillLayers(Color(), style().maskLayers(), paintRect, BackgroundBleedNone, compositeOp);
-        BorderPainter { *this, paintInfo }.paintNinePieceImage(paintRect, style(), style().maskBoxImage(), compositeOp);
+        BorderPainter { *this, paintInfo }.paintNinePieceImage(paintRect, style(), style().maskBorder(), compositeOp);
     }
     
     if (pushTransparencyLayer)
@@ -1936,12 +1953,12 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, const LayoutRect& pa
 
 LayoutRect RenderBox::maskClipRect(const LayoutPoint& paintOffset)
 {
-    const NinePieceImage& maskBoxImage = style().maskBoxImage();
-    if (maskBoxImage.image()) {
+    const NinePieceImage& maskBorder = style().maskBorder();
+    if (maskBorder.image()) {
         LayoutRect borderImageRect = borderBoxRect();
         
         // Apply outsets to the border box.
-        borderImageRect.expand(style().maskBoxImageOutsets());
+        borderImageRect.expand(style().maskBorderOutsets());
         return borderImageRect;
     }
     
@@ -1971,7 +1988,7 @@ void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
         return;
 
     if ((style().borderImage().image() && style().borderImage().image()->data() == image) ||
-        (style().maskBoxImage().image() && style().maskBoxImage().image()->data() == image)) {
+        (style().maskBorder().image() && style().maskBorder().image()->data() == image)) {
         repaint();
         return;
     }
@@ -2023,7 +2040,7 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer
     RenderBox* layerRenderer = nullptr;
 
     for (auto* layer = &layers; layer; layer = layer->next()) {
-        if (layer->image() && image == layer->image()->data() && (layer->image()->isLoaded() || layer->image()->canRender(this, style().effectiveZoom()))) {
+        if (layer->image() && image == layer->image()->data() && (layer->image()->isLoaded(this) || layer->image()->canRender(this, style().effectiveZoom()))) {
             // Now that we know this image is being used, compute the renderer and the rect if we haven't already.
             bool drawingRootBackground = drawingBackground && (isDocumentElementRenderer() || (isBody() && !document().documentElement()->renderer()->hasBackground()));
             if (!layerRenderer) {
@@ -2863,11 +2880,11 @@ bool RenderBox::hasStretchedLogicalHeight() const
         return false;
     }
     if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode()) {
-        if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(ForColumns))
+        if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(GridTrackSizingDirection::ForColumns))
             return true;
         return style.resolvedJustifySelf(&containingBlock->style(), containingBlock->selfAlignmentNormalBehavior(this)).position() == ItemPosition::Stretch;
     }
-    if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(ForRows))
+    if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(GridTrackSizingDirection::ForRows))
         return true;
     return style.resolvedAlignSelf(&containingBlock->style(), containingBlock->selfAlignmentNormalBehavior(this)).position() == ItemPosition::Stretch;
 }
@@ -2886,11 +2903,11 @@ bool RenderBox::hasStretchedLogicalWidth(StretchingMode stretchingMode) const
     }
     auto normalItemPosition = stretchingMode == StretchingMode::Any ? containingBlock->selfAlignmentNormalBehavior(this) : ItemPosition::Normal;
     if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode()) {
-        if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(ForRows))
+        if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(GridTrackSizingDirection::ForRows))
             return true;
         return style.resolvedAlignSelf(&containingBlock->style(), normalItemPosition).position() == ItemPosition::Stretch;
     }
-    if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(ForColumns))
+    if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(GridTrackSizingDirection::ForColumns))
         return true;
     return style.resolvedJustifySelf(&containingBlock->style(), normalItemPosition).position() == ItemPosition::Stretch;
 }
@@ -3074,20 +3091,20 @@ RenderBoxFragmentInfo* RenderBox::renderBoxFragmentInfo(RenderFragmentContainer*
 static bool shouldFlipBeforeAfterMargins(const RenderStyle& containingBlockStyle, const RenderStyle* childStyle)
 {
     ASSERT(containingBlockStyle.isHorizontalWritingMode() != childStyle->isHorizontalWritingMode());
-    WritingMode childWritingMode = childStyle->writingMode();
+    auto childBlockFlowDirection = childStyle->blockFlowDirection();
     bool shouldFlip = false;
-    switch (containingBlockStyle.writingMode()) {
-    case WritingMode::TopToBottom:
-        shouldFlip = (childWritingMode == WritingMode::RightToLeft);
+    switch (containingBlockStyle.blockFlowDirection()) {
+    case BlockFlowDirection::TopToBottom:
+        shouldFlip = (childBlockFlowDirection == BlockFlowDirection::RightToLeft);
         break;
-    case WritingMode::BottomToTop:
-        shouldFlip = (childWritingMode == WritingMode::RightToLeft);
+    case BlockFlowDirection::BottomToTop:
+        shouldFlip = (childBlockFlowDirection == BlockFlowDirection::RightToLeft);
         break;
-    case WritingMode::RightToLeft:
-        shouldFlip = (childWritingMode == WritingMode::BottomToTop);
+    case BlockFlowDirection::RightToLeft:
+        shouldFlip = (childBlockFlowDirection == BlockFlowDirection::BottomToTop);
         break;
-    case WritingMode::LeftToRight:
-        shouldFlip = (childWritingMode == WritingMode::BottomToTop);
+    case BlockFlowDirection::LeftToRight:
+        shouldFlip = (childBlockFlowDirection == BlockFlowDirection::BottomToTop);
         break;
     }
 
@@ -3504,6 +3521,7 @@ LayoutUnit RenderBox::computeReplacedLogicalWidthUsing(SizeType widthType, Lengt
     case LengthType::Intrinsic:
     case LengthType::MinIntrinsic:
     case LengthType::Auto:
+    case LengthType::Normal:
     case LengthType::Content:
     case LengthType::Relative:
     case LengthType::Undefined:
@@ -3699,8 +3717,13 @@ LayoutUnit RenderBox::availableLogicalHeightUsing(const Length& h, AvailableLogi
     if (isFlexItem() && downcast<RenderFlexibleBox>(*parent()).useChildOverridingLogicalHeightForPercentageResolution(*this))
         return overridingContentLogicalHeight();
 
-    if (shouldComputeLogicalHeightFromAspectRatio())
-        return blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
+    if (shouldComputeLogicalHeightFromAspectRatio()) {
+        auto borderAndPaddingLogicalHeight = this->borderAndPaddingLogicalHeight();
+        auto borderBoxLogicalHeight = blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight, style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
+        if (heightType == AvailableLogicalHeightType::ExcludeMarginBorderPadding)
+            return borderBoxLogicalHeight - borderAndPaddingLogicalHeight;
+        return borderBoxLogicalHeight;
+    }
 
     if (h.isPercentOrCalculated() && isOutOfFlowPositioned() && !isRenderFragmentedFlow()) {
         // FIXME: This is wrong if the containingBlock has a perpendicular writing mode.
@@ -5283,14 +5306,14 @@ LayoutRect RenderBox::visualOverflowRectForPropagation(const RenderStyle* parent
     // If the writing modes of the child and parent match, then we don't have to 
     // do anything fancy. Just return the result.
     LayoutRect rect = visualOverflowRect();
-    if (parentStyle->writingMode() == style().writingMode())
+    if (parentStyle->blockFlowDirection() == style().blockFlowDirection())
         return rect;
     
     // We are putting ourselves into our parent's coordinate space.  If there is a flipped block mismatch
     // in a particular axis, then we have to flip the rect along that axis.
-    if (style().writingMode() == WritingMode::RightToLeft || parentStyle->writingMode() == WritingMode::RightToLeft)
+    if (style().blockFlowDirection() == BlockFlowDirection::RightToLeft || parentStyle->blockFlowDirection() == BlockFlowDirection::RightToLeft)
         rect.setX(width() - rect.maxX());
-    else if (style().writingMode() == WritingMode::BottomToTop || parentStyle->writingMode() == WritingMode::BottomToTop)
+    else if (style().blockFlowDirection() == BlockFlowDirection::BottomToTop || parentStyle->blockFlowDirection() == BlockFlowDirection::BottomToTop)
         rect.setY(height() - rect.maxY());
 
     return rect;
@@ -5351,14 +5374,14 @@ LayoutRect RenderBox::layoutOverflowRectForPropagation(const RenderStyle* parent
     
     // If the writing modes of the child and parent match, then we don't have to 
     // do anything fancy. Just return the result.
-    if (parentStyle->writingMode() == style().writingMode())
+    if (parentStyle->blockFlowDirection() == style().blockFlowDirection())
         return rect;
     
     // We are putting ourselves into our parent's coordinate space.  If there is a flipped block mismatch
     // in a particular axis, then we have to flip the rect along that axis.
-    if (style().writingMode() == WritingMode::RightToLeft || parentStyle->writingMode() == WritingMode::RightToLeft)
+    if (style().blockFlowDirection() == BlockFlowDirection::RightToLeft || parentStyle->blockFlowDirection() == BlockFlowDirection::RightToLeft)
         rect.setX(width() - rect.maxX());
-    else if (style().writingMode() == WritingMode::BottomToTop || parentStyle->writingMode() == WritingMode::BottomToTop)
+    else if (style().blockFlowDirection() == BlockFlowDirection::BottomToTop || parentStyle->blockFlowDirection() == BlockFlowDirection::BottomToTop)
         rect.setY(height() - rect.maxY());
 
     return rect;
@@ -5648,6 +5671,25 @@ LayoutBoxExtent RenderBox::scrollPaddingForViewportRect(const LayoutRect& viewpo
 
 LayoutUnit synthesizedBaseline(const RenderBox& box, const RenderStyle& parentStyle, LineDirectionMode direction, BaselineSynthesisEdge edge)
 {
+    auto baselineType = [&] {
+        // https://drafts.csswg.org/css-inline-3/#alignment-baseline-property
+        // https://drafts.csswg.org/css-inline-3/#dominant-baseline-property
+
+        auto isHorizontalWritingMode = parentStyle.isHorizontalWritingMode();
+        auto textOrientation = parentStyle.textOrientation();
+
+        if (isHorizontalWritingMode || textOrientation == TextOrientation::Sideways)
+            return FontBaseline::AlphabeticBaseline;
+        if (textOrientation == TextOrientation::Upright || textOrientation == TextOrientation::Mixed)
+            return FontBaseline::CentralBaseline;
+
+        ASSERT_NOT_IMPLEMENTED_YET();
+        return FontBaseline::AlphabeticBaseline;
+    }();
+
+    if (baselineType == FontBaseline::AlphabeticBaseline && parentStyle.writingMode() == WritingMode::VerticalLr)
+        return 0_lu;
+
     auto boxSize = direction == HorizontalLine ? box.height() : box.width();
 
     if (edge == ContentBox)
@@ -5655,7 +5697,7 @@ LayoutUnit synthesizedBaseline(const RenderBox& box, const RenderStyle& parentSt
     else if (edge == MarginBox)
         boxSize += direction == HorizontalLine ? box.verticalMarginExtent() : box.horizontalMarginExtent();
     
-    if (parentStyle.isHorizontalWritingMode() || parentStyle.textOrientation() == TextOrientation::Sideways)
+    if (baselineType == FontBaseline::AlphabeticBaseline)
         return boxSize;
     return boxSize / 2;
 }

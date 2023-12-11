@@ -132,6 +132,20 @@ var commands: [Command] = []
 var argIterator = args.makeIterator()
 var configurationData: [String: Any]?
 
+var accountIsDemo: Bool = false
+
+let store = ACAccountStore()
+guard let account = store.aa_primaryAppleAccount() else {
+    print("Unable to fetch primary Apple account!")
+    abort()
+}
+
+let akManager = AKAccountManager.sharedInstance
+let authKitAccount = akManager.authKitAccount(withAltDSID: account.aa_altDSID)
+if let account = authKitAccount {
+    accountIsDemo = akManager.demoAccount(for: account)
+}
+
 while let arg = argIterator.next() {
     switch arg {
     case "--container":
@@ -611,7 +625,9 @@ for command in commands {
                       voucherSig: voucherSig,
                       ckksKeys: [],
                       tlkShares: [],
-                      preapprovedKeys: preapprovedKeys ?? []) { peerID, _, _, error in
+                      preapprovedKeys: preapprovedKeys ?? [],
+                      flowID: "tpctl-flowID-" + NSUUID().uuidString,
+                      deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString) { peerID, _, _, error in
                         guard error == nil else {
                             print("Error joining:", error!)
                             return
@@ -757,7 +773,13 @@ for command in commands {
 
     case .reset:
         logger.log("resetting (\(container), \(context))")
-        tpHelper.reset(with: specificUser, resetReason: .userInitiatedReset, idmsTargetContext: nil, idmsCuttlefishPassword: nil, notifyIdMS: false) { error in
+        tpHelper.reset(with: specificUser,
+                       resetReason: .userInitiatedReset,
+                       idmsTargetContext: nil,
+                       idmsCuttlefishPassword: nil,
+                       notifyIdMS: false,
+                       internalAccount: true,
+                       demoAccount: accountIsDemo) { error in
             guard error == nil else {
                 print("Error during reset:", error!)
                 return
@@ -791,7 +813,9 @@ for command in commands {
                        permanentInfoSig: permanentInfoSig,
                        stableInfo: stableInfo,
                        stableInfoSig: stableInfoSig,
-                       ckksKeys: []
+                       ckksKeys: [],
+                       flowID: "tpctl-flowID-" + NSUUID().uuidString,
+                       deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString
         ) { voucher, voucherSig, error in
             guard error == nil else {
                 print("Error during vouch:", error!)
@@ -843,24 +867,11 @@ for command in commands {
         logger.log("allow-listing (\(container), \(context))")
 
         var idmsDeviceIDs: Set<String> = Set()
-        var accountIsDemo: Bool = false
 
         if performIDMS {
-            let store = ACAccountStore()
-            guard let account = store.aa_primaryAppleAccount() else {
-                print("Unable to fetch primary Apple account!")
-                abort()
-            }
-
             let requestArguments = AKDeviceListRequestContext()
             requestArguments.altDSID = account.aa_altDSID
             requestArguments.services = [AKServiceNameiCloud]
-
-            let akManager = AKAccountManager.sharedInstance
-            let authKitAccount = akManager.authKitAccount(withAltDSID: account.aa_altDSID)
-            if let account = authKitAccount {
-                accountIsDemo = akManager.demoAccount(for: account)
-            }
 
             guard let controller = AKAppleIDAuthenticationController() else {
                 print("Unable to create AKAppleIDAuthenticationController!")

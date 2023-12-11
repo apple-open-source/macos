@@ -105,7 +105,7 @@ private:
 RenderBox::LogicalExtentComputedValues RenderSliderContainer::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const
 {
     ASSERT(element()->shadowHost());
-    auto& input = downcast<HTMLInputElement>(*element()->shadowHost());
+    auto& input = checkedDowncast<HTMLInputElement>(*element()->shadowHost());
     bool isVertical = hasVerticalAppearance(input);
 
 #if ENABLE(DATALIST_ELEMENT)
@@ -133,7 +133,7 @@ RenderBox::LogicalExtentComputedValues RenderSliderContainer::computeLogicalHeig
 void RenderSliderContainer::layout()
 {
     ASSERT(element()->shadowHost());
-    auto& input = downcast<HTMLInputElement>(*element()->shadowHost());
+    auto& input = checkedDowncast<HTMLInputElement>(*element()->shadowHost());
     bool isVertical = hasVerticalAppearance(input);
     mutableStyle().setFlexDirection(isVertical && style().isHorizontalWritingMode() ? FlexDirection::Column : FlexDirection::Row);
     TextDirection oldTextDirection = style().direction();
@@ -326,7 +326,7 @@ void SliderThumbElement::defaultEventHandler(Event& event)
     }
 
     MouseEvent& mouseEvent = downcast<MouseEvent>(event);
-    bool isLeftButton = mouseEvent.button() == LeftButton;
+    bool isLeftButton = mouseEvent.button() == MouseButton::Left;
     const AtomString& eventType = mouseEvent.type();
 
     // We intentionally do not call event->setDefaultHandled() here because
@@ -554,7 +554,7 @@ RefPtr<HTMLInputElement> SliderThumbElement::hostInput() const
 {
     // Only HTMLInputElement creates SliderThumbElement instances as its shadow nodes.
     // So, shadowHost() must be an HTMLInputElement.
-    return downcast<HTMLInputElement>(shadowHost());
+    return checkedDowncast<HTMLInputElement>(shadowHost());
 }
 
 std::optional<Style::ResolvedStyle> SliderThumbElement::resolveCustomStyle(const Style::ResolutionContext& resolutionContext, const RenderStyle* hostStyle)

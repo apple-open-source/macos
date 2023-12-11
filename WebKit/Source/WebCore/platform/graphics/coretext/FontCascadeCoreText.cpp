@@ -348,10 +348,7 @@ void FontCascade::drawGlyphs(GraphicsContext& context, const Font& font, const G
     setCGFontRenderingMode(context);
     CGContextSetFontSize(cgContext, platformData.size());
 
-    FloatSize shadowOffset;
-    float shadowBlur;
-    Color shadowColor;
-    context.getShadow(shadowOffset, shadowBlur, shadowColor);
+    auto shadow = context.dropShadow();
 
     AffineTransform contextCTM = context.getCTM();
     float syntheticBoldOffset = font.syntheticBoldOffset();
@@ -364,16 +361,16 @@ void FontCascade::drawGlyphs(GraphicsContext& context, const Font& font, const G
         }
     };
 
-    bool hasSimpleShadow = context.textDrawingMode() == TextDrawingMode::Fill && shadowColor.isValid() && !shadowBlur && !platformData.isColorBitmapFont() && (!context.shadowsIgnoreTransforms() || contextCTM.isIdentityOrTranslationOrFlipped()) && !context.isInTransparencyLayer();
+    bool hasSimpleShadow = context.textDrawingMode() == TextDrawingMode::Fill && shadow && shadow->color.isValid() && !shadow->radius && !platformData.isColorBitmapFont() && (!context.shadowsIgnoreTransforms() || contextCTM.isIdentityOrTranslationOrFlipped()) && !context.isInTransparencyLayer();
     if (hasSimpleShadow) {
         // Paint simple shadows ourselves instead of relying on CG shadows, to avoid losing subpixel antialiasing.
         context.clearShadow();
         Color fillColor = context.fillColor();
-        Color shadowFillColor = shadowColor.colorWithAlphaMultipliedBy(fillColor.alphaAsFloat());
+        Color shadowFillColor = shadow->color.colorWithAlphaMultipliedBy(fillColor.alphaAsFloat());
         context.setFillColor(shadowFillColor);
-        float shadowTextX = point.x() + shadowOffset.width();
+        float shadowTextX = point.x() + shadow->offset.width();
         // If shadows are ignoring transforms, then we haven't applied the Y coordinate flip yet, so down is negative.
-        float shadowTextY = point.y() + shadowOffset.height() * (context.shadowsIgnoreTransforms() ? -1 : 1);
+        float shadowTextY = point.y() + shadow->offset.height() * (context.shadowsIgnoreTransforms() ? -1 : 1);
         showGlyphsWithAdvances(FloatPoint(shadowTextX, shadowTextY), font, cgContext, glyphs, advances, numGlyphs, textMatrix);
         if (syntheticBoldOffset)
             showGlyphsWithAdvances(FloatPoint(shadowTextX + syntheticBoldOffset, shadowTextY), font, cgContext, glyphs, advances, numGlyphs, textMatrix);
@@ -386,7 +383,7 @@ void FontCascade::drawGlyphs(GraphicsContext& context, const Font& font, const G
         showGlyphsWithAdvances(FloatPoint(point.x() + syntheticBoldOffset, point.y()), font, cgContext, glyphs, advances, numGlyphs, textMatrix);
 
     if (hasSimpleShadow)
-        context.setShadow(shadowOffset, shadowBlur, shadowColor);
+        context.setDropShadow(*shadow);
 
 #if !PLATFORM(IOS_FAMILY)
     if (shouldSmoothFonts != originalShouldUseFontSmoothing)
@@ -403,25 +400,31 @@ bool FontCascade::primaryFontIsSystemFont() const
     return isSystemFont(fontData.platformData().ctFont());
 }
 
-// FIXME: Use this on all ports.
-const Font* FontCascade::fontForCombiningCharacterSequence(const UChar* characters, size_t length) const
+const Font* FontCascade::fontForCombiningCharacterSequence(StringView stringView) const
 {
-    UChar32 baseCharacter;
-    size_t baseCharacterLength = 0;
-    U16_NEXT(characters, baseCharacterLength, length, baseCharacter);
+    auto codePoints = stringView.codePoints();
+    auto codePointsIterator = codePoints.begin();
+
+    ASSERT(!stringView.isEmpty());
+    UChar32 baseCharacter = *codePointsIterator;
+    ++codePointsIterator;
+    bool isOnlySingleCodePoint = codePointsIterator == codePoints.end();
 
     GlyphData baseCharacterGlyphData = glyphDataForCharacter(baseCharacter, false, NormalVariant);
 
     if (!baseCharacterGlyphData.glyph)
         return nullptr;
 
-    if (length == baseCharacterLength)
+    if (isOnlySingleCodePoint)
         return baseCharacterGlyphData.font;
 
     bool triedBaseCharacterFont = false;
 
     for (unsigned i = 0; !fallbackRangesAt(i).isNull(); ++i) {
-        const Font* font = fallbackRangesAt(i).fontForCharacter(baseCharacter);
+        auto& fontRanges = fallbackRangesAt(i);
+        if (fontRanges.isGeneric() && isPrivateUseAreaCharacter(baseCharacter))
+            continue;
+        const Font* font = fontRanges.fontForCharacter(baseCharacter);
         if (!font)
             continue;
 #if PLATFORM(IOS_FAMILY)
@@ -448,11 +451,11 @@ const Font* FontCascade::fontForCombiningCharacterSequence(const UChar* characte
         if (font == baseCharacterGlyphData.font)
             triedBaseCharacterFont = true;
 
-        if (font->canRenderCombiningCharacterSequence(characters, length))
+        if (font->canRenderCombiningCharacterSequence(stringView))
             return font;
     }
 
-    if (!triedBaseCharacterFont && baseCharacterGlyphData.font && baseCharacterGlyphData.font->canRenderCombiningCharacterSequence(characters, length))
+    if (!triedBaseCharacterFont && baseCharacterGlyphData.font && baseCharacterGlyphData.font->canRenderCombiningCharacterSequence(stringView))
         return baseCharacterGlyphData.font;
 
     return Font::systemFallback();

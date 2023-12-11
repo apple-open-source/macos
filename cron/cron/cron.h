@@ -38,6 +38,7 @@
 #include <pwd.h>
 #ifdef __APPLE__
 #include <grp.h>
+#include <xpc/xpc.h>
 #endif
 #include <signal.h>
 #include <stdio.h>
@@ -227,6 +228,11 @@ void		set_cron_uid __P((void)),
 		log_it __P((char *, int, char *, char *)),
 		log_close __P((void));
 
+#ifdef __APPLE__
+static void report_jobs __P((xpc_object_t));
+static xpc_object_t get_crontab_info __P((cron_db *));
+#endif // __APPLE__
+
 int		job_runqueue __P((void)),
 		set_debug_flags __P((char *)),
 		get_char __P((FILE *)),
@@ -253,7 +259,7 @@ char		*env_get __P((char *, char **)),
 user		*load_user __P((int, struct passwd *, char *)),
 		*find_user __P((cron_db *, char *));
 
-entry		*load_entry __P((FILE *, void (*)(),
+entry		*load_entry __P((FILE *, void (*)(void),
 #ifdef __APPLE__
 				 char *, char **));
 #else

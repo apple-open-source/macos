@@ -55,7 +55,7 @@ static const float cTargetPrunePercentage = .95f; // Percentage of capacity towa
 
 MemoryCache& MemoryCache::singleton()
 {
-    ASSERT(isMainThread());
+    RELEASE_ASSERT(isMainThread());
     static NeverDestroyed<MemoryCache> memoryCache;
     return memoryCache;
 }
@@ -78,13 +78,17 @@ MemoryCache::MemoryCache()
 
 auto MemoryCache::sessionResourceMap(PAL::SessionID sessionID) const -> CachedResourceMap*
 {
-    ASSERT(sessionID.isValid());
+    RELEASE_ASSERT(sessionID.isValid());
+    RELEASE_ASSERT(isMainThread());
+    RELEASE_ASSERT(m_sessionResources.isValidKey(sessionID));
     return m_sessionResources.get(sessionID);
 }
 
 auto MemoryCache::ensureSessionResourceMap(PAL::SessionID sessionID) -> CachedResourceMap&
 {
-    ASSERT(sessionID.isValid());
+    RELEASE_ASSERT(sessionID.isValid());
+    RELEASE_ASSERT(isMainThread());
+    RELEASE_ASSERT(m_sessionResources.isValidKey(sessionID));
     auto& map = m_sessionResources.add(sessionID, nullptr).iterator->value;
     if (!map)
         map = makeUnique<CachedResourceMap>();
@@ -112,6 +116,8 @@ URL MemoryCache::removeFragmentIdentifierIfNeeded(const URL& originalURL)
 
 bool MemoryCache::add(CachedResource& resource)
 {
+    RELEASE_ASSERT(isMainThread());
+
     if (disabled())
         return false;
 
@@ -136,9 +142,10 @@ bool MemoryCache::add(CachedResource& resource)
 
 void MemoryCache::revalidationSucceeded(CachedResource& revalidatingResource, const ResourceResponse& response)
 {
+    RELEASE_ASSERT(isMainThread());
     ASSERT(response.source() == ResourceResponse::Source::MemoryCacheAfterValidation);
     ASSERT(revalidatingResource.resourceToRevalidate());
-    CachedResourceHandle protectedRevalidatingResource { &revalidatingResource }; 
+    CachedResourceHandle protectedRevalidatingResource { revalidatingResource };
     auto& resource = *revalidatingResource.resourceToRevalidate();
     ASSERT(!resource.inCache());
     ASSERT(resource.isLoaded());
@@ -181,7 +188,7 @@ void MemoryCache::revalidationSucceeded(CachedResource& revalidatingResource, co
 
 void MemoryCache::revalidationFailed(CachedResource& revalidatingResource)
 {
-    ASSERT(isMainThread());
+    RELEASE_ASSERT(isMainThread());
     LOG(ResourceLoading, "Revalidation failed for %p", &revalidatingResource);
     ASSERT(revalidatingResource.resourceToRevalidate());
     revalidatingResource.clearResourceToRevalidate();
@@ -189,6 +196,7 @@ void MemoryCache::revalidationFailed(CachedResource& revalidatingResource)
 
 CachedResource* MemoryCache::resourceForRequest(const ResourceRequest& request, PAL::SessionID sessionID)
 {
+    RELEASE_ASSERT(isMainThread());
     // FIXME: Change all clients to make sure HTTP(s) URLs have no fragment identifiers before calling here.
     // CachedResourceLoader is now doing this. Add an assertion once all other clients are doing it too.
     auto* resources = sessionResourceMap(sessionID);
@@ -223,6 +231,7 @@ unsigned MemoryCache::liveCapacity() const
 
 void MemoryCache::pruneLiveResources(bool shouldDestroyDecodedDataForAllLiveResources)
 {
+    RELEASE_ASSERT(isMainThread());
     unsigned capacity = shouldDestroyDecodedDataForAllLiveResources ? 0 : liveCapacity();
     if (capacity && m_liveSize <= capacity)
         return;
@@ -234,6 +243,7 @@ void MemoryCache::pruneLiveResources(bool shouldDestroyDecodedDataForAllLiveReso
 
 void MemoryCache::forEachResource(const Function<void(CachedResource&)>& function)
 {
+    RELEASE_ASSERT(isMainThread());
     Vector<WeakPtr<CachedResource>> allResources;
     for (auto& lruList : m_allResources) {
         allResources.reserveCapacity(allResources.size() + lruList->computeSize());
@@ -248,6 +258,8 @@ void MemoryCache::forEachResource(const Function<void(CachedResource&)>& functio
 
 void MemoryCache::forEachSessionResource(PAL::SessionID sessionID, const Function<void(CachedResource&)>& function)
 {
+    RELEASE_ASSERT(isMainThread());
+    RELEASE_ASSERT(m_sessionResources.isValidKey(sessionID));
     auto it = m_sessionResources.find(sessionID);
     if (it == m_sessionResources.end())
         return;
@@ -260,6 +272,7 @@ void MemoryCache::forEachSessionResource(PAL::SessionID sessionID, const Functio
 
 void MemoryCache::destroyDecodedDataForAllImages()
 {
+    RELEASE_ASSERT(isMainThread());
     forEachResource([](CachedResource& resource) {
         if (auto cachedImage = dynamicDowncast<CachedImage>(resource)) {
             if (RefPtr image = cachedImage->image())
@@ -270,6 +283,7 @@ void MemoryCache::destroyDecodedDataForAllImages()
 
 void MemoryCache::pruneLiveResourcesToSize(unsigned targetSize, bool shouldDestroyDecodedDataForAllLiveResources)
 {
+    RELEASE_ASSERT(isMainThread());
     if (m_inPruneResources)
         return;
 
@@ -325,6 +339,7 @@ void MemoryCache::pruneLiveResourcesToSize(unsigned targetSize, bool shouldDestr
 void MemoryCache::pruneDeadResources()
 {
     LOG(ResourceLoading, "MemoryCache::pruneDeadResources");
+    RELEASE_ASSERT(isMainThread());
 
     unsigned capacity = deadCapacity();
     if (capacity && m_deadSize <= capacity)
@@ -336,6 +351,7 @@ void MemoryCache::pruneDeadResources()
 
 void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
 {
+    RELEASE_ASSERT(isMainThread());
     if (m_inPruneResources)
         return;
 
@@ -435,15 +451,17 @@ void MemoryCache::remove(CachedResource& resource)
             resource.setInCache(false);
 
             // If the resource map is now empty, remove it from m_sessionResources.
-            if (resources->isEmpty())
+            if (resources->isEmpty()) {
+                RELEASE_ASSERT(m_sessionResources.isValidKey(resource.sessionID()));
                 m_sessionResources.remove(resource.sessionID());
+            }
 
             // Remove from the appropriate LRU list.
             removeFromLRUList(resource);
             removeFromLiveDecodedResourcesList(resource);
             adjustSize(resource.hasClients(), -static_cast<long long>(resource.size()));
         } else {
-            ASSERT(resources->get(key) != &resource);
+            RELEASE_ASSERT(resources->get(key) != &resource);
             LOG(ResourceLoading, "  resource %p is not in cache", &resource);
         }
     }
@@ -452,6 +470,7 @@ void MemoryCache::remove(CachedResource& resource)
 
 auto MemoryCache::lruListFor(CachedResource& resource) -> LRUList&
 {
+    RELEASE_ASSERT(isMainThread());
     unsigned accessCount = std::max(resource.accessCount(), 1U);
     unsigned queueIndex = WTF::fastLog2(resource.size() / accessCount);
 #if ASSERT_ENABLED
@@ -466,6 +485,7 @@ auto MemoryCache::lruListFor(CachedResource& resource) -> LRUList&
 
 void MemoryCache::removeFromLRUList(CachedResource& resource)
 {
+    RELEASE_ASSERT(isMainThread());
     // If we've never been accessed, then we're brand new and not in any list.
     if (!resource.accessCount())
         return;
@@ -485,6 +505,7 @@ void MemoryCache::removeFromLRUList(CachedResource& resource)
 
 void MemoryCache::insertInLRUList(CachedResource& resource)
 {
+    RELEASE_ASSERT(isMainThread());
     ASSERT(resource.inCache());
     ASSERT(resource.accessCount() > 0);
     
@@ -494,6 +515,7 @@ void MemoryCache::insertInLRUList(CachedResource& resource)
 
 void MemoryCache::resourceAccessed(CachedResource& resource)
 {
+    RELEASE_ASSERT(isMainThread());
     ASSERT(resource.inCache());
     
     // Need to make sure to remove before we increase the access count, since
@@ -513,6 +535,7 @@ void MemoryCache::resourceAccessed(CachedResource& resource)
 
 bool MemoryCache::inLiveDecodedResourcesList(CachedResource& resource) const
 {
+    RELEASE_ASSERT(isMainThread());
     return m_liveDecodedResources.contains(resource);
 }
 
@@ -542,18 +565,21 @@ void MemoryCache::removeResourcesWithOrigin(const SecurityOrigin& origin, const 
 
 void MemoryCache::removeResourcesWithOrigin(const SecurityOrigin& origin)
 {
+    RELEASE_ASSERT(isMainThread());
     String originPartition = ResourceRequest::partitionName(origin.host());
     removeResourcesWithOrigin(origin, originPartition);
 }
 
 void MemoryCache::removeResourcesWithOrigin(const ClientOrigin& origin)
 {
+    RELEASE_ASSERT(isMainThread());
     auto cachePartition = origin.topOrigin == origin.clientOrigin ? emptyString() : ResourceRequest::partitionName(origin.topOrigin.host());
     removeResourcesWithOrigin(origin.clientOrigin.securityOrigin(), cachePartition);
 }
 
 void MemoryCache::removeResourcesWithOrigins(PAL::SessionID sessionID, const HashSet<RefPtr<SecurityOrigin>>& origins)
 {
+    RELEASE_ASSERT(isMainThread());
     auto* resourceMap = sessionResourceMap(sessionID);
     if (!resourceMap)
         return;
@@ -583,6 +609,7 @@ void MemoryCache::removeResourcesWithOrigins(PAL::SessionID sessionID, const Has
 
 void MemoryCache::getOriginsWithCache(SecurityOriginSet& origins)
 {
+    RELEASE_ASSERT(isMainThread());
     for (auto& resources : m_sessionResources.values()) {
         for (auto& keyValue : *resources) {
             auto& resource = *keyValue.value;
@@ -597,6 +624,8 @@ void MemoryCache::getOriginsWithCache(SecurityOriginSet& origins)
 
 HashSet<RefPtr<SecurityOrigin>> MemoryCache::originsWithCache(PAL::SessionID sessionID) const
 {
+    RELEASE_ASSERT(isMainThread());
+
     HashSet<RefPtr<SecurityOrigin>> origins;
 
     auto it = m_sessionResources.find(sessionID);
@@ -616,11 +645,13 @@ HashSet<RefPtr<SecurityOrigin>> MemoryCache::originsWithCache(PAL::SessionID ses
 
 void MemoryCache::removeFromLiveDecodedResourcesList(CachedResource& resource)
 {
+    RELEASE_ASSERT(isMainThread());
     m_liveDecodedResources.remove(resource);
 }
 
 void MemoryCache::insertInLiveDecodedResourcesList(CachedResource& resource)
 {
+    RELEASE_ASSERT(isMainThread());
     // Make sure we aren't in the list already.
     ASSERT(!m_liveDecodedResources.contains(resource));
     m_liveDecodedResources.add(resource);
@@ -628,18 +659,21 @@ void MemoryCache::insertInLiveDecodedResourcesList(CachedResource& resource)
 
 void MemoryCache::addToLiveResourcesSize(CachedResource& resource)
 {
+    RELEASE_ASSERT(isMainThread());
     m_liveSize += resource.size();
     m_deadSize -= resource.size();
 }
 
 void MemoryCache::removeFromLiveResourcesSize(CachedResource& resource)
 {
+    RELEASE_ASSERT(isMainThread());
     m_liveSize -= resource.size();
     m_deadSize += resource.size();
 }
 
 void MemoryCache::adjustSize(bool live, long long delta)
 {
+    RELEASE_ASSERT(isMainThread());
     if (live) {
         ASSERT(delta >= 0 || (static_cast<long long>(m_liveSize) + delta >= 0));
         m_liveSize += delta;
@@ -652,7 +686,10 @@ void MemoryCache::adjustSize(bool live, long long delta)
 void MemoryCache::removeRequestFromSessionCaches(ScriptExecutionContext& context, const ResourceRequest& request)
 {
     if (is<WorkerGlobalScope>(context)) {
-        downcast<WorkerGlobalScope>(context).thread().workerLoaderProxy().postTaskToLoader([request = request.isolatedCopy()] (ScriptExecutionContext& context) {
+        auto* workerLoaderProxy = downcast<WorkerGlobalScope>(context).thread().workerLoaderProxy();
+        if (!workerLoaderProxy)
+            return;
+        workerLoaderProxy->postTaskToLoader([request = request.isolatedCopy()] (ScriptExecutionContext& context) {
             MemoryCache::removeRequestFromSessionCaches(context, request);
         });
         return;
@@ -708,6 +745,7 @@ MemoryCache::Statistics MemoryCache::getStatistics()
 
 void MemoryCache::setDisabled(bool disabled)
 {
+    RELEASE_ASSERT(isMainThread());
     m_disabled = disabled;
     if (!m_disabled)
         return;
@@ -721,6 +759,7 @@ void MemoryCache::setDisabled(bool disabled)
 
 void MemoryCache::evictResources()
 {
+    RELEASE_ASSERT(isMainThread());
     if (disabled())
         return;
 
@@ -730,6 +769,7 @@ void MemoryCache::evictResources()
 
 void MemoryCache::evictResources(PAL::SessionID sessionID)
 {
+    RELEASE_ASSERT(isMainThread());
     if (disabled())
         return;
 
@@ -745,6 +785,7 @@ bool MemoryCache::needsPruning() const
 
 void MemoryCache::prune()
 {
+    RELEASE_ASSERT(isMainThread());
     if (!needsPruning())
         return;
         
@@ -754,6 +795,7 @@ void MemoryCache::prune()
 
 void MemoryCache::pruneSoon()
 {
+    RELEASE_ASSERT(isMainThread());
     if (m_pruneTimer.isActive())
         return;
     if (!needsPruning())

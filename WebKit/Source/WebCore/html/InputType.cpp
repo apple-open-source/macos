@@ -564,8 +564,12 @@ String InputType::validationMessage() const
     if (typeMismatch())
         return typeMismatchText();
 
-    if (patternMismatch(value))
-        return validationMessagePatternMismatchText();
+    if (patternMismatch(value)) {
+        auto title = element()->attributeWithoutSynchronization(HTMLNames::titleAttr).string().trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
+        if (title.isEmpty())
+            return validationMessagePatternMismatchText();
+        return validationMessagePatternMismatchText(title);
+    }
 
     if (element()->tooShort())
         return validationMessageTooShortText(value.length(), element()->minLength());
@@ -998,6 +1002,11 @@ bool InputType::isPresentingAttachedView() const
 }
 
 bool InputType::supportsSelectionAPI() const
+{
+    return false;
+}
+
+bool InputType::dirAutoUsesValue() const
 {
     return false;
 }

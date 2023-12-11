@@ -34,6 +34,7 @@
 #include "CSSValueKeywords.h"
 #include "CSSValuePair.h"
 #include "CSSVariableReferenceValue.h"
+#include "ComputedStyleExtractor.h"
 #include "FontSelectionValueInlines.h"
 #include "Quad.h"
 #include "StylePropertiesInlines.h"
@@ -41,11 +42,11 @@
 
 namespace WebCore {
 
-constexpr unsigned maxShorthandLength = 17; // FIXME: Generate this from CSSProperties.json.
+constexpr unsigned maxShorthandLength = 18; // FIXME: Generate this from CSSProperties.json.
 
 class ShorthandSerializer {
 public:
-    explicit ShorthandSerializer(const StyleProperties&, CSSPropertyID shorthandID);
+    template<typename PropertiesType> explicit ShorthandSerializer(const PropertiesType&, CSSPropertyID shorthandID);
     String serialize();
 
 private:
@@ -93,6 +94,7 @@ private:
 
     bool subsequentLonghandsHaveInitialValues(unsigned index) const;
 
+    bool commonSerializationChecks(const ComputedStyleExtractor&);
     bool commonSerializationChecks(const StyleProperties&);
 
     String serializeLonghands() const;
@@ -129,7 +131,8 @@ private:
     bool m_commonSerializationChecksSuppliedResult { false };
 };
 
-inline ShorthandSerializer::ShorthandSerializer(const StyleProperties& properties, CSSPropertyID shorthandID)
+template<typename PropertiesType>
+inline ShorthandSerializer::ShorthandSerializer(const PropertiesType& properties, CSSPropertyID shorthandID)
     : m_shorthand(shorthandForProperty(shorthandID))
     , m_commonSerializationChecksSuppliedResult(commonSerializationChecks(properties))
 {
@@ -180,6 +183,24 @@ bool ShorthandSerializer::subsequentLonghandsHaveInitialValues(unsigned startInd
             return false;
     }
     return true;
+}
+
+bool ShorthandSerializer::commonSerializationChecks(const ComputedStyleExtractor& properties)
+{
+    ASSERT(length() && length() <= maxShorthandLength);
+
+    ASSERT(m_shorthand.id() != CSSPropertyAll);
+
+    for (unsigned i = 0; i < length(); ++i) {
+        auto longhandValue = properties.propertyValue(longhandProperty(i));
+        if (!longhandValue) {
+            m_result = emptyString();
+            return true;
+        }
+        m_longhandValues[i] = longhandValue;
+    }
+
+    return false;
 }
 
 bool ShorthandSerializer::commonSerializationChecks(const StyleProperties& properties)
@@ -332,6 +353,7 @@ String ShorthandSerializer::serialize()
     case CSSPropertyBorderImage:
     case CSSPropertyWebkitBorderImage:
     case CSSPropertyWebkitMaskBoxImage:
+    case CSSPropertyMaskBorder:
         return serializeBorderImage();
     case CSSPropertyBorderRadius:
     case CSSPropertyWebkitBorderRadius:
@@ -601,17 +623,13 @@ String ShorthandSerializer::serializeLayered() const
                 // The previous property is X.
                 ASSERT(j >= 1);
                 ASSERT(longhandProperty(j - 1) == CSSPropertyBackgroundPositionX || longhandProperty(j - 1) == CSSPropertyWebkitMaskPositionX);
-                if (layerValues.valueID(j - 1) == CSSValueCenter && layerValues.isValueID(j)) {
-                    layerValues.skip(j - 1) = true;
-                    layerValues.skip(j) = false;
-                } else if (layerValues.valueID(j) == CSSValueCenter && !layerValues.isPair(j - 1)) {
-                    layerValues.skip(j - 1) = false;
-                    layerValues.skip(j) = true;
-                } else if (length() == 2) {
+                if (length() == 2) {
                     ASSERT(j == 1);
                     layerValues.skip(0) = false;
                     layerValues.skip(1) = false;
                 } else {
+                    // Always serialize positions to at least 2 values.
+                    // https://drafts.csswg.org/css-values-4/#position-serialization
                     if (!layerValues.skip(j - 1))
                         layerValues.skip(j) = false;
                 }
@@ -734,13 +752,13 @@ String ShorthandSerializer::serializeBorderImage() const
     auto separator = "";
     for (auto longhand : longhands()) {
         if (isInitialValue(longhand)) {
-            if (longhand.property == CSSPropertyBorderImageSlice || longhand.property == CSSPropertyWebkitMaskBoxImageSlice)
+            if (longhand.property == CSSPropertyBorderImageSlice || longhand.property == CSSPropertyMaskBorderSlice)
                 omittedSlice = true;
-            else if (longhand.property == CSSPropertyBorderImageWidth || longhand.property == CSSPropertyWebkitMaskBoxImageWidth)
+            else if (longhand.property == CSSPropertyBorderImageWidth || longhand.property == CSSPropertyMaskBorderWidth)
                 omittedWidth = true;
             continue;
         }
-        if (omittedSlice && (longhand.property == CSSPropertyBorderImageWidth || longhand.property == CSSPropertyBorderImageOutset || longhand.property == CSSPropertyWebkitMaskBoxImageWidth || longhand.property == CSSPropertyWebkitMaskBoxImageOutset))
+        if (omittedSlice && (longhand.property == CSSPropertyBorderImageWidth || longhand.property == CSSPropertyBorderImageOutset || longhand.property == CSSPropertyMaskBorderWidth || longhand.property == CSSPropertyMaskBorderOutset))
             return String();
 
         String valueText;
@@ -756,9 +774,9 @@ String ShorthandSerializer::serializeBorderImage() const
             valueText = serializeValue(longhand);
 
         // Append separator and text.
-        if (longhand.property == CSSPropertyBorderImageWidth || longhand.property == CSSPropertyWebkitMaskBoxImageWidth)
+        if (longhand.property == CSSPropertyBorderImageWidth || longhand.property == CSSPropertyMaskBorderWidth)
             separator = " / ";
-        else if (longhand.property == CSSPropertyBorderImageOutset || longhand.property == CSSPropertyWebkitMaskBoxImageOutset)
+        else if (longhand.property == CSSPropertyBorderImageOutset || longhand.property == CSSPropertyMaskBorderOutset)
             separator = omittedWidth ? " / / " : " / ";
         result.append(separator, valueText);
         separator = " ";
@@ -1215,6 +1233,11 @@ String ShorthandSerializer::serializeWhiteSpace() const
 String serializeShorthandValue(const StyleProperties& properties, CSSPropertyID shorthand)
 {
     return ShorthandSerializer(properties, shorthand).serialize();
+}
+
+String serializeShorthandValue(const ComputedStyleExtractor& extractor, CSSPropertyID shorthand)
+{
+    return ShorthandSerializer(extractor, shorthand).serialize();
 }
 
 }

@@ -9,7 +9,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
 
         // Must positively assert some device in list, so that the machine ID list isn't empty
         self.mockAuthKit.otherDevices.add("some-machine-id")
-        self.mockAuthKit.excludeDevices.add(try! self.mockAuthKit.machineID())
+        self.mockAuthKit.excludeDevices.add(try! self.mockAuthKit.machineID(self.mockAuthKit.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -97,7 +97,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.removeAndSendNotification(try! self.mockAuthKit2.machineID())
+        self.mockAuthKit.removeAndSendNotification(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
 
         self.wait(for: [updateTrustExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -174,7 +174,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.excludeDevices.add(try! self.mockAuthKit2.machineID())
+        self.mockAuthKit.excludeDevices.add(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().contains(self.mockAuthKit2.currentMachineID), "AuthKit should not still have device 2 on the list")
         self.mockAuthKit.sendIncompleteNotification()
 
@@ -235,7 +235,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.addAndSendNotification(try! self.mockAuthKit2.machineID())
+        self.mockAuthKit.addAndSendNotification(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
 
         self.wait(for: [updateTrustExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -262,7 +262,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.removeAndSendNotification(try! self.mockAuthKit.machineID())
+        self.mockAuthKit.removeAndSendNotification(try! self.mockAuthKit.machineID(self.mockAuthKit.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
@@ -296,7 +296,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.removeAndSendNotification(try! self.mockAuthKit.machineID())
+        self.mockAuthKit.removeAndSendNotification(try! self.mockAuthKit.machineID(self.mockAuthKit.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
 
         self.wait(for: [updateTrustExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -331,7 +331,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.excludeDevices.add(try! self.mockAuthKit.machineID())
+        self.mockAuthKit.excludeDevices.add(try! self.mockAuthKit.machineID(self.mockAuthKit.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().contains(self.mockAuthKit.currentMachineID), "AuthKit should not still have device 2 on the list")
         self.mockAuthKit.sendIncompleteNotification()
 
@@ -367,7 +367,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.sendRemoveNotification(try! self.mockAuthKit2.machineID(), altDSID: "completely-wrong")
+        self.mockAuthKit.sendRemoveNotification(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"), altDSID: "completely-wrong")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
@@ -521,7 +521,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
         self.sendContainerChange(context: self.cuttlefishContext)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.mockAuthKit.addAndSendNotification(try! self.mockAuthKit2.machineID())
+        self.mockAuthKit.addAndSendNotification(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
 
         try self.waitForPushToArriveAtStateMachine(context: self.cuttlefishContext)
         XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
@@ -635,7 +635,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.addAndSendNotification(try! self.mockAuthKit2.machineID())
+        self.mockAuthKit.addAndSendNotification(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
 
         self.wait(for: [updateTrustExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -708,7 +708,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.removeAndSendNotification(try! self.mockAuthKit2.machineID())
+        self.mockAuthKit.removeAndSendNotification(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID"))
 
         self.wait(for: [updateTrustExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)

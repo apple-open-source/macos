@@ -44,7 +44,7 @@
 #import "SafeBrowsingWarning.h"
 #import "SharedBufferReference.h"
 #import "SynapseSPI.h"
-#import "VideoFullscreenManagerProxy.h"
+#import "VideoPresentationManagerProxy.h"
 #import "WKErrorInternal.h"
 #import "WKWebView.h"
 #import "WebContextMenuProxy.h"
@@ -150,10 +150,10 @@ void WebPageProxy::didCommitLayerTree(const WebKit::RemoteLayerTreeTransaction& 
     pageClient().didCommitLayerTree(layerTreeTransaction);
 
     // FIXME: Remove this special mechanism and fold it into the transaction's layout milestones.
-    if (internals().observedLayoutMilestones.contains(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold) && !m_hitRenderTreeSizeThreshold
+    if (internals().observedLayoutMilestones.contains(WebCore::LayoutMilestone::ReachedSessionRestorationRenderTreeSizeThreshold) && !m_hitRenderTreeSizeThreshold
         && exceedsRenderTreeSizeSizeThreshold(m_sessionRestorationRenderTreeSize, layerTreeTransaction.renderTreeSize())) {
         m_hitRenderTreeSizeThreshold = true;
-        didReachLayoutMilestone(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold);
+        didReachLayoutMilestone(WebCore::LayoutMilestone::ReachedSessionRestorationRenderTreeSizeThreshold);
     }
 }
 
@@ -241,22 +241,6 @@ void WebPageProxy::contentFilterDidBlockLoadForFrameShared(Ref<WebProcessProxy>&
 void WebPageProxy::addPlatformLoadParameters(WebProcessProxy& process, LoadParameters& loadParameters)
 {
     loadParameters.dataDetectionReferenceDate = m_uiClient->dataDetectionReferenceDate();
-
-#if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-    loadParameters.networkExtensionSandboxExtensionHandles = createNetworkExtensionsSandboxExtensions(process);
-#if PLATFORM(IOS) || PLATFORM(VISION)
-    auto auditToken = process.auditToken();
-    if (!process.hasManagedSessionSandboxAccess() && [getWebFilterEvaluatorClass() isManagedSession]) {
-        if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.uikit.viewservice.com.apple.WebContentFilter.remoteUI"_s, auditToken, SandboxExtension::MachBootstrapOptions::EnableMachBootstrap))
-            loadParameters.contentFilterExtensionHandle = WTFMove(*handle);
-
-        if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.frontboard.systemappservices"_s, auditToken, SandboxExtension::MachBootstrapOptions::EnableMachBootstrap))
-            loadParameters.frontboardServiceExtensionHandle = WTFMove(*handle);
-
-        process.markHasManagedSessionSandboxAccess();
-    }
-#endif // PLATFORM(IOS) || PLATFORM(VISION)
-#endif // !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
 }
 
 void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, SandboxExtension::Handle& fileReadHandle, Vector<SandboxExtension::Handle>& fileUploadHandles)
@@ -592,28 +576,28 @@ void WebPageProxy::updateFullscreenVideoTextRecognition()
         return;
 
 #if PLATFORM(IOS_FAMILY)
-    if (RetainPtr controller = m_videoFullscreenManager->playerViewController(*internals().currentFullscreenVideoSessionIdentifier))
+    if (RetainPtr controller = m_videoPresentationManager->playerViewController(*internals().currentFullscreenVideoSessionIdentifier))
         pageClient().cancelTextRecognitionForFullscreenVideo(controller.get());
 #endif
 }
 
 void WebPageProxy::fullscreenVideoTextRecognitionTimerFired()
 {
-    if (!internals().currentFullscreenVideoSessionIdentifier || !m_videoFullscreenManager)
+    if (!internals().currentFullscreenVideoSessionIdentifier || !m_videoPresentationManager)
         return;
 
     auto identifier = *internals().currentFullscreenVideoSessionIdentifier;
-    m_videoFullscreenManager->requestBitmapImageForCurrentTime(identifier, [identifier, weakThis = WeakPtr { *this }](auto&& imageHandle) {
+    m_videoPresentationManager->requestBitmapImageForCurrentTime(identifier, [identifier, weakThis = WeakPtr { *this }](auto&& imageHandle) {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || protectedThis->internals().currentFullscreenVideoSessionIdentifier != identifier)
             return;
 
-        auto fullscreenManager = protectedThis->m_videoFullscreenManager;
-        if (!fullscreenManager)
+        auto presentationManager = protectedThis->m_videoPresentationManager;
+        if (!presentationManager)
             return;
 
 #if PLATFORM(IOS_FAMILY)
-        if (RetainPtr controller = fullscreenManager->playerViewController(identifier))
+        if (RetainPtr controller = presentationManager->playerViewController(identifier))
             protectedThis->pageClient().beginTextRecognitionForFullscreenVideo(WTFMove(imageHandle), controller.get());
 #endif
     });
@@ -825,22 +809,6 @@ void WebPageProxy::abortApplePayAMSUISession()
 }
 
 #endif // ENABLE(APPLE_PAY_AMS_UI)
-
-#if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-Vector<SandboxExtension::Handle> WebPageProxy::createNetworkExtensionsSandboxExtensions(WebProcessProxy& process)
-{
-#if ENABLE(CONTENT_FILTERING)
-    if (!process.hasNetworkExtensionSandboxAccess() && NetworkExtensionContentFilter::isRequired()) {
-        process.markHasNetworkExtensionSandboxAccess();
-        constexpr ASCIILiteral neHelperService { "com.apple.nehelper"_s };
-        constexpr ASCIILiteral neSessionManagerService { "com.apple.nesessionmanager.content-filter"_s };
-        auto auditToken = process.hasConnection() ? process.connection()->getAuditToken();
-        return SandboxExtension::createHandlesForMachLookup({ neHelperService, neSessionManagerService }, auditToken, );
-    }
-#endif
-    return { };
-}
-#endif
 
 #if ENABLE(CONTEXT_MENUS)
 #if HAVE(TRANSLATION_UI_SERVICES)

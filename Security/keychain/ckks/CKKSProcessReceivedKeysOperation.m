@@ -34,6 +34,10 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @interface CKKSProcessReceivedKeysOperation ()
 @property BOOL allowFullRefetchResult;
 @end
@@ -70,6 +74,13 @@
 
         __block CKKSCurrentKeySet* set = nil;
 
+        AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{} 
+                                                                                                     altDSID:self.deps.activeAccount.altDSID
+                                                                                                   eventName:kSecurityRTCEventNameProcessReceivedKeys
+                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+        __block BOOL didSucceed = NO;
+
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* loadError = nil;
 
@@ -83,9 +94,14 @@
             if(!remoteKeys || loadError) {
                 ckkserror("ckkskey", viewState.zoneID, "couldn't fetch list of remote keys: %@", loadError);
                 self.error = loadError;
+                
+                [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
+                [eventS populateUnderlyingErrorsStartingWithRootError:self.error];
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
                 return CKKSDatabaseTransactionRollback;
             }
+
+            [eventS addMetrics:@{kSecurityRTCFieldNumRemoteKeys : @(remoteKeys.count)}];
 
             if(remoteKeys.count > 0) {
                 newZoneState = [self processRemoteKeys:remoteKeys
@@ -112,10 +128,13 @@
             } else if(!allIQEsHaveKeys) {
                 if(self.allowFullRefetchResult) {
                     ckksnotice("ckkskey", viewState.zoneID, "We have some item that encrypts to a non-existent key. This is exceptional; requesting full refetch");
+                    [eventS addMetrics:@{kSecurityRTCFieldFullRefetchNeeded : @(YES)}];
                     newZoneState = SecCKKSZoneKeyStateNeedFullRefetch;
                 } else {
                     ckksnotice("ckkskey", viewState.zoneID, "We have some item that encrypts to a non-existent key, but we cannot request a refetch! Possible inifinite-loop ahead");
                 }
+            } else {
+                [eventS addMetrics:@{kSecurityRTCFieldFullRefetchNeeded : @(NO)}];
             }
 
             // Now that we have some state, load the existing keyset
@@ -123,9 +142,13 @@
                                        contextID:self.deps.contextID];
 
             if([newZoneState isEqualToString:SecCKKSZoneKeyStateError]) {
+                [eventS populateUnderlyingErrorsStartingWithRootError:self.error];
+                [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
                 return CKKSDatabaseTransactionRollback;
 
             } else {
+                [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(YES)}];
+                didSucceed = YES;
                 return CKKSDatabaseTransactionCommit;
             }
         }];
@@ -138,10 +161,13 @@
                                                     zoneID:viewState.zoneID
                                         currentTrustStates:currentTrustStates
                                                      error:&localProcessingError];
-
+            [eventS populateUnderlyingErrorsStartingWithRootError:localProcessingError];
             ckksnotice("ckkskey", viewState.zoneID, "Key hierachy is '%@' (error: %@)", newZoneState, localProcessingError);
         }
 
+        // passing a nil to error: will not impact any previously set errors.
+        // AAAFoundation ignores incoming errors that are nil when populating error chains
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:didSucceed error:nil];
         viewState.viewKeyHierarchyState = newZoneState;
     }
 

@@ -85,8 +85,8 @@ public:
     using LayerHostingContextIDCallback = CompletionHandler<void(LayerHostingContextID)>;
     virtual void requestHostingContextID(LayerHostingContextIDCallback&& completionHandler) { completionHandler({ }); }
     virtual LayerHostingContextID hostingContextID() const { return 0; }
-    virtual FloatSize videoInlineSize() const { return { }; }
-    virtual void setVideoInlineSizeFenced(const FloatSize&, const WTF::MachSendRight&) { }
+    virtual FloatSize videoLayerSize() const { return { }; }
+    virtual void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&) { }
 
 #if PLATFORM(IOS_FAMILY)
     virtual NSArray *timedMetadata() const { return nil; }
@@ -112,7 +112,7 @@ public:
     virtual bool hasVideo() const = 0;
     virtual bool hasAudio() const = 0;
 
-    virtual void setPageIsVisible(bool, String&& sceneIdentifier = ""_s) = 0;
+    virtual void setPageIsVisible(bool) = 0;
     virtual void setVisibleForCanvas(bool visible) { setPageIsVisible(visible); }
     virtual void setVisibleInViewport(bool) { }
 

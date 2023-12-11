@@ -41,6 +41,12 @@
 
 namespace WebCore {
 
+class TimerAlignment : public CanMakeWeakPtr<TimerAlignment> {
+public:
+    virtual ~TimerAlignment() = default;
+    virtual std::optional<MonotonicTime> alignedFireTime(bool hasReachedMaxNestingLevel, MonotonicTime) const = 0;
+};
+
 class TimerBase {
     WTF_MAKE_NONCOPYABLE(TimerBase);
     WTF_MAKE_FAST_ALLOCATED;
@@ -60,9 +66,16 @@ public:
     WEBCORE_EXPORT void stop();
     bool isActive() const;
 
+    MonotonicTime nextFireTime() const { return m_heapItem ? m_heapItem->time : MonotonicTime { }; }
     WEBCORE_EXPORT Seconds nextFireInterval() const;
     Seconds nextUnalignedFireInterval() const;
     Seconds repeatInterval() const { return m_repeatInterval; }
+
+    void setTimerAlignment(TimerAlignment& alignment) { m_alignment = alignment; }
+    TimerAlignment* timerAlignment() { return m_alignment.get(); }
+
+    bool hasReachedMaxNestingLevel() const { return m_hasReachedMaxNestingLevel; }
+    void setHasReachedMaxNestingLevel(bool value) { m_hasReachedMaxNestingLevel = value; }
 
     void augmentFireInterval(Seconds delta) { setNextFireTime(m_heapItem->time + delta); }
     void augmentRepeatInterval(Seconds delta) { augmentFireInterval(delta); m_repeatInterval += delta; }
@@ -73,8 +86,6 @@ public:
 
 private:
     virtual void fired() = 0;
-
-    virtual std::optional<MonotonicTime> alignedFireTime(MonotonicTime) const { return std::nullopt; }
 
     void checkConsistency() const;
     void checkHeapIndex() const;
@@ -95,10 +106,10 @@ private:
     void heapPopMin();
     static void heapDeleteNullMin(ThreadTimerHeap&);
 
-    MonotonicTime nextFireTime() const { return m_heapItem ? m_heapItem->time : MonotonicTime { }; }
-
+    WeakPtr<TimerAlignment> m_alignment;
     MonotonicTime m_unalignedNextFireTime; // m_nextFireTime not considering alignment interval
     Seconds m_repeatInterval; // 0 if not repeating
+    bool m_hasReachedMaxNestingLevel { false };
 
     RefPtr<ThreadTimerHeapItem> m_heapItem;
     Ref<Thread> m_thread { Thread::current() };

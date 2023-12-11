@@ -45,6 +45,8 @@
 #ifndef _ENCODING_NEED_INIT_STATE
 #define	_ENCODING_NEED_INIT_STATE	0
 #endif
+
+typedef void (_citrus_save_encoding_state_t)(void *);
 #else /* !__APPLE__ */
 #define _ENCODING_HAVE_MBTOCSN 0
 #define	_ENCODING_NEED_INIT_STATE	1
@@ -68,7 +70,8 @@ static int	 _citrus_##_e_##_stdenc_mbtocsn				\
 		    int * __restrict,					\
 		    char ** __restrict, size_t,				\
 		    void * __restrict, size_t * __restrict,		\
-		    struct iconv_hooks *)
+		    struct iconv_hooks *,				\
+		    _citrus_save_encoding_state_t *, void *)
 
 #define	_ENCODING_STDENC_CSTOMBN(_e_)	\
     &_citrus_##_e_##_stdenc_cstombn
@@ -80,7 +83,8 @@ static int	 _citrus_##_e_##_stdenc_cstombn				\
 		    _citrus_index_t * __restrict,			\
 		    int * __restrict cnt,				\
 		    void * __restrict, size_t * __restrict,		\
-		    struct iconv_hooks *)
+		    struct iconv_hooks *,				\
+		    _citrus_save_encoding_state_t *, void *)
 #else
 #define _ENCODING_STDENC_MBTOCSN(_e_)		NULL
 #define _CITRUS_STDENC_DECL_MBTOCSN(_e_)
@@ -181,12 +185,14 @@ typedef int (*_citrus_stdenc_mbtocsn_t)
     unsigned short * __restrict, int * __restrict,
     char ** __restrict, size_t,
     void * __restrict, size_t * __restrict,
-    struct iconv_hooks *);
+    struct iconv_hooks *,
+    _citrus_save_encoding_state_t *save_state, void *save_state_cookie);
 typedef int (*_citrus_stdenc_cstombn_t)
     (struct _citrus_stdenc *__restrict, char * __restrict, size_t,
     _citrus_csid_t * __restrict, _citrus_index_t * __restrict,
     int * __restrict, void * __restrict, size_t * __restrict,
-    struct iconv_hooks *);
+    struct iconv_hooks *,
+    _citrus_save_encoding_state_t *save_state, void *save_state_cookie);
 #endif
 typedef int (*_citrus_stdenc_mbtowc_t)
     (struct _citrus_stdenc * __restrict,

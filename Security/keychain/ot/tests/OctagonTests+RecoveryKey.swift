@@ -2167,7 +2167,6 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             let nsError = error as NSError
             XCTAssertEqual(nsError.domain, ckError.domain, "error domain should be CKErrorDomain")
             XCTAssertEqual(nsError.code, ckError.code, "error code should be 15")
-
         }
         self.wait(for: [removeExpectation], timeout: 10)
 
@@ -2256,10 +2255,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             stableInfoCheckDumpCallback.fulfill()
         }
         self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
-        
+
         XCTAssertNoThrow(try cliqueBridge.removeRecoveryKey(with: self.otcliqueContext), "removeRecoveryKey should not error")
     }
-
 
     func testRemoveRecoveryKeyAllPeersUntrustRKPeer() throws {
         try self.skipOnRecoveryKeyNotSupported()

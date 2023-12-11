@@ -83,7 +83,7 @@ enum ResolveType : unsigned {
 enum class InitializationMode : unsigned {
     Initialization,      // "let x = 20;"
     ConstInitialization, // "const x = 20;"
-    NotInitialization    // "x = 20;"
+    NotInitialization // "x = 20;"
 };
 
 ALWAYS_INLINE const char* resolveModeName(ResolveMode resolveMode)

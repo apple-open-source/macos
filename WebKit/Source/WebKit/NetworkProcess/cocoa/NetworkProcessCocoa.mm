@@ -50,7 +50,7 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+#if ENABLE(CONTENT_FILTERING)
 #import <pal/spi/cocoa/NEFilterSourceSPI.h>
 #endif
 
@@ -105,7 +105,7 @@ void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessC
     auto urlCache(adoptNS([[NSURLCache alloc] initWithMemoryCapacity:0 diskCapacity:0 diskPath:nil]));
     [NSURLCache setSharedURLCache:urlCache.get()];
 
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+#if ENABLE(CONTENT_FILTERING)
     auto auditToken = parentProcessConnection()->getAuditToken();
     ASSERT(auditToken);
     if (auditToken && [NEFilterSource respondsToSelector:@selector(setDelegation:)])
@@ -151,12 +151,6 @@ void NetworkProcess::deleteHSTSCacheForHostNames(PAL::SessionID sessionID, const
         for (auto& hostName : hostNames)
             [networkSession->hstsStorage() resetHSTSForHost:hostName];
     }
-}
-
-void NetworkProcess::allowSpecificHTTPSCertificateForHost(PAL::SessionID, const WebCore::CertificateInfo& certificateInfo, const String& host)
-{
-    // FIXME: Remove this once rdar://30655740 is fixed.
-    [NSURLRequest setAllowsSpecificHTTPSCertificate:(NSArray *)WebCore::CertificateInfo::certificateChainFromSecTrust(certificateInfo.trust().get()).get() forHost:host];
 }
 
 void NetworkProcess::clearHSTSCache(PAL::SessionID sessionID, WallTime modifiedSince)

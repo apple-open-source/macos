@@ -1362,7 +1362,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         establishContext.preflightJoin(with: irk2) { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
-            XCTAssertEqual((error! as NSError).code, ContainerError.failedToCreateRecoveryKey.errorCode, "error code mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.failedToCreateRecoveryKey(suberror: ContainerError.unknownInternalError).errorCode, "error code mismatch")
             preflightJoinWithInheritanceKeyExpectation.fulfill()
         }
         self.wait(for: [preflightJoinWithInheritanceKeyExpectation], timeout: 20)
@@ -1379,7 +1379,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         recoveryContext.join(with: irk2) { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
-            XCTAssertEqual((error! as NSError).code, ContainerError.failedToCreateRecoveryKey.errorCode, "error code mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.failedToCreateRecoveryKey(suberror: ContainerError.unknownInternalError).errorCode, "error code mismatch")
             joinWithInheritanceKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithInheritanceKeyExpectation], timeout: 20)

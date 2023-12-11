@@ -35,13 +35,6 @@ struct FrontendFeatures : FeatureSetBase
         &members,
     };
 
-    FeatureInfo scalarizeVecAndMatConstructorArgs = {
-        "scalarizeVecAndMatConstructorArgs",
-        FeatureCategory::FrontendWorkarounds,
-        "Always rewrite vec/mat constructors to be consistent",
-        &members, "http://crbug.com/1165751"
-    };
-
     FeatureInfo disableProgramBinary = {
         "disableProgramBinary",
         FeatureCategory::FrontendFeatures,
@@ -152,6 +145,34 @@ struct FrontendFeatures : FeatureSetBase
         FeatureCategory::FrontendFeatures,
         "Disables saving programs to the cache",
         &members, "http://anglebug.com/1423136"
+    };
+
+    FeatureInfo dumpTranslatedShaders = {
+        "dumpTranslatedShaders",
+        FeatureCategory::FrontendFeatures,
+        "Write translated shaders to temp directory",
+        &members, "http://anglebug.com/8280"
+    };
+
+    FeatureInfo enableTranslatedShaderSubstitution = {
+        "enableTranslatedShaderSubstitution",
+        FeatureCategory::FrontendWorkarounds,
+        "Check the filesystem for translated shaders to use instead of the shader translator's",
+        &members, "http://anglebug.com/8280"
+    };
+
+    FeatureInfo linkJobIsThreadSafe = {
+        "linkJobIsThreadSafe",
+        FeatureCategory::FrontendFeatures,
+        "If false, parts of the link job cannot be parallelized",
+        &members, "http://anglebug.com/8297"
+    };
+
+    FeatureInfo uncurrentEglSurfaceUponSurfaceDestroy = {
+        "uncurrentEglSurfaceUponSurfaceDestroy",
+        FeatureCategory::FrontendWorkarounds,
+        "Make egl surface uncurrent when calling eglDestroySurface(), if the surface is still bound by the context of current render thread",
+        &members, "https://issuetracker.google.com/292285899"
     };
 
 };

@@ -43,9 +43,8 @@
 
 #ifdef	MAIN
 #define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
-#else	// MAIN
-#include "ip_plugin.h"
 #endif	// MAIN
+#include "ip_plugin.h"
 
 static SCDynamicStoreRef	store		= NULL;
 static CFRunLoopRef		rl		= NULL;

@@ -63,6 +63,20 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		44014DDC2ACE0D320021ACCC /* html.dict in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 4426666D2514C35B009520FA /* html.dict */; };
+		44014DE12ACE0DFC0021ACCC /* regexp.dict in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 442666792514C35C009520FA /* regexp.dict */; };
+		44014DE32ACE0E0B0021ACCC /* schema.dict in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 442666772514C35C009520FA /* schema.dict */; };
+		44014DE52ACE0E190021ACCC /* uri.dict in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 44014DDE2ACE0D6F0021ACCC /* uri.dict */; };
+		44014DE82ACE0E330021ACCC /* xml.dict in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 4426666A2514C35A009520FA /* xml.dict */; };
+		44014DEA2ACE0E420021ACCC /* xpath.dict in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 4426667A2514C35C009520FA /* xpath.dict */; };
+		44014DEC2ACE0F520021ACCC /* reader.dict in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 44014DEB2ACE0F0F0021ACCC /* reader.dict */; };
+		44014DED2ACE0F680021ACCC /* html.options in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 442666692514C35A009520FA /* html.options */; };
+		44014DEE2ACE0F6E0021ACCC /* reader.options in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 44BF6AA9283BEAFD0006B266 /* reader.options */; };
+		44014DEF2ACE0F730021ACCC /* regexp.options in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 442666702514C35B009520FA /* regexp.options */; };
+		44014DF02ACE0F7B0021ACCC /* schema.options in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 442666712514C35B009520FA /* schema.options */; };
+		44014DF12ACE0F7E0021ACCC /* uri.options in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 442666752514C35C009520FA /* uri.options */; };
+		44014DF22ACE0F810021ACCC /* xml.options in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 442666782514C35C009520FA /* xml.options */; };
+		44014DF32ACE0F850021ACCC /* xpath.options in Copy Dictionary */ = {isa = PBXBuildFile; fileRef = 4426666B2514C35A009520FA /* xpath.options */; };
 		441C461C2846D12A00C2A135 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		44258B5E1E241DA500DEB7B7 /* Libxml2XCTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */; };
 		4426667C2514C778009520FA /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
@@ -126,30 +140,18 @@
 		44A4F47929EF3D66009518B2 /* module.modulemap in Install /usr/include/libxml2/module.modulemap */ = {isa = PBXBuildFile; fileRef = 44A4F47829EF3D54009518B2 /* module.modulemap */; };
 		44BF6AAF283BEB230006B266 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
 		44BF6AB9283BEB3B0006B266 /* reader.c in Sources */ = {isa = PBXBuildFile; fileRef = 44BF6AAA283BEAFE0006B266 /* reader.c */; };
-		44BF6ABA283BEBDE0006B266 /* fuzz-reader in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44BF6AB8283BEB230006B266 /* fuzz-reader */; };
 		44CDB31F2846D2E500EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		44CDB3222846D30500EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		44CDB3252846D33700EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		44CDB32A2846D36300EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		44CDB32D2846D37400EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		44CE15972846D1AE006D9692 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
-		44D162D527BF153500432903 /* libxml2_xml_pushparser_fuzzer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44F286BB1EADB30E00BA8B08 /* libxml2_xml_pushparser_fuzzer */; };
-		44D162D627BF154400432903 /* libxml2_xml_read_memory_fuzzer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877C971EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */; };
-		44D162D727BF155000432903 /* libxml2_xml_regexp_compile_fuzzer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877CA71EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */; };
-		44D162D827BF155400432903 /* libxml2_xml_saxparser_fuzzer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877CB71EADBA0A00B105D1 /* libxml2_xml_saxparser_fuzzer */; };
 		44D907932515659000B83F48 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
 		44D9079C251565AC00B83F48 /* genSeed.c in Sources */ = {isa = PBXBuildFile; fileRef = 4426667B2514C35C009520FA /* genSeed.c */; };
 		44D907A1251565E700B83F48 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
 		44D907AB2515661B00B83F48 /* schema.c in Sources */ = {isa = PBXBuildFile; fileRef = 4426666E2514C35B009520FA /* schema.c */; };
 		44D907B02515671400B83F48 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
 		44D907BA2515672A00B83F48 /* uri.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666742514C35C009520FA /* uri.c */; };
-		44D907BC25157A4300B83F48 /* genSeed in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44D907992515659000B83F48 /* genSeed */; };
-		44D907BE25157B7500B83F48 /* fuzz-html in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44F286BB1EADB30E00BA8B09 /* fuzz-html */; };
-		44D907C025157B9B00B83F48 /* fuzz-regexp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877CA71EADB95B00B105D2 /* fuzz-regexp */; };
-		44D907C225157BAA00B83F48 /* fuzz-schema in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44D907A8251565E700B83F48 /* fuzz-schema */; };
-		44D907C425157BBA00B83F48 /* fuzz-uri in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44D907B72515671400B83F48 /* fuzz-uri */; };
-		44D907C625157BD400B83F48 /* fuzz-xml in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877C971EADB79900B105D2 /* fuzz-xml */; };
-		44D907C825157BE000B83F48 /* fuzz-xpath in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877CB71EADBA0A00B105D2 /* fuzz-xpath */; };
 		44D951461E24A47C00CC54CE /* result in Resources */ = {isa = PBXBuildFile; fileRef = 44D951441E24A47C00CC54CE /* result */; };
 		44D951471E24A47C00CC54CE /* test in Resources */ = {isa = PBXBuildFile; fileRef = 44D951451E24A47C00CC54CE /* test */; };
 		44DD581F2812251200FD3E4F /* xmlversion.c in Sources */ = {isa = PBXBuildFile; fileRef = 44DD581E2812251200FD3E4F /* xmlversion.c */; };
@@ -673,114 +675,88 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		44877C921EADB79900B105D1 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "$(SRCROOT)/libxml2/fuzz-old";
-			dstSubfolderSpec = 0;
-			files = (
-				44D162D627BF154400432903 /* libxml2_xml_read_memory_fuzzer in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		44877CA21EADB95B00B105D1 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "$(SRCROOT)/libxml2/fuzz-old";
-			dstSubfolderSpec = 0;
-			files = (
-				44D162D727BF155000432903 /* libxml2_xml_regexp_compile_fuzzer in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		44877CB21EADBA0A00B105D1 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "$(SRCROOT)/libxml2/fuzz-old";
-			dstSubfolderSpec = 0;
-			files = (
-				44D162D827BF155400432903 /* libxml2_xml_saxparser_fuzzer in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		44BF6AB2283BEB230006B266 /* CopyFiles */ = {
+		44014DDB2ACE0CFD0021ACCC /* Copy Dictionary */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(SRCROOT)/libxml2/fuzz";
-			dstSubfolderSpec = 0;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
-				44BF6ABA283BEBDE0006B266 /* fuzz-reader in CopyFiles */,
+				44014DDC2ACE0D320021ACCC /* html.dict in Copy Dictionary */,
+				44014DED2ACE0F680021ACCC /* html.options in Copy Dictionary */,
 			);
+			name = "Copy Dictionary";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		44D907BB25157A0800B83F48 /* CopyFiles */ = {
+		44014DDD2ACE0D400021ACCC /* Copy Dictionary */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(SRCROOT)/libxml2/fuzz";
-			dstSubfolderSpec = 0;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
-				44D907BC25157A4300B83F48 /* genSeed in CopyFiles */,
+				44014DEC2ACE0F520021ACCC /* reader.dict in Copy Dictionary */,
+				44014DEE2ACE0F6E0021ACCC /* reader.options in Copy Dictionary */,
 			);
+			name = "Copy Dictionary";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		44D907BD25157B3C00B83F48 /* CopyFiles */ = {
+		44014DE02ACE0DF20021ACCC /* Copy Dictionary */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(SRCROOT)/libxml2/fuzz";
-			dstSubfolderSpec = 0;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
-				44D907BE25157B7500B83F48 /* fuzz-html in CopyFiles */,
+				44014DE12ACE0DFC0021ACCC /* regexp.dict in Copy Dictionary */,
+				44014DEF2ACE0F730021ACCC /* regexp.options in Copy Dictionary */,
 			);
+			name = "Copy Dictionary";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		44D907BF25157B9500B83F48 /* CopyFiles */ = {
+		44014DE22ACE0E020021ACCC /* Copy Dictionary */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(SRCROOT)/libxml2/fuzz";
-			dstSubfolderSpec = 0;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
-				44D907C025157B9B00B83F48 /* fuzz-regexp in CopyFiles */,
+				44014DE32ACE0E0B0021ACCC /* schema.dict in Copy Dictionary */,
+				44014DF02ACE0F7B0021ACCC /* schema.options in Copy Dictionary */,
 			);
+			name = "Copy Dictionary";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		44D907C125157BA500B83F48 /* CopyFiles */ = {
+		44014DE42ACE0E120021ACCC /* Copy Dictionary */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(SRCROOT)/libxml2/fuzz";
-			dstSubfolderSpec = 0;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
-				44D907C225157BAA00B83F48 /* fuzz-schema in CopyFiles */,
+				44014DE52ACE0E190021ACCC /* uri.dict in Copy Dictionary */,
+				44014DF12ACE0F7E0021ACCC /* uri.options in Copy Dictionary */,
 			);
+			name = "Copy Dictionary";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		44D907C325157BB300B83F48 /* CopyFiles */ = {
+		44014DE72ACE0E2C0021ACCC /* Copy Dictionary */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(SRCROOT)/libxml2/fuzz";
-			dstSubfolderSpec = 0;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
-				44D907C425157BBA00B83F48 /* fuzz-uri in CopyFiles */,
+				44014DE82ACE0E330021ACCC /* xml.dict in Copy Dictionary */,
+				44014DF22ACE0F810021ACCC /* xml.options in Copy Dictionary */,
 			);
+			name = "Copy Dictionary";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		44D907C525157BCF00B83F48 /* CopyFiles */ = {
+		44014DE92ACE0E3B0021ACCC /* Copy Dictionary */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(SRCROOT)/libxml2/fuzz";
-			dstSubfolderSpec = 0;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
-				44D907C625157BD400B83F48 /* fuzz-xml in CopyFiles */,
+				44014DEA2ACE0E420021ACCC /* xpath.dict in Copy Dictionary */,
+				44014DF32ACE0F850021ACCC /* xpath.options in Copy Dictionary */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		44D907C725157BD900B83F48 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(SRCROOT)/libxml2/fuzz";
-			dstSubfolderSpec = 0;
-			files = (
-				44D907C825157BE000B83F48 /* fuzz-xpath in CopyFiles */,
-			);
+			name = "Copy Dictionary";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		44F23F8829EF300B000C9982 /* Install /usr/include/libxml2/module.modulemap */ = {
@@ -793,16 +769,6 @@
 			);
 			name = "Install /usr/include/libxml2/module.modulemap";
 			runOnlyForDeploymentPostprocessing = 1;
-		};
-		44F286B91EADB30E00BA8B08 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "$(SRCROOT)/libxml2/fuzz-old";
-			dstSubfolderSpec = 0;
-			files = (
-				44D162D527BF153500432903 /* libxml2_xml_pushparser_fuzzer in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5DB38ADF14F87AE80060A507 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -884,6 +850,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		44014DDE2ACE0D6F0021ACCC /* uri.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = uri.dict; sourceTree = "<group>"; };
+		44014DEB2ACE0F0F0021ACCC /* reader.dict */ = {isa = PBXFileReference; lastKnownFileType = text; path = reader.dict; sourceTree = "<group>"; };
 		44083DB62009516B0037BECF /* libxml2.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = libxml2.exp; sourceTree = "<group>"; };
 		44258B5B1E241DA500DEB7B7 /* Libxml2XCTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Libxml2XCTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Libxml2XCTests.m; sourceTree = "<group>"; };
@@ -1404,6 +1372,7 @@
 				4426666D2514C35B009520FA /* html.dict */,
 				442666692514C35A009520FA /* html.options */,
 				44BF6AAA283BEAFE0006B266 /* reader.c */,
+				44014DEB2ACE0F0F0021ACCC /* reader.dict */,
 				44BF6AA9283BEAFD0006B266 /* reader.options */,
 				4426666C2514C35B009520FA /* regexp.c */,
 				442666792514C35C009520FA /* regexp.dict */,
@@ -1412,6 +1381,7 @@
 				442666772514C35C009520FA /* schema.dict */,
 				442666712514C35B009520FA /* schema.options */,
 				442666742514C35C009520FA /* uri.c */,
+				44014DDE2ACE0D6F0021ACCC /* uri.dict */,
 				442666752514C35C009520FA /* uri.options */,
 				442666722514C35B009520FA /* xml.c */,
 				4426666A2514C35A009520FA /* xml.dict */,
@@ -2034,7 +2004,6 @@
 			buildPhases = (
 				44877C8E1EADB79900B105D1 /* Sources */,
 				44877C901EADB79900B105D1 /* Frameworks */,
-				44877C921EADB79900B105D1 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2052,7 +2021,7 @@
 			buildPhases = (
 				44877C8E1EADB79900B105D2 /* Sources */,
 				44877C901EADB79900B105D2 /* Frameworks */,
-				44D907C525157BCF00B83F48 /* CopyFiles */,
+				44014DE72ACE0E2C0021ACCC /* Copy Dictionary */,
 			);
 			buildRules = (
 			);
@@ -2070,7 +2039,6 @@
 			buildPhases = (
 				44877C9E1EADB95B00B105D1 /* Sources */,
 				44877CA01EADB95B00B105D1 /* Frameworks */,
-				44877CA21EADB95B00B105D1 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2088,7 +2056,7 @@
 			buildPhases = (
 				44877C9E1EADB95B00B105D2 /* Sources */,
 				44877CA01EADB95B00B105D2 /* Frameworks */,
-				44D907BF25157B9500B83F48 /* CopyFiles */,
+				44014DE02ACE0DF20021ACCC /* Copy Dictionary */,
 			);
 			buildRules = (
 			);
@@ -2106,7 +2074,6 @@
 			buildPhases = (
 				44877CAE1EADBA0A00B105D1 /* Sources */,
 				44877CB01EADBA0A00B105D1 /* Frameworks */,
-				44877CB21EADBA0A00B105D1 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2124,7 +2091,7 @@
 			buildPhases = (
 				44877CAE1EADBA0A00B105D2 /* Sources */,
 				44877CB01EADBA0A00B105D2 /* Frameworks */,
-				44D907C725157BD900B83F48 /* CopyFiles */,
+				44014DE92ACE0E3B0021ACCC /* Copy Dictionary */,
 			);
 			buildRules = (
 			);
@@ -2159,7 +2126,7 @@
 			buildPhases = (
 				44BF6AAE283BEB230006B266 /* Sources */,
 				44BF6AB1283BEB230006B266 /* Frameworks */,
-				44BF6AB2283BEB230006B266 /* CopyFiles */,
+				44014DDD2ACE0D400021ACCC /* Copy Dictionary */,
 			);
 			buildRules = (
 			);
@@ -2177,7 +2144,6 @@
 			buildPhases = (
 				44D907912515659000B83F48 /* Sources */,
 				44D907942515659000B83F48 /* Frameworks */,
-				44D907BB25157A0800B83F48 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2195,7 +2161,7 @@
 			buildPhases = (
 				44D907A0251565E700B83F48 /* Sources */,
 				44D907A3251565E700B83F48 /* Frameworks */,
-				44D907C125157BA500B83F48 /* CopyFiles */,
+				44014DE22ACE0E020021ACCC /* Copy Dictionary */,
 			);
 			buildRules = (
 			);
@@ -2213,7 +2179,7 @@
 			buildPhases = (
 				44D907AF2515671400B83F48 /* Sources */,
 				44D907B22515671400B83F48 /* Frameworks */,
-				44D907C325157BB300B83F48 /* CopyFiles */,
+				44014DE42ACE0E120021ACCC /* Copy Dictionary */,
 			);
 			buildRules = (
 			);
@@ -2231,7 +2197,6 @@
 			buildPhases = (
 				44F286B71EADB30E00BA8B08 /* Sources */,
 				44F286B81EADB30E00BA8B08 /* Frameworks */,
-				44F286B91EADB30E00BA8B08 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2249,7 +2214,7 @@
 			buildPhases = (
 				44F286B71EADB30E00BA8B09 /* Sources */,
 				44F286B81EADB30E00BA8B09 /* Frameworks */,
-				44D907BD25157B3C00B83F48 /* CopyFiles */,
+				44014DDB2ACE0CFD0021ACCC /* Copy Dictionary */,
 			);
 			buildRules = (
 			);

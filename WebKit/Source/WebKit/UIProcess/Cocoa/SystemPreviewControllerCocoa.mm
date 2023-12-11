@@ -364,7 +364,7 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
 
 namespace WebKit {
 
-void SystemPreviewController::begin(const URL& url, const WebCore::SystemPreviewInfo& systemPreviewInfo, CompletionHandler<void()>&& completionHandler)
+void SystemPreviewController::begin(const URL& url, const SecurityOriginData& topOrigin, const WebCore::SystemPreviewInfo& systemPreviewInfo, CompletionHandler<void()>&& completionHandler)
 {
     if (m_state != State::Initial) {
         RELEASE_LOG(SystemPreview, "SystemPreview didn't start because an existing preview is in progress");
@@ -386,7 +386,7 @@ void SystemPreviewController::begin(const URL& url, const WebCore::SystemPreview
 
     auto request = WebCore::ResourceRequest(url);
     WeakPtr weakThis { *this };
-    m_webPageProxy.dataTaskWithRequest(WTFMove(request), [weakThis, completionHandler = WTFMove(completionHandler)] (Ref<API::DataTask>&& task) mutable {
+    m_webPageProxy.dataTaskWithRequest(WTFMove(request), topOrigin, [weakThis, completionHandler = WTFMove(completionHandler)] (Ref<API::DataTask>&& task) mutable {
         if (!weakThis)
             return completionHandler();
 

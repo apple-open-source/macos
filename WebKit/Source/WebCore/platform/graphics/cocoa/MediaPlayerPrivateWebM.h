@@ -43,6 +43,7 @@
 
 OBJC_CLASS AVSampleBufferAudioRenderer;
 OBJC_CLASS AVSampleBufferDisplayLayer;
+OBJC_CLASS AVSampleBufferRenderSynchronizer;
 
 typedef struct __CVBuffer *CVPixelBufferRef;
 
@@ -110,7 +111,7 @@ private:
     bool hasVideo() const final { return m_hasVideo; }
     bool hasAudio() const final { return m_hasAudio; }
 
-    void setPageIsVisible(bool, String&& sceneIdentifier) final;
+    void setPageIsVisible(bool) final;
 
     MediaTime timeFudgeFactor() const { return { 1, 10 }; }
     MediaTime currentMediaTime() const final;

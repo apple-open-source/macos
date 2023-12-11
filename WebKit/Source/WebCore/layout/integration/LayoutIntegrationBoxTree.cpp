@@ -162,9 +162,11 @@ void BoxTree::adjustStyleIfNeeded(const RenderElement& renderer, RenderStyle& st
             return;
         }
         if (renderer.isLineBreak()) {
-            styleToAdjust.setDisplay(DisplayType::Inline);
+            if (!styleToAdjust.hasOutOfFlowPosition()) {
+                // Force in-flow display value to inline (see webkit.org/b/223151).
+                styleToAdjust.setDisplay(DisplayType::Inline);
+            }
             styleToAdjust.setFloating(Float::None);
-            styleToAdjust.setPosition(PositionType::Static);
             // Clear property should only apply on block elements, however,
             // it appears that browsers seem to ignore it on <br> inline elements.
             // https://drafts.csswg.org/css2/#propdef-clear
@@ -191,8 +193,12 @@ UniqueRef<Layout::Box> BoxTree::createLayoutBox(RenderObject& renderer)
             ? (isCombinedText ? textRenderer.originalText() : textRenderer.text())
             : RenderBlock::updateSecurityDiscCharacters(style, isCombinedText ? textRenderer.originalText() : textRenderer.text());
         auto canUseSimpleFontCodePath = textRenderer.canUseSimpleFontCodePath();
-        auto canUseSimplifiedTextMeasuring = canUseSimpleFontCodePath && Layout::TextUtil::canUseSimplifiedTextMeasuring(text, style, firstLineStyle.get());
-        return makeUniqueRef<Layout::InlineTextBox>(text, isCombinedText, canUseSimplifiedTextMeasuring, canUseSimpleFontCodePath, WTFMove(style), WTFMove(firstLineStyle));
+        auto canUseSimplifiedTextMeasuring = textRenderer.canUseSimplifiedTextMeasuring();
+        if (!canUseSimplifiedTextMeasuring) {
+            canUseSimplifiedTextMeasuring = canUseSimpleFontCodePath && Layout::TextUtil::canUseSimplifiedTextMeasuring(text, style, firstLineStyle.get());
+            textRenderer.setCanUseSimplifiedTextMeasuring(*canUseSimplifiedTextMeasuring);
+        }
+        return makeUniqueRef<Layout::InlineTextBox>(text, isCombinedText, *canUseSimplifiedTextMeasuring, canUseSimpleFontCodePath, WTFMove(style), WTFMove(firstLineStyle));
     }
 
     auto& renderElement = downcast<RenderElement>(renderer);

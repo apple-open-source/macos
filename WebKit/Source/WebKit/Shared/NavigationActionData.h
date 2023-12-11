@@ -32,6 +32,7 @@
 #include <WebCore/FloatPoint.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/PrivateClickMeasurement.h>
+#include <WebCore/ResourceResponse.h>
 #include <WebCore/SecurityOriginData.h>
 
 namespace IPC {
@@ -48,7 +49,7 @@ namespace WebKit {
 struct NavigationActionData {
     WebCore::NavigationType navigationType { WebCore::NavigationType::Other };
     OptionSet<WebEventModifier> modifiers;
-    WebMouseEventButton mouseButton { WebMouseEventButton::NoButton };
+    WebMouseEventButton mouseButton { WebMouseEventButton::None };
     WebMouseEventSyntheticClickType syntheticClickType { WebMouseEventSyntheticClickType::NoTap };
     uint64_t userGestureTokenIdentifier { 0 };
     std::optional<WTF::UUID> userGestureAuthorizationToken;
@@ -56,7 +57,7 @@ struct NavigationActionData {
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy { WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow };
     WTF::String downloadAttribute;
     WebCore::FloatPoint clickLocationInRootViewCoordinates;
-    bool isRedirect { false };
+    WebCore::ResourceResponse redirectResponse;
     bool treatAsSameOriginNavigation { false };
     bool hasOpenedFrames { false };
     bool openedByDOMWithOpener { false };

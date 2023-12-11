@@ -1464,7 +1464,7 @@ void CoordinatedGraphicsLayer::pauseAnimation(const String& animationName, doubl
     didChangeAnimations();
 }
 
-void CoordinatedGraphicsLayer::removeAnimation(const String& animationName)
+void CoordinatedGraphicsLayer::removeAnimation(const String& animationName, std::optional<AnimatedProperty>)
 {
     m_animations.remove(animationName);
     didChangeAnimations();
@@ -1522,6 +1522,11 @@ void CoordinatedGraphicsLayer::dumpAdditionalProperties(TextStream& textStream, 
 {
     if (options & LayerTreeAsTextOptions::IncludeContentLayers)
         dumpInnerLayer(textStream, "backdrop layer"_s, m_backdropLayer.get(), options);
+}
+
+double CoordinatedGraphicsLayer::backingStoreMemoryEstimate() const
+{
+    return 0.0;
 }
 
 } // namespace WebCore

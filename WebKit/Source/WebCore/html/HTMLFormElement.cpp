@@ -260,11 +260,9 @@ void HTMLFormElement::submitIfPossible(Event* event, HTMLFormControlElement* sub
     m_isSubmittingOrPreparingForSubmission = true;
     m_shouldSubmit = false;
 
-    if (UserGestureIndicator::processingUserGesture()) {
-        for (auto& element : m_listedElements) {
-            if (auto* formControlElement = dynamicDowncast<HTMLFormControlElement>(*element))
-                formControlElement->setInteractedWithSinceLastFormSubmitEvent(false);
-        }
+    for (auto& element : m_listedElements) {
+        if (auto* formControlElement = dynamicDowncast<HTMLFormControlElement>(*element))
+            formControlElement->setInteractedWithSinceLastFormSubmitEvent(true);
     }
 
     bool shouldValidate = document().page() && document().page()->settings().interactiveFormValidationEnabled() && !noValidate();
@@ -735,12 +733,12 @@ AtomString HTMLFormElement::effectiveTarget(const Event* event, HTMLFormControlE
     if (RefPtr submitter = overrideSubmitter ? overrideSubmitter : findSubmitter(event)) {
         auto& targetValue = submitter->attributeWithoutSynchronization(formtargetAttr);
         if (!targetValue.isNull())
-            return targetValue;
+            return makeTargetBlankIfHasDanglingMarkup(targetValue);
     }
 
     auto targetValue = target();
     if (!targetValue.isNull())
-        return targetValue;
+        return makeTargetBlankIfHasDanglingMarkup(targetValue);
 
     return document().baseTarget();
 }
@@ -808,6 +806,7 @@ bool HTMLFormElement::checkInvalidControlsAndCollectUnhandled(Vector<RefPtr<Vali
     // Copy m_listedElements because event handlers called from HTMLFormControlElement::checkValidity() might change m_listedElements.
     bool hasInvalidControls = false;
     for (auto& control : copyValidatedListedElementsVector()) {
+        // checkValidity() can trigger events that change the DOM hence why we check for control->form() twice.
         if (control->form() == this && !control->checkValidity(&unhandledInvalidControls) && control->form() == this)
             hasInvalidControls = true;
     }

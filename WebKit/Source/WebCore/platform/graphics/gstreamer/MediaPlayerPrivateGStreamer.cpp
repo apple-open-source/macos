@@ -987,6 +987,8 @@ void MediaPlayerPrivateGStreamer::syncOnClock(bool sync)
 #if !USE(WESTEROS_SINK)
     setSyncOnClock(videoSink(), sync);
     setSyncOnClock(audioSink(), sync);
+#else
+    UNUSED_PARAM(sync);
 #endif
 }
 
@@ -1574,7 +1576,7 @@ void MediaPlayerPrivateGStreamer::handleStreamCollectionMessage(GstMessage* mess
     // WebKitMediaSrc) parsebin and decodebin3 emit their own stream-collection messages, but late,
     // and sometimes with duplicated streams. Let's only listen for stream-collection messages from
     // the source to avoid these issues.
-    if (GST_MESSAGE_SRC(message) != GST_OBJECT(m_source.get())) {
+    if (!g_str_has_prefix(GST_OBJECT_NAME(m_source.get()), "filesrc") && GST_MESSAGE_SRC(message) != GST_OBJECT(m_source.get())) {
         GST_DEBUG_OBJECT(pipeline(), "Ignoring redundant STREAM_COLLECTION from %" GST_PTR_FORMAT, message->src);
         return;
     }
@@ -2246,10 +2248,10 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
     // In GStreamer 1.20 and older urisourcebin mishandles source elements with dynamic pads. This
     // is not an issue in 1.22.
     if (webkitGstCheckVersion(1, 22, 0) && g_str_has_prefix(elementName.get(), "urisourcebin") && (isMediaSource() || isMediaStreamPlayer()))
-        g_object_set(element, "use-buffering", FALSE, nullptr);
+        g_object_set(element, "use-buffering", FALSE, "parse-streams", FALSE, nullptr);
 
     // Collect processing time metrics for video decoders and converters.
-    if ((classifiers.contains("Converter"_s) || classifiers.contains("Decoder"_s)) && classifiers.contains("Video"_s) && !classifiers.contains("Parser"_s))
+    if ((classifiers.contains("Converter"_s) || classifiers.contains("Decoder"_s)) && classifiers.contains("Video"_s) && !classifiers.contains("Parser"_s) && !classifiers.contains("Sink"_s))
         webkitGstTraceProcessingTimeForElement(element);
 
     // This will set the multiqueue size to the default value.
@@ -2307,41 +2309,10 @@ void MediaPlayerPrivateGStreamer::configureElementPlatformQuirks(GstElement* ele
 #endif
 #endif
 
-#if USE(WESTEROS_SINK)
-    static GstCaps* westerosSinkCaps = nullptr;
-    static GType westerosSinkType = G_TYPE_INVALID;
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
-        GRefPtr<GstElementFactory> westerosfactory = adoptGRef(gst_element_factory_find("westerossink"));
-        if (westerosfactory) {
-            gst_object_unref(gst_plugin_feature_load(GST_PLUGIN_FEATURE(westerosfactory.get())));
-            westerosSinkType = gst_element_factory_get_element_type(westerosfactory.get());
-            for (auto* t = gst_element_factory_get_static_pad_templates(westerosfactory.get()); t; t = g_list_next(t)) {
-                GstStaticPadTemplate* padtemplate = static_cast<GstStaticPadTemplate*>(t->data);
-                if (padtemplate->direction != GST_PAD_SINK)
-                    continue;
-                if (westerosSinkCaps)
-                    westerosSinkCaps = gst_caps_merge(westerosSinkCaps, gst_static_caps_get(&padtemplate->static_caps));
-                else
-                    westerosSinkCaps = gst_static_caps_get(&padtemplate->static_caps);
-            }
-        }
-    });
 #if ENABLE(MEDIA_STREAM)
-    if (G_TYPE_CHECK_INSTANCE_TYPE(G_OBJECT(element), westerosSinkType)) {
-        if (m_streamPrivate && gstObjectHasProperty(element, "immediate-output")) {
-            GST_DEBUG_OBJECT(pipeline(), "Enable 'immediate-output' in WesterosSink");
-            g_object_set(G_OBJECT(element), "immediate-output", TRUE, nullptr);
-        }
-    }
-#endif
-    // FIXME: Following is a hack needed to get westeros-sink autoplug correctly with playbin3.
-    if (!m_isLegacyPlaybin && westerosSinkCaps && g_str_has_prefix(GST_ELEMENT_NAME(element), "uridecodebin3")) {
-        GRefPtr<GstCaps> defaultCaps;
-        g_object_get(element, "caps", &defaultCaps.outPtr(), NULL);
-        defaultCaps = adoptGRef(gst_caps_merge(gst_caps_ref(westerosSinkCaps), defaultCaps.leakRef()));
-        g_object_set(element, "caps", defaultCaps.get(), NULL);
-        GST_INFO_OBJECT(pipeline(), "setting stop caps tp %" GST_PTR_FORMAT, defaultCaps.get());
+    if (m_streamPrivate && !g_strcmp0(G_OBJECT_TYPE_NAME(G_OBJECT(element)), "GstWesterosSink") && gstObjectHasProperty(element, "immediate-output")) {
+        GST_DEBUG_OBJECT(pipeline(), "Enable 'immediate-output' in WesterosSink");
+        g_object_set(element, "immediate-output", TRUE, nullptr);
     }
 #endif
 
@@ -2888,7 +2859,7 @@ void MediaPlayerPrivateGStreamer::updateDownloadBufferingFlag()
     }
 }
 
-static void setPlaybackFlags(GstElement* pipeline, bool isMediaStream)
+void MediaPlayerPrivateGStreamer::setPlaybackFlags(bool isMediaStream)
 {
     unsigned hasAudio = getGstPlayFlag("audio");
     unsigned hasVideo = getGstPlayFlag("video");
@@ -2898,8 +2869,8 @@ static void setPlaybackFlags(GstElement* pipeline, bool isMediaStream)
     unsigned hasSoftwareColorBalance = getGstPlayFlag("soft-colorbalance");
 
     unsigned flags = 0;
-    g_object_get(pipeline, "flags", &flags, nullptr);
-    GST_TRACE_OBJECT(pipeline, "default flags %x", flags);
+    g_object_get(pipeline(), "flags", &flags, nullptr);
+    GST_TRACE_OBJECT(pipeline(), "default flags %x", flags);
     flags = flags & ~hasText;
     flags = flags & ~hasNativeAudio;
     flags = flags & ~hasNativeVideo;
@@ -2922,12 +2893,17 @@ static void setPlaybackFlags(GstElement* pipeline, bool isMediaStream)
     hasNativeAudio = 0x0;
 #endif
 
-    GST_INFO_OBJECT(pipeline, "text %s, audio %s (native %s), video %s (native %s, software color balance %s)", boolForPrinting(hasText),
+    GST_INFO_OBJECT(pipeline(), "text %s, audio %s (native %s), video %s (native %s, software color balance %s)", boolForPrinting(hasText),
         boolForPrinting(hasAudio), boolForPrinting(hasNativeAudio), boolForPrinting(hasVideo), boolForPrinting(hasNativeVideo),
         boolForPrinting(hasSoftwareColorBalance));
     flags |= hasText | hasAudio | hasVideo | hasNativeVideo | hasNativeAudio | hasSoftwareColorBalance;
-    g_object_set(pipeline, "flags", flags, nullptr);
-    GST_DEBUG_OBJECT(pipeline, "current pipeline flags %x", flags);
+    g_object_set(pipeline(), "flags", flags, nullptr);
+    GST_DEBUG_OBJECT(pipeline(), "current pipeline flags %x", flags);
+
+    if (m_shouldPreservePitch && hasAudio && hasNativeAudio) {
+        GST_WARNING_OBJECT(pipeline(), "can't preserve pitch with native audio");
+        setPreservesPitch(false);
+    }
 }
 
 void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
@@ -2969,7 +2945,7 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
 
     GST_INFO_OBJECT(pipeline(), "Using legacy playbin element: %s", boolForPrinting(m_isLegacyPlaybin));
 
-    setPlaybackFlags(pipeline(), isMediaStream);
+    setPlaybackFlags(isMediaStream);
 
     // Let also other listeners subscribe to (application) messages in this bus.
     auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(m_pipeline.get())));
@@ -3321,6 +3297,12 @@ static uint32_t fourccValue(GstVideoFormat format)
         return uint32_t(DMABufFormat::FourCC::BGRA8888);
     case GST_VIDEO_FORMAT_ABGR:
         return uint32_t(DMABufFormat::FourCC::RGBA8888);
+    case GST_VIDEO_FORMAT_P010_10LE:
+    case GST_VIDEO_FORMAT_P010_10BE:
+        return uint32_t(DMABufFormat::FourCC::P010);
+    case GST_VIDEO_FORMAT_P016_LE:
+    case GST_VIDEO_FORMAT_P016_BE:
+        return uint32_t(DMABufFormat::FourCC::P016);
     default:
         break;
     }
@@ -3500,6 +3482,9 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
     };
 
     GstMappedFrame sourceFrame(m_sample, GST_MAP_READ);
+    if (!sourceFrame)
+        return;
+
     auto* sourceVideoFrame = sourceFrame.get();
     for (unsigned i = 0; i < GST_VIDEO_FRAME_N_PLANES(sourceVideoFrame); ++i) {
         auto& planeData = swapchainBuffer->planeData(i);
@@ -3895,6 +3880,9 @@ RefPtr<VideoFrame> MediaPlayerPrivateGStreamer::videoFrameForCurrentTime()
     auto* buffer = gst_sample_get_buffer(m_sample.get());
     auto frame = VideoFrameGStreamer::createWrappedSample(m_sample.get(), fromGstClockTime(GST_BUFFER_PTS(buffer)));
     auto convertedSample = frame->downloadSample(GST_VIDEO_FORMAT_BGRA);
+    if (!convertedSample)
+        return nullptr;
+
     auto size = getVideoResolutionFromCaps(gst_sample_get_caps(m_sample.get())).value_or(FloatSize { 0, 0 });
     return VideoFrameGStreamer::create(WTFMove(convertedSample), size);
 }
@@ -4200,6 +4188,16 @@ std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateGStreamer::videoPla
         totalFrameDelay,
         displayCompositedVideoFrames,
     };
+}
+
+unsigned MediaPlayerPrivateGStreamer::decodedFrameCount() const
+{
+    return const_cast<MediaPlayerPrivateGStreamer*>(this)->videoPlaybackQualityMetrics().value_or(VideoPlaybackQualityMetrics()).totalVideoFrames;
+}
+
+unsigned MediaPlayerPrivateGStreamer::droppedFrameCount() const
+{
+    return const_cast<MediaPlayerPrivateGStreamer*>(this)->videoPlaybackQualityMetrics().value_or(VideoPlaybackQualityMetrics()).droppedVideoFrames;
 }
 
 #if ENABLE(ENCRYPTED_MEDIA)

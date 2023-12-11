@@ -32,6 +32,13 @@ __FBSDID("$FreeBSD$");
 #endif
 #include <sys/types.h>
 
+#ifdef __APPLE__
+#include <assert.h>
+#include <fcntl.h>
+#include <libgen.h>
+#include <limits.h>
+#include <string.h>
+#endif
 #include <err.h>
 #include <errno.h>
 #include <getopt.h>
@@ -63,6 +70,20 @@ bool			 lflag;
 bool			 tflag;
 bool			 rflag;
 int			 fb_flags;
+#ifdef __APPLE__
+static char		 progdir[PATH_MAX];
+static int		 gnuflag;
+
+struct cfilter {
+	uint32_t	*filter;
+	size_t		 filtersz;
+	size_t		 idx;
+};
+
+/* include filter */
+static struct cfilter	ifilter;
+static struct cfilter	exfilter;
+#endif
 
 static void		 do_conv(iconv_t, bool);
 void			 mb_to_uc_fb(const char*, size_t,
@@ -78,10 +99,18 @@ void			 wc_to_mb_fb(wchar_t,
 			     void (*write_replacement)(const char *,
 			     size_t, void *), void *, void *);
 
+#ifdef __APPLE__
+#define	OPT_FILTER	(CHAR_MAX + 1)
+#endif
+
 struct option long_options[] =
 {
 	{"citrus",	no_argument,	NULL,	'c'},
 	{"diagnostic",	no_argument,	NULL,	'd'},
+#ifdef __APPLE__
+	{"filter",	required_argument,	NULL,	OPT_FILTER },
+	{"gnu",		no_argument,	&gnuflag,	1 },
+#endif
 	{"ignore",	no_argument,	NULL,	'i'},
 	{"long",	no_argument,	NULL,	'l'},
 	{"reverse",	no_argument,	NULL,	'r'},
@@ -196,6 +225,190 @@ wc_to_mb_fb(wchar_t wc,
 	fb_flags |= WC_TO_MB_FLAG;
 }
 
+#ifdef __APPLE__
+static void
+add_filter_char(struct cfilter *cfilter, uint32_t unichar)
+{
+	size_t		 pos;
+
+	/* Grow? */
+	if (cfilter->idx == cfilter->filtersz) {
+		size_t deltasz;
+
+		deltasz = MAX(1, cfilter->filtersz * 2);
+		if (deltasz > 1024)
+			deltasz = 1024;
+
+		cfilter->filtersz += deltasz;
+		if (cfilter->filtersz > SIZE_MAX / sizeof(*cfilter->filter))
+			errx(1, "filter overflow");
+
+		cfilter->filter = realloc(cfilter->filter,
+		    cfilter->filtersz * sizeof(*cfilter->filter));
+		if (cfilter->filter == NULL)
+			err(1, "realloc");
+
+		/* We won't inspect the excess, so leave it garbage filled. */
+	}
+
+	if (cfilter->idx == 0) {
+		cfilter->filter[cfilter->idx++] = unichar;
+		return;
+	} else if (cfilter->filter[0] > unichar) {
+		pos = 0;
+		goto bump;
+	}
+
+	pos = cfilter->idx;
+	while (pos > 1 && cfilter->filter[pos - 1] > unichar)
+		pos--;
+
+	if (cfilter->filter[pos - 1] == unichar)
+		return;
+
+bump:
+	if (pos != cfilter->idx) {
+		/* Bump other items up */
+		for (size_t idx = cfilter->idx; idx > pos; idx--) {
+			cfilter->filter[idx] = cfilter->filter[idx - 1];
+		}
+	}
+
+	cfilter->filter[pos] = unichar;
+	cfilter->idx++;
+}
+
+static bool
+add_filter(struct cfilter *cfilter, const char *category)
+{
+	static int dirfd = -1;
+	FILE *f;
+	int catfd;
+	char *line;
+	size_t linesz;
+	ssize_t len;
+	uint32_t unichar;
+
+	if (dirfd == -1) {
+		dirfd = open(progdir, O_DIRECTORY);
+		assert(dirfd != -1);
+	}
+
+	catfd = openat(dirfd, category, O_RDONLY);
+	if (catfd == -1)
+		return (false);
+
+	f = fdopen(catfd, "r");
+	if (f == NULL)
+		err(1, "fdopen");
+
+	line = NULL;
+	linesz = 0;
+	while ((len = getline(&line, &linesz, f)) != -1) {
+		while (len > 0 && isspace(line[len - 1]))
+			line[--len] = '\0';
+
+		if (len == 0)
+			continue;
+
+		if (sscanf(line, "U+%x", &unichar) != 1)
+			err(1, "bad line: %s", line);
+
+		add_filter_char(cfilter, unichar);
+	}
+
+	free(line);
+	fclose(f);
+	return (true);
+}
+
+static int
+filter_compare(const void *key, const void *mem)
+{
+	uint32_t kval, mval;
+
+	kval = *(uint32_t *)key;
+	mval = *(uint32_t *)mem;
+
+	if (kval < mval)
+		return (-1);
+	else if (kval > mval)
+		return (1);
+
+	return (0);
+}
+
+static bool
+filter_has(struct cfilter *filter, uint32_t chk)
+{
+	uint32_t *elem;
+
+	elem = bsearch(&chk, filter->filter, filter->idx,
+	    sizeof(*filter->filter), filter_compare);
+
+	return (elem != NULL);
+}
+
+static bool
+filter_pass(uint32_t chk)
+{
+	bool pass;
+
+	/*
+	 * Filters are not applied in order; the union of all include filters
+	 * are included, and the subset of those in the exclude filter are
+	 * excluded.
+	 */
+	pass = true;
+	if (pass && ifilter.idx != 0)
+		pass = filter_has(&ifilter, chk);
+	if (pass && exfilter.idx != 0)
+		pass = !filter_has(&exfilter, chk);
+	return (pass);
+}
+
+static void
+parse_filter_arg_one(const char *filtname)
+{
+	struct cfilter *target;
+
+	if (*filtname == '!') {
+		filtname++;
+		target = &exfilter;
+	} else {
+		target = &ifilter;
+	}
+
+	add_filter(target, filtname);
+}
+
+static void
+parse_filter_arg(const char *progarg)
+{
+	char *arg = strdup(progarg), *parg;
+	char *comma;
+
+	if (arg == NULL)
+		err(1, "strdup");
+
+	parg = arg;
+	while ((comma = strchr(parg, ',')) != NULL) {
+		*comma = '\0';
+		parse_filter_arg_one(parg);
+		parg = comma + 1;
+
+		if (*parg == '\0')
+			errx(1, "Malformed filter spec: %s", progarg);
+	}
+
+	/*
+	 * Pick up the last one.
+	 */
+	parse_filter_arg_one(parg);
+	free(arg);
+}
+#endif
+
 int
 main (int argc, char *argv[])
 {
@@ -204,6 +417,15 @@ main (int argc, char *argv[])
 	char *tocode;
 	int c;
 
+#ifdef __APPLE__
+	char *slash;
+
+	/* We'll need this for any category-filtering */
+	if (realpath(argv[0], progdir) == NULL)
+		err(1, "realpath");
+	slash = strrchr(progdir, '/');
+	*slash = '\0';
+#endif
 	while (((c = getopt_long(argc, argv, optstr, long_options, NULL)) != -1)) {
 		switch (c) {
 		case 'c':
@@ -224,6 +446,11 @@ main (int argc, char *argv[])
 		case 't':
 			tflag = true;
 			break;
+#ifdef __APPLE__
+		case OPT_FILTER:
+			parse_filter_arg(optarg);
+			break;
+#endif
 		}
 	}
 	argc -= optind;
@@ -296,9 +523,22 @@ do_conv(iconv_t cd, bool uniinput) {
 	char *inbuf_;
 	char *outbuf_;
 
+#ifdef __APPLE__
+	if (gnuflag) {
+		int arg = 1;
+
+		if (iconvctl(cd, ICONV_SET_ILSEQ_INVALID, &arg) == -1)
+			err(1, "iconvctl");
+	}
+#endif
+
 	for (inbuf = 0; inbuf < (lflag ? 0x100000 : 0x10000); inbuf += 1) {
 		if (uniinput && (inbuf >= 0xD800) && (inbuf <= 0xDF00))
 			continue;
+#ifdef __APPLE__
+		if (!filter_pass(inbuf))
+			continue;
+#endif
 		inbytesleft = uniinput ? 4 : magnitude(inbuf);
 		outbytesleft = 4;
 		outbuf = 0x00000000;
@@ -317,6 +557,22 @@ do_conv(iconv_t cd, bool uniinput) {
 			}
 			continue;
 		}
+#ifdef __APPLE__
+		/*
+		 * When we're comparing against a GNU reference, we need to make
+		 * sure that we don't output invalid sequences to avoid some
+		 * gratuituous differences.
+		 */
+		else if (ret != 0 && gnuflag) {
+			if (dflag) {
+				format(inbuf);
+				printf(" = ");
+				format(outbuf);
+				printf(" (invalid)\n");
+			}
+			continue;
+		}
+#endif
 		format(inbuf);
 		printf(" = ");
 		format(outbuf);

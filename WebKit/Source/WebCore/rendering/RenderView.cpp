@@ -33,6 +33,7 @@
 #include "HTMLImageElement.h"
 #include "HitTestResult.h"
 #include "ImageQualityController.h"
+#include "LayoutBoxGeometry.h"
 #include "LayoutInitialContainingBlock.h"
 #include "LayoutState.h"
 #include "LegacyRenderSVGRoot.h"
@@ -78,6 +79,7 @@ RenderView::RenderView(Document& document, RenderStyle&& style)
     : RenderBlockFlow(document, WTFMove(style))
     , m_frameView(*document.view())
     , m_initialContainingBlock(makeUniqueRef<Layout::InitialContainingBlock>(RenderStyle::clone(this->style())))
+    , m_layoutState(makeUniqueRef<Layout::LayoutState>(document, *m_initialContainingBlock, Layout::LayoutState::FormattingContextIntegrationType::Inline))
     , m_selection(*this)
     , m_lazyRepaintTimer(*this, &RenderView::lazyRepaintTimerFired)
 {
@@ -216,12 +218,12 @@ void RenderView::layout()
     if (!needsLayout())
         return;
 
-    ensureLayoutState().setViewportSize(frameView().size());
-
     LayoutStateMaintainer statePusher(*this, { }, false, valueOrDefault(m_pageLogicalSize).height(), m_pageLogicalHeightChanged);
 
     m_pageLogicalHeightChanged = false;
 
+    // FIXME: This should be called only when frame view (or the canvas we render onto) size changes.
+    updateInitialContainingBlockSize();
     RenderBlockFlow::layout();
 
 #ifndef NDEBUG
@@ -230,17 +232,15 @@ void RenderView::layout()
     clearNeedsLayout();
 }
 
-Layout::LayoutState& RenderView::ensureLayoutState()
-{
-    if (!m_layoutState)
-        m_layoutState = makeUnique<Layout::LayoutState>(document(), m_initialContainingBlock.get(), Layout::LayoutState::FormattingContextIntegrationType::Inline);
-    return *m_layoutState;
-}
-
 void RenderView::updateQuirksMode()
 {
-    if (m_layoutState)
-        m_layoutState->updateQuirksMode(document());
+    m_layoutState->updateQuirksMode(document());
+}
+
+void RenderView::updateInitialContainingBlockSize()
+{
+    // Initial containing block has no margin/padding/border.
+    m_layoutState->ensureGeometryForBox(m_initialContainingBlock).setContentBoxSize(frameView().size());
 }
 
 LayoutUnit RenderView::pageOrViewLogicalHeight() const
@@ -259,9 +259,8 @@ LayoutUnit RenderView::pageOrViewLogicalHeight() const
 LayoutUnit RenderView::clientLogicalWidthForFixedPosition() const
 {
     // FIXME: If the FrameView's fixedVisibleContentRect() is not empty, perhaps it should be consulted here too?
-    auto* localFrame = dynamicDowncast<LocalFrame>(frameView().frame());
-    if (localFrame && frameView().fixedElementsLayoutRelativeToFrame())
-        return LayoutUnit((isHorizontalWritingMode() ? frameView().visibleWidth() : frameView().visibleHeight()) / localFrame->frameScaleFactor());
+    if (frameView().fixedElementsLayoutRelativeToFrame())
+        return LayoutUnit((isHorizontalWritingMode() ? frameView().visibleWidth() : frameView().visibleHeight()) / frameView().frame().frameScaleFactor());
 
 #if PLATFORM(IOS_FAMILY)
     if (frameView().useCustomFixedPositionLayoutRect())
@@ -277,9 +276,8 @@ LayoutUnit RenderView::clientLogicalWidthForFixedPosition() const
 LayoutUnit RenderView::clientLogicalHeightForFixedPosition() const
 {
     // FIXME: If the FrameView's fixedVisibleContentRect() is not empty, perhaps it should be consulted here too?
-    auto* localFrame = dynamicDowncast<LocalFrame>(frameView().frame());
-    if (localFrame && frameView().fixedElementsLayoutRelativeToFrame())
-        return LayoutUnit((isHorizontalWritingMode() ? frameView().visibleHeight() : frameView().visibleWidth()) / localFrame->frameScaleFactor());
+    if (frameView().fixedElementsLayoutRelativeToFrame())
+        return LayoutUnit((isHorizontalWritingMode() ? frameView().visibleHeight() : frameView().visibleWidth()) / frameView().frame().frameScaleFactor());
 
 #if PLATFORM(IOS_FAMILY)
     if (frameView().useCustomFixedPositionLayoutRect())
@@ -632,10 +630,7 @@ bool RenderView::shouldUsePrintingLayout() const
 {
     if (!printing())
         return false;
-    auto* localFrame = dynamicDowncast<LocalFrame>(frameView().frame());
-    if (!localFrame)
-        return false;
-    return localFrame->shouldUsePrintingLayout();
+    return frameView().frame().shouldUsePrintingLayout();
 }
 
 LayoutRect RenderView::viewRect() const
@@ -758,10 +753,7 @@ void RenderView::setPageLogicalSize(LayoutSize size)
 
 float RenderView::zoomFactor() const
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(frameView().frame());
-    if (!localFrame)
-        return 1.0f;
-    return localFrame->pageZoomFactor();
+    return frameView().frame().pageZoomFactor();
 }
 
 FloatSize RenderView::sizeForCSSSmallViewportUnits() const

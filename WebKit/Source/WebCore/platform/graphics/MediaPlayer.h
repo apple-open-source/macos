@@ -166,7 +166,7 @@ struct SeekTarget {
     WEBCORE_EXPORT String toString() const;
 };
 
-class MediaPlayerClient {
+class MediaPlayerClient : public CanMakeWeakPtr<MediaPlayerClient> {
 public:
     virtual ~MediaPlayerClient() = default;
 
@@ -320,8 +320,8 @@ public:
 
     virtual bool mediaPlayerShouldDisableHDR() const { return false; }
 
-    virtual FloatSize mediaPlayerVideoInlineSize() const { return { }; }
-    virtual void mediaPlayerVideoInlineSizeDidChange(const FloatSize&) { }
+    virtual FloatSize mediaPlayerVideoLayerSize() const { return { }; }
+    virtual void mediaPlayerVideoLayerSizeDidChange(const FloatSize&) { }
 
 #if !RELEASE_LOG_DISABLED
     virtual const void* mediaPlayerLogIdentifier() { return nullptr; }
@@ -376,9 +376,9 @@ public:
     using LayerHostingContextIDCallback = CompletionHandler<void(LayerHostingContextID)>;
     void requestHostingContextID(LayerHostingContextIDCallback&&);
     LayerHostingContextID hostingContextID() const;
-    FloatSize videoInlineSize() const;
-    void videoInlineSizeDidChange(const FloatSize&);
-    void setVideoInlineSizeFenced(const FloatSize&, const WTF::MachSendRight&);
+    FloatSize videoLayerSize() const;
+    void videoLayerSizeDidChange(const FloatSize&);
+    void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&);
 
 #if PLATFORM(IOS_FAMILY)
     NSArray *timedMetadata() const;
@@ -402,7 +402,7 @@ public:
 #endif
     void cancelLoad();
 
-    void setPageIsVisible(bool, String&& sceneIdentifier = ""_s);
+    void setPageIsVisible(bool);
     void setVisibleForCanvas(bool);
     bool isVisibleForCanvas() const { return m_visibleForCanvas; }
 
@@ -761,7 +761,7 @@ private:
     const MediaPlayerFactory* nextMediaEngine(const MediaPlayerFactory*);
     void reloadTimerFired();
 
-    MediaPlayerClient* m_client;
+    WeakPtr<MediaPlayerClient> m_client;
     Timer m_reloadTimer;
     std::unique_ptr<MediaPlayerPrivateInterface> m_private;
     const MediaPlayerFactory* m_currentMediaEngine { nullptr };

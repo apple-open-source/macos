@@ -1668,6 +1668,7 @@ typedef NS_ENUM(NSInteger, RecoveryKeyInOctagonState) {
         }
     } else {
         secnotice("octagon-register-recovery-key", "backup key already registered");
+        CFReleaseNull(backupKey);
     }
 
     CFErrorRef sosError = NULL;

@@ -506,13 +506,13 @@ void CairoOperationRecorder::clearRect(const FloatRect& rect)
 
 void CairoOperationRecorder::drawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned numGlyphs, const FloatPoint& point, FontSmoothingMode fontSmoothing)
 {
-    struct DrawGlyphs final : PaintingOperation, OperationData<Cairo::FillSource, Cairo::StrokeSource, Cairo::ShadowState, FloatPoint, RefPtr<cairo_scaled_font_t>, float, Vector<cairo_glyph_t>, float, TextDrawingModeFlags, float, FloatSize, Color, FontSmoothingMode> {
+    struct DrawGlyphs final : PaintingOperation, OperationData<Cairo::FillSource, Cairo::StrokeSource, Cairo::ShadowState, FloatPoint, RefPtr<cairo_scaled_font_t>, float, Vector<cairo_glyph_t>, float, TextDrawingModeFlags, float, std::optional<GraphicsDropShadow>, FontSmoothingMode> {
         virtual ~DrawGlyphs() = default;
 
         void execute(PaintingOperationReplay& replayer) override
         {
             Cairo::drawGlyphs(contextForReplay(replayer), arg<0>(), arg<1>(), arg<2>(), arg<3>(), arg<4>().get(),
-                arg<5>(), arg<6>(), arg<7>(), arg<8>(), arg<9>(), arg<10>(), arg<11>(), arg<12>());
+                arg<5>(), arg<6>(), arg<7>(), arg<8>(), arg<9>(), arg<10>(), arg<11>());
         }
 
         void dump(TextStream& ts) override
@@ -539,7 +539,7 @@ void CairoOperationRecorder::drawGlyphs(const Font& font, const GlyphBufferGlyph
         Cairo::ShadowState(state), point,
         RefPtr<cairo_scaled_font_t>(font.platformData().scaledFont()),
         font.syntheticBoldOffset(), WTFMove(cairoGlyphs), xOffset, state.textDrawingMode(),
-        state.strokeThickness(), state.dropShadow().offset, state.dropShadow().color, fontSmoothing));
+        state.strokeThickness(), state.dropShadow(), fontSmoothing));
 }
 
 void CairoOperationRecorder::drawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
@@ -809,14 +809,14 @@ void CairoOperationRecorder::drawFocusRing(const Vector<FloatRect>& rects, float
     UNUSED_PARAM(outlineOffset);
 }
 
-void CairoOperationRecorder::save()
+void CairoOperationRecorder::save(GraphicsContextState::Purpose purpose)
 {
-    struct Save final : PaintingOperation, OperationData<> {
+    struct Save final : PaintingOperation, OperationData<GraphicsContextState::Purpose> {
         virtual ~Save() = default;
 
         void execute(PaintingOperationReplay& replayer) override
         {
-            contextForReplay(replayer).save();
+            contextForReplay(replayer).save(arg<0>());
         }
 
         void dump(TextStream& ts) override
@@ -825,21 +825,21 @@ void CairoOperationRecorder::save()
         }
     };
 
-    GraphicsContext::save();
+    GraphicsContext::save(purpose);
 
-    append(createCommand<Save>());
+    append(createCommand<Save>(purpose));
 
     m_stateStack.append(m_stateStack.last());
 }
 
-void CairoOperationRecorder::restore()
+void CairoOperationRecorder::restore(GraphicsContextState::Purpose purpose)
 {
-    struct Restore final : PaintingOperation, OperationData<> {
+    struct Restore final : PaintingOperation, OperationData<GraphicsContextState::Purpose> {
         virtual ~Restore() = default;
 
         void execute(PaintingOperationReplay& replayer) override
         {
-            contextForReplay(replayer).restore();
+            contextForReplay(replayer).restore(arg<0>());
         }
 
         void dump(TextStream& ts) override
@@ -851,12 +851,12 @@ void CairoOperationRecorder::restore()
     if (!stackSize())
         return;
 
-    GraphicsContext::restore();
+    GraphicsContext::restore(purpose);
 
     if (m_stateStack.isEmpty())
         return;
 
-    append(createCommand<Restore>());
+    append(createCommand<Restore>(purpose));
 
     m_stateStack.removeLast();
     if (m_stateStack.isEmpty())

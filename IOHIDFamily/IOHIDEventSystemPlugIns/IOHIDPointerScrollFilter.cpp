@@ -301,11 +301,15 @@ void IOHIDPointerScrollFilter::unscheduleFromDispatchQueue(void * self, dispatch
 
 void IOHIDPointerScrollFilter::unscheduleFromDispatchQueue(dispatch_queue_t queue __unused)
 {
-    _queue = NULL;
     if (_statsTimer) {
-        dispatch_source_cancel(_statsTimer);
-        dispatch_release(_statsTimer);
+        IOHIDServiceRef service = (IOHIDServiceRef)CFRetain(_service);
+        dispatch_async(_queue, ^{
+            dispatch_source_cancel(_statsTimer);
+            dispatch_release(_statsTimer);
+            CFRelease(service);
+        });
     }
+    _queue = NULL;
 }
 
 //------------------------------------------------------------------------------

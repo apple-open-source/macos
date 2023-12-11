@@ -791,7 +791,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
             } catch {
                 XCTFail("error loading from keychain: \(error)")
             }
-            XCTAssertNil(response, "response should be nil")
+            XCTAssertNotNil(response, "response should not be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
@@ -941,6 +941,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let account = CloudKitAccount(altDSID: primaryAccount.altDSID, persona: nil, hsa2: false, demo: false, accountStatus: .available)
         self.mockAuthKit.add(account)
 
+        // Tell SOS that it is absent, so we don't enable CDP on bringup
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
@@ -948,13 +951,52 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
-            XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
+            XCTAssertNotNil(error, "should have an error when health-checking when Octagon thinks the account is SA")
+            if let error = error as? NSError {
+                XCTAssertEqual(error.domain, OctagonErrorDomain, "error domain should be Octagon")
+                XCTAssertEqual(error.code, OctagonError.unsupportedAccount.rawValue, "error code should complain about account type")
+            }
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         self.assertEnters(context: cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testHealthCheckWhileSAAfterMissingHSA2Notification() throws {
+        // Account is SA
+        let primaryAccount = try XCTUnwrap(self.mockAuthKit.primaryAccount())
+        self.mockAuthKit.add(CloudKitAccount(altDSID: primaryAccount.altDSID, persona: nil, hsa2: false, demo: false, accountStatus: .available))
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
+
+        // Not CDP-capable means no CKKS syncing policy is loaded
+        XCTAssertNil(self.defaultCKKS.syncingPolicy)
+
+        // the account becomes HSA2, but we miss the notification for whatever reason
+        self.mockAuthKit.removePrimaryAccount()
+        self.mockAuthKit.add(CloudKitAccount(altDSID: primaryAccount.altDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available))
+
+        // The health check fires...
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { result, error in
+            XCTAssertNil(result, "should have no result")
+            XCTAssertNotNil(error, "should have an error when health-checking when Octagon thinks the account is SA")
+            if let error = error as? NSError {
+                XCTAssertEqual(error.domain, OctagonErrorDomain, "error domain should be Octagon")
+                XCTAssertEqual(error.code, OctagonError.unsupportedAccount.rawValue, "error code should complain about account type")
+            }
+            healthCheckCallback.fulfill()
+        }
+        self.wait(for: [healthCheckCallback], timeout: 30)
+
+        self.assertEnters(context: cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
+        XCTAssertNotNil(self.defaultCKKS.syncingPolicy, "CKKS syncing policy should be loaded after health check finds a new account")
     }
 
     func testRPCTrustStatusReturnsIsLocked() throws {
@@ -1107,7 +1149,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfUntrusted(context: peer3)
     }
 
-    func testEvaluateTPHOctagonTrust() throws {
+    func testEvaluateTPHOctagonTrustWhenLocked() throws {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
@@ -1127,6 +1169,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
+        // forcing the test to hit a lock state error which should not return an error or a response
+        self.pauseOctagonStateMachine(context: self.cuttlefishContext, entering: OctagonStateTPHTrustCheck)
+
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
             XCTAssertNil(error, "error should be nil")
@@ -1138,6 +1183,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         self.aksLockState = true
         self.lockStateTracker.recheck()
+        self.releaseOctagonStateMachine(context: self.cuttlefishContext, from: OctagonStateTPHTrustCheck)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
 
@@ -1171,6 +1217,18 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
             XCTAssertNotNil(error, "error should not be nil")
+
+            if let error = error as? NSError {
+                XCTAssertEqual(error.domain, OctagonErrorDomain)
+                XCTAssertEqual(error.code, OctagonError.unexpectedStateTransition.rawValue, "error should come from state machine")
+                let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? NSError
+                XCTAssertNotNil(underlyingError, "should be some underlying error")
+                XCTAssertEqual(underlyingError?.domain, OctagonStateTransitionErrorDomain, "underlying error should be from the octagon state machine")
+                XCTAssertEqual(underlyingError?.code, ((OTStates.octagonStateMap())[OctagonStatePostRepairCFU])?.intValue, "error code should match value in map for unknown state 'PostRepairCFU'")
+            } else {
+                XCTFail("unable to turn error into NSError")
+            }
+
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
         }

@@ -67,6 +67,7 @@ namespace WebKit {
 class GPUConnectionToWebProcess;
 struct GPUProcessConnectionParameters;
 struct GPUProcessCreationParameters;
+struct GPUProcessPreferencesForWebProcess;
 struct GPUProcessSessionParameters;
 class RemoteAudioSessionProxyManager;
 
@@ -147,10 +148,9 @@ private:
 
     // Message Handlers
     void initializeGPUProcess(GPUProcessCreationParameters&&);
+    void platformInitializeGPUProcess(GPUProcessCreationParameters&);
     void updateGPUProcessPreferences(GPUProcessPreferences&&);
     void createGPUConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&, CompletionHandler<void()>&&);
-    void updateWebGPUEnabled(WebCore::ProcessIdentifier, bool webGPUEnabled);
-    void updateDOMRenderingEnabled(WebCore::ProcessIdentifier, bool isDOMRenderingEnabled);
     void addSession(PAL::SessionID, GPUProcessSessionParameters&&);
     void removeSession(PAL::SessionID);
     void updateSandboxAccess(const Vector<SandboxExtension::Handle>&);
@@ -170,7 +170,7 @@ private:
     void setMockMediaDeviceIsEphemeral(const String&, bool);
     void resetMockMediaDevices();
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
-    void triggerMockMicrophoneConfigurationChange();
+    void triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay);
 #endif
 #if HAVE(SCREEN_CAPTURE_KIT)
     void promptForGetDisplayMedia(WebCore::DisplayCapturePromptType, CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&&);
@@ -179,9 +179,6 @@ private:
     void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
     void setScreenProperties(const WebCore::ScreenProperties&);
     void updateProcessName();
-#endif
-#if PLATFORM(COCOA)
-    void platformInitializeGPUProcess(GPUProcessCreationParameters&);
 #endif
 
 #if USE(OS_STATE)

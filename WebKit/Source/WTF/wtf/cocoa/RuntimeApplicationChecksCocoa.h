@@ -71,6 +71,7 @@ enum class SDKAlignedBehavior {
     NoLaBanquePostaleQuirks,
     NoMoviStarPlusCORSPreflightQuirk,
     NoPokerBrosBuiltInTagQuirk,
+    NoSearchInputIncrementalAttributeAndSearchEvent,
     NoShowModalDialog,
     NoTheSecretSocietyHiddenMysteryWindowOpenQuirk,
     NoTypedArrayAPIQuirk,
@@ -111,6 +112,7 @@ enum class SDKAlignedBehavior {
     DoesNotOverrideUAFromNSUserDefault,
     EvaluateJavaScriptWithoutTransientActivation,
     ResettingTransitionCancelsRunningTransitionQuirk,
+    OnlyLoadWellKnownAboutURLs,
 
     NumberOfBehaviors
 };

@@ -63,10 +63,12 @@ enum {
 
     KSOSCantParseSOSMessage = 8,
     kSOSErrorBadKeyType = 9,
-    
+
     kSOSDisabled = 10,
-    
+
     kSOSErrorFailedToRegisterBackupPublicKey = 11,
+
+    kSOSErrorFailedToVerifyApplication = 12,
 };
 
 //
@@ -710,12 +712,6 @@ bool SOSCCIsSOSTrustAndSyncingEnabledCachedValue(void);
  @param reply fetch the current user public key as SubjectPublicKeyInfoi
  */
 void SOSCCAccountGetPublicKey(void (^reply)(BOOL trusted, NSData *data, NSError *error));
-
-/*
- @function: SOSCCAccountGetAccountPrivateCredential
- @param reply fetch the current user public key as SubjectPublicKeyInfoi
- */
-void SOSCCAccountGetAccountPrivateCredential(void (^complete)(NSData *data, NSError *error));
 
 void SOSCCAccountGetKeyCircleGeneration(void (^reply)(NSData *data, NSError *error));
 

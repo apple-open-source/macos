@@ -41,6 +41,7 @@
 #include "Element.h"
 #include "KeyframeEffect.h"
 #include "KeyframeEffectStack.h"
+#include "Quirks.h"
 #include "RenderElement.h"
 #include "RenderListItem.h"
 #include "RenderListMarker.h"
@@ -270,7 +271,7 @@ void Styleable::cancelDeclarativeAnimations() const
 
 static bool keyframesRuleExistsForAnimation(Element& element, const Animation& animation, const String& animationName)
 {
-    auto* styleScope = Style::Scope::forOrdinal(element, animation.nameStyleScopeOrdinal());
+    auto* styleScope = Style::Scope::forOrdinal(element, animation.name().scopeOrdinal);
     return styleScope && styleScope->resolver().isAnimationNameValid(animationName);
 }
 
@@ -281,7 +282,7 @@ bool Styleable::animationListContainsNewlyValidAnimation(const AnimationList& an
         return false;
 
     for (auto& animation : animations) {
-        auto& name = animation->name().string;
+        auto& name = animation->name().name;
         if (name != noneAtom() && !name.isEmpty() && keyframeEffectStack.containsInvalidCSSAnimationName(name) && keyframesRuleExistsForAnimation(element, animation.get(), name))
             return true;
     }
@@ -326,7 +327,7 @@ void Styleable::updateCSSAnimations(const RenderStyle* currentStyle, const Rende
             if (!currentAnimation->isValidAnimation())
                 continue;
 
-            auto& animationName = currentAnimation->name().string;
+            auto& animationName = currentAnimation->name().name;
             if (animationName == noneAtom() || animationName.isEmpty())
                 continue;
 
@@ -415,7 +416,8 @@ static bool transitionMatchesProperty(const Animation& transition, AnimatablePro
                 if (resolvedPropertyId == propertyIdToMatch)
                     return true;
                 for (auto longhand : shorthandForProperty(resolvedPropertyId)) {
-                    if (longhand == propertyIdToMatch)
+                    auto resolvedLonghand = CSSProperty::resolveDirectionAwareProperty(longhand, style.direction(), style.writingMode());
+                    if (resolvedLonghand == propertyIdToMatch)
                         return true;
                 }
                 return false;
@@ -690,12 +692,11 @@ void Styleable::updateCSSTransitions(const RenderStyle& currentStyle, const Rend
         auto gatherAnimatableCustomProperties = [&](const StyleCustomPropertyData& customPropertyData) {
             customPropertyData.forEach([&](auto& customPropertyAndValuePair) {
                 auto [customProperty, customPropertyValue] = customPropertyAndValuePair;
-                if (!customPropertyValue)
-                    return;
                 auto& variantValue = customPropertyValue->value();
                 if (std::holds_alternative<CSSCustomPropertyValue::SyntaxValue>(variantValue)
                     || std::holds_alternative<CSSCustomPropertyValue::SyntaxValueList>(variantValue))
                     animatableCustomProperties.add(customProperty);
+                return IterationStatus::Continue;
             });
         };
         gatherAnimatableCustomProperties(currentStyle.inheritedCustomProperties());

@@ -228,7 +228,6 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 	_LOG_DEBUG("Created principal: %s", principal);
 
 	krbret = krb5_parse_name(pam_context, principal, &princ);
-	free(principal);
 	if (krbret != 0) {
         _LOG_ERROR("Error krb5_parse_name(): %s",
 		    krb5_get_err_text(pam_context, krbret));

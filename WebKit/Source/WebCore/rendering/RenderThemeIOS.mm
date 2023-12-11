@@ -601,7 +601,7 @@ void RenderThemeIOS::paintTextFieldInnerShadow(const PaintInfo& paintInfo, const
     const FloatSize innerShadowOffset { 0, 5 };
     constexpr auto innerShadowBlur = 10.0f;
     auto innerShadowColor = DisplayP3<float> { 0, 0, 0, 0.04f };
-    context.setShadow(innerShadowOffset, innerShadowBlur, innerShadowColor);
+    context.setDropShadow({ innerShadowOffset, innerShadowBlur, innerShadowColor, ShadowRadiusMode::Default });
     context.setFillColor(Color::black);
 
     Path innerShadowPath;
@@ -697,7 +697,7 @@ LengthBox RenderThemeIOS::popupInternalPaddingBox(const RenderStyle& style, cons
 {
     float padding = MenuListButtonPaddingAfter;
     if (settings.iOSFormControlRefreshEnabled()) {
-        auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EMS);
+        auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EM);
         padding = emSize->computeLength<float>({ style, nullptr, nullptr, nullptr });
     }
 
@@ -746,7 +746,7 @@ void RenderThemeIOS::adjustRoundBorderRadius(RenderStyle& style, RenderBox& box)
 static void applyCommonButtonPaddingToStyle(RenderStyle& style, const Element& element)
 {
     Document& document = element.document();
-    auto emSize = CSSPrimitiveValue::create(0.5, CSSUnitType::CSS_EMS);
+    auto emSize = CSSPrimitiveValue::create(0.5, CSSUnitType::CSS_EM);
     // We don't need this element's parent style to calculate `em` units, so it's okay to pass nullptr for it here.
     int pixels = emSize->computeLength<int>({ style, document.renderStyle(), nullptr, document.renderView() });
     style.setPaddingBox(LengthBox(0, pixels, 0, pixels));
@@ -1280,7 +1280,7 @@ void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* elemen
     // CSSPrimitiveValue::computeLengthInt only needs the element's style to calculate em lengths.
     // Since the element might not be in a document, just pass nullptr for the root element style,
     // the parent element style, and the render view.
-    auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EMS);
+    auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EM);
     int pixels = emSize->computeLength<int>({ style, nullptr, nullptr, nullptr });
     style.setPaddingBox(LengthBox(0, pixels, 0, pixels));
 
@@ -1373,7 +1373,7 @@ Color RenderThemeIOS::insertionPointColor()
 
 Color RenderThemeIOS::autocorrectionReplacementMarkerColor(const RenderText& renderer) const
 {
-    auto caretColor = CaretBase::computeCaretColor(renderer.style(), renderer.textNode(), std::nullopt);
+    auto caretColor = CaretBase::computeCaretColor(renderer.style(), renderer.textNode());
     if (!caretColor.isValid())
         caretColor = insertionPointColor();
 
@@ -1852,7 +1852,7 @@ void RenderThemeIOS::paintCheckboxRadioInnerShadow(const PaintInfo& paintInfo, c
 
     bool isEmpty = !states.containsAny({ ControlStates::States::Checked, ControlStates::States::Indeterminate });
     auto firstShadowColor = DisplayP3<float> { 0, 0, 0, isEmpty ? 0.05f : 0.1f };
-    context.setShadow(innerShadowOffset, innerShadowBlur, firstShadowColor);
+    context.setDropShadow({ innerShadowOffset, innerShadowBlur, firstShadowColor, ShadowRadiusMode::Default });
     context.setFillColor(Color::black);
 
     Path innerShadowPath;
@@ -1869,7 +1869,7 @@ void RenderThemeIOS::paintCheckboxRadioInnerShadow(const PaintInfo& paintInfo, c
     context.fillPath(innerShadowPath);
 
     constexpr auto secondShadowColor = DisplayP3<float> { 1, 1, 1, 0.5f };
-    context.setShadow(FloatSize { 0, 0 }, 1, secondShadowColor);
+    context.setDropShadow({ FloatSize { 0, 0 }, 1, secondShadowColor, ShadowRadiusMode::Default });
 
     context.fillPath(innerShadowPath);
 }
@@ -2467,7 +2467,7 @@ void RenderThemeIOS::paintMenuListButtonDecorationsWithFormControlRefresh(const 
         glyphPath.addBezierCurveTo({ 29.4179f, 71.8f }, { 30.541f, 72.3867f }, { 31.8593f, 72.3867 });
     }
 
-    auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EMS);
+    auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EM);
     auto emPixels = emSize->computeLength<float>({ style, nullptr, nullptr, nullptr });
     auto glyphScale = 0.65f * emPixels / glyphSize.width();
     glyphSize = glyphScale * glyphSize;
@@ -2498,7 +2498,7 @@ void RenderThemeIOS::adjustSearchFieldDecorationPartStyle(RenderStyle& style, co
 
     CSSToLengthConversionData conversionData(style, nullptr, nullptr, nullptr);
 
-    auto emSize = CSSPrimitiveValue::create(searchFieldDecorationEmSize, CSSUnitType::CSS_EMS);
+    auto emSize = CSSPrimitiveValue::create(searchFieldDecorationEmSize, CSSUnitType::CSS_EM);
     auto size = emSize->computeLength<float>(conversionData);
 
     style.setWidth({ size, LengthType::Fixed });

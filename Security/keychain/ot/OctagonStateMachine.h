@@ -42,6 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface OctagonStateMachine : NSObject <OctagonStateFlagHandler, OctagonStateOnqueuePendingFlagHandler>
 @property (readonly) OctagonState* currentState;
+@property (readonly) dispatch_queue_t queue;
 
 // The state machine transition function is the only location which should remove flags.
 // Adding flags should use -handleFlag on the state machine
@@ -51,7 +52,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) CKKSCondition* paused;
 
-@property (readonly) NSSet* allowableStates;
+// Note: the possibleStates map that you provide should use positive integers only in its NSNumbers.
+// Negative numbers are reserved for internal OctagonStateMachine states (like OctagonStateMachineNotStarted
+// and OctagonStateMachineHalted).
+@property (readonly) NSSet<OctagonState*>* allowableStates;
+@property (readonly) NSDictionary<OctagonState*, NSNumber*>* stateNumberMap;
+
+@property (readonly) NSString* unexpectedStateErrorDomain;
+
 @property (nonatomic) uint64_t timeout;
 
 @property (readonly, nullable) CKKSLockStateTracker* lockStateTracker;
@@ -61,11 +69,12 @@ NS_ASSUME_NONNULL_BEGIN
 // If you don't pass a reachability tracker, then you cannot reasonably use OctagonPendingConditionsNetworkReachable
 
 - (instancetype)initWithName:(NSString*)name
-                      states:(NSSet<OctagonState*>*)possibleStates
+                      states:(NSDictionary<OctagonState*, NSNumber*>*)possibleStates
                        flags:(NSSet<OctagonFlag*>*)possibleFlags
                 initialState:(OctagonState*)initialState
                        queue:(dispatch_queue_t)queue
                  stateEngine:(id<OctagonStateMachineEngine>)stateEngine
+  unexpectedStateErrorDomain:(NSString*)unexpectedStateErrorDomain
             lockStateTracker:(CKKSLockStateTracker* _Nullable)lockStateTracker
          reachabilityTracker:(CKKSReachabilityTracker* _Nullable)reachabilityTracker;
 

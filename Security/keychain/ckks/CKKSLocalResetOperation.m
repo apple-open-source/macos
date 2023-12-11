@@ -10,6 +10,10 @@
 #import "keychain/ckks/CKKSMirrorEntry.h"
 #import "keychain/ot/OTDefines.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @implementation CKKSLocalResetOperation
 
 @synthesize nextState = _nextState;
@@ -44,6 +48,11 @@
 {
     NSError* localerror = nil;
 
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumViews: @(self.deps.views.count)}
+                                                                                                 altDSID:self.deps.activeAccount.altDSID
+                                                                                               eventName:kSecurityRTCEventNameLocalReset
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     for(CKKSKeychainViewState* view in self.deps.views) {
         view.viewKeyHierarchyState = SecCKKSZoneKeyStateResettingLocalData;
 
@@ -126,7 +135,10 @@
 
     if(!self.error) {
         ckksnotice_global("local-reset", "Successfully deleted all local data for zones: %@", self.deps.views);
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
         self.nextState = self.intendedState;
+    } else {
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
     }
 }
 

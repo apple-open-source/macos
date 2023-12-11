@@ -302,8 +302,6 @@ static void logProcessPoolState(const WebProcessPool& pool)
 #if ENABLE(WEBCONTENT_CRASH_TESTING)
 void WebProcessPool::initializeShouldCrashWhenCreatingWebProcess()
 {
-    ASSERT(!s_didGlobalStaticInitialization);
-
     // Do the check on a background queue to avoid an app launch time regression. Note that this means we're racing with the
     // construction of the first WebProcess. However, the race is OK, we just want to make sure a WebProcess will crash in
     // the future, it doesn't have to be the very first one.
@@ -321,11 +319,11 @@ void WebProcessPool::initializeShouldCrashWhenCreatingWebProcess()
 }
 #endif
 
-void WebProcessPool::platformInitialize()
+void WebProcessPool::platformInitialize(NeedsGlobalStaticInitialization needsGlobalStaticInitialization)
 {
     registerNotificationObservers();
 
-    if (s_didGlobalStaticInitialization)
+    if (needsGlobalStaticInitialization == NeedsGlobalStaticInitialization::No)
         return;
 
     registerUserDefaults();
@@ -785,7 +783,7 @@ void WebProcessPool::registerNotificationObservers()
     }
 #elif !PLATFORM(MACCATALYST)
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    // FIXME: <https://webkit.org/b/246488> Adopt UIScreenBrightnessDidChangeNotification.
+    // FIXME: <https://webkit.org/b/255833> Adopt UIScreenBrightnessDidChangeNotification.
     addCFNotificationObserver(backlightLevelDidChangeCallback, (__bridge CFStringRef)UIBacklightLevelChangedNotification);
 ALLOW_DEPRECATED_DECLARATIONS_END
 #if PLATFORM(IOS) || PLATFORM(VISION)
@@ -1149,7 +1147,7 @@ void WebProcessPool::registerDisplayConfigurationCallback()
         });
 }
 
-static void webProcessPoolHighDynamicRangeDidChangeCallback(CMNotificationCenterRef, const void*, CFStringRef notificationName, const void*, CFTypeRef)
+static void webProcessPoolHighDynamicRangeDidChangeCallback(CFNotificationCenterRef, void*, CFNotificationName, const void*, CFDictionaryRef)
 {
     RunLoop::main().dispatch([] {
         auto properties = WebCore::collectScreenProperties();
@@ -1170,14 +1168,7 @@ void WebProcessPool::registerHighDynamicRangeChangeCallback()
             || !PAL::canLoad_MediaToolbox_kMTSupportNotification_ShouldPlayHDRVideoChanged())
             return;
 
-        auto center = PAL::softLink_CoreMedia_CMNotificationCenterGetDefaultLocalCenter();
-        auto notification = PAL::get_MediaToolbox_kMTSupportNotification_ShouldPlayHDRVideoChanged();
-        auto object = PAL::softLinkMediaToolboxMT_GetShouldPlayHDRVideoNotificationSingleton();
-
-        // Note: CMNotificationCenterAddListener requires a non-null listener pointer. Just use the singleton
-        // object itself as the "listener", since the notification method is a static global and doesn't need
-        // the listener pointer at all.
-        PAL::softLink_CoreMedia_CMNotificationCenterAddListener(center, object, webProcessPoolHighDynamicRangeDidChangeCallback, notification, object, 0);
+        CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), nullptr, webProcessPoolHighDynamicRangeDidChangeCallback, kMTSupportNotification_ShouldPlayHDRVideoChanged, MT_GetShouldPlayHDRVideoNotificationSingleton(), static_cast<CFNotificationSuspensionBehavior>(0));
     });
 }
 

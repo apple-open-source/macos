@@ -556,6 +556,140 @@ static NSInteger _reporterWrites;
     [self checkTotalEventCount:data hard:1 soft:1 accuracy:0 summaries:(int)[[[self TransparencyTopic] topicClients] count]];
 }
 
+
+- (void)testTransparencyLoggingTerseSuccess
+{
+    [_transparencyAnalytics logSuccessForEventNamed:@"transparencyunittestevent"];
+
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicTransparency];
+    [self inspectDataBlobStructure:data forTopic:[[self TransparencyTopic] splunkTopicName]];
+
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0 summaries:(int)[[[self TransparencyTopic] topicClients] count]];
+
+    BOOL found = NO;
+    for (NSDictionary* event in data[@"events"]) {
+        if (![event[SFAnalyticsEventType] hasSuffix:@"HealthSummary"]) {
+            continue;
+        }
+        found = YES;
+        XCTAssertNotNil(event[@"transparencyunittestevent-s"]);
+        XCTAssertNil(event[@"transparencyunittestevent-success"]);
+        XCTAssertNil(event[@"transparencyunittestevent-h"]);
+        XCTAssertNil(event[@"transparencyunittestevent-f"]);
+    }
+    XCTAssertTrue(found, "not found");
+}
+
+- (void)testTransparencyLoggingTerseHardFail
+{
+    [_transparencyAnalytics logHardFailureForEventNamed:@"transparencyunittestevent" withAttributes:@{}];
+
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicTransparency];
+    [self inspectDataBlobStructure:data forTopic:[[self TransparencyTopic] splunkTopicName]];
+
+    [self checkTotalEventCount:data hard:1 soft:0 accuracy:0 summaries:(int)[[[self TransparencyTopic] topicClients] count]];
+
+    BOOL found = NO;
+    for (NSDictionary* event in data[@"events"]) {
+        if (![event[SFAnalyticsEventType] hasSuffix:@"HealthSummary"]) {
+            continue;
+        }
+        found = YES;
+        XCTAssertNotNil(event[@"transparencyunittestevent-h"]);
+        XCTAssertNil(event[@"transparencyunittestevent-hardfail"]);
+        XCTAssertNil(event[@"transparencyunittestevent-s"]);
+    }
+    XCTAssertTrue(found, "not found");
+}
+
+- (void)testTransparencyLoggingTerseSoftFail
+{
+    [_transparencyAnalytics logSoftFailureForEventNamed:@"transparencyunittestevent" withAttributes:@{}];
+
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicTransparency];
+    [self inspectDataBlobStructure:data forTopic:[[self TransparencyTopic] splunkTopicName]];
+
+    [self checkTotalEventCount:data hard:0 soft:1 accuracy:0 summaries:(int)[[[self TransparencyTopic] topicClients] count]];
+
+    BOOL found = NO;
+    for (NSDictionary* event in data[@"events"]) {
+        if (![event[SFAnalyticsEventType] hasSuffix:@"HealthSummary"]) {
+            continue;
+        }
+        found = YES;
+        XCTAssertNotNil(event[@"transparencyunittestevent-f"]);
+        XCTAssertNil(event[@"transparencyunittestevent-softfail"]);
+        XCTAssertNil(event[@"transparencyunittestevent-s"]);
+    }
+    XCTAssertTrue(found, "not found");
+}
+
+
+- (void)testTransparencyLoggingTerseSampler
+{
+    NSString* sampleName = @"evenSample";
+
+    for (NSNumber* value in @[@36.831855250339714, @90.78721762172914, @49.24392301762506,
+                              @42.806362283260036, @16.76725375576855, @34.50969130579674,
+                              @25.956509180834637, @36.8268555935645, @35.54069258036879,
+                              @7.26364884595062, @45.414180770615395, @5.223213570809022]) {
+        [_transparencyAnalytics logMetric:value withName:sampleName];
+    }
+
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicTransparency];
+    [self inspectDataBlobStructure:data forTopic:[[self TransparencyTopic] splunkTopicName]];
+
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0 summaries:(int)[[[self TransparencyTopic] topicClients] count]];
+
+    BOOL found = NO;
+    for (NSDictionary* event in data[@"events"]) {
+        if (![event[SFAnalyticsEventType] hasSuffix:@"HealthSummary"]) {
+            continue;
+        }
+        found = YES;
+        XCTAssertNotNil(event[@"evenSample-avg"], "should have average");
+        XCTAssertNil(event[@"evenSample-med"], "should not have median");
+
+    }
+    XCTAssertTrue(found, "not found %@", sampleName);
+}
+
+- (void)testCKKSLoggingTerseSampler
+{
+    NSString* sampleName = @"evenSample";
+
+    for (NSNumber* value in @[@36.831855250339714, @90.78721762172914, @49.24392301762506,
+                              @42.806362283260036, @16.76725375576855, @34.50969130579674,
+                              @25.956509180834637, @36.8268555935645, @35.54069258036879,
+                              @7.26364884595062, @45.414180770615395, @5.223213570809022]) {
+        [_ckksAnalytics logMetric:value withName:sampleName];
+    }
+
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicKeySync];
+    [self inspectDataBlobStructure:data forTopic:[[self keySyncTopic] splunkTopicName]];
+
+    [self checkTotalEventCount:data hard:0 soft:0 accuracy:0 summaries:(int)[[[self keySyncTopic] topicClients] count]];
+
+    BOOL found = NO;
+    for (NSDictionary* event in data[@"events"]) {
+        if (![event[SFAnalyticsEventType] isEqual:@"ckksHealthSummary"]) {
+            continue;
+        }
+        found = YES;
+        XCTAssertNotNil(event[@"evenSample-avg"], "should have average");
+        XCTAssertNotNil(event[@"evenSample-med"], "should have median");
+        XCTAssertNotNil(event[@"evenSample-dev"], "should have stddev");
+        XCTAssertNotNil(event[@"evenSample-min"], "should have min");
+        XCTAssertNotNil(event[@"evenSample-max"], "should have max");
+        XCTAssertNotNil(event[@"evenSample-1q"], "should have 1q");
+        XCTAssertNotNil(event[@"evenSample-3q"], "should have 3q");
+
+    }
+    XCTAssertTrue(found, "not found %@", sampleName);
+}
+
+
+
 - (void)testMockDiagnosticReportGeneration
 {
     SFAnalyticsReporter *reporter = mockReporter;

@@ -168,7 +168,7 @@ CoreAudioSharedUnit& MockAudioSharedUnit::singleton()
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [&] () {
         s_shouldIncreaseBufferSize = false;
-        unit->setSampleRateRange(CapabilityValueOrRange(44100, 48000));
+        unit->setSampleRateRange(CapabilityValueOrRange(44100, 96000));
         unit->setInternalUnitCreationCallback([](bool enableEchoCancellation) {
             UniqueRef<CoreAudioSharedUnit::InternalUnit> result = makeUniqueRef<MockAudioSharedInternalUnit>(enableEchoCancellation);
             return result;
@@ -397,8 +397,11 @@ OSStatus MockAudioSharedInternalUnit::set(AudioUnitPropertyID property, AudioUni
     }
     if (property == kAudioOutputUnitProperty_CurrentDevice) {
         ASSERT(!*static_cast<const uint32_t*>(value));
-        if (auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(MockAudioSharedUnit::singleton().persistentIDForTesting()))
-            m_streamFormat.mSampleRate = m_outputStreamFormat.mSampleRate = std::get<MockMicrophoneProperties>(device->properties).defaultSampleRate;
+        auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(MockAudioSharedUnit::singleton().persistentIDForTesting());
+        if (!device)
+            return -1;
+
+        m_streamFormat.mSampleRate = m_outputStreamFormat.mSampleRate = std::get<MockMicrophoneProperties>(device->properties).defaultSampleRate;
         return 0;
     }
     

@@ -9,6 +9,7 @@
  *
  */
 
+#ifdef WEBRTC_USE_H265
 #import "RTCVideoEncoderH265.h"
 
 #import <VideoToolbox/VideoToolbox.h>
@@ -53,10 +54,6 @@ VT_EXPORT const CFStringRef kVTVideoEncoderSpecification_RequiredLowLatency;
 
 namespace {  // anonymous namespace
 
-// The ratio between kVTCompressionPropertyKey_DataRateLimits and
-// kVTCompressionPropertyKey_AverageBitRate. The data rate limit is set higher
-// than the average bit rate to avoid undershooting the target.
-const float kLimitToAverageBitRateFactor = 1.5f;
 // These thresholds deviate from the default h265 QP thresholds, as they
 // have been found to work better on devices that support VideoToolbox
 const int kLowh265QpThreshold = 28;
@@ -178,6 +175,7 @@ void compressionOutputCallback(void* encoder,
   int framesLeft;
   std::vector<uint8_t> _nv12ScaleBuffer;
   bool _useAnnexB;
+  bool _isLowLatencyEnabled;
   bool _needsToSendDescription;
   RTCVideoEncoderDescriptionCallback _descriptionCallback;
 }
@@ -194,8 +192,10 @@ void compressionOutputCallback(void* encoder,
     _codecInfo = codecInfo;
     _bitrateAdjuster.reset(new webrtc::BitrateAdjuster(.5, .95));
     _useAnnexB = true;
+    _isLowLatencyEnabled = true;
     RTC_CHECK([codecInfo.name isEqualToString:@"H265"]);
   }
+
   return self;
 }
 
@@ -223,6 +223,11 @@ void compressionOutputCallback(void* encoder,
 {
     _useAnnexB = useAnnexB;
     _needsToSendDescription = !useAnnexB;
+}
+
+- (void)setLowLatency:(bool)enabled
+{
+    _isLowLatencyEnabled = enabled;
 }
 
 - (void)setDescriptionCallback:(RTCVideoEncoderDescriptionCallback)callback
@@ -409,7 +414,8 @@ void compressionOutputCallback(void* encoder,
   CFDictionarySetValue(encoder_specs, kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder, kCFBooleanTrue);
 #endif
 #if HAVE_VTB_REQUIREDLOWLATENCY
-  CFDictionarySetValue(encoder_specs, kVTVideoEncoderSpecification_RequiredLowLatency, kCFBooleanTrue);
+  if (_isLowLatencyEnabled)
+    CFDictionarySetValue(encoder_specs, kVTVideoEncoderSpecification_RequiredLowLatency, kCFBooleanTrue);
 #endif
   OSStatus status = VTCompressionSessionCreate(
       nullptr,  // use default allocator
@@ -460,7 +466,7 @@ void compressionOutputCallback(void* encoder,
 - (void)configureCompressionSession {
   RTC_DCHECK(_compressionSession);
   SetVTSessionProperty(_compressionSession, nullptr, kVTCompressionPropertyKey_RealTime,
-                       false);
+                       _isLowLatencyEnabled);
   // SetVTSessionProperty(_compressionSession,
   // kVTCompressionPropertyKey_ProfileLevel, _profile);
   SetVTSessionProperty(_compressionSession, nullptr,
@@ -500,37 +506,7 @@ void compressionOutputCallback(void* encoder,
 
 - (void)setEncoderBitrateBps:(uint32_t)bitrateBps {
   if (_compressionSession) {
-    SetVTSessionProperty(_compressionSession, nullptr, 
-                         kVTCompressionPropertyKey_AverageBitRate, bitrateBps);
-
-    // TODO(tkchin): Add a helper method to set array value.
-    int64_t dataLimitBytesPerSecondValue =
-        static_cast<int64_t>(bitrateBps * kLimitToAverageBitRateFactor / 8);
-    CFNumberRef bytesPerSecond =
-        CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type,
-                       &dataLimitBytesPerSecondValue);
-    int64_t oneSecondValue = 1;
-    CFNumberRef oneSecond = CFNumberCreate(
-        kCFAllocatorDefault, kCFNumberSInt64Type, &oneSecondValue);
-    const void* nums[2] = {bytesPerSecond, oneSecond};
-    CFArrayRef dataRateLimits =
-        CFArrayCreate(nullptr, nums, 2, &kCFTypeArrayCallBacks);
-    OSStatus status = VTSessionSetProperty(
-        _compressionSession, kVTCompressionPropertyKey_DataRateLimits,
-        dataRateLimits);
-    if (bytesPerSecond) {
-      CFRelease(bytesPerSecond);
-    }
-    if (oneSecond) {
-      CFRelease(oneSecond);
-    }
-    if (dataRateLimits) {
-      CFRelease(dataRateLimits);
-    }
-    if (status != noErr) {
-      RTC_LOG(LS_ERROR) << "Failed to set data rate limit";
-    }
-
+    SetVTSessionProperty(_compressionSession, nullptr, kVTCompressionPropertyKey_AverageBitRate, bitrateBps);
     _encoderBitrateBps = bitrateBps;
   }
 }
@@ -616,6 +592,7 @@ void compressionOutputCallback(void* encoder,
                           ? RTCVideoContentTypeScreenshare
                           : RTCVideoContentTypeUnspecified;
   frame.flags = webrtc::VideoSendTiming::kInvalid;
+  frame.temporalIndex = -1;
 
   // FIXME: QP is ignored because there is no H.265 bitstream parser.
 
@@ -639,3 +616,4 @@ void compressionOutputCallback(void* encoder,
 }
 
 @end
+#endif // WEBRTC_USE_H265

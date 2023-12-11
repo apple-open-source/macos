@@ -60,6 +60,8 @@ bool clobbersExitState(Graph& graph, Node* node)
     case NewAsyncGenerator:
     case NewInternalFieldObject:
     case NewRegexp:
+    case NewMap:
+    case NewSet:
     case NewStringObject:
     case NewBoundFunction:
     case PhantomNewObject:
@@ -110,11 +112,11 @@ bool clobbersExitState(Graph& graph, Node* node)
         clobberize(
             graph, node, NoOpClobberize(),
             [&] (const AbstractHeap& heap) {
-                // There shouldn't be such a thing as a strict subtype of SideState. That's what allows
-                // us to use a fast != check, below.
-                ASSERT(!heap.isStrictSubtypeOf(SideState));
+                // There shouldn't be such a thing as a strict subtype of SideState or HeapObjectCount.
+                // That's what allows us to use a fast != check, below.
+                ASSERT(!heap.isStrictSubtypeOf(SideState) && !heap.isStrictSubtypeOf(HeapObjectCount));
 
-                if (heap != SideState)
+                if (heap != SideState && heap != HeapObjectCount)
                     result = true;
             },
             NoOpClobberize());

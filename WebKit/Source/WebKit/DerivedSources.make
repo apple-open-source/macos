@@ -175,7 +175,7 @@ MESSAGE_RECEIVERS = \
 	UIProcess/WebPermissionControllerProxy \
 	UIProcess/Cocoa/PlaybackSessionManagerProxy \
 	UIProcess/Cocoa/UserMediaCaptureManagerProxy \
-	UIProcess/Cocoa/VideoFullscreenManagerProxy \
+	UIProcess/Cocoa/VideoPresentationManagerProxy \
 	UIProcess/ViewGestureController \
 	UIProcess/WebProcessProxy \
 	UIProcess/Automation/WebAutomationSession \
@@ -226,7 +226,6 @@ MESSAGE_RECEIVERS = \
 	WebProcess/Network/webrtc/LibWebRTCNetwork \
 	WebProcess/Network/webrtc/RTCDataChannelRemoteManager \
 	WebProcess/Network/webrtc/WebRTCMonitor \
-	WebProcess/Network/webrtc/WebMDNSRegister \
 	WebProcess/Network/webrtc/WebRTCResolver \
 	WebProcess/WebCoreSupport/RemoteWebLockRegistry \
 	WebProcess/WebCoreSupport/WebBroadcastChannelRegistry \
@@ -244,7 +243,7 @@ MESSAGE_RECEIVERS = \
 	WebProcess/cocoa/PlaybackSessionManager \
 	WebProcess/cocoa/RemoteCaptureSampleManager \
 	WebProcess/cocoa/UserMediaCaptureManager \
-	WebProcess/cocoa/VideoFullscreenManager \
+	WebProcess/cocoa/VideoPresentationManager \
 	WebProcess/Geolocation/WebGeolocationManager \
 	WebProcess/Automation/WebAutomationSessionProxy \
 	WebProcess/FullScreen/WebFullScreenManager \
@@ -264,6 +263,7 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/ShapeDetection/RemoteFaceDetector \
 	GPUProcess/ShapeDetection/RemoteTextDetector \
 	GPUProcess/graphics/RemoteDisplayListRecorder \
+	GPUProcess/graphics/RemoteImageBuffer \
 	GPUProcess/graphics/RemoteRenderingBackend \
 	GPUProcess/graphics/RemoteGraphicsContextGL \
 	GPUProcess/graphics/WebGPU/RemoteAdapter \
@@ -370,12 +370,19 @@ ifeq ($(USE_SYSTEM_CONTENT_PATH),YES)
 	SANDBOX_DEFINES = -DUSE_SYSTEM_CONTENT_PATH=1 -DSYSTEM_CONTENT_PATH=$(SYSTEM_CONTENT_PATH)
 endif
 
-SANDBOX_PROFILES = \
+SANDBOX_PROFILES_WITHOUT_WEBPUSHD = \
 	com.apple.WebProcess.sb \
 	com.apple.WebKit.NetworkProcess.sb \
-	com.apple.WebKit.GPUProcess.sb \
+	com.apple.WebKit.GPUProcess.sb
+
+ifeq ($(WK_RELOCATABLE_WEBPUSHD),YES)
+WEBPUSHD_SANDBOX_PROFILE = \
+	com.apple.WebKit.webpushd.relocatable.mac.sb
+else
+WEBPUSHD_SANDBOX_PROFILE = \
 	com.apple.WebKit.webpushd.mac.sb
-	
+endif
+
 SANDBOX_PROFILES_IOS = \
 	com.apple.WebKit.adattributiond.sb \
 	com.apple.WebKit.webpushd.sb \
@@ -385,7 +392,7 @@ SANDBOX_PROFILES_IOS = \
 
 sandbox-profiles-ios : $(SANDBOX_PROFILES_IOS)
 
-all : $(SANDBOX_PROFILES) $(SANDBOX_PROFILES_IOS)
+all : $(SANDBOX_PROFILES_WITHOUT_WEBPUSHD) $(WEBPUSHD_SANDBOX_PROFILE) $(SANDBOX_PROFILES_IOS)
 
 %.sb : %.sb.in
 	@echo Pre-processing $* sandbox profile...
@@ -461,6 +468,7 @@ $(WEB_PREFERENCES_PATTERNS) : $(WTF_BUILD_SCRIPTS_DIR)/GeneratePreferences.rb $(
 SERIALIZATION_DESCRIPTION_FILES = \
 	GPUProcess/GPUProcessSessionParameters.serialization.in \
 	GPUProcess/graphics/PathSegment.serialization.in \
+	GPUProcess/graphics/RemoteGraphicsContextGLInitializationState.serialization.in \
 	GPUProcess/graphics/RemoteRenderingBackendCreationParameters.serialization.in \
 	GPUProcess/graphics/WebGPU/RemoteGPURequestAdapterResponse.serialization.in \
 	GPUProcess/media/AudioTrackPrivateRemoteConfiguration.serialization.in \
@@ -490,7 +498,12 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/BackgroundFetchState.serialization.in \
 	Shared/DisplayListArgumentCoders.serialization.in \
 	Shared/EditorState.serialization.in \
+	Shared/Extensions/WebExtensionAlarmParameters.serialization.in \
+	Shared/Extensions/WebExtensionContextParameters.serialization.in \
+	Shared/Extensions/WebExtensionControllerParameters.serialization.in \
 	Shared/Extensions/WebExtensionEventListenerType.serialization.in \
+	Shared/Extensions/WebExtensionTab.serialization.in \
+	Shared/Extensions/WebExtensionWindow.serialization.in \
 	Shared/FileSystemSyncAccessHandleInfo.serialization.in \
 	Shared/FocusedElementInformation.serialization.in \
 	Shared/FrameInfoData.serialization.in \
@@ -498,7 +511,8 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/FrameTreeNodeData.serialization.in \
 	Shared/Gamepad/GamepadData.serialization.in \
 	Shared/GPUProcessConnectionParameters.serialization.in \
-        Shared/GoToBackForwardItemParameters.serialization.in \
+	Shared/GPUProcessPreferencesForWebProcess.serialization.in \
+	Shared/GoToBackForwardItemParameters.serialization.in \
 	Shared/ios/DynamicViewportSizeUpdate.serialization.in \
 	Shared/ios/InteractionInformationAtPosition.serialization.in \
 	Shared/ios/WebAutocorrectionContext.serialization.in \
@@ -511,19 +525,16 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Pasteboard.serialization.in \
 	Shared/PlatformPopupMenuData.serialization.in \
 	Shared/PolicyDecision.serialization.in \
-        Shared/RemoteWorkerType.serialization.in \
+	Shared/RemoteWorkerType.serialization.in \
 	Shared/SameDocumentNavigationType.serialization.in \
 	Shared/SessionState.serialization.in \
 	Shared/ShareableBitmap.serialization.in \
 	Shared/TextFlags.serialization.in \
 	Shared/TextRecognitionResult.serialization.in \
-	Shared/TouchBarMenuItemData.serialization.in \
 	Shared/UserInterfaceIdiom.serialization.in \
 	Shared/WTFArgumentCoders.serialization.in \
 	Shared/WebCoreArgumentCoders.serialization.in \
-	Shared/WebExtensionContextParameters.serialization.in \
 	Shared/WebEvent.serialization.in \
-	Shared/WebExtensionControllerParameters.serialization.in \
 	Shared/WebHitTestResultData.serialization.in \
 	Shared/WebPageCreationParameters.serialization.in \
 	Shared/WebPopupItem.serialization.in \
@@ -586,7 +597,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebGPU/WebGPUTextureViewDescriptor.serialization.in \
 	Shared/WebGPU/WebGPUVertexState.serialization.in \
 	Shared/WebGPU/WebGPUVertexBufferLayout.serialization.in \
- 	Shared/WebGPU/WebGPUVertexAttribute.serialization.in \
+	Shared/WebGPU/WebGPUVertexAttribute.serialization.in \
 	Shared/WebGPU/WebGPUValidationError.serialization.in \
 	Shared/WebGPU/WebGPUTextureBindingLayout.serialization.in \
 	Shared/WebGPU/WebGPUSupportedLimits.serialization.in \
@@ -616,13 +627,30 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	WebProcess/GPU/media/RemoteAudioSessionConfiguration.serialization.in \
 	WebProcess/GPU/media/RemoteMediaPlayerConfiguration.serialization.in \
 	WebProcess/GPU/media/RemoteMediaPlayerState.serialization.in \
+	WebProcess/GPU/webrtc/SharedVideoFrame.serialization.in \
 	WebProcess/WebCoreSupport/WebSpeechSynthesisVoice.serialization.in \
 #
 
+WEBCORE_SERIALIZATION_DESCRIPTION_FILES = \
+	HTTPHeaderNames.serialization.in \
+	ActivityState.serialization.in \
+	DragActions.serialization.in \
+	InbandTextTrackPrivate.serialization.in \
+	LayoutMilestones.serialization.in \
+	MediaPlaybackTargetContext.serialization.in \
+	MediaProducer.serialization.in \
+	MDNSRegisterError.serialization.in \
+	PlatformEvent.serialization.in \
+	PlatformMediaSession.serialization.in \
+	PlatformScreen.serialization.in \
+#
+
+WEBCORE_SERIALIZATION_DESCRIPTION_FILES_FULLPATH := $(foreach I,$(WEBCORE_SERIALIZATION_DESCRIPTION_FILES),$(WebCorePrivateHeaders)/$I)
+
 all : GeneratedSerializers.h GeneratedSerializers.mm SerializedTypeInfo.mm WebKitPlatformGeneratedSerializers.mm
 
-GeneratedSerializers.h GeneratedSerializers.mm SerializedTypeInfo.mm WebKitPlatformGeneratedSerializers.mm : $(WebKit2)/Scripts/generate-serializers.py $(SERIALIZATION_DESCRIPTION_FILES) $(WebKit2)/DerivedSources.make
-	$(PYTHON) $(WebKit2)/Scripts/generate-serializers.py mm $(WebKit2)/ $(SERIALIZATION_DESCRIPTION_FILES)
+GeneratedSerializers.h GeneratedSerializers.mm SerializedTypeInfo.mm WebKitPlatformGeneratedSerializers.mm : $(WebKit2)/Scripts/generate-serializers.py $(SERIALIZATION_DESCRIPTION_FILES) $(WebKit2)/DerivedSources.make $(WEBCORE_SERIALIZATION_DESCRIPTION_FILES_FULLPATH)
+	$(PYTHON) $(WebKit2)/Scripts/generate-serializers.py mm DIRECTORY $(WebKit2) $(SERIALIZATION_DESCRIPTION_FILES) DIRECTORY $(WebCorePrivateHeaders) $(WEBCORE_SERIALIZATION_DESCRIPTION_FILES)
 
 EXTENSIONS_DIR = $(WebKit2)/WebProcess/Extensions
 EXTENSIONS_SCRIPTS_DIR = $(EXTENSIONS_DIR)/Bindings/Scripts
@@ -637,14 +665,19 @@ BINDINGS_SCRIPTS = \
 #
 
 EXTENSION_INTERFACES = \
+    WebExtensionAPIAlarms \
     WebExtensionAPIEvent \
     WebExtensionAPIExtension \
+    WebExtensionAPILocalization \
     WebExtensionAPINamespace \
     WebExtensionAPIPermissions \
     WebExtensionAPIRuntime \
+    WebExtensionAPITabs \
     WebExtensionAPITest \
     WebExtensionAPIWebNavigation \
     WebExtensionAPIWebNavigationEvent \
+    WebExtensionAPIWindows \
+    WebExtensionAPIWindowsEvent \
 #
 
 JS%.h JS%.mm : %.idl $(BINDINGS_SCRIPTS) $(IDL_ATTRIBUTES_FILE) $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)

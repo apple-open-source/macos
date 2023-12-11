@@ -61,9 +61,6 @@ public:
     WEBCORE_EXPORT Recorder(const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform&, const DestinationColorSpace&, DrawGlyphsMode = DrawGlyphsMode::Normal);
     WEBCORE_EXPORT virtual ~Recorder();
 
-    virtual void convertToLuminanceMask() = 0;
-    virtual void transformToColorSpace(const DestinationColorSpace&) = 0;
-
     // Records possible pending commands. Should be used when recording is known to end.
     WEBCORE_EXPORT void commitRecording();
 
@@ -75,9 +72,8 @@ protected:
     virtual void recordScale(const FloatSize&) = 0;
     virtual void recordSetCTM(const AffineTransform&) = 0;
     virtual void recordConcatenateCTM(const AffineTransform&) = 0;
-    virtual void recordSetInlineFillColor(SRGBA<uint8_t>) = 0;
-    virtual void recordSetInlineStrokeColor(SRGBA<uint8_t>) = 0;
-    virtual void recordSetStrokeThickness(float) = 0;
+    virtual void recordSetInlineFillColor(PackedColor::RGBA) = 0;
+    virtual void recordSetInlineStroke(SetInlineStroke&&) = 0;
     virtual void recordSetState(const GraphicsContextState&) = 0;
     virtual void recordSetLineCap(LineCap) = 0;
     virtual void recordSetLineDash(const DashArray&, float dashOffset) = 0;
@@ -131,7 +127,7 @@ protected:
     virtual void recordStrokeRect(const FloatRect&, float) = 0;
 #if ENABLE(INLINE_PATH_DATA)
     virtual void recordStrokeLine(const PathDataLine&) = 0;
-    virtual void recordStrokeLineWithColorAndThickness(const PathDataLine&, SRGBA<uint8_t>, float thickness) = 0;
+    virtual void recordStrokeLineWithColorAndThickness(const PathDataLine&, SetInlineStroke&&) = 0;
     virtual void recordStrokeArc(const PathArc&) = 0;
     virtual void recordStrokeQuadCurve(const PathDataQuadCurve&) = 0;
     virtual void recordStrokeBezierCurve(const PathDataBezierCurve&) = 0;
@@ -159,24 +155,17 @@ protected:
 
     struct ContextState {
         GraphicsContextState state;
-        std::optional<GraphicsContextState> lastDrawingState;
         AffineTransform ctm;
         FloatRect clipBounds;
-
-        ContextState(const GraphicsContextState& state, const AffineTransform& ctm, const FloatRect& clipBounds)
-            : state(state)
-            , ctm(ctm)
-            , clipBounds(clipBounds)
-        {
-        }
+        std::optional<GraphicsContextState> lastDrawingState { std::nullopt };
 
         ContextState cloneForTransparencyLayer() const
         {
-            auto copy = *this;
-            copy.state.didBeginTransparencyLayer();
-            if (copy.lastDrawingState)
-                copy.lastDrawingState->didBeginTransparencyLayer();
-            return copy;
+            auto stateClone = state.clone(GraphicsContextState::Purpose::TransparencyLayer);
+            std::optional<GraphicsContextState> lastDrawingStateClone;
+            if (lastDrawingStateClone)
+                lastDrawingStateClone = lastDrawingState->clone(GraphicsContextState::Purpose::TransparencyLayer);
+            return ContextState { WTFMove(stateClone), ctm, clipBounds, WTFMove(lastDrawingStateClone) };
         }
 
         void translate(float x, float y);
@@ -257,8 +246,8 @@ private:
     WEBCORE_EXPORT void drawFocusRing(const Path&, float outlineWidth, const Color&) final;
     WEBCORE_EXPORT void drawFocusRing(const Vector<FloatRect>&, float outlineOffset, float outlineWidth, const Color&) final;
 
-    WEBCORE_EXPORT void save() final;
-    WEBCORE_EXPORT void restore() final;
+    WEBCORE_EXPORT void save(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore) final;
+    WEBCORE_EXPORT void restore(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore) final;
 
     WEBCORE_EXPORT void translate(float x, float y) final;
     WEBCORE_EXPORT void rotate(float angleInRadians) final;
@@ -292,6 +281,8 @@ private:
 
     void appendStateChangeItemIfNecessary();
     void appendStateChangeItem(const GraphicsContextState&);
+
+    SetInlineStroke buildSetInlineStroke(const GraphicsContextState&);
 
     const AffineTransform& ctm() const;
 

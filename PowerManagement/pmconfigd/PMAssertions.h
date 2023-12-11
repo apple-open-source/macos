@@ -270,6 +270,9 @@ typedef struct assertion {
     
     XCT_UNSAFE_UNRETAINED dispatch_source_t   procTimer;      // Timer set based on the value provided for this process.
     // Ths timer triggers log collection
+
+    uint32_t        runningboard:1;     // This assertion is taken by runningboardd
+
     // System Qualifiers
     uint32_t        audioin:1;
     uint32_t        audioout:1;

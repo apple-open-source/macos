@@ -136,7 +136,7 @@ generate_CONSTRUCT(cctx_T *cctx, class_T *cl)
  * index.
  */
     int
-generate_GET_OBJ_MEMBER(cctx_T *cctx, int idx, type_T *type, int is_static)
+generate_GET_OBJ_MEMBER(cctx_T *cctx, int idx, type_T *type)
 {
     RETURN_OK_IF_SKIP(cctx);
 
@@ -147,7 +147,6 @@ generate_GET_OBJ_MEMBER(cctx_T *cctx, int idx, type_T *type, int is_static)
 
     isn->isn_arg.classmember.cm_class = NULL;
     isn->isn_arg.classmember.cm_idx = idx;
-    isn->isn_arg.classmember.cm_static = is_static;
     return push_type_stack2(cctx, type, &t_any);
 }
 
@@ -156,8 +155,7 @@ generate_GET_OBJ_MEMBER(cctx_T *cctx, int idx, type_T *type, int is_static)
  * by index.
  */
     int
-generate_GET_ITF_MEMBER(cctx_T *cctx, class_T *itf, int idx, type_T *type,
-								int is_static)
+generate_GET_ITF_MEMBER(cctx_T *cctx, class_T *itf, int idx, type_T *type)
 {
     RETURN_OK_IF_SKIP(cctx);
 
@@ -169,7 +167,6 @@ generate_GET_ITF_MEMBER(cctx_T *cctx, class_T *itf, int idx, type_T *type,
     isn->isn_arg.classmember.cm_class = itf;
     ++itf->class_refcount;
     isn->isn_arg.classmember.cm_idx = idx;
-    isn->isn_arg.classmember.cm_static = is_static;
     return push_type_stack2(cctx, type, &t_any);
 }
 
@@ -1378,7 +1375,9 @@ generate_NEWDICT(cctx_T *cctx, int count, int use_null)
  * Generate an ISN_FUNCREF instruction.
  * For "obj.Method" "cl" is the class of the object (can be an interface or a
  * base class) and "fi" the index of the method on that class.
- * "isnp" is set to the instruction, so that fr_dfunc_idx can be set later.
+ * "isn_idx" is set to the index of the instruction, so that fr_dfunc_idx can
+ * be set later.  The index is used instead of a pointer to the instruction
+ * because the instruction memory can be reallocated.
  */
     int
 generate_FUNCREF(
@@ -1386,7 +1385,7 @@ generate_FUNCREF(
 	ufunc_T	    *ufunc,
 	class_T	    *cl,
 	int	    fi,
-	isn_T	    **isnp)
+	int	    *isn_idx)
 {
     isn_T	    *isn;
     type_T	    *type;
@@ -1397,8 +1396,9 @@ generate_FUNCREF(
     RETURN_OK_IF_SKIP(cctx);
     if ((isn = generate_instr(cctx, ISN_FUNCREF)) == NULL)
 	return FAIL;
-    if (isnp != NULL)
-	*isnp = isn;
+    if (isn_idx != NULL)
+	// save the index of the new instruction
+	*isn_idx = cctx->ctx_instr.ga_len - 1;
 
     has_vars = get_loop_var_info(cctx, &loopinfo);
     if (ufunc->uf_def_status == UF_NOT_COMPILED || has_vars || cl != NULL)
@@ -1419,7 +1419,7 @@ generate_FUNCREF(
 	extra->fre_func_name = vim_strsave(ufunc->uf_name);
     if (ufunc->uf_def_status != UF_NOT_COMPILED && cl == NULL)
     {
-	if (isnp == NULL && ufunc->uf_def_status == UF_TO_BE_COMPILED)
+	if (isn_idx == NULL && ufunc->uf_def_status == UF_TO_BE_COMPILED)
 	    // compile the function now, we need the uf_dfunc_idx value
 	    (void)compile_def_function(ufunc, FALSE, CT_NONE, NULL);
 	isn->isn_arg.funcref.fr_dfunc_idx = ufunc->uf_dfunc_idx;
@@ -1784,7 +1784,6 @@ generate_CALL(
 	ufunc_T	    *ufunc,
 	class_T	    *cl,
 	int	    mi,
-	type_T	    *mtype,	// method type
 	int	    pushed_argcount)
 {
     isn_T	*isn;
@@ -1810,8 +1809,6 @@ generate_CALL(
     {
 	int		i;
 	compiletype_T	compile_type;
-	int		class_constructor = (mtype->tt_type == VAR_CLASS
-				    && STRNCMP(ufunc->uf_name, "new", 3) == 0);
 
 	for (i = 0; i < argcount; ++i)
 	{
@@ -1830,20 +1827,6 @@ generate_CALL(
 		if (ufunc->uf_arg_types == NULL)
 		    continue;
 		expected = ufunc->uf_arg_types[i];
-
-		// When the method is a class constructor and the formal
-		// argument is an object member, the type check is performed on
-		// the object member type.
-		if (class_constructor && expected->tt_type == VAR_ANY)
-		{
-		    class_T *clp = mtype->tt_class;
-		    char_u  *aname = ((char_u **)ufunc->uf_args.ga_data)[i];
-		    int	    m_idx;
-		    ocmember_T *m = object_member_lookup(clp, aname, 0,
-									&m_idx);
-		    if (m != NULL)
-			expected = m->ocm_type;
-		}
 	    }
 	    else if (ufunc->uf_va_type == NULL
 					   || ufunc->uf_va_type == &t_list_any)
@@ -1901,9 +1884,15 @@ generate_CALL(
     // drop the argument types
     cctx->ctx_type_stack.ga_len -= argcount;
 
-    // For an object or class method call, drop the object/class type
+    // For an object or class method call, drop the object/class type.
     if (ufunc->uf_class != NULL)
-	cctx->ctx_type_stack.ga_len--;
+    {
+	// When a class method is called without the class name prefix, then
+	// the type will not be in the stack.
+	type_T *stype = get_type_on_stack(cctx, 0);
+	if (stype->tt_type == VAR_CLASS || stype->tt_type == VAR_OBJECT)
+	    cctx->ctx_type_stack.ga_len--;
+    }
 
     // add return type
     return push_type_stack(cctx, ufunc->uf_ret_type);
@@ -2177,6 +2166,31 @@ generate_PUT(cctx_T *cctx, int regname, linenr_T lnum)
 	return FAIL;
     isn->isn_arg.put.put_regname = regname;
     isn->isn_arg.put.put_lnum = lnum;
+    return OK;
+}
+
+/*
+ * Generate a LOCKUNLOCK instruction.The root item, where the indexing starts
+ * to find the variable, is on the stack. The instr takes
+ * - the string to parse, "root.b[idx1][idx2].d.val", to find the variable
+ * - the class, if any, in which the string executes.
+ * - if the root item is a function argument
+ * A copy is made of "line".
+ */
+    int
+generate_LOCKUNLOCK(cctx_T *cctx, char_u *line, int is_arg)
+{
+    isn_T	*isn;
+
+    RETURN_OK_IF_SKIP(cctx);
+    if ((isn = generate_instr(cctx, ISN_LOCKUNLOCK)) == NULL)
+	return FAIL;
+    class_T *cl = cctx->ctx_ufunc != NULL ? cctx->ctx_ufunc->uf_class : NULL;
+    isn->isn_arg.lockunlock.lu_string = vim_strsave(line);
+    isn->isn_arg.lockunlock.lu_cl_exec = cl;
+    if (cl != NULL)
+	++cl->class_refcount;
+    isn->isn_arg.lockunlock.lu_is_arg = is_arg;
     return OK;
 }
 
@@ -2484,7 +2498,6 @@ delete_instr(isn_T *isn)
 	case ISN_LOADOPT:
 	case ISN_LOADT:
 	case ISN_LOADW:
-	case ISN_LOCKUNLOCK:
 	case ISN_PUSHEXC:
 	case ISN_PUSHFUNC:
 	case ISN_PUSHS:
@@ -2497,6 +2510,11 @@ delete_instr(isn_T *isn)
 	case ISN_STOREW:
 	case ISN_STRINGMEMBER:
 	    vim_free(isn->isn_arg.string);
+	    break;
+
+	case ISN_LOCKUNLOCK:
+	    class_unref(isn->isn_arg.lockunlock.lu_cl_exec);
+	    vim_free(isn->isn_arg.lockunlock.lu_string);
 	    break;
 
 	case ISN_SUBSTITUTE:

@@ -35,6 +35,10 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/ObjCImprovements.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 #if OCTAGON
 
 @interface CKKSHealKeyHierarchyOperation ()
@@ -124,7 +128,16 @@
        currentTrustStates:(NSArray<CKKSPeerProviderState*>*)currentTrustStates
 {
     WEAKIFY(self);
-    [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldFullRefetchNeeded:@(NO), kSecurityRTCFieldIsPrioritized:@(NO)}
+                                                                                                 altDSID:self.deps.activeAccount.altDSID
+                                                                                               eventName:kSecurityRTCEventNameHealKeyHierarchy
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    __block BOOL didSucceed = NO;
+
+
+    [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult {
         ckksnotice("ckksheal", viewState.zoneID, "Attempting to heal %@", viewState);
 
         NSError* error = nil;
@@ -159,6 +172,8 @@
             if(self.allowFullRefetchResult) {
                 ckksnotice("ckksheal", viewState.zoneID, "Have current key pointers, but no keys. This is exceptional; requesting full refetch");
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateNeedFullRefetch;
+
+                [eventS addMetrics:@{kSecurityRTCFieldFullRefetchNeeded : @(YES)}];
                 return CKKSDatabaseTransactionCommit;
             }
         }
@@ -173,6 +188,7 @@
         } else if(!allIQEsHaveKeys) {
             if(self.allowFullRefetchResult) {
                 ckksnotice("ckksheal", viewState.zoneID, "We have some item that encrypts to a non-existent key. This is exceptional; requesting full refetch");
+                [eventS addMetrics:@{kSecurityRTCFieldFullRefetchNeeded : @(YES)}];
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateNeedFullRefetch;
                 return CKKSDatabaseTransactionCommit;
             } else {
@@ -210,6 +226,12 @@
         if(keyset.currentTLKPointer.currentKeyUUID == nil || keyset.currentClassAPointer.currentKeyUUID == nil || keyset.currentClassCPointer.currentKeyUUID == nil ||
            keyset.tlk == nil || keyset.classA == nil || keyset.classC == nil ||
            ![keyset.classA.parentKeyUUID isEqualToString: keyset.tlk.uuid] || ![keyset.classC.parentKeyUUID isEqualToString: keyset.tlk.uuid]) {
+            
+            AAFAnalyticsEventSecurity *healBrokenRecordsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                                          altDSID:self.deps.activeAccount.altDSID
+                                                                                                                        eventName:kSecurityRTCEventNameHealBrokenRecords
+                                                                                                                  testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                         category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
             // The records exist, but are broken. Point them at something reasonable.
             NSArray<CKKSKey*>* keys = [CKKSKey allKeysForContextID:viewState.contextID
@@ -234,6 +256,7 @@
                                                      code:CKKSSplitKeyHierarchy
                                               description:[NSString stringWithFormat:@"Key hierarchy has split: %@ and %@ are roots", newTLK, topKey]];
                     self.nextState = CKKSStateError;
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:self.error];
                     return CKKSDatabaseTransactionCommit;
                 }
             }
@@ -242,6 +265,7 @@
                 // We don't have any TLKs lying around, but we're supposed to heal the key hierarchy. This isn't any good; let's wait for TLK creation.
                 ckkserror("ckksheal", viewState.zoneID, "No possible TLK found. Waiting for creation.");
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTLKCreation;
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:nil];
                 return CKKSDatabaseTransactionCommit;
             }
 
@@ -250,6 +274,8 @@
                 ckkserror("ckkskey", viewState.zoneID, "CKKS claims %@ is not a valid TLK: %@", newTLK, error);
                 self.error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"Invalid TLK from CloudKit (during heal)" underlying:error];
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
+                
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:self.error];
                 return CKKSDatabaseTransactionCommit;
             }
 
@@ -260,12 +286,14 @@
                 // TLK is valid, but not present locally
                 if(error && [self.deps.lockStateTracker isLockedError:error]) {
                     ckksnotice("ckkskey", viewState.zoneID, "Received a TLK(%@), but keybag appears to be locked. Entering a waiting state.", newTLK);
+                    [healBrokenRecordsEventS addMetrics:@{kSecurityRTCFieldIsLocked:@(YES)}];
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForUnlock;
-
                 } else {
                     ckksnotice("ckkskey", viewState.zoneID, "Received a TLK(%@) which we don't have in the local keychain: %@", newTLK, error);
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateTLKMissing;
                 }
+                
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
                 return CKKSDatabaseTransactionCommit;
             }
 
@@ -305,14 +333,17 @@
             if(!keyset.currentClassAPointer.currentKeyUUID) {
                 newClassAKey = [CKKSKey randomKeyWrappedByParent:newTLK keyclass:SecCKKSKeyClassA error:&error];
                 [newClassAKey saveKeyMaterialToKeychain:&error];
-
                 if(error && [self.deps.lockStateTracker isLockedError:error]) {
                     ckksnotice("ckksheal", viewState.zoneID, "Couldn't create a new class A key, but keybag appears to be locked. Entering waitforunlock.");
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForUnlock;
+
+                    [healBrokenRecordsEventS addMetrics:@{kSecurityRTCFieldIsLocked:@(YES)}];
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
                     return CKKSDatabaseTransactionCommit;
                 } else if(error) {
                     ckkserror("ckksheal", viewState.zoneID, "couldn't create new classA key: %@", error);
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
                     return CKKSDatabaseTransactionCommit;
                 }
 
@@ -326,11 +357,16 @@
 
                 if(error && [self.deps.lockStateTracker isLockedError:error]) {
                     ckksnotice("ckksheal", viewState.zoneID, "Couldn't create a new class C key, but keybag appears to be locked. Entering waitforunlock.");
+                    
+                    [healBrokenRecordsEventS addMetrics:@{kSecurityRTCFieldIsLocked:@(YES)}];
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForUnlock;
                     return CKKSDatabaseTransactionCommit;
                 } else if(error) {
                     ckkserror("ckksheal", viewState.zoneID, "couldn't create new class C key: %@", error);
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
+                    
+                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
                     return CKKSDatabaseTransactionCommit;
                 }
 
@@ -368,10 +404,15 @@
                                                                                            trustStates:currentTrustStates
                                                                                       databaseProvider:nil
                                                                                                  error:&error];
+            [healBrokenRecordsEventS addMetrics:@{kSecurityRTCFieldNewTLKShares:@(tlkShares.count)}];
+
             if(error) {
                 ckkserror("ckksshare", viewState.zoneID, "Unable to create TLK shares for new tlk: %@", error);
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
                 return CKKSDatabaseTransactionRollback;
             }
+
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:YES error:nil];
 
             for(CKKSTLKShareRecord* share in tlkShares) {
                 CKRecord* record = [share CKRecordWithZoneID:viewState.zoneID];
@@ -379,7 +420,11 @@
             }
 
             // Kick off the CKOperation
-
+            AAFAnalyticsEventSecurity *uploadHealedTLKSharesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumCKRecords: @(recordsToSave.count), kSecurityRTCFieldIsPrioritized: @(NO)}
+                                                                                                                              altDSID:self.deps.activeAccount.altDSID
+                                                                                                                            eventName:kSecurityRTCEventNameUploadHealedTLKShares
+                                                                                                                      testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                             category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
             ckksnotice("ckksheal", viewState.zoneID, "Saving new records %@", recordsToSave);
 
             // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
@@ -405,6 +450,7 @@
             if(SecCKKSHighPriorityOperations()) {
                 // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
                 modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;
+                [uploadHealedTLKSharesEventS addMetrics:@{kSecurityRTCFieldIsPrioritized : @(YES)}];
             }
 
             modifyRecordsOp.group = self.deps.ckoperationGroup;
@@ -427,6 +473,7 @@
                 [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
                     if(error == nil) {
                         [[CKKSAnalytics logger] logSuccessForEvent:CKKSEventProcessHealKeyHierarchy zoneName:viewState.zoneID.zoneName];
+                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadHealedTLKSharesEventS success:YES error:nil];
                         // Success. Persist the keys to the CKKS database.
 
                         // Save the new CKRecords to the before persisting to database
@@ -465,17 +512,20 @@
                         if(localerror != nil) {
                             ckkserror("ckksheal", viewState.zoneID, "couldn't save new key hierarchy to database; this is very bad: %@", localerror);
                             viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
+
+                            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
                             return CKKSDatabaseTransactionRollback;
                         } else {
                             // Everything is groovy. HOWEVER, we might still not have processed the keys. Ask for that!
                             viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateProcess;
                             self.newCloudKitRecordsWritten = YES;
                         }
+
                     } else {
                         // ERROR. This isn't a total-failure error state, but one that should kick off a healing process.
                         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:CKKSEventProcessHealKeyHierarchy zoneName:viewState.zoneID.zoneName withAttributes:NULL];
                         ckkserror("ckksheal", viewState.zoneID, "couldn't save new key hierarchy to CloudKit: %@", error);
-
+                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadHealedTLKSharesEventS success:NO error:error];
                         [self.deps intransactionCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
 
                         self.cloudkitWriteFailures = YES;
@@ -488,7 +538,6 @@
             };
 
             [self.setResultStateOperation addDependency:cloudKitModifyOperationFinished];
-
             [modifyRecordsOp linearDependencies:self.ckOperations];
             [self.deps.ckdatabase addOperation:modifyRecordsOp];
             return true;
@@ -501,6 +550,9 @@
             NSError* logError = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"Invalid TLK from CloudKit (during heal)" underlying:error];
             ckkserror("ckkskey", viewState.zoneID, "CKKS claims %@ is not a valid TLK: %@", keyset.tlk, logError);
             viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
+
+            [eventS populateUnderlyingErrorsStartingWithRootError:error];
+            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
             return CKKSDatabaseTransactionCommit;
         }
 
@@ -516,24 +568,36 @@
                 ckksnotice("ckkskey", viewState.zoneID, "Received a TLK(%@) which we don't have in the local keychain: %@", keyset.tlk, error);
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateTLKMissing;
             }
+            
+            [eventS populateUnderlyingErrorsStartingWithRootError:error];
+            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
             return CKKSDatabaseTransactionCommit;
         }
 
         if(![self ensureKeyPresent:keyset.tlk viewState:viewState]) {
+            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
             return CKKSDatabaseTransactionRollback;
         }
 
         if(![self ensureKeyPresent:keyset.classA viewState:viewState]) {
+            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
             return CKKSDatabaseTransactionRollback;
         }
 
         if(![self ensureKeyPresent:keyset.classC viewState:viewState]) {
+            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
             return CKKSDatabaseTransactionRollback;
         }
 
         viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateReady;
+        [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(YES)}];
+        didSucceed = YES;
         return CKKSDatabaseTransactionCommit;
     }];
+    
+    // passing a nil to error: will not impact any previously set errors.
+    // AAAFoundation ignores incoming errors that are nil when populating error chains
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:didSucceed error:nil];
 }
 
 - (BOOL)ensureKeyPresent:(CKKSKey*)key viewState:(CKKSKeychainViewState*)viewState

@@ -80,7 +80,7 @@ public:
     ~RemoteVideoEncoderCallbacks() = default;
 
     void postTask(Function<void()>&& task) { m_postTaskCallback(WTFMove(task)); }
-    void notifyEncodedChunk(Vector<uint8_t>&&, bool isKeyFrame, int64_t timestamp, std::optional<uint64_t> duration);
+    void notifyEncodedChunk(Vector<uint8_t>&&, bool isKeyFrame, int64_t timestamp, std::optional<uint64_t> duration, std::optional<unsigned> temporalIndex);
     void notifyEncoderDescription(WebCore::VideoEncoderActiveConfiguration&&);
 
     // Must be called on the VideoDecoder thread, or within postTaskCallback.
@@ -100,7 +100,7 @@ private:
 class RemoteVideoEncoder : public WebCore::VideoEncoder {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    RemoteVideoEncoder(LibWebRTCCodecs::Encoder&, const VideoEncoder::Config&, Ref<RemoteVideoEncoderCallbacks>&&);
+    RemoteVideoEncoder(LibWebRTCCodecs::Encoder&, Ref<RemoteVideoEncoderCallbacks>&&);
     ~RemoteVideoEncoder();
 
 private:
@@ -126,21 +126,40 @@ RemoteVideoCodecFactory::~RemoteVideoCodecFactory()
 {
 }
 
+static bool shouldUseLocalDecoder(std::optional<VideoCodecType> type, const VideoDecoder::Config& config)
+{
+    if (!type)
+        return true;
+
+#if PLATFORM(MAC) && CPU(X86_64)
+    if (*type == VideoCodecType::VP9 && config.prefersSoftware)
+        return true;
+#endif
+
+    return false;
+}
+
 void RemoteVideoCodecFactory::createDecoder(const String& codec, const VideoDecoder::Config& config, VideoDecoder::CreateCallback&& createCallback, VideoDecoder::OutputCallback&& outputCallback, VideoDecoder::PostTaskCallback&& postTaskCallback)
 {
     LibWebRTCCodecs::initializeIfNeeded();
 
     auto type = WebProcess::singleton().libWebRTCCodecs().videoCodecTypeFromWebCodec(codec);
-    if (!type) {
+    if (shouldUseLocalDecoder(type, config)) {
         VideoDecoder::createLocalDecoder(codec, config, WTFMove(createCallback), WTFMove(outputCallback), WTFMove(postTaskCallback));
         return;
     }
-    WebProcess::singleton().libWebRTCCodecs().createDecoderAndWaitUntilReady(*type, [width = config.width, height = config.height, description = Vector<uint8_t> { config.description }, createCallback = WTFMove(createCallback), outputCallback = WTFMove(outputCallback), postTaskCallback = WTFMove(postTaskCallback)](auto& internalDecoder) mutable {
+    WebProcess::singleton().libWebRTCCodecs().createDecoderAndWaitUntilReady(*type, codec, [width = config.width, height = config.height, description = Vector<uint8_t> { config.description }, createCallback = WTFMove(createCallback), outputCallback = WTFMove(outputCallback), postTaskCallback = WTFMove(postTaskCallback)](auto* internalDecoder) mutable {
+        if (!internalDecoder) {
+            postTaskCallback([createCallback = WTFMove(createCallback)]() mutable {
+                createCallback(makeUnexpected("Decoder creation failed"_s));
+            });
+            return;
+        }
         if (description.size())
-            WebProcess::singleton().libWebRTCCodecs().setDecoderFormatDescription(internalDecoder, description.data(), description.size(), width, height);
+            WebProcess::singleton().libWebRTCCodecs().setDecoderFormatDescription(*internalDecoder, description.data(), description.size(), width, height);
 
         auto callbacks = RemoteVideoDecoderCallbacks::create(WTFMove(outputCallback), WTFMove(postTaskCallback));
-        UniqueRef<VideoDecoder> decoder = makeUniqueRef<RemoteVideoDecoder>(internalDecoder, callbacks.copyRef(), width, height);
+        UniqueRef<VideoDecoder> decoder = makeUniqueRef<RemoteVideoDecoder>(*internalDecoder, callbacks.copyRef(), width, height);
         callbacks->postTask([createCallback = WTFMove(createCallback), decoder = WTFMove(decoder)]() mutable {
             createCallback(WTFMove(decoder));
         });
@@ -151,15 +170,9 @@ void RemoteVideoCodecFactory::createEncoder(const String& codec, const WebCore::
 {
     LibWebRTCCodecs::initializeIfNeeded();
 
-    auto type = WebProcess::singleton().libWebRTCCodecs().videoCodecTypeFromWebCodec(codec);
+    auto type = WebProcess::singleton().libWebRTCCodecs().videoEncoderTypeFromWebCodec(codec);
     if (!type) {
         VideoEncoder::createLocalEncoder(codec, config, WTFMove(createCallback), WTFMove(descriptionCallback), WTFMove(outputCallback), WTFMove(postTaskCallback));
-        return;
-    }
-
-    // FIXME: Add support for remote codec scalability.
-    if (config.scalabilityMode != VideoEncoder::ScalabilityMode::L1T1) {
-        createCallback(makeUnexpected("Scalability mode is not supported"_s));
         return;
     }
 
@@ -171,9 +184,15 @@ void RemoteVideoCodecFactory::createEncoder(const String& codec, const WebCore::
         }
     }
 
-    WebProcess::singleton().libWebRTCCodecs().createEncoderAndWaitUntilReady(*type, parameters, config.isRealtime, config.useAnnexB, [config, createCallback = WTFMove(createCallback), descriptionCallback = WTFMove(descriptionCallback), outputCallback = WTFMove(outputCallback), postTaskCallback = WTFMove(postTaskCallback)](auto& internalEncoder) mutable {
+    WebProcess::singleton().libWebRTCCodecs().createEncoderAndWaitUntilInitialized(*type, codec, parameters, config, [createCallback = WTFMove(createCallback), descriptionCallback = WTFMove(descriptionCallback), outputCallback = WTFMove(outputCallback), postTaskCallback = WTFMove(postTaskCallback)](auto* internalEncoder) mutable {
+        if (!internalEncoder) {
+            postTaskCallback([createCallback = WTFMove(createCallback)]() mutable {
+                createCallback(makeUnexpected("Encoder creation failed"_s));
+            });
+            return;
+        }
         auto callbacks = RemoteVideoEncoderCallbacks::create(WTFMove(descriptionCallback), WTFMove(outputCallback), WTFMove(postTaskCallback));
-        UniqueRef<VideoEncoder> encoder = makeUniqueRef<RemoteVideoEncoder>(internalEncoder, config, callbacks.copyRef());
+        UniqueRef<VideoEncoder> encoder = makeUniqueRef<RemoteVideoEncoder>(*internalEncoder, callbacks.copyRef());
         callbacks->postTask([createCallback = WTFMove(createCallback), encoder = WTFMove(encoder)]() mutable {
             createCallback(WTFMove(encoder));
         });
@@ -249,15 +268,12 @@ void RemoteVideoDecoderCallbacks::notifyDecodingResult(RefPtr<WebCore::VideoFram
     });
 }
 
-RemoteVideoEncoder::RemoteVideoEncoder(LibWebRTCCodecs::Encoder& encoder, const VideoEncoder::Config& config, Ref<RemoteVideoEncoderCallbacks>&& callbacks)
+RemoteVideoEncoder::RemoteVideoEncoder(LibWebRTCCodecs::Encoder& encoder, Ref<RemoteVideoEncoderCallbacks>&& callbacks)
     : m_internalEncoder(encoder)
     , m_callbacks(WTFMove(callbacks))
 {
-    WebProcess::singleton().libWebRTCCodecs().initializeEncoder(m_internalEncoder, config.width, config.height, 0, 0, 0, 0);
-    WebProcess::singleton().libWebRTCCodecs().setEncodeRates(m_internalEncoder, config.bitRate, config.frameRate);
-
-    WebProcess::singleton().libWebRTCCodecs().registerEncodedVideoFrameCallback(m_internalEncoder, [callbacks = m_callbacks](auto&& encodedChunk, bool isKeyFrame, auto timestamp, auto duration) {
-        callbacks->notifyEncodedChunk(Vector<uint8_t> { encodedChunk }, isKeyFrame, timestamp, duration);
+    WebProcess::singleton().libWebRTCCodecs().registerEncodedVideoFrameCallback(m_internalEncoder, [callbacks = m_callbacks](auto&& encodedChunk, bool isKeyFrame, auto timestamp, auto duration, auto temporalIndex) {
+        callbacks->notifyEncodedChunk(Vector<uint8_t> { encodedChunk }, isKeyFrame, timestamp, duration, temporalIndex);
     });
     WebProcess::singleton().libWebRTCCodecs().registerEncoderDescriptionCallback(m_internalEncoder, [callbacks = m_callbacks](auto&& description) {
         callbacks->notifyEncoderDescription(WTFMove(description));
@@ -301,9 +317,9 @@ RemoteVideoEncoderCallbacks::RemoteVideoEncoderCallbacks(VideoEncoder::Descripti
 {
 }
 
-void RemoteVideoEncoderCallbacks::notifyEncodedChunk(Vector<uint8_t>&& data, bool isKeyFrame, int64_t timestamp, std::optional<uint64_t> duration)
+void RemoteVideoEncoderCallbacks::notifyEncodedChunk(Vector<uint8_t>&& data, bool isKeyFrame, int64_t timestamp, std::optional<uint64_t> duration, std::optional<unsigned> temporalIndex)
 {
-    m_postTaskCallback([protectedThis = Ref { *this }, data = WTFMove(data), isKeyFrame, timestamp, duration]() mutable {
+    m_postTaskCallback([protectedThis = Ref { *this }, data = WTFMove(data), isKeyFrame, timestamp, duration, temporalIndex]() mutable {
         if (protectedThis->m_isClosed)
             return;
 
@@ -311,7 +327,7 @@ void RemoteVideoEncoderCallbacks::notifyEncodedChunk(Vector<uint8_t>&& data, boo
         auto iterator = protectedThis->m_timestampToDuration.find(timestamp);
         if (iterator != protectedThis->m_timestampToDuration.end())
             duration = iterator->second;
-        protectedThis->m_outputCallback({ WTFMove(data), isKeyFrame, timestamp, duration, { } });
+        protectedThis->m_outputCallback({ WTFMove(data), isKeyFrame, timestamp, duration, temporalIndex });
     });
 }
 

@@ -32,7 +32,7 @@ else
 # Mac OS X or iOS internal SDK
 SDK=$(PLATFORM).internal
 SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
-CC = xcrun -sdk $(SDK) cc
+CC = xcrun -sdk $(SDK) cc -fno-color-diagnostics -D__clang_analyzer__
 endif
 
 PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
@@ -40,6 +40,9 @@ ARCH_FLAGS=$(foreach a,$(ARCHS),-arch $(a))
 SCPRIV=-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
 
 SYSPRIV=-I$(SYSROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+
+updatePrebootAnalyze: preboot.m
+	$(CC) --analyze -isysroot $(SYSROOT) $(PF_INC) -DTEST_PREBOOT $^
 
 updatePreboot: prefsmon_log.c preboot.m
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework Foundation -framework DiskManagement -framework DiskArbitration -framework SystemConfiguration $(PF_INC) -DTEST_PREBOOT -Wall -g -DSC_LOG_HANDLE=__log_PreferencesMonitor -o $@ $^

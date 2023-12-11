@@ -4,6 +4,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+extern NSString* const EscrowRequestTransitionErrorDomain;
+
 extern OctagonState* const EscrowRequestStateNothingToDo;
 extern OctagonState* const EscrowRequestStateTriggerCloudServices;
 extern OctagonState* const EscrowRequestStateAttemptEscrowUpload;

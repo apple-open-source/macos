@@ -52,6 +52,7 @@ using PlatformDisplayID = uint32_t;
 namespace WebKit {
 
 class LayerTreeContext;
+class RemotePageDrawingAreaProxy;
 class WebPageProxy;
 class WebProcessProxy;
 
@@ -82,8 +83,6 @@ public:
 
     // FIXME: These should be pure virtual.
     virtual void setBackingStoreIsDiscardable(bool) { }
-
-    virtual void waitForBackingStoreUpdateOnNextPaint() { }
 
     const WebCore::IntSize& size() const { return m_size; }
     bool setSize(const WebCore::IntSize&, const WebCore::IntSize& scrollOffset = { });
@@ -133,6 +132,9 @@ public:
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
+
+    virtual void addRemotePageDrawingAreaProxy(RemotePageDrawingAreaProxy&) { }
+    virtual void removeRemotePageDrawingAreaProxy(RemotePageDrawingAreaProxy&) { }
 
 protected:
     DrawingAreaProxy(DrawingAreaType, WebPageProxy&);

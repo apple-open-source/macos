@@ -980,10 +980,8 @@ int RenderLayerScrollableArea::verticalScrollbarWidth(OverlayScrollbarSizeReleva
     if (m_vBar && m_vBar->isOverlayScrollbar() && (relevancy == IgnoreOverlayScrollbarSize || !m_vBar->shouldParticipateInHitTesting()))
         return 0;
 
-    if (!m_vBar && m_layer.renderBox() && !(m_layer.renderer().style().scrollbarGutter().isAuto
-        || ScrollbarTheme::theme().usesOverlayScrollbars()) && isHorizontalWritingMode) {
+    if (!m_vBar && isHorizontalWritingMode && !(scrollbarGutterStyle().isAuto || ScrollbarTheme::theme().usesOverlayScrollbars()))
         return ScrollbarTheme::theme().scrollbarThickness(scrollbarWidthStyle());
-    }
 
     if (!m_vBar || !showsOverflowControls())
         return 0;
@@ -996,10 +994,8 @@ int RenderLayerScrollableArea::horizontalScrollbarHeight(OverlayScrollbarSizeRel
     if (m_hBar && m_hBar->isOverlayScrollbar() && (relevancy == IgnoreOverlayScrollbarSize || !m_hBar->shouldParticipateInHitTesting()))
         return 0;
 
-    if (!m_hBar && m_layer.renderBox() && !(m_layer.renderer().style().scrollbarGutter().isAuto
-        || ScrollbarTheme::theme().usesOverlayScrollbars()) && !isHorizontalWritingMode) {
+    if (!m_hBar && !isHorizontalWritingMode && !(scrollbarGutterStyle().isAuto || ScrollbarTheme::theme().usesOverlayScrollbars()))
         return ScrollbarTheme::theme().scrollbarThickness(scrollbarWidthStyle());
-    }
 
     if (!m_hBar || !showsOverflowControls())
         return 0;
@@ -1019,6 +1015,27 @@ OverscrollBehavior RenderLayerScrollableArea::verticalOverscrollBehavior() const
     if (m_layer.renderBox())
         return m_layer.renderer().style().overscrollBehaviorY();
     return OverscrollBehavior::Auto;
+}
+
+Color RenderLayerScrollableArea::scrollbarThumbColorStyle() const
+{
+    if (auto* renderer = m_layer.renderBox())
+        return renderer->style().effectiveScrollbarThumbColor();
+    return { };
+}
+
+Color RenderLayerScrollableArea::scrollbarTrackColorStyle() const
+{
+    if (auto* renderer = m_layer.renderBox())
+        return renderer->style().effectiveScrollbarTrackColor();
+    return { };
+}
+
+ScrollbarGutter RenderLayerScrollableArea::scrollbarGutterStyle()  const
+{
+    if (auto* renderer = m_layer.renderBox())
+        return renderer->style().scrollbarGutter();
+    return { };
 }
 
 ScrollbarWidth RenderLayerScrollableArea::scrollbarWidthStyle()  const
@@ -1114,7 +1131,7 @@ void RenderLayerScrollableArea::computeScrollOrigin()
     ASSERT(box);
 
     int scrollableLeftOverflow = roundToInt(overflowLeft() - box->borderLeft());
-    if (shouldPlaceVerticalScrollbarOnLeft() /*|| box->style().writingMode() == WritingMode::RightToLeft*/)
+    if (shouldPlaceVerticalScrollbarOnLeft() /*|| box->style().blockFlowDirection() == BlockFlowDirection::RightToLeft*/)
         scrollableLeftOverflow -= verticalScrollbarWidth(IgnoreOverlayScrollbarSize, box->style().isHorizontalWritingMode());
     int scrollableTopOverflow = roundToInt(overflowTop() - box->borderTop());
     setScrollOrigin(IntPoint(-scrollableLeftOverflow, -scrollableTopOverflow));
@@ -1763,7 +1780,7 @@ void RenderLayerScrollableArea::updateScrollCornerStyle()
 {
     auto& renderer = m_layer.renderer();
     RenderElement* actualRenderer = rendererForScrollbar(renderer);
-    auto corner = renderer.hasNonVisibleOverflow() ? actualRenderer->getUncachedPseudoStyle({ PseudoId::ScrollbarCorner }, &actualRenderer->style()) : nullptr;
+    auto corner = (renderer.hasNonVisibleOverflow() && !renderer.style().usesStandardScrollbarStyle()) ? actualRenderer->getUncachedPseudoStyle({ PseudoId::ScrollbarCorner }, &actualRenderer->style()) : nullptr;
 
     if (!corner) {
         clearScrollCorner();

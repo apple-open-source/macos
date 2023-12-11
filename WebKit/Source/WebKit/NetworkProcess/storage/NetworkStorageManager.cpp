@@ -45,10 +45,10 @@
 #include "StorageAreaBase.h"
 #include "StorageAreaMapMessages.h"
 #include "StorageAreaRegistry.h"
-#include "StorageUtilities.h"
 #include "UnifiedOriginStorageLevel.h"
 #include "WebsiteDataType.h"
 #include <WebCore/SecurityOriginData.h>
+#include <WebCore/StorageUtilities.h>
 #include <WebCore/UniqueIDBDatabaseConnection.h>
 #include <WebCore/UniqueIDBDatabaseTransaction.h>
 #include <pal/crypto/CryptoDigest.h>
@@ -71,6 +71,7 @@ static const Seconds defaultBackupExclusionPeriod { 24_h };
 static constexpr double defaultThirdPartyOriginQuotaRatio = 0.1; // third-party_origin_quota / origin_quota
 static constexpr uint64_t defaultVolumeCapacityUnit = 1 * GB;
 static constexpr auto persistedFileName = "persisted"_s;
+static constexpr Seconds originLastModificationTimeUpdateInterval = 30_s;
 
 // FIXME: Remove this if rdar://104754030 is fixed.
 static HashMap<String, ThreadSafeWeakPtr<NetworkStorageManager>>& activePaths()
@@ -347,7 +348,7 @@ void NetworkStorageManager::writeOriginToFileIfNecessary(const WebCore::ClientOr
         return;
 
     auto originFile = originFilePath(originDirectory);
-    bool didWrite = writeOriginToFile(originFile, origin);
+    bool didWrite = WebCore::StorageUtilities::writeOriginToFile(originFile, origin);
     auto timestamp = FileSystem::fileCreationTime(originFile);
     manager->setOriginFileCreationTimestamp(timestamp);
 #if PLATFORM(IOS_FAMILY)
@@ -521,6 +522,42 @@ void NetworkStorageManager::performEviction(HashMap<WebCore::SecurityOriginData,
     RELEASE_LOG(Storage, "%p - NetworkStorageManager::performEviction evicts %" PRIu64 " origins, current usage %" PRIu64 ", total quota %" PRIu64, this, deletedOriginCount, valueOrDefault(m_totalUsage), m_totalQuota);
 }
 
+OriginQuotaManager::Parameters NetworkStorageManager::originQuotaManagerParameters(const WebCore::ClientOrigin& origin)
+{
+    OriginQuotaManager::IncreaseQuotaFunction increaseQuotaFunction = [sessionID = m_sessionID, origin, connection = m_parentConnection] (auto identifier, auto currentQuota, auto currentUsage, auto requestedIncrease) mutable {
+        IPC::Connection::send(connection, Messages::NetworkProcessProxy::IncreaseQuota(sessionID, origin, identifier, currentQuota, currentUsage, requestedIncrease), 0);
+    };
+    // Use double for multiplication to preserve precision.
+    double quota = m_defaultOriginQuota;
+    double standardReportedQuota = m_standardVolumeCapacity ? *m_standardVolumeCapacity : 0.0;
+    if (m_originQuotaRatio && m_originQuotaRatioEnabled) {
+        std::optional<uint64_t> volumeCapacity;
+        if (m_volumeCapacityOverride)
+            volumeCapacity = m_volumeCapacityOverride;
+        else if (auto capacity = FileSystem::volumeCapacity(m_path))
+            volumeCapacity = WTF::roundUpToMultipleOf(defaultVolumeCapacityUnit, *capacity);
+        if (volumeCapacity) {
+            quota = m_originQuotaRatio.value() * volumeCapacity.value();
+            increaseQuotaFunction = { };
+        }
+        standardReportedQuota *= m_originQuotaRatio.value();
+    }
+    if (origin.topOrigin != origin.clientOrigin) {
+        quota *= defaultThirdPartyOriginQuotaRatio;
+        standardReportedQuota *= defaultThirdPartyOriginQuotaRatio;
+    }
+    OriginQuotaManager::NotifySpaceGrantedFunction notifySpaceGrantedFunction = [weakThis = ThreadSafeWeakPtr { *this }, origin](uint64_t spaceRequested) {
+        if (auto strongThis = weakThis.get()) {
+            strongThis->spaceGrantedForOrigin(origin, spaceRequested);
+            RunLoop::main().dispatch([strongThis = WTFMove(strongThis)] { });
+        }
+    };
+    // Use std::ceil instead of implicit conversion to make result more definitive.
+    uint64_t roundedQuota = std::ceil(quota);
+    uint64_t roundedStandardReportedQuota = std::ceil(standardReportedQuota);
+    return { roundedQuota, roundedStandardReportedQuota, WTFMove(increaseQuotaFunction), WTFMove(notifySpaceGrantedFunction) };
+}
+
 OriginStorageManager& NetworkStorageManager::originStorageManager(const WebCore::ClientOrigin& origin, ShouldWriteOriginFile shouldWriteOriginFile)
 {
     assertIsCurrent(workQueue());
@@ -534,33 +571,7 @@ OriginStorageManager& NetworkStorageManager::originStorageManager(const WebCore:
         OriginQuotaManager::IncreaseQuotaFunction increaseQuotaFunction = [sessionID = m_sessionID, origin, connection = m_parentConnection] (auto identifier, auto currentQuota, auto currentUsage, auto requestedIncrease) mutable {
             IPC::Connection::send(connection, Messages::NetworkProcessProxy::IncreaseQuota(sessionID, origin, identifier, currentQuota, currentUsage, requestedIncrease), 0);
         };
-        // Use double for multiplication to preserve precision.
-        double quota = m_defaultOriginQuota;
-        double standardReportedQuota = m_standardVolumeCapacity ? *m_standardVolumeCapacity : 0.0;
-        if (m_originQuotaRatio) {
-            std::optional<uint64_t> volumeCapacity;
-            if (m_volumeCapacityOverride)
-                volumeCapacity = m_volumeCapacityOverride;
-            else if (auto capacity = FileSystem::volumeCapacity(m_path))
-                volumeCapacity = WTF::roundUpToMultipleOf(defaultVolumeCapacityUnit, *capacity);
-            if (volumeCapacity) {
-                quota = m_originQuotaRatio.value() * volumeCapacity.value();
-                increaseQuotaFunction = { };
-            }
-            standardReportedQuota *= m_originQuotaRatio.value();
-        }
-        if (origin.topOrigin != origin.clientOrigin) {
-            quota *= defaultThirdPartyOriginQuotaRatio;
-            standardReportedQuota *= defaultThirdPartyOriginQuotaRatio;
-        }
-        OriginQuotaManager::NotifySpaceGrantedFunction notifySpaceGrantedFunction = [weakThis = ThreadSafeWeakPtr { *this }, origin](uint64_t spaceRequested) {
-            if (auto strongThis = weakThis.get()) {
-                strongThis->spaceGrantedForOrigin(origin, spaceRequested);
-                RunLoop::main().dispatch([strongThis = WTFMove(strongThis)] { });
-            }
-        };
-        // Use std::ceil instead of implicit conversion to make result more definitive.
-        return makeUnique<OriginStorageManager>(std::ceil(quota), std::ceil(standardReportedQuota), WTFMove(increaseQuotaFunction), WTFMove(notifySpaceGrantedFunction), WTFMove(originDirectory), WTFMove(localStoragePath), WTFMove(idbStoragePath), WTFMove(cacheStoragePath), m_unifiedOriginStorageLevel);
+        return makeUnique<OriginStorageManager>(originQuotaManagerParameters(origin), WTFMove(originDirectory), WTFMove(localStoragePath), WTFMove(idbStoragePath), WTFMove(cacheStoragePath), m_unifiedOriginStorageLevel);
     }).iterator->value;
 
     if (shouldWriteOriginFile == ShouldWriteOriginFile::Yes)
@@ -591,6 +602,21 @@ bool NetworkStorageManager::removeOriginStorageManagerIfPossible(const WebCore::
 void NetworkStorageManager::updateLastModificationTimeForOrigin(const WebCore::ClientOrigin& origin)
 {
     assertIsCurrent(workQueue());
+
+    auto currentTime = WallTime::now();
+    auto iterator = m_lastModificationTimes.find(origin);
+    if (iterator == m_lastModificationTimes.end())
+        m_lastModificationTimes.set(origin, currentTime);
+    else {
+        if (currentTime - iterator->value <= originLastModificationTimeUpdateInterval)
+            return;
+        iterator->value = currentTime;
+    }
+
+    m_lastModificationTimes.removeIf([&currentTime](auto& iterator) {
+        return currentTime - iterator.value > originLastModificationTimeUpdateInterval;
+    });
+
     // This function must be called when origin is in use, i.e. OriginStorageManager exists.
     auto* manager = m_originStorageManagers.get(origin);
     ASSERT(manager);
@@ -929,7 +955,7 @@ HashSet<WebCore::ClientOrigin> NetworkStorageManager::getAllOrigins()
         allOrigins.add(origin);
 
     forEachOriginDirectory([&](auto directory) {
-        if (auto origin = readOriginFromFile(originFilePath(directory)))
+        if (auto origin = WebCore::StorageUtilities::readOriginFromFile(originFilePath(directory)))
             allOrigins.add(*origin);
     });
 
@@ -1230,12 +1256,25 @@ void NetworkStorageManager::resetQuotaForTesting(CompletionHandler<void()>&& com
 
 void NetworkStorageManager::resetQuotaUpdatedBasedOnUsageForTesting(WebCore::ClientOrigin&& origin)
 {
+    assertIsCurrent(workQueue());
+
+    if (auto manager = m_originStorageManagers.get(origin))
+        manager->quotaManager().resetQuotaUpdatedBasedOnUsageForTesting();
+}
+
+void NetworkStorageManager::setOriginQuotaRatioEnabledForTesting(bool enabled, CompletionHandler<void()>&& completionHandler)
+{
     ASSERT(RunLoop::isMain());
 
-    m_queue->dispatch([this, protectedThis = Ref { *this }, origin = crossThreadCopy(WTFMove(origin))]() mutable {
+    m_queue->dispatch([this, protectedThis = Ref { *this }, enabled, completionHandler = WTFMove(completionHandler)]() mutable {
         assertIsCurrent(workQueue());
-        if (auto manager = m_originStorageManagers.get(origin))
-            manager->quotaManager().resetQuotaUpdatedBasedOnUsageForTesting();
+        if (m_originQuotaRatioEnabled != enabled) {
+            m_originQuotaRatioEnabled = enabled;
+            for (auto& [origin, manager] : m_originStorageManagers)
+                manager->quotaManager().updateParametersForTesting(originQuotaManagerParameters(origin));
+        }
+
+        RunLoop::main().dispatch(WTFMove(completionHandler));
     });
 }
 
@@ -1632,6 +1671,16 @@ void NetworkStorageManager::cacheStorageDereference(IPC::Connection& connection,
         return;
 
     cacheStorageManager->dereference(connection.uniqueID(), cacheIdentifier);
+}
+
+void NetworkStorageManager::lockCacheStorage(IPC::Connection& connection, const WebCore::ClientOrigin& origin)
+{
+    originStorageManager(origin).cacheStorageManager(*m_cacheStorageRegistry, origin, m_queue.copyRef()).lockStorage(connection.uniqueID());
+}
+
+void NetworkStorageManager::unlockCacheStorage(IPC::Connection& connection, const WebCore::ClientOrigin& origin)
+{
+    originStorageManager(origin).cacheStorageManager(*m_cacheStorageRegistry, origin, m_queue.copyRef()).unlockStorage(connection.uniqueID());
 }
 
 void NetworkStorageManager::cacheStorageRetrieveRecords(WebCore::DOMCacheIdentifier cacheIdentifier, WebCore::RetrieveRecordsOptions&& options, WebCore::DOMCacheEngine::CrossThreadRecordsCallback&& callback)

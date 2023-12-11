@@ -5,6 +5,8 @@
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ot/ObjCImprovements.h"
 
+NSString* const CKKSStateTransitionErrorDomain = @"com.appple.ckks.state";
+
 CKKSState* const CKKSStateLoggedOut = (CKKSState*) @"loggedout";
 CKKSState* const CKKSStateWaitForCloudKitAccountStatus = (CKKSState*)@"wait_for_ck_account_status";
 
@@ -57,56 +59,67 @@ CKKSState* const CKKSStateOutgoingQueueOperationFailed = (CKKSState*) @"process_
 
 CKKSState* const CKKSStateExpandToHandleAllViews = (CKKSState*)@"handle_all_views";
 
+NSDictionary<CKKSState*, NSNumber*>* CKKSStateMap(void)
+{
+    static NSDictionary<CKKSState*, NSNumber*>* stateMap = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+
+        stateMap = @{
+            CKKSStateReady                           : @0,
+            CKKSStateError                           : @1,
+
+            CKKSStateInitializing                    : @2,
+            CKKSStateInitialized                     : @3,
+            CKKSStateFetchComplete                   : @4,
+            CKKSStateUnhealthy                       : @5,
+            CKKSStateNeedFullRefetch                 : @6,
+            CKKSStateFetch                           : @7,
+            CKKSStateResettingZone                   : @8,
+            CKKSStateResettingLocalData              : @9,
+            CKKSStateLoggedOut                       : @10,
+            CKKSStateZoneCreationFailed              : @11,
+            CKKSStateWaitForTrust                    : @12,
+
+            CKKSStateProcessReceivedKeys             : @13,
+            CKKSStateCheckZoneHierarchies            : @14,
+            CKKSStateBecomeReady                     : @15,
+            CKKSStateLoseTrust                       : @16,
+            CKKSStateTLKMissing                      : @17,
+            CKKSStateWaitForCloudKitAccountStatus    : @18,
+            CKKSStateBeginFetch                      : @19,
+
+            CKKSStateFixupRefetchCurrentItemPointers : @20,
+            CKKSStateFixupFetchTLKShares             : @21,
+            CKKSStateFixupLocalReload                : @22,
+            CKKSStateFixupResaveDeviceStateEntries   : @23,
+            CKKSStateFixupDeleteAllCKKSTombstones    : @24,
+
+            CKKSStateHealTLKShares                   : @25,
+            CKKSStateHealTLKSharesFailed             : @26,
+
+            CKKSStateProvideKeyHierarchy             : @27,
+            CKKSStateProvideKeyHierarchyUntrusted    : @28,
+
+            CKKSStateProcessIncomingQueue            : @29,
+            CKKSStateRemainingClassAIncomingItems    : @30,
+            CKKSStateScanLocalItems                  : @31,
+            CKKSStateReencryptOutgoingItems          : @32,
+            CKKSStateProcessOutgoingQueue            : @33,
+            CKKSStateOutgoingQueueOperationFailed    : @34,
+
+            CKKSStateExpandToHandleAllViews          : @35,
+        };
+    });
+    return stateMap;
+}
+
 NSSet<CKKSState*>* CKKSAllStates(void)
 {
     static NSSet<CKKSState*>* set = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        set = [NSSet setWithArray: @[
-            CKKSStateReady,
-            CKKSStateError,
-
-            CKKSStateInitializing,
-            CKKSStateInitialized,
-            CKKSStateFetchComplete,
-            CKKSStateUnhealthy,
-            CKKSStateNeedFullRefetch,
-            CKKSStateFetch,
-            CKKSStateResettingZone,
-            CKKSStateResettingLocalData,
-            CKKSStateLoggedOut,
-            CKKSStateZoneCreationFailed,
-            CKKSStateWaitForTrust,
-
-            CKKSStateProcessReceivedKeys,
-            CKKSStateCheckZoneHierarchies,
-            CKKSStateBecomeReady,
-            CKKSStateLoseTrust,
-            CKKSStateTLKMissing,
-            CKKSStateWaitForCloudKitAccountStatus,
-            CKKSStateBeginFetch,
-
-            CKKSStateFixupRefetchCurrentItemPointers,
-            CKKSStateFixupFetchTLKShares,
-            CKKSStateFixupLocalReload,
-            CKKSStateFixupResaveDeviceStateEntries,
-            CKKSStateFixupDeleteAllCKKSTombstones,
-
-            CKKSStateHealTLKShares,
-            CKKSStateHealTLKSharesFailed,
-
-            CKKSStateProvideKeyHierarchy,
-            CKKSStateProvideKeyHierarchyUntrusted,
-
-            CKKSStateProcessIncomingQueue,
-            CKKSStateRemainingClassAIncomingItems,
-            CKKSStateScanLocalItems,
-            CKKSStateReencryptOutgoingItems,
-            CKKSStateProcessOutgoingQueue,
-            CKKSStateOutgoingQueueOperationFailed,
-
-            CKKSStateExpandToHandleAllViews,
-        ]];
+        set = [NSSet setWithArray:[CKKSStateMap() allKeys]];
     });
     return set;
 }

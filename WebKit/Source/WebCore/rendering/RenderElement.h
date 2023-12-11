@@ -108,6 +108,8 @@ public:
     inline bool shouldApplyLayoutOrPaintContainment() const;
     inline bool shouldApplyAnyContainment() const;
 
+    bool hasEligibleContainmentForSizeQuery() const;
+
     Color selectionColor(CSSPropertyID) const;
     std::unique_ptr<RenderStyle> selectionPseudoStyle() const;
 
@@ -157,7 +159,7 @@ public:
     virtual void layout();
 
     /* This function performs a layout only if one is needed. */
-    void layoutIfNeeded() { if (needsLayout()) layout(); }
+    void layoutIfNeeded();
 
     // Updates only the local style ptr of the object. Does not update the state of the object,
     // and so only should be called when the style is known not to have changed (or from setStyle).
@@ -286,6 +288,10 @@ public:
 
     virtual bool establishesIndependentFormattingContext() const;
     bool createsNewFormattingContext() const;
+
+    bool isSkippedContentRoot() const;
+
+    void clearNeedsLayoutForDescendants();
 
 protected:
     enum BaseTypeFlag {
@@ -539,6 +545,13 @@ inline RenderObject* RenderElement::lastInFlowChild() const
         return lastChild->previousInFlowSibling();
     }
     return nullptr;
+}
+
+inline bool RenderObject::isSkippedContentRoot() const
+{
+    if (isText())
+        return false;
+    return downcast<RenderElement>(*this).isSkippedContentRoot();
 }
 
 } // namespace WebCore

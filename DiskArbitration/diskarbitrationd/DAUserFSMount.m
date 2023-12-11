@@ -27,20 +27,19 @@
 #import <Foundation/Foundation.h>
 #import "DALog.h"
 #if TARGET_OS_OSX || TARGET_OS_IOS
+#import <FSKit/FSKit.h>
+#import <FSKit/FSKitDiskArbHelper_private.h>
 #import <UserFS/LiveFSUSBLocalStorageClient.h>
 #import <LiveFS/LiveFSMountManagerClient.h>
 #import <LiveFS/LiveFS_LiveFileMounter.h>
 #import <os/log.h>
+#import <os/feature_private.h>
 
 
 int __DAMountUserFSVolume( void * parameter )
 {
     int returnValue                            = 0;
     __DAFileSystemContext *context             = parameter;
-    LiveFSUSBLocalStorageClient *userFSManager = nil;
-    LiveFSMountClient           *mountClient   = nil;
-    NSError *err                               = nil;
-    NSArray *volumes                           = nil;
 
     NSString *fsType       = (__bridge NSString *)context->fileSystem;
     NSString *deviceName   = (__bridge NSString *)context->deviceName;
@@ -57,134 +56,23 @@ int __DAMountUserFSVolume( void * parameter )
                   [fsType rangeOfCharacterFromSet:
                    [NSCharacterSet characterSetWithCharactersInString:@"_"]].location];
     }
-    
-    userFSManager = [LiveFSUSBLocalStorageClient newManager];
-    mountClient = [LiveFSMountClient  newClientForProvider:@"com.apple.filesystems.UserFS.FileProvider"];
 
-    volumes = [userFSManager loadVolumes:deviceName ofType:fsType withError:&err];
-
-    if ( err )
+    if ( [FSKitConstants class] == nil )
     {
-        DALogError("%@ loadVolumes failed with %@", deviceName, err);
+        // No FSKit in the run time, bail
+        DALogError("Attempt to use FSKit, when not present, to mount volume of type %@",
+                   fsType);
+        returnValue = EPROTONOSUPPORT;
         goto exit;
     }
 
-    if ( volumes )
-    {
-#if TARGET_OS_OSX
-        if ( 1 == volumes.count )
-        {
-            NSDictionary *volumeInfo = volumes.firstObject;
-            NSString *UUID = [volumeInfo objectForKey:(@"UUID")];
-            NSString *volName = [volumeInfo objectForKey:(@"name")];
+    returnValue = [FSKitDiskArbHelper DAMountUserFSVolume:fsType
+                                               deviceName:deviceName
+                                               mountPoint:mountpoint
+                                               volumeName:volumeName
+                                             mountOptions:mountOptions];
 
-            DALogInfo("%@ mounting with name %@ and options %@", UUID, volName, mountOptions);
-
-            err = [mountClient mountVolume:UUID displayName:volName
-                                  provider:@"com.apple.filesystems.UserFS.FileProvider"
-                               domainError:nil
-                                        on:mountpoint
-                                       how:LIVEMOUNTER_MOUNT_DONTDOMAIN | LIVEMOUNTER_MOUNT_NOFOLLOW
-                                   options:mountOptions ];
-            
-            if ( err )
-            {
-                NSError *unloadError = nil;
-
-                DALogError("%@ mount failed with %@", deviceName, err);
-                unloadError = [userFSManager forgetVolume:UUID withFlags:0]; /* TODO: if this fails we need to do ungraceful as well */
-                if (unloadError) {
-                    DALogError("unload for volume %@ failed with %@", volName, unloadError);
-                }
-            }
-        }
-        else
-        {
-            if (volumes.count > 1)
-            {
-                // Should not happen for now, we do not support it, so unload the volumes
-                DALogError("%@ mount returned with more than one UUID", deviceName);
-                for (NSDictionary *volume in volumes)
-                {
-                    NSError *unloadError = nil;
-                    unloadError = [userFSManager forgetVolume:volume[@"UUID"] withFlags:0];
-                    if (unloadError) {
-                        DALogError("unload for volume %@ failed with %@", volume[@"name"], unloadError);
-                    }
-                }
-            } else {
-                DALogError("%@ mount returned no usable volumes", deviceName);
-            }
-            err = [NSError errorWithDomain:NSPOSIXErrorDomain code:EINVAL userInfo:nil];
-        }
-#else
-        NSDictionary *volumeInfo;
-        for (volumeInfo in volumes)
-        {
-            NSError *errorForDomain = nil;
-            int mountFlags = 0;
-            NSString *UUID = [volumeInfo objectForKey:(@"UUID")];
-            NSString *volName = [volumeInfo objectForKey:(@"name")];
-
-            /* There are file systems which return a volume name during probe, but not during scanvols,
-             * and vice versa, in case of probe finding a name and scanvols not finding the name we
-             * prefer probed name
-             */
-            if (volumeName != nil && ![volumeName isEqual:volName]) {
-                DALogInfo("%@: got 2 different names from probe and userfs: p->%@  u->%@", deviceName, volumeName, volName);
-                if ([volName isEqual:@"Untitled"]) {
-                    volName = volumeName;
-                }
-            }
-
-            mountFlags |= [volumeInfo[@"how"] intValue];
-
-            if ( volumeInfo[@"errorForDomain"] )
-            {
-                long code = [volumeInfo[@"errorForDomain"] integerValue];
-                if (code == -1000)
-                {
-                    //TODO: We need to check if we can link again FileProvider
-                    errorForDomain = [NSError errorWithDomain:NSPOSIXErrorDomain code:EAUTH userInfo:nil];
-                } else
-                {
-                    DALogError("unsupported error code for domain: %d", code);
-                    err = [NSError errorWithDomain:NSPOSIXErrorDomain code:EINVAL userInfo:nil];
-                    goto exit;
-                }
-            }
-            DALogInfo("%@ mounting with name %@, error %@, and how 0x%x.", UUID, volName, errorForDomain, mountFlags);
-
-            err = [mountClient mountVolume:UUID
-                               displayName:volName
-                                  provider:@"com.apple.filesystems.UserFS.FileProvider"
-                               domainError:errorForDomain
-                                        on:mountpoint
-                                       how:mountFlags];
-
-            if ( err )
-            {
-                DALogError("%@ mount failed with %@", deviceName, err);
-
-                NSError *unloadError = [userFSManager forgetVolume:UUID withFlags:0];
-                if ( unloadError )
-                {
-                    DALogError("unload for volume %@ failed with %@", volName, unloadError);
-                }
-            } else
-            {
-                DALogInfo("Mounted %@ successfully.", UUID);
-            }
-        }
-#endif
-    }
-        
 exit:
-    
-    if (err)
-    {
-        returnValue = (int)err.code;
-    }
     
     return returnValue;
 }

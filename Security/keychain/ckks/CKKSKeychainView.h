@@ -114,6 +114,9 @@ NS_ASSUME_NONNULL_BEGIN
 // Set this to request a key state refetch (tests only)
 @property bool keyStateFullRefetchRequested;
 
+// Use this to track whether we have requested our first manatee key fetch
+@property bool firstManateeKeyFetched;
+
 // Full of condition variables, if you'd like to try to wait until the key hierarchy is in some state
 @property (readonly) NSDictionary<CKKSState*, CKKSCondition*>* stateConditions;
 
@@ -289,6 +292,7 @@ NS_ASSUME_NONNULL_BEGIN
 // If set, any set passed to setCurrentSyncingPolicy will be intersected with this set
 @property (readonly, nullable) NSSet<NSString*>* viewAllowList;
 - (void)setSyncingViewsAllowList:(NSSet<NSString*>* _Nullable)viewNames;
+- (void)testDropPolicy;
 
 - (CKKSKeychainViewState* _Nullable)viewStateForName:(NSString*)viewName NS_SWIFT_NAME(viewState(name:));
 

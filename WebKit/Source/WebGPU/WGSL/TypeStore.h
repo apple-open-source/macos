@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "ASTTypeName.h"
 #include "Types.h"
 #include <wtf/FixedVector.h>
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringHash.h>
 
 namespace WGSL {
 
@@ -56,15 +56,14 @@ public:
     const Type* samplerType() const { return m_sampler; }
     const Type* textureExternalType() const { return m_textureExternal; }
 
-    const Type* structType(AST::Structure&);
+    const Type* structType(AST::Structure&, HashMap<String, const Type*>&& = { });
     const Type* arrayType(const Type*, std::optional<unsigned>);
     const Type* vectorType(const Type*, uint8_t);
     const Type* matrixType(const Type*, uint8_t columns, uint8_t rows);
     const Type* textureType(const Type*, Types::Texture::Kind);
     const Type* functionType(Vector<const Type*>&&, const Type*);
     const Type* referenceType(AddressSpace, const Type*, AccessMode);
-
-    const Type* constructType(AST::ParameterizedTypeName::Base, const Type*);
+    const Type* typeConstructorType(ASCIILiteral, std::function<const Type*(AST::ElaboratedTypeExpression&)>&&);
 
 private:
     class TypeCache {
@@ -82,15 +81,7 @@ private:
     template<typename TypeKind, typename... Arguments>
     const Type* allocateType(Arguments&&...);
 
-    template<typename TargetConstructor, typename Base, typename... Arguments>
-    void allocateConstructor(TargetConstructor, Base, Arguments&&...);
-
-    struct TypeConstructor {
-        std::function<const Type*(const Type*)> construct;
-    };
-
     Vector<std::unique_ptr<const Type>> m_types;
-    FixedVector<TypeConstructor> m_typeConstrutors;
     TypeCache m_cache;
 
     const Type* m_bottom;

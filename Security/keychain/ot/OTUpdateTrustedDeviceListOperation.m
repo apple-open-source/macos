@@ -18,6 +18,10 @@
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ot/OTOperationDependencies.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @interface OTUpdateTrustedDeviceListOperation ()
 @property OTOperationDependencies* deps;
 
@@ -60,7 +64,14 @@
 {
     WEAKIFY(self);
     secnotice("octagon-authkit", "Attempting to update trusted device list");
-
+    
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil 
+                                                                                                 altDSID:self.deps.activeAccount.altDSID
+                                                                                                  flowID:self.deps.flowID
+                                                                                         deviceSessionID:self.deps.deviceSessionID
+                                                                                               eventName:kSecurityRTCEventNameUpdateTDL
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
         // If we errored in some unknown way, ask to try again!
         STRONGIFY(self);
@@ -68,6 +79,7 @@
         if(self.error) {
             if(self.retryFlag == nil) {
                 secerror("octagon-authkit: Received an error updating the trusted device list operation, but no retry flag present.");
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
                 return;
             }
 
@@ -87,7 +99,10 @@
                 secnotice("octagon-authkit", "Machine ID list error is not fatal: requesting retry: %@",
                           pendingFlag);
                 [self.deps.flagHandler handlePendingFlag:pendingFlag];
-            }
+            }              
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+        } else {
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
         }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
@@ -138,7 +153,6 @@
             }
             self.error = error;
             [self runBeforeGroupFinished:self.finishedOp];
-
         } else {
             if (self.logForUpgrade) {
                 [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventUpgradeFetchDeviceIDs];

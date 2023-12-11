@@ -85,6 +85,7 @@ os_log_t    assertions_log = NULL;
  */
 #define kPMAssertionTimeoutOnResumeKey CFSTR("_AssertTimeoutOnResume")
 
+#define kPMAssertionIsRunningboardd CFSTR("_IsRunningboardd")
 
 
 // CAST_PID_TO_KEY casts a mach_port_t into a void * for CF containers
@@ -1105,6 +1106,10 @@ kern_return_t _io_pm_assertion_create (
         ERROR_LOG("_io_pm_assertion_create: Assertion requires root but PID %d isn't", callerPID);
         *return_code = kIOReturnNotPrivileged;
         goto exit;
+    }
+
+    if (auditTokenIsRunningboardd(token)) {
+        CFDictionarySetValue(newAssertionProperties, kPMAssertionIsRunningboardd, kCFBooleanTrue);
     }
 
     *return_code = doCreate(callerPID, newAssertionProperties, (IOPMAssertionID *)assertion_id, &pinfo, enTrIntensity);
@@ -3146,7 +3151,7 @@ void schedDisableAppSleep(assertion_t *assertion)
 
     assertType = &gAssertionTypes[assertion->kassert]; 
 
-    if ( !(assertType->flags & kAssertionTypePreventAppSleep)) return;
+    if ( !(assertType->flags & kAssertionTypePreventAppSleep) || assertion->runningboard) return;
 
     pinfo = assertion->pinfo;
     if (assertion->causingPid && assertion->causingPinfo) {
@@ -3180,7 +3185,7 @@ void schedEnableAppSleep(assertion_t *assertion)
     ProcessInfo         *pinfo = NULL;
 
     assertType = &gAssertionTypes[assertion->kassert]; 
-    if ( !(assertType->flags & kAssertionTypePreventAppSleep)) return;
+    if ( !(assertType->flags & kAssertionTypePreventAppSleep) || assertion->runningboard) return;
 
     pinfo = assertion->pinfo;
     if (assertion->causingPid && assertion->causingPinfo) {
@@ -5853,6 +5858,7 @@ STATIC IOReturn doCreate(
     CFRetain(newProperties);
     assertion->retainCnt = 1;
     assertion->pinfo = pinfo;
+    assertion->runningboard = CFDictionaryContainsKey(newProperties, kPMAssertionIsRunningboardd);
 
     // create pinfo for caused by pid
     if (assertion->causingPid) {

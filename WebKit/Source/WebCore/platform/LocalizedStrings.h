@@ -280,11 +280,6 @@ namespace WebCore {
     WEBCORE_EXPORT String multipleFileUploadText(unsigned numberOfFiles);
     String unknownFileSizeText();
 
-#if PLATFORM(WIN)
-    WEBCORE_EXPORT String uploadFileText();
-    WEBCORE_EXPORT String allFilesText();
-#endif
-
 #if PLATFORM(COCOA)
     WEBCORE_EXPORT String postScriptDocumentTypeDescription();
     String keygenMenuItem2048();
@@ -320,6 +315,7 @@ namespace WebCore {
     String validationMessageTypeMismatchForMultipleEmailText();
     String validationMessageTypeMismatchForURLText();
     String validationMessagePatternMismatchText();
+    String validationMessagePatternMismatchText(const String& title);
     String validationMessageTooShortText(int valueLength, int minLength);
     String validationMessageTooLongText(int valueLength, int maxLength);
     String validationMessageRangeUnderflowText(const String& minimum);

@@ -41,6 +41,8 @@
 #include "Logging.h"
 #include "PlatformWheelEvent.h"
 #include "ScrollAnimator.h"
+#include "ScrollbarColor.h"
+#include "ScrollbarGutter.h"
 #include "ScrollbarTheme.h"
 #include "ScrollbarsControllerMock.h"
 #include <wtf/text/TextStream.h>
@@ -412,6 +414,8 @@ void ScrollableArea::setScrollbarOverlayStyle(ScrollbarOverlayStyle overlayStyle
 
 void ScrollableArea::invalidateScrollbars()
 {
+    invalidateScrollCorner(scrollCornerRect());
+
     if (auto* scrollbar = horizontalScrollbar()) {
         scrollbar->invalidate();
         scrollbarsController().invalidateScrollbarPartLayers(scrollbar);
@@ -506,6 +510,21 @@ String ScrollableArea::horizontalScrollbarStateForTesting() const
 String ScrollableArea::verticalScrollbarStateForTesting() const
 {
     return scrollbarsController().verticalScrollbarStateForTesting();
+}
+
+Color ScrollableArea::scrollbarThumbColorStyle() const
+{
+    return { };
+}
+
+Color ScrollableArea::scrollbarTrackColorStyle() const
+{
+    return { };
+}
+
+ScrollbarGutter ScrollableArea::scrollbarGutterStyle() const
+{
+    return { };
 }
 
 const LayoutScrollSnapOffsetsInfo* ScrollableArea::snapOffsetsInfo() const

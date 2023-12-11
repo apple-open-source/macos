@@ -668,8 +668,8 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     return otc.ckks;
 }
 
-- (OTCuttlefishContext* _Nullable)restartCKKSAccountSyncWithoutSettingPolicyForContext:(OTCuttlefishContext*)cuttlefishContext
-{        
+- (OTCuttlefishContext* _Nullable)restartOctagonContext:(OTCuttlefishContext*)cuttlefishContext
+{
     CKKSKeychainView* view = cuttlefishContext.ckks;
     NSSet<NSString*>* viewAllowList = view.viewAllowList;
     NSString *containerName = cuttlefishContext.containerName;
@@ -716,7 +716,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         return nil;
     }
 
-    OTCuttlefishContext* newctx = [self restartCKKSAccountSyncWithoutSettingPolicyForContext: cuttlefishContext];
+    OTCuttlefishContext* newctx = [self restartOctagonContext:cuttlefishContext];
     return newctx.ckks;
 }
 
@@ -1398,6 +1398,9 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     OctagonSignpost prepareSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelInitiatorPrepare);
     __block bool subTaskSuccess = false;
 
+    cfshContext.flowID = arguments.flowID;
+    cfshContext.deviceSessionID = arguments.deviceSessionID;
+    
     [cfshContext rpcPrepareIdentityAsApplicantWithConfiguration:config
                                                           epoch:config.epoch
                                                           reply:^(NSString * _Nullable peerID,
@@ -1409,8 +1412,9 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         if (error == nil) {
             subTaskSuccess = true;
         }
+        cfshContext.flowID = nil;
+        cfshContext.deviceSessionID = nil;
         OctagonSignpostEnd(prepareSignPost, OctagonSignpostNamePairingChannelInitiatorPrepare, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorPrepare), (int)subTaskSuccess);
-
         reply(peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error);
     }];
 }
@@ -1433,6 +1437,9 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     [cfshContext handlePairingRestart:config];
     [cfshContext startOctagonStateMachine];
 
+    cfshContext.flowID = arguments.flowID;
+    cfshContext.deviceSessionID = arguments.deviceSessionID;
+
     OctagonSignpost joinSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelInitiatorJoinOctagon);
     __block bool subTaskSuccess = false;
     [cfshContext rpcJoin:vouchData vouchSig:vouchSig reply:^(NSError * _Nullable error) {
@@ -1440,6 +1447,8 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
             [cfshContext clearPairingUUID];
             subTaskSuccess = true;
         }
+        cfshContext.flowID = nil;
+        cfshContext.deviceSessionID = nil;
         OctagonSignpostEnd(joinSignPost, OctagonSignpostNamePairingChannelInitiatorJoinOctagon, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorJoinOctagon), (int)subTaskSuccess);
         reply(error);
     }];
@@ -1468,10 +1477,12 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     // Let's assume that the new device's machine ID has made it to the IDMS list by now, and let's refresh our idea of that list
     [acceptorCfshContext requestTrustedDeviceListRefresh];
 
+    acceptorCfshContext.flowID = arguments.flowID;
+    acceptorCfshContext.deviceSessionID = arguments.deviceSessionID;
+
     OTClientStateMachine *clientStateMachine = [self clientStateMachineForContainerName:acceptorCfshContext.containerName contextID:acceptorCfshContext.contextID clientName:config.pairingUUID];
 
     [clientStateMachine startOctagonStateMachine];
-
 
     OctagonSignpost epochSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelAcceptorEpoch);
     __block bool subTaskSuccess = false;
@@ -1479,6 +1490,8 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         if (error == nil) {
             subTaskSuccess = true;
         }
+        acceptorCfshContext.flowID = nil;
+        acceptorCfshContext.deviceSessionID = nil;
         OctagonSignpostEnd(epochSignPost, OctagonSignpostNamePairingChannelAcceptorEpoch, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorEpoch), (int)subTaskSuccess);
         reply(epoch, error);
     }];
@@ -1506,14 +1519,26 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     // Let's assume that the new device's machine ID has made it to the IDMS list by now, and let's refresh our idea of that list
     [acceptorCfshContext requestTrustedDeviceListRefresh];
-    OTClientStateMachine *clientStateMachine = [self clientStateMachineForContainerName:acceptorCfshContext.containerName contextID:acceptorCfshContext.contextID clientName:config.pairingUUID];
+    OTClientStateMachine *clientStateMachine = [self clientStateMachineForContainerName:acceptorCfshContext.containerName 
+                                                                              contextID:acceptorCfshContext.contextID
+                                                                             clientName:config.pairingUUID];
+    acceptorCfshContext.flowID = arguments.flowID;
+    acceptorCfshContext.deviceSessionID = arguments.deviceSessionID;
 
     OctagonSignpost voucherSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelAcceptorVoucher);
     __block bool subTaskSuccess = false;
-    [clientStateMachine rpcVoucher:acceptorCfshContext peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig reply:^(NSData *voucher, NSData *voucherSig, NSError *error) {
+    [clientStateMachine rpcVoucher:acceptorCfshContext
+                            peerID:peerID
+                     permanentInfo:permanentInfo
+                  permanentInfoSig:permanentInfoSig
+                        stableInfo:stableInfo
+                     stableInfoSig:stableInfoSig
+                             reply:^(NSData *voucher, NSData *voucherSig, NSError *error) {
         if (error == nil) {
             subTaskSuccess = true;
         }
+        acceptorCfshContext.flowID = nil;
+        acceptorCfshContext.deviceSessionID = nil;
         OctagonSignpostEnd(voucherSignPost, OctagonSignpostNamePairingChannelAcceptorVoucher, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorVoucher), (int)subTaskSuccess);
         reply(voucher, voucherSig, error);
     }];
@@ -1617,7 +1642,10 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
             values[OctagonAnalyticsAttemptedJoin] = @(metadata.attemptedJoin);
 
             NSError* machineIDError = nil;
-            NSString* machineID = [cuttlefishContext.authKitAdapter machineID:&machineIDError];
+            NSString* machineID = [cuttlefishContext.authKitAdapter machineID:nil
+                                                                       flowID:nil
+                                                              deviceSessionID:nil
+                                                                        error:&machineIDError];
             if(machineIDError) {
                 secnotice("octagon-analytics", "Error fetching machine ID: %@", metadataError);
             }
@@ -2345,6 +2373,24 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [cfshContext notifyContainerChange:nil];
 
     [cfshContext checkOctagonHealth:skipRateLimitingCheck repair:repair reply:reply];
+}
+
+- (void)simulateReceivePush:(OTControlArguments*)arguments
+                      reply:(void (^)(NSError *_Nullable error))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting updateOctagon for arguments (%@): %@", arguments, clientError);
+        reply(clientError);
+        return;
+    }
+
+    secnotice("octagon-push", "notifying container of change (simulated)");
+
+    [cfshContext notifyContainerChange:nil];
+    reply(nil);
 }
 
 - (void)setSOSEnabledForPlatformFlag:(bool) value

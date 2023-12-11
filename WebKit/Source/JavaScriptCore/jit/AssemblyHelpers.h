@@ -35,7 +35,8 @@
 #include "InlineCallFrame.h"
 #include "JITAllocator.h"
 #include "JITCode.h"
-#include "JSCellInlines.h"
+#include "JSBigInt.h"
+#include "JSCell.h"
 #include "MacroAssembler.h"
 #include "MarkedSpace.h"
 #include "RegisterAtOffsetList.h"
@@ -1378,9 +1379,6 @@ public:
         }
         constructRegisterSet(set, args...);
     }
-
-    // Add a debug call. This call has no effect on JIT code execution state.
-    void debugCall(VM&, V_DebugOperation_EPP function, void* argument);
 
     // These methods JIT generate dynamic, debug-only checks - akin to ASSERTs.
 #if ASSERT_ENABLED

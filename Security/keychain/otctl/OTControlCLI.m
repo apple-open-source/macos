@@ -794,6 +794,36 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
+- (int)simulateReceivePush:(OTControlArguments*)arguments
+                      json:(BOOL)json
+{
+#if OCTAGON
+    __block int ret = 1;
+
+    [self.control simulateReceivePush:arguments
+                                reply:^(NSError* _Nullable error) {
+        if(error) {
+            if(json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error simulating push: %s\n", [[error description] UTF8String]);
+            }
+        } else {
+            if (json) {
+                print_json(@{});
+            } else {
+                printf("Simulated push sent.\n");
+            }
+            ret = 0;
+        }
+    }];
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
 - (int)refetchCKKSPolicy:(OTControlArguments*)arguments
 {
 #if OCTAGON

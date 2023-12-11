@@ -91,7 +91,7 @@ public enum ContainerError: Error {
     case bottleDoesNotContainerEscrowKeySPKI
     case failedToFetchEscrowContents
     case couldNotLoadAllowedList
-    case failedToCreateRecoveryKey
+    case failedToCreateRecoveryKey(suberror: Error)
     case untrustedRecoveryKeys
     case noBottlesPresent
     case recoveryKeysNotEnrolled
@@ -104,7 +104,7 @@ public enum ContainerError: Error {
     case failedToAssembleBottle
     case invalidPeerID
     case unknownSecurityFoundationError
-    case failedToSerializeData
+    case failedToSerializeData(suberror: Error)
     case unknownInternalError
     case unknownSyncUserControllableViewsValue(value: Int32)
     case noPeersPreapprovedBySelf
@@ -113,8 +113,8 @@ public enum ContainerError: Error {
     case noSpecifiedUser
     case noEscrowCache
     case recoveryKeyIsNotCorrect
-    case failedToGetPeerViews
-    case cannotCreateRecoveryKeyPeer
+    case failedToGetPeerViews(suberror: Error)
+    case cannotCreateRecoveryKeyPeer(suberror: Error)
     case custodianRecoveryKeyMalformed
     case operationNotImplemented
     case cannotDetermineTrustedPeerCount
@@ -366,6 +366,14 @@ extension ContainerError: CustomNSError {
 
     public var underlyingError: NSError? {
         switch self {
+        case .failedToCreateRecoveryKey(suberror: let error):
+            return error as NSError
+        case .failedToSerializeData(suberror: let error):
+            return error as NSError
+        case .failedToGetPeerViews(suberror: let error):
+            return error as NSError
+        case .cannotCreateRecoveryKeyPeer(suberror: let error):
+            return error as NSError
         case .failedToLoadSecret(errorCode: let errorCode):
             return NSError(domain: "securityd", code: errorCode)
         case .failedToStoreSecret(errorCode: let errorCode):
@@ -1526,7 +1534,7 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func reset(resetReason: CuttlefishResetReason, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
+    func reset(resetReason: CuttlefishResetReason, idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, internalAccount: Bool, demoAccount: Bool, reply: @escaping (Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
@@ -1542,6 +1550,9 @@ class Container: NSObject, ConfiguredCloudKit {
                 $0.idmsTargetContext = idmsTargetContext ?? ""
                 $0.idmsCuttlefishPassword = idmsCuttlefishPassword ?? ""
 		$0.testingNotifyIdms = notifyIdMS
+                $0.accountInfo = AccountInfo.with {
+                    $0.flags = (internalAccount ? UInt32(AccountFlags.internal.rawValue) : 0) | (demoAccount ? UInt32(AccountFlags.demo.rawValue) : 0)
+                }
             }
             self.cuttlefish.reset(request) { response in
                 switch response {
@@ -1828,7 +1839,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 encryptionKeyPair = recoveryCRK.peerKeys.encryptionKey
             } catch {
                 logger.error("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
-                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey(suberror: error))
                 return
             }
 
@@ -2297,7 +2308,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     }
                 } catch {
                     logger.error("failed to create recovery keys: \(String(describing: error), privacy: .public)")
-                    reply(nil, ContainerError.failedToCreateRecoveryKey)
+                    reply(nil, ContainerError.failedToCreateRecoveryKey(suberror: error))
                     return
                 }
 
@@ -2448,7 +2459,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 crk = try CustodianRecoveryKey(uuid: uuid, recoveryKeyString: recoveryKey, recoverySalt: salt, kind: kind)
             } catch {
                 logger.error("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
-                reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
+                reply(nil, nil, ContainerError.failedToCreateRecoveryKey(suberror: error))
                 return
             }
 
@@ -2874,7 +2885,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
                 } catch {
                     logger.error("failed to create recovery keys: \(String(describing: error), privacy: .public)")
-                    reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
+                    reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey(suberror: error))
                     return
                 }
 
@@ -2998,7 +3009,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: recoveryKeyString, recoverySalt: recoverySalt)
                 } catch {
                     logger.error("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
-                    reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
+                    reply(nil, nil, ContainerError.failedToCreateRecoveryKey(suberror: error))
                     return
                 }
 
@@ -3118,7 +3129,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: recoveryKeyString, recoverySalt: recoverySalt)
                 } catch {
                     logger.error("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
-                    reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
+                    reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey(suberror: error))
                     return
                 }
 
@@ -3163,6 +3174,9 @@ class Container: NSObject, ConfiguredCloudKit {
                stableInfo: Data,
                stableInfoSig: Data,
                ckksKeys: [CKKSKeychainBackedKeySet],
+               altDSID: String?,
+               flowID: String?,
+               deviceSessionID: String?,
                reply: @escaping (Data?, Data?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Data?, Data?, Error?) -> Void = {
@@ -3208,12 +3222,23 @@ class Container: NSObject, ConfiguredCloudKit {
                     return
                 }
 
+                let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                       altDSID: altDSID,
+                                                       flowID: flowID,
+                                                       deviceSessionID: deviceSessionID,
+                                                       eventName: kSecurityRTCEventNameFetchPolicyDocument,
+                                                       testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                       category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+
                 self.fetchPolicyDocumentsWithSemaphore(versions: Set([beneficiaryStableInfo.bestPolicyVersion()])) { _, policyFetchError in
                     guard policyFetchError == nil else {
                         logger.error("Unknown policy for beneficiary: \(String(describing: error), privacy: .public)")
+                        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: policyFetchError)
                         reply(nil, nil, policyFetchError)
                         return
                     }
+
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
 
                     self.moc.performAndWait {
                         let voucher: TPVoucher
@@ -3258,12 +3283,18 @@ class Container: NSObject, ConfiguredCloudKit {
                             return
                         }
 
+                        let metrics = Metrics.with {
+                            $0.flowID = flowID ?? String()
+                            $0.deviceSessionID = deviceSessionID ?? String()
+                        }
+
                         self.cuttlefish.updateTrust(changeToken: self.containerMO.changeToken ?? "",
                                                     peerID: egoPeerID,
                                                     stableInfoAndSig: nil,
                                                     dynamicInfoAndSig: nil,
                                                     tlkShares: tlkShares,
-                                                    viewKeys: []) { response in
+                                                    viewKeys: [],
+                                                    metrics: metrics) { response in
                             switch response {
                             case .success(let response):
                                 let newKeyRecords = response.zoneKeyHierarchyRecords.map(CKRecord.init)
@@ -3367,6 +3398,9 @@ class Container: NSObject, ConfiguredCloudKit {
                     $0.changeToken = self.containerMO.changeToken ?? ""
                     $0.peerID = egoPeerID
                     $0.dynamicInfoAndSig = signedDynamicInfo
+                    $0.trustedDevicesVersion = IdmsTrustedDevicesVersion.with {
+                        $0.idmsTrustedDevicesVersionString = self.containerMO.idmsTrustedDevicesVersion ?? "unknown"
+                    }
                 }
                 self.cuttlefish.updateTrust(request) { response in
                     switch response {
@@ -4251,6 +4285,9 @@ class Container: NSObject, ConfiguredCloudKit {
               ckksKeys: [CKKSKeychainBackedKeySet],
               tlkShares: [CKKSTLKShare],
               preapprovedKeys: [Data]?,
+              altDSID: String?,
+              flowID: String?,
+              deviceSessionID: String?,
               reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void = {
@@ -4260,17 +4297,37 @@ class Container: NSObject, ConfiguredCloudKit {
             reply($0, $1, $2, $3)
         }
 
+        let eventFetchAndPersistChanges = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                                    altDSID: altDSID,
+                                                                    flowID: flowID,
+                                                                    deviceSessionID: deviceSessionID,
+                                                                    eventName: kSecurityRTCEventNameFetchAndPersistChanges,
+                                                                    testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                                    category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
         self.fetchAndPersistChanges { error in
             guard error == nil else {
                 reply(nil, [], nil, error)
+                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventFetchAndPersistChanges, success: false, error: error)
                 return
             }
 
+            SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventFetchAndPersistChanges, success: true, error: nil)
+
+            let eventFetchPolicyDocument = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                                     altDSID: altDSID,
+                                                                     flowID: flowID,
+                                                                     deviceSessionID: deviceSessionID,
+                                                                     eventName: kSecurityRTCEventNameFetchPolicyDocument,
+                                                                     testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                                     category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
             // To join, you must know all policies that exist
             let allPolicyVersions = self.model.allPolicyVersions()
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
                 if let error = policyFetchError {
                     logger.info("join: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventFetchPolicyDocument, success: false, error: policyFetchError)
+                } else {
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventFetchPolicyDocument, success: true, error: nil)
                 }
 
                 self.moc.performAndWait {
@@ -4395,6 +4452,11 @@ class Container: NSObject, ConfiguredCloudKit {
                                 logger.info("Join unable to encode peer: \(String(describing: error), privacy: .public)")
                             }
 
+                            let metrics = Metrics.with {
+                                $0.flowID = flowID ?? String()
+                                $0.deviceSessionID = deviceSessionID ?? String()
+                            }
+
                             let changeToken = self.containerMO.changeToken ?? ""
                             let request = JoinWithVoucherRequest.with {
                                 $0.changeToken = changeToken
@@ -4402,12 +4464,26 @@ class Container: NSObject, ConfiguredCloudKit {
                                 $0.bottle = bottle
                                 $0.tlkShares = allTLKShares
                                 $0.viewKeys = viewKeys
+                                $0.trustedDevicesVersion = IdmsTrustedDevicesVersion.with {
+                                    $0.idmsTrustedDevicesVersionString = self.containerMO.idmsTrustedDevicesVersion ?? "unknown"
+                                }
+                                $0.metrics = metrics
                             }
+
                             self.cuttlefish.joinWithVoucher(request) { response in
                                 switch response {
                                 case .success(let response):
                                     self.moc.performAndWait {
                                         do {
+                                            let event = AAFAnalyticsEventSecurity(keychainCircleMetrics: [kSecurityRTCFieldNumberOfTrustedPeers: newDynamicInfo.includedPeerIDs.count as NSNumber],
+                                                                                  altDSID: altDSID,
+                                                                                  flowID: flowID,
+                                                                                  deviceSessionID: nil,
+                                                                                  eventName: kSecurityRTCEventNameNumberOfTrustedOctagonPeers,
+                                                                                  testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                                                  category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+                                            SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: true, error: nil)
+
                                             self.containerMO.egoPeerStableInfo = peer.stableInfoAndSig.peerStableInfo
                                             self.containerMO.egoPeerStableInfoSig = peer.stableInfoAndSig.sig
 
@@ -4538,8 +4614,11 @@ class Container: NSObject, ConfiguredCloudKit {
         self.cuttlefish.getSupportAppInfo { response in
             switch response {
             case .success(let response):
-                guard let data = try? response.serializedData() else {
-                    reply(nil, ContainerError.failedToSerializeData)
+                let data: Data
+                do {
+                    data = try response.serializedData()
+                } catch {
+                    reply(nil, ContainerError.failedToSerializeData(suberror: error))
                     return
                 }
 
@@ -4600,7 +4679,7 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func resetCDPAccountData(idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, reply: @escaping (Error?) -> Void) {
+    func resetCDPAccountData(idmsTargetContext: String?, idmsCuttlefishPassword: String?, notifyIdMS: Bool, internalAccount: Bool, demoAccount: Bool, reply: @escaping (Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
@@ -4614,6 +4693,9 @@ class Container: NSObject, ConfiguredCloudKit {
             $0.idmsTargetContext = idmsTargetContext ?? ""
             $0.idmsCuttlefishPassword = idmsCuttlefishPassword ?? ""
 	    $0.testingNotifyIdms = notifyIdMS
+            $0.accountInfo = AccountInfo.with {
+                $0.flags = (internalAccount ? UInt32(AccountFlags.internal.rawValue) : 0) | (demoAccount ? UInt32(AccountFlags.demo.rawValue) : 0)
+            }
         }
         self.cuttlefish.resetAccountCdpcontents(request) { response in
             switch response {
@@ -4881,6 +4963,9 @@ class Container: NSObject, ConfiguredCloudKit {
                             $0.bottle = bottle
                             $0.tlkShares = allTLKShares
                             $0.viewKeys = viewKeys
+                            $0.trustedDevicesVersion = IdmsTrustedDevicesVersion.with {
+                                $0.idmsTrustedDevicesVersionString = self.containerMO.idmsTrustedDevicesVersion ?? "unknown"
+                            }
                         }
                         self.cuttlefish.joinWithVoucher(request) { response in
                             switch response {
@@ -5006,6 +5091,9 @@ class Container: NSObject, ConfiguredCloudKit {
                         $0.changeToken = self.containerMO.changeToken ?? ""
                         $0.peerID = egoPeerID
                         $0.dynamicInfoAndSig = SignedPeerDynamicInfo(dynamicInfo)
+                        $0.trustedDevicesVersion = IdmsTrustedDevicesVersion.with {
+                            $0.idmsTrustedDevicesVersionString = self.containerMO.idmsTrustedDevicesVersion ?? "unknown"
+                        }
                     }
 
                     self.perform(updateTrust: request) { state, _, error in
@@ -5091,6 +5179,9 @@ class Container: NSObject, ConfiguredCloudKit {
                     $0.peerID = egoPeerID
                     $0.tlkShares = allTLKShares
                     $0.viewKeys = viewKeys
+                    $0.trustedDevicesVersion = IdmsTrustedDevicesVersion.with {
+                        $0.idmsTrustedDevicesVersionString = self.containerMO.idmsTrustedDevicesVersion ?? "unknown"
+                    }
                 }
 
                 self.cuttlefish.updateTrust(request) { response in
@@ -5433,6 +5524,9 @@ class Container: NSObject, ConfiguredCloudKit {
                             $0.changeToken = self.containerMO.changeToken ?? ""
                             $0.peerID = egoPeerID
                             $0.dynamicInfoAndSig = signedDynamicInfo
+                            $0.trustedDevicesVersion = IdmsTrustedDevicesVersion.with {
+                                $0.idmsTrustedDevicesVersionString = self.containerMO.idmsTrustedDevicesVersion ?? "unknown"
+                            }
                         }
                         if let stableInfo = stableInfo {
                             request.stableInfoAndSig = SignedPeerStableInfo(stableInfo)
@@ -5987,21 +6081,28 @@ class Container: NSObject, ConfiguredCloudKit {
                     reply(false, ContainerError.invalidStableInfoOrSig)
                     return
                 }
-                guard let peerViews = try? self.model.getViewsForPeer(permanentInfo, stableInfo: stableInfo) else {
-                    logger.info("cannot create peerViews")
-                    reply(false, ContainerError.failedToGetPeerViews)
+
+                let peerViews: Set<String>
+                do {
+                    peerViews = try self.model.getViewsForPeer(permanentInfo, stableInfo: stableInfo)
+                } catch {
+                    logger.error("cannot create peerViews: \(error))")
+                    reply(false, ContainerError.failedToGetPeerViews(suberror: error))
                     return
                 }
-                
+
                 if self.model.isRecoveryKeyEnrolled() == false {
                     logger.info("recovery key is not registered, nothing to remove.")
                     reply(true, nil)
                     return
                 }
-                
-                guard let currentRecoveryKeyPeer = try? RecoveryKey.asPeer(recoveryKeys: TPRecoveryKeyPair(stableInfo: stableInfo), viewList: peerViews) else {
-                    logger.info("cannot create recovery key peer")
-                    reply(false, ContainerError.cannotCreateRecoveryKeyPeer)
+
+                let currentRecoveryKeyPeer: TrustedPeersHelperPeer
+                do {
+                    currentRecoveryKeyPeer = try RecoveryKey.asPeer(recoveryKeys: TPRecoveryKeyPair(stableInfo: stableInfo), viewList: peerViews)
+                } catch {
+                    logger.error("cannot create recovery key peer: \(error)")
+                    reply(false, ContainerError.cannotCreateRecoveryKeyPeer(suberror: error))
                     return
                 }
 

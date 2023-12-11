@@ -69,3 +69,15 @@
 
 #import <Security/SecABC.h>
 #import "OSX/utilities/SecInternalReleasePriv.h"
+
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
+#import <SoftLinking/SoftLinking.h>
+#import "KeychainCircle/MetricsOverrideForTests.h"
+
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, KeychainCircle);
+SOFT_LINK_FUNCTION(KeychainCircle, MetricsEnable, soft_MetricsEnable, bool, (void), ());
+SOFT_LINK_FUNCTION(KeychainCircle, MetricsDisable, soft_MetricsDisable, bool, (void), ());
+SOFT_LINK_FUNCTION(KeychainCircle, MetricsOverrideTestsAreEnabled, soft_MetricsOverrideTestsAreEnabled, bool, (void), ());

@@ -188,11 +188,7 @@
     } else if(currentAccountMetadata.trustState != OTAccountMetadataClassC_TrustState_TRUSTED) {
         secnotice("octagon", "Have iCloud account but not trusted in Octagon (%@)",
                   OTAccountMetadataClassC_TrustStateAsString(currentAccountMetadata.trustState));
-#if TARGET_OS_WATCH
-        self.nextState = OctagonStateStartCompanionPairing;
-#else
         self.nextState = OctagonStateBecomeUntrusted;
-#endif
     } else {
         secnotice("octagon", "Unknown trust state (%@). Assuming untrusted...",
                   OTAccountMetadataClassC_TrustStateAsString(currentAccountMetadata.trustState));

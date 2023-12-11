@@ -203,7 +203,7 @@ static EGLDisplay initializeEGLDisplay(const GraphicsContextGLAttributes& attrs)
         ASSERT(checkVolatileContextSupportIfDeviceExists(display, "EGL_ANGLE_platform_device_context_volatile_cgl", "EGL_ANGLE_device_cgl", EGL_CGL_CONTEXT_ANGLE));
     }
 
-#if ASSERT_ENABLED && USE(MTLSHAREDEVENT_FOR_XR_FRAME_COMPLETION)
+#if ASSERT_ENABLED && ENABLE(WEBXR)
     const char* displayExtensions = EGL_QueryString(display, EGL_EXTENSIONS);
     ASSERT(strstr(displayExtensions, "EGL_ANGLE_metal_shared_event_sync"));
 #endif
@@ -552,7 +552,6 @@ void GraphicsContextGLCocoa::updateContextOnDisplayReconfiguration()
 {
     if (m_switchesGPUOnDisplayReconfiguration)
         EGL_HandleGPUSwitchANGLE(m_displayObj);
-    dispatchContextChangedNotification();
 }
 #endif
 
@@ -735,7 +734,10 @@ std::optional<GraphicsContextGL::EGLImageAttachResult> GraphicsContextGLCocoa::c
         return std::nullopt;
 
     // Tell the currently bound texture to use the EGLImage.
-    GL_EGLImageTargetTexture2DOES(target, eglImage);
+    if (target == RENDERBUFFER)
+        GL_EGLImageTargetRenderbufferStorageOES(RENDERBUFFER, eglImage);
+    else
+        GL_EGLImageTargetTexture2DOES(target, eglImage);
 
     GCGLuint textureWidth = [texture width];
     GCGLuint textureHeight = [texture height];
@@ -750,7 +752,7 @@ RetainPtr<id> GraphicsContextGLCocoa::newSharedEventWithMachPort(mach_port_t sha
 
 GCEGLSync GraphicsContextGLCocoa::createEGLSync(ExternalEGLSyncEvent syncEvent)
 {
-    auto [syncEventHandle, signalValue] = syncEvent;
+    auto [syncEventHandle, signalValue] = WTFMove(syncEvent);
     auto sharedEvent = newSharedEventWithMachPort(syncEventHandle.sendRight());
     if (!sharedEvent) {
         LOG(WebGL, "Unable to create a MTLSharedEvent from the syncEvent in createEGLSync.");

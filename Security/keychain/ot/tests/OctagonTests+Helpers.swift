@@ -35,7 +35,7 @@ extension OctagonTestsBase {
     func simulateRestart(context: OTCuttlefishContext) -> OTCuttlefishContext {
         self.tphClient.containerMap.removeContainer(name: ContainerName(container: context.containerName, context: context.contextID))
 
-        let newContext = try! XCTUnwrap(self.manager.restartCKKSAccountSyncWithoutSettingPolicy(for: context))
+        let newContext = try! XCTUnwrap(self.manager.restartOctagonContext(context))
         if context.contextID == OTDefaultContext {
             self.defaultCKKS = try! XCTUnwrap(newContext.ckks)
             XCTAssertNil(self.defaultCKKS.syncingPolicy, "CKKS should not have a policy after 'restart'")

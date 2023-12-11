@@ -15,7 +15,7 @@
 #include "compiler/translator/InitializeDll.h"
 #include "compiler/translator/length_limits.h"
 #ifdef ANGLE_ENABLE_HLSL
-#    include "compiler/translator/TranslatorHLSL.h"
+#    include "compiler/translator/hlsl/TranslatorHLSL.h"
 #endif  // ANGLE_ENABLE_HLSL
 #include "angle_gl.h"
 #include "compiler/translator/VariablePacker.h"
@@ -1012,9 +1012,9 @@ const char *BlockTypeToString(BlockType type)
 {
     switch (type)
     {
-        case BlockType::BLOCK_BUFFER:
+        case BlockType::kBlockBuffer:
             return "buffer";
-        case BlockType::BLOCK_UNIFORM:
+        case BlockType::kBlockUniform:
             return "uniform";
         default:
             return "invalid";

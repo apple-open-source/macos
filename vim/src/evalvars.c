@@ -1858,6 +1858,7 @@ ex_let_one(
 	char_u	*p;
 	int	lval_flags = (flags & (ASSIGN_NO_DECL | ASSIGN_DECL))
 							     ? GLV_NO_DECL : 0;
+	lval_flags |= (flags & ASSIGN_FOR_LOOP) ? GLV_FOR_LOOP : 0;
 	if (op != NULL && *op != '=')
 	    lval_flags |= GLV_ASSIGN_WITH_OP;
 
@@ -2123,6 +2124,30 @@ do_unlet(char_u *name, int forceit)
     return FAIL;
 }
 
+    static void
+report_lockvar_member(char *msg, lval_T *lp)
+{
+    int did_alloc = FALSE;
+    char_u *vname = (char_u *)"";
+    char_u *class_name = lp->ll_class != NULL
+				    ? lp->ll_class->class_name : (char_u *)"";
+    if (lp->ll_name != NULL)
+    {
+	if (lp->ll_name_end == NULL)
+	    vname = lp->ll_name;
+	else
+	{
+	    vname = vim_strnsave(lp->ll_name, lp->ll_name_end - lp->ll_name);
+	    if (vname == NULL)
+		return;
+	    did_alloc = TRUE;
+	}
+    }
+    semsg(_(msg), vname, class_name);
+    if (did_alloc)
+	vim_free(vname);
+}
+
 /*
  * Lock or unlock variable indicated by "lp".
  * "deep" is the levels to go (-1 for unlimited);
@@ -2140,6 +2165,10 @@ do_lock_var(
     int		ret = OK;
     int		cc;
     dictitem_T	*di;
+
+#ifdef LOG_LOCKVAR
+    ch_log(NULL, "LKVAR: do_lock_var(): name %s, is_root %d", lp->ll_name, lp->ll_is_root);
+#endif
 
     if (lp->ll_tv == NULL)
     {
@@ -2201,10 +2230,13 @@ do_lock_var(
 	}
 	*name_end = cc;
     }
-    else if (deep == 0)
+    else if (deep == 0 && lp->ll_object == NULL && lp->ll_class == NULL)
     {
 	// nothing to do
     }
+    else if (lp->ll_is_root)
+	// (un)lock the item.
+	item_lock(lp->ll_tv, deep, lock, FALSE);
     else if (lp->ll_range)
     {
 	listitem_T    *li = lp->ll_li;
@@ -2220,9 +2252,29 @@ do_lock_var(
     else if (lp->ll_list != NULL)
 	// (un)lock a List item.
 	item_lock(&lp->ll_li->li_tv, deep, lock, FALSE);
+    else if (lp->ll_object != NULL)  // This check must be before ll_class.
+    {
+	// (un)lock an object variable.
+	report_lockvar_member(e_cannot_lock_object_variable_str, lp);
+	ret = FAIL;
+    }
+    else if (lp->ll_class != NULL)
+    {
+	// (un)lock a class variable.
+	report_lockvar_member(e_cannot_lock_class_variable_str, lp);
+	ret = FAIL;
+    }
     else
+    {
 	// (un)lock a Dictionary item.
-	item_lock(&lp->ll_di->di_tv, deep, lock, FALSE);
+	if (lp->ll_di == NULL)
+	{
+	    emsg(_(e_dictionary_required));
+	    ret = FAIL;
+	}
+	else
+	    item_lock(&lp->ll_di->di_tv, deep, lock, FALSE);
+    }
 
     return ret;
 }
@@ -2242,6 +2294,10 @@ item_lock(typval_T *tv, int deep, int lock, int check_refcount)
     blob_T	*b;
     hashitem_T	*hi;
     int		todo;
+
+#ifdef LOG_LOCKVAR
+    ch_log(NULL, "LKVAR: item_lock(): type %s", vartype_name(tv->v_type));
+#endif
 
     if (recurse >= DICT_MAXNEST)
     {
@@ -3673,6 +3729,62 @@ list_one_var_a(
 }
 
 /*
+ * Addition handling for setting a v: variable.
+ * Return TRUE if the variable should be set normally,
+ *        FALSE if nothing else needs to be done.
+ */
+    int
+before_set_vvar(
+    char_u	*varname,
+    dictitem_T	*di,
+    typval_T	*tv,
+    int		copy,
+    int		*type_error)
+{
+    if (di->di_tv.v_type == VAR_STRING)
+    {
+	VIM_CLEAR(di->di_tv.vval.v_string);
+	if (copy || tv->v_type != VAR_STRING)
+	{
+	    char_u *val = tv_get_string(tv);
+
+	    // Careful: when assigning to v:errmsg and
+	    // tv_get_string() causes an error message the variable
+	    // will already be set.
+	    if (di->di_tv.vval.v_string == NULL)
+		di->di_tv.vval.v_string = vim_strsave(val);
+	}
+	else
+	{
+	    // Take over the string to avoid an extra alloc/free.
+	    di->di_tv.vval.v_string = tv->vval.v_string;
+	    tv->vval.v_string = NULL;
+	}
+	return FALSE;
+    }
+    else if (di->di_tv.v_type == VAR_NUMBER)
+    {
+	di->di_tv.vval.v_number = tv_get_number(tv);
+	if (STRCMP(varname, "searchforward") == 0)
+	    set_search_direction(di->di_tv.vval.v_number ? '/' : '?');
+#ifdef FEAT_SEARCH_EXTRA
+	else if (STRCMP(varname, "hlsearch") == 0)
+	{
+	    no_hlsearch = !di->di_tv.vval.v_number;
+	    redraw_all_later(UPD_SOME_VALID);
+	}
+#endif
+	return FALSE;
+    }
+    else if (di->di_tv.v_type != tv->v_type)
+    {
+	*type_error = TRUE;
+	return FALSE;
+    }
+    return TRUE;
+}
+
+/*
  * Set variable "name" to value in "tv".
  * If the variable already exists, the value is updated.
  * Otherwise the variable is created.
@@ -3877,51 +3989,15 @@ set_var_const(
 
 	// existing variable, need to clear the value
 
-	// Handle setting internal di: variables separately where needed to
+	// Handle setting internal v: variables separately where needed to
 	// prevent changing the type.
-	if (ht == &vimvarht)
+	int type_error = FALSE;
+	if (ht == &vimvarht
+		&& !before_set_vvar(varname, di, tv, copy, &type_error))
 	{
-	    if (di->di_tv.v_type == VAR_STRING)
-	    {
-		VIM_CLEAR(di->di_tv.vval.v_string);
-		if (copy || tv->v_type != VAR_STRING)
-		{
-		    char_u *val = tv_get_string(tv);
-
-		    // Careful: when assigning to v:errmsg and
-		    // tv_get_string() causes an error message the variable
-		    // will already be set.
-		    if (di->di_tv.vval.v_string == NULL)
-			di->di_tv.vval.v_string = vim_strsave(val);
-		}
-		else
-		{
-		    // Take over the string to avoid an extra alloc/free.
-		    di->di_tv.vval.v_string = tv->vval.v_string;
-		    tv->vval.v_string = NULL;
-		}
-		goto failed;
-	    }
-	    else if (di->di_tv.v_type == VAR_NUMBER)
-	    {
-		di->di_tv.vval.v_number = tv_get_number(tv);
-		if (STRCMP(varname, "searchforward") == 0)
-		    set_search_direction(di->di_tv.vval.v_number
-							      ? '/' : '?');
-#ifdef FEAT_SEARCH_EXTRA
-		else if (STRCMP(varname, "hlsearch") == 0)
-		{
-		    no_hlsearch = !di->di_tv.vval.v_number;
-		    redraw_all_later(UPD_SOME_VALID);
-		}
-#endif
-		goto failed;
-	    }
-	    else if (di->di_tv.v_type != tv->v_type)
-	    {
-		semsg(_(e_setting_str_to_value_with_wrong_type), name);
-		goto failed;
-	    }
+	    if (type_error)
+		semsg(_(e_setting_v_str_to_value_with_wrong_type), varname);
+	    goto failed;
 	}
 
 	clear_tv(&di->di_tv);

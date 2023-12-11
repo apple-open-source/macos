@@ -44,6 +44,7 @@
 #include "PseudoClassChangeInvalidation.h"
 #include "QualifiedName.h"
 #include "Quirks.h"
+#include "RenderBlock.h"
 #include "Settings.h"
 #include <wtf/LoggerHelper.h>
 
@@ -86,10 +87,11 @@ void FullscreenManager::requestFullscreenForElement(Ref<Element>&& element, RefP
     auto failedPreflights = [this, weakThis = WeakPtr { *this }](Ref<Element>&& element, RefPtr<DeferredPromise>&& promise) mutable {
         if (!weakThis)
             return;
+        Ref document { m_document };
         m_fullscreenErrorEventTargetQueue.append(WTFMove(element));
         if (promise)
             promise->reject(Exception { TypeError });
-        m_document.eventLoop().queueTask(TaskSource::MediaElement, [weakThis = WTFMove(weakThis)]() mutable {
+        document->eventLoop().queueTask(TaskSource::MediaElement, [weakThis = WTFMove(weakThis)]() mutable {
             if (weakThis)
                 weakThis->notifyAboutFullscreenChangeOrError();
         });
@@ -289,6 +291,9 @@ void FullscreenManager::cancelFullscreen()
     m_pendingExitFullscreen = true;
 
     m_document.eventLoop().queueTask(TaskSource::MediaElement, [this, weakThis = WeakPtr { *this }, topDocument = WTFMove(topDocument), identifier = LOGIDENTIFIER] {
+#if RELEASE_LOG_DISABLED
+        UNUSED_PARAM(this);
+#endif
         if (!weakThis)
             return;
 
@@ -674,6 +679,9 @@ void FullscreenManager::dispatchFullscreenChangeOrErrorEvent(Deque<GCReachableRe
             if (auto* element = documentElement())
                 queue.append(*element);
         }
+
+        // Gaining or losing fullscreen state may change viewport arguments
+        node->document().updateViewportArguments();
 
 #if ENABLE(VIDEO)
         if (shouldNotifyMediaElement && is<HTMLMediaElement>(node.get()))

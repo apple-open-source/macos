@@ -230,6 +230,7 @@
 #import <WebCore/UserScript.h>
 #import <WebCore/UserStyleSheet.h>
 #import <WebCore/ValidationBubble.h>
+#import <WebCore/VisibilityState.h>
 #import <WebCore/WebCoreJITOperations.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreView.h>
@@ -743,19 +744,19 @@ OptionSet<WebCore::LayoutMilestone> coreLayoutMilestones(WebLayoutMilestones mil
 {
     OptionSet<WebCore::LayoutMilestone> layoutMilestone;
     if (milestones & WebDidFirstLayout)
-        layoutMilestone.add(WebCore::DidFirstLayout);
+        layoutMilestone.add(WebCore::LayoutMilestone::DidFirstLayout);
     if (milestones & WebDidFirstVisuallyNonEmptyLayout)
-        layoutMilestone.add(WebCore::DidFirstVisuallyNonEmptyLayout);
+        layoutMilestone.add(WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout);
     if (milestones & WebDidHitRelevantRepaintedObjectsAreaThreshold)
-        layoutMilestone.add(WebCore::DidHitRelevantRepaintedObjectsAreaThreshold);
+        layoutMilestone.add(WebCore::LayoutMilestone::DidHitRelevantRepaintedObjectsAreaThreshold);
     return layoutMilestone;
 }
 
 WebLayoutMilestones kitLayoutMilestones(OptionSet<WebCore::LayoutMilestone> milestones)
 {
-    return (milestones & WebCore::DidFirstLayout ? WebDidFirstLayout : 0)
-        | (milestones & WebCore::DidFirstVisuallyNonEmptyLayout ? WebDidFirstVisuallyNonEmptyLayout : 0)
-        | (milestones & WebCore::DidHitRelevantRepaintedObjectsAreaThreshold ? WebDidHitRelevantRepaintedObjectsAreaThreshold : 0);
+    return (milestones & WebCore::LayoutMilestone::DidFirstLayout ? WebDidFirstLayout : 0)
+        | (milestones & WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout ? WebDidFirstVisuallyNonEmptyLayout : 0)
+        | (milestones & WebCore::LayoutMilestone::DidHitRelevantRepaintedObjectsAreaThreshold ? WebDidHitRelevantRepaintedObjectsAreaThreshold : 0);
 }
 
 static WebPageVisibilityState kit(WebCore::VisibilityState visibilityState)
@@ -1558,7 +1559,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     WebCore::provideNotification(_private->page, new WebNotificationClient(self));
 #endif
 #if ENABLE(ENCRYPTED_MEDIA)
-    WebCore::provideMediaKeySystemTo(*_private->page, *new WebMediaKeySystemClient());
+    WebCore::provideMediaKeySystemTo(*_private->page, WebMediaKeySystemClient::singleton());
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -1887,7 +1888,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
                 continue;
             auto *document = localFrame->document();
             if (document)
-                document->updateLayoutIgnorePendingStylesheets();
+                document->updateLayout(WebCore::LayoutOptions::IgnorePendingStylesheets);
         }
     });
 }
@@ -2888,7 +2889,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     settings.setStorageBlockingPolicy(core([preferences storageBlockingPolicy]));
     settings.setEditableLinkBehavior(core([preferences editableLinkBehavior]));
     settings.setJavaScriptRuntimeFlags(JSC::RuntimeFlags([preferences javaScriptRuntimeFlags]));
-    settings.setFrameFlattening((const WebCore::FrameFlattening)[preferences frameFlattening]);
     settings.setTextDirectionSubmenuInclusionBehavior(core([preferences textDirectionSubmenuInclusionBehavior]));
     settings.setBackForwardCacheExpirationInterval(Seconds { [preferences _backForwardCacheExpirationInterval] });
     settings.setPitchCorrectionAlgorithm(static_cast<WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm>([preferences _pitchCorrectionAlgorithm]));
@@ -3056,12 +3056,12 @@ static inline IMP getMethod(id o, SEL s)
     // for backwards compatibility.
     auto* page = core(self);
     if (page) {
-        OptionSet<WebCore::LayoutMilestone> milestones { WebCore::DidFirstLayout };
+        OptionSet<WebCore::LayoutMilestone> milestones { WebCore::LayoutMilestone::DidFirstLayout };
 #if PLATFORM(IOS_FAMILY)
-        milestones.add(WebCore::DidFirstVisuallyNonEmptyLayout);
+        milestones.add(WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout);
 #else
         if (cache->didFirstVisuallyNonEmptyLayoutInFrameFunc)
-            milestones.add(WebCore::DidFirstVisuallyNonEmptyLayout);
+            milestones.add(WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout);
 #endif
         page->addLayoutMilestones(milestones);
     }
@@ -7470,7 +7470,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(JSC::JSGlobalObject* lexicalGlo
         return nil;
     if (!coreFrame->document())
         return nil;
-    JSC::JSValue result = coreFrame->script().executeScriptIgnoringException(script, true);
+    JSC::JSValue result = coreFrame->script().executeScriptIgnoringException(script, JSC::SourceTaintedOrigin::Untainted, true);
     if (!result) // FIXME: pass errors
         return 0;
     JSC::JSLockHolder lock(coreFrame->script().globalObject(WebCore::mainThreadNormalWorld()));
@@ -9586,7 +9586,7 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
 
     auto translationViewController = adoptNS([PAL::allocLTUITranslationViewControllerInstance() init]);
     [translationViewController setText:adoptNS([[NSAttributedString alloc] initWithString:info.text]).get()];
-    if (info.mode == WebCore::TranslationContextMenuMode::Editable && [translationViewController respondsToSelector:@selector(setReplacementHandler:)]) {
+    if (info.mode == WebCore::TranslationContextMenuMode::Editable) {
         [translationViewController setIsSourceEditable:YES];
         [translationViewController setReplacementHandler:[weakSelf = WeakObjCPtr<WebView>(self)](NSAttributedString *string) {
             auto strongSelf = weakSelf.get();

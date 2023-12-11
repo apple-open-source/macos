@@ -39,6 +39,7 @@
 #include "ComposedTreeIterator.h"
 #include "ComputedStylePropertyMapReadOnly.h"
 #include "ContainerNodeAlgorithms.h"
+#include "ContentVisibilityDocumentState.h"
 #include "CustomElementReactionQueue.h"
 #include "CustomElementRegistry.h"
 #include "DOMRect.h"
@@ -458,25 +459,26 @@ static ShouldIgnoreMouseEvent dispatchPointerEventIfNeeded(Element& element, con
     return ShouldIgnoreMouseEvent::No;
 }
 
-bool Element::dispatchMouseEvent(const PlatformMouseEvent& platformEvent, const AtomString& eventType, int detail, Element* relatedTarget, IsSyntheticClick isSyntheticClick)
+Element::DispatchMouseEventResult Element::dispatchMouseEvent(const PlatformMouseEvent& platformEvent, const AtomString& eventType, int detail, Element* relatedTarget, IsSyntheticClick isSyntheticClick)
 {
+    auto eventIsDefaultPrevented = Element::EventIsDefaultPrevented::No;
     if (isDisabledFormControl() && !document().settings().sendMouseEventsToDisabledFormControlsEnabled())
-        return false;
+        return { Element::EventIsDispatched::No, eventIsDefaultPrevented };
 
     if (isForceEvent(platformEvent) && !document().hasListenerTypeForEventType(platformEvent.type()))
-        return false;
+        return { Element::EventIsDispatched::No, eventIsDefaultPrevented };
 
     Ref<MouseEvent> mouseEvent = MouseEvent::create(eventType, document().windowProxy(), platformEvent, detail, relatedTarget);
 
     if (mouseEvent->type().isEmpty())
-        return true; // Shouldn't happen.
+        return { Element::EventIsDispatched::Yes, eventIsDefaultPrevented }; // Shouldn't happen.
 
     Ref protectedThis { *this };
     bool didNotSwallowEvent = true;
 
     if (dispatchPointerEventIfNeeded(*this, mouseEvent.get(), platformEvent, didNotSwallowEvent) == ShouldIgnoreMouseEvent::Yes)
-        return false;
-    
+        return { Element::EventIsDispatched::No, eventIsDefaultPrevented };
+
     auto isParentProcessAFullWebBrowser = false;
 #if PLATFORM(IOS_FAMILY)
     if (auto* frame = document().frame())
@@ -485,10 +487,12 @@ bool Element::dispatchMouseEvent(const PlatformMouseEvent& platformEvent, const 
     isParentProcessAFullWebBrowser = MacApplication::isSafari();
 #endif
     if (Quirks::StorageAccessResult::ShouldCancelEvent == document().quirks().triggerOptionalStorageAccessQuirk(*this, platformEvent, eventType, detail, relatedTarget, isParentProcessAFullWebBrowser, isSyntheticClick))
-        return false;
+        return { Element::EventIsDispatched::No, eventIsDefaultPrevented };
 
     ASSERT(!mouseEvent->target() || mouseEvent->target() != relatedTarget);
     dispatchEvent(mouseEvent);
+    if (mouseEvent->defaultPrevented())
+        eventIsDefaultPrevented = Element::EventIsDefaultPrevented::Yes;
     if (mouseEvent->defaultPrevented() || mouseEvent->defaultHandled())
         didNotSwallowEvent = false;
 
@@ -510,9 +514,9 @@ bool Element::dispatchMouseEvent(const PlatformMouseEvent& platformEvent, const 
 
         dispatchEvent(doubleClickEvent);
         if (doubleClickEvent->defaultHandled() || doubleClickEvent->defaultPrevented())
-            return false;
+            return { Element::EventIsDispatched::No, eventIsDefaultPrevented };
     }
-    return didNotSwallowEvent;
+    return { didNotSwallowEvent ? Element::EventIsDispatched::Yes : Element::EventIsDispatched::No, eventIsDefaultPrevented };
 }
 
 bool Element::dispatchWheelEvent(const PlatformWheelEvent& platformEvent, OptionSet<EventHandling>& processing, Event::IsCancelable isCancelable)
@@ -768,12 +772,10 @@ Vector<String> Element::getAttributeNames() const
 
 bool Element::hasFocusableStyle() const
 {
-    if (renderer() && renderer()->isSkippedContent())
-        return false;
-
     auto isFocusableStyle = [](const RenderStyle* style) {
         return style && style->display() != DisplayType::None && style->display() != DisplayType::Contents
-            && style->visibility() == Visibility::Visible && !style->effectiveInert();
+            && style->visibility() == Visibility::Visible && !style->effectiveInert()
+            && (style->skippedContentReason().value_or(ContentVisibility::Visible) != ContentVisibility::Hidden || style->contentVisibility() != ContentVisibility::Visible);
     };
 
     if (renderStyle())
@@ -952,15 +954,16 @@ void Element::setBeingDragged(bool value)
 
 inline ScrollAlignment toScrollAlignmentForInlineDirection(std::optional<ScrollLogicalPosition> position, WritingMode writingMode, bool isLTR)
 {
+    auto blockFlowDirection = writingModeToBlockFlowDirection(writingMode);
     switch (position.value_or(ScrollLogicalPosition::Nearest)) {
     case ScrollLogicalPosition::Start: {
-        switch (writingMode) {
-        case WritingMode::TopToBottom:
-        case WritingMode::BottomToTop: {
+        switch (blockFlowDirection) {
+        case BlockFlowDirection::TopToBottom:
+        case BlockFlowDirection::BottomToTop: {
             return isLTR ? ScrollAlignment::alignLeftAlways : ScrollAlignment::alignRightAlways;
         }
-        case WritingMode::LeftToRight:
-        case WritingMode::RightToLeft: {
+        case BlockFlowDirection::LeftToRight:
+        case BlockFlowDirection::RightToLeft: {
             return isLTR ? ScrollAlignment::alignTopAlways : ScrollAlignment::alignBottomAlways;
         }
         default:
@@ -971,13 +974,13 @@ inline ScrollAlignment toScrollAlignmentForInlineDirection(std::optional<ScrollL
     case ScrollLogicalPosition::Center:
         return ScrollAlignment::alignCenterAlways;
     case ScrollLogicalPosition::End: {
-        switch (writingMode) {
-        case WritingMode::TopToBottom:
-        case WritingMode::BottomToTop: {
+        switch (blockFlowDirection) {
+        case BlockFlowDirection::TopToBottom:
+        case BlockFlowDirection::BottomToTop: {
             return isLTR ? ScrollAlignment::alignRightAlways : ScrollAlignment::alignLeftAlways;
         }
-        case WritingMode::LeftToRight:
-        case WritingMode::RightToLeft: {
+        case BlockFlowDirection::LeftToRight:
+        case BlockFlowDirection::RightToLeft: {
             return isLTR ? ScrollAlignment::alignBottomAlways : ScrollAlignment::alignTopAlways;
         }
         default:
@@ -995,16 +998,17 @@ inline ScrollAlignment toScrollAlignmentForInlineDirection(std::optional<ScrollL
 
 inline ScrollAlignment toScrollAlignmentForBlockDirection(std::optional<ScrollLogicalPosition> position, WritingMode writingMode)
 {
+    auto blockFlowDirection = writingModeToBlockFlowDirection(writingMode);
     switch (position.value_or(ScrollLogicalPosition::Start)) {
     case ScrollLogicalPosition::Start: {
-        switch (writingMode) {
-        case WritingMode::TopToBottom:
+        switch (blockFlowDirection) {
+        case BlockFlowDirection::TopToBottom:
             return ScrollAlignment::alignTopAlways;
-        case WritingMode::BottomToTop:
+        case BlockFlowDirection::BottomToTop:
             return ScrollAlignment::alignBottomAlways;
-        case WritingMode::LeftToRight:
+        case BlockFlowDirection::LeftToRight:
             return ScrollAlignment::alignLeftAlways;
-        case WritingMode::RightToLeft:
+        case BlockFlowDirection::RightToLeft:
             return ScrollAlignment::alignRightAlways;
         default:
             ASSERT_NOT_REACHED();
@@ -1014,14 +1018,14 @@ inline ScrollAlignment toScrollAlignmentForBlockDirection(std::optional<ScrollLo
     case ScrollLogicalPosition::Center:
         return ScrollAlignment::alignCenterAlways;
     case ScrollLogicalPosition::End: {
-        switch (writingMode) {
-        case WritingMode::TopToBottom:
+        switch (blockFlowDirection) {
+        case BlockFlowDirection::TopToBottom:
             return ScrollAlignment::alignBottomAlways;
-        case WritingMode::BottomToTop:
+        case BlockFlowDirection::BottomToTop:
             return ScrollAlignment::alignTopAlways;
-        case WritingMode::LeftToRight:
+        case BlockFlowDirection::LeftToRight:
             return ScrollAlignment::alignRightAlways;
-        case WritingMode::RightToLeft:
+        case BlockFlowDirection::RightToLeft:
             return ScrollAlignment::alignLeftAlways;
         default:
             ASSERT_NOT_REACHED();
@@ -1066,6 +1070,8 @@ static std::optional<std::pair<RenderElement*, LayoutRect>> listBoxElementScroll
 
 void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOptions>>&& arg)
 {
+    document().updateContentRelevancyForScrollIfNeeded(*this);
+
     document().updateLayoutIgnorePendingStylesheets();
 
     RenderElement* renderer = nullptr;
@@ -1131,6 +1137,8 @@ void Element::scrollIntoView(bool alignToTop)
 
 void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
 {
+    document().updateContentRelevancyForScrollIfNeeded(*this);
+
     document().updateLayoutIgnorePendingStylesheets();
 
     if (!renderer())
@@ -1334,7 +1342,7 @@ int Element::offsetLeftForBindings()
 
 int Element::offsetLeft()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
     if (RenderBoxModelObject* renderer = renderBoxModelObject())
         return adjustOffsetForZoomAndSubpixelLayout(*renderer, renderer->offsetLeft());
     return 0;
@@ -1363,7 +1371,7 @@ int Element::offsetTopForBindings()
 
 int Element::offsetTop()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
     if (RenderBoxModelObject* renderer = renderBoxModelObject())
         return adjustOffsetForZoomAndSubpixelLayout(*renderer, renderer->offsetTop());
     return 0;
@@ -1401,7 +1409,7 @@ Element* Element::offsetParentForBindings()
 
 Element* Element::offsetParent()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
     auto renderer = this->renderer();
     if (!renderer)
         return nullptr;
@@ -1413,7 +1421,7 @@ Element* Element::offsetParent()
 
 int Element::clientLeft()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     if (auto* renderer = renderBox()) {
         auto clientLeft = LayoutUnit { roundToInt(renderer->clientLeft()) };
@@ -1424,7 +1432,7 @@ int Element::clientLeft()
 
 int Element::clientTop()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     if (auto* renderer = renderBox()) {
         auto clientTop = LayoutUnit { roundToInt(renderer->clientTop()) };
@@ -1508,7 +1516,7 @@ ALWAYS_INLINE LocalFrame* Element::documentFrameWithNonNullView() const
 
 int Element::scrollLeft()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     if (document().scrollingElement() == this) {
         if (auto* frame = documentFrameWithNonNullView())
@@ -1523,7 +1531,7 @@ int Element::scrollLeft()
 
 int Element::scrollTop()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     if (document().scrollingElement() == this) {
         if (auto* frame = documentFrameWithNonNullView())
@@ -1538,7 +1546,7 @@ int Element::scrollTop()
 
 void Element::setScrollLeft(int newLeft)
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     auto options = ScrollPositionChangeOptions::createProgrammatic();
     options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
@@ -1561,7 +1569,7 @@ void Element::setScrollLeft(int newLeft)
 
 void Element::setScrollTop(int newTop)
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     auto options = ScrollPositionChangeOptions::createProgrammatic();
     options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
@@ -1818,9 +1826,10 @@ static std::optional<std::pair<RenderObject*, LayoutRect>> listBoxElementBoundin
 
 Ref<DOMRectList> Element::getClientRects()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     RenderObject* renderer = this->renderer();
+
     Vector<FloatQuad> quads;
 
     if (shouldObtainBoundsFromSVGModel(this)) {
@@ -1862,7 +1871,7 @@ std::optional<std::pair<RenderObject*, FloatRect>> Element::boundingAbsoluteRect
 
 FloatRect Element::boundingClientRect()
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
     auto pair = boundingAbsoluteRectWithoutLayout();
     if (!pair)
         return { };
@@ -3521,6 +3530,8 @@ void Element::focus(const FocusOptions& options)
         return;
     }
 
+    document->updateContentRelevancyForScrollIfNeeded(*this);
+
     RefPtr<Element> newTarget = this;
 
     // If we don't have renderer yet, isFocusable will compute it without style update.
@@ -3640,7 +3651,7 @@ void Element::dispatchFocusInEventIfNeeded(RefPtr<Element>&& oldFocusedElement)
 {
     if (!document().hasListenerType(Document::ListenerType::FocusIn))
         return;
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed());
     dispatchScopedEvent(FocusEvent::create(eventNames().focusinEvent, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(oldFocusedElement)));
 }
 
@@ -3648,7 +3659,7 @@ void Element::dispatchFocusOutEventIfNeeded(RefPtr<Element>&& newFocusedElement)
 {
     if (!document().hasListenerType(Document::ListenerType::FocusOut))
         return;
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed());
     dispatchScopedEvent(FocusEvent::create(eventNames().focusoutEvent, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(newFocusedElement)));
 }
 
@@ -3682,7 +3693,7 @@ bool Element::dispatchMouseForceWillBegin()
     if (!frame)
         return false;
 
-    PlatformMouseEvent platformMouseEvent { frame->eventHandler().lastKnownMousePosition(), frame->eventHandler().lastKnownMouseGlobalPosition(), NoButton, PlatformEvent::Type::NoType, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::NoTap };
+    PlatformMouseEvent platformMouseEvent { frame->eventHandler().lastKnownMousePosition(), frame->eventHandler().lastKnownMouseGlobalPosition(), MouseButton::None, PlatformEvent::Type::NoType, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::NoTap };
     auto mouseForceWillBeginEvent = MouseEvent::create(eventNames().webkitmouseforcewillbeginEvent, document().windowProxy(), platformMouseEvent, 0, nullptr);
     mouseForceWillBeginEvent->setTarget(Ref { *this });
     dispatchEvent(mouseForceWillBeginEvent);
@@ -3727,11 +3738,11 @@ String Element::outerHTML() const
 ExceptionOr<void> Element::setOuterHTML(const String& html)
 {
     // The specification allows setting outerHTML on an Element whose parent is a DocumentFragment and Gecko supports this.
-    // However, as of June 2021, Blink matches our behavior and throws a NoModificationAllowedError for non-Element parents.
+    // https://w3c.github.io/DOM-Parsing/#dom-element-outerhtml
     RefPtr parent = parentElement();
     if (UNLIKELY(!parent)) {
         if (!parentNode())
-            return Exception { NoModificationAllowedError, "Cannot set outerHTML on element because it doesn't have a parent"_s };
+            return { };
         return Exception { NoModificationAllowedError, "Cannot set outerHTML on element because its parent is not an Element"_s };
     }
 
@@ -3861,6 +3872,8 @@ void Element::addToTopLayer()
     document().addTopLayerElement(*this);
     setNodeFlag(NodeFlag::IsInTopLayer);
 
+    document().scheduleContentRelevancyUpdate(ContentRelevancy::IsInTopLayer);
+
     // Invalidate inert state
     invalidateStyleInternal();
     if (document().documentElement())
@@ -3892,6 +3905,8 @@ void Element::removeFromTopLayer()
 
     document().removeTopLayerElement(*this);
     clearNodeFlag(NodeFlag::IsInTopLayer);
+
+    document().scheduleContentRelevancyUpdate(ContentRelevancy::IsInTopLayer);
 
     // Invalidate inert state
     invalidateStyleInternal();
@@ -3954,12 +3969,14 @@ const RenderStyle* Element::resolveComputedStyle(ResolveComputedStyleMode mode)
 {
     ASSERT(isConnected());
 
+    document().styleScope().flushPendingUpdate();
+
     bool isInDisplayNoneTree = false;
 
     // Traverse the ancestor chain to find the rootmost element that has invalid computed style.
     auto* rootmostInvalidElement = [&]() -> const Element* {
         // In ResolveComputedStyleMode::RenderedOnly case we check for display:none ancestors.
-        if (mode == ResolveComputedStyleMode::Normal && !document().hasPendingStyleRecalc() && existingComputedStyle())
+        if (mode != ResolveComputedStyleMode::RenderedOnly && !document().hasPendingStyleRecalc() && existingComputedStyle())
             return nullptr;
 
         if (document().hasPendingFullStyleRebuild())
@@ -3982,17 +3999,18 @@ const RenderStyle* Element::resolveComputedStyle(ResolveComputedStyleMode mode)
             }
             if (mode == ResolveComputedStyleMode::RenderedOnly && existing->display() == DisplayType::None) {
                 isInDisplayNoneTree = true;
-                return nullptr;
+                // Invalid ancestor style may still affect this display:none style.
+                rootmost = nullptr;
             }
         }
         return rootmost;
     }();
 
-    if (isInDisplayNoneTree)
-        return nullptr;
-
-    if (!rootmostInvalidElement)
+    if (!rootmostInvalidElement) {
+        if (isInDisplayNoneTree)
+            return nullptr;
         return existingComputedStyle();
+    }
 
     auto* ancestorWithValidStyle = rootmostInvalidElement->parentElementInComposedTree();
 
@@ -4009,6 +4027,11 @@ const RenderStyle* Element::resolveComputedStyle(ResolveComputedStyleMode mode)
     // FIXME: This is not as efficient as it could be. For example if an ancestor has a non-inherited style change but
     // the styles are otherwise clean we would not need to re-resolve descendants.
     for (auto& element : makeReversedRange(elementsRequiringComputedStyle)) {
+        if (computedStyle && computedStyle->containerType() != ContainerType::Normal && mode != ResolveComputedStyleMode::Editability) {
+            // If we find a query container we need to bail out and do full style update to resolve it.
+            if (document().updateStyleIfNeeded())
+                return this->computedStyle();
+        };
         auto style = document().styleForElementIgnoringPendingStylesheets(*element, computedStyle);
         computedStyle = style.get();
         ElementRareData& rareData = element->ensureElementRareData();
@@ -4082,7 +4105,7 @@ const RenderStyle* Element::computedStyleForEditability()
     if (!isConnected())
         return nullptr;
 
-    return resolveComputedStyle();
+    return resolveComputedStyle(ResolveComputedStyleMode::Editability);
 }
 
 bool Element::needsStyleInvalidation() const
@@ -5362,6 +5385,33 @@ void Element::setHasDuplicateAttribute(bool hasDuplicateAttribute)
 bool Element::isPopoverShowing() const
 {
     return popoverData() && popoverData()->visibilityState() == PopoverVisibilityState::Showing;
+}
+
+// https://drafts.csswg.org/css-contain/#relevant-to-the-user
+bool Element::isRelevantToUser() const
+{
+    if (auto relevancy = contentRelevancy())
+        return !relevancy->isEmpty();
+    return false;
+}
+
+std::optional<OptionSet<ContentRelevancy>> Element::contentRelevancy() const
+{
+    if (!hasRareData())
+        return std::nullopt;
+    return elementRareData()->contentRelevancy();
+}
+
+void Element::setContentRelevancy(OptionSet<ContentRelevancy> contentRelevancy)
+{
+    ensureElementRareData().setContentRelevancy(contentRelevancy);
+}
+
+AtomString Element::makeTargetBlankIfHasDanglingMarkup(const AtomString& target)
+{
+    if ((target.contains('\n') || target.contains('\r') || target.contains('\t')) && target.contains('<'))
+        return "_blank"_s;
+    return target;
 }
 
 } // namespace WebCore

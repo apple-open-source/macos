@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,7 +53,7 @@
 #include "JITMathICForwards.h"
 #include "JSCast.h"
 #include "JumpTable.h"
-#include "LazyOperandValueProfile.h"
+#include "LazyValueProfile.h"
 #include "MetadataTable.h"
 #include "ModuleProgramExecutable.h"
 #include "ObjectAllocationProfile.h"
@@ -158,6 +158,8 @@ public:
 private:
     void setNumParameters(unsigned newValue, bool allocateArgumentValueProfiles);
 public:
+
+    bool couldBeTainted() const { return m_couldBeTainted; }
 
     unsigned numberOfArgumentsToSkip() const { return m_numberOfArgumentsToSkip; }
 
@@ -401,16 +403,18 @@ public:
         return m_argumentValueProfiles.size();
     }
 
-    ValueProfile& valueProfileForArgument(unsigned argumentIndex)
+    ArgumentValueProfile& valueProfileForArgument(unsigned argumentIndex)
     {
         ASSERT(Options::useJIT()); // This is only called from the various JIT compilers or places that first check numberOfArgumentValueProfiles before calling this.
         ASSERT(JITCode::isBaselineCode(jitType()));
-        ValueProfile& result = m_argumentValueProfiles[argumentIndex];
-        return result;
+        return m_argumentValueProfiles[argumentIndex];
     }
 
+    ValueProfile& valueProfileForOffset(unsigned profileOffset) { return m_metadata->valueProfileForOffset(profileOffset); }
+
+    ValueProfile* tryGetValueProfileForBytecodeIndex(BytecodeIndex);
     ValueProfile& valueProfileForBytecodeIndex(BytecodeIndex);
-    SpeculatedType valueProfilePredictionForBytecodeIndex(const ConcurrentJSLocker&, BytecodeIndex);
+    SpeculatedType valueProfilePredictionForBytecodeIndex(const ConcurrentJSLocker&, BytecodeIndex, JSValue* specFailValue = nullptr);
 
     template<typename Functor> void forEachValueProfile(const Functor&);
     template<typename Functor> void forEachArrayAllocationProfile(const Functor&);
@@ -454,9 +458,9 @@ public:
         return codeOrigins().get(index.bits());
     }
 
-    CompressedLazyOperandValueProfileHolder& lazyOperandValueProfiles(const ConcurrentJSLocker&)
+    CompressedLazyValueProfileHolder& lazyValueProfiles()
     {
-        return m_lazyOperandValueProfiles;
+        return m_lazyValueProfiles;
     }
 #endif // ENABLE(DFG_JIT)
 
@@ -719,10 +723,10 @@ public:
     unsigned numberOfDFGCompiles() { return 0; }
 #endif
 
-    bool shouldOptimizeNow();
+    bool shouldOptimizeNowFromBaseline();
     void updateAllNonLazyValueProfilePredictions(const ConcurrentJSLocker&);
     void updateAllLazyValueProfilePredictions(const ConcurrentJSLocker&);
-    void updateAllArrayProfilePredictions(const ConcurrentJSLocker&);
+    void updateAllArrayProfilePredictions();
     void updateAllArrayAllocationProfilePredictions();
     void updateAllPredictions();
 
@@ -855,6 +859,8 @@ public:
 
     bool loopHintsAreEligibleForFuzzingEarlyReturn() { return m_unlinkedCode->loopHintsAreEligibleForFuzzingEarlyReturn(); }
 
+    double optimizationThresholdScalingFactor() const;
+
 protected:
     void finalizeLLIntInlineCaches();
 #if ENABLE(JIT)
@@ -878,8 +884,6 @@ private:
     CodeBlock* specialOSREntryBlockOrNull();
     
     void noticeIncomingCall(CallFrame* callerFrame);
-    
-    double optimizationThresholdScalingFactor();
 
     void updateAllNonLazyValueProfilePredictionsAndCountLiveness(const ConcurrentJSLocker&, unsigned& numberOfLiveNonArgumentValueProfiles, unsigned& numberOfSamplesInProfiles);
 
@@ -905,7 +909,6 @@ private:
 
     unsigned numberOfNonArgumentValueProfiles() { return totalNumberOfValueProfiles() - numberOfArgumentValueProfiles(); }
     unsigned totalNumberOfValueProfiles() { return m_unlinkedCode->numberOfValueProfiles(); }
-    ValueProfile* tryGetValueProfileForBytecodeIndex(BytecodeIndex);
 
     Seconds timeSinceCreation()
     {
@@ -930,7 +933,8 @@ private:
     const unsigned m_numCalleeLocals;
     const unsigned m_numVars;
     unsigned m_numParameters;
-    unsigned m_numberOfArgumentsToSkip { 0 };
+    unsigned m_numberOfArgumentsToSkip : 31 { 0 };
+    unsigned m_couldBeTainted : 1 { 0 };
     uint32_t m_osrExitCounter { 0 };
     union {
         unsigned m_debuggerRequests;
@@ -962,16 +966,17 @@ public:
     void* m_jitData { nullptr };
 private:
 #endif
+    RefPtr<MetadataTable> m_metadata;
 #if ENABLE(DFG_JIT)
     // This is relevant to non-DFG code blocks that serve as the profiled code block
     // for DFG code blocks.
-    CompressedLazyOperandValueProfileHolder m_lazyOperandValueProfiles;
+    CompressedLazyValueProfileHolder m_lazyValueProfiles;
 #endif
-    FixedVector<ValueProfile> m_argumentValueProfiles;
+    FixedVector<ArgumentValueProfile> m_argumentValueProfiles;
 
     // Constant Pool
     static_assert(sizeof(Register) == sizeof(WriteBarrier<Unknown>), "Register must be same size as WriteBarrier Unknown");
-    // TODO: This could just be a pointer to m_unlinkedCodeBlock's data, but the DFG mutates
+    // FIXME: This could just be a pointer to m_unlinkedCodeBlock's data, but the DFG mutates
     // it, so we're stuck with it for now.
     Vector<WriteBarrier<Unknown>> m_constantRegisters;
     FixedVector<WriteBarrier<FunctionExecutable>> m_functionDecls;
@@ -984,8 +989,6 @@ private:
     uint16_t m_optimizationDelayCounter { 0 };
     uint16_t m_reoptimizationRetryCounter { 0 };
 
-    RefPtr<MetadataTable> m_metadata;
-
     ApproximateTime m_creationTime;
     double m_previousCounter { 0 };
 
@@ -996,7 +999,8 @@ private:
     HashSet<UniquedStringImpl*> m_cachedIdentifierUids;
 #endif
 };
-#if defined(NDEBUG) && COMPILER(GCC_COMPATIBLE)
+/* This check is for normal Release builds; ASSERT_ENABLED changes the size. */
+#if defined(NDEBUG) && !defined(ASSERT_ENABLED) && COMPILER(GCC_COMPATIBLE)
 static_assert(sizeof(CodeBlock) <= 240, "Keep it small for memory saving");
 #endif
 

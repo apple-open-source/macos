@@ -38,6 +38,7 @@
     PROC(MemoryObject)           \
     PROC(Overlay)                \
     PROC(Program)                \
+    PROC(ProgramExecutable)      \
     PROC(ProgramPipeline)        \
     PROC(Query)                  \
     PROC(Renderbuffer)           \
@@ -296,12 +297,12 @@ class RenderPassDesc;
 #if ANGLE_USE_CUSTOM_VULKAN_OUTSIDE_RENDER_PASS_CMD_BUFFERS
 using OutsideRenderPassCommandBuffer = priv::SecondaryCommandBuffer;
 #else
-using OutsideRenderPassCommandBuffer         = VulkanSecondaryCommandBuffer;
+using OutsideRenderPassCommandBuffer = VulkanSecondaryCommandBuffer;
 #endif
 #if ANGLE_USE_CUSTOM_VULKAN_RENDER_PASS_CMD_BUFFERS
 using RenderPassCommandBuffer = priv::SecondaryCommandBuffer;
 #else
-using RenderPassCommandBuffer                = VulkanSecondaryCommandBuffer;
+using RenderPassCommandBuffer = VulkanSecondaryCommandBuffer;
 #endif
 
 struct SecondaryCommandPools
@@ -452,12 +453,12 @@ class MemoryProperties final : angle::NonCopyable
 
     void init(VkPhysicalDevice physicalDevice);
     bool hasLazilyAllocatedMemory() const;
-    angle::Result findCompatibleMemoryIndex(Context *context,
-                                            const VkMemoryRequirements &memoryRequirements,
-                                            VkMemoryPropertyFlags requestedMemoryPropertyFlags,
-                                            bool isExternalMemory,
-                                            VkMemoryPropertyFlags *memoryPropertyFlagsOut,
-                                            uint32_t *indexOut) const;
+    VkResult findCompatibleMemoryIndex(Context *context,
+                                       const VkMemoryRequirements &memoryRequirements,
+                                       VkMemoryPropertyFlags requestedMemoryPropertyFlags,
+                                       bool isExternalMemory,
+                                       VkMemoryPropertyFlags *memoryPropertyFlagsOut,
+                                       uint32_t *indexOut) const;
     void destroy();
 
     uint32_t getHeapIndexForMemoryType(uint32_t memoryType) const
@@ -514,46 +515,45 @@ angle::Result InitMappableAllocation(Context *context,
                                      int value,
                                      VkMemoryPropertyFlags memoryPropertyFlags);
 
-angle::Result AllocateBufferMemory(Context *context,
-                                   vk::MemoryAllocationType memoryAllocationType,
-                                   VkMemoryPropertyFlags requestedMemoryPropertyFlags,
-                                   VkMemoryPropertyFlags *memoryPropertyFlagsOut,
-                                   const void *extraAllocationInfo,
-                                   Buffer *buffer,
-                                   uint32_t *memoryTypeIndexOut,
-                                   DeviceMemory *deviceMemoryOut,
-                                   VkDeviceSize *sizeOut);
+VkResult AllocateBufferMemory(Context *context,
+                              vk::MemoryAllocationType memoryAllocationType,
+                              VkMemoryPropertyFlags requestedMemoryPropertyFlags,
+                              VkMemoryPropertyFlags *memoryPropertyFlagsOut,
+                              const void *extraAllocationInfo,
+                              Buffer *buffer,
+                              uint32_t *memoryTypeIndexOut,
+                              DeviceMemory *deviceMemoryOut,
+                              VkDeviceSize *sizeOut);
 
-angle::Result AllocateImageMemory(Context *context,
-                                  vk::MemoryAllocationType memoryAllocationType,
-                                  VkMemoryPropertyFlags memoryPropertyFlags,
-                                  VkMemoryPropertyFlags *memoryPropertyFlagsOut,
-                                  const void *extraAllocationInfo,
-                                  Image *image,
-                                  uint32_t *memoryTypeIndexOut,
-                                  DeviceMemory *deviceMemoryOut,
-                                  VkDeviceSize *sizeOut);
+VkResult AllocateImageMemory(Context *context,
+                             vk::MemoryAllocationType memoryAllocationType,
+                             VkMemoryPropertyFlags memoryPropertyFlags,
+                             VkMemoryPropertyFlags *memoryPropertyFlagsOut,
+                             const void *extraAllocationInfo,
+                             Image *image,
+                             uint32_t *memoryTypeIndexOut,
+                             DeviceMemory *deviceMemoryOut,
+                             VkDeviceSize *sizeOut);
 
-angle::Result AllocateImageMemoryWithRequirements(
-    Context *context,
-    vk::MemoryAllocationType memoryAllocationType,
-    VkMemoryPropertyFlags memoryPropertyFlags,
-    const VkMemoryRequirements &memoryRequirements,
-    const void *extraAllocationInfo,
-    const VkBindImagePlaneMemoryInfoKHR *extraBindInfo,
-    Image *image,
-    uint32_t *memoryTypeIndexOut,
-    DeviceMemory *deviceMemoryOut);
+VkResult AllocateImageMemoryWithRequirements(Context *context,
+                                             vk::MemoryAllocationType memoryAllocationType,
+                                             VkMemoryPropertyFlags memoryPropertyFlags,
+                                             const VkMemoryRequirements &memoryRequirements,
+                                             const void *extraAllocationInfo,
+                                             const VkBindImagePlaneMemoryInfoKHR *extraBindInfo,
+                                             Image *image,
+                                             uint32_t *memoryTypeIndexOut,
+                                             DeviceMemory *deviceMemoryOut);
 
-angle::Result AllocateBufferMemoryWithRequirements(Context *context,
-                                                   MemoryAllocationType memoryAllocationType,
-                                                   VkMemoryPropertyFlags memoryPropertyFlags,
-                                                   const VkMemoryRequirements &memoryRequirements,
-                                                   const void *extraAllocationInfo,
-                                                   Buffer *buffer,
-                                                   VkMemoryPropertyFlags *memoryPropertyFlagsOut,
-                                                   uint32_t *memoryTypeIndexOut,
-                                                   DeviceMemory *deviceMemoryOut);
+VkResult AllocateBufferMemoryWithRequirements(Context *context,
+                                              MemoryAllocationType memoryAllocationType,
+                                              VkMemoryPropertyFlags memoryPropertyFlags,
+                                              const VkMemoryRequirements &memoryRequirements,
+                                              const void *extraAllocationInfo,
+                                              Buffer *buffer,
+                                              VkMemoryPropertyFlags *memoryPropertyFlagsOut,
+                                              uint32_t *memoryTypeIndexOut,
+                                              DeviceMemory *deviceMemoryOut);
 
 angle::Result InitShaderModule(Context *context,
                                ShaderModule *shaderModule,
@@ -640,8 +640,7 @@ class [[nodiscard]] RendererScoped final : angle::NonCopyable
     T mVar;
 };
 
-// This is a very simple RefCount class that has no autoreleasing. Used in the descriptor set and
-// pipeline layout caches.
+// This is a very simple RefCount class that has no autoreleasing.
 template <typename T>
 class RefCounted : angle::NonCopyable
 {
@@ -688,7 +687,39 @@ class RefCounted : angle::NonCopyable
     T mObject;
 };
 
+// Atomic version of RefCounted.  Used in the descriptor set and pipeline layout caches, which are
+// accessed by link jobs.  No std::move is allowed due to the atomic ref count.
 template <typename T>
+class AtomicRefCounted : angle::NonCopyable
+{
+  public:
+    AtomicRefCounted() : mRefCount(0) {}
+    explicit AtomicRefCounted(T &&newObject) : mRefCount(0), mObject(std::move(newObject)) {}
+    ~AtomicRefCounted() { ASSERT(mRefCount == 0 && !mObject.valid()); }
+
+    void addRef()
+    {
+        ASSERT(mRefCount != std::numeric_limits<uint32_t>::max());
+        mRefCount.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void releaseRef()
+    {
+        ASSERT(isReferenced());
+        mRefCount.fetch_sub(1, std::memory_order_relaxed);
+    }
+
+    bool isReferenced() const { return mRefCount.load(std::memory_order_relaxed) != 0; }
+
+    T &get() { return mObject; }
+    const T &get() const { return mObject; }
+
+  private:
+    std::atomic_uint mRefCount;
+    T mObject;
+};
+
+template <typename T, typename RC = RefCounted<T>>
 class BindingPointer final : angle::NonCopyable
 {
   public:
@@ -700,7 +731,7 @@ class BindingPointer final : angle::NonCopyable
         other.mRefCounted = nullptr;
     }
 
-    void set(RefCounted<T> *refCounted)
+    void set(RC *refCounted)
     {
         if (mRefCounted)
         {
@@ -722,11 +753,14 @@ class BindingPointer final : angle::NonCopyable
 
     bool valid() const { return mRefCounted != nullptr; }
 
-    RefCounted<T> *getRefCounted() { return mRefCounted; }
+    RC *getRefCounted() { return mRefCounted; }
 
   private:
-    RefCounted<T> *mRefCounted = nullptr;
+    RC *mRefCounted = nullptr;
 };
+
+template <typename T>
+using AtomicBindingPointer = BindingPointer<T, AtomicRefCounted<T>>;
 
 // Helper class to share ref-counted Vulkan objects.  Requires that T have a destroy method
 // that takes a VkDevice and returns void.
@@ -1061,9 +1095,7 @@ angle::Result SetDebugUtilsObjectName(ContextVk *contextVk,
 #if !defined(ANGLE_SHARED_LIBVULKAN)
 // Lazily load entry points for each extension as necessary.
 void InitDebugUtilsEXTFunctions(VkInstance instance);
-void InitGetPhysicalDeviceProperties2KHRFunctions(VkInstance instance);
 void InitTransformFeedbackEXTFunctions(VkDevice device);
-void InitSamplerYcbcrKHRFunctions(VkDevice device);
 void InitRenderPass2KHRFunctions(VkDevice device);
 
 #    if defined(ANGLE_PLATFORM_FUCHSIA)
@@ -1087,20 +1119,8 @@ void InitExternalSemaphoreFdFunctions(VkInstance instance);
 // VK_EXT_host_query_reset
 void InitHostQueryResetFunctions(VkDevice instance);
 
-// VK_KHR_external_fence_capabilities
-void InitExternalFenceCapabilitiesFunctions(VkInstance instance);
-
-// VK_KHR_get_memory_requirements2
-void InitGetMemoryRequirements2KHRFunctions(VkDevice device);
-
-// VK_KHR_bind_memory2
-void InitBindMemory2KHRFunctions(VkDevice device);
-
 // VK_KHR_external_fence_fd
 void InitExternalFenceFdFunctions(VkInstance instance);
-
-// VK_KHR_external_semaphore_capabilities
-void InitExternalSemaphoreCapabilitiesFunctions(VkInstance instance);
 
 // VK_KHR_shared_presentable_image
 void InitGetSwapchainStatusKHRFunctions(VkDevice device);
@@ -1117,6 +1137,9 @@ void InitFragmentShadingRateKHRDeviceFunction(VkDevice device);
 
 // VK_GOOGLE_display_timing
 void InitGetPastPresentationTimingGoogleFunction(VkDevice device);
+
+// VK_EXT_host_image_copy
+void InitHostImageCopyFunctions(VkDevice device);
 
 #endif  // !defined(ANGLE_SHARED_LIBVULKAN)
 
@@ -1177,6 +1200,8 @@ void GetExtentsAndLayerCount(gl::TextureType textureType,
                              uint32_t *layerCountOut);
 
 vk::LevelIndex GetLevelIndex(gl::LevelIndex levelGL, gl::LevelIndex baseLevel);
+
+VkImageTiling GetTilingMode(gl::TilingMode tilingMode);
 
 }  // namespace gl_vk
 
@@ -1282,6 +1307,13 @@ enum class RenderPassClosureReason
     TemporaryForImageCopy,
     TemporaryForOverlayDraw,
 
+    // LegacyDithering requires updating the render pass
+    LegacyDithering,
+
+    // In case of memory budget issues, pending garbage needs to be freed.
+    ExcessivePendingGarbage,
+    OutOfMemory,
+
     InvalidEnum,
     EnumCount = InvalidEnum,
 };
@@ -1311,6 +1343,19 @@ enum class RenderPassClosureReason
     UNREACHABLE();                    \
     ANGLE_VK_CHECK(context, false, VK_ERROR_FEATURE_NOT_PRESENT)
 
+// Returns VkResult in the case of an error.
+#define VK_RESULT_TRY(command)                             \
+    do                                                     \
+    {                                                      \
+        auto ANGLE_LOCAL_VAR = command;                    \
+        if (ANGLE_UNLIKELY(ANGLE_LOCAL_VAR != VK_SUCCESS)) \
+        {                                                  \
+            return ANGLE_LOCAL_VAR;                        \
+        }                                                  \
+    } while (0)
+
+#define VK_RESULT_CHECK(test, error) VK_RESULT_TRY((test) ? VK_SUCCESS : (error))
+
 // NVIDIA uses special formatting for the driver version:
 // Major: 10
 // Minor: 8
@@ -1319,12 +1364,12 @@ enum class RenderPassClosureReason
 #define ANGLE_VK_VERSION_MAJOR_NVIDIA(version) (((uint32_t)(version) >> 22) & 0x3ff)
 #define ANGLE_VK_VERSION_MINOR_NVIDIA(version) (((uint32_t)(version) >> 14) & 0xff)
 #define ANGLE_VK_VERSION_SUB_MINOR_NVIDIA(version) (((uint32_t)(version) >> 6) & 0xff)
-#define ANGLE_VK_VERSION_PATCH_NVIDIA(version) ((uint32_t)(version)&0x3f)
+#define ANGLE_VK_VERSION_PATCH_NVIDIA(version) ((uint32_t)(version) & 0x3f)
 
 // Similarly for Intel on Windows:
 // Major: 18
 // Minor: 14
 #define ANGLE_VK_VERSION_MAJOR_WIN_INTEL(version) (((uint32_t)(version) >> 14) & 0x3ffff)
-#define ANGLE_VK_VERSION_MINOR_WIN_INTEL(version) ((uint32_t)(version)&0x3fff)
+#define ANGLE_VK_VERSION_MINOR_WIN_INTEL(version) ((uint32_t)(version) & 0x3fff)
 
 #endif  // LIBANGLE_RENDERER_VULKAN_VK_UTILS_H_

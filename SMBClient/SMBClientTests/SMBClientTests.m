@@ -13419,15 +13419,16 @@ done:
      * actually take place.
      *
      * 2. Call mmap twice to verify calling mmap multiple times is fine
-     * 3. Verify refcnt is 2
+     * 3. Verify refcnt is 2 and file is mmapped
      * 4. Call msync to verify mmap is still valid
      * 5. Call munmap once
-     * 6. Verify refcnt is 1
+     * 6. Verify refcnt is 1 and file is not mmapped
      * 7. Call mmap to map the file again and verify refcnt is back to 2
+     *    and file is mmapped
      * 8. Close the file and the mmap should hold the file open still
      * 9. Verify refcnt is 1 due to the existing mmap
      * 10. Call msync to verify mmap is still valid
-     * 11. Call munmap and verify refcnt goes to 0
+     * 11. Call munmap and verify refcnt goes to 0 and file is not mmapped
      *
      * Total variants tested: 5
      */
@@ -13563,6 +13564,13 @@ done:
                 //goto done;
             }
         }
+        
+        printf("Verify file is mmapped \n");
+        if (!(pb.file.flags & SMB_FILE_MMAPPED)) {
+            XCTFail("Failed to verify file is mmapped, flags <0x%llx> \n",
+                    pb.file.flags);
+            goto done;
+        }
 
         printf("Calling msync to invalidate %d bytes \n", second_len);
         error = msync(ret_address, second_len, MS_INVALIDATE);
@@ -13579,6 +13587,20 @@ done:
         }
 
         /* munmap does not result in ref count dropping right away */
+
+        printf("Verify file is not mmapped \n");
+        bzero(&pb, sizeof(pb));
+        error = fsctl(file_path, smbfsStatFSCTL, &pb, 0);
+        if (error != 0) {
+            XCTFail("fsctl failed %d (%s)\n\n", errno, strerror (errno));
+            goto done;
+        }
+
+        if (pb.file.flags & SMB_FILE_MMAPPED) {
+            XCTFail("Failed to verify file is not mmapped, flags <0x%llx> \n",
+                    pb.file.flags);
+            goto done;
+        }
 
         printf("MMapping %d bytes again \n", second_len);
         ret_address = mmap(NULL, second_len, protection, flags, fd1, 0);
@@ -13612,6 +13634,13 @@ done:
                         pb.file.sharedFID_refcnt);
                 //goto done;
             }
+        }
+
+        printf("Verify file is mmapped \n");
+        if (!(pb.file.flags & SMB_FILE_MMAPPED)) {
+            XCTFail("Failed to verify file is mmapped, flags <0x%llx> \n",
+                    pb.file.flags);
+            goto done;
         }
 
         /* Close file */
@@ -13653,6 +13682,13 @@ done:
             }
         }
 
+        printf("Verify file is still mmapped \n");
+        if (!(pb.file.flags & SMB_FILE_MMAPPED)) {
+            XCTFail("Failed to verify file is mmapped, flags <0x%llx> \n",
+                    pb.file.flags);
+            goto done;
+        }
+
         printf("Calling msync to invalidate %d bytes \n", second_len);
         error = msync(ret_address, second_len, MS_INVALIDATE);
         if (error != 0) {
@@ -13668,6 +13704,20 @@ done:
         }
 
         /* munmap does not result in ref count dropping right away */
+
+        printf("Verify file is not mmapped \n");
+        bzero(&pb, sizeof(pb));
+        error = fsctl(file_path, smbfsStatFSCTL, &pb, 0);
+        if (error != 0) {
+            XCTFail("fsctl failed %d (%s)\n\n", errno, strerror (errno));
+            goto done;
+        }
+
+        if (pb.file.flags & SMB_FILE_MMAPPED) {
+            XCTFail("Failed to verify file is not mmapped, flags <0x%llx> \n",
+                    pb.file.flags);
+            goto done;
+        }
 
     } /* i1 loop */
         

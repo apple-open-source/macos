@@ -87,7 +87,6 @@ public:
     LayoutRect boundingBoxRect() const override;
 
     RenderObject* renderer() const final { return m_renderer.get(); }
-    RenderBoxModelObject* renderBoxModelObject() const;
     Node* node() const override;
 
     Document* document() const override;
@@ -190,8 +189,8 @@ private:
 #endif
     String expandedTextValue() const override;
     bool supportsExpandedTextValue() const override;
-    void updateRoleAfterChildrenCreation();
-    
+    virtual void updateRoleAfterChildrenCreation();
+
     bool inheritsPresentationalRole() const override;
 
     bool shouldGetTextFromNode(AccessibilityTextUnderElementMode) const;

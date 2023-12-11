@@ -5034,6 +5034,8 @@ void GL_APIENTRY glTexBufferRangeEXT(GLenum target,
     return GL_TexBufferRangeEXT(target, internalformat, buffer, offset, size);
 }
 
+// GL_EXT_texture_compression_astc_decode_mode
+
 // GL_EXT_texture_compression_bptc
 
 // GL_EXT_texture_compression_dxt1
@@ -9796,4 +9798,4 @@ void GL_APIENTRY glSpecializeShader(GLuint shader,
 }
 
 #endif  // defined(ANGLE_ENABLE_GL_DESKTOP_FRONTEND)
-}  // extern "C"
+}       // extern "C"

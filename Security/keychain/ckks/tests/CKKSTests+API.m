@@ -997,6 +997,44 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testFetchFailsDuringLogOut {
+    // Test starts with local TLK and key hierarchy in our fake cloudkit
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
+    self.silentFetchesAllowed = false;
+
+    // Spin up CKKS subsystem. It should fetch once.
+    [self expectCKFetch];
+    XCTAssertNotEqual(0, [self.defaultCKKS.accountStateKnown wait:50*NSEC_PER_MSEC], "CKK shouldn't know the account state");
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateFetch];
+    [self startCKKSSubsystem];
+
+    // Wait till we're fully logged in
+    XCTAssertEqual(0, [self.defaultCKKS.loggedIn wait:2000*NSEC_PER_MSEC], "Should have been told of a 'login'");
+    XCTAssertNotEqual(0, [self.defaultCKKS.loggedOut wait:100*NSEC_PER_MSEC], "'logout' event should be reset");
+    XCTAssertEqual(0, [self.defaultCKKS.accountStateKnown wait:50*NSEC_PER_MSEC], "CKK should know the account state");
+
+    // Simulate a cloudkit logout and NSNotification callback
+    self.accountStatus = CKAccountStatusNoAccount;
+    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
+    self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+    [self endSOSTrustedOperationForAllViews];
+
+    // Log out event should be occurring
+    XCTAssertEqual(0,    [self.defaultCKKS.loggedOut wait:2000*NSEC_PER_MSEC], "Should have been told of a 'logout'");
+    XCTAssertNotEqual(0, [self.defaultCKKS.loggedIn wait:100*NSEC_PER_MSEC], "'login' event should be reset");
+    XCTAssertEqual(0,    [self.defaultCKKS.accountStateKnown wait:50*NSEC_PER_MSEC], "CKK should know the account state");
+
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateFetch];
+
+    // We shouldn't have added any data
+    [self checkNoCKKSDataForView:self.keychainView];
+
+    // And CKKS should be in a logged out state
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateLoggedOut] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'logged out'");
+}
+
 - (void)testResetLocalWhileLoggedOut {
     self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
     self.accountStatus = CKAccountStatusNoAccount;
@@ -1582,15 +1620,23 @@
         [callbackOccurs fulfill];
     }];
 
+    // Wait for the first fetch to finish so that the next call will skip the fetch.
+    [self waitForExpectations:@[callbackOccurs] timeout:20];
+
+    CKKSCondition* incomingQueue = self.defaultCKKS.stateConditions[CKKSStateProcessIncomingQueue];
+
     XCTestExpectation* callbackOccurs2 = [self expectationWithDescription:@"callback-occurs"];
+    // Ensure that this call does NOT fetch.
     self.silentFetchesAllowed = false;
     [self.ckksControl rpcFetchAndProcessChangesIfNoRecentFetch:nil reply:^(NSError * _Nullable error) {
         XCTAssertNil(error, "Should have received no error");
         [callbackOccurs2 fulfill];
         self.silentFetchesAllowed = true;
     }];
+    [self waitForExpectations:@[callbackOccurs2] timeout:20];
 
-    [self waitForExpectations:@[callbackOccurs, callbackOccurs2] timeout:20];
+    // Verify that the incoming queue (if any) was processed.
+    XCTAssertEqual(0, [incomingQueue wait:20*NSEC_PER_SEC], @"CKKS state machine should process the incoming queue");
 }
 
 - (void)testRPCPushWithFailingWrite {

@@ -44,27 +44,33 @@
 #import <wtf/spi/darwin/XPCSPI.h>
 
 using WebKit::Daemon::EncodedMessage;
-using WebPushD::Daemon;
+using WebPushD::WebPushDaemon;
 
 static const ASCIILiteral entitlementName = "com.apple.private.webkit.webpush"_s;
+
+#if ENABLE(RELOCATABLE_WEBPUSHD)
+static const ASCIILiteral defaultMachServiceName = "com.apple.webkit.webpushd.relocatable.service"_s;
+static const ASCIILiteral defaultIncomingPushServiceName = "com.apple.aps.webkit.webpushd.relocatable.incoming-push"_s;
+#else
 static const ASCIILiteral defaultMachServiceName = "com.apple.webkit.webpushd.service"_s;
 static const ASCIILiteral defaultIncomingPushServiceName = "com.apple.aps.webkit.webpushd.incoming-push"_s;
+#endif
 
 namespace WebPushD {
 
 static void connectionEventHandler(xpc_object_t request)
 {
-    Daemon::singleton().connectionEventHandler(request);
+    WebPushDaemon::singleton().connectionEventHandler(request);
 }
 
 static void connectionAdded(xpc_connection_t connection)
 {
-    Daemon::singleton().connectionAdded(connection);
+    WebPushDaemon::singleton().connectionAdded(connection);
 }
 
 static void connectionRemoved(xpc_connection_t connection)
 {
-    Daemon::singleton().connectionRemoved(connection);
+    WebPushDaemon::singleton().connectionRemoved(connection);
 }
 
 } // namespace WebPushD
@@ -78,10 +84,17 @@ namespace WebKit {
 static void applySandbox()
 {
 #if PLATFORM(MAC)
+#if ENABLE(RELOCATABLE_WEBPUSHD)
+    static ASCIILiteral profileName = "/com.apple.WebKit.webpushd.relocatable.mac.sb"_s;
+    static ASCIILiteral userDirectorySuffix = "com.apple.webkit.webpushd.relocatable"_s;
+#else
+    static ASCIILiteral profileName = "/com.apple.WebKit.webpushd.mac.sb"_s;
+    static ASCIILiteral userDirectorySuffix = "com.apple.webkit.webpushd"_s;
+#endif
     NSBundle *bundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
-    auto profilePath = makeString(String([bundle resourcePath]), "/com.apple.WebKit.webpushd.mac.sb"_s);
+    auto profilePath = makeString(String([bundle resourcePath]), profileName);
     if (FileSystem::fileExists(profilePath)) {
-        AuxiliaryProcess::applySandboxProfileForDaemon(profilePath, "com.apple.webkit.webpushd"_s);
+        AuxiliaryProcess::applySandboxProfileForDaemon(profilePath, userDirectorySuffix);
         return;
     }
 
@@ -140,11 +153,17 @@ int WebPushDaemonMain(int argc, char** argv)
         WebKit::startListeningForMachServiceConnections(machServiceName, entitlementName, connectionAdded, connectionRemoved, connectionEventHandler);
 
         if (useMockPushService)
-            ::WebPushD::Daemon::singleton().startMockPushService();
+            ::WebPushD::WebPushDaemon::singleton().startMockPushService();
         else {
             String libraryPath = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES)[0];
+
+#if ENABLE(RELOCATABLE_WEBPUSHD)
+            String pushDatabasePath = FileSystem::pathByAppendingComponents(libraryPath, { "WebKit"_s, "WebPush"_s, "PushDatabase.relocatable.db"_s });
+#else
             String pushDatabasePath = FileSystem::pathByAppendingComponents(libraryPath, { "WebKit"_s, "WebPush"_s, "PushDatabase.db"_s });
-            ::WebPushD::Daemon::singleton().startPushService(String::fromLatin1(incomingPushServiceName), pushDatabasePath);
+#endif
+
+            ::WebPushD::WebPushDaemon::singleton().startPushService(String::fromLatin1(incomingPushServiceName), pushDatabasePath);
         }
     }
     CFRunLoopRun();

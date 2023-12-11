@@ -44,7 +44,7 @@ class RenderBox;
 //   * Have compatible baseline alignment preferences (i.e., the baselines that want to align are on the same
 //     side of the alignment context).
 //
-// Once the BaselineGroup is instantiated, defined by a 'block-direction' (WritingMode) and a 'baseline-preference'
+// Once the BaselineGroup is instantiated, defined by a 'block flow direction' and a 'baseline-preference'
 // (first/last baseline), it's ready to collect the items that will participate in the Baseline Alignment logic.
 //
 class BaselineGroup {
@@ -54,27 +54,29 @@ public:
     void update(const RenderBox&, LayoutUnit ascent);
     LayoutUnit maxAscent() const { return m_maxAscent; }
     int computeSize() const { return m_items.computeSize(); }
+    auto begin() { return m_items.begin(); }
+    auto end() { return m_items.end(); }
 
 private:
     friend class BaselineAlignmentState;
-    BaselineGroup(WritingMode blockFlow, ItemPosition childPreference);
+    BaselineGroup(BlockFlowDirection, ItemPosition childPreference);
 
     // Determines whether a baseline-sharing group is compatible with an item, based on its 'block-flow' and
     // 'baseline-preference'
-    bool isCompatible(WritingMode, ItemPosition) const;
+    bool isCompatible(BlockFlowDirection, ItemPosition) const;
 
     // Determines whether the baseline-sharing group's associated block-flow is opposite (LR vs RL) to particular
     // item's writing-mode.
-    bool isOppositeBlockFlow(WritingMode blockFlow) const;
+    bool isOppositeBlockFlow(BlockFlowDirection) const;
 
     // Determines whether the baseline-sharing group's associated block-flow is orthogonal (vertical vs horizontal)
     // to particular item's writing-mode.
-    bool isOrthogonalBlockFlow(WritingMode blockFlow) const;
+    bool isOrthogonalBlockFlow(BlockFlowDirection) const;
 
-    WritingMode m_blockFlow;
+    BlockFlowDirection m_blockFlow;
     ItemPosition m_preference;
     LayoutUnit m_maxAscent;
-    WeakHashSet<const RenderBox> m_items;
+    WeakHashSet<RenderBox> m_items;
 };
 
 //
@@ -101,6 +103,7 @@ public:
     // We pass the item's baseline-preference to avoid dependencies with the LayoutGrid class, which is the one
     // managing the alignment behavior of the Grid Items.
     void updateSharedGroup(const RenderBox& child, ItemPosition preference, LayoutUnit ascent);
+    Vector<BaselineGroup>& sharedGroups();
 
 private:
     // Returns the baseline-sharing group compatible with an item.

@@ -101,7 +101,7 @@ strdtb(s)
 	/* the difference between the position of the null character and
 	 * the position of the first character of the string is the length.
 	 */
-	return x - s;
+	return (int)(x - s);
 }
 
 
@@ -177,7 +177,7 @@ set_cron_uid()
 {
 #if defined(BSD) || defined(POSIX)
 	if (seteuid(ROOT_UID) < OK)
-		err(ERROR_EXIT, "seteuid");
+	err(ERROR_EXIT, "seteuid");
 #else
 	if (setuid(ROOT_UID) < OK)
 		err(ERROR_EXIT, "setuid");

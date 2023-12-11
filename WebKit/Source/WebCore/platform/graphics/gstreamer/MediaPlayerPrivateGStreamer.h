@@ -153,7 +153,7 @@ public:
     void setMuted(bool) final;
     MediaPlayer::NetworkState networkState() const final;
     MediaPlayer::ReadyState readyState() const final;
-    void setPageIsVisible(bool visible, String&&) final { m_visible = visible; }
+    void setPageIsVisible(bool visible) final { m_visible = visible; }
     void setVisibleInViewport(bool isVisible) final;
     void setPresentationSize(const IntSize&) final;
     // Prefer MediaTime based methods over float based.
@@ -181,6 +181,8 @@ public:
     MediaPlayer::MovieLoadType movieLoadType() const final;
 
     std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() final;
+    unsigned decodedFrameCount() const final;
+    unsigned droppedFrameCount() const final;
     void acceleratedRenderingStateChanged() final;
     bool performTaskAtMediaTime(Function<void()>&&, const MediaTime&) override;
     void isLoopingChanged() final;
@@ -339,6 +341,18 @@ protected:
     bool m_didErrorOccur { false };
     mutable bool m_isEndReached { false };
     mutable std::optional<bool> m_isLiveStream;
+
+    // m_isPaused represents:
+    // A) In MSE streams, whether playback or pause has last been requested with pause() and play(),
+    //    defaulting to true before playback starts.
+    // B) In live streams, whether at an unspecified point in time after the main thread tick in
+    //    which play() or pause() are called, whether the playback was paused or resumed.
+    // C) In regular non-live streams, it represents whether playback has ended with a EOS with
+    //    looping set to false since the pipeline successfully pre-rolled.
+    //
+    // FIXME m_isPaused should represent something useful and consistent for all the possible cases
+    // (regular playback, live playback, MSE, WebRTC) or be deleted from MediaPlayerPrivateGStreamer.
+    // https://bugs.webkit.org/show_bug.cgi?id=260385
     bool m_isPaused { true };
     float m_playbackRate { 1 };
     GstState m_currentState { GST_STATE_NULL };
@@ -432,6 +446,7 @@ private:
     void commitLoad();
     void fillTimerFired();
     void didEnd();
+    void setPlaybackFlags(bool isMediaStream);
 
     GstElement* createVideoSink();
     GstElement* createAudioSink();

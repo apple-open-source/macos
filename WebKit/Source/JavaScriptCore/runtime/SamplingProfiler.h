@@ -31,6 +31,7 @@
 #include "CodeBlockHash.h"
 #include "JITCode.h"
 #include "MachineStackMarker.h"
+#include "NativeCallee.h"
 #include "PCToCodeOriginMap.h"
 #include "WasmCompilationMode.h"
 #include "WasmIndexOrName.h"
@@ -67,6 +68,7 @@ public:
         CalleeBits unverifiedCallee;
         CodeBlock* verifiedCodeBlock { nullptr };
         CallSiteIndex callSiteIndex;
+        NativeCallee::Category nativeCalleeCategory { NativeCallee::Category::InlineCache };
 #if ENABLE(WEBASSEMBLY)
         std::optional<Wasm::IndexOrName> wasmIndexOrName;
 #endif
@@ -149,7 +151,6 @@ public:
         // These are function-level data.
         String nameFromCallee(VM&);
         String displayName(VM&);
-        String displayNameForJSONTests(VM&); // Used for JSC stress tests because they want the "(anonymous function)" string for anonymous functions and they want "(eval)" for eval'd code.
         int functionStartLine();
         unsigned functionStartColumn();
         SourceID sourceID();
@@ -157,7 +158,8 @@ public:
     };
 
     struct UnprocessedStackTrace {
-        Seconds timestamp;
+        MonotonicTime timestamp;
+        Seconds stopwatchTimestamp;
         void* topPC;
         bool topFrameIsLLInt;
         void* llintPC;
@@ -166,7 +168,8 @@ public:
     };
 
     struct StackTrace {
-        Seconds timestamp;
+        MonotonicTime timestamp;
+        Seconds stopwatchTimestamp;
         Vector<StackFrame> frames;
         StackTrace()
         { }
@@ -187,7 +190,7 @@ public:
     JS_EXPORT_PRIVATE void start();
     void startWithLock() WTF_REQUIRES_LOCK(m_lock);
     Vector<StackTrace> releaseStackTraces() WTF_REQUIRES_LOCK(m_lock);
-    JS_EXPORT_PRIVATE String stackTracesAsJSON();
+    JS_EXPORT_PRIVATE Ref<JSON::Value> stackTracesAsJSON();
     JS_EXPORT_PRIVATE void noticeCurrentThreadAsJSCExecutionThread();
     void noticeCurrentThreadAsJSCExecutionThreadWithLock() WTF_REQUIRES_LOCK(m_lock);
     void processUnverifiedStackTraces() WTF_REQUIRES_LOCK(m_lock);
@@ -220,7 +223,6 @@ private:
     Vector<StackTrace> m_stackTraces WTF_GUARDED_BY_LOCK(m_lock);
     Vector<UnprocessedStackTrace> m_unprocessedStackTraces WTF_GUARDED_BY_LOCK(m_lock);
     Seconds m_timingInterval;
-    Seconds m_lastTime WTF_GUARDED_BY_LOCK(m_lock);
     RefPtr<Thread> m_thread;
     RefPtr<Thread> m_jscExecutionThread WTF_GUARDED_BY_LOCK(m_lock);
     HashSet<JSCell*> m_liveCellPointers WTF_GUARDED_BY_LOCK(m_lock);

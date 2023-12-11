@@ -6,7 +6,6 @@
  //
 
 _SOSCCAcceptApplicants
-_SOSCCAccountGetAccountPrivateCredential
 _SOSCCAccountGetPublicKey
 _SOSCCAccountGetKeyCircleGeneration
 _SOSCCAccountHasPublicKey

@@ -38,9 +38,9 @@
 
 namespace WebCore {
 
-RenderLayoutState::RenderLayoutState(RenderElement& renderer, IsPaginated isPaginated)
+RenderLayoutState::RenderLayoutState(RenderElement& renderer)
     : m_clipped(false)
-    , m_isPaginated(isPaginated == IsPaginated::Yes)
+    , m_isPaginated(false)
     , m_pageLogicalHeightChanged(false)
 #if ASSERT_ENABLED
     , m_layoutDeltaXSaturated(false)
@@ -336,16 +336,18 @@ SubtreeLayoutStateMaintainer::~SubtreeLayoutStateMaintainer()
     }
 }
 
-PaginatedLayoutStateMaintainer::PaginatedLayoutStateMaintainer(RenderBlockFlow& flow)
-    : m_context(flow.view().frameView().layoutContext())
-    , m_pushed(m_context.pushLayoutStateForPaginationIfNeeded(flow))
+ContentVisibilityForceLayoutScope::ContentVisibilityForceLayoutScope(RenderView& layoutRoot, const Element* context)
 {
+    if (context) {
+        m_context = &layoutRoot.frameView().layoutContext();
+        m_context->setNeedsSkippedContentLayout(true);
+    }
 }
 
-PaginatedLayoutStateMaintainer::~PaginatedLayoutStateMaintainer()
+ContentVisibilityForceLayoutScope::~ContentVisibilityForceLayoutScope()
 {
-    if (m_pushed)
-        m_context.popLayoutState();
+    if (m_context)
+        m_context->setNeedsSkippedContentLayout(false);
 }
 
 } // namespace WebCore

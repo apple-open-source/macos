@@ -73,7 +73,7 @@ class RenderLayerModelObject;
 class RenderFragmentContainer;
 class RenderTheme;
 class RenderTreeBuilder;
-class HighlightData;
+class RenderHighlight;
 class TransformState;
 class VisiblePosition;
 
@@ -805,6 +805,7 @@ public:
     bool isSkippedContent() const;
 
     bool isSkippedContentRoot() const;
+    bool isSkippedContentForLayout() const;
 
 protected:
     //////////////////////////////////////////

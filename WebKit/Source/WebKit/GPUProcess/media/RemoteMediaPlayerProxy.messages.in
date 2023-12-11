@@ -48,7 +48,7 @@ messages -> RemoteMediaPlayerProxy {
     SetPitchCorrectionAlgorithm(WebCore::MediaPlayer::PitchCorrectionAlgorithm algorithm)
 
     PrepareForRendering()
-    SetPageIsVisible(bool visible, String sceneIdentifier)
+    SetPageIsVisible(bool visible)
     SetShouldMaintainAspectRatio(bool maintainAspectRatio)
     AcceleratedRenderingStateChanged(bool canBeAccelerated)
     SetShouldDisableSleep(bool disable)
@@ -66,7 +66,7 @@ messages -> RemoteMediaPlayerProxy {
     SetPresentationSize(WebCore::IntSize size)
 
 #if PLATFORM(COCOA)
-    SetVideoInlineSizeFenced(WebCore::FloatSize size, MachSendRight machSendRight)
+    SetVideoLayerSizeFenced(WebCore::FloatSize size, MachSendRight machSendRight)
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)

@@ -118,10 +118,10 @@ Shared/API/Cocoa/WKRemoteObject.mm
 Shared/API/Cocoa/WKRemoteObjectCoder.mm
 
 Shared/ApplePay/ApplePayPaymentSetupFeatures.mm
-Shared/ApplePay/PaymentSetupConfiguration.mm
 Shared/ApplePay/WebPaymentCoordinatorProxy.cpp
 Shared/ApplePay/cocoa/AutomaticReloadPaymentRequestCocoa.mm
 Shared/ApplePay/cocoa/DeferredPaymentRequestCocoa.mm
+Shared/ApplePay/cocoa/PaymentSetupConfigurationCocoa.mm
 Shared/ApplePay/cocoa/PaymentTokenContextCocoa.mm
 Shared/ApplePay/cocoa/RecurringPaymentRequestCocoa.mm
 Shared/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm
@@ -308,7 +308,6 @@ UIProcess/API/Cocoa/NSAttributedString.mm
 UIProcess/API/Cocoa/WKBackForwardList.mm
 UIProcess/API/Cocoa/WKBackForwardListItem.mm
 UIProcess/API/Cocoa/WKBrowsingContextController.mm
-UIProcess/API/Cocoa/WKBrowsingContextGroup.mm
 UIProcess/API/Cocoa/WKConnection.mm
 UIProcess/API/Cocoa/WKContentRuleList.mm
 UIProcess/API/Cocoa/WKContentRuleListStore.mm
@@ -407,7 +406,7 @@ UIProcess/Cocoa/UIProcessLogInitializationCocoa.mm
 UIProcess/Cocoa/UIRemoteObjectRegistry.cpp
 UIProcess/Cocoa/UserMediaCaptureManagerProxy.cpp
 UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm
-UIProcess/Cocoa/VideoFullscreenManagerProxy.mm
+UIProcess/Cocoa/VideoPresentationManagerProxy.mm
 UIProcess/Cocoa/WebGeolocationManagerProxyCocoa.cpp
 UIProcess/Cocoa/WebPageProxyCocoa.mm
 UIProcess/Cocoa/WebPasteboardProxyCocoa.mm
@@ -490,7 +489,7 @@ UIProcess/ios/WKKeyboardScrollingAnimator.mm
 UIProcess/ios/WKModelInteractionGestureRecognizer.mm
 UIProcess/ios/WKModelView.mm
 UIProcess/ios/WKMouseDeviceObserver.mm
-UIProcess/ios/WKMouseGestureRecognizer.mm
+UIProcess/ios/WKMouseInteraction.mm
 UIProcess/ios/WKPasswordView.mm
 UIProcess/ios/WKPDFView.mm
 UIProcess/ios/WKScrollView.mm
@@ -498,8 +497,10 @@ UIProcess/ios/WKStylusDeviceObserver.mm
 UIProcess/ios/WKSyntheticFlagsChangedWebEvent.mm
 UIProcess/ios/WKSyntheticTapGestureRecognizer.mm
 UIProcess/ios/WKTouchActionGestureRecognizer.mm
+UIProcess/ios/WKTouchEventsGestureRecognizer.mm
 UIProcess/ios/WKTextSelectionRect.mm
 UIProcess/ios/WKUSDPreviewView.mm
+UIProcess/ios/WKVideoView.mm
 UIProcess/ios/WKWebEvent.mm
 UIProcess/ios/WKWebGeolocationPolicyDeciderIOS.mm
 
@@ -604,7 +605,7 @@ WebProcess/cocoa/RemoteRealtimeMediaSource.cpp
 WebProcess/cocoa/RemoteRealtimeMediaSourceProxy.cpp
 WebProcess/cocoa/RemoteRealtimeVideoSource.cpp
 WebProcess/cocoa/UserMediaCaptureManager.cpp
-WebProcess/cocoa/VideoFullscreenManager.mm
+WebProcess/cocoa/VideoPresentationManager.mm
 WebProcess/cocoa/WebProcessCocoa.mm
 
 WebProcess/EntryPoint/Cocoa/XPCService/WebContentServiceEntryPoint.mm
@@ -735,6 +736,7 @@ RemoteMediaSessionHelperMessageReceiver.cpp
 RemoteMediaSessionHelperProxyMessageReceiver.cpp
 RemoteMediaSessionCoordinatorMessageReceiver.cpp
 RemoteMediaSessionCoordinatorProxyMessageReceiver.cpp
+RemoteImageBufferMessageReceiver.cpp
 RemoteImageBufferProxyMessageReceiver.cpp
 RemoteRenderingBackendMessageReceiver.cpp
 RemoteRenderingBackendProxyMessageReceiver.cpp

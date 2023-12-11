@@ -28,6 +28,7 @@
 
 #if HAVE(APP_SSO)
 
+#import "Logging.h"
 #import "PageLoadState.h"
 #import "WebPageProxy.h"
 #import <WebCore/ResourceResponse.h>
@@ -54,7 +55,7 @@ void NavigationSOAuthorizationSession::shouldStartInternal()
 {
     AUTHORIZATIONSESSION_RELEASE_LOG("shouldStartInternal: m_page=%p", page());
 
-    auto* page = this->page();
+    RefPtr page = this->page();
     ASSERT(page);
     beforeStart();
     if (!page->isInWindow()) {
@@ -71,7 +72,7 @@ void NavigationSOAuthorizationSession::shouldStartInternal()
 void NavigationSOAuthorizationSession::webViewDidMoveToWindow()
 {
     AUTHORIZATIONSESSION_RELEASE_LOG("webViewDidMoveToWindow");
-    auto* page = this->page();
+    RefPtr page = this->page();
     if (state() != State::Waiting || !page || !page->isInWindow())
         return;
     if (pageActiveURLDidChangeDuringWaiting()) {
@@ -86,7 +87,7 @@ void NavigationSOAuthorizationSession::webViewDidMoveToWindow()
 bool NavigationSOAuthorizationSession::pageActiveURLDidChangeDuringWaiting() const
 {
     AUTHORIZATIONSESSION_RELEASE_LOG("pageActiveURLDidChangeDuringWaiting");
-    auto* page = this->page();
+    RefPtr page = this->page();
     return !page || page->pageLoadState().activeURL() != m_waitingPageActiveURL;
 }
 

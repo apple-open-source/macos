@@ -36,6 +36,7 @@
 #include "RenderBox.h"
 #include "RenderBoxModelObject.h"
 #include "RenderStyleInlines.h"
+#include "ShorthandSerializer.h"
 #include "StylePropertiesInlines.h"
 #include "StylePropertyShorthand.h"
 #include "StyleScope.h"
@@ -62,18 +63,6 @@ CSSComputedStyleDeclaration::~CSSComputedStyleDeclaration() = default;
 Ref<CSSComputedStyleDeclaration> CSSComputedStyleDeclaration::create(Element& element, bool allowVisitedStyle, StringView pseudoElementName)
 {
     return adoptRef(*new CSSComputedStyleDeclaration(element, allowVisitedStyle, pseudoElementName));
-}
-
-void CSSComputedStyleDeclaration::ref()
-{
-    ++m_refCount;
-}
-
-void CSSComputedStyleDeclaration::deref()
-{
-    ASSERT(m_refCount);
-    if (!--m_refCount)
-        delete this;
 }
 
 String CSSComputedStyleDeclaration::cssText() const
@@ -117,6 +106,20 @@ const FixedVector<CSSPropertyID>& CSSComputedStyleDeclaration::exposedComputedCS
 
 String CSSComputedStyleDeclaration::getPropertyValue(CSSPropertyID propertyID) const
 {
+    auto canUseShorthandSerializerForPropertyValue = [&]() {
+        switch (propertyID) {
+        case CSSPropertyGridArea:
+        case CSSPropertyGridColumn:
+        case CSSPropertyGridRow:
+        case CSSPropertyGridTemplate:
+            return true;
+        default:
+            return false;
+        }
+    };
+    if (isShorthand(propertyID) && canUseShorthandSerializerForPropertyValue())
+        return serializeShorthandValue({ m_element.ptr(), m_allowVisitedStyle, m_pseudoElementSpecifier }, propertyID);
+
     auto value = getPropertyCSSValue(propertyID);
     if (!value)
         return emptyString(); // FIXME: Should this be null instead, as it is in StyleProperties::getPropertyValue?

@@ -8,6 +8,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class OctagonStateMachine;
+
 @interface OctagonStateTransitionPathStep : NSObject
 @property BOOL successState;
 @property (readonly) NSDictionary<OctagonState*, OctagonStateTransitionPathStep*>* followStates;
@@ -57,7 +59,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // If the initial request times out, the watcher will fail as well.
 - (instancetype)initNamed:(NSString*)name
-              serialQueue:(dispatch_queue_t)queue
+             stateMachine:(OctagonStateMachine*)stateMachine
                      path:(OctagonStateTransitionPath*)path
            initialRequest:(OctagonStateTransitionRequest* _Nullable)initialRequest;
 

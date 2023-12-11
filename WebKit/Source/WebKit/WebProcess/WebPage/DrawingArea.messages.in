@@ -25,6 +25,8 @@ messages -> DrawingArea NotRefCounted {
     UpdateGeometry(WebCore::IntSize size) -> ()
     TargetRefreshRateDidChange(unsigned rate)
     SetDeviceScaleFactor(float deviceScaleFactor)
+    ForceUpdate()
+    DidDiscardBackingStore()
 #endif
 
     DisplayDidRefresh()

@@ -289,6 +289,162 @@ const vk::Format *AdjustStorageViewFormatPerWorkarounds(RendererVk *renderer,
     return intended;
 }
 
+const vk::Format *AdjustViewFormatForSampler(RendererVk *renderer,
+                                             const vk::Format *intended,
+                                             gl::SamplerFormat samplerFormat)
+{
+    switch (samplerFormat)
+    {
+        case gl::SamplerFormat::Float:
+            switch (intended->getIntendedFormatID())
+            {
+                case angle::FormatID::R8_UNORM:
+                case angle::FormatID::R16_FLOAT:
+                case angle::FormatID::R32_FLOAT:
+                case angle::FormatID::R8G8_UNORM:
+                case angle::FormatID::R16G16_FLOAT:
+                case angle::FormatID::R32G32_FLOAT:
+                case angle::FormatID::R32G32B32_FLOAT:
+                case angle::FormatID::R8G8B8A8_UNORM:
+                case angle::FormatID::R16G16B16A16_FLOAT:
+                case angle::FormatID::R32G32B32A32_FLOAT:
+                    return intended;
+                case angle::FormatID::R8_SINT:
+                case angle::FormatID::R8_UINT:
+                    return &renderer->getFormat(angle::FormatID::R8_UNORM);
+                case angle::FormatID::R16_SINT:
+                case angle::FormatID::R16_UINT:
+                    return &renderer->getFormat(angle::FormatID::R16_FLOAT);
+                case angle::FormatID::R32_SINT:
+                case angle::FormatID::R32_UINT:
+                    return &renderer->getFormat(angle::FormatID::R32_FLOAT);
+                case angle::FormatID::R8G8_SINT:
+                case angle::FormatID::R8G8_UINT:
+                    return &renderer->getFormat(angle::FormatID::R8G8_UNORM);
+                case angle::FormatID::R16G16_SINT:
+                case angle::FormatID::R16G16_UINT:
+                    return &renderer->getFormat(angle::FormatID::R16G16_FLOAT);
+                case angle::FormatID::R32G32_SINT:
+                case angle::FormatID::R32G32_UINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32_FLOAT);
+                case angle::FormatID::R32G32B32_SINT:
+                case angle::FormatID::R32G32B32_UINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32B32_FLOAT);
+                case angle::FormatID::R8G8B8A8_SINT:
+                case angle::FormatID::R8G8B8A8_UINT:
+                    return &renderer->getFormat(angle::FormatID::R8G8B8A8_UNORM);
+                case angle::FormatID::R16G16B16A16_SINT:
+                case angle::FormatID::R16G16B16A16_UINT:
+                    return &renderer->getFormat(angle::FormatID::R16G16B16A16_FLOAT);
+                case angle::FormatID::R32G32B32A32_SINT:
+                case angle::FormatID::R32G32B32A32_UINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32B32A32_FLOAT);
+                default:
+                    UNREACHABLE();
+                    return intended;
+            }
+        case gl::SamplerFormat::Unsigned:
+            switch (intended->getIntendedFormatID())
+            {
+                case angle::FormatID::R8_UINT:
+                case angle::FormatID::R16_UINT:
+                case angle::FormatID::R32_UINT:
+                case angle::FormatID::R8G8_UINT:
+                case angle::FormatID::R16G16_UINT:
+                case angle::FormatID::R32G32_UINT:
+                case angle::FormatID::R32G32B32_UINT:
+                case angle::FormatID::R8G8B8A8_UINT:
+                case angle::FormatID::R16G16B16A16_UINT:
+                case angle::FormatID::R32G32B32A32_UINT:
+                    return intended;
+                case angle::FormatID::R8_UNORM:
+                case angle::FormatID::R8_SINT:
+                    return &renderer->getFormat(angle::FormatID::R8_UINT);
+                case angle::FormatID::R16_FLOAT:
+                case angle::FormatID::R16_SINT:
+                    return &renderer->getFormat(angle::FormatID::R16_UINT);
+                case angle::FormatID::R32_FLOAT:
+                case angle::FormatID::R32_SINT:
+                    return &renderer->getFormat(angle::FormatID::R32_UINT);
+                case angle::FormatID::R8G8_UNORM:
+                case angle::FormatID::R8G8_SINT:
+                    return &renderer->getFormat(angle::FormatID::R8G8_UINT);
+                case angle::FormatID::R16G16_FLOAT:
+                case angle::FormatID::R16G16_SINT:
+                    return &renderer->getFormat(angle::FormatID::R16G16_UINT);
+                case angle::FormatID::R32G32_FLOAT:
+                case angle::FormatID::R32G32_SINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32_UINT);
+                case angle::FormatID::R32G32B32_FLOAT:
+                case angle::FormatID::R32G32B32_SINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32B32_UINT);
+                case angle::FormatID::R8G8B8A8_UNORM:
+                case angle::FormatID::R8G8B8A8_SINT:
+                    return &renderer->getFormat(angle::FormatID::R8G8B8A8_UINT);
+                case angle::FormatID::R16G16B16A16_FLOAT:
+                case angle::FormatID::R16G16B16A16_SINT:
+                    return &renderer->getFormat(angle::FormatID::R16G16B16A16_UINT);
+                case angle::FormatID::R32G32B32A32_FLOAT:
+                case angle::FormatID::R32G32B32A32_SINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32B32A32_UINT);
+                default:
+                    UNREACHABLE();
+                    return intended;
+            }
+        case gl::SamplerFormat::Signed:
+            switch (intended->getIntendedFormatID())
+            {
+                case angle::FormatID::R8_SINT:
+                case angle::FormatID::R16_SINT:
+                case angle::FormatID::R32_SINT:
+                case angle::FormatID::R8G8_SINT:
+                case angle::FormatID::R16G16_SINT:
+                case angle::FormatID::R32G32_SINT:
+                case angle::FormatID::R32G32B32_SINT:
+                case angle::FormatID::R8G8B8A8_SINT:
+                case angle::FormatID::R16G16B16A16_SINT:
+                case angle::FormatID::R32G32B32A32_SINT:
+                    return intended;
+                case angle::FormatID::R8_UNORM:
+                case angle::FormatID::R8_UINT:
+                    return &renderer->getFormat(angle::FormatID::R8_SINT);
+                case angle::FormatID::R16_FLOAT:
+                case angle::FormatID::R16_UINT:
+                    return &renderer->getFormat(angle::FormatID::R16_SINT);
+                case angle::FormatID::R32_FLOAT:
+                case angle::FormatID::R32_UINT:
+                    return &renderer->getFormat(angle::FormatID::R32_SINT);
+                case angle::FormatID::R8G8_UNORM:
+                case angle::FormatID::R8G8_UINT:
+                    return &renderer->getFormat(angle::FormatID::R8G8_SINT);
+                case angle::FormatID::R16G16_FLOAT:
+                case angle::FormatID::R16G16_UINT:
+                    return &renderer->getFormat(angle::FormatID::R16G16_SINT);
+                case angle::FormatID::R32G32_FLOAT:
+                case angle::FormatID::R32G32_UINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32_SINT);
+                case angle::FormatID::R32G32B32_FLOAT:
+                case angle::FormatID::R32G32B32_UINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32B32_SINT);
+                case angle::FormatID::R8G8B8A8_UNORM:
+                case angle::FormatID::R8G8B8A8_UINT:
+                    return &renderer->getFormat(angle::FormatID::R8G8B8A8_SINT);
+                case angle::FormatID::R16G16B16A16_FLOAT:
+                case angle::FormatID::R16G16B16A16_UINT:
+                    return &renderer->getFormat(angle::FormatID::R16G16B16A16_SINT);
+                case angle::FormatID::R32G32B32A32_FLOAT:
+                case angle::FormatID::R32G32B32A32_UINT:
+                    return &renderer->getFormat(angle::FormatID::R32G32B32A32_SINT);
+                default:
+                    UNREACHABLE();
+                    return intended;
+            }
+        default:
+            UNREACHABLE();
+            return intended;
+    }
+}
+
 angle::FormatID GetRGBAEmulationDstFormat(angle::FormatID srcFormatID)
 {
     switch (srcFormatID)
@@ -490,17 +646,17 @@ bool TextureVk::isMutableTextureConsistentlySpecifiedForFlush()
         return false;
     }
 
-    // Before we initialize the full mip chain, we make sure that the base mip level and at least
-    // one other level after (1 for simplicity) are defined and have appropriate values.
-    if (mState.getImageDescs().size() < 2)
+    // Before we initialize the mips, we make sure that the base mip level is properly defined.
+    gl::TextureTarget textureTarget = (mState.getType() == gl::TextureType::CubeMap)
+                                          ? gl::kCubeMapTextureTargetMin
+                                          : gl::TextureTypeToTarget(mState.getType(), 0);
+    if (!isMipImageDescDefined(textureTarget, 0))
     {
         return false;
     }
 
-    gl::TextureTarget textureTarget = (mState.getType() == gl::TextureType::CubeMap)
-                                          ? gl::kCubeMapTextureTargetMin
-                                          : gl::TextureTypeToTarget(mState.getType(), 0);
-    if (!isMipImageDescDefined(textureTarget, 0) || !isMipImageDescDefined(textureTarget, 1))
+    // We do not flush if the texture has been bound as an attachment.
+    if (mState.hasBeenBoundAsAttachment())
     {
         return false;
     }
@@ -609,13 +765,14 @@ angle::Result TextureVk::setSubImageImpl(const gl::Context *context,
     ContextVk *contextVk = vk::GetImpl(context);
 
     // When possible flush out updates immediately.
-    bool shouldFlush = false;
+    vk::ApplyImageUpdate applyUpdate = vk::ApplyImageUpdate::Defer;
     if (!mOwnsImage || mState.getImmutableFormat() ||
         (!shouldUpdateBeStaged(gl::LevelIndex(index.getLevelIndex()),
                                vkFormat.getActualImageFormatID(getRequiredImageAccess()))))
     {
-        shouldFlush = true;
+        applyUpdate = vk::ApplyImageUpdate::ImmediatelyIfPossible;
     }
+    bool updateAppliedImmediately = false;
 
     if (unpackBuffer)
     {
@@ -677,7 +834,8 @@ angle::Result TextureVk::setSubImageImpl(const gl::Context *context,
                 contextVk, getNativeImageIndex(index),
                 gl::Extents(area.width, area.height, area.depth),
                 gl::Offset(area.x, area.y, area.z), formatInfo, unpack, type, source, vkFormat,
-                getRequiredImageAccess(), inputRowPitch, inputDepthPitch, inputSkipBytes));
+                getRequiredImageAccess(), inputRowPitch, inputDepthPitch, inputSkipBytes,
+                applyUpdate, &updateAppliedImmediately));
 
             ANGLE_TRY(unpackBufferVk->unmapImpl(contextVk));
         }
@@ -687,24 +845,27 @@ angle::Result TextureVk::setSubImageImpl(const gl::Context *context,
         ANGLE_TRY(mImage->stageSubresourceUpdate(
             contextVk, getNativeImageIndex(index), gl::Extents(area.width, area.height, area.depth),
             gl::Offset(area.x, area.y, area.z), formatInfo, unpack, type, pixels, vkFormat,
-            getRequiredImageAccess()));
+            getRequiredImageAccess(), applyUpdate, &updateAppliedImmediately));
     }
 
     // If we used context's staging buffer, flush out the updates
-    if (shouldFlush)
+    if (!updateAppliedImmediately)
     {
-        ANGLE_TRY(ensureImageInitialized(contextVk, ImageMipLevels::EnabledLevels));
-
-        // If forceSubmitImmutableTextureUpdates is enabled, submit the staged updates as well
-        if (contextVk->getFeatures().forceSubmitImmutableTextureUpdates.enabled)
+        if (applyUpdate == vk::ApplyImageUpdate::ImmediatelyIfPossible)
         {
-            ANGLE_TRY(contextVk->submitStagedTextureUpdates());
+            ANGLE_TRY(ensureImageInitialized(contextVk, ImageMipLevels::EnabledLevels));
+
+            // If forceSubmitImmutableTextureUpdates is enabled, submit the staged updates as well
+            if (contextVk->getFeatures().forceSubmitImmutableTextureUpdates.enabled)
+            {
+                ANGLE_TRY(contextVk->submitStagedTextureUpdates());
+            }
         }
-    }
-    else if (contextVk->isEligibleForMutableTextureFlush() && !mState.getImmutableFormat())
-    {
-        // Check if we should flush any mutable textures from before.
-        ANGLE_TRY(contextVk->getShareGroup()->onMutableTextureUpload(contextVk, this));
+        else if (contextVk->isEligibleForMutableTextureFlush() && !mState.getImmutableFormat())
+        {
+            // Check if we should flush any mutable textures from before.
+            ANGLE_TRY(contextVk->getShareGroup()->onMutableTextureUpload(contextVk, this));
+        }
     }
 
     return angle::Result::Continue;
@@ -1419,6 +1580,10 @@ angle::Result TextureVk::setStorageMultisample(const gl::Context *context,
     }
     else if (mImage)
     {
+        if (!contextVk->hasDisplayTextureShareGroup())
+        {
+            contextVk->getShareGroup()->onTextureRelease(this);
+        }
         mImage->releaseStagedUpdates(contextVk->getRenderer());
     }
 
@@ -1458,15 +1623,13 @@ angle::Result TextureVk::setStorageExternalMemory(const gl::Context *context,
                                                   const void *imageCreateInfoPNext)
 {
     ContextVk *contextVk           = vk::GetImpl(context);
-    RendererVk *renderer           = contextVk->getRenderer();
     MemoryObjectVk *memoryObjectVk = vk::GetImpl(memoryObject);
 
     releaseAndDeleteImageAndViews(contextVk);
 
-    const vk::Format &format = renderer->getFormat(internalFormat);
+    setImageHelper(contextVk, new vk::ImageHelper(), gl::TextureType::InvalidEnum, 0, 0, true, {});
 
-    setImageHelper(contextVk, new vk::ImageHelper(), gl::TextureType::InvalidEnum, format, 0, 0,
-                   true, {});
+    mImage->setTilingMode(gl_vk::GetTilingMode(mState.getTilingMode()));
 
     ANGLE_TRY(memoryObjectVk->createImage(contextVk, type, levels, internalFormat, size, offset,
                                           mImage, createFlags, usageFlags, imageCreateInfoPNext));
@@ -1519,7 +1682,6 @@ angle::Result TextureVk::setEGLImageTarget(const gl::Context *context,
                                            egl::Image *image)
 {
     ContextVk *contextVk = vk::GetImpl(context);
-    RendererVk *renderer = contextVk->getRenderer();
     ImageVk *imageVk     = vk::GetImpl(image);
 
     // Early out if we are creating TextureVk with the exact same eglImage and target/face/level to
@@ -1539,9 +1701,8 @@ angle::Result TextureVk::setEGLImageTarget(const gl::Context *context,
 
     releaseAndDeleteImageAndViews(contextVk);
 
-    const vk::Format &format   = renderer->getFormat(image->getFormat().info->sizedInternalFormat);
     UniqueSerial siblingSerial = imageVk->generateSiblingSerial();
-    setImageHelper(contextVk, imageVk->getImage(), imageVk->getImageTextureType(), format,
+    setImageHelper(contextVk, imageVk->getImage(), imageVk->getImageTextureType(),
                    imageVk->getImageLevel().get(), imageVk->getImageLayer(), false, siblingSerial);
 
     ANGLE_TRY(initImageViews(contextVk, getImageViewLevelCount()));
@@ -1628,7 +1789,7 @@ void TextureVk::releaseAndDeleteImageAndViews(ContextVk *contextVk)
         onStateChange(angle::SubjectMessage::SubjectChanged);
     }
     mRedefinedLevels.reset();
-    mDescriptorSetCacheManager.releaseKeys(contextVk);
+    mDescriptorSetCacheManager.releaseKeys(contextVk->getRenderer());
 }
 
 void TextureVk::initImageUsageFlags(ContextVk *contextVk, angle::FormatID actualFormatID)
@@ -1660,8 +1821,8 @@ angle::Result TextureVk::ensureImageAllocated(ContextVk *contextVk, const vk::Fo
 {
     if (mImage == nullptr)
     {
-        setImageHelper(contextVk, new vk::ImageHelper(), gl::TextureType::InvalidEnum, format, 0, 0,
-                       true, {});
+        setImageHelper(contextVk, new vk::ImageHelper(), gl::TextureType::InvalidEnum, 0, 0, true,
+                       {});
     }
 
     initImageUsageFlags(contextVk, format.getActualImageFormatID(getRequiredImageAccess()));
@@ -1672,7 +1833,6 @@ angle::Result TextureVk::ensureImageAllocated(ContextVk *contextVk, const vk::Fo
 void TextureVk::setImageHelper(ContextVk *contextVk,
                                vk::ImageHelper *imageHelper,
                                gl::TextureType eglImageNativeType,
-                               const vk::Format &format,
                                uint32_t imageLevelOffset,
                                uint32_t imageLayerOffset,
                                bool selfOwned,
@@ -1687,7 +1847,7 @@ void TextureVk::setImageHelper(ContextVk *contextVk,
     mImageSiblingSerial = siblingSerial;
     // If image is shared between other container objects, force it to renderable format since we
     // don't know if other container object will render or not.
-    if (!mOwnsImage)
+    if (!mOwnsImage && !imageHelper->isBackedByExternalMemory())
     {
         mRequiredImageAccess = vk::ImageAccess::Renderable;
     }
@@ -2403,19 +2563,15 @@ angle::Result TextureVk::respecifyImageStorage(ContextVk *contextVk)
 angle::Result TextureVk::bindTexImage(const gl::Context *context, egl::Surface *surface)
 {
     ContextVk *contextVk = vk::GetImpl(context);
-    RendererVk *renderer = contextVk->getRenderer();
 
     releaseAndDeleteImageAndViews(contextVk);
-
-    const gl::InternalFormat &glInternalFormat = *surface->getBindTexImageFormat().info;
-    const vk::Format &format = renderer->getFormat(glInternalFormat.sizedInternalFormat);
 
     // eglBindTexImage can only be called with pbuffer (offscreen) surfaces
     OffscreenSurfaceVk *offscreenSurface = GetImplAs<OffscreenSurfaceVk>(surface);
     // Surface can only have single target. Just generate valid serial with throw-away generator.
     UniqueSerial siblingSerial = UniqueSerialFactory().generate();
     setImageHelper(contextVk, offscreenSurface->getColorAttachmentImage(),
-                   gl::TextureType::InvalidEnum, format, 0, 0, false, siblingSerial);
+                   gl::TextureType::InvalidEnum, 0, 0, false, siblingSerial);
 
     ASSERT(mImage->getLayerCount() == 1);
     return initImageViews(contextVk, getImageViewLevelCount());
@@ -2896,8 +3052,8 @@ angle::Result TextureVk::convertBufferToRGBA(ContextVk *contextVk, size_t &conve
     vk::BufferHelper *conversionBufferHelper = conversion->data.get();
     if (!conversionBufferHelper->valid())
     {
-        ANGLE_TRY(conversionBufferHelper->allocateForVertexConversion(
-            contextVk, conversionBufferSize, vk::MemoryHostVisibility::NonVisible));
+        ANGLE_TRY(contextVk->initBufferForVertexConversion(
+            conversionBufferHelper, conversionBufferSize, vk::MemoryHostVisibility::NonVisible));
     }
 
     if (conversion->dirty)
@@ -2944,7 +3100,7 @@ angle::Result TextureVk::syncState(const gl::Context *context,
 
         mBufferViews.release(contextVk);
         mBufferViews.init(renderer, offset, size);
-        mDescriptorSetCacheManager.releaseKeys(contextVk);
+        mDescriptorSetCacheManager.releaseKeys(renderer);
         return angle::Result::Continue;
     }
 
@@ -3227,6 +3383,7 @@ vk::BufferHelper *TextureVk::getPossiblyEmulatedTextureBuffer(vk::Context *conte
 
 angle::Result TextureVk::getBufferViewAndRecordUse(vk::Context *context,
                                                    const vk::Format *imageUniformFormat,
+                                                   const gl::SamplerBinding *samplerBinding,
                                                    bool isImage,
                                                    const vk::BufferView **viewOut)
 {
@@ -3246,22 +3403,24 @@ angle::Result TextureVk::getBufferViewAndRecordUse(vk::Context *context,
                                                                    getRequiredImageAccess());
     }
 
-    // Create a view for the required format.
-    const vk::BufferHelper &buffer = vk::GetImpl(mState.getBuffer().get())->getBuffer();
-    VkDeviceSize bufferOffset      = buffer.getOffset();
+    const vk::BufferHelper *buffer = &vk::GetImpl(mState.getBuffer().get())->getBuffer();
 
     if (NeedsRGBAEmulation(renderer, imageUniformFormat->getIntendedFormatID()))
     {
-        vk::BufferHelper *conversionBufferHelper =
-            getRGBAConversionBufferHelper(renderer, imageUniformFormat->getIntendedFormatID());
-        const vk::Format *format = &renderer->getFormat(
+        buffer = getRGBAConversionBufferHelper(renderer, imageUniformFormat->getIntendedFormatID());
+        imageUniformFormat = &renderer->getFormat(
             GetRGBAEmulationDstFormat(imageUniformFormat->getIntendedFormatID()));
-
-        return mBufferViews.getView(context, *conversionBufferHelper,
-                                    conversionBufferHelper->getOffset(), *format, viewOut);
     }
 
-    return mBufferViews.getView(context, buffer, bufferOffset, *imageUniformFormat, viewOut);
+    if (samplerBinding)
+    {
+        imageUniformFormat =
+            AdjustViewFormatForSampler(renderer, imageUniformFormat, samplerBinding->format);
+    }
+
+    // Create a view for the required format.
+    return mBufferViews.getView(context, *buffer, buffer->getOffset(), *imageUniformFormat,
+                                viewOut);
 }
 
 angle::Result TextureVk::initImage(ContextVk *contextVk,
@@ -3303,13 +3462,6 @@ angle::Result TextureVk::initImage(ContextVk *contextVk,
     {
         mImageCreateFlags |= VK_IMAGE_CREATE_PROTECTED_BIT;
     }
-    if (mOwnsImage && samples == 1 &&
-        contextVk->getFeatures().supportsMultisampledRenderToSingleSampled.enabled)
-    {
-        // Conservatively add the MSRTSS flag, because any texture might end up as an MSRTT
-        // attachment.
-        mImageCreateFlags |= VK_IMAGE_CREATE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_BIT_EXT;
-    }
 
     if (renderer->getFeatures().supportsComputeTranscodeEtcToBc.enabled &&
         IsETCFormat(intendedImageFormatID) && IsBCFormat(actualImageFormatID))
@@ -3318,6 +3470,59 @@ angle::Result TextureVk::initImage(ContextVk *contextVk,
                              VK_IMAGE_CREATE_EXTENDED_USAGE_BIT |
                              VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
         mImageUsageFlags |= VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+
+    const VkFormat actualImageFormat = rx::vk::GetVkFormatFromFormatID(actualImageFormatID);
+    const VkImageType imageType      = gl_vk::GetImageType(mState.getType());
+    const VkImageTiling imageTiling  = mImage->getTilingMode();
+
+    if ((mImageUsageFlags & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) != 0 &&
+        mOwnsImage && samples == 1 &&
+        contextVk->getFeatures().supportsMultisampledRenderToSingleSampled.enabled)
+    {
+
+        // Note: If we ever fail the following check, we should use the emulation path for this
+        // texture instead of ignoring MSRTT.
+        if (vk::ImageHelper::FormatSupportsUsage(
+                renderer, actualImageFormat, imageType, imageTiling, mImageUsageFlags,
+                mImageCreateFlags | VK_IMAGE_CREATE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_BIT_EXT,
+                nullptr))
+        {
+            // If supported by format add the MSRTSS flag because any texture might end up as an
+            // MSRTT attachment.
+            mImageCreateFlags |= VK_IMAGE_CREATE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_BIT_EXT;
+        }
+    }
+
+    // Any format with VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT support is required to also support
+    // VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT_EXT.  So no format feature query is needed.
+    // However, it's still necessary to use vkGetPhysicalDeviceImageFormatProperties2 to ensure host
+    // image copy is supported for the specific usage and flags.
+    //
+    // All TextureVk images are expected to have VK_IMAGE_USAGE_SAMPLED_BIT, so that is not checked
+    // either.
+    ASSERT((mImageUsageFlags & VK_IMAGE_USAGE_SAMPLED_BIT) != 0);
+    if (mOwnsImage && samples == 1 && renderer->getFeatures().supportsHostImageCopy.enabled)
+    {
+        VkHostImageCopyDevicePerformanceQueryEXT perfQuery = {};
+        perfQuery.sType = VK_STRUCTURE_TYPE_HOST_IMAGE_COPY_DEVICE_PERFORMANCE_QUERY_EXT;
+
+        // If host image copy is supported at all ...
+        if (vk::ImageHelper::FormatSupportsUsage(
+                renderer, actualImageFormat, imageType, imageTiling,
+                mImageUsageFlags | VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT, mImageCreateFlags,
+                &perfQuery))
+        {
+            // Only enable it if it has no performance impact whatsoever (or impact is tiny, given
+            // feature).
+            if (perfQuery.identicalMemoryLayout ||
+                (perfQuery.optimalDeviceAccess &&
+                 renderer->getFeatures().allowHostImageCopyDespiteNonIdenticalLayout.enabled))
+            {
+                mImageUsageFlags |= VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT;
+            }
+        }
     }
 
     ANGLE_TRY(mImage->initExternal(
@@ -3336,9 +3541,9 @@ angle::Result TextureVk::initImage(ContextVk *contextVk,
         flags |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
     }
 
-    ANGLE_TRY(mImage->initMemory(contextVk, mState.hasProtectedContent(),
-                                 renderer->getMemoryProperties(), flags,
-                                 vk::MemoryAllocationType::TextureImage));
+    ANGLE_TRY(contextVk->initImageAllocation(mImage, mState.hasProtectedContent(),
+                                             renderer->getMemoryProperties(), flags,
+                                             vk::MemoryAllocationType::TextureImage));
 
     const uint32_t viewLevelCount =
         mState.getImmutableFormat() ? getMipLevelCount(ImageMipLevels::EnabledLevels) : levelCount;
@@ -3418,7 +3623,7 @@ void TextureVk::releaseImageViews(ContextVk *contextVk)
 {
     RendererVk *renderer = contextVk->getRenderer();
 
-    mDescriptorSetCacheManager.releaseKeys(contextVk);
+    mDescriptorSetCacheManager.releaseKeys(renderer);
 
     if (mImage == nullptr)
     {
@@ -3473,7 +3678,6 @@ uint32_t TextureVk::getMipLevelCount(ImageMipLevels mipLevels) const
             return mState.getEnabledLevelCount();
         // Returns all mipmap levels from base to max regardless if an image has been specified or
         // not.
-        case ImageMipLevels::FullMipChain:
         case ImageMipLevels::FullMipChainForGenerateMipmap:
             return getMaxLevelCount() - mState.getEffectiveBaseLevel();
 

@@ -536,7 +536,7 @@ XSSProtectionDisposition parseXSSProtectionHeader(const String& header, String& 
 ContentTypeOptionsDisposition parseContentTypeOptionsHeader(StringView header)
 {
     StringView leftToken = header.left(header.find(','));
-    if (equalLettersIgnoringASCIICase(leftToken.trim(isHTTPSpace), "nosniff"_s))
+    if (equalLettersIgnoringASCIICase(leftToken.trim(isASCIIWhitespaceWithoutFF<UChar>), "nosniff"_s))
         return ContentTypeOptionsDisposition::Nosniff;
     return ContentTypeOptionsDisposition::None;
 }
@@ -595,7 +595,7 @@ OptionSet<ClearSiteDataValue> parseClearSiteDataHeader(const ResourceResponse& r
         return result;
 
     for (auto value : StringView(headerValue).split(',')) {
-        auto trimmedValue = value.trim(isHTTPSpace);
+        auto trimmedValue = value.trim(isASCIIWhitespaceWithoutFF<UChar>);
         if (trimmedValue == "\"cache\""_s)
             result.add(ClearSiteDataValue::Cache);
         else if (trimmedValue == "\"cookies\""_s)
@@ -625,7 +625,7 @@ bool parseRange(StringView range, RangeAllowWhitespace allowWhitespace, long lon
     if (!startsWithLettersIgnoringASCIICase(range, "bytes"_s))
         return false;
 
-    auto byteRange = range.substring(bytesLength).trim(isHTTPSpace);
+    auto byteRange = range.substring(bytesLength).trim(isASCIIWhitespaceWithoutFF<UChar>);
 
     if (!byteRange.startsWith('='))
         return false;
@@ -796,6 +796,21 @@ size_t parseHTTPRequestBody(const uint8_t* data, size_t length, Vector<uint8_t>&
     body.append(data, length);
 
     return length;
+}
+
+std::optional<uint64_t> parseContentLength(StringView contentLengthValue)
+{
+    // Based on https://www.rfc-editor.org/rfc/rfc9110#field.content-length, we allow ',' values if they are all the same.
+    std::optional<uint64_t> value;
+    for (auto token : contentLengthValue.split(',')) {
+        if (auto expectedContentLength = parseInteger<uint64_t>(token)) {
+            if (value && *value != *expectedContentLength)
+                return { };
+            value = expectedContentLength;
+        } else if (value)
+            return { };
+    }
+    return value;
 }
 
 // Implements <https://fetch.spec.whatwg.org/#forbidden-header-name>.
@@ -991,7 +1006,7 @@ bool isSafeMethod(const String& method)
 
 CrossOriginResourcePolicy parseCrossOriginResourcePolicyHeader(StringView header)
 {
-    auto trimmedHeader = header.trim(isHTTPSpace);
+    auto trimmedHeader = header.trim(isASCIIWhitespaceWithoutFF<UChar>);
 
     if (trimmedHeader.isEmpty())
         return CrossOriginResourcePolicy::None;

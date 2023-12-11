@@ -117,20 +117,12 @@ public:
     StrokeStyle strokeStyle() const { return m_state.strokeStyle(); }
     void setStrokeStyle(StrokeStyle style) { m_state.setStrokeStyle(style); didUpdateState(m_state); }
 
-    const DropShadow& dropShadow() const { return m_state.dropShadow(); }
-    FloatSize shadowOffset() const { return dropShadow().offset; }
-    float shadowBlur() const { return dropShadow().blurRadius; }
-    const Color& shadowColor() const { return dropShadow().color; }
-    void setDropShadow(const DropShadow& dropShadow) { m_state.setDropShadow(dropShadow); didUpdateState(m_state); }
-    void clearShadow() { setDropShadow({ }); }
-
-    // FIXME: Use dropShadow() and setDropShadow() instead of calling these functions.
-    WEBCORE_EXPORT bool getShadow(FloatSize&, float&, Color&) const;
-    void setShadow(const FloatSize& offset, float blurRadius, const Color& color, ShadowRadiusMode shadowRadiusMode = ShadowRadiusMode::Default) { setDropShadow({ offset, blurRadius, color, shadowRadiusMode }); }
-
-    bool hasVisibleShadow() const { return dropShadow().isVisible(); }
-    bool hasBlurredShadow() const { return dropShadow().isBlurred(); }
-    bool hasShadow() const { return dropShadow().hasOutsets(); }
+    std::optional<GraphicsDropShadow> dropShadow() const { return m_state.dropShadow(); }
+    void setDropShadow(const GraphicsDropShadow& dropShadow) { m_state.setStyle(dropShadow); didUpdateState(m_state); }
+    WEBCORE_EXPORT void clearShadow();
+    bool hasVisibleShadow() const;
+    bool hasBlurredShadow() const;
+    bool hasShadow() const;
 
     std::optional<GraphicsStyle> style() const { return m_state.style(); }
     void setStyle(const std::optional<GraphicsStyle>& style) { m_state.setStyle(style); didUpdateState(m_state); }
@@ -180,9 +172,12 @@ public:
     // to the platform context's state.
     virtual void didUpdateState(GraphicsContextState&) = 0;
 
-    WEBCORE_EXPORT virtual void save();
-    WEBCORE_EXPORT virtual void restore();
-    
+    WEBCORE_EXPORT virtual void save(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore);
+    WEBCORE_EXPORT virtual void restore(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore);
+
+    void unwindStateStack(unsigned count);
+    void unwindStateStack() { unwindStateStack(stackSize()); }
+
     unsigned stackSize() const { return m_stack.size(); }
 
 #if USE(CG)

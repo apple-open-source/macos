@@ -26,10 +26,17 @@
 #pragma once
 
 #include "WebCookieCache.h"
+#include <WebCore/CookieChangeListener.h>
 #include <WebCore/CookieJar.h>
+#include <optional>
+#include <wtf/CompletionHandler.h>
+#include <wtf/HashMap.h>
+#include <wtf/WeakHashSet.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 struct Cookie;
+struct CookieStoreGetOptions;
 }
 
 namespace WebKit {
@@ -48,8 +55,16 @@ public:
     void setRawCookie(const WebCore::Document&, const WebCore::Cookie&) final;
     void deleteCookie(const WebCore::Document&, const URL&, const String& cookieName, CompletionHandler<void()>&&) final;
 
-    void cookiesAdded(const String& host, const Vector<WebCore::Cookie>&);
-    void cookiesDeleted(const String& host, const Vector<WebCore::Cookie>&);
+    void getCookiesAsync(WebCore::Document&, const URL&, const WebCore::CookieStoreGetOptions&, CompletionHandler<void(std::optional<Vector<WebCore::Cookie>>&&)>&&) const final;
+    void setCookieAsync(WebCore::Document&, const URL&, const WebCore::Cookie&, CompletionHandler<void(bool)>&&) const final;
+
+#if HAVE(COOKIE_CHANGE_LISTENER_API)
+    void addChangeListener(const String& host, const WebCore::CookieChangeListener&) final;
+    void removeChangeListener(const String& host, const WebCore::CookieChangeListener&) final;
+#endif
+
+    void cookiesAdded(const String& host, Vector<WebCore::Cookie>&&);
+    void cookiesDeleted(const String& host, Vector<WebCore::Cookie>&&);
     void allCookiesDeleted();
 
     void clearCache() final;
@@ -61,6 +76,7 @@ private:
     bool isEligibleForCache(WebFrame&, const URL& firstPartyForCookies, const URL& resourceURL) const;
 
     mutable WebCookieCache m_cache;
+    HashMap<String, WeakHashSet<WebCore::CookieChangeListener>> m_changeListeners;
 };
 
 } // namespace WebKit

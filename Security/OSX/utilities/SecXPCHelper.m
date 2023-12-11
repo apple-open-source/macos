@@ -113,10 +113,14 @@
         return nil;
     }
 
-    NSMutableDictionary *mutableDictionary = [dict mutableCopy];
-    for (id key in mutableDictionary.allKeys) {
-        id object = mutableDictionary[key];
-        mutableDictionary[key] = [SecXPCHelper cleanObjectForXPC:object];
+    NSMutableDictionary *mutableDictionary = [NSMutableDictionary dictionary];
+    for (id key in dict.allKeys) {
+        id value = [SecXPCHelper cleanObjectForXPC:dict[key]];
+        id safeKey = [self cleanObjectForXPC:key];
+        if (safeKey == nil) {
+            continue;
+        }
+        mutableDictionary[safeKey] = value;
     }
     return mutableDictionary;
 }

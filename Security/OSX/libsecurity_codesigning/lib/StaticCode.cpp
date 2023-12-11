@@ -1125,21 +1125,6 @@ bool SecStaticCode::verifySignature()
 		SecTrustResultType trustResult = kSecTrustResultInvalid;
 		MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
 
-#if TARGET_OS_XR
-		// The two positive results we check for are kSecTrustResultUnspecified and kSecTrustResultProceed.
-		// kSecTrustResultUnspecified is a positive result that wasn't decided by the user.
-		// kSecTrustResultProceed is a positive result when decided by the user.
-		if (!(trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed)) {
-			// Trust evaluation failed, so try again with xrOS policy
-			CFRef<SecPolicyRef> xrOSRef = SecPolicyCreateAppleXROSApplicationSigning();
-
-			// We can re-use mTrust, because SecTrustSetPolicies function will invalidate the existing trust result,
-			// requiring a fresh evaluation for the newly-set policies
-			MacOSError::check(SecTrustSetPolicies(mTrust, xrOSRef));
-			MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
-		}
-#endif
-
 		// retrieve auxiliary data bag and verify against current state
 		CFRef<CFDataRef> hashBag;
 		hashBag = CFDataRef(CFDictionaryGetValue(attrs, kSecCMSHashAgility));

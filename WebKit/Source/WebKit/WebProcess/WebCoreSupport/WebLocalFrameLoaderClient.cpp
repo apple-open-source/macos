@@ -26,6 +26,9 @@
 #include "config.h"
 #include "WebLocalFrameLoaderClient.h"
 
+#include "APIInjectedBundleFormClient.h"
+#include "APIInjectedBundlePageLoaderClient.h"
+#include "APIInjectedBundlePageResourceLoadClient.h"
 #include "AuthenticationManager.h"
 #include "DataReference.h"
 #include "DrawingArea.h"
@@ -473,7 +476,7 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJSHistoryAPI
     NavigationActionData navigationActionData {
         WebCore::NavigationType::Other,
         { }, /* modifiers */
-        WebMouseEventButton::NoButton,
+        WebMouseEventButton::None,
         WebMouseEventSyntheticClickType::NoTap,
         WebProcess::singleton().userGestureTokenIdentifier(UserGestureIndicator::currentUserGesture()),
         UserGestureIndicator::currentUserGesture() ? UserGestureIndicator::currentUserGesture()->authorizationToken() : std::nullopt,
@@ -481,7 +484,7 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJSHistoryAPI
         WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow,
         { }, /* downloadAttribute */
         { }, /* clickLocationInRootViewCoordinates */
-        false, /* isRedirect */
+        { }, /* redirectResponse */
         true, /* treatAsSameOriginNavigation */
         false, /* hasOpenedFrames */
         false, /* openedByDOMWithOpener */
@@ -669,7 +672,7 @@ void WebLocalFrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceErr
 
     // Notify the UIProcess.
     auto* coreFrame = m_frame->coreLocalFrame();
-    webPage->send(Messages::WebPageProxy::DidFailProvisionalLoadForFrame(m_frame->frameID(), m_frame->info(), request, navigationID, coreFrame->loader().provisionalLoadErrorBeingHandledURL().string(), error, willContinueLoading, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()), willInternallyHandleFailure));
+    webPage->send(Messages::WebPageProxy::DidFailProvisionalLoadForFrame(m_frame->info(), request, navigationID, coreFrame->loader().provisionalLoadErrorBeingHandledURL().string(), error, willContinueLoading, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()), willInternallyHandleFailure));
 
     // If we have a load listener, notify it.
     if (WebFrame::LoadListener* loadListener = m_frame->loadListener())
@@ -777,7 +780,7 @@ void WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone(OptionSet<WebCor
 
     RefPtr<API::Object> userData;
 
-    if (milestones & DidFirstLayout) {
+    if (milestones & WebCore::LayoutMilestone::DidFirstLayout) {
         WebLocalFrameLoaderClient_RELEASE_LOG(Layout, "dispatchDidReachLayoutMilestone: dispatching DidFirstLayoutForFrame");
 
         // FIXME: We should consider removing the old didFirstLayout API since this is doing double duty with the
@@ -801,15 +804,14 @@ void WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone(OptionSet<WebCor
         }
     };
 
-    addIfSet(DidFirstLayout, "DidFirstLayout"_s);
-    addIfSet(DidFirstVisuallyNonEmptyLayout, "DidFirstVisuallyNonEmptyLayout"_s);
-    addIfSet(DidHitRelevantRepaintedObjectsAreaThreshold, "DidHitRelevantRepaintedObjectsAreaThreshold"_s);
-    addIfSet(DidFirstFlushForHeaderLayer, "DidFirstFlushForHeaderLayer"_s);
-    addIfSet(DidFirstLayoutAfterSuppressedIncrementalRendering, "DidFirstLayoutAfterSuppressedIncrementalRendering"_s);
-    addIfSet(DidFirstPaintAfterSuppressedIncrementalRendering, "DidFirstPaintAfterSuppressedIncrementalRendering"_s);
-    addIfSet(ReachedSessionRestorationRenderTreeSizeThreshold, "ReachedSessionRestorationRenderTreeSizeThreshold"_s);
-    addIfSet(DidRenderSignificantAmountOfText, "DidRenderSignificantAmountOfText"_s);
-    addIfSet(DidFirstMeaningfulPaint, "DidFirstMeaningfulPaint"_s);
+    addIfSet(WebCore::LayoutMilestone::DidFirstLayout, "DidFirstLayout"_s);
+    addIfSet(WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout, "DidFirstVisuallyNonEmptyLayout"_s);
+    addIfSet(WebCore::LayoutMilestone::DidHitRelevantRepaintedObjectsAreaThreshold, "DidHitRelevantRepaintedObjectsAreaThreshold"_s);
+    addIfSet(WebCore::LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering, "DidFirstLayoutAfterSuppressedIncrementalRendering"_s);
+    addIfSet(WebCore::LayoutMilestone::DidFirstPaintAfterSuppressedIncrementalRendering, "DidFirstPaintAfterSuppressedIncrementalRendering"_s);
+    addIfSet(WebCore::LayoutMilestone::ReachedSessionRestorationRenderTreeSizeThreshold, "ReachedSessionRestorationRenderTreeSizeThreshold"_s);
+    addIfSet(WebCore::LayoutMilestone::DidRenderSignificantAmountOfText, "DidRenderSignificantAmountOfText"_s);
+    addIfSet(WebCore::LayoutMilestone::DidFirstMeaningfulPaint, "DidFirstMeaningfulPaint"_s);
 
     WebLocalFrameLoaderClient_RELEASE_LOG(Layout, "dispatchDidReachLayoutMilestone: dispatching DidReachLayoutMilestone (milestones=%" PUBLIC_LOG_STRING ")", builder.toString().utf8().data());
 #endif
@@ -817,7 +819,7 @@ void WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone(OptionSet<WebCor
     // Send this after DidFirstLayout-specific calls since some clients expect to get those messages first.
     webPage->dispatchDidReachLayoutMilestone(milestones);
 
-    if (milestones & DidFirstVisuallyNonEmptyLayout) {
+    if (milestones & WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout) {
         ASSERT(!m_frame->isMainFrame() || webPage->corePage()->settings().suppressesIncrementalRendering() || m_didCompletePageTransition);
         // FIXME: We should consider removing the old didFirstVisuallyNonEmptyLayoutForFrame API since this is doing double duty with the new didLayout API.
         WebLocalFrameLoaderClient_RELEASE_LOG(Layout, "dispatchDidReachLayoutMilestone: dispatching DidFirstVisuallyNonEmptyLayoutForFrame");
@@ -917,14 +919,13 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForResponse(const ResourceRe
 
     auto protector = m_frame.copyRef();
     uint64_t listenerID = m_frame->setUpPolicyListener(identifier, WTFMove(function), WebFrame::ForNavigationAction::No);
-    if (!webPage->send(Messages::WebPageProxy::DecidePolicyForResponse(m_frame->frameID(), m_frame->info(), identifier, navigationID, response, request, canShowResponse, downloadAttribute, listenerID))) {
-        WebLocalFrameLoaderClient_RELEASE_LOG(Network, "dispatchDecidePolicyForResponse: ignoring because WebPageProxy::DecidePolicyForResponse failed");
-        m_frame->didReceivePolicyDecision(listenerID, PolicyDecision { identifier });
-    }
+
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::DecidePolicyForResponse(m_frame->info(), navigationID, response, request, canShowResponse, downloadAttribute), [frame = m_frame, listenerID, identifier] (PolicyDecision&& policyDecision) {
+        frame->didReceivePolicyDecision(listenerID, identifier, WTFMove(policyDecision));
+    });
 }
 
-void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const NavigationAction& navigationAction, const ResourceRequest& request,
-    FormState* formState, const String& frameName, WebCore::PolicyCheckIdentifier identifier, FramePolicyFunction&& function)
+void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const NavigationAction& navigationAction, const ResourceRequest& request, FormState* formState, const String& frameName, WebCore::PolicyCheckIdentifier identifier, FramePolicyFunction&& function)
 {
     auto* webPage = m_frame->page();
     if (!webPage) {
@@ -946,7 +947,7 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
         navigationAction.shouldOpenExternalURLsPolicy(),
         navigationAction.downloadAttribute(),
         mouseEventData ? mouseEventData->locationInRootViewCoordinates : FloatPoint(),
-        false, /* isRedirect */
+        { }, /* redirectResponse */
         false, /* treatAsSameOriginNavigation */
         false, /* hasOpenedFrames */
         false, /* openedByDOMWithOpener */
@@ -966,8 +967,9 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
 #endif
     };
 
-    webPage->send(Messages::WebPageProxy::DecidePolicyForNewWindowAction(m_frame->frameID(), m_frame->info(), identifier, navigationActionData, request,
-        frameName, listenerID));
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::DecidePolicyForNewWindowAction(m_frame->info(), navigationActionData, request, frameName), [frame = m_frame, listenerID, identifier] (PolicyDecision&& policyDecision) {
+        frame->didReceivePolicyDecision(listenerID, identifier, WTFMove(policyDecision));
+    });
 }
 
 void WebLocalFrameLoaderClient::applyToDocumentLoader(WebsitePoliciesData&& websitePolicies)
@@ -1041,9 +1043,7 @@ void WebLocalFrameLoaderClient::dispatchWillSubmitForm(FormState& formState, Com
     RefPtr<API::Object> userData;
     webPage->injectedBundleFormClient().willSubmitForm(webPage, &form, m_frame.ptr(), sourceFrame, values, userData);
 
-    auto listenerID = m_frame->setUpWillSubmitFormListener(WTFMove(completionHandler));
-
-    webPage->send(Messages::WebPageProxy::WillSubmitForm(m_frame->frameID(), sourceFrame->frameID(), values, listenerID, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::WillSubmitForm(m_frame->frameID(), sourceFrame->frameID(), values, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())), WTFMove(completionHandler));
 }
 
 void WebLocalFrameLoaderClient::revertToProvisionalState(DocumentLoader*)
@@ -1295,6 +1295,10 @@ ResourceError WebLocalFrameLoaderClient::httpsUpgradeRedirectLoopError(const Res
     return WebKit::httpsUpgradeRedirectLoopError(request);
 }
 
+ResourceError WebLocalFrameLoaderClient::httpNavigationWithHTTPSOnlyError(const ResourceRequest& request) const
+{
+    return WebKit::httpNavigationWithHTTPSOnlyError(request);
+}
 
 ResourceError WebLocalFrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse& response) const
 {
@@ -1890,6 +1894,11 @@ void WebLocalFrameLoaderClient::getLoadDecisionForIcons(const Vector<std::pair<W
 
     for (auto& icon : icons)
         webPage->send(Messages::WebPageProxy::GetLoadDecisionForIcon(icon.first, CallbackID::fromInteger(icon.second)));
+}
+
+void WebLocalFrameLoaderClient::broadcastFrameRemovalToOtherProcesses()
+{
+    WebFrameLoaderClient::broadcastFrameRemovalToOtherProcesses();
 }
 
 #if ENABLE(SERVICE_WORKER)

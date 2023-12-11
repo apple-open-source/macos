@@ -153,6 +153,8 @@ enum {NUM_RETRIES = 5};
             idmsTargetContext:(NSString*_Nullable)idmsTargetContext
        idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
                    notifyIdMS:(bool)notifyIdMS
+              internalAccount:(bool)internalAccount
+                  demoAccount:(bool)demoAccount
                         reply:(void (^)(NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -168,7 +170,14 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] resetWithSpecificUser:specificUser resetReason:reason idmsTargetContext:idmsTargetContext idmsCuttlefishPassword:idmsCuttlefishPassword notifyIdMS:notifyIdMS reply:reply];
+                }] resetWithSpecificUser:specificUser
+                             resetReason:reason
+                       idmsTargetContext:idmsTargetContext
+                  idmsCuttlefishPassword:idmsCuttlefishPassword
+                              notifyIdMS:notifyIdMS
+                         internalAccount:internalAccount
+                             demoAccount:demoAccount
+                                   reply:reply];
     } while (retry);
 }
 
@@ -391,6 +400,8 @@ enum {NUM_RETRIES = 5};
                    stableInfo:(NSData *)stableInfo
                 stableInfoSig:(NSData *)stableInfoSig
                      ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
+                       flowID:(NSString * _Nullable)flowID
+              deviceSessionID:(NSString * _Nullable)deviceSessionID
                         reply:(void (^)(NSData * _Nullable voucher,
                                         NSData * _Nullable voucherSig,
                                      NSError * _Nullable error))reply
@@ -408,7 +419,7 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] vouchWithSpecificUser:specificUser peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig ckksKeys:viewKeySets reply:reply];
+                }] vouchWithSpecificUser:specificUser peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig ckksKeys:viewKeySets flowID:flowID deviceSessionID:deviceSessionID reply:reply];
     } while (retry);
 }
 
@@ -576,6 +587,8 @@ enum {NUM_RETRIES = 5};
                     ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
                    tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
              preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
+                      flowID:(NSString * _Nullable)flowID
+             deviceSessionID:(NSString * _Nullable)deviceSessionID
                        reply:(void (^)(NSString * _Nullable peerID,
                                        NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                        TPSyncingPolicy* _Nullable syncingPolicy,
@@ -594,7 +607,7 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, error);
                     }
                     ++i;
-                }] joinWithSpecificUser:specificUser voucherData:voucherData voucherSig:voucherSig ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
+        }] joinWithSpecificUser:specificUser voucherData:voucherData voucherSig:voucherSig ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys flowID:flowID deviceSessionID:deviceSessionID reply:reply];
     } while (retry);
 }
 
@@ -1070,9 +1083,11 @@ enum {NUM_RETRIES = 5};
 }
 
 - (void)resetAccountCDPContentsWithSpecificUser:(TPSpecificUser*)specificUser
-idmsTargetContext:(NSString*_Nullable)idmsTargetContext
-idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
-notifyIdMS:(bool)notifyIdMS
+                              idmsTargetContext:(NSString*_Nullable)idmsTargetContext
+                         idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+                                     notifyIdMS:(bool)notifyIdMS
+                                internalAccount:(bool)internalAccount
+                                    demoAccount:(bool)demoAccount
                                           reply:(nonnull void (^)(NSError * _Nullable))reply
 {
     __block int i = 0;
@@ -1088,7 +1103,13 @@ notifyIdMS:(bool)notifyIdMS
                 reply(error);
             }
             ++i;
-        }] resetAccountCDPContentsWithSpecificUser:specificUser idmsTargetContext:idmsTargetContext idmsCuttlefishPassword:idmsCuttlefishPassword notifyIdMS:notifyIdMS reply:reply];
+        }] resetAccountCDPContentsWithSpecificUser:specificUser
+                                 idmsTargetContext:idmsTargetContext
+                            idmsCuttlefishPassword:idmsCuttlefishPassword
+                                        notifyIdMS:notifyIdMS
+                                   internalAccount:internalAccount
+                                       demoAccount:demoAccount
+                                             reply:reply];
     } while (retry);
 }
 

@@ -29,6 +29,7 @@
 #if USE(CA)
 
 #include "Animation.h"
+#include "DisplayList.h"
 #include "DisplayListRecorderImpl.h"
 #include "DisplayListReplayer.h"
 #include "FloatConversion.h"
@@ -38,7 +39,6 @@
 #include "GraphicsLayerFactory.h"
 #include "HTMLVideoElement.h"
 #include "Image.h"
-#include "InMemoryDisplayList.h"
 #include "Logging.h"
 #include "Model.h"
 #include "PlatformCAAnimationCocoa.h"
@@ -365,7 +365,7 @@ Ref<PlatformCAAnimation> GraphicsLayerCA::createPlatformCAAnimation(PlatformCAAn
     return PlatformCAAnimationCocoa::create(type, keyPath);
 }
 
-typedef HashMap<const GraphicsLayerCA*, std::pair<FloatRect, std::unique_ptr<DisplayList::InMemoryDisplayList>>> LayerDisplayListHashMap;
+typedef HashMap<const GraphicsLayerCA*, std::pair<FloatRect, std::unique_ptr<DisplayList::DisplayList>>> LayerDisplayListHashMap;
 
 static LayerDisplayListHashMap& layerDisplayListMap()
 {
@@ -1051,8 +1051,13 @@ static bool keyframeValueListHasSingleIntervalWithLinearOrEquivalentTimingFuncti
         return false;
 
     auto* timingFunction = valueList.at(0).timingFunction();
-    if (!timingFunction || is<LinearTimingFunction>(timingFunction))
+    if (!timingFunction)
         return true;
+
+    if (is<LinearTimingFunction>(timingFunction)) {
+        ASSERT(LinearTimingFunction::identity() == *timingFunction);
+        return true;
+    }
 
     return is<CubicBezierTimingFunction>(timingFunction) && downcast<CubicBezierTimingFunction>(*timingFunction).isLinear();
 }
@@ -1126,7 +1131,7 @@ void GraphicsLayerCA::pauseAnimation(const String& animationName, double timeOff
     }
 }
 
-void GraphicsLayerCA::removeAnimation(const String& animationName)
+void GraphicsLayerCA::removeAnimation(const String& animationName, std::optional<AnimatedProperty> property)
 {
     LOG_WITH_STREAM(Animations, stream << "GraphicsLayerCA " << this << " id " << primaryLayerID() << " removeAnimation " << animationName << " (is running " << animationIsRunning(animationName) << ")");
 
@@ -1134,6 +1139,10 @@ void GraphicsLayerCA::removeAnimation(const String& animationName)
         // There may be several animations with the same name in the case of transform animations
         // animating multiple components as individual animations.
         if (animation.m_name == animationName && !animation.m_pendingRemoval) {
+            // If a specific property is provided, we must check we only remove the animations
+            // for this specific property.
+            if (property && animation.m_property != *property)
+                continue;
             animation.m_pendingRemoval = true;
             noteLayerPropertyChanged(AnimationChanged | CoverageRectChanged);
         }
@@ -1870,7 +1879,7 @@ void GraphicsLayerCA::recursiveCommitChanges(CommitState& commitState, const Tra
     if (usesDisplayListDrawing() && m_drawsContent && (!m_hasEverPainted || hadDirtyRects)) {
         TraceScope tracingScope(DisplayListRecordStart, DisplayListRecordEnd);
 
-        m_displayList = makeUnique<DisplayList::InMemoryDisplayList>();
+        m_displayList = makeUnique<DisplayList::DisplayList>();
         
         FloatRect initialClip(boundsOrigin(), size());
 
@@ -1902,7 +1911,7 @@ void GraphicsLayerCA::platformCALayerPaintContents(PlatformCALayer*, GraphicsCon
         
         if (UNLIKELY(isTrackingDisplayListReplay())) {
             auto replayList = replayer.replay(clip, isTrackingDisplayListReplay()).trackedDisplayList;
-            layerDisplayListMap().add(this, std::pair<FloatRect, std::unique_ptr<DisplayList::InMemoryDisplayList>>(clip, WTFMove(replayList)));
+            layerDisplayListMap().add(this, std::pair<FloatRect, std::unique_ptr<DisplayList::DisplayList>>(clip, WTFMove(replayList)));
         } else
             replayer.replay(clip);
 
@@ -3559,7 +3568,7 @@ bool GraphicsLayerCA::createTransformAnimationsFromKeyframes(const KeyframeValue
     const auto& primitives = prefix.primitives();
     unsigned numberOfSharedPrimitives = valueList.size() > 1 ? primitives.size() : 0;
 
-    removeAnimation(animationName);
+    removeAnimation(animationName, valueList.property());
 
     for (unsigned animationIndex = 0; animationIndex < numberOfSharedPrimitives; ++animationIndex) {
         if (!appendToUncommittedAnimations(valueList, primitives[animationIndex], animation, animationName, boxSize, animationIndex, timeOffset, false /* isMatrixAnimation */, keyframesShouldUseAnimationWideTimingFunction))
@@ -3624,7 +3633,7 @@ bool GraphicsLayerCA::createFilterAnimationsFromKeyframes(const KeyframeValueLis
             return false;
     }
 
-    removeAnimation(animationName);
+    removeAnimation(animationName, valueList.property());
 
     for (int animationIndex = 0; animationIndex < numAnimations; ++animationIndex) {
         if (!appendToUncommittedAnimations(valueList, operations.operations().at(animationIndex).get(), animation, animationName, animationIndex, timeOffset, keyframesShouldUseAnimationWideTimingFunction))
@@ -3712,7 +3721,7 @@ const TimingFunction& GraphicsLayerCA::timingFunctionForAnimationValue(const Ani
         return *animValue.timingFunction();
     if (anim.defaultTimingFunctionForKeyframes())
         return *anim.defaultTimingFunctionForKeyframes();
-    return LinearTimingFunction::sharedLinearTimingFunction();
+    return LinearTimingFunction::identity();
 }
 
 bool GraphicsLayerCA::setAnimationEndpoints(const KeyframeValueList& valueList, const Animation* animation, PlatformCAAnimation* basicAnim)

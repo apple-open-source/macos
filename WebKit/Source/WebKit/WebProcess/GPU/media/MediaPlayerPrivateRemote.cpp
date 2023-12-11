@@ -569,7 +569,7 @@ void MediaPlayerPrivateRemote::prepareForRendering()
     connection().send(Messages::RemoteMediaPlayerProxy::PrepareForRendering(), m_id);
 }
 
-void MediaPlayerPrivateRemote::setPageIsVisible(bool visible, String&& sceneIdentifier)
+void MediaPlayerPrivateRemote::setPageIsVisible(bool visible)
 {
     if (m_pageIsVisible == visible)
         return;
@@ -577,7 +577,7 @@ void MediaPlayerPrivateRemote::setPageIsVisible(bool visible, String&& sceneIden
     ALWAYS_LOG(LOGIDENTIFIER, visible);
 
     m_pageIsVisible = visible;
-    connection().send(Messages::RemoteMediaPlayerProxy::SetPageIsVisible(visible, WTFMove(sceneIdentifier)), m_id);
+    connection().send(Messages::RemoteMediaPlayerProxy::SetPageIsVisible(visible), m_id);
 }
 
 void MediaPlayerPrivateRemote::setShouldMaintainAspectRatio(bool maintainRatio)
@@ -852,9 +852,9 @@ PlatformLayer* MediaPlayerPrivateRemote::platformLayer() const
 {
 #if PLATFORM(COCOA)
     if (!m_videoLayer && m_layerHostingContextID) {
-        auto expandedVideoInlineSize = expandedIntSize(videoInlineSize());
-        m_videoLayer = createVideoLayerRemote(const_cast<MediaPlayerPrivateRemote*>(this), m_layerHostingContextID, m_videoFullscreenGravity, expandedVideoInlineSize);
-        m_videoLayerManager->setVideoLayer(m_videoLayer.get(), expandedVideoInlineSize);
+        auto expandedVideoLayerSize = expandedIntSize(videoLayerSize());
+        m_videoLayer = createVideoLayerRemote(const_cast<MediaPlayerPrivateRemote*>(this), m_layerHostingContextID, m_videoFullscreenGravity, expandedVideoLayerSize);
+        m_videoLayerManager->setVideoLayer(m_videoLayer.get(), expandedVideoLayerSize);
     }
     return m_videoLayerManager->videoInlineLayer();
 #else

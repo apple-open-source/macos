@@ -31,6 +31,7 @@ class OctagonStateMachineTests: XCTestCase {
         enum State: String, CaseIterable {
             case base = "base"
             case receivedFlag = "received_flag"
+            case neverUsed = "never_used"
         }
 
         enum Flag: String, CaseIterable {
@@ -56,6 +57,8 @@ class OctagonStateMachineTests: XCTestCase {
                     return OctagonStateTransitionOperation(.base)
                 }
                 return nil
+            case .neverUsed:
+                return nil
             }
         }
     }
@@ -77,12 +80,20 @@ class OctagonStateMachineTests: XCTestCase {
         self.testEngine = TestEngine()
 
         self.stateMachineQueue = DispatchQueue(label: "test-state-machine")
+
+        let stateNumberMap: [String: NSNumber] = [
+            TestEngine.State.base.rawValue: 0,
+            TestEngine.State.receivedFlag.rawValue: 1,
+            TestEngine.State.neverUsed.rawValue: 2,
+        ]
+
         self.stateMachine = OctagonStateMachine(name: "test-machine",
-                                                states: Set(TestEngine.State.allCases.map { $0.rawValue as String }),
+                                                states: stateNumberMap,
                                                 flags: Set(TestEngine.Flag.allCases.map { $0.rawValue as String }),
                                                 initialState: TestEngine.State.base.rawValue,
                                                 queue: self.stateMachineQueue,
                                                 stateEngine: self.testEngine,
+                                                unexpectedStateErrorDomain: "test-state-machine-error-domain",
                                                 lockStateTracker: CKKSLockStateTracker(provider: self.lockStateProvider),
                                                 reachabilityTracker: self.reachabilityTracker)
     }
@@ -479,6 +490,147 @@ class OctagonStateMachineTests: XCTestCase {
             let error = completeWithErrorWatcher.result.error as NSError?
             XCTAssertEqual(error?.domain, "test", "domain should match")
             XCTAssertEqual(error?.code, 1, "Code should match")
+        }
+    }
+
+    func testStateTransitionWatcher() throws {
+        self.stateMachine.startOperation()
+
+        XCTAssertEqual(0, self.stateMachine.condition(.base).wait(1 * NSEC_PER_SEC), "Should enter base state")
+        XCTAssertTrue(self.stateMachine.isPaused(), "State machine should consider itself paused")
+        XCTAssertEqual(0, self.stateMachine.paused.wait(1 * NSEC_PER_SEC), "Paused condition should be fulfilled")
+
+        do {
+            let transitionOp = OctagonStateTransitionOperation(name: "dothing",
+                                                               entering: TestEngine.State.receivedFlag.rawValue)
+            let transitionRequest = OctagonStateTransitionRequest<OctagonStateTransitionOperation>("asdf",
+                                                                                                   sourceStates: Set([TestEngine.State.base.rawValue]),
+                                                                                                   serialQueue: self.stateMachineQueue,
+                                                                                                   timeout: 10 * NSEC_PER_SEC,
+                                                                                                   transitionOp: transitionOp)
+
+            let pathDictionary: [String: Any] = [
+                TestEngine.State.receivedFlag.rawValue: [
+                    TestEngine.State.base.rawValue: OctagonStateTransitionPathStep.success(),
+                ],
+            ]
+            let successWatcher = OctagonStateTransitionWatcher(named: "success",
+                                                               stateMachine: self.stateMachine,
+                                                               path: OctagonStateTransitionPath(from: pathDictionary)!,
+                                                               initialRequest: transitionRequest as? OctagonStateTransitionRequest<any CKKSResultOperation & OctagonStateTransitionOperationProtocol>)
+
+            self.stateMachine.register(successWatcher)
+            self.stateMachine.handleExternalRequest(transitionRequest as! OctagonStateTransitionRequest<any CKKSResultOperation & OctagonStateTransitionOperationProtocol>)
+
+            XCTAssertEqual(0, self.stateMachine.condition(.receivedFlag).wait(10 * NSEC_PER_SEC), "Should enter 'received flag' state")
+            XCTAssertTrue(self.stateMachine.isPaused(), "State machine should consider itself paused")
+            XCTAssertEqual(0, self.stateMachine.paused.wait(1 * NSEC_PER_SEC), "Paused condition should be fulfilled")
+
+            XCTAssertFalse(successWatcher.result.isFinished, "successWatcher should not yet have completed")
+
+            self.stateMachine.handle(flag: .returnToBase)
+
+            XCTAssertEqual(0, self.stateMachine.condition(.base).wait(1 * NSEC_PER_SEC), "Should enter base state")
+            XCTAssertTrue(self.stateMachine.isPaused(), "State machine should consider itself paused")
+            XCTAssertEqual(0, self.stateMachine.paused.wait(1 * NSEC_PER_SEC), "Paused condition should be fulfilled")
+
+            successWatcher.result.waitUntilFinished()
+            XCTAssertTrue(successWatcher.result.isFinished, "successWatcher should have completed")
+            XCTAssertNil(successWatcher.result.error, "Should have no error when expecting success")
+        }
+
+        // And again, for the failure case
+        do {
+            let transitionOp = OctagonStateTransitionOperation(name: "dothing",
+                                                               entering: TestEngine.State.receivedFlag.rawValue)
+            let transitionRequest = OctagonStateTransitionRequest<OctagonStateTransitionOperation>("asdf",
+                                                                                                   sourceStates: Set([TestEngine.State.base.rawValue]),
+                                                                                                   serialQueue: self.stateMachineQueue,
+                                                                                                   timeout: 10 * NSEC_PER_SEC,
+                                                                                                   transitionOp: transitionOp)
+
+            let pathDictionary: [String: Any] = [
+                TestEngine.State.receivedFlag.rawValue: [
+                    TestEngine.State.neverUsed.rawValue: OctagonStateTransitionPathStep.success(),
+                ],
+            ]
+            let failureWatcher = OctagonStateTransitionWatcher(named: "failure-watcher",
+                                                               stateMachine: self.stateMachine,
+                                                               path: OctagonStateTransitionPath(from: pathDictionary)!,
+                                                               initialRequest: transitionRequest as? OctagonStateTransitionRequest<any CKKSResultOperation & OctagonStateTransitionOperationProtocol>)
+            self.stateMachine.register(failureWatcher)
+            self.stateMachine.handleExternalRequest(transitionRequest as! OctagonStateTransitionRequest<any CKKSResultOperation & OctagonStateTransitionOperationProtocol>)
+
+            XCTAssertEqual(0, self.stateMachine.condition(.receivedFlag).wait(10 * NSEC_PER_SEC), "Should enter 'received flag' state")
+            XCTAssertTrue(self.stateMachine.isPaused(), "State machine should consider itself paused")
+            XCTAssertEqual(0, self.stateMachine.paused.wait(1 * NSEC_PER_SEC), "Paused condition should be fulfilled")
+
+            XCTAssertFalse(failureWatcher.result.isFinished, "failureWatcher should not yet have completed")
+
+            self.stateMachine.handle(flag: .returnToBase)
+
+            XCTAssertEqual(0, self.stateMachine.condition(.base).wait(1 * NSEC_PER_SEC), "Should enter base state")
+            XCTAssertTrue(self.stateMachine.isPaused(), "State machine should consider itself paused")
+            XCTAssertEqual(0, self.stateMachine.paused.wait(1 * NSEC_PER_SEC), "Paused condition should be fulfilled")
+
+            failureWatcher.result.waitUntilFinished()
+            XCTAssertTrue(failureWatcher.result.isFinished, "failureWatcher should have completed")
+            XCTAssertNotNil(failureWatcher.result.error, "Should have an error when expecting failure")
+
+            let error = try XCTUnwrap(failureWatcher.result.error as? NSError)
+            XCTAssertEqual(error.domain, OctagonErrorDomain, "Should be an Octagon error")
+            XCTAssertEqual(error.code, OctagonError.unexpectedStateTransition.rawValue, "Should be unexpectedStateTransition")
+
+            let underlyingError: NSError = try XCTUnwrap(error.userInfo[NSUnderlyingErrorKey] as? NSError)
+            XCTAssertEqual(underlyingError.domain, "test-state-machine-error-domain", "Should be custom-set domain")
+            XCTAssertEqual(underlyingError.code, 0, "Should be the code set for state 'base'")
+        }
+
+        // And again, for the failure case of a halted state machine
+        do {
+            let transitionOp = OctagonStateTransitionOperation(name: "dothing",
+                                                               entering: TestEngine.State.receivedFlag.rawValue)
+            let transitionRequest = OctagonStateTransitionRequest<OctagonStateTransitionOperation>("asdf",
+                                                                                                   sourceStates: Set([TestEngine.State.base.rawValue]),
+                                                                                                   serialQueue: self.stateMachineQueue,
+                                                                                                   timeout: 10 * NSEC_PER_SEC,
+                                                                                                   transitionOp: transitionOp)
+
+            let pathDictionary: [String: Any] = [
+                TestEngine.State.receivedFlag.rawValue: [
+                    TestEngine.State.base.rawValue: OctagonStateTransitionPathStep.success(),
+                ],
+            ]
+            let failureWatcher = OctagonStateTransitionWatcher(named: "failure-watcher",
+                                                               stateMachine: self.stateMachine,
+                                                               path: OctagonStateTransitionPath(from: pathDictionary)!,
+                                                               initialRequest: transitionRequest as? OctagonStateTransitionRequest<any CKKSResultOperation & OctagonStateTransitionOperationProtocol>)
+            self.stateMachine.register(failureWatcher)
+            self.stateMachine.handleExternalRequest(transitionRequest as! OctagonStateTransitionRequest<any CKKSResultOperation & OctagonStateTransitionOperationProtocol>)
+
+            XCTAssertEqual(0, self.stateMachine.condition(.receivedFlag).wait(10 * NSEC_PER_SEC), "Should enter 'received flag' state")
+            XCTAssertTrue(self.stateMachine.isPaused(), "State machine should consider itself paused")
+            XCTAssertEqual(0, self.stateMachine.paused.wait(1 * NSEC_PER_SEC), "Paused condition should be fulfilled")
+
+            XCTAssertFalse(failureWatcher.result.isFinished, "failureWatcher should not yet have completed")
+
+            self.stateMachine.haltOperation()
+
+            XCTAssertEqual(0, self.stateMachine.stateConditions[OctagonStateMachineHalted]!.wait(1 * NSEC_PER_SEC), "Should halt")
+            XCTAssertTrue(self.stateMachine.isPaused(), "State machine should consider itself paused")
+            XCTAssertEqual(0, self.stateMachine.paused.wait(1 * NSEC_PER_SEC), "Paused condition should be fulfilled")
+
+            failureWatcher.result.waitUntilFinished()
+            XCTAssertTrue(failureWatcher.result.isFinished, "failureWatcher should have completed")
+            XCTAssertNotNil(failureWatcher.result.error, "Should have an error when expecting failure")
+
+            let error = try XCTUnwrap(failureWatcher.result.error as? NSError)
+            XCTAssertEqual(error.domain, OctagonErrorDomain, "Should be an Octagon error")
+            XCTAssertEqual(error.code, OctagonError.unexpectedStateTransition.rawValue, "Should be unexpectedStateTransition")
+
+            let underlyingError: NSError = try XCTUnwrap(error.userInfo[NSUnderlyingErrorKey] as? NSError)
+            XCTAssertEqual(underlyingError.domain, "test-state-machine-error-domain", "Should be custom-set domain")
+            XCTAssertEqual(underlyingError.code, -2, "Should be the code set for state 'halted'")
         }
     }
 }

@@ -93,6 +93,9 @@ havePrivacyAccounting(void);
 
 #endif /* _HAVE_PRIVACY_ACCOUNTING */
 
+void
+ALT_CFRelease(CFTypeRef cf);
+
 __END_DECLS
 
 #endif	/* !_S_CONFIGD_H */

@@ -9,6 +9,10 @@
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/ot/OTDefines.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 @implementation CKKSCreateCKZoneOperation
 @synthesize nextState = _nextState;
 @synthesize intendedState = _intendedState;
@@ -54,6 +58,12 @@
         return;
     }
 
+    AAFAnalyticsEventSecurity *zoneCreationEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumViews: @(zonesNeedingCreation.count)}
+                                                                                                             altDSID:self.deps.activeAccount.altDSID
+                                                                                                           eventName:kSecurityRTCEventNameZoneCreation
+                                                                                                     testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                            category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
     ckksnotice_global("ckkszone", "Asking to create and subscribe to CloudKit zones: %@", zonesNeedingCreation);
     [self.deps.overallLaunch addEvent:@"zone-create"];
 
@@ -79,7 +89,7 @@
                 }
 
                 if(zone == nil) {
-                    // We weren't intending to modify this zone. Skip with predjudice!
+                    // We weren't intending to modify this zone. Skip with prejudice!
                     continue;
                 }
 
@@ -165,7 +175,10 @@
                 // Go into 'zonecreationfailed'
                 self.nextState = CKKSStateZoneCreationFailed;
                 self.error = zoneOps.zoneModificationOperation.error ?: zoneOps.zoneSubscriptionOperation.error;
+
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:zoneCreationEventS success:NO error:self.error];
             } else {
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:zoneCreationEventS success:YES error:nil];
                 self.nextState = self.intendedState;
             }
 

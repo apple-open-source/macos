@@ -28,6 +28,7 @@
 #include "APIUserInitiatedAction.h"
 #include "AuxiliaryProcessProxy.h"
 #include "BackgroundProcessResponsivenessTimer.h"
+#include "GPUProcessPreferencesForWebProcess.h"
 #include "MessageReceiverMap.h"
 #include "NetworkProcessProxy.h"
 #include "ProcessLauncher.h"
@@ -172,6 +173,10 @@ public:
 
     WebProcessPool* processPoolIfExists() const;
     WebProcessPool& processPool() const;
+
+#if ENABLE(GPU_PROCESS)
+    const std::optional<GPUProcessPreferencesForWebProcess>& preferencesForGPUProcess() const { return m_preferencesForGPUProcess; }
+#endif
 
     bool isMatchingRegistrableDomain(const WebCore::RegistrableDomain& domain) const { return m_registrableDomain ? *m_registrableDomain == domain : false; }
     WebCore::RegistrableDomain registrableDomain() const { return valueOrDefault(m_registrableDomain); }
@@ -392,6 +397,8 @@ public:
     void sendAudioComponentRegistrations();
 #endif
 
+    bool hasSameGPUProcessPreferencesAs(const API::PageConfiguration&) const;
+
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
     void enableRemoteInspectorIfNeeded();
 #endif
@@ -430,10 +437,6 @@ public:
 #if PLATFORM(COCOA)
     bool hasNetworkExtensionSandboxAccess() const { return m_hasNetworkExtensionSandboxAccess; }
     void markHasNetworkExtensionSandboxAccess() { m_hasNetworkExtensionSandboxAccess = true; }
-#endif
-#if (PLATFORM(IOS) || PLATFORM(VISION)) && !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-    bool hasManagedSessionSandboxAccess() const { return m_hasManagedSessionSandboxAccess; }
-    void markHasManagedSessionSandboxAccess() { m_hasManagedSessionSandboxAccess = true; }
 #endif
 
 #if ENABLE(ROUTING_ARBITRATION)
@@ -537,6 +540,8 @@ private:
     static WebPageProxyMap& globalPageMap();
     static Vector<RefPtr<WebPageProxy>> globalPages();
 
+    void initializePreferencesForGPUProcess(const WebPageProxy&);
+
     void reportProcessDisassociatedWithPageIfNecessary(WebPageProxyIdentifier);
     bool isAssociatedWithPage(WebPageProxyIdentifier) const;
 
@@ -547,8 +552,8 @@ private:
     void updateBackForwardItem(const BackForwardListItemState&);
     void didDestroyFrame(WebCore::FrameIdentifier, WebPageProxyIdentifier);
     void didDestroyUserGestureToken(uint64_t);
-    void postMessageToRemote(WebCore::ProcessIdentifier, WebCore::FrameIdentifier, std::optional<WebCore::SecurityOriginData>, const WebCore::MessageWithMessagePorts&);
-    void renderTreeAsText(WebCore::ProcessIdentifier, WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String)>&&);
+    void postMessageToRemote(WebCore::FrameIdentifier, std::optional<WebCore::SecurityOriginData>, const WebCore::MessageWithMessagePorts&);
+    void renderTreeAsText(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String)>&&);
 
     bool canBeAddedToWebProcessCache() const;
     void shouldTerminate(CompletionHandler<void(bool)>&&);
@@ -569,9 +574,6 @@ private:
     void updateBackgroundResponsivenessTimer();
 
     void updateBlobRegistryPartitioningState() const;
-
-    void updateWebGPUEnabledStateInGPUProcess();
-    void updateDOMRenderingStateInGPUProcess();
 
     void processDidTerminateOrFailedToLaunch(ProcessTerminationReason);
 
@@ -718,9 +720,6 @@ private:
 #if PLATFORM(COCOA)
     bool m_hasNetworkExtensionSandboxAccess { false };
 #endif
-#if (PLATFORM(IOS) || PLATFORM(VISION)) && !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-    bool m_hasManagedSessionSandboxAccess { false };
-#endif
 
 #if ENABLE(WEBCONTENT_CRASH_TESTING)
     bool m_isWebContentCrashyProcess { false };
@@ -777,6 +776,9 @@ private:
     bool m_platformSuspendDidReleaseNearSuspendedAssertion { false };
 #endif
     mutable String m_environmentIdentifier;
+#if ENABLE(GPU_PROCESS)
+    mutable std::optional<GPUProcessPreferencesForWebProcess> m_preferencesForGPUProcess;
+#endif
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, const WebProcessProxy&);

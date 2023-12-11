@@ -31,7 +31,7 @@
 #import "RemoteLayerTreePropertyApplier.h"
 #import "RemoteLayerTreeTransaction.h"
 #import "ShareableBitmap.h"
-#import "VideoFullscreenManagerProxy.h"
+#import "VideoPresentationManagerProxy.h"
 #import "WKAnimationDelegate.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
@@ -152,7 +152,7 @@ bool RemoteLayerTreeHost::updateLayerTree(const RemoteLayerTreeTransaction& tran
 
     auto layerContentsType = this->layerContentsType();
     for (auto& [layerID, propertiesPointer] : transaction.changedLayerProperties()) {
-        const RemoteLayerTreeTransaction::LayerProperties& properties = *propertiesPointer;
+        const auto& properties = *propertiesPointer;
 
         auto* node = nodeForID(layerID);
         ASSERT(node);
@@ -175,7 +175,7 @@ bool RemoteLayerTreeHost::updateLayerTree(const RemoteLayerTreeTransaction& tran
 
     for (auto& changedLayer : transaction.changedLayerProperties()) {
         auto layerID = changedLayer.key;
-        const RemoteLayerTreeTransaction::LayerProperties& properties = *changedLayer.value;
+        const auto& properties = *changedLayer.value;
 
         auto* node = nodeForID(layerID);
         ASSERT(node);
@@ -254,7 +254,7 @@ void RemoteLayerTreeHost::layerWillBeRemoved(WebCore::PlatformLayerIdentifier la
 #if HAVE(AVKIT)
     auto videoLayerIter = m_videoLayers.find(layerID);
     if (videoLayerIter != m_videoLayers.end()) {
-        if (auto videoManager = m_drawingArea->page().videoFullscreenManager())
+        if (auto videoManager = m_drawingArea->page().videoPresentationManager())
             videoManager->willRemoveLayerForID(videoLayerIter->value);
         m_videoLayers.remove(videoLayerIter);
     }
@@ -347,7 +347,6 @@ void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCre
 
     auto node = makeNode(properties);
 
-#if HAVE(CALAYER_USES_WEBKIT_BEHAVIOR)
     if (css3DTransformInteroperabilityEnabled() && [node->layer() respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
         [node->layer() setUsesWebKitBehavior:YES];
         if ([node->layer() isKindOfClass:[CATransformLayer class]])
@@ -355,11 +354,10 @@ void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCre
         else
             [node->layer() setSortsSublayers:NO];
     }
-#endif
 
-    if (properties.hostIdentifier) {
-        m_hostingLayers.set(*properties.hostIdentifier, properties.layerID);
-        if (auto* hostedNode = nodeForID(m_hostedLayers.get(*properties.hostIdentifier)))
+    if (auto* hostIdentifier = std::get_if<WebCore::LayerHostingContextIdentifier>(&properties.additionalData)) {
+        m_hostingLayers.set(*hostIdentifier, properties.layerID);
+        if (auto* hostedNode = nodeForID(m_hostedLayers.get(*hostIdentifier)))
             [node->layer() addSublayer:hostedNode->layer()];
     }
 
@@ -370,7 +368,7 @@ void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCre
 std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeTransaction::LayerCreationProperties& properties)
 {
     auto makeWithLayer = [&] (RetainPtr<CALayer>&& layer) {
-        return makeUnique<RemoteLayerTreeNode>(properties.layerID, properties.hostIdentifier, WTFMove(layer));
+        return makeUnique<RemoteLayerTreeNode>(properties.layerID, properties.hostIdentifier(), WTFMove(layer));
     };
 
     switch (properties.type) {
@@ -410,15 +408,15 @@ std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteL
             return RemoteLayerTreeNode::createWithPlainLayer(properties.layerID);
 
 #if HAVE(AVKIT)
-        if (properties.playerIdentifier && properties.initialSize && properties.naturalSize) {
-            if (auto videoManager = m_drawingArea->page().videoFullscreenManager()) {
-                m_videoLayers.add(properties.layerID, *properties.playerIdentifier);
-                return makeWithLayer(videoManager->createLayerWithID(*properties.playerIdentifier, properties.hostingContextID, *properties.initialSize, *properties.naturalSize, properties.hostingDeviceScaleFactor));
+        if (properties.videoElementData) {
+            if (auto videoManager = m_drawingArea->page().videoPresentationManager()) {
+                m_videoLayers.add(properties.layerID, properties.videoElementData->playerIdentifier);
+                return makeWithLayer(videoManager->createLayerWithID(properties.videoElementData->playerIdentifier, properties.hostingContextID(), properties.videoElementData->initialSize, properties.videoElementData->naturalSize, properties.hostingDeviceScaleFactor()));
             }
         }
 #endif
 
-        return makeWithLayer([CALayer _web_renderLayerWithContextID:properties.hostingContextID shouldPreserveFlip:properties.preservesFlip]);
+        return makeWithLayer([CALayer _web_renderLayerWithContextID:properties.hostingContextID() shouldPreserveFlip:properties.preservesFlip()]);
 
     case PlatformCALayer::LayerTypeShapeLayer:
         return makeWithLayer(adoptNS([[CAShapeLayer alloc] init]));

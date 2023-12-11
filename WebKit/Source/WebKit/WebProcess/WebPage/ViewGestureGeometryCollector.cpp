@@ -83,7 +83,11 @@ void ViewGestureGeometryCollector::dispatchDidCollectGeometryForSmartMagnificati
 
 void ViewGestureGeometryCollector::collectGeometryForSmartMagnificationGesture(FloatPoint origin)
 {
-    FloatRect visibleContentRect = m_webPage.mainFrameView()->unobscuredContentRectIncludingScrollbars();
+    RefPtr frameView = m_webPage.localMainFrameView();
+    if (!frameView)
+        return;
+
+    FloatRect visibleContentRect = frameView->unobscuredContentRectIncludingScrollbars();
 
     if (m_webPage.handlesPageScaleGesture())
         return;
@@ -114,12 +118,12 @@ void ViewGestureGeometryCollector::collectGeometryForSmartMagnificationGesture(F
     }
 #endif // PLATFORM(IOS_FAMILY)
 
-    IntPoint originInContentsSpace = m_webPage.mainFrameView()->windowToContents(roundedIntPoint(origin));
+    IntPoint originInContentsSpace = frameView->windowToContents(roundedIntPoint(origin));
     HitTestResult hitTestResult = HitTestResult(originInContentsSpace);
 
     if (auto* mainFrame = dynamicDowncast<WebCore::LocalFrame>(m_webPage.mainFrame()))
         mainFrame->document()->hitTest(HitTestRequest(), hitTestResult);
-    Node* node = hitTestResult.innerNode();
+    RefPtr node = hitTestResult.innerNode();
     if (!node) {
         dispatchDidCollectGeometryForSmartMagnificationGesture(FloatPoint(), FloatRect(), FloatRect(), false, 0, 0);
         return;
@@ -152,16 +156,16 @@ std::optional<std::pair<double, double>> ViewGestureGeometryCollector::computeTe
     if (m_cachedTextLegibilityScales)
         return m_cachedTextLegibilityScales;
 
-    auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(m_webPage.mainFrame());
+    RefPtr localMainFrame = dynamicDowncast<WebCore::LocalFrame>(m_webPage.mainFrame());
     if (!localMainFrame)
         return std::nullopt;
     RefPtr document = localMainFrame->document();
     if (!document)
         return std::nullopt;
 
-    document->updateLayoutIgnorePendingStylesheets();
+    document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
-    HashSet<Node*> allTextNodes;
+    HashSet<Ref<Node>> allTextNodes;
     HashMap<unsigned, unsigned> fontSizeToCountMap;
     unsigned numberOfIterations = 0;
     unsigned totalSampledTextLength = 0;
@@ -175,10 +179,10 @@ std::optional<std::pair<double, double>> ViewGestureGeometryCollector::computeTe
 
         auto& textNode = downcast<Text>(*documentTextIterator.node());
         auto textLength = textNode.length();
-        if (!textLength || !textNode.renderer() || allTextNodes.contains(&textNode))
+        if (!textLength || !textNode.renderer() || allTextNodes.contains(textNode))
             continue;
 
-        allTextNodes.add(&textNode);
+        allTextNodes.add(textNode);
 
         unsigned fontSizeBin = fontSizeBinningInterval * round(textNode.renderer()->style().fontCascade().size() / fontSizeBinningInterval);
         auto entry = fontSizeToCountMap.find(fontSizeBin);
@@ -251,7 +255,11 @@ void ViewGestureGeometryCollector::computeMinimumAndMaximumViewportScales(double
 #if !PLATFORM(IOS_FAMILY)
 void ViewGestureGeometryCollector::collectGeometryForMagnificationGesture()
 {
-    FloatRect visibleContentRect = m_webPage.mainFrameView()->unobscuredContentRectIncludingScrollbars();
+    RefPtr frameView = m_webPage.localMainFrameView();
+    if (!frameView)
+        return;
+
+    FloatRect visibleContentRect = frameView->unobscuredContentRectIncludingScrollbars();
     bool frameHandlesMagnificationGesture = m_webPage.handlesPageScaleGesture();
     m_webPage.send(Messages::ViewGestureController::DidCollectGeometryForMagnificationGesture(visibleContentRect, frameHandlesMagnificationGesture));
 }

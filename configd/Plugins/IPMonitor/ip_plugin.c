@@ -137,7 +137,6 @@
 #include "smb-configuration.h"
 #endif	/* !TARGET_OS_IPHONE */
 
-#define kLoopbackInterface	"lo0"
 #define EROUTENOTAPPLIED	1001
 
 typedef uint8_t		ProtocolFlags;
@@ -151,8 +150,6 @@ typedef uint8_t		ProtocolFlags;
 #define    kDebugFlag8		0x00000008
 #define    kDebugFlagDefault	kDebugFlag1
 #define    kDebugFlagAll	0xffffffff
-
-typedef unsigned int	IFIndex;	/* interface index */
 
 static dispatch_queue_t		__network_change_queue(void);
 
@@ -173,195 +170,21 @@ __log_IPMonitor(void)
     return log;
 }
 
-#pragma mark -
-#pragma mark interface index
 
 
 #ifndef TEST_ROUTELIST
 
 #define ROUTELIST_DEBUG(flag, fmt, ...)
 
-static struct if_nameindex *	S_if_nameindex_cache;
-
-static dispatch_queue_t
-__my_if_nametoindex_queue(void)
-{
-    static dispatch_once_t	once;
-    static dispatch_queue_t	q;
-
-    dispatch_once(&once, ^{
-	q = dispatch_queue_create("my_if_nametoindex queue", NULL);
-    });
-
-    return q;
-}
-
-__private_extern__ IFIndex
-my_if_nametoindex(const char * ifname)
-{
-    __block IFIndex	idx = 0;
-
-    dispatch_sync(__my_if_nametoindex_queue(), ^{
-	struct if_nameindex *	scan;
-
-	if (S_if_nameindex_cache == NULL) {
-	    idx = if_nametoindex(ifname);
-	    return;
-	}
-	for (scan = S_if_nameindex_cache;
-	     scan->if_index != 0 && scan->if_name != NULL;
-	     scan++) {
-	    if (strcmp(scan->if_name, ifname) == 0) {
-		idx = scan->if_index;
-		break;
-	    }
-	}
-    });
-
-    return (idx);
-}
-
-__private_extern__ const char *
-my_if_indextoname(IFIndex idx, char if_name[IFNAMSIZ])
-{
-    __block const char *	name = NULL;
-
-    dispatch_sync(__my_if_nametoindex_queue(), ^{
-	struct if_nameindex *	scan;
-
-	if (S_if_nameindex_cache == NULL) {
-	    name = if_indextoname(idx, if_name);
-	    return;
-	}
-	for (scan = S_if_nameindex_cache;
-	     scan->if_index != 0 && scan->if_name != NULL;
-	     scan++) {
-	    if (scan->if_index == idx) {
-		name = if_name;
-		strlcpy(if_name, scan->if_name, IFNAMSIZ);
-		break;
-	    }
-	}
-    });
-
-    return (name);
-}
-
-static void
-my_if_freenameindex(void)
-{
-    dispatch_sync(__my_if_nametoindex_queue(), ^{
-	if (S_if_nameindex_cache != NULL) {
-	    if_freenameindex(S_if_nameindex_cache);
-	    S_if_nameindex_cache = NULL;
-	}
-    });
-
-    return;
-}
-
-static void
-my_if_nameindex(void)
-{
-    my_if_freenameindex();
-    dispatch_sync(__my_if_nametoindex_queue(), ^{
-	S_if_nameindex_cache = if_nameindex();
-    });
-
-    return;
-}
-
-
 #else /* TEST_ROUTELIST */
 
-#define ROUTELIST_DEBUG(flags, format, ...)	{ if (((S_IPMonitor_debug & (flags)) != 0)) printf((format), ## __VA_ARGS__ ); }
-
-
-static const char * * 	list;
-static int		list_count;
-static int		list_size;
-
-__private_extern__ IFIndex
-my_if_nametoindex(const char * ifname)
-{
-    IFIndex		ret;
-
-    if (list == NULL) {
-	list_size = 4;
-	list_count = 2;
-	list = (const char * *)malloc(sizeof(*list) * list_size);
-	list[0] = strdup("");
-	list[1] = strdup(kLoopbackInterface);
+#define ROUTELIST_DEBUG(flags, format, ...)			  \
+    {								  \
+	if (((S_IPMonitor_debug & (flags)) != 0)) {		  \
+	    printf((format), ## __VA_ARGS__ );			  \
+	}							  \
     }
-    else {
-	int	i;
-
-	for (i = 1; i < list_count; i++) {
-	    if (strcmp(list[i], ifname) == 0) {
-		ret = i;
-		goto done;
-	    }
-	}
-    }
-    if (list_count == list_size) {
-	list_size += 2;
-	list = (const char * *)realloc(list, sizeof(*list) * list_size);
-    }
-    list[list_count] = strdup(ifname);
-    ret = list_count;
-    list_count++;
- done:
-    return (ret);
-}
-
-__private_extern__ const char *
-my_if_indextoname(IFIndex idx, char if_name[IFNAMSIZ])
-{
-    const char *	name = NULL;
-
-    if (idx < list_count) {
-	name = if_name;
-	strlcpy(if_name, list[idx], IFNAMSIZ);
-    }
-    return (name);
-}
-
-static void
-my_if_nameindex(void)
-{
-}
-
-static void
-my_if_freenameindex(void)
-{
-}
-
 #endif /* TEST_ROUTELIST */
-
-static const char *
-my_if_indextoname2(IFIndex ifindex, char ifname[IFNAMSIZ])
-{
-    if (ifindex == 0) {
-	return (NULL);
-    }
-    if (my_if_indextoname(ifindex, ifname) == NULL) {
-	snprintf(ifname, IFNAMSIZ, "[%d]", ifindex);
-    }
-    return (ifname);
-}
-
-
-static IFIndex
-lo0_ifindex(void)
-{
-    static IFIndex		idx;
-
-    if (idx == 0) {
-	idx = my_if_nametoindex(kLoopbackInterface);
-    }
-    return (idx);
-}
-
 
 #pragma mark -
 
@@ -506,7 +329,9 @@ typedef union {
 typedef struct Candidate {
     CFStringRef			serviceID;
     CFStringRef			if_name;
-    CFStringRef			effective_if_name;
+    char			ifname[IFNAMSIZ];
+    IFIndex			ifindex;
+    IFIndex			effective_ifindex;
     Rank			rank;
     boolean_t			ip_is_independent;
     boolean_t			ip_is_coupled;
@@ -765,63 +590,6 @@ get_af_entity(int af)
 {
     return (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
 }
-
-#if defined(NEED_EFFECTIVE_INTERFACE)
-
-static int
-open_inet_dgram_socket(void);
-
-static IFIndex
-get_effective_ifindex(const char * ifname)
-{
-    IFIndex		ifindex = 0;
-    struct ifreq	ifr;
-    int			s;
-
-
-    memset(&ifr, 0, sizeof(ifr));
-    strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-    s = open_inet_dgram_socket();
-    if (s != -1 && ioctl(s, SIOCGIFDELEGATE, &ifr) != -1) {
-	ifindex = ifr.ifr_delegated;
-    }
-    return (ifindex);
-}
-
-static CFStringRef
-copy_effective_if_name(CFStringRef if_name)
-{
-    IFIndex	ifindex;
-    char	ifname[IFNAMSIZ];
-    CFStringRef	ret_if_name = NULL;
-
-    CFStringGetCString(if_name, ifname, sizeof(ifname),
-		       kCFStringEncodingUTF8);
-    ifindex = get_effective_ifindex(ifname);
-    if (ifindex != 0) {
-	char	effective_ifname[IFNAMSIZ];
-
-	if (my_if_indextoname(ifindex, effective_ifname) != NULL) {
-	    ret_if_name = CFStringCreateWithCString(NULL,
-						    effective_ifname,
-						    kCFStringEncodingUTF8);
-	    my_log(LOG_NOTICE, "%s: %@ effective %@", __func__,
-		   if_name, ret_if_name);
-	}
-    }
-    return (ret_if_name);
-}
-
-#else /* NEED_EFFECTIVE_INTERFACE */
-
-static CFStringRef
-copy_effective_if_name(CFStringRef if_name)
-{
-#pragma unused(if_name)
-    return (NULL);
-}
-
-#endif /* NEED_EFFECTIVE_INTERFACE */
 
 /*
  * IPv4/IPv6 Service Dict keys: kIPDictRoutes, IPDictService
@@ -1147,95 +915,13 @@ static int	rtm_seq = 0;
 static int
 open_routing_socket(void)
 {
-    int sockfd;
+	int sockfd;
 
-    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) == -1) {
-	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-    }
-    return (sockfd);
+	if ((sockfd = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) == -1) {
+		my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
+	}
+	return (sockfd);
 }
-
-static int inet_dgram_socket = -1;
-
-static int
-open_inet_dgram_socket(void)
-{
-    if (inet_dgram_socket != -1) {
-	goto done;
-    }
-    inet_dgram_socket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (inet_dgram_socket == -1) {
-	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-    }
- done:
-    return inet_dgram_socket;
-}
-
-static void
-close_inet_dgram_socket(void)
-{
-    if (inet_dgram_socket != -1) {
-	close(inet_dgram_socket);
-	inet_dgram_socket = -1;
-    }
-}
-
-static int inet6_dgram_socket = -1;
-
-static __inline__ int
-open_inet6_dgram_socket(void)
-{
-    if (inet6_dgram_socket != -1) {
-	goto done;
-    }
-    inet6_dgram_socket = socket(AF_INET6, SOCK_DGRAM, 0);
-    if (inet6_dgram_socket == -1) {
-	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-    }
- done:
-    return inet6_dgram_socket;
-}
-
-static void
-close_inet6_dgram_socket(void)
-{
-    if (inet6_dgram_socket != -1) {
-	close(inet6_dgram_socket);
-	inet6_dgram_socket = -1;
-    }
-}
-
-static int
-siocdradd_in6(int s, int if_index, const struct in6_addr * addr, u_char flags)
-{
-    struct in6_defrouter	dr;
-    struct sockaddr_in6 *	sin6;
-
-    memset(&dr, 0, sizeof(dr));
-    sin6 = &dr.rtaddr;
-    sin6->sin6_len = sizeof(struct sockaddr_in6);
-    sin6->sin6_family = AF_INET6;
-    sin6->sin6_addr = *addr;
-    dr.flags = flags;
-    dr.if_index = if_index;
-    return (ioctl(s, SIOCDRADD_IN6, &dr));
-}
-
-static int
-siocdrdel_in6(int s, int if_index, const struct in6_addr * addr)
-{
-    struct in6_defrouter	dr;
-    struct sockaddr_in6 *	sin6;
-
-    memset(&dr, 0, sizeof(dr));
-    sin6 = &dr.rtaddr;
-    sin6->sin6_len = sizeof(struct sockaddr_in6);
-    sin6->sin6_family = AF_INET6;
-    sin6->sin6_addr = *addr;
-    dr.if_index = if_index;
-    return (ioctl(s, SIOCDRDEL_IN6, &dr));
-}
-
 #endif	/* !TARGET_OS_SIMULATOR */
 
 static void
@@ -2400,25 +2086,52 @@ RouteListFinalize(RouteListInfoRef info, RouteListRef routes)
     for (i = 0, scan = RouteListGetFirstRoute(info, routes);
 	 i < routes->count;
 	 i++, scan = RouteGetNextRoute(info, scan)) {
-	RouteRef		route;
+	RouteLookupFlags	flags = kRouteLookupFlagsNone;
 	IFIndex			ifindex;
-	RouteLookupFlags	flags;
+	RouteRef		route;
 
 	if (scan->exclude_ifindex == 0) {
 	    continue;
 	}
 	if (scan->ifindex == 0) {
-	    ifindex = scan->exclude_ifindex;
-	    flags = kRouteLookupFlagsExcludeInterface;
+	    /* route isn't associated with an interface yet */
+	    IFIndex	effective_ifindex = 0;
+	    char	exclude_ifname[IFNAMSIZ];
+
+	    if (my_if_indextoname(scan->exclude_ifindex, exclude_ifname)
+		!= NULL) {
+		effective_ifindex
+		    = effective_ifindex_get(exclude_ifname,
+					    scan->exclude_ifindex);
+	    }
+	    if (effective_ifindex != 0) {
+		/* try a lookup using the effective interface */
+		ifindex = effective_ifindex;
+	    }
+	    else {
+		/* find a route excluding the excluded interface */
+		ifindex = scan->exclude_ifindex;
+		flags = kRouteLookupFlagsExcludeInterface;
+	    }
 	}
 	else {
 	    ifindex = scan->ifindex;
-	    flags = kRouteLookupFlagsNone;
 	}
 	route = RouteListLookup(info, routes,
 				(*info->route_destination)(scan),
 				scan->prefix_length, ifindex, flags);
+	if (route == NULL && flags == kRouteLookupFlagsNone) {
+	    /* try to find a route by excluding the interface */
+	    ifindex = scan->exclude_ifindex;
+	    flags = kRouteLookupFlagsExcludeInterface;
+	    my_log(LOG_DEBUG, "%s: trying again excluding %d",
+		   __func__, ifindex);
+	    route = RouteListLookup(info, routes,
+				    (*info->route_destination)(scan),
+				    scan->prefix_length, ifindex, flags);
+	}
 	if (route == NULL) {
+	    /* no such route */
 	    (*info->route_log)(LOG_NOTICE, (RouteRef)scan,
 			       "can't resolve excluded route");
 	}
@@ -6129,41 +5842,6 @@ services_info_copy(SCDynamicStoreRef session, CFArrayRef service_list)
     return (info);
 }
 
-#if	!TARGET_OS_SIMULATOR
-
-static boolean_t
-set_ipv6_default_interface(IFIndex ifindex)
-{
-    struct in6_ndifreq	ndifreq;
-    int			sock;
-    boolean_t		success = FALSE;
-
-    memset((char *)&ndifreq, 0, sizeof(ndifreq));
-    strlcpy(ndifreq.ifname, kLoopbackInterface, sizeof(ndifreq.ifname));
-    if (ifindex != 0) {
-	ndifreq.ifindex = ifindex;
-    }
-    else {
-	ndifreq.ifindex = lo0_ifindex();
-    }
-    sock = open_inet6_dgram_socket();
-    if (sock < 0) {
-	goto done;
-    }
-    if (ioctl(sock, SIOCSDEFIFACE_IN6, (caddr_t)&ndifreq) == -1) {
-	my_log(LOG_ERR,
-	       "ioctl(SIOCSDEFIFACE_IN6) failed: %s",
-	       strerror(errno));
-    }
-    else {
-	success = TRUE;
-    }
-done:
-    return (success);
-}
-
-#endif	/* !TARGET_OS_SIMULATOR */
-
 #if	!TARGET_OS_IPHONE
 static __inline__ void
 empty_dns(void)
@@ -7156,7 +6834,6 @@ CandidateRelease(CandidateRef candidate)
     my_CFRelease(&candidate->serviceID);
     my_CFRelease(&candidate->if_name);
     my_CFRelease(&candidate->signature);
-    my_CFRelease(&candidate->effective_if_name);
     return;
 }
 
@@ -7172,9 +6849,6 @@ CandidateCopy(CandidateRef dest, CandidateRef src)
     }
     if (dest->signature != NULL) {
 	CFRetain(dest->signature);
-    }
-    if (dest->effective_if_name != NULL) {
-	CFRetain(dest->effective_if_name);
     }
     return;
 }
@@ -7323,18 +6997,14 @@ CandidateSameInterface(CandidateRef other_candidate,
 {
     Boolean	same = FALSE;
 
-    if (CFEqual(other_candidate->if_name, candidate->if_name)) {
+    if (other_candidate->ifindex == candidate->ifindex) {
 	/* same interface */
 	same = TRUE;
     }
-    else if (other_candidate->effective_if_name != NULL
-	     && CFEqual(other_candidate->effective_if_name,
-			candidate->if_name)) {
+    else if (other_candidate->effective_ifindex == candidate->ifindex) {
 	same = TRUE;
     }
-    else if (candidate->effective_if_name != NULL
-	     && CFEqual(candidate->effective_if_name,
-			other_candidate->if_name)) {
+    else if (candidate->effective_ifindex == other_candidate->ifindex) {
 	same = TRUE;
     }
     return (same);
@@ -7738,6 +7408,13 @@ elect_ip(const void * key, const void * value, void * context)
 	return;
     }
     memset(&candidate, 0, sizeof(candidate));
+    if (!CFStringGetCString(if_name, candidate.ifname,
+			    sizeof(candidate.ifname),
+			    kCFStringEncodingUTF8)) {
+	my_log(LOG_NOTICE, "%s: failed to convert %@ to string\n",
+	       __func__, if_name);
+	return;
+    }
     candidate.serviceID = (CFStringRef)key;
     if ((routelist.common->flags & kRouteListFlagsHasDefault) == 0) {
 	/* no default route means it's ineligible to become primary */
@@ -7756,15 +7433,11 @@ elect_ip(const void * key, const void * value, void * context)
 	candidate.addr.v6 = routelist.v6->list->ifa;
     }
     primary_rank = RANK_ASSERTION_MASK(default_rank);
-    if (S_ppp_override_primary) {
-	char	ifn[IFNAMSIZ];
-
-	if (CFStringGetCString(if_name, ifn, sizeof(ifn),
-			       kCFStringEncodingASCII)
-	    && (strncmp(PPP_PREFIX, ifn, sizeof(PPP_PREFIX) - 1) == 0)) {
-	    /* PPP override: make ppp* look the best */
-	    primary_rank = kRankAssertionFirst;
-	}
+    if (S_ppp_override_primary
+	&& strncmp(PPP_PREFIX, candidate.ifname,
+		   sizeof(PPP_PREFIX) - 1) == 0) {
+	/* PPP override: make ppp* look the best */
+	primary_rank = kRankAssertionFirst;
     }
     candidate.rank = RankMake(candidate.rank, primary_rank);
 
@@ -7810,14 +7483,15 @@ elect_ip(const void * key, const void * value, void * context)
 	ip_is_coupled = TRUE;
     }
     candidate.if_name = if_name;
+    candidate.ifindex = my_if_nametoindex(candidate.ifname);
     candidate.ip_is_coupled = ip_is_coupled;
     candidate.ip_is_independent = ip_is_independent;
-    candidate.effective_if_name = copy_effective_if_name(if_name);
+    candidate.effective_ifindex
+	= effective_ifindex_get(candidate.ifname, candidate.ifindex);
     rank_dict_set_service_rank(elect_info->rank_dict,
 			       candidate.serviceID, candidate.rank);
     candidate.signature = service_dict_get_signature(service_dict);
     ElectionResultsAddCandidate(elect_info->results, &candidate);
-    my_CFRelease(&candidate.effective_if_name);
     return;
 }
 
@@ -8115,25 +7789,6 @@ update_interface_order(nwi_state_t state, int sockfd)
 #endif /* MANAGE_IF_ORDER */
 
 #ifdef MANAGE_IF_SIGNATURE
-static int
-siocsifnetsignature(int s, const char * ifname, int af,
-		    const uint8_t * signature, size_t signature_length)
-{
-    struct if_nsreq	nsreq;
-
-    memset(&nsreq, 0, sizeof(nsreq));
-    strlcpy(nsreq.ifnsr_name, ifname, sizeof(nsreq.ifnsr_name));
-    nsreq.ifnsr_family = af;
-    if (signature_length > 0) {
-	if (signature_length > sizeof(nsreq.ifnsr_data)) {
-	    signature_length = sizeof(nsreq.ifnsr_data);
-	}
-	nsreq.ifnsr_len = signature_length;
-	memcpy(nsreq.ifnsr_data, signature, signature_length);
-    }
-    return (ioctl(s, SIOCSIFNETSIGNATURE, &nsreq));
-}
-
 static void
 process_ifstate_difference(nwi_ifstate_t ifstate, int af, int sockfd)
 {
@@ -8628,6 +8283,8 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 		// ensure that we update the reachability flags in the DNS
 		// configuration
 		dnsinfo_changed = TRUE;
+		// delegation can impact the routing table
+		global_ip_changed = TRUE;
 	}
 	else if (CFStringHasPrefix(change, S_state_service_prefix)) {
 	    CFStringRef	protocol = NULL;
@@ -9037,10 +8694,14 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     /* release the name/index cache */
     my_if_freenameindex();
 
-    /* close open sockets */
+    /* release the effective index cache */
+    effective_ifindex_free();
+
 #if	!TARGET_OS_SIMULATOR
+    /* close open sockets */
     close_inet_dgram_socket();
     close_inet6_dgram_socket();
+
 #endif /* !TARGET_OS_SIMULATOR */
 
     return;

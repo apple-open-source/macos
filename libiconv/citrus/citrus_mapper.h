@@ -61,6 +61,7 @@ __END_DECLS
 #define _CITRUS_MAPPER_CONVERT_DST_MORE		(3)
 #define _CITRUS_MAPPER_CONVERT_ILSEQ		(4)
 #define _CITRUS_MAPPER_CONVERT_FATAL		(5)
+#define _CITRUS_MAPPER_CONVERT_TRANSLIT		(6)
 
 /*
  * _citrus_mapper_convert:

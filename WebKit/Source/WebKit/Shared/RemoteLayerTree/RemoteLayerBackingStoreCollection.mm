@@ -97,8 +97,8 @@ Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> RemoteLayerBackin
     for (auto& layer : transaction.changedLayers()) {
         if (layer->properties().changedProperties & LayerChange::BackingStoreChanged) {
             needToScheduleVolatilityTimer = true;
-            if (layer->properties().backingStore)
-                flushers.appendVector(layer->properties().backingStore->takePendingFlushers());
+            if (layer->properties().backingStoreOrProperties.store)
+                flushers.appendVector(layer->properties().backingStoreOrProperties.store->takePendingFlushers());
         }
 
         layer->didCommit();
@@ -255,8 +255,11 @@ void RemoteLayerBackingStoreCollection::scheduleVolatilityTimer()
 RefPtr<WebCore::ImageBuffer> RemoteLayerBackingStoreCollection::allocateBufferForBackingStore(const RemoteLayerBackingStore& backingStore)
 {
     switch (backingStore.type()) {
-    case RemoteLayerBackingStore::Type::IOSurface:
-        return WebCore::ImageBuffer::create<AcceleratedImageBufferShareableMappedBackend>(backingStore.size(), backingStore.scale(), backingStore.colorSpace(), backingStore.pixelFormat(), WebCore::RenderingPurpose::LayerBacking, { nullptr, &WebCore::IOSurfacePool::sharedPool() });
+    case RemoteLayerBackingStore::Type::IOSurface: {
+        ImageBufferCreationContext creationContext;
+        creationContext.surfacePool = &WebCore::IOSurfacePool::sharedPool();
+        return WebCore::ImageBuffer::create<AcceleratedImageBufferShareableMappedBackend>(backingStore.size(), backingStore.scale(), backingStore.colorSpace(), backingStore.pixelFormat(), WebCore::RenderingPurpose::LayerBacking, creationContext);
+    }
     case RemoteLayerBackingStore::Type::Bitmap:
         return WebCore::ImageBuffer::create<UnacceleratedImageBufferShareableBackend>(backingStore.size(), backingStore.scale(), backingStore.colorSpace(), backingStore.pixelFormat(), WebCore::RenderingPurpose::LayerBacking, { });
     }

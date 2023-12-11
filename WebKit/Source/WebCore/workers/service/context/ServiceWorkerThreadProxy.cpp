@@ -28,6 +28,7 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "BadgeClient.h"
 #include "CacheStorageProvider.h"
 #include "DocumentLoader.h"
 #include "EventLoop.h"
@@ -96,6 +97,8 @@ ServiceWorkerThreadProxy::~ServiceWorkerThreadProxy()
     auto functionalEventTasks = WTFMove(m_ongoingFunctionalEventTasks);
     for (auto& callback : functionalEventTasks.values())
         callback(false);
+
+    m_serviceWorkerThread->clearProxies();
 }
 
 void ServiceWorkerThreadProxy::setLastNavigationWasAppInitiated(bool wasAppInitiated)
@@ -334,8 +337,12 @@ void ServiceWorkerThreadProxy::fireMessageEvent(MessageWithMessagePorts&& messag
 
 void ServiceWorkerThreadProxy::fireInstallEvent()
 {
-    ASSERT(isMainThread());
-    thread().willPostTaskToFireInstallEvent();
+    ASSERT(!isMainThread());
+
+    callOnMainRunLoop([protectedThis = Ref { *this }] {
+        protectedThis->thread().willPostTaskToFireInstallEvent();
+    });
+
     thread().runLoop().postTask([this, protectedThis = Ref { *this }](auto&) mutable {
         thread().queueTaskToFireInstallEvent();
     });
@@ -343,9 +350,13 @@ void ServiceWorkerThreadProxy::fireInstallEvent()
 
 void ServiceWorkerThreadProxy::fireActivateEvent()
 {
-    ASSERT(isMainThread());
-    thread().willPostTaskToFireActivateEvent();
-    thread().runLoop().postTask([this, protectedThis = Ref { *this }](auto&) mutable {
+    ASSERT(!isMainThread());
+
+    callOnMainRunLoop([protectedThis = Ref { *this }] {
+        protectedThis->thread().willPostTaskToFireActivateEvent();
+    });
+
+    thread().runLoop().postTask([this, protectedThis = Ref { *this }](auto&) {
         thread().queueTaskToFireActivateEvent();
     });
 }

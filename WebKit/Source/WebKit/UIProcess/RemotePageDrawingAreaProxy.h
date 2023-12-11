@@ -27,6 +27,7 @@
 
 #include "DrawingAreaInfo.h"
 #include "MessageReceiver.h"
+#include "MessageReceiverMap.h"
 
 namespace WebKit {
 
@@ -38,6 +39,8 @@ class RemotePageDrawingAreaProxy : public IPC::MessageReceiver {
 public:
     RemotePageDrawingAreaProxy(DrawingAreaProxy&, WebProcessProxy&);
     ~RemotePageDrawingAreaProxy();
+
+    WebProcessProxy& process() { return m_process; }
 
 private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;

@@ -283,6 +283,7 @@ void RendererVk::ensureCapsInitialized() const
     mNativeExtensions.robustnessEXT                 = true;
     mNativeExtensions.discardFramebufferEXT         = true;
     mNativeExtensions.stencilTexturingANGLE         = true;
+    mNativeExtensions.packReverseRowOrderANGLE      = true;
     mNativeExtensions.textureBorderClampOES = getFeatures().supportsCustomBorderColor.enabled;
     mNativeExtensions.textureBorderClampEXT = getFeatures().supportsCustomBorderColor.enabled;
     mNativeExtensions.polygonModeNV         = mPhysicalDeviceFeatures.fillModeNonSolid == VK_TRUE;
@@ -818,8 +819,7 @@ void RendererVk::ensureCapsInitialized() const
          getFeatures().enablePreRotateSurfaces.enabled ||
          getFeatures().emulatedPrerotation90.enabled ||
          getFeatures().emulatedPrerotation180.enabled ||
-         getFeatures().emulatedPrerotation270.enabled ||
-         !getFeatures().supportsNegativeViewport.enabled))
+         getFeatures().emulatedPrerotation270.enabled))
     {
         reservedVaryingComponentCount += kReservedVaryingComponentsForTransformFeedbackExtension;
     }
@@ -1138,7 +1138,7 @@ void RendererVk::ensureCapsInitialized() const
     mNativeExtensions.textureUsageANGLE = true;
 
     // GL_KHR_parallel_shader_compile
-    mNativeExtensions.parallelShaderCompileKHR = false;
+    mNativeExtensions.parallelShaderCompileKHR = mFeatures.enableParallelCompileAndLink.enabled;
 
     // GL_NV_read_depth, GL_NV_read_depth_stencil, GL_NV_read_stencil
     mNativeExtensions.readDepthNV        = true;

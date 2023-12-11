@@ -11,6 +11,9 @@
 @property (readwrite) NSString *identifier;
 @property (readwrite) KCPairingChannel *channel;
 @property (readwrite) NSMutableArray<OTPairingCompletionHandler>* completionHandlers;
+#if !TARGET_OS_SIMULATOR
+@property MKBAssertionRef lockAssertion;
+#endif /* !TARGET_OS_SIMULATOR */
 @end
 
 @implementation OTPairingSession
@@ -44,12 +47,35 @@
 - (void)dealloc
 {
 #if !TARGET_OS_SIMULATOR
-    if (self.lockAssertion) {
-        CFRelease(self.lockAssertion);
-        self.lockAssertion = NULL;
+    if (self->_lockAssertion) {
+        CFRelease(self->_lockAssertion);
+        self->_lockAssertion = NULL;
     }
 #endif /* !TARGET_OS_SIMULATOR */
 }
+
+#if !TARGET_OS_SIMULATOR
+- (BOOL)acquireLockAssertion
+{
+    if (self->_lockAssertion == NULL) {
+        CFErrorRef lockError = NULL;
+        NSDictionary* lockOptions = @{
+            (__bridge NSString *)kMKBAssertionTypeKey : (__bridge NSString *)kMKBAssertionTypeOther,
+            (__bridge NSString *)kMKBAssertionTimeoutKey : @(60),
+        };
+        self->_lockAssertion = MKBDeviceLockAssertion((__bridge CFDictionaryRef)lockOptions, &lockError);
+
+        if (self->_lockAssertion == NULL || lockError != NULL) {
+            os_log(OS_LOG_DEFAULT, "Failed to obtain lock assertion: %@", lockError);
+            if (lockError != NULL) {
+                CFRelease(lockError);
+            }
+        }
+    }
+
+    return (self->_lockAssertion != NULL);
+}
+#endif /* !TARGET_OS_SIMULATOR */
 
 - (void)addCompletionHandler:(OTPairingCompletionHandler)completionHandler
 {

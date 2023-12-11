@@ -108,7 +108,7 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     MarkIsNoLongerPrewarmed()
     GetActivePagesOriginsForTesting() -> (Vector<String> activeOrigins)
 
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK)
     SetScreenProperties(struct WebCore::ScreenProperties screenProperties)
 #endif
 #if PLATFORM(MAC)
@@ -185,7 +185,7 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
 #endif
 
 #if PLATFORM(COCOA)
-    DidWriteToPasteboardAsynchronously(String pasteboardName);
+    DidWriteToPasteboardAsynchronously(String pasteboardName) CanDispatchOutOfOrder
 #endif
 
 #if HAVE(CVDISPLAYLINK)
@@ -216,9 +216,9 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
 
     ReleaseMemory() -> ()
 
-    RemotePostMessage(struct WebCore::FrameIdentifier frameIdentifier, std::optional<WebCore::SecurityOriginData> target, struct WebCore::MessageWithMessagePorts message)
+    RemotePostMessage(WebCore::FrameIdentifier frameIdentifier, std::optional<WebCore::SecurityOriginData> target, struct WebCore::MessageWithMessagePorts message)
 
-    RenderTreeAsText(struct WebCore::FrameIdentifier frameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior) -> (String renderTreeDump) Synchronous
+    RenderTreeAsText(WebCore::FrameIdentifier frameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior) -> (String renderTreeDump) Synchronous
     
     AddAllowedFirstPartyForCookies(WebCore::RegistrableDomain firstPartyDomain)
 }

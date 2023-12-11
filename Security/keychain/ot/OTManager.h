@@ -206,7 +206,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                  contextID:(NSString*)contextID
                                            possibleAccount:(TPSpecificUser* _Nullable)possibleAccount;
 
-- (OTCuttlefishContext* _Nullable)restartCKKSAccountSyncWithoutSettingPolicyForContext:(OTCuttlefishContext*)cuttlefishContext;
+- (OTCuttlefishContext* _Nullable)restartOctagonContext:(OTCuttlefishContext*)cuttlefishContext;
 - (CKKSKeychainView* _Nullable)restartCKKSAccountSyncWithoutSettingPolicy:(CKKSKeychainView*)view;
 
 - (void)haltAll;

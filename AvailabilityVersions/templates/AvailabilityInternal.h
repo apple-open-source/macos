@@ -36,6 +36,26 @@
 
 // @@AVAILABILITY_MIN_MAX_DEFINES()@@
 
+//FIXME: Workaround for rdar://116062344
+#ifndef __VISION_OS_VERSION_MIN_REQUIRED
+    #if defined(__has_builtin) && __has_builtin(__is_target_os)
+        #if __is_target_os(xros)
+            #define __VISION_OS_VERSION_MIN_REQUIRED __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__
+            // Hardcoded these since until compiler fix for rdar://116062344 will land
+            #if defined(__VISIONOS_2_0)
+                #define __VISION_OS_VERSION_MAX_ALLOWED __VISIONOS_2_0
+            #elif defined(__VISION_OS_1_1)
+                #define __VISION_OS_VERSION_MAX_ALLOWED __VISIONOS_1_1
+            #elif defined(__VISION_OS_1_0)
+                #define __VISION_OS_VERSION_MAX_ALLOWED __VISIONOS_1_0
+            #endif
+            /* for compatibility with existing code.  New code should use platform specific checks */
+            #define __IPHONE_OS_VERSION_MIN_REQUIRED __IPHONE_17_1
+        #endif
+    #endif /*  __has_builtin(__is_target_os) && __is_target_os(visionos) */
+#endif /* __VISION_OS_VERSION_MIN_REQUIRED */
+
+
 #ifdef __IPHONE_OS_VERSION_MIN_REQUIRED
     /* make sure a default max version is set */
     #ifndef __IPHONE_OS_VERSION_MAX_ALLOWED

@@ -96,6 +96,10 @@
 #import <Security/SecItemInternal.h>
 #import <Security/CKKSExternalTLKClient.h>
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 #if OCTAGON
 
 @interface CKKSKeychainView()
@@ -183,13 +187,16 @@
 
         _resyncRecordsSeen = nil;
 
+        _firstManateeKeyFetched = false;
+
         NSString* stateMachineName = [contextID isEqualToString:CKKSDefaultContextID] ? @"ckks" : [NSString stringWithFormat:@"ckks-%@", contextID];
         _stateMachine = [[OctagonStateMachine alloc] initWithName:stateMachineName
-                                                           states:CKKSAllStates()
+                                                           states:CKKSStateMap()
                                                             flags:CKKSAllStateFlags()
                                                      initialState:CKKSStateWaitForCloudKitAccountStatus
                                                             queue:self.queue
                                                       stateEngine:self
+                                       unexpectedStateErrorDomain:CKKSStateTransitionErrorDomain
                                                  lockStateTracker:lockStateTracker
                                               reachabilityTracker:reachabilityTracker];
 
@@ -244,10 +251,18 @@
 
         _zoneChangeFetcher = [[CKKSZoneChangeFetcher alloc] initWithContainer:container
                                                                    fetchClass:cloudKitClassDependencies.fetchRecordZoneChangesOperationClass
-                                                          reachabilityTracker:_reachabilityTracker];
+                                                          reachabilityTracker:_reachabilityTracker
+                                                                      altDSID:self.operationDependencies.activeAccount.altDSID];
         OctagonAPSReceiver* globalAPSReceiver = [OctagonAPSReceiver receiverForNamedDelegatePort:SecCKKSAPSNamedPort
                                                                               apsConnectionClass:cloudKitClassDependencies.apsConnectionClass];
         [globalAPSReceiver registerCKKSReceiver:_zoneChangeFetcher contextID:contextID];
+
+        AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                    altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                                  eventName:kSecurityRTCEventNameLaunchStart
+                                                                                            testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                   category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
 
         [_stateMachine startOperation];
     }
@@ -1269,6 +1284,14 @@
                 return;
             }
 
+            // Breadcrumb event for "CKKS believes the local keychain has all content from the account"
+            AAFAnalyticsEventSecurity *localSyncFinishEvent = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                                       altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                                                     eventName:kSecurityRTCEventNameLocalSyncFinish
+                                                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:localSyncFinishEvent success:YES error:nil];
+
             for(CKKSKeychainViewState* viewState in viewsOfInterest) {
                 // Are there any entries waiting for reencryption? If so, set the flag.
                 NSError* reencryptOQEError = nil;
@@ -1407,6 +1430,14 @@
             if(zoneSizeCounts != nil) {
                 [self.operationDependencies.overallLaunch addAttribute:@"totalsize" value:@(SecBucket1Significant(totalZoneSizeCount))];
             }
+
+            // We believe keychain is fully in sync with CloudKit.
+            AAFAnalyticsEventSecurity *contentSyncFinishEvent = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                                         altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                                                       eventName:kSecurityRTCEventNameContentSyncFinish
+                                                                                                                 testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:contentSyncFinishEvent success:YES error:nil];
 
             op.nextState = newState;
         }];
@@ -2181,17 +2212,56 @@
     return;
 }
 
+- (CKRecordZoneID*)zoneIDForViewHint:(NSString*)viewHint
+                         pcsShortcut:(BOOL)pcsShortcut
+                               error:(NSError **)error
+{
+    CKRecordZoneID* zoneID = nil;
+    NSError* viewError = nil;
+    uint64_t timeout = 5*NSEC_PER_SEC;
+
+    if (pcsShortcut) {
+        timeout = 0;
+    }
+
+    CKKSKeychainViewState* viewState = [self policyDependentViewStateForName:viewHint
+                                                                     timeout:timeout
+                                                                       error:&viewError];
+    if(viewState) {
+        zoneID = viewState.zoneID;
+    } else if(pcsShortcut && [viewHint isEqualToString:@"ProtectedCloudStorage"]) {
+        ckksnotice("ckkscurrent", self, "Unable to retrieve view state, using ProtectedCloudStorage: %@", viewError);
+        zoneID = [[CKRecordZoneID alloc] initWithZoneName:@"ProtectedCloudStorage" ownerName:CKCurrentUserDefaultName];
+    } else if(error) {
+        *error = viewError;
+    }
+
+    return zoneID;
+}
+
 - (void)getCurrentItemForAccessGroup:(NSString*)accessGroup
                           identifier:(NSString*)identifier
                             viewHint:(NSString*)viewHint
                      fetchCloudValue:(bool)fetchCloudValue
                             complete:(void (^) (CKKSCurrentItemData* data, NSError* operror)) complete
 {
-    NSError* viewError = nil;
-    CKKSKeychainViewState* viewState = [self policyDependentViewStateForName:viewHint
-                                                                       error:&viewError];
-    if(!viewState) {
-        complete(nil, viewError);
+    BOOL pcsShortcut = NO;
+
+    /*
+     * If cloud value is not requested and we are trying to retrieve a Stingray current item,
+     * short-circuit policy and account checks. This will eliminate the waiting-for-policy timeout,
+     * the preflight account check, and the account-logged-in operation dependency.
+     */
+    if(!fetchCloudValue && [viewHint isEqualToString:@"ProtectedCloudStorage"]) {
+        pcsShortcut = YES;
+    }
+
+    NSError* zoneIDError = nil;
+    CKRecordZoneID* zoneID = [self zoneIDForViewHint:viewHint
+                                         pcsShortcut:pcsShortcut
+                                               error:&zoneIDError];
+    if(!zoneID) {
+        complete(nil, zoneIDError);
         return;
     }
 
@@ -2203,26 +2273,28 @@
         return;
     }
 
-    // Not being in a CloudKit account is an automatic failure.
-    // But, wait a good long while for the CloudKit account state to be known (in the case of daemon startup)
-    [self.accountStateKnown wait:(SecCKKSTestsEnabled() ? 1*NSEC_PER_SEC : 30*NSEC_PER_SEC)];
+    if (!pcsShortcut) {
+        // Not being in a CloudKit account is an automatic failure.
+        // But, wait a good long while for the CloudKit account state to be known (in the case of daemon startup)
+        [self.accountStateKnown wait:(SecCKKSTestsEnabled() ? 1*NSEC_PER_SEC : 30*NSEC_PER_SEC)];
 
-    CKKSAccountStatus accountStatus = self.accountStatus;
-    if(accountStatus != CKKSAccountStatusAvailable) {
-        NSError* localError = nil;
-        if(accountStatus == CKKSAccountStatusUnknown) {
-            localError = [NSError errorWithDomain:CKKSErrorDomain
-                                             code:CKKSErrorAccountStatusUnknown
-                                      description:@"iCloud account status unknown."];
-        } else {
-            localError = [NSError errorWithDomain:CKKSErrorDomain
-                                             code:CKKSNotLoggedIn
-                                      description:@"User is not signed into iCloud."];
+        CKKSAccountStatus accountStatus = self.accountStatus;
+        if(accountStatus != CKKSAccountStatusAvailable) {
+            NSError* localError = nil;
+            if(accountStatus == CKKSAccountStatusUnknown) {
+                localError = [NSError errorWithDomain:CKKSErrorDomain
+                                                 code:CKKSErrorAccountStatusUnknown
+                                          description:@"iCloud account status unknown."];
+            } else {
+                localError = [NSError errorWithDomain:CKKSErrorDomain
+                                                 code:CKKSNotLoggedIn
+                                          description:@"User is not signed into iCloud."];
+            }
+
+            ckksnotice("ckkscurrent", self, "Rejecting current item pointer get since we don't have an iCloud account: %@", localError);
+            complete(NULL, localError);
+            return;
         }
-
-        ckksnotice("ckkscurrent", self, "Rejecting current item pointer get since we don't have an iCloud account: %@", localError);
-        complete(NULL, localError);
-        return;
     }
 
     CKKSResultOperation* fetchAndProcess = nil;
@@ -2253,7 +2325,7 @@
             CKKSCurrentItemPointer* cip = [CKKSCurrentItemPointer fromDatabase:currentIdentifier
                                                                      contextID:self.operationDependencies.contextID
                                                                          state:SecCKKSProcessedStateLocal
-                                                                        zoneID:viewState.zoneID
+                                                                        zoneID:zoneID
                                                                          error:&error];
             if(!cip || error) {
                 if([error.domain isEqualToString:@"securityd"] && error.code == errSecItemNotFound) {
@@ -2284,7 +2356,11 @@
     }];
 
     [getCurrentItem addNullableDependency:fetchAndProcess];
-    [self scheduleOperation: getCurrentItem];
+    if(pcsShortcut) {
+        [self scheduleOperationWithoutDependencies:getCurrentItem];
+    } else {
+        [self scheduleOperation:getCurrentItem];
+    }
 }
 
 - (CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*)findKeySets:(BOOL)refetchBeforeReturningKeySet
@@ -2451,7 +2527,7 @@
 
     OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:pathDict];
     OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:@"push"
-                                                                                  serialQueue:self.queue
+                                                                                 stateMachine:self.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
     [watcher timeout:300*NSEC_PER_SEC];
@@ -2528,7 +2604,7 @@
         },
     }];
     OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:@"rpc-fetch"
-                                                                                  serialQueue:self.queue
+                                                                                 stateMachine:self.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
     [watcher timeout:300*NSEC_PER_SEC];
@@ -2611,7 +2687,7 @@
 
     OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:pathDict];
     OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:@"fetch-and-process"
-                                                                                  serialQueue:self.queue
+                                                                                 stateMachine:self.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
     [watcher timeout:300*NSEC_PER_SEC];
@@ -2687,7 +2763,7 @@
 
     OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:pathDict];
     OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:@"process-incoming-queue"
-                                                                                  serialQueue:self.queue
+                                                                                 stateMachine:self.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
     [watcher timeout:300*NSEC_PER_SEC];
@@ -3011,6 +3087,13 @@
 
     [self.operationDependencies.overallLaunch addEvent:@"ck-account-login"];
 
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                               eventName:kSecurityRTCEventNameCKAccountLogin
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+
     [self.stateMachine handleFlag:CKKSFlagCloudKitLoggedIn];
 
     [self.accountStateKnown fulfill];
@@ -3042,6 +3125,12 @@
     for(id<CKKSPeerProvider> peerProvider in peerProviders) {
         [peerProvider registerForPeerChangeUpdates:self];
     }
+
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldTrustStatus:CKKSAccountStatusToString(self.trustStatus)}
+                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                               eventName:kSecurityRTCEventNameTrustGain
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     dispatch_sync(self.queue, ^{
         ckksnotice("ckkstrust", self, "Beginning trusted operation");
@@ -3075,10 +3164,18 @@
             [self onqueueCreatePriorityViewsProcessedWatcher];
         }
     });
+    
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
 }
 
 - (void)endTrustedOperation
 {
+    AAFAnalyticsEventSecurity* eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                               eventName:kSecurityRTCEventNameTrustLoss
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
     dispatch_sync(self.queue, ^{
         ckksnotice("ckkstrust", self, "Ending trusted operation");
 
@@ -3092,6 +3189,7 @@
 
         [self.operationDependencies.overallLaunch addEvent:@"trust-loss"];
     });
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
 }
 
 - (TPSyncingPolicy* _Nullable)syncingPolicy
@@ -3110,6 +3208,14 @@
         ckksnotice_global("ckks-policy", "Nil syncing policy presented; ignoring");
         return NO;
     }
+
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldSyncingPolicy:syncingPolicy,
+                                                                                                           kSecurityRTCFieldPolicyFreshness:@(policyIsFresh),
+                                                                                                           kSecurityRTCFieldNumViews:@(syncingPolicy.viewList.count)}
+                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                               eventName:kSecurityRTCEventNameSyncingPolicySet
+                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     NSSet<NSString*>* viewNames = syncingPolicy.viewList;
     ckksnotice_global("ckks-policy", "New syncing policy: %@ (%@) views: %@", syncingPolicy,
@@ -3247,6 +3353,9 @@
 
     // The policy is considered loaded once the views have been created
     [self.policyLoaded fulfill];
+    
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+
     return newViews || disappearedViews;
 }
 
@@ -3333,6 +3442,13 @@
 - (void)setSyncingViewsAllowList:(NSSet<NSString*>*)viewNames
 {
     self.viewAllowList = viewNames;
+}
+
+- (void)testDropPolicy
+{
+    [self.operationDependencies applyNewSyncingPolicy:nil
+                                           viewStates:[NSSet set]];
+    self.policyLoaded = [[CKKSCondition alloc] init];
 }
 
 - (CKKSKeychainViewState* _Nullable)viewStateForName:(NSString*)viewName
@@ -3435,6 +3551,12 @@
                 resync:(BOOL)resync
 {
     [self dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+
+        if (![self _onQueueZoneIsReadyForFetching:zoneID]) {
+            ckksnotice("ckksfetch", zoneID, "Zone is inactive; cancelling fetch");
+            return CKKSDatabaseTransactionRollback;
+        }
+
         if(self.halted) {
             ckksnotice("ckksfetch", zoneID, "Dropping fetch due to halted operation");
             return CKKSDatabaseTransactionRollback;
@@ -3757,9 +3879,10 @@
 }
 
 - (CKKSKeychainViewState* _Nullable)policyDependentViewStateForName:(NSString*)name
+                                                            timeout:(uint64_t)timeout
                                                               error:(NSError**)error
 {
-    if(![self waitForPolicy:5*NSEC_PER_SEC error:error]) {
+    if(![self waitForPolicy:timeout error:error]) {
         return nil;
     }
 
@@ -3793,6 +3916,12 @@
     }
 
     return viewState;
+}
+
+- (CKKSKeychainViewState* _Nullable)policyDependentViewStateForName:(NSString*)name
+                                                              error:(NSError**)error
+{
+    return [self policyDependentViewStateForName:name timeout:5*NSEC_PER_SEC error:error];
 }
 
 - (BOOL)waitUntilReadyForRPCForOperation:(NSString*)opName

@@ -26,66 +26,40 @@
 #include "config.h"
 #include "ProvisionalFrameProxy.h"
 
-#include "APIWebsitePolicies.h"
-#include "DrawingAreaProxy.h"
-#include "FrameInfoData.h"
-#include "HandleMessage.h"
-#include "LoadParameters.h"
-#include "LoadedWebArchive.h"
-#include "LocalFrameCreationParameters.h"
-#include "MessageSenderInlines.h"
-#include "NetworkProcessMessages.h"
 #include "RemotePageProxy.h"
 #include "VisitedLinkStore.h"
 #include "WebFrameProxy.h"
-#include "WebPageMessages.h"
 #include "WebPageProxy.h"
-#include "WebPageProxyMessages.h"
-#include "WebProcessMessages.h"
-#include "WebProcessProxy.h"
-
-#include <WebCore/FrameIdentifier.h>
-#include <WebCore/ShouldTreatAsContinuingLoad.h>
 
 namespace WebKit {
 
-ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, Ref<WebProcessProxy>&& process, const WebCore::ResourceRequest& request)
+ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, WebProcessProxy& process, RefPtr<RemotePageProxy>&& remotePageProxy)
     : m_frame(frame)
-    , m_process(WTFMove(process))
+    , m_process(process)
+    , m_remotePageProxy(WTFMove(remotePageProxy))
     , m_visitedLinkStore(frame.page()->visitedLinkStore())
-    , m_pageID(frame.page()->webPageID()) // FIXME: Generate a new one? This can conflict. And we probably want something like ProvisionalPageProxy to respond to messages anyways.
+    , m_pageID(frame.page()->webPageID())
     , m_webPageID(frame.page()->identifier())
     , m_layerHostingContextIdentifier(WebCore::LayerHostingContextIdentifier::generate())
 {
+    ASSERT(!m_remotePageProxy || m_remotePageProxy->process().coreProcessIdentifier() == process.coreProcessIdentifier());
     m_process->markProcessAsRecentlyUsed();
     m_process->addProvisionalFrameProxy(*this);
-
-    ASSERT(frame.page());
-
-    LoadParameters loadParameters;
-    loadParameters.request = request;
-    loadParameters.shouldTreatAsContinuingLoad = WebCore::ShouldTreatAsContinuingLoad::YesAfterNavigationPolicyDecision;
-    loadParameters.frameIdentifier = frame.frameID();
-    // FIXME: Add more parameters as appropriate.
-
-    LocalFrameCreationParameters localFrameCreationParameters {
-        m_layerHostingContextIdentifier
-    };
-
-    // FIXME: This gives too much cookie access. This should be removed after putting the entire frame tree in all web processes.
-    auto giveAllCookieAccess = LoadedWebArchive::Yes;
-    WebCore::RegistrableDomain domain { request.url() };
-    m_process->addAllowedFirstPartyForCookies(domain);
-    frame.page()->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(m_process->coreProcessIdentifier(), domain, giveAllCookieAccess), [process = m_process, loadParameters = WTFMove(loadParameters), localFrameCreationParameters = WTFMove(localFrameCreationParameters), pageID = m_pageID] () mutable {
-        process->send(Messages::WebPage::TransitionFrameToLocal(localFrameCreationParameters, *loadParameters.frameIdentifier), pageID);
-        process->send(Messages::WebPage::LoadRequest(loadParameters), pageID);
-    });
 }
 
 ProvisionalFrameProxy::~ProvisionalFrameProxy()
 {
-    m_process->removeVisitedLinkStoreUser(m_visitedLinkStore.get(), m_webPageID);
     m_process->removeProvisionalFrameProxy(*this);
+}
+
+RefPtr<RemotePageProxy> ProvisionalFrameProxy::takeRemotePageProxy()
+{
+    return std::exchange(m_remotePageProxy, nullptr);
+}
+
+WebPageProxy* ProvisionalFrameProxy::page()
+{
+    return m_frame->page();
 }
 
 }

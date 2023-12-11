@@ -12,6 +12,7 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <objc/objc.h> // for objc_object
 #import <os/lock_private.h>
+#import <xpc/xpc.h>
 
 #define HIDConnectionIvar \
 IOHIDEventSystemRef                             system; \
@@ -41,6 +42,7 @@ task_t                                          task_name_port; \
 audit_token_t                                   audit_token; \
 os_unfair_recursive_lock                        lock; \
 IOHIDEventSystemConnectionEntitlements          *entitlements; \
+xpc_object_t                                    connectionEntitlements; \
 boolean_t                                       disableProtectedServices; \
 int                                             filterPriority; \
 uint32_t                                        state; \
@@ -68,6 +70,7 @@ dispatch_source_t                               activityDispatchSource; \
 IOHIDNotificationRef                            activityNotification; \
 IOHIDSimpleQueueRef                             activityLog; \
 IOHIDConnectionFilterRef                        filter; \
+boolean_t                                       serverDied; \
 
 typedef struct  {
     HIDConnectionIvar

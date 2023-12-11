@@ -175,7 +175,7 @@ void JIT::emit_op_instanceof(const JSInstruction* currentInstruction)
         stubInfoGPR);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
 
-    gen.generateBaselineDataICFastPath(*this, stubInfoIndex, stubInfoGPR);
+    gen.generateBaselineDataICFastPath(*this, stubInfoIndex);
 #if USE(JSVALUE32_64)
     boxBoolean(resultJSR.payloadGPR(), resultJSR);
 #endif
@@ -942,12 +942,15 @@ void JIT::emit_op_to_number(const JSInstruction* currentInstruction)
     auto bytecode = currentInstruction->as<OpToNumber>();
     VirtualRegister dstVReg = bytecode.m_dst;
     VirtualRegister srcVReg = bytecode.m_operand;
+    UnaryArithProfile* arithProfile = &m_unlinkedCodeBlock->unaryArithProfile(bytecode.m_profileIndex);
 
     emitGetVirtualRegister(srcVReg, jsRegT10);
-    
-    addSlowCase(branchIfNotNumber(jsRegT10, regT2));
 
-    emitValueProfilingSite(bytecode, jsRegT10);
+    auto isInt32 = branchIfInt32(jsRegT10);
+    addSlowCase(branchIfNotNumber(jsRegT10, regT2));
+    if (arithProfile && shouldEmitProfiling())
+        arithProfile->emitUnconditionalSet(*this, UnaryArithProfile::observedNumberBits());
+    isInt32.link(this);
     if (srcVReg != dstVReg)
         emitPutVirtualRegister(dstVReg, jsRegT10);
 }
@@ -957,18 +960,28 @@ void JIT::emit_op_to_numeric(const JSInstruction* currentInstruction)
     auto bytecode = currentInstruction->as<OpToNumeric>();
     VirtualRegister dstVReg = bytecode.m_dst;
     VirtualRegister srcVReg = bytecode.m_operand;
+    UnaryArithProfile* arithProfile = &m_unlinkedCodeBlock->unaryArithProfile(bytecode.m_profileIndex);
 
     emitGetVirtualRegister(srcVReg, jsRegT10);
 
+    auto isInt32 = branchIfInt32(jsRegT10);
+
     Jump isNotCell = branchIfNotCell(jsRegT10);
     addSlowCase(branchIfNotHeapBigInt(jsRegT10.payloadGPR()));
+    if (arithProfile && shouldEmitProfiling())
+        move(TrustedImm32(UnaryArithProfile::observedNonNumberBits()), regT5);
     Jump isBigInt = jump();
 
     isNotCell.link(this);
     addSlowCase(branchIfNotNumber(jsRegT10, regT2));
+    if (arithProfile && shouldEmitProfiling())
+        move(TrustedImm32(UnaryArithProfile::observedNumberBits()), regT5);
     isBigInt.link(this);
 
-    emitValueProfilingSite(bytecode, jsRegT10);
+    if (arithProfile && shouldEmitProfiling())
+        arithProfile->emitUnconditionalSet(*this, regT5);
+
+    isInt32.link(this);
     if (srcVReg != dstVReg)
         emitPutVirtualRegister(dstVReg, jsRegT10);
 }
@@ -1231,6 +1244,9 @@ void JIT::emit_op_enter(const JSInstruction*)
 
     using BaselineJITRegisters::Enter::canBeOptimizedGPR;
     using BaselineJITRegisters::Enter::localsToInitGPR;
+
+    if (m_profiledCodeBlock->couldBeTainted())
+        store8(TrustedImm32(1), vm().addressOfMightBeExecutingTaintedCode());
 
     move(TrustedImm32(canBeOptimized()), canBeOptimizedGPR);
     move(TrustedImm32(localsToInit), localsToInitGPR);

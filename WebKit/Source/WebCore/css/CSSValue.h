@@ -26,6 +26,10 @@
 #include <wtf/Vector.h>
 #include <wtf/text/ASCIILiteral.h>
 
+namespace WTF {
+class Hasher;
+}
+
 namespace WebCore {
 
 class CSSPrimitiveValue;
@@ -46,8 +50,9 @@ struct ComputedStyleDependencies {
     Vector<CSSPropertyID> properties;
     Vector<CSSPropertyID> rootProperties;
     bool containerDimensions { false };
+    bool viewportDimensions { false };
 
-    bool isEmpty() const { return properties.isEmpty() && rootProperties.isEmpty() && !containerDimensions; }
+    bool isComputationallyIndependent() const { return properties.isEmpty() && rootProperties.isEmpty() && !containerDimensions; }
 };
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSValue);
@@ -103,6 +108,7 @@ public:
     bool isInsetShape() const { return m_classType == InsetShapeClass; }
     bool isLineBoxContainValue() const { return m_classType == LineBoxContainClass; }
     bool isLinearGradientValue() const { return m_classType == LinearGradientClass; }
+    bool isLinearTimingFunctionValue() const { return m_classType == LinearTimingFunctionClass; }
     bool isNamedImageValue() const { return m_classType == NamedImageClass; }
     bool isOffsetRotateValue() const { return m_classType == OffsetRotateClass; }
     bool isPair() const { return m_classType == ValuePairClass; }
@@ -116,6 +122,7 @@ public:
     bool isRadialGradientValue() const { return m_classType == RadialGradientClass; }
     bool isRayValue() const { return m_classType == RayClass; }
     bool isRect() const { return m_classType == RectClass; }
+    bool isRectShape() const { return m_classType == RectShapeClass; }
     bool isReflectValue() const { return m_classType == ReflectClass; }
     bool isShadowValue() const { return m_classType == ShadowClass; }
     bool isSpringTimingFunctionValue() const { return m_classType == SpringTimingFunctionClass; }
@@ -125,6 +132,7 @@ public:
     bool isUnicodeRangeValue() const { return m_classType == UnicodeRangeClass; }
     bool isValueList() const { return m_classType == ValueListClass; }
     bool isVariableReferenceValue() const { return m_classType == VariableReferenceClass; }
+    bool isXywhShape() const { return m_classType == XywhShapeClass; }
 
 #if ENABLE(CSS_PAINTING_API)
     bool isPaintImageValue() const { return m_classType == PaintImageClass; }
@@ -149,6 +157,9 @@ public:
 
     bool equals(const CSSValue&) const;
     bool operator==(const CSSValue& other) const { return equals(other); }
+
+    // Returns false if the hash is computed from the CSSValue pointer instead of the underlying values.
+    bool addHash(Hasher&) const;
 
     // https://www.w3.org/TR/css-values-4/#local-urls
     // Empty URLs and fragment-only URLs should not be resolved relative to the base URL.
@@ -206,6 +217,7 @@ protected:
         PrefixedRadialGradientClass,
 
         // Timing function classes.
+        LinearTimingFunctionClass,
         CubicBezierTimingFunctionClass,
         SpringTimingFunctionClass,
         StepsTimingFunctionClass,
@@ -240,11 +252,13 @@ protected:
         QuadClass,
         RayClass,
         RectClass,
+        RectShapeClass,
         ReflectClass,
         ShadowClass,
         UnicodeRangeClass,
         ValuePairClass,
         VariableReferenceClass,
+        XywhShapeClass,
 
         // Classes that contain vectors, which derive from CSSValueContainingVector.
         ValueListClass,
@@ -284,6 +298,7 @@ private:
     template<typename Visitor> constexpr decltype(auto) visitDerived(Visitor&&) const;
 
     static inline bool customTraverseSubresources(const Function<bool(const CachedResource&)>&);
+    bool addDerivedHash(Hasher&) const;
 
     mutable unsigned m_refCount { refCountIncrement };
 
@@ -344,6 +359,8 @@ inline bool compareCSSValue(const Ref<CSSValueType>& first, const Ref<CSSValueTy
 {
     return first.get().equals(second);
 }
+
+void add(Hasher&, const CSSValue&);
 
 } // namespace WebCore
 

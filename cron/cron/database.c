@@ -25,6 +25,11 @@ static const char rcsid[] =
 
 
 #include "cron.h"
+#ifdef __APPLE__
+#include <CoreAnalytics/CoreAnalytics.h>
+#include <libgen.h>
+#include <string.h>
+#endif // __APPLE__
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -142,7 +147,83 @@ load_database(old_db)
 	 */
 	*old_db = new_db;
 	Debug(DLOAD, ("load_database is done\n"))
+
+#ifdef __APPLE__
+	report_jobs(get_crontab_info(&new_db));
+#endif
 }
+
+#ifdef __APPLE__
+static void report_jobs(dict)
+xpc_object_t dict;
+{
+	analytics_send_event_lazy("com.apple.cron.jobs", ^xpc_object_t(void) { return dict; });
+}
+
+static xpc_object_t
+get_crontab_info(db)
+	cron_db *db;
+{
+	uint64_t user_num = 0;
+
+	if (!db) {
+		return NULL;
+	}
+
+	xpc_object_t dict =  xpc_dictionary_create_empty();
+
+	user *user_cursor = db->head;
+	xpc_object_t user_tab_list = xpc_array_create_empty();
+	while (user_cursor) {
+		entry *crontab = user_cursor->crontab;
+		while (crontab) {
+			char *command = strndup(crontab->cmd, PATH_MAX);
+			if (!command) {
+				goto error;
+			}
+
+			char *current_cmd = command;
+
+			while (current_cmd && current_cmd[0] != '\0' && strchr(current_cmd, '=')) {
+				if (!strsep(&current_cmd, " \t")) {
+					goto error;
+				}
+			}
+
+			if (!current_cmd) {
+				goto error;
+			}
+
+			char *tmp_cmd;
+			tmp_cmd = strsep(&current_cmd, " \t");
+			tmp_cmd = basename(tmp_cmd);
+
+			if (!tmp_cmd) {
+				free(command);
+				goto error;
+			}
+
+			xpc_array_set_string(user_tab_list, XPC_ARRAY_APPEND, tmp_cmd);
+			free(command);
+
+			crontab = crontab->next;
+		}
+
+		xpc_dictionary_set_value(dict, "commands", user_tab_list);
+
+		user_cursor = user_cursor->next;
+		user_num++;
+	}
+
+	return dict;
+
+error:
+	xpc_release(user_tab_list);
+	xpc_release(dict);
+
+	return NULL;
+}
+#endif // __APPLE__
 
 
 void

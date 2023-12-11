@@ -41,7 +41,7 @@
 namespace WebCore {
 
 namespace DisplayList {
-class InMemoryDisplayList;
+class DisplayList;
 }
 
 class FloatRoundedRect;
@@ -145,7 +145,7 @@ public:
 
     WEBCORE_EXPORT bool addAnimation(const KeyframeValueList&, const FloatSize& boxSize, const Animation*, const String& animationName, double timeOffset) override;
     WEBCORE_EXPORT void pauseAnimation(const String& animationName, double timeOffset) override;
-    WEBCORE_EXPORT void removeAnimation(const String& animationName) override;
+    WEBCORE_EXPORT void removeAnimation(const String& animationName, std::optional<AnimatedProperty>) override;
     WEBCORE_EXPORT void transformRelatedPropertyDidChange() override;
     WEBCORE_EXPORT void setContentsToImage(Image*) override;
 #if PLATFORM(IOS_FAMILY)
@@ -677,7 +677,7 @@ private:
 
     Vector<FloatRect> m_dirtyRects;
 
-    std::unique_ptr<DisplayList::InMemoryDisplayList> m_displayList;
+    std::unique_ptr<DisplayList::DisplayList> m_displayList;
 
     float m_contentsScaleLimitingFactor { 1 };
     float m_rootRelativeScaleFactor { 1.0f };

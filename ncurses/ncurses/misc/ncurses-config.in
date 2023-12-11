@@ -126,6 +126,7 @@ ENDECHO
 		sed -e 's,^[ ]*,,' -e 's, [ ]*, ,g' -e 's,[ ]*$,,' <<-ENDECHO
 			$LIBDIR @EXTRA_LDFLAGS@ -l${THIS} -l${TINFO_LIB} @LIBS@
 ENDECHO
+		fi
 		;;
 	# identification
 	--version)

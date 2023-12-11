@@ -37,6 +37,59 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(SVGPathElement);
 
+class PathSegListCache {
+public:
+    static PathSegListCache& singleton();
+
+    const SVGPathByteStream::Data* get(const AtomString& attributeValue) const;
+    void add(const AtomString& attributeValue, const SVGPathByteStream::Data&);
+    void clear();
+
+private:
+    friend class NeverDestroyed<PathSegListCache, MainThreadAccessTraits>;
+    PathSegListCache() = default;
+
+    HashMap<AtomString, SVGPathByteStream::Data> m_cache;
+    uint64_t m_sizeInBytes { 0 };
+    static constexpr uint64_t maxSizeInBytes = 150 * 1024; // 150 Kb.
+};
+
+PathSegListCache& PathSegListCache::singleton()
+{
+    static MainThreadNeverDestroyed<PathSegListCache> cache;
+    return cache;
+}
+
+const SVGPathByteStream::Data* PathSegListCache::get(const AtomString& attributeValue) const
+{
+    auto iterator = m_cache.find(attributeValue);
+    return iterator != m_cache.end() ? &iterator->value : nullptr;
+}
+
+void PathSegListCache::add(const AtomString& attributeValue, const SVGPathByteStream::Data& data)
+{
+    size_t newDataSize = data.size();
+    if (UNLIKELY(newDataSize > (maxSizeInBytes / 2)))
+        return;
+
+    m_sizeInBytes += newDataSize;
+    while (m_sizeInBytes > maxSizeInBytes) {
+        ASSERT(!m_cache.isEmpty());
+        auto iteratorToRemove = m_cache.random();
+        ASSERT(iteratorToRemove != m_cache.end());
+        ASSERT(m_sizeInBytes >= iteratorToRemove->value.size());
+        m_sizeInBytes -= iteratorToRemove->value.size();
+        m_cache.remove(iteratorToRemove);
+    }
+    m_cache.add(attributeValue, data);
+}
+
+void PathSegListCache::clear()
+{
+    m_cache.clear();
+    m_sizeInBytes = 0;
+}
+
 inline SVGPathElement::SVGPathElement(const QualifiedName& tagName, Document& document)
     : SVGGeometryElement(tagName, document, makeUniqueRef<PropertyRegistry>(*this))
 {
@@ -56,11 +109,23 @@ Ref<SVGPathElement> SVGPathElement::create(const QualifiedName& tagName, Documen
 void SVGPathElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
     if (name == SVGNames::dAttr) {
-        if (!m_pathSegList->baseVal()->parse(newValue))
+        auto& cache = PathSegListCache::singleton();
+        if (newValue.isEmpty())
+            m_pathSegList->baseVal()->updateByteStreamData({ });
+        else if (auto* data = cache.get(newValue))
+            m_pathSegList->baseVal()->updateByteStreamData(*data);
+        else if (m_pathSegList->baseVal()->parse(newValue))
+            cache.add(newValue, m_pathSegList->baseVal()->existingPathByteStream().data());
+        else
             document().accessSVGExtensions().reportError("Problem parsing d=\"" + newValue + "\"");
     }
 
     SVGGeometryElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+}
+
+void SVGPathElement::clearCache()
+{
+    PathSegListCache::singleton().clear();
 }
 
 void SVGPathElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -129,7 +194,7 @@ unsigned SVGPathElement::getPathSegAtLength(float length) const
 FloatRect SVGPathElement::getBBox(StyleUpdateStrategy styleUpdateStrategy)
 {
     if (styleUpdateStrategy == AllowStyleUpdate)
-        document().updateLayoutIgnorePendingStylesheets();
+        document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     // FIXME: Eventually we should support getBBox for detached elements.
     // FIXME: If the path is null it means we're calling getBBox() before laying out this element,

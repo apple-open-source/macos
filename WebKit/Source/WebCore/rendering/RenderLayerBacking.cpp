@@ -289,7 +289,7 @@ void RenderLayerBacking::willDestroyLayer(const GraphicsLayer* layer)
         compositor().layerTiledBackingUsageChanged(layer, false);
 }
 
-static void clearBackingSharingLayerProviders(Vector<WeakPtr<RenderLayer>>& sharingLayers, const RenderLayer& providerLayer)
+static void clearBackingSharingLayerProviders(const Vector<WeakPtr<RenderLayer>>& sharingLayers, const RenderLayer& providerLayer)
 {
     for (auto& layerWeakPtr : sharingLayers) {
         if (!layerWeakPtr)
@@ -314,14 +314,14 @@ void RenderLayerBacking::setBackingSharingLayers(Vector<WeakPtr<RenderLayer>>&& 
 
     clearBackingSharingLayerProviders(m_backingSharingLayers, m_owningLayer);
 
-    if (sharingLayers != m_backingSharingLayers) {
+    ASSERT(sharingLayersChanged == (m_backingSharingLayers != sharingLayers));
+    if (sharingLayersChanged) {
         if (sharingLayers.size())
             setRequiresOwnBackingStore(true);
         setContentsNeedDisplay(); // This could be optimized to only repaint rects for changed layers.
     }
 
-    auto oldSharingLayers = WTFMove(m_backingSharingLayers);
-    m_backingSharingLayers = WTFMove(sharingLayers);
+    auto oldSharingLayers = std::exchange(m_backingSharingLayers, WTFMove(sharingLayers));
 
     for (auto& layerWeakPtr : m_backingSharingLayers)
         layerWeakPtr->setBackingProviderLayer(&m_owningLayer);
@@ -338,7 +338,8 @@ void RenderLayerBacking::setBackingSharingLayers(Vector<WeakPtr<RenderLayer>>&& 
 void RenderLayerBacking::removeBackingSharingLayer(RenderLayer& layer)
 {
     layer.setBackingProviderLayer(nullptr);
-    m_backingSharingLayers.removeAll(&layer);
+    m_backingSharingLayers.removeFirst(&layer);
+    ASSERT(!m_backingSharingLayers.contains(&layer));
 }
 
 void RenderLayerBacking::clearBackingSharingLayers()
@@ -1668,8 +1669,7 @@ void RenderLayerBacking::updateAfterDescendants()
         m_graphicsLayer->setContentsOpaque(!m_hasSubpixelRounding && m_owningLayer.backgroundIsKnownToBeOpaqueInRect(compositedBounds()));
     }
 
-    bool isSkippedContent = renderer().isSkippedContent();
-    m_graphicsLayer->setContentsVisible(!isSkippedContent && (m_owningLayer.hasVisibleContent() || hasVisibleNonCompositedDescendants()));
+    m_graphicsLayer->setContentsVisible(m_owningLayer.hasVisibleContent() || hasVisibleNonCompositedDescendants());
     if (m_scrollContainerLayer) {
         m_scrollContainerLayer->setContentsVisible(renderer().style().visibility() == Visibility::Visible);
 
@@ -2659,8 +2659,10 @@ static inline bool hasVisibleBoxDecorations(const RenderStyle& style)
     return style.hasVisibleBorder() || style.hasBorderRadius() || style.hasOutline() || style.hasEffectiveAppearance() || style.boxShadow() || style.hasFilter();
 }
 
-static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderStyle& style)
+static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderElement& renderer)
 {
+    const RenderStyle& style = renderer.style();
+
     if (!GraphicsLayer::supportsContentsTiling())
         return false;
 
@@ -2668,7 +2670,7 @@ static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderStyle& sty
     if (fillLayer.next())
         return false;
 
-    if (!fillLayer.imagesAreLoaded())
+    if (!fillLayer.imagesAreLoaded(&renderer))
         return false;
 
     if (fillLayer.attachment() != FillAttachment::ScrollBackground)
@@ -2691,15 +2693,17 @@ static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderStyle& sty
     return true;
 }
 
-static bool hasPaintedBoxDecorationsOrBackgroundImage(const RenderStyle& style)
+static bool hasPaintedBoxDecorationsOrBackgroundImage(const RenderElement& renderer)
 {
+    const RenderStyle& style = renderer.style();
+
     if (hasVisibleBoxDecorations(style))
         return true;
 
     if (!style.hasBackgroundImage())
         return false;
 
-    return !canDirectlyCompositeBackgroundBackgroundImage(style);
+    return !canDirectlyCompositeBackgroundBackgroundImage(renderer);
 }
 
 static inline bool hasPerspectiveOrPreserves3D(const RenderStyle& style)
@@ -2837,7 +2841,7 @@ static bool supportsDirectlyCompositedBoxDecorations(const RenderLayerModelObjec
     if (renderer.hasClip())
         return false;
 
-    if (hasPaintedBoxDecorationsOrBackgroundImage(style))
+    if (hasPaintedBoxDecorationsOrBackgroundImage(renderer))
         return false;
 
     // FIXME: We can't create a directly composited background if this
@@ -3164,7 +3168,7 @@ void RenderLayerBacking::contentChanged(ContentChangeType changeType)
     }
 #endif
 
-    if ((changeType == BackgroundImageChanged) && canDirectlyCompositeBackgroundBackgroundImage(renderer().style()))
+    if ((changeType == BackgroundImageChanged) && canDirectlyCompositeBackgroundBackgroundImage(renderer()))
         m_owningLayer.setNeedsCompositingConfigurationUpdate();
 
     if ((changeType == MaskImageChanged) && m_maskLayer)
@@ -4073,7 +4077,7 @@ void RenderLayerBacking::animationPaused(double timeOffset, const String& animat
 
 void RenderLayerBacking::animationFinished(const String& animationName)
 {
-    m_graphicsLayer->removeAnimation(animationName);
+    m_graphicsLayer->removeAnimation(animationName, std::nullopt);
     m_owningLayer.setNeedsPostLayoutCompositingUpdate();
     m_owningLayer.setNeedsCompositingGeometryUpdate();
 }

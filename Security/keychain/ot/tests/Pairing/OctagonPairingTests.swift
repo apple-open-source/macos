@@ -478,18 +478,28 @@ class OctagonPairingTests: OctagonTestsBase {
         XCTAssertNotNil(acceptorClique, "acceptorClique should not be nil")
         XCTAssertNotNil(initiatorClique, "initiatorClique should not be nil")
 
+        let acceptorFlowID = "flowID-acceptor"
+        let acceptorDeviceSessionID = "deviceSessionID-acceptor"
+
+        let requestorFlowID = "flowID-requestor"
+        let requestorDeviceSessionID = "deviceSessionID-requestor"
+
         let acceptorContext = KCPairingChannelContext()
         acceptorContext.model = "AcceptorModel"
         acceptorContext.osVersion = "AcceptorOsVersion"
         acceptorContext.modelClass = "AcceptorModelClass"
         acceptorContext.uniqueDeviceID = acceptorUniqueID
         acceptorContext.uniqueClientID = initiatorUniqueID
+        acceptorContext.flowID = acceptorFlowID
+        acceptorContext.deviceSessionID = acceptorDeviceSessionID
 
         let initiatorContext = KCPairingChannelContext()
         initiatorContext.model = "InitiatorModel"
         initiatorContext.osVersion = "InitiatorOsVersion"
         initiatorContext.modelClass = "InitiatorModelClass"
         initiatorContext.uniqueDeviceID = initiatorUniqueID
+        initiatorContext.flowID = requestorFlowID
+        initiatorContext.deviceSessionID = requestorDeviceSessionID
 
         let acceptor = acceptorClique!.setupPairingChannel(asAcceptor: acceptorContext)
         let initiator = initiatorClique!.setupPairingChannel(asInitiator: initiatorContext)
@@ -502,10 +512,14 @@ class OctagonPairingTests: OctagonTestsBase {
 
         acceptor.setSessionControlArguments(OTControlArguments(containerName: OTCKContainerName,
                                                                contextID: acceptorContextID,
-                                                               altDSID: nil))
+                                                               altDSID: nil,
+                                                              flowID: acceptorFlowID,
+                                                              deviceSessionID: acceptorDeviceSessionID))
         initiator.setSessionControlArguments(OTControlArguments(containerName: OTCKContainerName,
                                                                 contextID: initiatorContextID,
-                                                                altDSID: nil))
+                                                                altDSID: nil,
+                                                               flowID: requestorFlowID,
+                                                               deviceSessionID: requestorDeviceSessionID))
 
         let acceptorPairingConfig = OTJoiningConfiguration(protocolType: OTProtocolPairing,
                                                            uniqueDeviceID: acceptorUniqueID,

@@ -271,7 +271,7 @@ class StateManagerGL final : angle::NonCopyable
 
     void setProvokingVertex(GLenum mode);
 
-    void setClipDistancesEnable(const gl::State::ClipDistanceEnableBits &enables);
+    void setClipDistancesEnable(const gl::ClipDistanceEnableBits &enables);
 
     void setLogicOpEnabled(bool enabled);
     void setLogicOp(gl::LogicalOperation opcode);
@@ -290,12 +290,12 @@ class StateManagerGL final : angle::NonCopyable
                             const gl::state::ExtendedDirtyBits &extendedBitMask);
 
     ANGLE_INLINE void updateMultiviewBaseViewLayerIndexUniform(
-        const gl::Program *program,
+        const gl::ProgramExecutable *executable,
         const gl::FramebufferState &drawFramebufferState) const
     {
-        if (mIsMultiviewEnabled && program && program->usesMultiview())
+        if (mIsMultiviewEnabled && executable && executable->usesMultiview())
         {
-            updateMultiviewBaseViewLayerIndexUniformImpl(program, drawFramebufferState);
+            updateMultiviewBaseViewLayerIndexUniformImpl(executable, drawFramebufferState);
         }
     }
 
@@ -322,7 +322,7 @@ class StateManagerGL final : angle::NonCopyable
     void setTextureCubemapSeamlessEnabled(bool enabled);
 
     angle::Result propagateProgramToVAO(const gl::Context *context,
-                                        const gl::Program *program,
+                                        const gl::ProgramExecutable *executable,
                                         VertexArrayGL *vao);
 
     void updateProgramTextureBindings(const gl::Context *context);
@@ -344,11 +344,10 @@ class StateManagerGL final : angle::NonCopyable
     void syncTransformFeedbackState(const gl::Context *context);
 
     void updateEmulatedClipDistanceState(const gl::ProgramExecutable *executable,
-                                         const gl::Program *program,
-                                         const gl::State::ClipDistanceEnableBits enables) const;
+                                         const gl::ClipDistanceEnableBits enables) const;
 
     void updateMultiviewBaseViewLayerIndexUniformImpl(
-        const gl::Program *program,
+        const gl::ProgramExecutable *executable,
         const gl::FramebufferState &drawFramebufferState) const;
 
     void syncBlendFromNativeContext(const gl::Extensions &extensions, ExternalContextState *state);
@@ -542,7 +541,7 @@ class StateManagerGL final : angle::NonCopyable
 
     GLenum mProvokingVertex;
 
-    gl::State::ClipDistanceEnableBits mEnabledClipDistances;
+    gl::ClipDistanceEnableBits mEnabledClipDistances;
     const size_t mMaxClipDistances;
 
     bool mLogicOpEnabled;

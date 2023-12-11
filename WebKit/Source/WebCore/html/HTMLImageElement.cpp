@@ -344,14 +344,6 @@ bool HTMLImageElement::hasLazyLoadableAttributeValue(StringView attributeValue)
     return equalLettersIgnoringASCIICase(attributeValue, "lazy"_s);
 }
 
-enum CrossOriginState { NotSet, UseCredentials, Anonymous };
-static CrossOriginState parseCrossoriginState(const AtomString& crossoriginValue)
-{
-    if (crossoriginValue.isNull())
-        return NotSet;
-    return equalLettersIgnoringASCIICase(crossoriginValue, "use-credentials"_s) ? UseCredentials : Anonymous;
-}
-
 void HTMLImageElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
     HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
@@ -385,16 +377,15 @@ void HTMLImageElement::attributeChanged(const QualifiedName& name, const AtomStr
         if (!hasLazyLoadableAttributeValue(newValue))
             loadDeferredImage();
         break;
-    case AttributeNames::referrerpolicyAttr:
-        if (document().settings().referrerPolicyAttributeEnabled()) {
-            auto oldReferrerPolicy = parseReferrerPolicy(oldValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
-            auto newReferrerPolicy = parseReferrerPolicy(newValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
-            if (oldReferrerPolicy != newReferrerPolicy)
-                m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
-        }
+    case AttributeNames::referrerpolicyAttr: {
+        auto oldReferrerPolicy = parseReferrerPolicy(oldValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
+        auto newReferrerPolicy = parseReferrerPolicy(newValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
+        if (oldReferrerPolicy != newReferrerPolicy)
+            m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
         break;
+    }
     case AttributeNames::crossoriginAttr:
-        if (parseCrossoriginState(oldValue) != parseCrossoriginState(newValue))
+        if (parseCORSSettingsAttribute(oldValue) != parseCORSSettingsAttribute(newValue))
             m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
         break;
     case AttributeNames::nameAttr: {
@@ -540,7 +531,7 @@ void HTMLImageElement::setPictureElement(HTMLPictureElement* pictureElement)
 unsigned HTMLImageElement::width()
 {
     if (inRenderedDocument())
-        document().updateLayoutIgnorePendingStylesheets();
+        document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     if (!renderer()) {
         // check the attribute first for an explicit pixel value
@@ -563,7 +554,7 @@ unsigned HTMLImageElement::width()
 unsigned HTMLImageElement::height()
 {
     if (inRenderedDocument())
-        document().updateLayoutIgnorePendingStylesheets();
+        document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
     if (!renderer()) {
         // check the attribute first for an explicit pixel value
@@ -596,20 +587,20 @@ float HTMLImageElement::effectiveImageDevicePixelRatio() const
     return m_imageDevicePixelRatio;
 }
 
-int HTMLImageElement::naturalWidth() const
+unsigned HTMLImageElement::naturalWidth() const
 {
     if (!m_imageLoader->image())
         return 0;
 
-    return m_imageLoader->image()->unclampedImageSizeForRenderer(renderer(), effectiveImageDevicePixelRatio()).width();
+    return m_imageLoader->image()->unclampedImageSizeForRenderer(renderer(), effectiveImageDevicePixelRatio()).width().toUnsigned();
 }
 
-int HTMLImageElement::naturalHeight() const
+unsigned HTMLImageElement::naturalHeight() const
 {
     if (!m_imageLoader->image())
         return 0;
 
-    return m_imageLoader->image()->unclampedImageSizeForRenderer(renderer(), effectiveImageDevicePixelRatio()).height();
+    return m_imageLoader->image()->unclampedImageSizeForRenderer(renderer(), effectiveImageDevicePixelRatio()).height().toUnsigned();
 }
 
 bool HTMLImageElement::isURLAttribute(const Attribute& attribute) const
@@ -704,7 +695,7 @@ void HTMLImageElement::setWidth(unsigned value)
 
 int HTMLImageElement::x() const
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
     auto renderer = this->renderer();
     if (!renderer)
         return 0;
@@ -715,7 +706,7 @@ int HTMLImageElement::x() const
 
 int HTMLImageElement::y() const
 {
-    document().updateLayoutIgnorePendingStylesheets();
+    document().updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
     auto renderer = this->renderer();
     if (!renderer)
         return 0;
@@ -1015,9 +1006,7 @@ String HTMLImageElement::referrerPolicyForBindings() const
 
 ReferrerPolicy HTMLImageElement::referrerPolicy() const
 {
-    if (document().settings().referrerPolicyAttributeEnabled())
-        return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
-    return ReferrerPolicy::EmptyString;
+    return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
 }
 
 HTMLSourceElement* HTMLImageElement::sourceElement() const

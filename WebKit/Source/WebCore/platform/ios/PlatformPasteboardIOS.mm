@@ -79,9 +79,12 @@ void PlatformPasteboard::getTypes(Vector<String>& types) const
     types = makeVector<String>([m_pasteboard pasteboardTypes]);
 }
 
-RefPtr<SharedBuffer> PlatformPasteboard::bufferForType(const String& type) const
+PasteboardBuffer PlatformPasteboard::bufferForType(const String& type) const
 {
-    return readBuffer(0, type);
+    PasteboardBuffer pasteboardBuffer;
+    pasteboardBuffer.data = readBuffer(0, type);
+    pasteboardBuffer.type = type;
+    return pasteboardBuffer;
 }
 
 void PlatformPasteboard::performAsDataOwner(DataOwnerType type, Function<void()>&& actions)
@@ -424,7 +427,12 @@ static void addRepresentationsForPlainText(WebItemProviderRegistrationInfoList *
     if (plainText.isEmpty())
         return;
 
+#if HAVE(NSURL_ENCODING_INVALID_CHARACTERS)
+    NSURL *platformURL = [NSURL URLWithString:plainText encodingInvalidCharacters:NO];
+#else
     NSURL *platformURL = [NSURL URLWithString:plainText];
+#endif
+
     if (URL(platformURL).isValid())
         [itemsToRegister addRepresentingObject:platformURL];
 

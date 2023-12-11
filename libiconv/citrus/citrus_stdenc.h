@@ -116,13 +116,14 @@ _citrus_stdenc_mbtocsn(struct _citrus_stdenc * __restrict ce,
     _citrus_csid_t * __restrict csid, _citrus_index_t * __restrict idx,
     unsigned short * __restrict delta, int * __restrict cnt,
     char ** __restrict s, size_t n, void * __restrict ps,
-    size_t * __restrict nresult, struct iconv_hooks *hooks)
+    size_t * __restrict nresult, struct iconv_hooks *hooks,
+    _citrus_save_encoding_state_t *save_state, void *save_state_cookie)
 {
 
 	if (ce->ce_ops->eo_mbtocsn == NULL)
 		return (EOPNOTSUPP);
 	return ((*ce->ce_ops->eo_mbtocsn)(ce, csid, idx, delta, cnt, s, n, ps,
-	    nresult, hooks));
+	    nresult, hooks, save_state, save_state_cookie));
 }
 
 static __inline int
@@ -130,13 +131,14 @@ _citrus_stdenc_cstombn(struct _citrus_stdenc * __restrict ce,
     char * __restrict s, size_t n, _citrus_csid_t * __restrict csid,
     _citrus_index_t * __restrict idx, int * __restrict cnt,
     void * __restrict ps, size_t * __restrict nresult,
-    struct iconv_hooks *hooks)
+    struct iconv_hooks *hooks,
+    _citrus_save_encoding_state_t *save_state, void *save_state_cookie)
 {
 
 	if (ce->ce_ops->eo_cstombn == NULL)
 		return (EOPNOTSUPP);
 	return ((*ce->ce_ops->eo_cstombn)(ce, s, n, csid, idx, cnt, ps, nresult,
-	    hooks));
+	    hooks, save_state, save_state_cookie));
 }
 #endif
 

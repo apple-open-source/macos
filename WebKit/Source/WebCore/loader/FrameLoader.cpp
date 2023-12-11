@@ -276,8 +276,37 @@ struct ForbidSynchronousLoadsScope : public PageLevelForbidScope {
     }
 };
 
+struct ForbidCopyPasteScope : public PageLevelForbidScope {
+    explicit ForbidCopyPasteScope(Page* page)
+        : PageLevelForbidScope(page)
+        , m_oldDOMPasteAllowed(page->settings().domPasteAllowed())
+        , m_oldJavaScriptCanAccessClipboard(page->settings().javaScriptCanAccessClipboard())
+        , m_oldClipboardAccessPolicy(page->settings().clipboardAccessPolicy())
+    {
+        if (m_page) {
+            m_page->settings().setDOMPasteAllowed(false);
+            m_page->settings().setJavaScriptCanAccessClipboard(false);
+            m_page->settings().setClipboardAccessPolicy(ClipboardAccessPolicy::Deny);
+        }
+    }
+
+    ~ForbidCopyPasteScope()
+    {
+        if (m_page) {
+            m_page->settings().setDOMPasteAllowed(m_oldDOMPasteAllowed);
+            m_page->settings().setJavaScriptCanAccessClipboard(m_oldJavaScriptCanAccessClipboard);
+            m_page->settings().setClipboardAccessPolicy(m_oldClipboardAccessPolicy);
+        }
+    }
+private:
+    bool m_oldDOMPasteAllowed;
+    bool m_oldJavaScriptCanAccessClipboard;
+    ClipboardAccessPolicy m_oldClipboardAccessPolicy;
+};
+
+
 class FrameLoader::FrameProgressTracker {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
 public:
     explicit FrameProgressTracker(LocalFrame& frame)
         : m_frame(frame)
@@ -434,17 +463,22 @@ void FrameLoader::checkContentPolicy(const ResourceResponse& response, PolicyChe
     client().dispatchDecidePolicyForResponse(response, activeDocumentLoader()->request(), identifier, activeDocumentLoader()->downloadAttribute(), WTFMove(function));
 }
 
-bool FrameLoader::upgradeRequestforHTTPSOnlyIfNeeded(const URL& originalURL, ResourceRequest& request) const
+bool FrameLoader::shouldUpgradeRequestforHTTPSOnly(const URL& originalURL, ResourceRequest& request) const
 {
     auto& documentLoader = m_provisionalDocumentLoader ? m_provisionalDocumentLoader : m_documentLoader;
     auto& newURL = request.url();
     const auto& isSameSiteBypassEnabled = (originalURL.isEmpty()
-        || (originalURL.protocolIs("http"_s) && RegistrableDomain(newURL) == RegistrableDomain(originalURL)))
-        && documentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnlyExplicitlyBypassedForDomain);
+        || RegistrableDomain(newURL) == RegistrableDomain(originalURL))
+        && documentLoader && documentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnlyExplicitlyBypassedForDomain);
 
-    if (documentLoader && documentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnly)
+    return documentLoader && documentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnly)
         && newURL.protocolIs("http"_s)
-        && !isSameSiteBypassEnabled) {
+        && !isSameSiteBypassEnabled;
+}
+
+bool FrameLoader::upgradeRequestforHTTPSOnlyIfNeeded(const URL& originalURL, ResourceRequest& request) const
+{
+    if (shouldUpgradeRequestforHTTPSOnly(originalURL, request)) {
         FRAMELOADER_RELEASE_LOG(ResourceLoading, "upgradeRequestforHTTPSOnlyIfNeeded: upgrading navigation request");
         request.upgradeToHTTPS();
         // FIXME: Make this timeout adaptive based on network conditions
@@ -607,15 +641,6 @@ bool FrameLoader::didOpenURL()
 
     m_isComplete = false;
     m_didCallImplicitClose = false;
-
-    // If we are still in the process of initializing an empty document then
-    // its frame is not in a consistent state for rendering, so avoid setJSStatusBarText
-    // since it may cause clients to attempt to render the frame.
-    if (!m_stateMachine.creatingInitialEmptyDocument()) {
-        auto* window = m_frame.document()->domWindow();
-        window->setStatus(String());
-        window->setDefaultStatus(String());
-    }
 
     started();
 
@@ -1445,6 +1470,11 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
             openerPolicy = NewFrameOpenerPolicy::Suppress;
         }
 
+        if (m_frame.document()->settingsValues().blobRegistryTopOriginPartitioningEnabled && frameLoadRequest.resourceRequest().url().protocolIsBlob() && !m_frame.document()->securityOrigin().isSameOriginAs(m_frame.document()->topOrigin())) {
+            effectiveFrameName = blankTargetFrameName();
+            openerPolicy = NewFrameOpenerPolicy::Suppress;
+        }
+
         policyChecker().checkNewWindowPolicy(WTFMove(action), WTFMove(request), WTFMove(formState), effectiveFrameName, [this, allowNavigationToInvalidURL, openerPolicy, completionHandler = completionHandlerCaller.release()] (const ResourceRequest& request, WeakPtr<FormState>&& formState, const AtomString& frameName, const NavigationAction& action, ShouldContinuePolicyCheck shouldContinue) mutable {
             continueLoadAfterNewWindowPolicy(request, formState.get(), frameName, action, shouldContinue, allowNavigationToInvalidURL, openerPolicy);
             completionHandler();
@@ -1520,6 +1550,8 @@ void FrameLoader::load(FrameLoadRequest&& request)
             }
         }
     }
+
+    m_provisionalLoadHappeningInAnotherProcess = false;
 
     if (request.shouldCheckNewWindowPolicy()) {
         NavigationAction action { request.requester(), request.resourceRequest(), InitiatedByMainFrame::Unknown, NavigationType::Other, request.shouldOpenExternalURLsPolicy() };
@@ -2077,6 +2109,13 @@ void FrameLoader::clearProvisionalLoad()
     setState(FrameState::Complete);
 }
 
+void FrameLoader::provisionalLoadFailedInAnotherProcess()
+{
+    m_provisionalLoadHappeningInAnotherProcess = false;
+    if (auto* localParent = dynamicDowncast<LocalFrame>(m_frame.tree().parent()))
+        localParent->loader().checkLoadComplete();
+}
+
 void FrameLoader::commitProvisionalLoad()
 {
     RefPtr<DocumentLoader> pdl = m_provisionalDocumentLoader;
@@ -2389,13 +2428,6 @@ void FrameLoader::willRestoreFromCachedPage()
 
     // We still have to close the previous part page.
     closeURL();
-    
-    // Delete old status bar messages (if it _was_ activated on last URL).
-    if (m_frame.script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript)) {
-        auto* window = m_frame.document()->domWindow();
-        window->setStatus(String());
-        window->setDefaultStatus(String());
-    }
 }
 
 void FrameLoader::open(CachedFrameBase& cachedFrame)
@@ -3244,6 +3276,7 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
 
     NavigationAction action { request.requester(), workingResourceRequest, request.initiatedByMainFrame(), loadType, true, event, request.shouldOpenExternalURLsPolicy(), { } };
     action.setLockHistory(lockHistory);
+    action.setLockBackForwardList(request.lockBackForwardList());
     action.setShouldReplaceDocumentIfJavaScriptURL(request.shouldReplaceDocumentIfJavaScriptURL());
     action.setNewFrameOpenerPolicy(request.newFrameOpenerPolicy());
 
@@ -3256,6 +3289,11 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
 
         // https://html.spec.whatwg.org/#the-rules-for-choosing-a-browsing-context-given-a-browsing-context-name (Step 8.2)
         if (request.requester().shouldForceNoOpenerBasedOnCOOP()) {
+            frameName = blankTargetFrameName();
+            openerPolicy = NewFrameOpenerPolicy::Suppress;
+        }
+
+        if (m_frame.document()->settingsValues().blobRegistryTopOriginPartitioningEnabled && request.resourceRequest().url().protocolIsBlob() && !m_frame.document()->securityOrigin().isSameOriginAs(m_frame.document()->topOrigin())) {
             frameName = blankTargetFrameName();
             openerPolicy = NewFrameOpenerPolicy::Suppress;
         }
@@ -3580,6 +3618,7 @@ bool FrameLoader::dispatchBeforeUnloadEvent(Chrome& chrome, FrameLoader* frameLo
         SetForScope change(m_pageDismissalEventBeingDispatched, PageDismissalType::BeforeUnload);
         ForbidPromptsScope forbidPrompts(m_frame.page());
         ForbidSynchronousLoadsScope forbidSynchronousLoads(m_frame.page());
+        ForbidCopyPasteScope forbidCopyPaste(m_frame.page());
         domWindow->dispatchEvent(beforeUnloadEvent, domWindow->document());
     }
 
@@ -3689,24 +3728,22 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
         if (m_quickRedirectComing)
             clientRedirectCancelledOrFinished(NewLoadInProgress::No);
 
-        if (navigationPolicyDecision == NavigationPolicyDecision::StopAllLoads) {
+        if (navigationPolicyDecision == NavigationPolicyDecision::LoadWillContinueInAnotherProcess) {
             stopAllLoaders();
             m_checkTimer.stop();
         }
 
         setPolicyDocumentLoader(nullptr);
-        if (m_frame.isMainFrame() || navigationPolicyDecision != NavigationPolicyDecision::StopAllLoads)
+        if (m_frame.isMainFrame() || navigationPolicyDecision != NavigationPolicyDecision::LoadWillContinueInAnotherProcess)
             checkCompleted();
         else {
             // Don't call checkCompleted until RemoteFrame::didFinishLoadInAnotherProcess,
             // to prevent onload from happening until iframes finish loading in other processes.
             ASSERT(m_frame.settings().siteIsolationEnabled());
-            // FIXME: This needs to be set back to false if the provisional load in another process fails before it it committed.
-            // When the load is committed, this FrameLoader and its LocalFrame are replaced by a RemoteFrame.
             m_provisionalLoadHappeningInAnotherProcess = true;
         }
 
-        if (navigationPolicyDecision != NavigationPolicyDecision::StopAllLoads)
+        if (navigationPolicyDecision != NavigationPolicyDecision::LoadWillContinueInAnotherProcess)
             checkLoadComplete();
 
         // If the navigation request came from the back/forward menu, and we punt on it, we have the 
@@ -4370,6 +4407,11 @@ RefPtr<LocalFrame> createWindow(LocalFrame& openerFrame, LocalFrame& lookupFrame
 
     // https://html.spec.whatwg.org/#the-rules-for-choosing-a-browsing-context-given-a-browsing-context-name (Step 8.2)
     if (openerFrame.document()->shouldForceNoOpenerBasedOnCOOP()) {
+        request.setFrameName(blankTargetFrameName());
+        features.noopener = true;
+    }
+
+    if (openerFrame.document()->settingsValues().blobRegistryTopOriginPartitioningEnabled && request.resourceRequest().url().protocolIsBlob() && !openerFrame.document()->securityOrigin().isSameOriginAs(openerFrame.document()->topOrigin())) {
         request.setFrameName(blankTargetFrameName());
         features.noopener = true;
     }

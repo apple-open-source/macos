@@ -141,6 +141,7 @@
 #include "StyleProperties.h"
 #include "StyleResolver.h"
 #include "Styleable.h"
+#include "TransformOperationData.h"
 #include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
 #include "WheelEventTestMonitor.h"
@@ -359,19 +360,28 @@ RenderLayer::RenderLayer(RenderLayerModelObject& renderer)
     if (isRenderViewLayer())
         m_boxScrollingScope = m_contentsScrollingScope = nextScrollingScope();
 
-    if (renderer.firstChild())
-        return;
+    auto needsvisibleContentStatusUpdate = [&]() {
+        if (renderer.firstChild())
+            return false;
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
-    // Leave m_visibleContentStatusDirty = true in any case. The associated renderer needs to be inserted into the
-    // render tree, before we can determine the visible content status. The visible content status of a SVG renderer
-    // depends on its ancestors (all children of RenderSVGHiddenContainer are recursively invisible, no matter what).
-    if (renderer.isSVGLayerAwareRenderer() && renderer.document().settings().layerBasedSVGEngineEnabled())
-        return;
+        // Leave m_visibleContentStatusDirty = true in any case. The associated renderer needs to be inserted into the
+        // render tree, before we can determine the visible content status. The visible content status of a SVG renderer
+        // depends on its ancestors (all children of RenderSVGHiddenContainer are recursively invisible, no matter what).
+        if (renderer.isSVGLayerAwareRenderer() && renderer.document().settings().layerBasedSVGEngineEnabled())
+            return false;
 #endif
 
-    m_visibleContentStatusDirty = false;
-    m_hasVisibleContent = renderer.style().visibility() == Visibility::Visible;
+        //  We need the parent to know if we have skipped content or content-visibility root.
+        if (renderer.style().skippedContentReason().has_value() && !renderer.parent())
+            return false;
+        return true;
+    }();
+
+    if (needsvisibleContentStatusUpdate) {
+        m_visibleContentStatusDirty = false;
+        m_hasVisibleContent = renderer.style().visibility() == Visibility::Visible;
+    }
 }
 
 RenderLayer::~RenderLayer()
@@ -1330,31 +1340,6 @@ void RenderLayer::updateTransformFromStyle(TransformationMatrix& transform, cons
     makeMatrixRenderable(transform, canRender3DTransforms());
 }
 
-void RenderLayer::setReferenceBoxForPathOperations()
-{
-    auto pathOperation = renderer().style().offsetPath();
-    if (!pathOperation)
-        return;
-    if (is<BoxPathOperation>(pathOperation)) {
-        auto& boxPathOperation = downcast<BoxPathOperation>(*pathOperation);
-        auto pathReferenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().referenceBoxRect(boxPathOperation.referenceBox()), renderer());
-        boxPathOperation.setPathForReferenceRect(FloatRoundedRect { pathReferenceBoxRect });
-    } else if (is<RayPathOperation>(pathOperation)) {
-        if (const auto* containingBlock = renderer().containingBlock()) {
-            auto& rayPathOperation = downcast<RayPathOperation>(*pathOperation);
-            auto pathReferenceBoxRect = snapRectToDevicePixelsIfNeeded(containingBlock->transformReferenceBoxRect(containingBlock->style()), renderer());
-            if (!pathReferenceBoxRect.width())
-                pathReferenceBoxRect.setWidth(pathReferenceBoxRect.height());
-            if (!pathReferenceBoxRect.height())
-                pathReferenceBoxRect.setHeight(pathReferenceBoxRect.width());
-            rayPathOperation.setContainingBlockReferenceRect(pathReferenceBoxRect);
-            auto left = renderer().style().left();
-            auto top = renderer().style().top();
-            rayPathOperation.setStartingPosition(FloatPoint(left.isPercent() ? left.value() / 100 * pathReferenceBoxRect.width() : left.value(), top.isPercent() ? top.value() / 100 * pathReferenceBoxRect.height() : top.value()));
-        }
-    }
-}
-
 void RenderLayer::updateTransform()
 {
     bool hasTransform = renderer().isTransformed();
@@ -1373,7 +1358,6 @@ void RenderLayer::updateTransform()
     
     if (hasTransform) {
         m_transform->makeIdentity();
-        setReferenceBoxForPathOperations();
         updateTransformFromStyle(*m_transform, renderer().style(), RenderStyle::allTransformOperations());
     }
 
@@ -1609,7 +1593,12 @@ void RenderLayer::updateDescendantDependentFlags()
         bool hasNotIsolatedBlendingDescendants = false;
 #endif
 
-        for (RenderLayer* child = firstChild(); child; child = child->nextSibling()) {
+        auto firstLayerChild = [&] () -> RenderLayer* {
+            if (renderer().isSkippedContentRoot())
+                return nullptr;
+            return firstChild();
+        }();
+        for (RenderLayer* child = firstLayerChild; child; child = child->nextSibling()) {
             child->updateDescendantDependentFlags();
 
             hasVisibleDescendant |= child->m_hasVisibleContent || child->m_hasVisibleDescendant;
@@ -1641,6 +1630,9 @@ void RenderLayer::updateDescendantDependentFlags()
     }
 
     if (m_visibleContentStatusDirty) {
+        //  We need the parent to know if we have skipped content or content-visibility root.
+        if (renderer().style().skippedContentReason().has_value() && !renderer().parent())
+            return;
         m_hasVisibleContent = computeHasVisibleContent();
         m_visibleContentStatusDirty = false;
     }
@@ -1654,6 +1646,9 @@ bool RenderLayer::computeHasVisibleContent() const
         return false;
 #endif
     if (m_isHiddenByOverflowTruncation)
+        return false;
+
+    if (renderer().isSkippedContent())
         return false;
 
     if (renderer().style().visibility() == Visibility::Visible)
@@ -3100,7 +3095,7 @@ void RenderLayer::setupClipPath(GraphicsContext& context, GraphicsContextStateSa
 
     if (is<ReferencePathOperation>(style.clipPath())) {
         auto& referenceClipPathOperation = downcast<ReferencePathOperation>(*style.clipPath());
-        if (auto* clipperRenderer = renderer().ensureReferencedSVGResources().referencedClipperRenderer(renderer().treeScopeForSVGReferences(), referenceClipPathOperation)) {
+        if (auto* clipperRenderer = ReferencedSVGResources::referencedClipperRenderer(renderer().treeScopeForSVGReferences(), referenceClipPathOperation)) {
             // Use the border box as the reference box, even though this is not clearly specified: https://github.com/w3c/csswg-drafts/issues/5786.
             // clippedContentBounds is used as the reference box for inlines, which is also poorly specified: https://github.com/w3c/csswg-drafts/issues/6383.
             auto referenceBox = referenceBoxRectForClipPath(CSSBoxType::BorderBox, offsetFromRoot, clippedContentBounds);
@@ -3458,7 +3453,7 @@ void RenderLayer::paintList(LayerList layerIterator, GraphicsContext& context, c
     if (layerIterator.begin() == layerIterator.end())
         return;
 
-    if (!hasSelfPaintingLayerDescendant() || renderer().isSkippedContentRoot())
+    if (!hasSelfPaintingLayerDescendant())
         return;
 
 #if ASSERT_ENABLED
@@ -3903,8 +3898,7 @@ bool RenderLayer::hitTest(const HitTestRequest& request, const HitTestLocation& 
         if (settings.visualViewportEnabled() && settings.clientCoordinatesRelativeToLayoutViewport()) {
             auto& frameView = renderer().view().frameView();
             LayoutRect absoluteLayoutViewportRect = frameView.layoutViewportRect();
-            auto* localFrame = dynamicDowncast<LocalFrame>(frameView.frame());
-            auto scaleFactor = localFrame ? localFrame->frameScaleFactor() : 1.0f;
+            auto scaleFactor = frameView.frame().frameScaleFactor();
             if (scaleFactor > 1)
                 absoluteLayoutViewportRect.scale(scaleFactor);
             hitTestArea.intersect(absoluteLayoutViewportRect);
@@ -3914,7 +3908,7 @@ bool RenderLayer::hitTest(const HitTestRequest& request, const HitTestLocation& 
 
     auto insideLayer = hitTestLayer(this, nullptr, request, result, hitTestArea, hitTestLocation, false);
     if (!insideLayer.layer) {
-        // We didn't hit any layer. If we are the root layer and the mouse is -- or just was -- down, 
+        // We didn't hit any layer. If we are the root layer and the mouse is -- or just was -- down,
         // return ourselves. We do this so mouse events continue getting delivered after a drag has 
         // exited the WebView, and so hit testing over a scrollbar hits the content document.
         if (!request.isChildFrameHitTest() && (request.active() || request.release()) && isRenderViewLayer()) {
@@ -4190,12 +4184,15 @@ RenderLayer::HitLayer RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLa
     {
         HitTestResult tempResult(result.hitTestLocation());
         hitLayer = hitTestList(normalFlowLayers(), rootLayer, request, tempResult, hitTestRect, hitTestLocation, localTransformState.get(), zOffsetForDescendantsPtr, zOffset, unflattenedTransformState.get(), depthSortDescendants);
+
         if (request.resultIsElementList())
             result.append(tempResult, request);
+
         if (hitLayer.layer) {
             if (!depthSortDescendants || !using3DTransformsInterop || hitLayer.zOffset > candidateLayer.zOffset) {
                 if (!request.resultIsElementList())
                     result = tempResult;
+
                 candidateLayer = hitLayer;
             }
 
@@ -4217,6 +4214,7 @@ RenderLayer::HitLayer RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLa
     auto isHitCandidate = [&]() {
         if (using3DTransformsInterop)
             return !depthSortDescendants || selfZOffset > candidateLayer.zOffset;
+
         return isHitCandidateLegacy(this, false, zOffsetForContentsPtr, unflattenedTransformState.get());
     };
 
@@ -4231,8 +4229,10 @@ RenderLayer::HitLayer RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLa
                 result.append(tempResult, request);
             else
                 result = tempResult;
+
             if (!depthSortDescendants)
                 return { this, selfZOffset };
+
             // Foreground can depth-sort with descendant layers, so keep this as a candidate.
             candidateLayer = { this, selfZOffset };
         } else if (insideFragmentForegroundRect && request.resultIsElementList())
@@ -4243,12 +4243,15 @@ RenderLayer::HitLayer RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLa
     {
         HitTestResult tempResult(result.hitTestLocation());
         hitLayer = hitTestList(negativeZOrderLayers(), rootLayer, request, tempResult, hitTestRect, hitTestLocation, localTransformState.get(), zOffsetForDescendantsPtr, zOffset, unflattenedTransformState.get(), depthSortDescendants);
+
         if (request.resultIsElementList())
             result.append(tempResult, request);
+
         if (hitLayer.layer) {
             if (!depthSortDescendants || !using3DTransformsInterop || hitLayer.zOffset > candidateLayer.zOffset) {
                 if (!request.resultIsElementList())
                     result = tempResult;
+
                 candidateLayer = hitLayer;
             }
 
@@ -4264,15 +4267,18 @@ RenderLayer::HitLayer RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLa
     if (isSelfPaintingLayer()) {
         HitTestResult tempResult(result.hitTestLocation());
         bool insideFragmentBackgroundRect = false;
-            if (hitTestContentsForFragments(layerFragments, request, tempResult, hitTestLocation, HitTestSelf, insideFragmentBackgroundRect)  && isHitCandidate()) {
+        if (hitTestContentsForFragments(layerFragments, request, tempResult, hitTestLocation, HitTestSelf, insideFragmentBackgroundRect) && isHitCandidate()) {
             if (request.resultIsElementList())
                 result.append(tempResult, request);
             else
                 result = tempResult;
+
             if (!depthSortDescendants)
                 return { this, selfZOffset };
+
             candidateLayer = { this, selfZOffset };
         }
+
         if (insideFragmentBackgroundRect && request.resultIsElementList())
             result.append(tempResult, request);
     }
@@ -4287,7 +4293,7 @@ bool RenderLayer::hitTestContentsForFragments(const LayerFragments& layerFragmen
         return false;
 
     for (int i = layerFragments.size() - 1; i >= 0; --i) {
-        const LayerFragment& fragment = layerFragments.at(i);
+        const auto& fragment = layerFragments.at(i);
         if ((hitTestFilter == HitTestSelf && !fragment.backgroundRect.intersects(hitTestLocation))
             || (hitTestFilter == HitTestDescendants && !fragment.foregroundRect.intersects(hitTestLocation)))
             continue;
@@ -4538,8 +4544,7 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
             clipRects = *parentLayer->clipRects(clipRectsContext);
         else {
             ClipRectsContext parentContext(clipRectsContext);
-            parentContext.options.remove(ClipRectsOption::IncludeOverlayScrollbarSize); // FIXME: Why?
-            
+
             if ((parentContext.clipRectsType != TemporaryClipRects && parentContext.clipRectsType != AbsoluteClipRects) && clipCrossesPaintingBoundary())
                 parentContext.clipRectsType = TemporaryClipRects;
 
@@ -5412,7 +5417,7 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
     // likely be folded along with the rest.
     if (oldStyle) {
         bool visibilityChanged = oldStyle->visibility() != renderer().style().visibility();
-        if (oldStyle->usedZIndex() != renderer().style().usedZIndex() || visibilityChanged) {
+        if (oldStyle->usedZIndex() != renderer().style().usedZIndex() || oldStyle->skippedContentReason() != renderer().style().skippedContentReason() || visibilityChanged) {
             dirtyStackingContextZOrderLists();
             if (isStackingContext())
                 dirtyZOrderLists();
@@ -5527,7 +5532,7 @@ RenderStyle RenderLayer::createReflectionStyle()
     newStyle.setTransform(transform);
 
     // Map in our mask.
-    newStyle.setMaskBoxImage(renderer().style().boxReflect()->mask());
+    newStyle.setMaskBorder(renderer().style().boxReflect()->mask());
 
     // Style has transform and mask, so needs to be stacking context.
     newStyle.setUsedZIndex(0);
@@ -5580,9 +5585,7 @@ void RenderLayer::updateFiltersAfterStyleChange(StyleDifference diff, const Rend
         return;
     }
 
-    // Add the filter as a client to this renderer, unless we are a RenderLayer accommodating
-    // an SVG. In that case it takes care of its own resource management for filters.
-    if (renderer().style().filter().hasReferenceFilter() && !renderer().isSVGRootOrLegacySVGRoot()) {
+    if (renderer().style().filter().hasReferenceFilter()) {
         ensureLayerFilters();
         m_filters->updateReferenceFilterClients(renderer().style().filter());
     } else if (m_filters)
@@ -5947,7 +5950,7 @@ static void outputPaintOrderTreeRecursive(TextStream& stream, const WebCore::Ren
 
     if (layer.isComposited()) {
         auto& backing = *layer.backing();
-        stream << " (layerID " << backing.graphicsLayer()->primaryLayerID() << ")";
+        stream << " (layerID " << backing.graphicsLayer()->primaryLayerID().object() << ")";
         
         if (layer.indirectCompositingReason() != WebCore::IndirectCompositingReason::None)
             stream << " " << layer.indirectCompositingReason();

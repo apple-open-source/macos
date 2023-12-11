@@ -313,8 +313,8 @@ version     watchos             10.0
 version     bridgeos            8.0
 version     driverkit           23.0
 set         fall_2023           2023.9.1    23.0.0
-platform    xros                xrOS        XROS        min_max_define_name=XR_OS   availability_aliases=visionos ios_implicit_min=17.1
-version     xros                1.0
+platform    visionos            visionOS    VISIONOS      min_max_define_name=VISION_OS   cmd_aliases=xros availability_aliases=xros ios_implicit_min=17.1
+version     visionos            1.0
 version     macos               14.1
 version     ios                 17.1
 version     tvos                17.1
@@ -322,21 +322,36 @@ version     watchos             10.1
 version     bridgeos            8.1
 version     driverkit           23.1
 set         2023_SU_B           2023.12.1    23.1.0
+version     macos               14.2
+version     ios                 17.2
+version     tvos                17.2
+version     watchos             10.2
+version     bridgeos            8.2
+version     driverkit           23.2
+set         2023_SU_C           2023.13.1    23.2.0
+version     macos               14.3
+version     ios                 17.3
+version     tvos                17.3
+version     watchos             10.3
+version     bridgeos            8.3
+version     driverkit           23.3
+set         2023_SU_D           2023.14.1    23.3.0
 #ifndef __OPENSOURCE__
-version 	xros               	1.1
-version 	macos               14.3
-version 	ios                 17.4
-version 	tvos                17.4
-version 	watchos             10.4
-version 	bridgeos            8.3
-version 	driverkit           23.4
-set     	2023_SU_E           2023.15.1	23.4.0
-version     xros                2.0
-version	    macos               15.0
-version	    ios                 18.0
-version		tvos                18.0
-version		watchos             11.0
-version		bridgeos            9.0
-version		driverkit           24.0
-set			fall_2024           2024.0.0    24.0
+version     visionos            1.1
+version     macos               14.4
+version     ios                 17.4
+version     tvos                17.4
+version     watchos             10.4
+version     bridgeos            8.4
+version     driverkit           23.4
+set         2023_SU_E           2023.15.1	23.4.0
+version     visionos            2.0
+version     macos               15.0
+version     ios                 18.0
+version     tvos                18.0
+version     watchos             11.0
+version     bridgeos            9.0
+version     driverkit           24.0
+set         fall_2024           2024.0.0    24.0
+platform    exclavekit          exclavekit  EXCLAVEKIT -unversioned
 #endif

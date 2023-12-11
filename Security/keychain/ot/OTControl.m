@@ -50,40 +50,74 @@
 {
     return [self initWithContainerName:OTCKContainerName
                              contextID:OTDefaultContext
-                               altDSID:nil];
+                               altDSID:nil
+                                flowID:nil
+                       deviceSessionID:nil];
 }
 
 - (instancetype)initWithConfiguration:(OTConfigurationContext*)configuration
 {
     return [self initWithContainerName:configuration.containerName ?: OTCKContainerName
                              contextID:configuration.context ?: OTDefaultContext
-                               altDSID:configuration.altDSID];
+                               altDSID:configuration.altDSID
+                                flowID:configuration.flowID
+                       deviceSessionID:configuration.deviceSessionID];
 }
 
 - (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID
 {
     return [self initWithContainerName:OTCKContainerName
                              contextID:OTDefaultContext
-                               altDSID:altDSID];
+                               altDSID:altDSID
+                                flowID:nil
+                       deviceSessionID:nil];
+}
+
+- (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID 
+                         flowID:(NSString* _Nullable)flowID
+                deviceSessionID:(NSString* _Nullable)deviceSessionID
+{
+    return [self initWithContainerName:OTCKContainerName
+                             contextID:OTDefaultContext
+                               altDSID:altDSID
+                                flowID:flowID
+                       deviceSessionID:deviceSessionID];
 }
 
 - (instancetype)initWithContainerName:(NSString* _Nullable)containerName
                             contextID:(NSString*)contextID
                               altDSID:(NSString* _Nullable)altDSID
 {
+    return [self initWithContainerName:containerName
+                             contextID:contextID
+                               altDSID:altDSID
+                                flowID:nil
+                       deviceSessionID:nil];
+}
+
+- (instancetype)initWithContainerName:(NSString* _Nullable)containerName
+                            contextID:(NSString*)contextID
+                              altDSID:(NSString* _Nullable)altDSID
+                               flowID:(NSString* _Nullable)flowID
+                      deviceSessionID:(NSString* _Nullable)deviceSessionID
+{
     if((self = [super init])) {
         _containerName = containerName ?: OTCKContainerName;
         _contextID = contextID;
         _altDSID = altDSID;
+        _flowID = flowID;
+        _deviceSessionID = deviceSessionID;
     }
     return self;
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<OTControlArguments: container:%@, context:%@, altDSID:%@>",
+    return [NSString stringWithFormat:@"<OTControlArguments: container:%@, context:%@, altDSID:%@, flowID: %@, deviceSessionID: %@>",
             self.containerName,
             self.contextID,
-            self.altDSID];
+            self.altDSID,
+            self.flowID,
+            self.deviceSessionID];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -94,6 +128,8 @@
     [coder encodeObject:self.contextID forKey:@"contextID"];
     [coder encodeObject:self.containerName forKey:@"containerName"];
     [coder encodeObject:self.altDSID forKey:@"altDSID"];
+    [coder encodeObject:self.flowID forKey:@"flowID"];
+    [coder encodeObject:self.deviceSessionID forKey:@"deviceSessionID"];
 }
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder *)coder {
@@ -101,6 +137,8 @@
         _contextID = [coder decodeObjectOfClass:[NSString class] forKey:@"contextID"];
         _containerName = [coder decodeObjectOfClass:[NSString class] forKey:@"containerName"];
         _altDSID = [coder decodeObjectOfClass:[NSString class] forKey:@"altDSID"];
+        _flowID = [coder decodeObjectOfClass:[NSString class] forKey:@"flowID"];
+        _deviceSessionID = [coder decodeObjectOfClass:[NSString class] forKey:@"deviceSessionID"];
     }
     return self;
 }
@@ -111,6 +149,8 @@
     context.containerName = self.containerName;
     context.context = self.contextID;
     context.altDSID = self.altDSID;
+    context.flowID = self.flowID;
+    context.deviceSessionID = self.deviceSessionID;
     return context;
 }
 @end
@@ -600,6 +640,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection: ^(NSError* error) {
         reply(nil, error);
     }] healthCheck:arguments skipRateLimitingCheck:skipRateLimitingCheck repair:repair reply:reply];
+}
+
+- (void)simulateReceivePush:(OTControlArguments*)arguments
+                      reply:(void (^)(NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError* error) {
+        reply(error);
+    }] simulateReceivePush:arguments reply:reply];
 }
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments

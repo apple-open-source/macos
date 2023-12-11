@@ -73,7 +73,9 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                  permanentInfoSig: permanentInfoSig!,
                                  stableInfo: stableInfo!,
                                  stableInfoSig: stableInfoSig!,
-                                 ckksKeys: []) { voucher, voucherSig, error in
+                                 ckksKeys: [],
+                                 flowID: nil,
+                                 deviceSessionID: nil) { voucher, voucherSig, error in
                 XCTAssertNil(error, "Should be no error vouching")
                 XCTAssertNotNil(voucher, "Should have a voucher")
                 XCTAssertNotNil(voucherSig, "Should have a voucher signature")
@@ -95,7 +97,9 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                     voucherSig: voucherSig!,
                                     ckksKeys: [],
                                     tlkShares: [],
-                                    preapprovedKeys: []) { peerID, _, _, error in
+                                    preapprovedKeys: [],
+                                    flowID: nil,
+                                    deviceSessionID: nil) { peerID, _, _, error in
                     XCTAssertNil(error, "Should be no error joining")
                     XCTAssertNotNil(peerID, "Should have a peerID")
                     joinExpectation.fulfill()
@@ -237,7 +241,9 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                  permanentInfoSig: permanentInfoSig!,
                                  stableInfo: stableInfo!,
                                  stableInfoSig: stableInfoSig!,
-                                 ckksKeys: []) { voucher, voucherSig, error in
+                                 ckksKeys: [],
+                                 flowID: nil,
+                                 deviceSessionID: nil) { voucher, voucherSig, error in
                 XCTAssertNotNil(error, "should be an error vouching for a peer with an unknown policy")
                 XCTAssertNil(voucher, "Should have no voucher")
                 XCTAssertNil(voucherSig, "Should have no voucher signature")
@@ -715,7 +721,6 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-
         let policyV1Document = builtInPolicyDocuments.first { $0.version.versionNumber == 1 }!
         pastPeerContext.policyOverride = policyV1Document.version
 
@@ -787,6 +792,175 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         self.wait(for: [serverUpdateExpectation], timeout: 10)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+    }
+
+    func testRecoveryKeyFromPeerUsingOldPolicy() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.startCKAccountStatusMock()
+
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+        let policyV18Document = builtInPolicyDocuments.first { $0.version.versionNumber == 18 }!
+        pastPeerContext.policyOverride = policyV18Document.version
+
+        let serverEstablishExpectation = self.expectation(description: "futurePeer establishes successfully")
+        self.fakeCuttlefishServer.establishListener = { establishRequest in
+            XCTAssertTrue(establishRequest.peer.hasStableInfoAndSig, "Establishing peer should have a stable info")
+            let newStableInfo = establishRequest.peer.stableInfoAndSig.stableInfo()
+            XCTAssertEqual(newStableInfo.flexiblePolicyVersion, policyV18Document.version, "Policy version in peer should be v18")
+            serverEstablishExpectation.fulfill()
+            return nil
+        }
+
+        self.assertResetAndBecomeTrusted(context: pastPeerContext)
+        self.wait(for: [serverEstablishExpectation], timeout: 10)
+
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: pastPeerContext)
+        self.assertSelfTLKSharesInCloudKit(context: pastPeerContext)
+
+        // Now, create an RK
+        let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        let createRecoveryExpectation = self.expectation(description: "createRecoveryExpectation returns")
+        self.manager.createRecoveryKey(self.otcontrolArgumentsFor(context: pastPeerContext), recoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            createRecoveryExpectation.fulfill()
+        }
+        self.wait(for: [createRecoveryExpectation], timeout: 10)
+
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
+
+        // Now, Octagon comes along and recovers via the RK.
+        let serverJoinExpectation = self.expectation(description: "joins successfully")
+        self.fakeCuttlefishServer.joinListener = { joinRequest in
+            let zones = Set(joinRequest.viewKeys.map { $0.view })
+
+            XCTAssertEqual(zones.count, 0, "Should have zero sets of new viewkeys during join")
+
+            let joiningPeer = joinRequest.peer.stableInfoAndSig.stableInfo()
+            XCTAssertEqual(joiningPeer.flexiblePolicyVersion, prevailingPolicyVersion, "Our current policy should be the prevailing policy - the sponsor peer should be ignored")
+            XCTAssertEqual(joiningPeer.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in peer should be the real policy")
+
+            let tlkShareZones = joinRequest.tlkShares.map { $0.view }
+#if !os(tvOS)
+            XCTAssertEqual(joinRequest.tlkShares.count, 2, "Should have two TLKShares during join")
+            XCTAssertTrue(tlkShareZones.contains("Manatee"), "Should have a TLKShare for the manatee view")
+#else
+            XCTAssertEqual(joinRequest.tlkShares.count, 1, "Should have two TLKShares during join")
+#endif
+            XCTAssertTrue(tlkShareZones.contains("LimitedPeersAllowed"), "Should have a TLKShare for the LimitedPeersAllowed view")
+
+            serverJoinExpectation.fulfill()
+            return nil
+        }
+
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKey callback occurs")
+        self.cuttlefishContext.join(withRecoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            joinWithRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 20)
+        self.wait(for: [serverJoinExpectation], timeout: 10)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+    }
+
+    func testCustodianRecoveryKeyFromPeerUsingOldPolicy() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.startCKAccountStatusMock()
+
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+        let policyV18Document = builtInPolicyDocuments.first { $0.version.versionNumber == 18 }!
+        pastPeerContext.policyOverride = policyV18Document.version
+
+        let serverEstablishExpectation = self.expectation(description: "futurePeer establishes successfully")
+        self.fakeCuttlefishServer.establishListener = { establishRequest in
+            XCTAssertTrue(establishRequest.peer.hasStableInfoAndSig, "Establishing peer should have a stable info")
+            let newStableInfo = establishRequest.peer.stableInfoAndSig.stableInfo()
+            XCTAssertEqual(newStableInfo.flexiblePolicyVersion, policyV18Document.version, "Policy version in peer should be v18")
+            serverEstablishExpectation.fulfill()
+            return nil
+        }
+
+        self.assertResetAndBecomeTrusted(context: pastPeerContext)
+        self.wait(for: [serverEstablishExpectation], timeout: 10)
+
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: pastPeerContext)
+        self.assertSelfTLKSharesInCloudKit(context: pastPeerContext)
+
+        // Now, create a CRK
+        var retCRK: OTCustodianRecoveryKey?
+        let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
+        self.manager.createCustodianRecoveryKey(self.otcontrolArgumentsFor(context: pastPeerContext), uuid: nil) { crk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(crk, "crk should be non-nil")
+            XCTAssertNotNil(crk?.uuid, "uuid should be non-nil")
+            retCRK = crk
+            createCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
+
+        let otcrk = try XCTUnwrap(retCRK)
+
+        self.assertEnters(context: pastPeerContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(pastPeerContext.activeAccount))
+        let custodian = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: otcrk.uuid))
+
+        let crkWithKeys = try CustodianRecoveryKey(tpCustodian: custodian,
+                                                   recoveryKeyString: otcrk.recoveryString,
+                                                   recoverySalt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
+        self.verifyDatabaseMocks()
+
+        // Since non-primary Octagons don't have CKKSes yet, help this out
+        self.putAllTLKSharesInCloudKit(to: crkWithKeys.peerKeys, from: try self.loadPeerKeys(context: pastPeerContext))
+
+        // Now, Octagon comes along and recovers via the CRK.
+
+        let serverJoinExpectation = self.expectation(description: "joins successfully")
+        self.fakeCuttlefishServer.joinListener = { joinRequest in
+            let zones = Set(joinRequest.viewKeys.map { $0.view })
+
+            XCTAssertEqual(zones.count, 0, "Should have zero sets of new viewkeys during join")
+
+            let joiningPeer = joinRequest.peer.stableInfoAndSig.stableInfo()
+            XCTAssertEqual(joiningPeer.flexiblePolicyVersion, prevailingPolicyVersion, "Our current policy should be the prevailing policy - the sponsor peer should be ignored")
+            XCTAssertEqual(joiningPeer.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in peer should be the real policy")
+
+            let tlkShareZones = joinRequest.tlkShares.map { $0.view }
+#if !os(tvOS)
+            XCTAssertEqual(joinRequest.tlkShares.count, 2, "Should have two TLKShares during join")
+            XCTAssertTrue(tlkShareZones.contains("Manatee"), "Should have a TLKShare for the manatee view")
+#else
+            XCTAssertEqual(joinRequest.tlkShares.count, 1, "Should have two TLKShares during join")
+#endif
+            XCTAssertTrue(tlkShareZones.contains("LimitedPeersAllowed"), "Should have a TLKShare for the LimitedPeersAllowed view")
+
+            serverJoinExpectation.fulfill()
+            return nil
+        }
+
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        let joinWithCustodianRecoveryKeyExpectation = self.expectation(description: "joinWithCustodianRecoveryKey callback occurs")
+        self.cuttlefishContext.join(with: otcrk) { error in
+            XCTAssertNil(error, "error should be nil")
+            joinWithCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [joinWithCustodianRecoveryKeyExpectation], timeout: 20)
+        self.wait(for: [serverJoinExpectation], timeout: 10)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
