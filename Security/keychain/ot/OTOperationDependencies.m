@@ -20,6 +20,7 @@
                    notifierClass:(Class<CKKSNotifier>)notifierClass
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID
+          permittedToSendMetrics:(BOOL)permittedToSendMetrics
 {
     if((self = [super init])) {
         _containerName = containerName;
@@ -40,6 +41,7 @@
         _notifierClass = notifierClass;
         _flowID = flowID;
         _deviceSessionID = deviceSessionID;
+        _permittedToSendMetrics = permittedToSendMetrics;
     }
     return self;
 }

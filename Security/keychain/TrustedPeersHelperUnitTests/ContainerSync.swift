@@ -120,7 +120,8 @@ extension Container {
                    ckksKeys: [CKKSKeychainBackedKeySet],
                    altDSID: String?,
                    flowID: String?,
-                   deviceSessionID: String?) -> (Data?, Data?, Error?) {
+                   deviceSessionID: String?,
+                   canSendMetrics: Bool) -> (Data?, Data?, Error?) {
         let expectation = XCTestExpectation(description: "vouch replied")
         var reta: Data?, retb: Data?, reterr: Error?
         self.vouch(peerID: peerID,
@@ -131,7 +132,8 @@ extension Container {
                    ckksKeys: ckksKeys,
                    altDSID: altDSID,
                    flowID: flowID,
-                   deviceSessionID: deviceSessionID) { a, b, err in
+                   deviceSessionID: deviceSessionID,
+                   canSendMetrics: canSendMetrics) { a, b, err in
                     reta = a
                     retb = b
                     reterr = err
@@ -180,7 +182,8 @@ extension Container {
                   preapprovedKeys: [Data]? = nil,
                   altDSID: String?,
                   flowID: String?,
-                  deviceSessionID: String?) -> (String?, [CKRecord]?, TPSyncingPolicy?, Error?) {
+                  deviceSessionID: String?,
+                  canSendMetrics:Bool) -> (String?, [CKRecord]?, TPSyncingPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "join replied")
         var reta: String?, retkhr: [CKRecord]?, reterr: Error?
         var retpolicy: TPSyncingPolicy?
@@ -191,7 +194,8 @@ extension Container {
                   preapprovedKeys: preapprovedKeys,
                   altDSID: altDSID,
                   flowID: flowID,
-                  deviceSessionID: deviceSessionID) { a, khr, policy, err in
+                  deviceSessionID: deviceSessionID,
+                  canSendMetrics: canSendMetrics) { a, khr, policy, err in
                     reta = a
                     retkhr = khr
                     retpolicy = policy

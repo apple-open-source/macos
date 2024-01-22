@@ -48,7 +48,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(prepareInheritancePeerWithSpecificUser:epoch:machineID:bottleSalt:bottleID:modelID:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:signingPrivKeyPersistentRef:encPrivKeyPersistentRef:crk:reply:) argumentIndex:7 ofReply:YES];
 
         [interface setClasses:errClasses forSelector:@selector(establishWithSpecificUser:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:3 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(vouchWithSpecificUser:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:ckksKeys:flowID:deviceSessionID:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(vouchWithSpecificUser:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:ckksKeys:flowID:deviceSessionID:canSendMetrics:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(preflightVouchWithBottleWithSpecificUser:bottleID:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(vouchWithBottleWithSpecificUser:bottleID:entropy:bottleSalt:tlkShares:reply:) argumentIndex:4 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(preflightVouchWithRecoveryKeyWithSpecificUser:recoveryKey:salt:reply:) argumentIndex:2 ofReply:YES];
@@ -56,7 +56,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(vouchWithRecoveryKeyWithSpecificUser:recoveryKey:salt:tlkShares:reply:) argumentIndex:4 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(recoverTLKSharesForInheritorWithSpecificUser:crk:tlkShares:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(vouchWithCustodianRecoveryKeyWithSpecificUser:crk:tlkShares:reply:) argumentIndex:4 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(joinWithSpecificUser:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:flowID:deviceSessionID:reply:) argumentIndex:3 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(joinWithSpecificUser:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:flowID:deviceSessionID:canSendMetrics:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(preflightPreapprovedJoinWithSpecificUser:preapprovedKeys:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(attemptPreapprovedJoinWithSpecificUser:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(updateWithSpecificUser:forceRefetch:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:walrusSetting:webAccess:reply:) argumentIndex:2 ofReply:YES];
@@ -94,9 +94,9 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:arrayOfTLKShares forSelector:@selector(establishWithSpecificUser:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:2 ofReply:NO];
         [interface setClasses:arrayOfCKRecords forSelector:@selector(establishWithSpecificUser:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:1 ofReply:YES];
 
-        [interface setClasses:arrayOfKeySets   forSelector:@selector(joinWithSpecificUser:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:flowID:deviceSessionID:reply:) argumentIndex:3 ofReply:NO];
-        [interface setClasses:arrayOfTLKShares forSelector:@selector(joinWithSpecificUser:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:flowID:deviceSessionID:reply:) argumentIndex:4 ofReply:NO];
-        [interface setClasses:arrayOfCKRecords forSelector:@selector(joinWithSpecificUser:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:flowID:deviceSessionID:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:arrayOfKeySets   forSelector:@selector(joinWithSpecificUser:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:flowID:deviceSessionID:canSendMetrics:reply:) argumentIndex:3 ofReply:NO];
+        [interface setClasses:arrayOfTLKShares forSelector:@selector(joinWithSpecificUser:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:flowID:deviceSessionID:canSendMetrics:reply:) argumentIndex:4 ofReply:NO];
+        [interface setClasses:arrayOfCKRecords forSelector:@selector(joinWithSpecificUser:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:flowID:deviceSessionID:canSendMetrics:reply:) argumentIndex:1 ofReply:YES];
 
         [interface setClasses:arrayOfKeySets   forSelector:@selector(attemptPreapprovedJoinWithSpecificUser:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:1 ofReply:NO];
         [interface setClasses:arrayOfTLKShares forSelector:@selector(attemptPreapprovedJoinWithSpecificUser:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:2 ofReply:NO];
@@ -111,6 +111,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                      ckksKeys:
                                                                      flowID:
                                                                      deviceSessionID:
+                                                                     canSendMetrics:
                                                                      reply:) argumentIndex:6 ofReply:NO];
 
         [interface setClasses:arrayOfTLKShares forSelector:@selector(vouchWithBottleWithSpecificUser:

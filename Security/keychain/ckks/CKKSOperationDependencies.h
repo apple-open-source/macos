@@ -86,6 +86,9 @@ NS_ASSUME_NONNULL_BEGIN
 // This might contain some key set provider operations. if you're an operation that knows about keysets, feel free to provide them.
 @property NSHashTable<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keysetProviderOperations;
 
+// Use this to track whether we should send metrics in the event of initial sign-in
+@property bool sendMetric;
+
 - (instancetype)initWithViewStates:(NSSet<CKKSKeychainViewState*>*)viewStates
                          contextID:(NSString*)contextID
                      activeAccount:(TPSpecificUser* _Nullable)activeAccount
@@ -101,7 +104,8 @@ NS_ASSUME_NONNULL_BEGIN
                      peerProviders:(NSArray<id<CKKSPeerProvider>>*)peerProviders
                   databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
                   savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
-                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter;
+                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter
+                        sendMetric:(bool)sendMetric;
 
 // Convenience method to fetch the trust states from all peer providers
 // Do not call this while on the SQL transaction queue!

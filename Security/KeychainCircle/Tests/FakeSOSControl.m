@@ -129,7 +129,7 @@
         abort();
 }
 
-- (void)initialSyncCredentials:(uint32_t)flags altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID complete:(void (^)(NSArray *, NSError *))complete
+- (void)initialSyncCredentials:(uint32_t)flags altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID canSendMetrics:(BOOL)canSendMetrics complete:(void (^)(NSArray *, NSError *))complete
 {
     // Make up a fake TLK
     NSMutableArray<NSDictionary *> *items = [NSMutableArray array];
@@ -201,6 +201,7 @@
 - (void)validatedStashedAccountCredential:(NSString *)altDSID 
                                    flowID:(NSString* _Nullable)flowID
                           deviceSessionID:(NSString* _Nullable)deviceSessionID
+                           canSendMetrics:(BOOL)canSendMetrics
                                  complete:(void (^)(NSData *, NSError *))complete {
     NSData *key = NULL;
     CFErrorRef error = NULL;
@@ -217,6 +218,7 @@
                        altDSID:(NSString*)altDSID 
                         flowID:(NSString* _Nullable)flowID
                deviceSessionID:(NSString* _Nullable)deviceSessionID
+                canSendMetrics:(BOOL)canSendMetrics
                       complete:(void(^)(bool success, NSError *error))complete
 {
     SecKeyRef accountPrivateKey = NULL;
@@ -244,6 +246,7 @@
 - (void)myPeerInfo:(NSString*)altDSID  
             flowID:(NSString* _Nullable)flowID
    deviceSessionID:(NSString* _Nullable)deviceSessionID 
+    canSendMetrics:(BOOL)canSendMetrics
           complete:(void(^)(NSData *application, NSError *error))complete
 {
     CFErrorRef error = NULL;
@@ -262,7 +265,7 @@
     complete(data, NULL);
 }
 
-- (void)circleJoiningBlob:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID applicant:(NSData *)applicantData complete:(void (^)(NSData *blob, NSError *))complete
+- (void)circleJoiningBlob:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID canSendMetrics:(BOOL)canSendMetrics applicant:(NSData *)applicantData complete:(void (^)(NSData *blob, NSError *))complete
 {
     CFErrorRef error = NULL;
     CFDataRef signature = NULL;
@@ -293,7 +296,7 @@
     complete(pbblob, NULL);
 }
 
-- (void)joinCircleWithBlob:(NSData *)blob altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete
+- (void)joinCircleWithBlob:(NSData *)blob altDSID:(NSString*)altDSID flowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID canSendMetrics:(BOOL)canSendMetrics version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete
 {
     SOSGenCountRef gencount = NULL;
     SecKeyRef pubKey = NULL;

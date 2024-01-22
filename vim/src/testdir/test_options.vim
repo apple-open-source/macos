@@ -228,6 +228,11 @@ func Test_keymap_valid()
   call assert_fails(":set kmp=trunc\x00name", "trunc")
 endfunc
 
+func Test_wildchar_valid()
+  call assert_fails("set wildchar=<CR>", "E474:")
+  call assert_fails("set wildcharm=<C-C>", "E474:")
+endfunc
+
 func Check_dir_option(name)
   " Check that it's possible to set the option.
   exe 'set ' . a:name . '=/usr/share/dict/words'
@@ -611,6 +616,9 @@ func Test_set_completion_string_values()
         \        {idx, val -> val != ':'}),
         \ '')
   call assert_equal([], getcompletion('set hl+=8'..hl_display_modes, 'cmdline'))
+  " Test completion in middle of the line
+  call feedkeys(":set hl=8b i\<Left>\<Left>\<Tab>\<C-B>\"\<CR>", 'xt')
+  call assert_equal("\"set hl=8bi i", @:)
 
   "
   " Test flag lists
@@ -2197,6 +2205,22 @@ func Test_set_keyprotocol()
   set keyprotocol+=ansi:kitty
   call assert_equal("\<Esc>[=1;1u", &t_TI)
   let &term = term
+endfunc
+
+func Test_set_wrap()
+  " Unsetting 'wrap' when 'smoothscroll' is set does not result in incorrect
+  " cursor position.
+  set wrap smoothscroll scrolloff=5
+
+  call setline(1, ['', 'aaaa'->repeat(500)])
+  20 split
+  20 vsplit
+  norm 2G$
+  redraw
+  set nowrap
+  call assert_equal(2, winline())
+
+  set wrap& smoothscroll& scrolloff&
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

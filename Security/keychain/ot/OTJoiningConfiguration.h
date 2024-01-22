@@ -38,6 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) NSString* pairingUUID;
 @property (nonatomic) uint64_t epoch;
 @property (nonatomic) BOOL isInitiator;
+@property (nonatomic) BOOL testsEnabled;
 
 // Set this to non-zero if you want to configure your timeouts
 @property int64_t timeout;
@@ -49,6 +50,7 @@ NS_ASSUME_NONNULL_BEGIN
                                epoch:(uint64_t)epoch
                          isInitiator:(BOOL)isInitiator;
 -(instancetype)init NS_UNAVAILABLE;
+- (void)enableForTests;
 
 @end
 NS_ASSUME_NONNULL_END

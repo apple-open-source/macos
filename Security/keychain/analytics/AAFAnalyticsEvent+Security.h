@@ -28,9 +28,6 @@ NS_ASSUME_NONNULL_BEGIN
 @interface AAFAnalyticsEventSecurity : NSObject
 
 @property dispatch_queue_t queue;
-@property (readonly) BOOL areTestsEnabled;
-@property (readonly) BOOL isAAAFoundationAvailable;
-@property (readonly) BOOL isAuthKitAvailable;
 
 - (instancetype)initWithKeychainCircleMetrics:(NSDictionary * _Nullable)metrics
                                       altDSID:(NSString * _Nullable)altDSID
@@ -38,13 +35,15 @@ NS_ASSUME_NONNULL_BEGIN
                               deviceSessionID:(NSString * _Nullable)deviceSessionID
                                     eventName:(NSString *)eventName
                               testsAreEnabled:(BOOL)testsAreEnabled
+                               canSendMetrics:(BOOL)canSendMetrics
                                      category:(NSNumber *)category;
 
 - (instancetype)initWithCKKSMetrics:(NSDictionary * _Nullable)metrics
-                                      altDSID:(NSString *)altDSID
-                                    eventName:(NSString *)eventName
-                              testsAreEnabled:(BOOL)testsAreEnabled
-                                     category:(NSNumber *)category;
+                            altDSID:(NSString *)altDSID
+                          eventName:(NSString *)eventName
+                    testsAreEnabled:(BOOL)testsAreEnabled
+                           category:(NSNumber *)category
+                         sendMetric:(BOOL)sendMetric;
 
 - (instancetype)initWithKeychainCircleMetrics:(NSDictionary * _Nullable)metrics
                                       altDSID:(NSString * _Nullable)altDSID
@@ -53,6 +52,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (id)getEvent;
 - (void)addMetrics:(NSDictionary*)metrics;
 - (void)populateUnderlyingErrorsStartingWithRootError:(NSError* _Nullable)error;
+- (BOOL)permittedToSendMetrics;
 
 @end
 

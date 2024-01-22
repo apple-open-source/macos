@@ -46,6 +46,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <libcharset.h>
+#endif
+
 #include "citrus_namespace.h"
 #include "citrus_bcs.h"
 #include "citrus_esdb.h"
@@ -318,12 +322,12 @@ _citrus_iconv_open(struct _citrus_iconv * __restrict * __restrict rcv,
 	 * we also need these to be case insensitive.
 	 */
 	if (realsrc[0] == '\0' || strcasecmp(realsrc, "char") == 0)
-		strlcpy(realsrc, nl_langinfo(CODESET), sizeof(realsrc));
+		strlcpy(realsrc, locale_charset(), sizeof(realsrc));
 	else if (strcasecmp(realsrc, "wchar_t") == 0)
 		strlcpy(realsrc, "UCS-4-INTERNAL", sizeof(realsrc));
 
 	if (realdst[0] == '\0' || strcasecmp(realdst, "char") == 0)
-		strlcpy(realdst, nl_langinfo(CODESET), sizeof(realdst));
+		strlcpy(realdst, locale_charset(), sizeof(realdst));
 	else if (strcasecmp(realdst, "wchar_t") == 0)
 		strlcpy(realdst, "UCS-4-INTERNAL", sizeof(realdst));
 #endif

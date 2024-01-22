@@ -294,7 +294,8 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                            deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                  eventName:kSecurityRTCEventNameInitiatorWaitsForUpgrade
                                                                                            testsAreEnabled:MetricsOverrideTestsAreEnabled()
-                                                                                                  category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                          canSendMetrics:YES
+                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     [self.otControl waitForOctagonUpgrade:self.controlArguments reply:^(NSError *error) {
         if (error){
@@ -329,6 +330,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                          deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameInitiatorCreatesPacket1
                                                                                          testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     if (SOSCCIsSOSTrustAndSyncingEnabled() && ![self ensureControlChannel]) {
@@ -393,6 +395,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                          deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameInitiatorCreatesPacket3
                                                                                          testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     NSData *octagonData = indata[@"o"];
@@ -421,6 +424,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
          altDSID:self.peerVersionContext.altDSID
          flowID:self.peerVersionContext.flowID
          deviceSessionID:self.peerVersionContext.deviceSessionID
+         canSendMetrics:YES
          complete:^(bool success, NSError *error) {
             if (success && error == nil) {
                 stashSuccess = true;
@@ -485,7 +489,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         OctagonSignpostEnd(myPeerInfoSignPost, OctagonSignpostNamePairingChannelInitiatorMakeSOSPeer, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMakeSOSPeer), (int)myPeerInfoSuccess);
         complete(true, NULL, error);
-    }] myPeerInfo:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID complete:^(NSData *application, NSError *error) {
+    }] myPeerInfo:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES complete:^(NSData *application, NSError *error) {
         if (application && error == nil) {
             myPeerInfoSuccess = true;
         }
@@ -578,6 +582,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                          deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameInitiatorJoinsTrustSystems
                                                                                          testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     [self setNextStateError:NULL complete:NULL];
 
@@ -600,7 +605,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
             [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
             complete(true, NULL, error);
-        }] joinCircleWithBlob:circleBlob altDSID:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID version:kPiggyV1 complete:^(bool success, NSError *error){
+        }] joinCircleWithBlob:circleBlob altDSID:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES version:kPiggyV1 complete:^(bool success, NSError *error){
             if (success && error == nil) {
                 joinSuccess = true;
             }
@@ -713,6 +718,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                          deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameInitiatorImportsInitialSyncData
                                                                                          testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     [self setNextStateError:NULL complete:NULL];
 
@@ -770,6 +776,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                          deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameAcceptorCreatesPacket2
                                                                                          testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     __block bool subTaskSuccess = false;
@@ -811,7 +818,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
             [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:connectionError];
             complete(true, NULL, connectionError);
-        }] validatedStashedAccountCredential:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID complete:^(NSData *credential, NSError *error) {
+        }] validatedStashedAccountCredential:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES complete:^(NSData *credential, NSError *error) {
             secnotice("pairing", "acceptor validatedStashedAccountCredential: %{BOOL}d (%@)", credential != NULL, error);
             if (credential && error == nil) {
                 fetchSubtaskSuccess = true;
@@ -940,6 +947,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                          deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameAcceptorCreatesPacket4
                                                                                          testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     secnotice("pairing", "acceptor packet 2");
     __block NSMutableDictionary *reply = [NSMutableDictionary dictionary];
@@ -955,7 +963,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage2), (int)subTaskSuccess);
             [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
             complete(true, NULL, error);
-        }] circleJoiningBlob:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID applicant:peerJoinBlob complete:^(NSData *blob, NSError *error){
+        }] circleJoiningBlob:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES applicant:peerJoinBlob complete:^(NSData *blob, NSError *error){
             if (blob && error == nil) {
                 joinSubTaskSuccess = true;
             }
@@ -1019,6 +1027,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                          deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameAcceptorCreatesVoucher
                                                                                          testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     __weak typeof(self) weakSelf = self;
     NSData *octagonData = indata[@"o"];
@@ -1102,6 +1111,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                                                                                          deviceSessionID:self.peerVersionContext.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameAcceptorCreatesPacket5
                                                                                          testsAreEnabled:MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:YES
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     const uint32_t initialSyncCredentialsFlags = self.acceptorInitialSyncCredentialsFlags;
 
@@ -1109,7 +1119,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage3), (int)subTaskSuccess);
         [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
         complete(true, NULL, error);
-    }] initialSyncCredentials:initialSyncCredentialsFlags altDSID:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID complete:^(NSArray *items, NSError *error2) {
+    }] initialSyncCredentials:initialSyncCredentialsFlags altDSID:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES complete:^(NSArray *items, NSError *error2) {
         NSMutableDictionary *reply = [NSMutableDictionary dictionary];
 
         secnotice("pairing", "acceptor initialSyncCredentials complete: items %u: %@", (unsigned)[items count], error2);

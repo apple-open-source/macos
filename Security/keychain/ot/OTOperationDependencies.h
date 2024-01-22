@@ -42,6 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nullable, strong) NSString* flowID;
 @property (nullable, strong) NSString* deviceSessionID;
+@property (nonatomic) BOOL permittedToSendMetrics;
 
 - (instancetype)initForContainer:(NSString*)containerName
                        contextID:(NSString*)contextID
@@ -60,7 +61,8 @@ NS_ASSUME_NONNULL_BEGIN
               escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
                    notifierClass:(Class<CKKSNotifier>)notifierClass
                           flowID:(NSString* _Nullable)flowID
-                 deviceSessionID:(NSString* _Nullable)deviceSessionID;
+                 deviceSessionID:(NSString* _Nullable)deviceSessionID
+          permittedToSendMetrics:(BOOL)permittedToSendMetrics;
 
 @end
 

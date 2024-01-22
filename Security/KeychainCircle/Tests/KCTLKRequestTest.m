@@ -8,12 +8,16 @@
 #import <KeychainCircle/KCJoiningMessages.h>
 #import <KeychainCircle/NSError+KCCreationHelpers.h>
 #import <KeychainCircle/KCAESGCMDuplexSession.h>
+#import "KeychainCircle/KCJoiningAcceptSession+Internal.h"
 
 #include <Security/SecBase.h>
 #include "keychain/SecureObjectSync/SOSFullPeerInfo.h"
 #include "keychain/SecureObjectSync/SOSPeerInfoInternal.h"
 
 #include <CommonCrypto/CommonRandomSPI.h>
+
+#import "keychain/ot/OTConstants.h"
+#import "keychain/ot/OTJoiningConfiguration.h"
 
 static NSData* createTlkRequestMessage (KCAESGCMDuplexSession* aesSession) {
     char someData[] = {1,2,3,4,5,6};
@@ -31,7 +35,6 @@ static NSData* createTlkRequestMessage (KCAESGCMDuplexSession* aesSession) {
 
 @property (readwrite) NSString* incorrectSecret;
 @property (readwrite) int incorrectTries;
-
 
 + (id) requestDelegateWithSecret:(NSString*) secret;
 - (id) init NS_UNAVAILABLE;
@@ -216,6 +219,8 @@ static NSData* createTlkRequestMessage (KCAESGCMDuplexSession* aesSession) {
 
     uint64_t dsid = 0x1234567887654321;
 
+    OctagonSetSOSFeatureEnabled(true);
+
     KCJoiningRequestTestDelegate* requestDelegate = [KCJoiningRequestTestDelegate requestDelegateWithSecret: secret];
     KCJoiningRequestSecretSession *requestSession = [[KCJoiningRequestSecretSession alloc] initWithSecretDelegate:requestDelegate
                                                                                                              dsid:dsid
@@ -233,7 +238,17 @@ static NSData* createTlkRequestMessage (KCAESGCMDuplexSession* aesSession) {
                                                                                               dsid:dsid
                                                                                                rng:ccDRBGGetRngState()
                                                                                              error:&error];
-    
+
+    OTJoiningConfiguration* joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:@"OctagonPiggybacking"
+                                                                                        uniqueDeviceID:@"acceptor-deviceid"
+                                                                                        uniqueClientID:@"requester-deviceid"
+                                                                                           pairingUUID:[[NSUUID UUID] UUIDString]
+                                                                                                 epoch:0
+                                                                                           isInitiator:false];
+    [joiningConfiguration enableForTests];
+
+    [acceptSession setConfiguration:joiningConfiguration];
+
     error = nil;
     NSData* challenge = [acceptSession processMessage: initialMessage error: &error];
 

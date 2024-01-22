@@ -699,8 +699,7 @@ procline(struct parsec *pc)
 							    &pc->ln.dat[nst],
 							    MB_CUR_MAX);
 
-							assert(advance > 0);
-							nst += advance;
+							nst += MAX(1, advance);
 						} else {
 							nst++;
 						}
@@ -729,8 +728,7 @@ procline(struct parsec *pc)
 						    &pc->ln.dat[nst],
 						    MB_CUR_MAX);
 
-						assert(advance > 0);
-						nst += advance;
+						nst += MAX(1, advance);
 					} else {
 						nst++;
 					}

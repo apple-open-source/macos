@@ -120,6 +120,32 @@ NS_INLINE OTAccountMetadataClassC_CDPState StringAsOTAccountMetadataClassC_CDPSt
     return OTAccountMetadataClassC_CDPState_UNKNOWN;
 }
 #endif /* __OBJC__ */
+typedef NS_ENUM(int32_t, OTAccountMetadataClassC_MetricsState) {
+    OTAccountMetadataClassC_MetricsState_UNKNOWN = 0,
+    OTAccountMetadataClassC_MetricsState_PERMITTED = 1,
+    OTAccountMetadataClassC_MetricsState_NOTPERMITTED = 2,
+};
+#ifdef __OBJC__
+NS_INLINE NSString *OTAccountMetadataClassC_MetricsStateAsString(OTAccountMetadataClassC_MetricsState value)
+{
+    switch (value)
+    {
+        case OTAccountMetadataClassC_MetricsState_UNKNOWN: return @"UNKNOWN";
+        case OTAccountMetadataClassC_MetricsState_PERMITTED: return @"PERMITTED";
+        case OTAccountMetadataClassC_MetricsState_NOTPERMITTED: return @"NOTPERMITTED";
+        default: return [NSString stringWithFormat:@"(unknown: %i)", value];
+    }
+}
+#endif /* __OBJC__ */
+#ifdef __OBJC__
+NS_INLINE OTAccountMetadataClassC_MetricsState StringAsOTAccountMetadataClassC_MetricsState(NSString *value)
+{
+    if ([value isEqualToString:@"UNKNOWN"]) return OTAccountMetadataClassC_MetricsState_UNKNOWN;
+    if ([value isEqualToString:@"PERMITTED"]) return OTAccountMetadataClassC_MetricsState_PERMITTED;
+    if ([value isEqualToString:@"NOTPERMITTED"]) return OTAccountMetadataClassC_MetricsState_NOTPERMITTED;
+    return OTAccountMetadataClassC_MetricsState_UNKNOWN;
+}
+#endif /* __OBJC__ */
 
 #ifdef __cplusplus
 #define OTACCOUNTMETADATACLASSC_FUNCTION extern "C" __attribute__((visibility("hidden")))
@@ -138,6 +164,7 @@ __attribute__((visibility("hidden")))
     OTAccountMetadataClassC_AccountState _icloudAccountState;
     NSString *_peerID;
     NSData *_secureElementIdentity;
+    OTAccountMetadataClassC_MetricsState _sendingMetricsPermitted;
     NSData *_syncingPolicy;
     NSMutableArray<NSData *> *_tlkSharesForVouchedIdentitys;
     OTAccountMetadataClassC_TrustState _trustState;
@@ -152,6 +179,7 @@ __attribute__((visibility("hidden")))
         uint attemptedJoin:1;
         uint cdpState:1;
         uint icloudAccountState:1;
+        uint sendingMetricsPermitted:1;
         uint trustState:1;
         uint isInheritedAccount:1;
         uint warmedEscrowCache:1;
@@ -236,6 +264,11 @@ __attribute__((visibility("hidden")))
 @property (nonatomic) BOOL hasWarnedTooManyPeers;
 /** True if we've warned the user about having too many peers */
 @property (nonatomic) BOOL warnedTooManyPeers;
+
+@property (nonatomic) BOOL hasSendingMetricsPermitted;
+@property (nonatomic) OTAccountMetadataClassC_MetricsState sendingMetricsPermitted;
+- (NSString *)sendingMetricsPermittedAsString:(OTAccountMetadataClassC_MetricsState)value;
+- (OTAccountMetadataClassC_MetricsState)StringAsSendingMetricsPermitted:(NSString *)str;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

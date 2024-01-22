@@ -299,9 +299,6 @@ static HINSTANCE hinstPy3 = 0; // Instance of python.dll
 # define PyNumber_Check (*py3_PyNumber_Check)
 # define PyNumber_Long (*py3_PyNumber_Long)
 # define PyBool_Type (*py3_PyBool_Type)
-# if PY_VERSION_HEX >= 0x030c00b0
-#  define PyLong_Type (*py3_PyLong_Type)
-# endif
 # define PyErr_NewException py3_PyErr_NewException
 # ifdef Py_DEBUG
 #  define _Py_NegativeRefcount py3__Py_NegativeRefcount
@@ -501,9 +498,6 @@ static PyTypeObject* py3_PyStdPrinter_Type;
 static PyTypeObject* py3_PySlice_Type;
 static PyTypeObject* py3_PyFloat_Type;
 static PyTypeObject* py3_PyBool_Type;
-# if PY_VERSION_HEX >= 0x030c00b0
-static PyTypeObject* py3_PyLong_Type;
-# endif
 static int (*py3_PyNumber_Check)(PyObject *);
 static PyObject* (*py3_PyNumber_Long)(PyObject *);
 static PyObject* (*py3_PyErr_NewException)(char *name, PyObject *base, PyObject *dict);
@@ -701,9 +695,6 @@ static struct
     {"PySlice_Type", (PYTHON_PROC*)&py3_PySlice_Type},
     {"PyFloat_Type", (PYTHON_PROC*)&py3_PyFloat_Type},
     {"PyBool_Type", (PYTHON_PROC*)&py3_PyBool_Type},
-# if PY_VERSION_HEX >= 0x030c00b0
-    {"PyLong_Type", (PYTHON_PROC*)&py3_PyLong_Type},
-# endif
     {"PyNumber_Check", (PYTHON_PROC*)&py3_PyNumber_Check},
     {"PyNumber_Long", (PYTHON_PROC*)&py3_PyNumber_Long},
     {"PyErr_NewException", (PYTHON_PROC*)&py3_PyErr_NewException},
@@ -795,39 +786,14 @@ py3__PyObject_TypeCheck(PyObject *ob, PyTypeObject *type)
 # endif
 
 # if !defined(USE_LIMITED_API) && PY_VERSION_HEX >= 0x030c00b0
-// Py_SIZE() uses PyLong_Type and PyBool_Type starting from Python 3.12.
-// We need to define our own Py_SIZE() to replace Py{Bool,Long}_Type with
-// py3_Py{Bool,Long}_Type.
-// We also need to redefine PyTuple_GET_SIZE() and PyList_GET_SIZE(), because
-// they use Py_SIZE().
-    static inline Py_ssize_t
-py3_Py_SIZE(PyObject *ob)
-{
-    assert(ob->ob_type != &PyLong_Type);
-    assert(ob->ob_type != &PyBool_Type);
-    PyVarObject *var_ob = _PyVarObject_CAST(ob);
-    return var_ob->ob_size;
-}
-#  undef Py_SIZE
-#  define Py_SIZE(ob) py3_Py_SIZE(_PyObject_CAST(ob))
-
-    static inline Py_ssize_t
-py3_PyTuple_GET_SIZE(PyObject *op)
-{
-    PyTupleObject *tuple = _PyTuple_CAST(op);
-    return Py_SIZE(tuple);
-}
+// PyTuple_GET_SIZE/PyList_GET_SIZE are inlined functions that use Py_SIZE(),
+// which started to introduce linkage dependency from Python 3.12. When we
+// build Python in dynamic mode, we don't link against it in build time, and
+// this would fail to build. Just use the non-inlined version instead.
 #  undef PyTuple_GET_SIZE
-#  define PyTuple_GET_SIZE(op) py3_PyTuple_GET_SIZE(_PyObject_CAST(op))
-
-    static inline
-Py_ssize_t py3_PyList_GET_SIZE(PyObject *op)
-{
-    PyListObject *list = _PyList_CAST(op);
-    return Py_SIZE(list);
-}
+#  define PyTuple_GET_SIZE(o) PyTuple_Size(o)
 #  undef PyList_GET_SIZE
-#  define PyList_GET_SIZE(op) py3_PyList_GET_SIZE(_PyObject_CAST(op))
+#  define PyList_GET_SIZE(o) PyList_Size(o)
 # endif
 
 # ifdef MSWIN
@@ -835,17 +801,16 @@ Py_ssize_t py3_PyList_GET_SIZE(PyObject *op)
  * Look up the library "libname" using the InstallPath registry key.
  * Return NULL when failed.  Return an allocated string when successful.
  */
-    static char *
+    static WCHAR *
 py3_get_system_libname(const char *libname)
 {
+    const WCHAR	*pythoncore = L"Software\\Python\\PythonCore";
     const char	*cp = libname;
-    char	subkey[128];
+    WCHAR	subkey[128];
     HKEY	hKey;
-    char	installpath[MAXPATHL];
-    LONG	len = sizeof(installpath);
-    LSTATUS	rc;
-    size_t	sysliblen;
-    char	*syslibname;
+    int		i;
+    DWORD	j, len;
+    LSTATUS	ret;
 
     while (*cp != '\0')
     {
@@ -857,35 +822,96 @@ py3_get_system_libname(const char *libname)
 	}
 	++cp;
     }
-    vim_snprintf(subkey, sizeof(subkey),
-#  ifdef _WIN64
-		 "Software\\Python\\PythonCore\\%d.%d\\InstallPath",
-#  else
-		 "Software\\Python\\PythonCore\\%d.%d-32\\InstallPath",
+
+    WCHAR   keyfound[32];
+    HKEY    hKeyTop[] = {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    HKEY    hKeyFound = NULL;
+#  ifdef USE_LIMITED_API
+    long    maxminor = -1;
 #  endif
-		 PY_MAJOR_VERSION, PY_MINOR_VERSION);
-    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, subkey, 0, KEY_QUERY_VALUE, &hKey)
-							      != ERROR_SUCCESS)
+    for (i = 0; i < ARRAY_LENGTH(hKeyTop); i++)
+    {
+	long	major, minor;
+
+	ret = RegOpenKeyExW(hKeyTop[i], pythoncore, 0, KEY_READ, &hKey);
+	if (ret != ERROR_SUCCESS)
+	    continue;
+	for (j = 0;; j++)
+	{
+	    WCHAR   keyname[32];
+	    WCHAR   *wp;
+
+	    len = ARRAY_LENGTH(keyname);
+	    ret = RegEnumKeyExW(hKey, j, keyname, &len,
+						    NULL, NULL, NULL, NULL);
+	    if (ret == ERROR_NO_MORE_ITEMS)
+		break;
+
+	    major = wcstol(keyname, &wp, 10);
+	    if (*wp != L'.')
+		continue;
+	    minor = wcstol(wp + 1, &wp, 10);
+#  ifdef _WIN64
+	    if (*wp != L'\0')
+		continue;
+#  else
+	    if (wcscmp(wp, L"-32") != 0)
+		continue;
+#  endif
+
+	    if (major != PY_MAJOR_VERSION)
+		continue;
+#  ifdef USE_LIMITED_API
+	    // Search the latest version.
+	    if ((minor > maxminor)
+		    && (minor >= ((Py_LIMITED_API >> 16) & 0xff)))
+	    {
+		maxminor = minor;
+		wcscpy(keyfound, keyname);
+		hKeyFound = hKeyTop[i];
+	    }
+#  else
+	    // Check if it matches with the compiled version.
+	    if (minor == PY_MINOR_VERSION)
+	    {
+		wcscpy(keyfound, keyname);
+		hKeyFound = hKeyTop[i];
+		break;
+	    }
+#  endif
+	}
+	RegCloseKey(hKey);
+#  ifdef USE_LIMITED_API
+	if (hKeyFound != NULL)
+	    break;
+#  endif
+    }
+    if (hKeyFound == NULL)
 	return NULL;
-    rc = RegQueryValueA(hKey, NULL, installpath, &len);
-    RegCloseKey(hKey);
-    if (ERROR_SUCCESS != rc)
+
+    swprintf(subkey, ARRAY_LENGTH(subkey), L"%ls\\%ls\\InstallPath",
+							pythoncore, keyfound);
+    ret = RegGetValueW(hKeyFound, subkey, NULL, RRF_RT_REG_SZ,
+							    NULL, NULL, &len);
+    if (ret != ERROR_MORE_DATA && ret != ERROR_SUCCESS)
 	return NULL;
-    cp = installpath + len;
-    // Just in case registry value contains null terminators.
-    while (cp > installpath && *(cp-1) == '\0')
-	--cp;
+    size_t len2 = len / sizeof(WCHAR) + 1 + strlen(libname);
+    WCHAR *path = alloc(len2 * sizeof(WCHAR));
+    if (path == NULL)
+	return NULL;
+    ret = RegGetValueW(hKeyFound, subkey, NULL, RRF_RT_REG_SZ,
+							    NULL, path, &len);
+    if (ret != ERROR_SUCCESS)
+    {
+	vim_free(path);
+	return NULL;
+    }
     // Remove trailing path separators.
-    while (cp > installpath && (*(cp-1) == '\\' || *(cp-1) == '/'))
-	--cp;
-    // Ignore if InstallPath is effectively empty.
-    if (cp <= installpath)
-	return NULL;
-    sysliblen = (cp - installpath) + 1 + STRLEN(libname) + 1;
-    syslibname = alloc(sysliblen);
-    vim_snprintf(syslibname, sysliblen, "%.*s\\%s",
-				(int)(cp - installpath), installpath, libname);
-    return syslibname;
+    size_t len3 = wcslen(path);
+    if ((len3 > 0) && (path[len3 - 1] == L'/' || path[len3 - 1] == L'\\'))
+	--len3;
+    swprintf(path + len3, len2 - len3, L"\\%hs", libname);
+    return path;
 }
 # endif
 
@@ -923,11 +949,13 @@ py3_runtime_link_init(char *libname, int verbose)
     if (!hinstPy3)
     {
 	// Attempt to use the path from InstallPath as stored in the registry.
-	char *syslibname = py3_get_system_libname(libname);
+	WCHAR *syslibname = py3_get_system_libname(libname);
 
 	if (syslibname != NULL)
 	{
-	    hinstPy3 = load_dll(syslibname);
+	    hinstPy3 = LoadLibraryExW(syslibname, NULL,
+		    LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR |
+		    LOAD_LIBRARY_SEARCH_SYSTEM32);
 	    vim_free(syslibname);
 	}
     }

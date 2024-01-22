@@ -1330,11 +1330,6 @@ ins_compl_show_pum(void)
     if (!pum_wanted() || !pum_enough_matches())
 	return;
 
-#if defined(FEAT_EVAL)
-    // Dirty hard-coded hack: remove any matchparen highlighting.
-    do_cmdline_cmd((char_u *)"if exists('g:loaded_matchparen')|:3match none|endif");
-#endif
-
     // Update the screen later, before drawing the popup menu over it.
     pum_call_update_screen();
 
@@ -3044,14 +3039,44 @@ ins_compl_update_sequence_numbers(void)
 info_add_completion_info(list_T *li)
 {
     compl_T	*match;
+    int		forward = compl_dir_forward();
 
     if (compl_first_match == NULL)
 	return OK;
 
+    match = compl_first_match;
+    // There are four cases to consider here:
+    // 1) when just going forward through the menu,
+    //    compl_first_match should point to the initial entry with
+    //    number zero and CP_ORIGINAL_TEXT flag set
+    // 2) when just going backwards,
+    //    compl-first_match should point to the last entry before
+    //    the entry with the CP_ORIGINAL_TEXT flag set
+    // 3) when first going forwards and then backwards, e.g.
+    //    pressing C-N, C-P, compl_first_match points to the
+    //    last entry before the entry with the CP_ORIGINAL_TEXT
+    //    flag set and next-entry moves opposite through the list
+    //    compared to case 2, so pretend the direction is forward again
+    // 4) when first going backwards and then forwards, e.g.
+    //    pressing C-P, C-N, compl_first_match points to the
+    //    first entry with the CP_ORIGINAL_TEXT
+    //    flag set and next-entry moves in opposite direction through the list
+    //    compared to case 1, so pretend the direction is backwards again
+    //
+    // But only do this when the 'noselect' option is not active!
+
+    if (!compl_no_select)
+    {
+	if (forward && !match_at_original_text(match))
+	    forward = FALSE;
+	else if (!forward && match_at_original_text(match))
+	    forward = TRUE;
+    }
+
     // Skip the element with the CP_ORIGINAL_TEXT flag at the beginning, in case of
     // forward completion, or at the end, in case of backward completion.
-    match = compl_dir_forward()
-	    ? compl_first_match->cp_next : compl_first_match->cp_prev->cp_prev;
+    match = forward ? match->cp_next : (compl_no_select && match_at_original_text(match) ? match->cp_prev : match->cp_prev->cp_prev);
+
     while (match != NULL && !match_at_original_text(match))
     {
 	dict_T *di = dict_alloc();
@@ -3071,7 +3096,7 @@ info_add_completion_info(list_T *li)
 	else
 	    dict_add_tv(di, "user_data", &match->cp_user_data);
 
-	match = compl_dir_forward() ? match->cp_next : match->cp_prev;
+	match = forward ? match->cp_next : match->cp_prev;
     }
 
     return OK;
@@ -4157,7 +4182,7 @@ ins_compl_next(
 	ins_compl_update_shown_match();
 
     if (allow_get_expansion && insert_match
-	    && (!(compl_get_longest || compl_restarting) || compl_used_match))
+	    && (!compl_get_longest || compl_used_match))
 	// Delete old text to be replaced
 	ins_compl_delete();
 

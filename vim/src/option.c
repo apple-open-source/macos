@@ -3680,7 +3680,6 @@ did_set_modifiable(optset_T *args UNUSED)
 		    && curbuf->b_term != NULL && !term_is_finished(curbuf))))
     {
 	curbuf->b_p_ma = FALSE;
-	args->os_doskip = TRUE;
 	return e_cannot_make_terminal_with_running_job_modifiable;
     }
 # endif
@@ -3942,7 +3941,6 @@ did_set_previewwindow(optset_T *args)
 	if (win->w_p_pvw && win != curwin)
 	{
 	    curwin->w_p_pvw = FALSE;
-	    args->os_doskip = TRUE;
 	    return e_preview_window_already_exists;
 	}
 
@@ -4081,11 +4079,9 @@ did_set_showtabline(optset_T *args UNUSED)
     char *
 did_set_smoothscroll(optset_T *args UNUSED)
 {
-    if (curwin->w_p_sms)
-	return NULL;
+    if (!curwin->w_p_sms)
+	curwin->w_skipcol = 0;
 
-    curwin->w_skipcol = 0;
-    changed_line_abv_curs();
     return NULL;
 }
 
@@ -4132,7 +4128,6 @@ did_set_termguicolors(optset_T *args UNUSED)
 	    !has_vtp_working())
     {
 	p_tgc = 0;
-	args->os_doskip = TRUE;
 	return e_24_bit_colors_are_not_supported_on_this_environment;
     }
     if (is_term_win32())
@@ -4393,6 +4388,21 @@ did_set_weirdinvert(optset_T *args)
 }
 
 /*
+ * Process the new 'wildchar' / 'wildcharm' option value.
+ */
+    char *
+did_set_wildchar(optset_T *args)
+{
+    long c = *(long *)args->os_varp;
+
+    // Don't allow key values that wouldn't work as wildchar.
+    if (c == Ctrl_C || c == '\n' || c == '\r' || c == K_KENTER)
+	return e_invalid_argument;
+
+    return NULL;
+}
+
+/*
  * Process the new 'window' option value.
  */
     char *
@@ -4520,9 +4530,12 @@ did_set_winwidth(optset_T *args UNUSED)
     char *
 did_set_wrap(optset_T *args UNUSED)
 {
-    // If 'wrap' is set, set w_leftcol to zero.
+    // Set w_leftcol or w_skipcol to zero.
     if (curwin->w_p_wrap)
 	curwin->w_leftcol = 0;
+    else
+	curwin->w_skipcol = 0;
+
     return NULL;
 }
 
@@ -4586,7 +4599,7 @@ set_bool_option(
 	args.os_newval.boolean = value;
 	args.os_errbuf = NULL;
 	errmsg = options[opt_idx].opt_did_set_cb(&args);
-	if (args.os_doskip)
+	if (errmsg != NULL)
 	    return errmsg;
     }
 
@@ -7992,7 +8005,7 @@ ExpandSettingSubtract(
 	{
 	    // Don't suggest anything if cmdline is non-empty. Vim's set-=
 	    // behavior requires consecutive strings and it's usually
-	    // unintuitive to users if ther try to subtract multiple flags at
+	    // unintuitive to users if they try to subtract multiple flags at
 	    // once.
 	    return FAIL;
 	}

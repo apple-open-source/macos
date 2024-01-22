@@ -89,6 +89,12 @@ CCRNGStatus CCRandomUniform(uint64_t bound, uint64_t *rand)
     int err;
     struct ccrng_state *rng;
 
+    // Remove after rdar://problem/116808299 lands.
+    if (bound == 1) {
+        *rand = 0;
+        return kCCSuccess;
+    }
+
     rng = ccDRBGGetRngState();
     err = ccrng_uniform(rng, bound, rand);
     if (err == CCERR_OK) {

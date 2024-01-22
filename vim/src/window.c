@@ -2682,6 +2682,8 @@ win_close(win_T *win, int free_buf)
 	    reset_VIsual_and_resel();	// stop Visual mode
 
 	    other_buffer = TRUE;
+	    if (!win_valid(win))
+		return FAIL;
 	    win->w_closing = TRUE;
 	    apply_autocmds(EVENT_BUFLEAVE, NULL, NULL, FALSE, curbuf);
 	    if (!win_valid(win))
@@ -7439,12 +7441,16 @@ reset_lnums(void)
 	{
 	    // Restore the value if the autocommand didn't change it and it was
 	    // set.
+	    // Note: This triggers e.g. on BufReadPre, when the buffer is not yet
+	    //       loaded, so cannot validate the buffer line
 	    if (EQUAL_POS(wp->w_save_cursor.w_cursor_corr, wp->w_cursor)
 				  && wp->w_save_cursor.w_cursor_save.lnum != 0)
 		wp->w_cursor = wp->w_save_cursor.w_cursor_save;
 	    if (wp->w_save_cursor.w_topline_corr == wp->w_topline
-				      && wp->w_save_cursor.w_topline_save != 0)
+				  && wp->w_save_cursor.w_topline_save != 0)
 		wp->w_topline = wp->w_save_cursor.w_topline_save;
+	   if (wp->w_save_cursor.w_topline_save > wp->w_buffer->b_ml.ml_line_count)
+		wp->w_valid &= ~VALID_TOPLINE;
 	}
 }
 

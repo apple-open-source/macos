@@ -59,10 +59,11 @@
     }
 
     AAFAnalyticsEventSecurity *zoneCreationEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumViews: @(zonesNeedingCreation.count)}
-                                                                                                             altDSID:self.deps.activeAccount.altDSID
-                                                                                                           eventName:kSecurityRTCEventNameZoneCreation
-                                                                                                     testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                            category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                   altDSID:self.deps.activeAccount.altDSID
+                                                                                                 eventName:kSecurityRTCEventNameZoneCreation
+                                                                                           testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                  category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                sendMetric:self.deps.sendMetric];
 
     ckksnotice_global("ckkszone", "Asking to create and subscribe to CloudKit zones: %@", zonesNeedingCreation);
     [self.deps.overallLaunch addEvent:@"zone-create"];

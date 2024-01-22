@@ -402,6 +402,7 @@ enum {NUM_RETRIES = 5};
                      ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
                        flowID:(NSString * _Nullable)flowID
               deviceSessionID:(NSString * _Nullable)deviceSessionID
+               canSendMetrics:(BOOL)canSendMetrics
                         reply:(void (^)(NSData * _Nullable voucher,
                                         NSData * _Nullable voucherSig,
                                      NSError * _Nullable error))reply
@@ -419,7 +420,7 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] vouchWithSpecificUser:specificUser peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig ckksKeys:viewKeySets flowID:flowID deviceSessionID:deviceSessionID reply:reply];
+        }] vouchWithSpecificUser:specificUser peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig ckksKeys:viewKeySets flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics reply:reply];
     } while (retry);
 }
 
@@ -589,6 +590,7 @@ enum {NUM_RETRIES = 5};
              preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                       flowID:(NSString * _Nullable)flowID
              deviceSessionID:(NSString * _Nullable)deviceSessionID
+              canSendMetrics:(BOOL)canSendMetrics
                        reply:(void (^)(NSString * _Nullable peerID,
                                        NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                        TPSyncingPolicy* _Nullable syncingPolicy,
@@ -607,7 +609,7 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, error);
                     }
                     ++i;
-        }] joinWithSpecificUser:specificUser voucherData:voucherData voucherSig:voucherSig ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys flowID:flowID deviceSessionID:deviceSessionID reply:reply];
+        }] joinWithSpecificUser:specificUser voucherData:voucherData voucherSig:voucherSig ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics reply:reply];
     } while (retry);
 }
 

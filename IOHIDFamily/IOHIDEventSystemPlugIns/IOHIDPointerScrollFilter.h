@@ -89,6 +89,7 @@ private:
 
     CFStringRef getAccelerationAlgorithmString(IOHIDAccelerationAlgorithmType type) const;
 
+    static void statsTimerCallback(void * context);
     void createAccelStatsTimer(void);
     void startAccelStatsTimer(void);
   

@@ -253,6 +253,8 @@ extern OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade;
 
 extern OctagonFlag* const OctagonFlagSecureElementIdentityChanged;
 
+extern OctagonFlag* const OctagonFlagCheckOnRTCMetrics;
+
 NS_ASSUME_NONNULL_END
 
 #endif // OCTAGON

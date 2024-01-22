@@ -71,6 +71,7 @@
                                                                                          deviceSessionID:self.deps.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameUpdateTDL
                                                                                          testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                          canSendMetrics:self.deps.permittedToSendMetrics
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
         // If we errored in some unknown way, ask to try again!

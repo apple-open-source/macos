@@ -974,13 +974,16 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
                         continue;
                     }
                     num = (CFNumberRef)CFDictionaryGetValue(pair, CFSTR(kIOHIDServiceModifierMappingSrcKey));
-                    if ( !num ) {
+                    if ( !num || CFGetTypeID(num) != CFNumberGetTypeID()) {
                         continue;
                     }
                     CFNumberGetValue(num, kCFNumberSInt64Type, &src);
                     Key srcKey = Key(src);
                     usage = srcKey.usage();
                     // Check for presence of alphanumeric/special characters in mapping
+                    if (kHIDPage_KeyboardOrKeypad != srcKey.usagePage()) {
+                        continue;
+                    }
                     if((kHIDUsage_KeyboardA <= usage && kHIDUsage_Keyboard0 >= usage) ||
                        (kHIDUsage_Keypad1 <= usage && kHIDUsage_KeyboardNonUSBackslash >= usage) ||
                        (kHIDUsage_KeyboardHyphen <= usage && kHIDUsage_KeyboardSlash >= usage) ||

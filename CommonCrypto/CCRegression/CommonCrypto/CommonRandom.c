@@ -74,9 +74,8 @@ static void CommonRandomUniform(void)
 
     // Test some basic edge-case bounds.
     isnt(CCRandomUniform(0, &rand), kCCSuccess, "reject bound = 0");
-    isnt(CCRandomUniform(1, &rand), kCCSuccess, "reject bound = 1");
-    is(CCRandomUniform(2, &rand), kCCSuccess, "accept bound = 2");
-    ok(rand < 2, "rand out of range (bound = 2)");
+    is(CCRandomUniform(1, &rand), kCCSuccess, "accept bound = 1");
+    ok(rand == 0, "rand out of range (bound = 1)");
     is(CCRandomUniform(UINT64_MAX, &rand), kCCSuccess, "accept bound = UINT64_MAX");
     ok(rand < UINT64_MAX, "rand out of range (bound = UINT64_MAX)");
 
@@ -94,7 +93,7 @@ static void CommonRandomUniform(void)
 
         CCRandomGenerateBytes(&bound, sizeof(bound));
         bound &= bound_mask;
-        if (bound < 2) {
+        if (bound == 0) {
             continue;
         }
 
@@ -139,7 +138,7 @@ int CommonRandom(int __unused argc, char *const * __unused argv)
 
 	plan_tests(kTestTestCount * 12 +
                11 +
-               2099145          /* CCRandomUniform tests */
+               2099144          /* CCRandomUniform tests */
                );
 
     struct ccrng_state *devRandom = NULL;

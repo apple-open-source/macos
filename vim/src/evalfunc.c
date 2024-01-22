@@ -3890,6 +3890,12 @@ f_empty(typval_T *argvars, typval_T *rettv)
 			       || !channel_is_open(argvars[0].vval.v_channel);
 	    break;
 #endif
+	case VAR_TYPEALIAS:
+	    n = argvars[0].vval.v_typealias == NULL
+		|| argvars[0].vval.v_typealias->ta_name == NULL
+		|| *argvars[0].vval.v_typealias->ta_name == NUL;
+	    break;
+
 	case VAR_UNKNOWN:
 	case VAR_ANY:
 	case VAR_VOID:
@@ -4801,6 +4807,9 @@ common_function(typval_T *argvars, typval_T *rettv, int is_funcref)
 		    pt->pt_auto = arg_pt->pt_auto;
 		    if (pt->pt_dict != NULL)
 			++pt->pt_dict->dv_refcount;
+		    pt->pt_obj = arg_pt->pt_obj;
+		    if (pt->pt_obj != NULL)
+			++pt->pt_obj->obj_refcount;
 		}
 
 		pt->pt_refcount = 1;
@@ -7322,64 +7331,48 @@ free_lval_root(lval_root_T *root)
 
 /*
  * This is used if executing in a method, the argument string is a
- * variable/item expr/reference. If it starts with a potential class/object
- * variable then return OK, may get later errors in get_lval.
+ * variable/item expr/reference. It may start with a potential class/object
+ * variable.
  *
- * Adjust "root" as needed. Note that name may change (for example to skip
- * "this") and is returned. lr_tv may be changed or freed.
+ * Adjust "root" as needed; lr_tv may be changed or freed.
  *
  * Always returns OK.
  * Free resources and return FAIL if the root should not be used. Otherwise OK.
  */
 
     static int
-fix_variable_reference_lval_root(lval_root_T *root, char_u **p_name)
+fix_variable_reference_lval_root(lval_root_T *root, char_u *name)
 {
-    char_u	*name = *p_name;
-    char_u	*end;
-    dictitem_T	*di;
 
-    // Only set lr_sync_root and lr_tv if the name is an object/class
-    // reference: object ("this.") or class because name is class variable.
+    // Check if lr_tv is the name of an object/class reference: name start with
+    // "this" or name is class variable. Clear lr_tv if neither.
+    int found_member = FALSE;
     if (root->lr_tv->v_type == VAR_OBJECT)
     {
-	if (STRNCMP("this.", name, 5) == 0)
-	{
-	    name += 5;
-	        root->lr_sync_root = TRUE;
-	}
-	else if (STRCMP("this", name) == 0)
-	{
-	    name += 4;
-	    root->lr_sync_root = TRUE;
-	}
+	if (STRNCMP("this.", name, 5) == 0 ||STRCMP("this", name) == 0)
+	    found_member = TRUE;
     }
-    if (!root->lr_sync_root)	// not object member, try class member
+    if (!found_member)	// not object member, try class member
     {
 	// Explicitly check if the name is a class member.
 	// If it's not then do nothing.
+	char_u	*end;
 	for (end = name; ASCII_ISALNUM(*end) || *end == '_'; ++end)
 	    ;
-	if (class_member_lookup(root->lr_cl_exec, name, end - name, NULL)
-								    != NULL)
+	int idx = class_member_idx(root->lr_cl_exec, name, end - name);
+	if (idx >= 0)
 	{
-	    // Using a class, so reference the class tv.
-	    di = find_var(root->lr_cl_exec->class_name, NULL, FALSE);
-	    if (di != NULL)
-	    {
-		// replace the lr_tv
-		clear_tv(root->lr_tv);
-		copy_tv(&di->di_tv, root->lr_tv);
-		root->lr_sync_root = TRUE;
-	    }
+	    // A class variable, replace lr_tv with it
+	    clear_tv(root->lr_tv);
+	    copy_tv(&root->lr_cl_exec->class_members_tv[idx], root->lr_tv);
+	    found_member = TRUE;
 	}
     }
-    if (!root->lr_sync_root)
+    if (!found_member)
     {
 	free_tv(root->lr_tv);
 	root->lr_tv = NULL;	    // Not a member variable
     }
-    *p_name = name;
     // If FAIL, then must free_lval_root(root);
     return OK;
 }
@@ -7412,12 +7405,8 @@ f_islocked(typval_T *argvars, typval_T *rettv)
     {
 	// Almost always produces a valid lval_root since lr_cl_exec is used
 	// for access verification, lr_tv may be set to NULL.
-	char_u *tname = name;
-	if (fix_variable_reference_lval_root(&aroot, &tname) == OK)
-	{
-	    name = tname;
+	if (fix_variable_reference_lval_root(&aroot, name) == OK)
 	    root = &aroot;
-	}
     }
 
     lval_root_T	*lval_root_save = lval_root;
@@ -7556,6 +7545,7 @@ f_len(typval_T *argvars, typval_T *rettv)
 	case VAR_INSTR:
 	case VAR_CLASS:
 	case VAR_OBJECT:
+	case VAR_TYPEALIAS:
 	    emsg(_(e_invalid_type_for_len));
 	    break;
     }
@@ -8656,7 +8646,10 @@ f_range(typval_T *argvars, typval_T *rettv)
     list->lv_u.nonmat.lv_start = start;
     list->lv_u.nonmat.lv_end = end;
     list->lv_u.nonmat.lv_stride = stride;
-    list->lv_len = (end - start) / stride + 1;
+    if (stride > 0 ? end < start : end > start)
+	list->lv_len = 0;
+    else
+	list->lv_len = (end - start) / stride + 1;
 }
 
 /*
@@ -9738,6 +9731,12 @@ f_setenv(typval_T *argvars, typval_T *rettv UNUSED)
     char_u  *name;
 
     if (in_vim9script() && check_for_string_arg(argvars, 0) == FAIL)
+	return;
+
+    // setting an environment variable may be dangerous, e.g. you could
+    // setenv GCONV_PATH=/tmp and then have iconv() unexpectedly call
+    // a shell command using some shared library:
+    if (check_restricted() || check_secure())
 	return;
 
     name = tv_get_string_buf(&argvars[0], namebuf);
@@ -10896,6 +10895,7 @@ f_type(typval_T *argvars, typval_T *rettv)
 	case VAR_INSTR:   n = VAR_TYPE_INSTR; break;
 	case VAR_CLASS:   n = VAR_TYPE_CLASS; break;
 	case VAR_OBJECT:  n = VAR_TYPE_OBJECT; break;
+	case VAR_TYPEALIAS: n = VAR_TYPE_TYPEALIAS; break;
 	case VAR_UNKNOWN:
 	case VAR_ANY:
 	case VAR_VOID:

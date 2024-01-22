@@ -49,10 +49,11 @@
     NSError* localerror = nil;
 
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumViews: @(self.deps.views.count)}
-                                                                                                 altDSID:self.deps.activeAccount.altDSID
-                                                                                               eventName:kSecurityRTCEventNameLocalReset
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                       altDSID:self.deps.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameLocalReset
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.deps.sendMetric];
     for(CKKSKeychainViewState* view in self.deps.views) {
         view.viewKeyHierarchyState = SecCKKSZoneKeyStateResettingLocalData;
 

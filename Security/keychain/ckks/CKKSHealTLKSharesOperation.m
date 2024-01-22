@@ -91,10 +91,11 @@
     [self.deps.overallLaunch addEvent:@"heal-tlk-shares-begin"];
     
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                 altDSID:self.deps.activeAccount.altDSID
-                                                                                               eventName:kSecurityRTCEventNameHealTLKShares
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                       altDSID:self.deps.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameHealTLKShares
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.deps.sendMetric];
 
     self.setResultStateOperation = [CKKSResultOperation named:@"determine-next-state" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
         STRONGIFY(self);
@@ -166,10 +167,11 @@
     [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventTLKShareProcessing zone:viewState.zoneID.zoneName];
 
     AAFAnalyticsEventSecurity *createMissingSharesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldIsLocked:@(NO)}
-                                                                                                                    altDSID:self.deps.activeAccount.altDSID
-                                                                                                                  eventName:kSecurityRTCEventNameCreateMissingTLKShares
-                                                                                                            testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                   category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                          altDSID:self.deps.activeAccount.altDSID
+                                                                                                        eventName:kSecurityRTCEventNameCreateMissingTLKShares
+                                                                                                  testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                         category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                       sendMetric:self.deps.sendMetric];
 
     @autoreleasepool {
         // Okay! Perform the checks.
@@ -233,14 +235,14 @@
         }
     }
 
-    [createMissingSharesEventS addMetrics:@{kSecurityRTCFieldNewTLKShares:@(newShares.count)}];
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:createMissingSharesEventS success:YES error:nil];
-
     if(newShares.count == 0u) {
         ckksnotice("ckksshare", viewState.zoneID, "Don't believe we need to change any TLKShares, stopping");
         return;
     }
 
+    [createMissingSharesEventS addMetrics:@{kSecurityRTCFieldNewTLKShares:@(newShares.count)}];
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:createMissingSharesEventS success:YES error:nil];
+    
     keyset.pendingTLKShares = [newShares allObjects];
 
     // Let's double-check: if we upload these TLKShares, will the world be right?
@@ -257,10 +259,11 @@
 
     // Fire up our CloudKit operation!
     AAFAnalyticsEventSecurity *uploadMissingTLKSharesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldIsPrioritized:@(NO)}
-                                                                                                                       altDSID:self.deps.activeAccount.altDSID
-                                                                                                                     eventName:kSecurityRTCEventNameUploadMissingTLKShares
-                                                                                                               testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                             altDSID:self.deps.activeAccount.altDSID
+                                                                                                           eventName:kSecurityRTCEventNameUploadMissingTLKShares
+                                                                                                     testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                            category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                          sendMetric:self.deps.sendMetric];
     __block BOOL didSucceed = NO;
 
     NSMutableArray<CKRecord *>* recordsToSave = [[NSMutableArray alloc] init];
@@ -319,7 +322,7 @@
                 NSError* localerror = nil;
 
                 // Save the new CKRecords to the database
-                [uploadMissingTLKSharesEventS addMetrics:@{kSecurityRTCFieldNumCKRecords:@(savedRecords.count)}];
+                [uploadMissingTLKSharesEventS addMetrics:@{kSecurityRTCFieldTotalCKRecords:@(savedRecords.count)}];
 
                 for(CKRecord* record in savedRecords) {
                     CKKSTLKShareRecord* savedShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:self.deps.contextID];

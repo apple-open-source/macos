@@ -52,15 +52,7 @@ SOFT_LINK_CLASS(AAAFoundation, AAFAnalyticsReporter);
 {
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
     
-    if (eventS.isAAAFoundationAvailable == NO) {
-        return;
-    }
-
-    if (eventS.isAuthKitAvailable == NO) {
-        return;
-    }
-    
-    if (eventS.areTestsEnabled) {
+    if ([eventS permittedToSendMetrics] == NO) {
         return;
     }
 

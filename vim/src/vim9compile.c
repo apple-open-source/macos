@@ -1148,7 +1148,7 @@ compile_nested_function(exarg_T *eap, cctx_T *cctx, garray_T *lines_to_free)
 					    ASSIGN_CONST, ufunc->uf_func_type);
 	if (lvar == NULL)
 	    goto theend;
-	if (generate_FUNCREF(cctx, ufunc, NULL, 0, &funcref_isn_idx) == FAIL)
+	if (generate_FUNCREF(cctx, ufunc, NULL, FALSE, 0, &funcref_isn_idx) == FAIL)
 	    goto theend;
 	r = generate_STORE(cctx, ISN_STORE, lvar->lv_idx, NULL);
     }
@@ -1327,11 +1327,12 @@ assignment_len(char_u *p, int *heredoc)
 /*
  * Generate the load instruction for "name".
  */
-    static void
+    static int
 generate_loadvar(cctx_T *cctx, lhs_T *lhs)
 {
     char_u	*name = lhs->lhs_name;
     type_T	*type = lhs->lhs_type;
+    int		res = OK;
 
     switch (lhs->lhs_dest)
     {
@@ -1360,7 +1361,7 @@ generate_loadvar(cctx_T *cctx, lhs_T *lhs)
 	    generate_LOAD(cctx, ISN_LOADT, 0, name + 2, type);
 	    break;
 	case dest_script:
-	    compile_load_scriptvar(cctx,
+	    res = compile_load_scriptvar(cctx,
 				  name + (name[1] == ':' ? 2 : 0), NULL, NULL);
 	    break;
 	case dest_env:
@@ -1392,6 +1393,8 @@ generate_loadvar(cctx_T *cctx, lhs_T *lhs)
 	    // list or dict value should already be on the stack.
 	    break;
     }
+
+    return res;
 }
 
 /*
@@ -1614,7 +1617,7 @@ lhs_class_member_modifiable(lhs_T *lhs, char_u	*var_start, cctx_T *cctx)
 	     || (!is_object && cctx->ctx_ufunc->uf_class != cl)))
     {
 	char *msg = (m->ocm_access == VIM_ACCESS_PRIVATE)
-				? e_cannot_access_private_variable_str
+				? e_cannot_access_protected_variable_str
 				: e_variable_is_not_writable_str;
 	emsg_var_cl_define(msg, m->ocm_name, 0, cl);
 	return FALSE;
@@ -2031,8 +2034,8 @@ compile_lhs(
 		     || (!is_object && cctx->ctx_ufunc->uf_class != cl)))
 	    {
 		char *msg = (m->ocm_access == VIM_ACCESS_PRIVATE)
-					? e_cannot_access_private_variable_str
-					: e_variable_is_not_writable_str;
+				    ? e_cannot_access_protected_variable_str
+				    : e_variable_is_not_writable_str;
 		emsg_var_cl_define(msg, m->ocm_name, 0, cl);
 		return FAIL;
 	    }
@@ -2040,9 +2043,7 @@ compile_lhs(
 	    lhs->lhs_member_type = m->ocm_type;
 	}
 	else
-	{
 	    lhs->lhs_member_type = lhs->lhs_type->tt_member;
-	}
     }
     return OK;
 }
@@ -2223,18 +2224,21 @@ compile_load_lhs(
 	// Now we can properly check the type.  The variable is indexed, thus
 	// we need the member type.  For a class or object we don't know the
 	// type yet, it depends on what member is used.
+	// The top item in the stack is the Dict, followed by the key and then
+	// the type of the value.
 	vartype_T vartype = lhs->lhs_type->tt_type;
 	type_T *member_type = lhs->lhs_type->tt_member;
 	if (rhs_type != NULL && member_type != NULL
 		&& vartype != VAR_OBJECT && vartype != VAR_CLASS
 		&& rhs_type != &t_void
 		&& need_type(rhs_type, member_type, FALSE,
-					    -2, 0, cctx, FALSE, FALSE) == FAIL)
+					    -3, 0, cctx, FALSE, FALSE) == FAIL)
 	    return FAIL;
+
+	return OK;
     }
-    else
-	generate_loadvar(cctx, lhs);
-    return OK;
+
+    return  generate_loadvar(cctx, lhs);
 }
 
 /*
@@ -2292,7 +2296,8 @@ compile_load_lhs_with_index(lhs_T *lhs, char_u *var_start, cctx_T *cctx)
 	return generate_CLASSMEMBER(cctx, TRUE, cl, lhs->lhs_member_idx);
     }
 
-    compile_load_lhs(lhs, var_start, NULL, cctx);
+    if (compile_load_lhs(lhs, var_start, NULL, cctx) == FAIL)
+	return FAIL;
 
     if (lhs->lhs_has_index)
     {
@@ -2501,6 +2506,7 @@ push_default_value(
 	case VAR_VOID:
 	case VAR_INSTR:
 	case VAR_CLASS:
+	case VAR_TYPEALIAS:
 	case VAR_SPECIAL:  // cannot happen
 	    // This is skipped for local variables, they are always
 	    // initialized to zero.  But in a "for" or "while" loop
@@ -3952,6 +3958,11 @@ compile_def_function(
 			goto erret;
 		    }
 		    line = (char_u *)"";
+		    break;
+
+	    case CMD_type:
+		    emsg(_(e_type_can_only_be_used_in_script));
+		    goto erret;
 		    break;
 
 	    case CMD_global:

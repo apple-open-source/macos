@@ -307,6 +307,7 @@ NS_ASSUME_NONNULL_BEGIN
                      ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
                        flowID:(NSString * _Nullable)flowID
               deviceSessionID:(NSString * _Nullable)deviceSessionID
+               canSendMetrics:(BOOL)canSendMetrics
                         reply:(void (^)(NSData * _Nullable voucher,
                                         NSData * _Nullable voucherSig,
                                         NSError * _Nullable error))reply;
@@ -391,6 +392,7 @@ NS_ASSUME_NONNULL_BEGIN
              preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                       flowID:(NSString * _Nullable)flowID
              deviceSessionID:(NSString * _Nullable)deviceSessionID
+              canSendMetrics:(BOOL)canSendMetrics
                        reply:(void (^)(NSString * _Nullable peerID,
                                        NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                        TPSyncingPolicy* _Nullable syncingPolicy,

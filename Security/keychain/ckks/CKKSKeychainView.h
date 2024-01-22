@@ -61,6 +61,8 @@
 #import "keychain/ckks/CKKSOperationDependencies.h"
 #import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
 #import "keychain/ot/OTPersonaAdapter.h"
+#import "keychain/ot/OTCuttlefishAccountStateHolder.h"
+#import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 
 #include "CKKS.h"
 

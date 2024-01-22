@@ -68,18 +68,20 @@
 
     NSArray<CKKSPeerProviderState*>* currentTrustStates = self.deps.currentTrustStates;
 
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumViews:@(self.deps.activeManagedViews.count)}
+                                                                                       altDSID:self.deps.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameProcessReceivedKeys
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.deps.sendMetric];
+    __block bool didSucceed = YES;
+    __block int numTotalRemoteKeys = 0;
+    
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
         __block CKKSZoneKeyState* newZoneState = nil;
         __block NSError* remoteError = nil;
 
         __block CKKSCurrentKeySet* set = nil;
-
-        AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{} 
-                                                                                                     altDSID:self.deps.activeAccount.altDSID
-                                                                                                   eventName:kSecurityRTCEventNameProcessReceivedKeys
-                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-        __block BOOL didSucceed = NO;
 
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* loadError = nil;
@@ -94,14 +96,13 @@
             if(!remoteKeys || loadError) {
                 ckkserror("ckkskey", viewState.zoneID, "couldn't fetch list of remote keys: %@", loadError);
                 self.error = loadError;
-                
-                [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
+                didSucceed = NO;
                 [eventS populateUnderlyingErrorsStartingWithRootError:self.error];
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
                 return CKKSDatabaseTransactionRollback;
             }
 
-            [eventS addMetrics:@{kSecurityRTCFieldNumRemoteKeys : @(remoteKeys.count)}];
+            numTotalRemoteKeys += remoteKeys.count;
 
             if(remoteKeys.count > 0) {
                 newZoneState = [self processRemoteKeys:remoteKeys
@@ -133,8 +134,6 @@
                 } else {
                     ckksnotice("ckkskey", viewState.zoneID, "We have some item that encrypts to a non-existent key, but we cannot request a refetch! Possible inifinite-loop ahead");
                 }
-            } else {
-                [eventS addMetrics:@{kSecurityRTCFieldFullRefetchNeeded : @(NO)}];
             }
 
             // Now that we have some state, load the existing keyset
@@ -143,12 +142,10 @@
 
             if([newZoneState isEqualToString:SecCKKSZoneKeyStateError]) {
                 [eventS populateUnderlyingErrorsStartingWithRootError:self.error];
-                [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
+                didSucceed = NO;
                 return CKKSDatabaseTransactionRollback;
 
             } else {
-                [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(YES)}];
-                didSucceed = YES;
                 return CKKSDatabaseTransactionCommit;
             }
         }];
@@ -165,12 +162,14 @@
             ckksnotice("ckkskey", viewState.zoneID, "Key hierachy is '%@' (error: %@)", newZoneState, localProcessingError);
         }
 
-        // passing a nil to error: will not impact any previously set errors.
-        // AAAFoundation ignores incoming errors that are nil when populating error chains
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:didSucceed error:nil];
         viewState.viewKeyHierarchyState = newZoneState;
     }
 
+    int averageRemoteKeysPerView = (self.deps.activeManagedViews.count == 0) ? 0 : (numTotalRemoteKeys / self.deps.activeManagedViews.count);
+    [eventS addMetrics:@{kSecurityRTCFieldAvgRemoteKeys:@(averageRemoteKeysPerView), kSecurityRTCFieldTotalRemoteKeys:@(numTotalRemoteKeys)}];
+    // passing a nil to error will not impact any previously set errors.
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:didSucceed error:nil];
+    
     self.nextState = self.intendedState;
 }
 

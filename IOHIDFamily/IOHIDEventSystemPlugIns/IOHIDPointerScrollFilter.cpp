@@ -1061,39 +1061,54 @@ CFStringRef IOHIDPointerScrollFilter::getAccelerationAlgorithmString(IOHIDAccele
     }
 }
 
+void IOHIDPointerScrollFilter::statsTimerCallback(void * context) {
+    IOHIDPointerScrollFilter * self = (IOHIDPointerScrollFilter*)context;
+    
+    if(!self->_service) {
+        HIDLogError("_service is null, no acceleration stats will be collected");
+        return;
+    }
+    
+    dispatch_source_set_timer(self->_statsTimer, DISPATCH_TIME_FOREVER, 0, 0);
+
+    uint16_t vendorID = 0;
+    uint16_t productID = 0;
+    uint64_t pointerAccelFixed = DOUBLE_TO_FIXED(self->_pointerAcceleration);
+    uint64_t scrollAccelFixed = DOUBLE_TO_FIXED(self->_scrollAcceleration);
+    CFNumberRefWrap productIDType = CFNumberRefWrap(IOHIDServiceCopyProperty(self->_service, CFSTR(kIOHIDProductIDKey)), true);
+    CFNumberRefWrap vendorIDType = CFNumberRefWrap(IOHIDServiceCopyProperty(self->_service, CFSTR(kIOHIDVendorIDKey)), true);
+
+    if (productIDType.Reference()) {
+        productID = productIDType;
+    }
+
+    if (vendorIDType.Reference()) {
+        vendorID = vendorIDType;
+    }
+    
+    if(analytics_is_event_used(kCoreAnalyticsDictionaryAccelerationStats)) {
+        xpc_object_t accelDict = xpc_dictionary_create(NULL, NULL, 0);
+        
+        xpc_dictionary_set_uint64(accelDict, "PointerAccelerationValue", pointerAccelFixed);
+        xpc_dictionary_set_uint64(accelDict, "ScrollAccelerationValue", scrollAccelFixed);
+        xpc_dictionary_set_uint64(accelDict, "VendorID", vendorID);
+        xpc_dictionary_set_uint64(accelDict, "ProductID", productID);
+        
+        analytics_send_event(kCoreAnalyticsDictionaryAccelerationStats, accelDict);
+        
+        xpc_release(accelDict);
+    }
+}
+
 void IOHIDPointerScrollFilter::createAccelStatsTimer(void) {
     _statsTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
     if (!_statsTimer) {
         HIDLogError("Unable to create stats timer, no acceleration stats will be collected");
         return;
     }
-    dispatch_source_set_event_handler(_statsTimer, ^{
-        dispatch_source_set_timer(_statsTimer, DISPATCH_TIME_FOREVER, 0, 0);
-
-        uint16_t vendorID = 0;
-        uint16_t productID = 0;
-        uint64_t pointerAccelFixed = DOUBLE_TO_FIXED(_pointerAcceleration);
-        uint64_t scrollAccelFixed = DOUBLE_TO_FIXED(_scrollAcceleration);
-        CFNumberRefWrap productIDType = CFNumberRefWrap(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDProductIDKey)), true);
-        CFNumberRefWrap vendorIDType = CFNumberRefWrap(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDVendorIDKey)), true);
-
-        if (productIDType.Reference()) {
-            productID = productIDType;
-        }
-
-        if (vendorIDType.Reference()) {
-            vendorID = vendorIDType;
-        }
-
-        analytics_send_event_lazy(kCoreAnalyticsDictionaryAccelerationStats, ^xpc_object_t{
-            xpc_object_t accelDict = xpc_dictionary_create(NULL, NULL, 0);
-            xpc_dictionary_set_uint64(accelDict, "PointerAccelerationValue", pointerAccelFixed);
-            xpc_dictionary_set_uint64(accelDict, "ScrollAccelerationValue", scrollAccelFixed);
-            xpc_dictionary_set_uint64(accelDict, "VendorID", vendorID);
-            xpc_dictionary_set_uint64(accelDict, "ProductID", productID);
-            return accelDict;
-        });
-    });
+    
+    dispatch_set_context(_statsTimer, this);
+    dispatch_source_set_event_handler_f(_statsTimer, IOHIDPointerScrollFilter::statsTimerCallback);
 
     dispatch_source_set_timer(_statsTimer, DISPATCH_TIME_FOREVER, 0, 0);
     dispatch_resume(_statsTimer);

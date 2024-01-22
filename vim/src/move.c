@@ -45,8 +45,9 @@ adjust_plines_for_skipcol(win_T *wp)
 	return 0;
 
     int width = wp->w_width - win_col_off(wp);
-    if (wp->w_skipcol >= width)
-	return (wp->w_skipcol - width) / (width + win_col_off2(wp)) + 1;
+    int w2 = width + win_col_off2(wp);
+    if (wp->w_skipcol >= width && w2 > 0)
+	return (wp->w_skipcol - width) / w2 + 1;
 
     return 0;
 }
@@ -1547,14 +1548,17 @@ f_screenpos(typval_T *argvars UNUSED, typval_T *rettv)
     static int
 virtcol2col(win_T *wp, linenr_T lnum, int vcol)
 {
-    int		offset = vcol2col(wp, lnum, vcol);
+    int		offset = vcol2col(wp, lnum, vcol - 1, NULL);
     char_u	*line = ml_get_buf(wp->w_buffer, lnum, FALSE);
     char_u	*p = line + offset;
 
-    // For a multibyte character, need to return the column number of the first
-    // byte.
-    MB_PTR_BACK(line, p);
-
+    if (*p == NUL)
+    {
+	if (p == line)  // empty line
+	    return 0;
+	// Move to the first byte of the last char.
+	MB_PTR_BACK(line, p);
+    }
     return (int)(p - line + 1);
 }
 
@@ -2420,7 +2424,9 @@ scroll_cursor_top(int min_scroll, int always)
 	}
 	check_topfill(curwin, FALSE);
 #endif
-	if (curwin->w_topline == curwin->w_cursor.lnum)
+	if (curwin->w_topline != old_topline)
+	    reset_skipcol();
+	else if (curwin->w_topline == curwin->w_cursor.lnum)
 	{
 	    validate_virtcol();
 	    if (curwin->w_skipcol >= curwin->w_virtcol)

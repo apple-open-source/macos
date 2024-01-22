@@ -985,7 +985,7 @@ static inline bool SOSTestJoinThroughPiggyBack(CFDataRef cfpassword, CFStringRef
     ok(joinerPI, "Joiner peerinfo available as application %@", error);
     CFReleaseNull(error);
 
-    CFDataRef theBlob = SOSAccountCopyCircleJoiningBlob(approver, nil, nil, nil, joinerPI, &error);
+    CFDataRef theBlob = SOSAccountCopyCircleJoiningBlob(approver, nil, nil, nil, NO, joinerPI, &error);
     ok(theBlob, "Made a joining blob (%@)", error);
     CFReleaseNull(error);
     

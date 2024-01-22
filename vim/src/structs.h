@@ -603,7 +603,8 @@ typedef enum {
  */
 typedef struct expand
 {
-    char_u	*xp_pattern;		// start of item to expand
+    char_u	*xp_pattern;		// start of item to expand, guaranteed
+					// to be part of xp_line
     int		xp_context;		// type of expansion
     int		xp_pattern_len;		// bytes in xp_pattern before cursor
     xp_prefix_T	xp_prefix;
@@ -1087,6 +1088,20 @@ struct cleanup_stuff
     except_T *exception;	// exception value
 };
 
+/*
+ * Exception state that is saved and restored when calling timer callback
+ * functions and deferred functions.
+ */
+typedef struct exception_state_S exception_state_T;
+struct exception_state_S
+{
+    except_T	*estate_current_exception;
+    int		estate_did_throw;
+    int		estate_need_rethrow;
+    int		estate_trylevel;
+    int		estate_did_emsg;
+};
+
 #ifdef FEAT_SYN_HL
 // struct passed to in_id_list()
 struct sp_syn
@@ -1453,6 +1468,7 @@ typedef struct ectx_S ectx_T;
 typedef struct instr_S instr_T;
 typedef struct class_S class_T;
 typedef struct object_S object_T;
+typedef struct typealias_S typealias_T;
 
 typedef enum
 {
@@ -1474,6 +1490,7 @@ typedef enum
     VAR_INSTR,		// "v_instr" is used
     VAR_CLASS,		// "v_class" is used (also used for interface)
     VAR_OBJECT,		// "v_object" is used
+    VAR_TYPEALIAS	// "v_typealias" is used
 } vartype_T;
 
 // A type specification.
@@ -1587,6 +1604,13 @@ struct object_S
     int		obj_copyID;	    // used by garbage collection
 };
 
+struct typealias_S
+{
+    int	    ta_refcount;
+    type_T  *ta_type;
+    char_u  *ta_name;
+};
+
 /*
  * Structure to hold an internal variable without a name.
  */
@@ -1610,6 +1634,7 @@ struct typval_S
 	instr_T		*v_instr;	// instructions to execute
 	class_T		*v_class;	// class value (can be NULL)
 	object_T	*v_object;	// object value (can be NULL)
+	typealias_T	*v_typealias;	// user-defined type name
     }		vval;
 };
 
@@ -2316,6 +2341,7 @@ struct partial_S
 
     int		pt_copyID;	// funcstack may contain pointer to partial
     dict_T	*pt_dict;	// dict for "self"
+    object_T	*pt_obj;	// object method
 };
 
 typedef struct {
@@ -4604,16 +4630,12 @@ typedef struct lval_S
 } lval_T;
 
 /**
- * This may be used to specify the base typval that get_lval() uses when
- * following a chain, for example a[idx1][idx2].
- * The lr_sync_root flags signals get_lval that the first time through
- * the indexing loop, skip handling  '.' and '[idx]'.
+ * This specifies optional parameters for get_lval(). Arguments may be NULL.
  */
 typedef struct lval_root_S {
-    typval_T	*lr_tv;
-    class_T	*lr_cl_exec;	// executing class for access checking
-    int		lr_is_arg;
-    int		lr_sync_root;
+    typval_T	*lr_tv;		// Base typval.
+    class_T	*lr_cl_exec;	// Executing class for access checking.
+    int		lr_is_arg;	// name is an arg (not a member).
 } lval_root_T;
 
 // Structure used to save the current state.  Used when executing Normal mode
@@ -4926,10 +4948,6 @@ typedef struct
 	int	boolean;
 	char_u	*string;
     } os_newval;
-
-    // When set by the called function: Stop processing the option further.
-    // Currently only used for boolean options.
-    int		os_doskip;
 
     // Option value was checked to be safe, no need to set P_INSECURE
     // Used for the 'keymap', 'filetype' and 'syntax' options.

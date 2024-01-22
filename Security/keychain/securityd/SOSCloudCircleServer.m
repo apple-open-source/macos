@@ -2142,7 +2142,7 @@ CFDataRef SOSCCCopyCircleJoiningBlob_Server(SOSPeerInfoRef applicant, CFErrorRef
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyCircleJoiningBlob);
 
     do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        pbblob = SOSAccountCopyCircleJoiningBlob(txn.account, nil, nil, nil, applicant, error);
+        pbblob = SOSAccountCopyCircleJoiningBlob(txn.account, nil, nil, nil, NO, applicant, error);
         return pbblob != NULL;
     });
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyCircleJoiningBlob, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyCircleJoiningBlob), (int)(pbblob != NULL));

@@ -90,6 +90,8 @@ API_AVAILABLE(macos(10.8), ios(6.0));
   @param rand  A pointer to a single @p uint64_t to store the result.
 
   @result Returns kCCSuccess iff the operation is successful.
+
+  @discussion The bound must be greater than zero.
  */
 CCRNGStatus CCRandomUniform(uint64_t bound, uint64_t *rand)
 API_AVAILABLE(macos(10.15), ios(13.0));

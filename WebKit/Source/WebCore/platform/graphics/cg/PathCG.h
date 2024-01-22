@@ -30,24 +30,35 @@
 #include "PathImpl.h"
 #include "PlatformPath.h"
 
+typedef struct CGContext* CGContextRef;
+
 namespace WebCore {
 
 class PathStream;
 
 class PathCG final : public PathImpl {
 public:
-    static UniqueRef<PathCG> create();
-    static UniqueRef<PathCG> create(const PathStream&);
-    static UniqueRef<PathCG> create(RetainPtr<CGMutablePathRef>&&);
-
-    PathCG();
-    PathCG(RetainPtr<CGMutablePathRef>&&);
-
-    bool operator==(const PathImpl&) const final;
+    static Ref<PathCG> create();
+    static Ref<PathCG> create(const PathSegment&);
+    static Ref<PathCG> create(const PathStream&);
+    static Ref<PathCG> create(RetainPtr<CGMutablePathRef>&&);
 
     PlatformPathPtr platformPath() const;
 
     void addPath(const PathCG&, const AffineTransform&);
+
+    Ref<PathImpl> copy() const final;
+    void add(PathMoveTo) final;
+    void add(PathLineTo) final;
+    void add(PathQuadCurveTo) final;
+    void add(PathBezierCurveTo) final;
+    void add(PathArcTo) final;
+    void add(PathArc) final;
+    void add(PathEllipse) final;
+    void add(PathEllipseInRect) final;
+    void add(PathRect) final;
+    void add(PathRoundedRect) final;
+    void add(PathCloseSubpath) final;
 
     bool applyElements(const PathElementApplier&) const final;
 
@@ -59,24 +70,10 @@ public:
     FloatRect strokeBoundingRect(const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
 
 private:
-    UniqueRef<PathImpl> clone() const final;
+    PathCG();
+    PathCG(RetainPtr<CGMutablePathRef>&&);
 
     PlatformPathPtr ensureMutablePlatformPath();
-
-    void moveTo(const FloatPoint&) final;
-
-    void addLineTo(const FloatPoint&) final;
-    void addQuadCurveTo(const FloatPoint& controlPoint, const FloatPoint& endPoint) final;
-    void addBezierCurveTo(const FloatPoint& controlPoint1, const FloatPoint& controlPoint2, const FloatPoint& endPoint) final;
-    void addArcTo(const FloatPoint& point1, const FloatPoint& point2, float radius) final;
-
-    void addArc(const FloatPoint& center, float radius, float startAngle, float endAngle, RotationDirection) final;
-    void addEllipse(const FloatPoint& center, float radiusX, float radiusY, float rotation, float startAngle, float endAngle, RotationDirection) final;
-    void addEllipseInRect(const FloatRect&) final;
-    void addRect(const FloatRect&) final;
-    void addRoundedRect(const FloatRoundedRect&, PathRoundedRect::Strategy) final;
-
-    void closeSubpath() final;
 
     void applySegments(const PathSegmentApplier&) const final;
 
@@ -89,6 +86,8 @@ private:
 
     RetainPtr<CGMutablePathRef> m_platformPath;
 };
+
+void addToCGContextPath(CGContextRef, const Path&);
 
 } // namespace WebCore
 

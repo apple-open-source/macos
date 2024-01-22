@@ -75,7 +75,8 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                  stableInfoSig: stableInfoSig!,
                                  ckksKeys: [],
                                  flowID: nil,
-                                 deviceSessionID: nil) { voucher, voucherSig, error in
+                                 deviceSessionID: nil,
+                                 canSendMetrics: false) { voucher, voucherSig, error in
                 XCTAssertNil(error, "Should be no error vouching")
                 XCTAssertNotNil(voucher, "Should have a voucher")
                 XCTAssertNotNil(voucherSig, "Should have a voucher signature")
@@ -99,7 +100,8 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                     tlkShares: [],
                                     preapprovedKeys: [],
                                     flowID: nil,
-                                    deviceSessionID: nil) { peerID, _, _, error in
+                                    deviceSessionID: nil,
+                                    canSendMetrics: false) { peerID, _, _, error in
                     XCTAssertNil(error, "Should be no error joining")
                     XCTAssertNotNil(peerID, "Should have a peerID")
                     joinExpectation.fulfill()
@@ -243,7 +245,8 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                  stableInfoSig: stableInfoSig!,
                                  ckksKeys: [],
                                  flowID: nil,
-                                 deviceSessionID: nil) { voucher, voucherSig, error in
+                                 deviceSessionID: nil,
+                                 canSendMetrics: false) { voucher, voucherSig, error in
                 XCTAssertNotNil(error, "should be an error vouching for a peer with an unknown policy")
                 XCTAssertNil(voucher, "Should have no voucher")
                 XCTAssertNil(voucherSig, "Should have no voucher signature")

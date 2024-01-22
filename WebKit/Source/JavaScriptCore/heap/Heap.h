@@ -327,8 +327,12 @@ public:
 
     JS_EXPORT_PRIVATE GCActivityCallback* fullActivityCallback();
     JS_EXPORT_PRIVATE GCActivityCallback* edenActivityCallback();
+
+    JS_EXPORT_PRIVATE void setFullActivityCallback(RefPtr<GCActivityCallback>&&);
+    JS_EXPORT_PRIVATE void setEdenActivityCallback(RefPtr<GCActivityCallback>&&);
+
     JS_EXPORT_PRIVATE void setGarbageCollectionTimerEnabled(bool);
-    JS_EXPORT_PRIVATE void scheduleOpportunisticFullCollectionIfNeeded();
+    JS_EXPORT_PRIVATE void scheduleOpportunisticFullCollection();
 
     JS_EXPORT_PRIVATE IncrementalSweeper& sweeper();
 
@@ -834,7 +838,7 @@ private:
 
     Vector<String> m_possiblyAccessedStringsFromConcurrentThreads;
     
-    RefPtr<FullGCActivityCallback> m_fullActivityCallback;
+    RefPtr<GCActivityCallback> m_fullActivityCallback;
     RefPtr<GCActivityCallback> m_edenActivityCallback;
     Ref<IncrementalSweeper> m_sweeper;
     Ref<StopIfNecessaryTimer> m_stopIfNecessaryTimer;

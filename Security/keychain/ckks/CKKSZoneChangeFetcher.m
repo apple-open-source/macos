@@ -93,7 +93,9 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 @property NSMutableSet<CKRecordZoneNotification*>* apnsPushes;
 @property bool newRequests; // true if there's someone pending on successfulFetchDependency
 
-@property NSString* altDSID; // used for sending RTC metrics
+// Used for RTC reporting
+@property NSString* altDSID;
+
 @property CKKSZoneChangeFetchDependencyOperation* successfulFetchDependency;
 
 @property NSMutableSet<CKKSZoneChangeFetchDependencyOperation*>* inflightFetchDependencies;
@@ -109,6 +111,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
                        fetchClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
               reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
                           altDSID:(NSString*)altDSID
+                       sendMetric:(bool)sendMetric
 {
     if((self = [super init])) {
         _container = container;
@@ -130,6 +133,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 
         _newRequests = false;
         _altDSID = altDSID;
+        _sendMetric = sendMetric;
 
         // If we're testing, for the initial delay, use 0.5 second. Otherwise, 2s.
         dispatch_time_t initialDelay = (SecCKKSReduceRateLimiting() ? 500 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
@@ -341,6 +345,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
                                                                                                                     forceResync:false
                                                                                                                ckoperationGroup:operationGroup
                                                                                                                         altDSID:self.altDSID
+                                                                                                                     sendMetric:self.sendMetric
     ];
 
     if ([lastFetchReasons containsObject:CKKSFetchBecauseNetwork]) {

@@ -47,11 +47,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) NSError* lastCKFetchError;
 
+@property bool sendMetric;
+
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithContainer:(CKContainer*)container
                        fetchClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
               reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
-                          altDSID:(NSString*)altDSID;
+                          altDSID:(NSString*)altDSID
+                       sendMetric:(bool)sendMetric;
 
 - (void)registerClient:(id<CKKSChangeFetcherClient>)client zoneID:(CKRecordZoneID*)zoneID;
 

@@ -125,7 +125,6 @@ typedef enum {
     ISN_NEWFUNC,    // create a global function from a lambda function
     ISN_DEF,	    // list functions
     ISN_DEFER,	    // :defer  argument count is isn_arg.number
-    ISN_DEFEROBJ,   // idem, function is an object method
 
     // expression operations
     ISN_JUMP,	    // jump if condition is matched isn_arg.jump
@@ -383,6 +382,7 @@ typedef struct {
     char_u	  *fre_func_name;	// function name for legacy function
     loopvarinfo_T fre_loopvar_info;	// info about variables inside loops
     class_T	  *fre_class;		// class for a method
+    int		  fre_object_method;	// class or object method
     int		  fre_method_idx;	// method index on "fre_class"
 } funcref_extra_T;
 

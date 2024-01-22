@@ -84,7 +84,7 @@ typedef enum {
                                                             error: error];
 }
 
-- (bool) setupSession: (NSError**) error {
+- (bool)setupSession:(NSError**)error {
     NSData* key = [self->_context getKey];
 
     if (key == nil) {
@@ -142,7 +142,7 @@ typedef enum {
     return self;
 }
 
-- (NSString*) stateString {
+- (NSString*)stateString {
     switch (self.state) {
         case kExpectingA: return @"→A";
         case kExpectingM: return @"→M";
@@ -191,7 +191,7 @@ typedef enum {
          dispatch_semaphore_signal(sema);
      }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
+    if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
         secerror("octagon: timed out fetching trust status");
         return NO;
     }
@@ -199,43 +199,50 @@ typedef enum {
 }
 #endif
 
-- (NSData*) processInitialMessage: (NSData*) initialMessage error: (NSError**) error {
+- (NSData*)processInitialMessage:(NSData*)initialMessage error:(NSError**)error {
     __block uint64_t version = 0;
     NSString *uuid = nil;
     NSData *octagon = nil;
-    NSError* localError = nil;
 
     self.startMessage = extractStartFromInitialMessage(initialMessage, &version, &uuid, &octagon, error);
     if (self.startMessage == NULL) {
+        secerror("joining: failed to extract startMessage: %@", error ? * error : nil);
         return nil;
     }
-#if OCTAGON
-    if(version == kPiggyV2){
+
+    if (version == kPiggyV2) {
         /* before we go ahead with octagon, let see if we are an octagon peer */
 
         if (![self shouldAcceptOctagonRequests]) {
-            secerror("octagon refusing octagon acceptor since we don't have a selfEgo");
-            version = kPiggyV1;
+            secerror("joining: octagon refusing octagon acceptor since we don't have a selfEgo");
+            if (SOSCCIsSOSTrustAndSyncingEnabled() == NO && self.joiningConfiguration.testsEnabled == NO) {
+                secerror("joining: device does not support SOS, failing flow");
+                KCJoiningErrorCreate(kUnableToPiggyBackDueToTrustSystemSupport, error, @"Unable to piggyback with device due to lack of trust system support");
+                return nil;
+            } else {
+                secnotice("joining", "device supports SOS, continuing flow with piggyV1");
+                version = kPiggyV1;
+            }
         } else {
             self.octagon = octagon;
         }
-        localError = nil;
     }
-#endif
+
     self.piggy_uuid = uuid;
     self.piggy_version = (PiggyBackProtocolVersion)version;
 
     NSData* srpMessage = [self copyChallengeMessage: error];
     if (srpMessage == nil) {
+        secerror("joining: failed to copy srpMessage: %@", error ? * error : nil);
         return nil;
     }
 
     self->_state = kExpectingM;
-#if OCTAGON
+
     NSString* piggyVersionMessage = [[NSString alloc]initWithData:self.octagon encoding:NSUTF8StringEncoding];
     __block NSError *captureError = nil;
 
-    if(version == kPiggyV2 && piggyVersionMessage && [piggyVersionMessage isEqualToString:@"o"]) {
+    if (version == kPiggyV2 && piggyVersionMessage && [piggyVersionMessage isEqualToString:@"o"]) {
         __block NSData* next = nil;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
@@ -243,17 +250,17 @@ typedef enum {
         [self.otControl rpcEpochWithArguments:self.controlArguments
                                 configuration:self.joiningConfiguration
                                         reply:^(uint64_t epoch, NSError * _Nullable epochError) {
-            if(epochError){
+            if (epochError) {
                 secerror("error retrieving next message! :%@", epochError);
                 captureError = epochError;
-            }else{
+            } else {
                 OTPairingMessage* responseMessage = [[OTPairingMessage alloc] init];
                 responseMessage.supportsSOS = [[OTSupportSOSMessage alloc] init];
                 responseMessage.supportsOctagon = [[OTSupportOctagonMessage alloc] init];
 
                 responseMessage.epoch = [[OTSponsorToApplicantRound1M2 alloc] init];
                 responseMessage.epoch.epoch = epoch;
-                
+
                 responseMessage.supportsSOS.supported = SOSCCIsSOSTrustAndSyncingEnabled() ? OTSupportType_supported : OTSupportType_not_supported;
                 responseMessage.supportsOctagon.supported = OTSupportType_supported;
                 next = responseMessage.data;
@@ -261,25 +268,34 @@ typedef enum {
             dispatch_semaphore_signal(sema);
         }];
 
-        if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
+        if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
             secerror("octagon: timed out fetching epoch");
+            KCJoiningErrorCreate(kTimedoutWaitingForEpochRPC, error, @"Timed out waiting for epoch rpc");
             return nil;
         }
-        if(error && captureError){
-            *error = captureError;
+
+        if (captureError) {
+            if (error) {
+                *error = captureError;
+            }
+            return nil;
         }
         return [[KCJoiningMessage messageWithType:kChallenge
                                              data:srpMessage
                                           payload:next
                                             error:error] der];
+    } else if (SOSCCIsSOSTrustAndSyncingEnabled() || self.joiningConfiguration.testsEnabled) {
+
+        return [[KCJoiningMessage messageWithType:kChallenge
+                                             data:srpMessage
+                                            error:error] der];
     }
-#endif
-    return [[KCJoiningMessage messageWithType:kChallenge
-                                         data:srpMessage
-                                        error:error] der];
+
+    KCJoiningErrorCreate(kUnableToPiggyBackDueToTrustSystemSupport, error, @"Unable to piggyback with device due to lack of trust system support");
+    return nil;
 }
 
-- (NSData*) processResponse: (KCJoiningMessage*) message error:(NSError**) error {
+- (NSData*)processResponse:(KCJoiningMessage*)message error:(NSError**)error {
     if ([message type] != kResponse) {
         KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected response!");
         return nil;
@@ -332,7 +348,7 @@ typedef enum {
                                         error:error] der];
 }
 
-- (NSData*) processSOSApplication: (NSData*) message error:(NSError**) error
+- (NSData*)processSOSApplication:(NSData*) message error:(NSError**)error
 {
     NSData* decryptedPayload = [self.session decryptAndVerify:message error:error];
     if (decryptedPayload == nil) return nil;
@@ -348,7 +364,7 @@ typedef enum {
     }
 
     NSData* joinData = [circleDelegate circleJoinDataFor:ref error:error];
-    if(ref) {
+    if (ref) {
         CFRelease(ref);
         ref = NULL;
     }
@@ -376,7 +392,7 @@ typedef enum {
 
         NSMutableData* growPacket = [[NSMutableData alloc] initWithData:joinData];
 
-        if(initialSyncData == nil){
+        if (initialSyncData == nil) {
             secnotice("piggy", "PB threw an error: %@", localISVError);
         } else {
             [growPacket appendData:initialSyncData];
@@ -391,21 +407,21 @@ typedef enum {
 }
 
 #if OCTAGON
-- (OTPairingMessage *)createPairingMessageFromJoiningMessage:(KCJoiningMessage *)message error:(NSError**) error
+- (OTPairingMessage *)createPairingMessageFromJoiningMessage:(KCJoiningMessage *)message error:(NSError**)error
 {
     NSData *decryptInitialMessage = [self.session decryptAndVerify:message.firstData error:error];
-    if(!decryptInitialMessage) {
+    if (!decryptInitialMessage) {
         secinfo("KeychainCircle", "Failed to decrypt message first data: %@. Trying legacy OTPairingMessage construction.", error ? *error : @"");
         return [[OTPairingMessage alloc] initWithData:message.firstData];
     } else {
         KCInitialMessageData *initialMessage = [[KCInitialMessageData alloc] initWithData:decryptInitialMessage];
-        if(!initialMessage) {
+        if (!initialMessage) {
             secerror("Failed to parse InitialMessageData from decrypted message data");
             KCJoiningErrorCreate(kUnexpectedMessage, error, @"Failed to parse InitialMessageData from decrypted message data");
             return nil;
         }
 
-        if(!initialMessage.hasPrepareMessage) {
+        if (!initialMessage.hasPrepareMessage) {
             secerror("InitialMessageData does not contain prepare message");
             KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected prepare message inside InitialMessageData");
             return nil;
@@ -416,7 +432,7 @@ typedef enum {
 }
 #endif
 
-- (NSData*) createTLKRequestResponse: (NSError**) error {
+- (NSData*)createTLKRequestResponse:(NSError**) error {
     NSError* localError = NULL;
     NSData* initialSync = [self.circleDelegate circleGetInitialSyncViews:kSOSInitialSyncFlagTLKsRequestOnly error:&localError];
     if (!initialSync) {
@@ -462,8 +478,8 @@ typedef enum {
 }
 
 
-- (NSData*) processApplication: (KCJoiningMessage*) message error:(NSError**) error {
-    
+- (NSData*)processApplication:(KCJoiningMessage*)message error:(NSError**)error {
+
     if ([message type] == kTLKRequest) {
         return [self createTLKRequestResponse: error];
     }
@@ -472,20 +488,20 @@ typedef enum {
         KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected peerInfo!");
         return nil;
     }
-#if OCTAGON
-    if(self.piggy_version == kPiggyV2){
+
+    if (self.piggy_version == kPiggyV2) {
         __block NSData* next = nil;
         __block NSError* localError = nil;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
         OTPairingMessage *pairingMessage = [self createPairingMessageFromJoiningMessage:message error:error];
-        if(!pairingMessage) {
+        if (!pairingMessage) {
             secerror("octagon, failed to create pairing message from JoiningMessage");
             KCJoiningErrorCreate(kUnexpectedMessage, error, @"Failed to create pairing message from JoiningMessage");
             return nil;
         }
 
-        if(!pairingMessage.hasPrepare) {
+        if (!pairingMessage.hasPrepare) {
             secerror("octagon, message does not contain prepare message");
             KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected prepare message!");
             return nil;
@@ -502,10 +518,10 @@ typedef enum {
                                   stableInfoSig:prepareMessage.stableInfoSig reply:^(NSData *voucher,
                                                                                      NSData *voucherSig,
                                                                                      NSError *err) {
-            if(err){
+            if (err) {
                 secerror("error producing octagon voucher: %@", err);
                 localError = err;
-            }else{
+            } else {
                 OTPairingMessage *pairingResponse = [[OTPairingMessage alloc] init];
                 pairingResponse.supportsSOS = [[OTSupportSOSMessage alloc] init];
                 pairingResponse.supportsOctagon = [[OTSupportOctagonMessage alloc] init];
@@ -520,12 +536,13 @@ typedef enum {
             dispatch_semaphore_signal(sema);
         }];
 
-        if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
+        if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
             secerror("octagon: timed out producing octagon voucher");
+            KCJoiningErrorCreate(kTimedOutWaitingForVoucher, error, @"timed out producing octagon voucher");
             return nil;
         }
         if (next == NULL) {
-            if(error && localError){
+            if (error && localError) {
                 *error = localError;
             }
             return nil;
@@ -550,7 +567,7 @@ typedef enum {
                                           payload:encryptedOutgoing
                                             error:error] der];
     }
-#endif
+
     if (!SOSCCIsSOSTrustAndSyncingEnabled()) {
         NSString *description = [NSString stringWithFormat:@"cannot join piggyback version %d with SOS disabled", (int)self.piggy_version];
         secerror("joining: %s", [description UTF8String]);
@@ -559,6 +576,7 @@ typedef enum {
         }
         return nil;
     }
+
     NSData* encryptedOutgoing = [self processSOSApplication: message.firstData error:error];
     
     self->_state = kAcceptDone;
@@ -572,7 +590,7 @@ typedef enum {
 }
 
 
-- (nullable NSData*) processMessage: (NSData*) incomingMessage error: (NSError**) error {
+- (nullable NSData*)processMessage:(NSData*)incomingMessage error:(NSError**) error {
     NSData* result = nil;
 
     secnotice("acceptor", "processMessages: %@", [self description]);
@@ -597,7 +615,7 @@ typedef enum {
     return result;
 }
 
-- (bool) isDone {
+- (bool)isDone {
     return self.state == kAcceptDone;
 }
 

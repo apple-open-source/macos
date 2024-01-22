@@ -14,6 +14,9 @@
 #include "vim.h"
 
 #if defined(FEAT_EVAL) || defined(PROTO)
+
+#define MAX_CALLBACK_DEPTH 20
+
 /*
  * All user-defined functions are found in this hashtable.
  */
@@ -3540,6 +3543,12 @@ func_call(
 	funcexe.fe_lastline = curwin->w_cursor.lnum;
 	funcexe.fe_evaluate = TRUE;
 	funcexe.fe_partial = partial;
+	if (partial != NULL)
+	{
+	    funcexe.fe_object = partial->pt_obj;
+	    if (funcexe.fe_object != NULL)
+		++funcexe.fe_object->obj_refcount;
+	}
 	funcexe.fe_selfdict = selfdict;
 	r = call_func(name, -1, rettv, argc, argv, &funcexe);
     }
@@ -3577,9 +3586,22 @@ call_callback(
 
     if (callback->cb_name == NULL || *callback->cb_name == NUL)
 	return FAIL;
+
+    if (callback_depth > MAX_CALLBACK_DEPTH)
+    {
+	emsg(_(e_command_too_recursive));
+	return FAIL;
+    }
+
     CLEAR_FIELD(funcexe);
     funcexe.fe_evaluate = TRUE;
     funcexe.fe_partial = callback->cb_partial;
+    if (callback->cb_partial != NULL)
+    {
+	funcexe.fe_object = callback->cb_partial->pt_obj;
+	if (funcexe.fe_object != NULL)
+	    ++funcexe.fe_object->obj_refcount;
+    }
     ++callback_depth;
     ret = call_func(callback->cb_name, len, rettv, argcount, argvars, &funcexe);
     --callback_depth;
@@ -6232,7 +6254,17 @@ handle_defer_one(funccall_T *funccal)
 	char_u *name = dr->dr_name;
 	dr->dr_name = NULL;
 
+	// If the deferred function is called after an exception, then only the
+	// first statement in the function will be executed (because of the
+	// exception).  So save and restore the try/catch/throw exception
+	// state.
+	exception_state_T estate;
+	exception_state_save(&estate);
+	exception_state_clear();
+
 	call_func(name, -1, &rettv, dr->dr_argcount, dr->dr_argvars, &funcexe);
+
+	exception_state_restore(&estate);
 
 	clear_tv(&rettv);
 	vim_free(name);

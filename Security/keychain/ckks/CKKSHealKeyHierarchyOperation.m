@@ -130,12 +130,12 @@
     WEAKIFY(self);
 
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldFullRefetchNeeded:@(NO), kSecurityRTCFieldIsPrioritized:@(NO)}
-                                                                                                 altDSID:self.deps.activeAccount.altDSID
-                                                                                               eventName:kSecurityRTCEventNameHealKeyHierarchy
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                       altDSID:self.deps.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameHealKeyHierarchy
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.deps.sendMetric];
     __block BOOL didSucceed = NO;
-
 
     [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult {
         ckksnotice("ckksheal", viewState.zoneID, "Attempting to heal %@", viewState);
@@ -228,10 +228,11 @@
            ![keyset.classA.parentKeyUUID isEqualToString: keyset.tlk.uuid] || ![keyset.classC.parentKeyUUID isEqualToString: keyset.tlk.uuid]) {
             
             AAFAnalyticsEventSecurity *healBrokenRecordsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                                          altDSID:self.deps.activeAccount.altDSID
-                                                                                                                        eventName:kSecurityRTCEventNameHealBrokenRecords
-                                                                                                                  testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                         category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                                altDSID:self.deps.activeAccount.altDSID
+                                                                                                              eventName:kSecurityRTCEventNameHealBrokenRecords
+                                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                             sendMetric:self.deps.sendMetric];
 
             // The records exist, but are broken. Point them at something reasonable.
             NSArray<CKKSKey*>* keys = [CKKSKey allKeysForContextID:viewState.contextID
@@ -420,11 +421,12 @@
             }
 
             // Kick off the CKOperation
-            AAFAnalyticsEventSecurity *uploadHealedTLKSharesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumCKRecords: @(recordsToSave.count), kSecurityRTCFieldIsPrioritized: @(NO)}
+            AAFAnalyticsEventSecurity *uploadHealedTLKSharesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldTotalCKRecords: @(recordsToSave.count), kSecurityRTCFieldIsPrioritized: @(NO)}
                                                                                                                               altDSID:self.deps.activeAccount.altDSID
                                                                                                                             eventName:kSecurityRTCEventNameUploadHealedTLKShares
                                                                                                                       testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                             category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                                             category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                                 sendMetric:self.deps.sendMetric];
             ckksnotice("ckksheal", viewState.zoneID, "Saving new records %@", recordsToSave);
 
             // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete

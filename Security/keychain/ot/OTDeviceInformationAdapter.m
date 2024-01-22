@@ -156,6 +156,25 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 #endif
 }
 
+- (BOOL)isAppleTV
+{
+#if TARGET_OS_TV
+    bool isAppleTV = (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == kMGDeviceClassAppleTV);
+    return isAppleTV;
+#else // TARGET_OS_TV
+    return NO;
+#endif
+}
+
+- (BOOL)isWatch
+{
+#if TARGET_OS_WATCH
+    bool isWatch = (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == MGDeviceClassWatch);
+    return isWatch;
+#else // TARGET_OS_WATCH
+    return NO;
+#endif
+}
 
 - (void)setupDeviceNameListener {
     if (self.deviceNameUpdateListeners == nil) {

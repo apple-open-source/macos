@@ -163,6 +163,14 @@ class OTMockDeviceInfoAdapter: OTDeviceInformationAdapter {
     func isHomePod() -> Bool {
         return mockModelID.hasPrefix("AudioAccessory")
     }
+
+    func isAppleTV() -> Bool {
+        return mockModelID.hasPrefix("AppleTV")
+    }
+
+    func isWatch() -> Bool {
+        return mockModelID.hasPrefix("Watch")
+    }
 }
 
 class OTMockTooManyPeersAdapter: OTTooManyPeersAdapter {
@@ -1499,7 +1507,7 @@ class OctagonTests: OctagonTestsBase {
         let group1 = DispatchGroup()
         let group2 = DispatchGroup()
 
-        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil, altDSID: "altDSID", flowID: "flowID", deviceSessionID: "deviceSessionID", eventName: "eventName", testsAreEnabled: false, category: 100)
+        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil, altDSID: "altDSID", flowID: "flowID", deviceSessionID: "deviceSessionID", eventName: "eventName", testsAreEnabled: false, canSendMetrics: false, category: 100)
 
         for _ in 0...500 {
             let queue1 = DispatchQueue(label: "sendMetricWithEvent1")
@@ -1523,7 +1531,7 @@ class OctagonTests: OctagonTestsBase {
         let group1 = DispatchGroup()
         let group2 = DispatchGroup()
 
-        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil, altDSID: "altDSID", flowID: "flowID", deviceSessionID: "deviceSessionID", eventName: "eventName", testsAreEnabled: false, category: 100)
+        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil, altDSID: "altDSID", flowID: "flowID", deviceSessionID: "deviceSessionID", eventName: "eventName", testsAreEnabled: false, canSendMetrics: false, category: 100)
 
         let error = NSError.init(domain: "error_domain", code: 1)
 
@@ -2488,7 +2496,8 @@ class OctagonTests: OctagonTestsBase {
                                  stableInfoSig: stableInfoSig!,
                                  ckksKeys: [],
                                  flowID: nil,
-                                 deviceSessionID: nil) { voucher, voucherSig, error in
+                                 deviceSessionID: nil,
+                                 canSendMetrics: false) { voucher, voucherSig, error in
                 XCTAssertNil(error, "Should be no error vouching")
                 XCTAssertNotNil(voucher, "Should have a voucher")
                 XCTAssertNotNil(voucherSig, "Should have a voucher signature")
@@ -2499,7 +2508,8 @@ class OctagonTests: OctagonTestsBase {
                                     tlkShares: [],
                                     preapprovedKeys: [],
                                     flowID: nil,
-                                    deviceSessionID: nil) { peerID, _, _, error in
+                                    deviceSessionID: nil,
+                                    canSendMetrics: false) { peerID, _, _, error in
                     XCTAssertNil(error, "Should be no error joining")
                     XCTAssertNotNil(peerID, "Should have a peerID")
                     peer2ID = peerID
@@ -3998,6 +4008,85 @@ class OctagonTests: OctagonTestsBase {
     func testPersistRefSchedulerMoreThan100ItemsErrSecNotAvailableRandomInsertion() throws {
         try self.sharedTestsForMoreThan100ItemsRandomInsertion(errorCode: errSecNotAvailable)
     }
+
+    func testNFSMetricsEnabledOnUntrusted() throws {
+        self.startCKAccountStatusMock()
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let account = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertEqual(account.sendingMetricsPermitted, OTAccountMetadataClassC_MetricsState.PERMITTED, "metrics should be permitted")
+    }
+
+    func testNFSMetricsDisabledOnReady() throws {
+        self.startCKAccountStatusMock()
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        var account = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertEqual(account.sendingMetricsPermitted, OTAccountMetadataClassC_MetricsState.PERMITTED, "metrics should be permitted")
+
+        self.pauseOctagonStateMachine(context: self.cuttlefishContext, entering: OctagonStateBecomeReady)
+
+        self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+       
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateBecomeReady, within: 10 * NSEC_PER_SEC)
+
+        self.releaseOctagonStateMachine(context: self.cuttlefishContext, from: OctagonStateBecomeReady)
+
+        sleep(3)
+
+        account = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertEqual(account.sendingMetricsPermitted, OTAccountMetadataClassC_MetricsState.NOTPERMITTED, "metrics should NOT be permitted")
+
+        XCTAssertNil(self.cuttlefishContext.checkMetricsTrigger, "check metrics nfs should be nil")
+    }
+
+    func testNFSMetricsRetriesOnLockedState() throws {
+        self.startCKAccountStatusMock()
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        var account = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertEqual(account.sendingMetricsPermitted, OTAccountMetadataClassC_MetricsState.PERMITTED, "metrics should be permitted")
+
+        self.pauseOctagonStateMachine(context: self.cuttlefishContext, entering: OctagonStateBecomeReady)
+
+        self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateBecomeReady, within: 10 * NSEC_PER_SEC)
+
+        self.releaseOctagonStateMachine(context: self.cuttlefishContext, from: OctagonStateBecomeReady)
+
+        sleep(2)
+
+        // now the device is locked
+        self.aksLockState = true
+        self.lockStateProvider.aksCurrentlyLocked = true
+        self.lockStateTracker.recheck()
+
+        account = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertEqual(account.sendingMetricsPermitted, OTAccountMetadataClassC_MetricsState.PERMITTED, "metrics should be permitted")
+
+        XCTAssertNotNil(self.cuttlefishContext.checkMetricsTrigger!.nextFireTime, "next fire time should not be nil")
+
+        // now the device is unlocked
+        self.aksLockState = false
+        self.lockStateProvider.aksCurrentlyLocked = false
+        self.lockStateTracker.recheck()
+
+        sleep(3)
+
+        account = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertEqual(account.sendingMetricsPermitted, OTAccountMetadataClassC_MetricsState.NOTPERMITTED, "metrics should NOT be permitted")
+
+        XCTAssertNil(self.cuttlefishContext.checkMetricsTrigger, "check metrics nfs should be nil")
+    }
 }
 
 class OctagonTestsOverrideModelBase: OctagonTestsBase {
@@ -4118,7 +4207,8 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
                                                              stableInfoSig: stableInfoSig!,
                                                              ckksKeys: ckksKeys,
                                                              flowID: nil,
-                                                             deviceSessionID: nil) { voucher, voucherSig, error in
+                                                             deviceSessionID: nil,
+                                                             canSendMetrics: false) { voucher, voucherSig, error in
                                                                 XCTAssertNil(error, "Should be no error vouching")
                                                                 XCTAssertNotNil(voucher, "Should have a voucher")
                                                                 XCTAssertNotNil(voucherSig, "Should have a voucher signature")
@@ -4134,7 +4224,8 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
                                                                                     tlkShares: [],
                                                                                     preapprovedKeys: [],
                                                                                     flowID: nil,
-                                                                                    deviceSessionID: nil) { peerID, _, _, error in
+                                                                                    deviceSessionID: nil,
+                                                                                    canSendMetrics: false) { peerID, _, _, error in
                                                                                         XCTAssertNil(error, "Should be no error joining")
                                                                                         XCTAssertNotNil(peerID, "Should have a peerID")
                                                                                         joinExpectation.fulfill()
@@ -4149,7 +4240,8 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
                                                              stableInfoSig: stableInfoSig!,
                                                              ckksKeys: [],
                                                              flowID: nil,
-                                                             deviceSessionID: nil) { voucher, voucherSig, error in
+                                                             deviceSessionID: nil,
+                                                             canSendMetrics: false) { voucher, voucherSig, error in
                                                                 XCTAssertNil(voucher, "voucher should be nil")
                                                                 XCTAssertNil(voucherSig, "voucherSig should be nil")
                                                                 XCTAssertNotNil(error, "error should be non nil")
@@ -4243,7 +4335,8 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
                                                         tlkShares: [],
                                                         preapprovedKeys: [],
                                                         flowID: nil,
-                                                        deviceSessionID: nil) { peerID, _, _, error in
+                                                        deviceSessionID: nil,
+                                                        canSendMetrics: false) { peerID, _, _, error in
                                                             if expectedSuccess {
                                                                 XCTAssertNil(error, "expected success")
                                                                 XCTAssertNotNil(peerID, "peerID should be set")

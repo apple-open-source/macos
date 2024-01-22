@@ -48,6 +48,7 @@
 #import "keychain/ot/OTStates.h"
 #import "keychain/ot/OTJoiningConfiguration.h"
 #import "keychain/ot/OTSOSAdapter.h"
+#import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 
 #import "keychain/OctagonTrust/OTCustodianRecoveryKey.h"
 #import "keychain/OctagonTrust/OTInheritanceKey.h"
@@ -225,10 +226,10 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         _accountStateTracker = [[CKKSAccountStateTracker alloc] init:_cloudKitContainer
                                            nsnotificationCenterClass:cloudKitClassDependencies.nsnotificationCenterClass];
         _cloudKitClassDependencies = cloudKitClassDependencies;
-        self.contexts = [NSMutableDictionary dictionary];
-        self.clients = [NSMutableDictionary dictionary];
+        _contexts = [NSMutableDictionary dictionary];
+        _clients = [NSMutableDictionary dictionary];
 
-        self.queue = dispatch_queue_create("otmanager", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("otmanager", DISPATCH_QUEUE_SERIAL);
 
         _apsConnectionClass = apsConnectionClass;
         _escrowRequestClass = escrowRequestClass;
@@ -294,7 +295,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                         cloudKitClassDependencies:cloudKitClassDependencies
                                                   accountsAdapter:self.accountsAdapter];
 
-        self.queue = dispatch_queue_create("otmanager", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("otmanager", DISPATCH_QUEUE_SERIAL);
 
         WEAKIFY(self);
         _savedTLKNotifier = [[CKKSNearFutureScheduler alloc] initWithName:@"newtlks"
@@ -793,6 +794,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
             CKKSKeychainView* ckks = nil;
             if((OctagonSupportsPersonaMultiuser() && !SecCKKSTestsEnabled()) || ([containerName isEqualToString:SecCKKSContainerName] && [contextID isEqualToString:OTDefaultContext])) {
                 NSString* ckksContextID = [contextID isEqualToString:OTDefaultContext] ? CKKSDefaultContextID : contextID;
+
                 ckks = [[CKKSKeychainView alloc] initWithContainer:cloudKitContainer
                                                          contextID:ckksContextID
                                                      activeAccount:possibleAccount
@@ -1400,7 +1402,8 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     cfshContext.flowID = arguments.flowID;
     cfshContext.deviceSessionID = arguments.deviceSessionID;
-    
+    cfshContext.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_PERMITTED;
+
     [cfshContext rpcPrepareIdentityAsApplicantWithConfiguration:config
                                                           epoch:config.epoch
                                                           reply:^(NSString * _Nullable peerID,
@@ -1439,6 +1442,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     cfshContext.flowID = arguments.flowID;
     cfshContext.deviceSessionID = arguments.deviceSessionID;
+    cfshContext.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_PERMITTED;
 
     OctagonSignpost joinSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelInitiatorJoinOctagon);
     __block bool subTaskSuccess = false;
@@ -1479,6 +1483,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     acceptorCfshContext.flowID = arguments.flowID;
     acceptorCfshContext.deviceSessionID = arguments.deviceSessionID;
+    acceptorCfshContext.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_PERMITTED;
 
     OTClientStateMachine *clientStateMachine = [self clientStateMachineForContainerName:acceptorCfshContext.containerName contextID:acceptorCfshContext.contextID clientName:config.pairingUUID];
 
@@ -1524,6 +1529,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                                                              clientName:config.pairingUUID];
     acceptorCfshContext.flowID = arguments.flowID;
     acceptorCfshContext.deviceSessionID = arguments.deviceSessionID;
+    acceptorCfshContext.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_PERMITTED;
 
     OctagonSignpost voucherSignPost = OctagonSignpostBegin(OctagonSignpostNamePairingChannelAcceptorVoucher);
     __block bool subTaskSuccess = false;
@@ -1593,6 +1599,38 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 // MARK: Analytics
 ////
 
+- (BOOL)fetchSendingMetricsPermitted:(OTControlArguments*)arguments error:(NSError**)error
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a fetchSendingMetricsPermitted for arguments (%@): %@", arguments, clientError);
+        if (error) {
+            *error = clientError;
+        }
+        return NO;
+    }
+
+    return [cfshContext fetchSendingMetricsPermitted:error];
+}
+
+- (BOOL)persistSendingMetricsPermitted:(OTControlArguments*)arguments sendingMetricsPermitted:(BOOL)sendingMetricsPermitted error:(NSError**)error
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a fetchSendingMetricsPermitted for arguments (%@): %@", arguments, clientError);
+        if (error) {
+            *error = clientError;
+        }
+        return NO;
+    }
+    return [cfshContext persistSendingMetricsPermitted:sendingMetricsPermitted error:error];
+}
+
+
 - (void)setupAnalytics
 {
     WEAKIFY(self);
@@ -1645,6 +1683,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
             NSString* machineID = [cuttlefishContext.authKitAdapter machineID:nil
                                                                        flowID:nil
                                                               deviceSessionID:nil
+                                                               canSendMetrics:NO
                                                                         error:&machineIDError];
             if(machineIDError) {
                 secnotice("octagon-analytics", "Error fetching machine ID: %@", metadataError);
@@ -1788,6 +1827,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
     return false;
 }
+
 
 ////
 // MARK: Recovery Key

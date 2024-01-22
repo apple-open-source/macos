@@ -47,6 +47,7 @@ NS_ASSUME_NONNULL_BEGIN
         self.isInitiator = isInitiator;
         self.pairingUUID = pairingUUID;
         self.epoch = epoch;
+        self.testsEnabled = NO;
 
         _timeout = 0;
     }
@@ -61,6 +62,7 @@ NS_ASSUME_NONNULL_BEGIN
     [coder encodeObject:_pairingUUID forKey:@"pairingUUID"];
     [coder encodeInt64:_epoch forKey:@"epoch"];
     [coder encodeInt64:_timeout forKey:@"timeout"];
+    [coder encodeBool:_testsEnabled forKey:@"testsEnabled"];
 }
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder *)decoder {
@@ -72,8 +74,14 @@ NS_ASSUME_NONNULL_BEGIN
         _pairingUUID = [decoder decodeObjectOfClass:[NSString class] forKey:@"pairingUUID"];
         _epoch = [decoder decodeInt64ForKey:@"epoch"];
         _timeout = [decoder decodeInt64ForKey:@"timeout"];
+        _testsEnabled = [decoder decodeBoolForKey:@"testsEnabled"];
     }
     return self;
+}
+
+- (void)enableForTests
+{
+    self.testsEnabled = YES;
 }
 
 @end

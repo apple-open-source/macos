@@ -640,24 +640,6 @@ dispatch_once_t globalZoneStateQueueOnce;
                               complete:complete];
 }
 
-- (void)sendMetricForFirstManateeAccess {
-    NSError *localError = nil;
-    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
-                                                   createIfMissing:YES
-                                           allowNonPrimaryAccounts:YES
-                                                             error:&localError];
-    if (!view.firstManateeKeyFetched) {
-        NSString* altDSID = view.operationDependencies.activeAccount.altDSID;
-        AAFAnalyticsEventSecurity* eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                     altDSID:altDSID
-                                                                                                   eventName:kSecurityRTCEventNameFirstManateeKeyFetch
-                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success: localError ? NO : YES error:localError];
-        view.firstManateeKeyFetched = true;
-    }
-}
-
 + (instancetype)manager
 {
     return [OTManager manager].viewManager;

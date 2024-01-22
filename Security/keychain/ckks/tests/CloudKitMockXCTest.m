@@ -361,6 +361,7 @@
 - (NSString * _Nullable)machineID:(NSString*)altDSID 
                            flowID:(NSString* _Nullable)flowID
                   deviceSessionID:(NSString* _Nullable)deviceSessionID
+                   canSendMetrics:(BOOL)canSendMetrics
                             error:(NSError *__autoreleasing  _Nullable * _Nullable)error {
     return self.currentMachineID;
 }

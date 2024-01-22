@@ -50,6 +50,7 @@
 #include "DFGClobberize.h"
 #include "DFGClobbersExitState.h"
 #include "DFGGraph.h"
+#include "DFGGraphSafepoint.h"
 #include "DFGLiveCatchVariablePreservationPhase.h"
 #include "DOMJITGetterSetter.h"
 #include "DeleteByStatus.h"
@@ -135,7 +136,7 @@ public:
     }
     
     // Parse a full CodeBlock of bytecode.
-    void parse();
+    bool parse();
     
 private:
     struct InlineStackEntry;
@@ -1200,6 +1201,8 @@ private:
 
     bool needsDynamicLookup(ResolveType, OpcodeID);
 
+    void pruneUnreachableNodes();
+
     VM* const m_vm;
     CodeBlock* const m_codeBlock;
     CodeBlock* const m_profiledBlock;
@@ -1692,12 +1695,11 @@ unsigned ByteCodeParser::inliningCost(CallVariant callee, int argumentCountInclu
         }
     }
 
-    CapabilityLevel capabilityLevel = inlineFunctionForCapabilityLevel(
-        codeBlock, specializationKind, callee.isClosureCall());
+    CapabilityLevel capabilityLevel = inlineFunctionForCapabilityLevel(m_graph.m_plan.jitType(), codeBlock, specializationKind, callee.isClosureCall());
     VERBOSE_LOG("    Call mode: ", callMode, "\n");
     VERBOSE_LOG("    Is closure call: ", callee.isClosureCall(), "\n");
     VERBOSE_LOG("    Capability level: ", capabilityLevel, "\n");
-    VERBOSE_LOG("    Might inline function: ", mightInlineFunctionFor(codeBlock, specializationKind), "\n");
+    VERBOSE_LOG("    Might inline function: ", mightInlineFunctionFor(m_graph.m_plan.jitType(), codeBlock, specializationKind), "\n");
     VERBOSE_LOG("    Might compile function: ", mightCompileFunctionFor(codeBlock, specializationKind), "\n");
     VERBOSE_LOG("    Is supported for inlining: ", isSupportedForInlining(codeBlock), "\n");
     VERBOSE_LOG("    Is inlining candidate: ", codeBlock->ownerExecutable()->isInliningCandidate(), "\n");
@@ -2206,11 +2208,11 @@ bool ByteCodeParser::handleVarargsInlining(Node* callTargetNode, Operand result,
 
 unsigned ByteCodeParser::getInliningBalance(const CallLinkStatus& callLinkStatus, CodeSpecializationKind specializationKind)
 {
-    unsigned inliningBalance = Options::maximumFunctionForCallInlineCandidateBytecodeCost();
+    unsigned inliningBalance = m_graph.m_plan.isFTL() ? Options::maximumFunctionForCallInlineCandidateBytecodeCostForFTL() : Options::maximumFunctionForCallInlineCandidateBytecodeCostForDFG();
     if (specializationKind == CodeForConstruct)
-        inliningBalance = std::min(inliningBalance, Options::maximumFunctionForConstructInlineCandidateBytecoodeCost());
+        inliningBalance = std::min(inliningBalance, m_graph.m_plan.isFTL() ? Options::maximumFunctionForConstructInlineCandidateBytecodeCostForFTL() : Options::maximumFunctionForConstructInlineCandidateBytecodeCostForDFG());
     if (callLinkStatus.isClosureCall())
-        inliningBalance = std::min(inliningBalance, Options::maximumFunctionForClosureCallInlineCandidateBytecodeCost());
+        inliningBalance = std::min(inliningBalance, m_graph.m_plan.isFTL() ? Options::maximumFunctionForClosureCallInlineCandidateBytecodeCostForFTL() : Options::maximumFunctionForClosureCallInlineCandidateBytecodeCostForDFG());
     return inliningBalance;
 }
 
@@ -9780,31 +9782,8 @@ void ByteCodeParser::handleCreateInternalFieldObject(const ClassInfo* classInfo,
     set(VirtualRegister(bytecode.m_dst), addToGraph(createOp, callee));
 }
 
-void ByteCodeParser::parse()
+void ByteCodeParser::pruneUnreachableNodes()
 {
-    // Set during construction.
-    ASSERT(!m_currentIndex.offset());
-    
-    VERBOSE_LOG("Parsing ", *m_codeBlock, "\n");
-    
-    InlineStackEntry inlineStackEntry(
-        this, m_codeBlock, m_profiledBlock, nullptr, VirtualRegister(), VirtualRegister(),
-        m_codeBlock->numParameters(), InlineCallFrame::Call, nullptr);
-    
-    parseCodeBlock();
-    linkBlocks(inlineStackEntry.m_unlinkedBlocks, inlineStackEntry.m_blockLinkingTargets);
-
-    // We insert catch variable preservation here to show all bytecode
-    // uses to the subsequent backward propagation phase.
-    performLiveCatchVariablePreservationPhase(m_graph);
-
-    // We run backwards propagation now because the soundness of that phase
-    // relies on seeing the graph as if it were an IR over bytecode, since
-    // the spec-correctness of that phase relies on seeing all bytecode uses.
-    // Therefore, we run this pass before we do any pruning of the graph
-    // after ForceOSRExit sites.
-    performBackwardsPropagation(m_graph);
-
     if (m_hasAnyForceOSRExits) {
         BlockSet blocksToIgnore;
         for (BasicBlock* block : m_graph.blocksInNaturalOrder()) {
@@ -9910,10 +9889,52 @@ void ByteCodeParser::parse()
                 RELEASE_ASSERT(node->op() != ForceOSRExit);
         }
     }
+}
+
+#define RUN_ANALYSIS(code)                                           \
+    do {                                                             \
+        if (Options::safepointBeforeEachPhase()) {                   \
+            Safepoint::Result safepointResult;                       \
+            {                                                        \
+                GraphSafepoint safepoint(m_graph, safepointResult);  \
+            }                                                        \
+            if (safepointResult.didGetCancelled())                   \
+                return false;                                        \
+        }                                                            \
+        (code);                                                      \
+    } while (false);                                                 \
+
+bool ByteCodeParser::parse()
+{
+    // Set during construction.
+    ASSERT(!m_currentIndex.offset());
+    
+    VERBOSE_LOG("Parsing ", *m_codeBlock, "\n");
+    
+    InlineStackEntry inlineStackEntry(
+        this, m_codeBlock, m_profiledBlock, nullptr, VirtualRegister(), VirtualRegister(),
+        m_codeBlock->numParameters(), InlineCallFrame::Call, nullptr);
+    
+    parseCodeBlock();
+    linkBlocks(inlineStackEntry.m_unlinkedBlocks, inlineStackEntry.m_blockLinkingTargets);
+
+    // We insert catch variable preservation here to show all bytecode
+    // uses to the subsequent backward propagation phase.
+    RUN_ANALYSIS(performLiveCatchVariablePreservationPhase(m_graph));
+
+    // We run backwards propagation now because the soundness of that phase
+    // relies on seeing the graph as if it were an IR over bytecode, since
+    // the spec-correctness of that phase relies on seeing all bytecode uses.
+    // Therefore, we run this pass before we do any pruning of the graph
+    // after ForceOSRExit sites.
+    RUN_ANALYSIS(performBackwardsPropagation(m_graph));
+
+    RUN_ANALYSIS(pruneUnreachableNodes());
 
     m_graph.determineReachability();
     m_graph.killUnreachableBlocks();
 
+#if ASSERT_ENABLED
     for (BlockIndex blockIndex = m_graph.numBlocks(); blockIndex--;) {
         BasicBlock* block = m_graph.block(blockIndex);
         if (!block)
@@ -9923,15 +9944,18 @@ void ByteCodeParser::parse()
         ASSERT(block->variablesAtTail.numberOfLocals() == m_graph.block(0)->variablesAtHead.numberOfLocals());
         ASSERT(block->variablesAtTail.numberOfArguments() == m_graph.block(0)->variablesAtHead.numberOfArguments());
     }
+#endif
 
     m_graph.m_tmps = m_numTmps;
     m_graph.m_localVars = m_numLocals;
     m_graph.m_parameterSlots = m_parameterSlots;
+
+    return true;
 }
 
-void parse(Graph& graph)
+bool parse(Graph& graph)
 {
-    ByteCodeParser(graph).parse();
+    return ByteCodeParser(graph).parse();
 }
 
 } } // namespace JSC::DFG

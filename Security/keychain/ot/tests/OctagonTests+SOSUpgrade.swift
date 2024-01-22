@@ -768,7 +768,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         // Peer 2 is not on Peer 1's machine ID list yet
-        self.mockAuthKit.otherDevices.remove(try! self.mockAuthKit2.machineID(self.mockAuthKit.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSesionID"))
+        self.mockAuthKit.otherDevices.remove(try! self.mockAuthKit2.machineID(self.mockAuthKit.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSesionID", canSendMetrics: false))
 
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
@@ -843,7 +843,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.otherDevices.add(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSesionID"))
+        self.mockAuthKit.otherDevices.add(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSesionID", canSendMetrics: false))
 
         self.cuttlefishContext.incompleteNotificationOfMachineIDListChange()
         self.wait(for: [updateTrustExpectation], timeout: 10)

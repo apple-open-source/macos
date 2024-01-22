@@ -174,6 +174,7 @@ OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction = (OctagonFlag*)@"retry
 OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction = (OctagonFlag*)@"retry_rk_tlk_extraction";
 OctagonFlag* const OctagonFlagSecureElementIdentityChanged  = (OctagonFlag*)@"se_id_changed";
 OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (OctagonFlag*)@"attempt_ucv_upgrade";
+OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_metrics";
 
 @implementation OTStates
 
@@ -413,6 +414,7 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
         [flags addObject:OctagonFlagAttemptBottleTLKExtraction];
         [flags addObject:OctagonFlagAttemptRecoveryKeyTLKExtraction];
         [flags addObject:OctagonFlagSecureElementIdentityChanged];
+        [flags addObject:OctagonFlagCheckOnRTCMetrics];
 
         f = flags;
     });

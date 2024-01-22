@@ -95,9 +95,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) OctagonStateMachine* stateMachine;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* apsRateLimiter;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* sosConsistencyRateLimiter;
+@property (nullable, nonatomic) CKKSNearFutureScheduler* checkMetricsTrigger;
 
 @property (nonatomic, strong, nullable) NSString* flowID;
 @property (nonatomic, strong, nullable) NSString* deviceSessionID;
+@property (nonatomic) OTAccountMetadataClassC_MetricsState shouldSendMetricsForOctagon;
 
 @property (readonly, nullable) CKKSKeychainView*            ckks;
 
@@ -324,6 +326,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (TrustedPeersHelperEgoPeerStatus* _Nullable)egoPeerStatus:(NSError**)error;
 
 - (void)setAccountSettings:(OTAccountSettings*_Nullable)accountSettings;
+
+- (BOOL)fetchSendingMetricsPermitted:(NSError**)error;
+- (BOOL)persistSendingMetricsPermitted:(BOOL)sendingMetricsPermitted error:(NSError**)error;
 
 @end
 

@@ -155,10 +155,11 @@
         }
 
         AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                     altDSID:self.deps.activeAccount.altDSID
-                                                                                                   eventName:kSecurityRTCEventNameProcessOutgoingQueue
-                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                           altDSID:self.deps.activeAccount.altDSID
+                                                                                         eventName:kSecurityRTCEventNameProcessOutgoingQueue
+                                                                                   testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                          category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                        sendMetric:self.deps.sendMetric];
 
         // Each zone should get its own transaction, in case errors cause us to roll back queue modifications after marking entries as in-flight
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
@@ -363,11 +364,12 @@
 
             ckksinfo("ckksoutgoing", viewState.zoneID, "Saving records %@ to CloudKit zone %@", recordsToSave, viewState.zoneID);
             AAFAnalyticsEventSecurity *uploadOQEsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNeedsReencryption:@(needsReencrypt),
-                                                                                                                             kSecurityRTCFieldIsFullUpload:@(fullUpload)}
-                                                                                                                   altDSID:self.deps.activeAccount.altDSID
-                                                                                                                 eventName:kSecurityRTCEventNameUploadOQEsToCK
-                                                                                                           testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                  category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                                   kSecurityRTCFieldIsFullUpload:@(fullUpload)}
+                                                                                                         altDSID:self.deps.activeAccount.altDSID
+                                                                                                       eventName:kSecurityRTCEventNameUploadOQEsToCK
+                                                                                                 testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                      sendMetric:self.deps.sendMetric];
             NSBlockOperation* modifyComplete = [[NSBlockOperation alloc] init];
             modifyComplete.name = @"modifyRecordsComplete";
             [self dependOnBeforeGroupFinished: modifyComplete];
@@ -553,11 +555,12 @@
         NSError* viewError = NULL;
         CKKSPowerCollection *plstats = [[CKKSPowerCollection alloc] init];
 
-        AAFAnalyticsEventSecurity *saveCKMirrorEntriesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumCKRecords: @(savedRecords.count)}
-                                                                                                                        altDSID:self.deps.activeAccount.altDSID
-                                                                                                                      eventName:kSecurityRTCEventNameSaveCKMirrorEntries
-                                                                                                                testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+        AAFAnalyticsEventSecurity *saveCKMirrorEntriesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldTotalCKRecords: @(savedRecords.count)}
+                                                                                                              altDSID:self.deps.activeAccount.altDSID
+                                                                                                            eventName:kSecurityRTCEventNameSaveCKMirrorEntries
+                                                                                                      testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                             category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                           sendMetric:self.deps.sendMetric];
         
         for(CKRecord* record in savedRecords) {
             // Save the item records

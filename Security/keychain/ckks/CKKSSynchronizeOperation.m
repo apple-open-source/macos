@@ -107,7 +107,7 @@
                                                                                                             forceResync:true
                                                                                                        ckoperationGroup:operationGroup
                                                                                                                 altDSID:self.deps.activeAccount.altDSID
-    ];
+                                                                                                             sendMetric:self.deps.sendMetric];
     fetchOp.name = [NSString stringWithFormat: @"resync-step%u-fetch", self.restartCount * steps + 1];
     [self runBeforeGroupFinished: fetchOp];
 

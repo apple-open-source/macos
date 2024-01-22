@@ -72,7 +72,10 @@
 @property bool forceResync;
 
 @property bool moreComing;
+
+// Used for RTC Reporting purposes
 @property NSString* altDSID;
+@property bool sendMetric;
 
 @property size_t totalModifications;
 @property size_t totalDeletions;
@@ -100,6 +103,7 @@
                       forceResync:(bool)forceResync
                  ckoperationGroup:(CKOperationGroup*)ckoperationGroup
                           altDSID:(NSString*)altDSID
+                       sendMetric:(bool)sendMetric
 {
     if(self = [super init]) {
         _container = container;
@@ -125,6 +129,7 @@
 
         _moreComing = false;
         _altDSID = altDSID;
+        _sendMetric = sendMetric;
 
         // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. We need to boost our CPU priority so CK will accept our network priority <rdar://problem/49086080>
         self.qualityOfService = NSQualityOfServiceUserInitiated;
@@ -210,10 +215,11 @@
         }
     }
     AAFAnalyticsEventSecurity* eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldIsPrioritized:@NO}
-                                                                                                 altDSID:self.altDSID
-                                                                                               eventName:kSecurityRTCEventNameZoneChangeFetch
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                       altDSID:self.altDSID
+                                                                                     eventName:kSecurityRTCEventNameZoneChangeFetch
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.sendMetric];
 
     if(zoneIDsToStopFetching.count > 0) {
         ckksnotice_global("ckksfetch", "Dropping the following zones from this fetch cycle: %@", zoneIDsToStopFetching);
@@ -409,7 +415,7 @@
         self.clientMap = @{};
 
         [eventS addMetrics:@{kSecurityRTCFieldNumKeychainItems:@(self.fetchedItems),
-                             kSecurityRTCFieldNumCKRecords:@(self.totalDeletions + self.totalModifications)}];
+                             kSecurityRTCFieldTotalCKRecords:@(self.totalDeletions + self.totalModifications)}];
         [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:self.error];
     };
 

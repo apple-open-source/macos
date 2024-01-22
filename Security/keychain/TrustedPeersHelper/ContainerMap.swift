@@ -157,12 +157,19 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
         }
         op.requestCompletedBlock = requestCompletion
 
+        // we only want to send Cuttlefish metrics if there's an associated flowID
+        var shouldSendMetrics:Bool = false
+        if flowID != nil && flowID != "" && deviceSessionID != nil && deviceSessionID != "" {
+            shouldSendMetrics = true
+        }
+
         let event = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
                                               altDSID: self.underlyingCKOperationRunner.altDSID(),
                                               flowID: flowID,
                                               deviceSessionID: deviceSessionID,
                                               eventName: self.functionNameToEvent(functionName: functionName),
                                               testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                              canSendMetrics: shouldSendMetrics,
                                               category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
 
         op.codeOperationResultBlock = { response in

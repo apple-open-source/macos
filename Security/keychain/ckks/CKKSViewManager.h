@@ -108,8 +108,6 @@ NS_ASSUME_NONNULL_BEGIN
                      fetchCloudValue:(bool)fetchCloudValue
                             complete:(void (^)(CKKSCurrentItemData* data, NSError* operror))complete;
 
-- (void)sendMetricForFirstManateeAccess;
-
 - (void)registerSyncStatusCallback:(NSString*)uuid callback:(SecBoolNSErrorCallback)callback;
 
 + (instancetype)manager;

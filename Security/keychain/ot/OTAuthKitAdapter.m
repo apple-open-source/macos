@@ -88,6 +88,7 @@
 - (NSString* _Nullable)machineID:(NSString* _Nullable)altDSID
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID
+                  canSendMetrics:(BOOL)canSendMetrics
                            error:(NSError**)error
 {
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
@@ -96,6 +97,7 @@
                                                                                          deviceSessionID:deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameFetchMachineID
                                                                                          testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                          canSendMetrics:canSendMetrics
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     if([AKAnisetteProvisioningController class] == nil || [AKAnisetteData class] == nil) {

@@ -22,6 +22,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSString* _Nullable)machineID:(NSString* _Nullable)altDSID
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID
+                  canSendMetrics:(BOOL)canSendMetrics
                            error:(NSError**)error;
 
 - (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSString* _Nullable version, NSError* _Nullable error))complete;

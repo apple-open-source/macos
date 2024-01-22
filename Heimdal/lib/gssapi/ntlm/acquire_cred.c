@@ -50,7 +50,7 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 	krb5_data response_data;
 	ssize_t sret;
 #else /* !HAVE_KCM */
-	CFDictionaryRef query = NULL;
+	CFMutableDictionaryRef query = NULL;
 	CFArrayRef query_result = NULL;
 	CFIndex query_count = 0;
 	CFStringRef user_cfstr = NULL;
@@ -96,6 +96,11 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 	ret = KRB5_CC_IO;
 	goto out;
     }
+    
+    major = _gss_ntlm_duplicate_name(minor, (gss_name_t)target_name,
+				     (gss_name_t *)&cred);
+    if (major)
+	goto out;
 #else /* !HAVE_KCM */
 	user_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, target_name->user,kCFStringEncodingUTF8);
 	if (user_cfstr == NULL)
@@ -107,19 +112,26 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 	const void *add_keys[] = {
 	(void *)kHEIMObjectType,
 		kHEIMAttrType,
-		kHEIMAttrNTLMUsername,
-		kHEIMAttrNTLMDomain
 	};
 	const void *add_values[] = {
 	(void *)kHEIMObjectNTLM,
 		kHEIMTypeNTLM,
-		user_cfstr,
-		domain_cfstr
 	};
 
-	query = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	heim_assert(query != NULL, "Failed to create dictionary");
-
+	CFDictionaryRef baseQuery = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	heim_assert(baseQuery != NULL, "Failed to create dictionary");
+	
+    query = CFDictionaryCreateMutableCopy(NULL, 0, baseQuery);
+    CFRELEASE_NULL(baseQuery);
+    
+    if (CFStringGetLength(user_cfstr) > 0) {
+	CFDictionaryAddValue(query, kHEIMAttrNTLMUsername, user_cfstr);
+    }
+    
+    if (CFStringGetLength(domain_cfstr) > 0) {
+	CFDictionaryAddValue(query, kHEIMAttrNTLMDomain, domain_cfstr);
+    }
+    
 	query_result = HeimCredCopyQuery(query);
 
 	if (query_result == NULL)
@@ -141,17 +153,49 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 	uuid_string_t uuid_cstr;
 	uuid_unparse(uuid, uuid_cstr);
 	_gss_mg_log(1, "_gss_ntlm_have_cred  UUID(%s)", uuid_cstr);
-
+    
+    // If the query was for any cred, then make a new cred matching the GSSCred response
+    if (CFStringGetLength(user_cfstr) == 0 || CFStringGetLength(domain_cfstr) == 0) {
+	
+	cred = calloc(1, sizeof(*cred));
+	if (cred == NULL) {
+	    major = GSS_S_FAILURE;
+	    goto out;
+	}
+	
+	CFStringRef userName = HeimCredCopyAttribute(result, kHEIMAttrNTLMUsername);
+	if (userName) {
+	    cred->user = rk_cfstring2cstring(userName);
+	    CFRELEASE_NULL(userName);
+	}
+	
+	CFStringRef domainName = HeimCredCopyAttribute(result, kHEIMAttrNTLMDomain);
+	if (domainName) {
+	    cred->domain = rk_cfstring2cstring(domainName);
+	    CFRELEASE_NULL(domainName);
+	}
+	
+	if (cred->user == NULL || cred->domain == NULL) {
+	    gss_name_t tempn =  (gss_name_t)cred;
+	    _gss_ntlm_release_name(minor, &tempn);
+	    ret = ENOMEM;
+	    goto out;
+	}
+    } else {
+	major = _gss_ntlm_duplicate_name(minor, (gss_name_t)target_name,
+					 (gss_name_t *)&cred);
+	if (major)
+	    goto out;
+    }
 #endif /* HAVE_KCM */
-    major = _gss_ntlm_duplicate_name(minor, (gss_name_t)target_name,
-				     (gss_name_t *)&cred);
-    if (major)
-	goto out;
 
     cred->flags |= NTLM_UUID;
     memcpy(cred->uuid, uuid, sizeof(cred->uuid));
 
     *rcred = (ntlm_cred)cred;
+    
+    major = GSS_S_COMPLETE;
+    
  out:
     krb5_free_context(context);
     if (ret) {

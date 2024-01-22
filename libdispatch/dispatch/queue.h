@@ -99,8 +99,12 @@ DISPATCH_DECL_FACTORY_CLASS_SWIFT(dispatch_queue, DispatchQueue);
  * Calls to dispatch_suspend(), dispatch_resume(), dispatch_set_context(), etc.,
  * will have no effect when used with queues of this type.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 #if defined(__DISPATCH_BUILDING_DISPATCH__) && !defined(__OBJC__)
+/*!
+ * It is intentional that the public declaration does not come with
+ * an availability annotation.
+ * See rdar://115824926 for more details.
+ */
 typedef struct dispatch_queue_global_s *dispatch_queue_global_t;
 #else
 DISPATCH_DECL_SUBCLASS(dispatch_queue_global, dispatch_queue);
@@ -181,8 +185,12 @@ DISPATCH_DECL_SERIAL_EXECUTOR_SWIFT(dispatch_queue_serial, DispatchSerialQueue);
  * dispatch_suspend(), dispatch_resume(), dispatch_set_context(), etc., will
  * have no effect when used on the main queue.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 #if defined(__DISPATCH_BUILDING_DISPATCH__) && !defined(__OBJC__)
+/*!
+ * It is intentional that the public declaration does not come with
+ * an availability annotation.
+ * See rdar://115824926 for more details.
+ */
 typedef struct dispatch_queue_static_s *dispatch_queue_main_t;
 #else
 DISPATCH_DECL_SUBCLASS(dispatch_queue_main, dispatch_queue_serial);

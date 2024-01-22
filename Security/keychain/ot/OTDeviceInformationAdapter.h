@@ -31,6 +31,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 /* Returns whether the current device is a homepod */
 - (BOOL)isHomePod;
+
+/* Returns whether the current device is a watch */
+- (BOOL)isWatch;
+
+/* Returns whether the current device is an AppleTV */
+- (BOOL)isAppleTV;
+
 @end
 
 @interface OTDeviceInformationActualAdapter : NSObject <OTDeviceInformationAdapter>

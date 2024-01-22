@@ -548,6 +548,12 @@ call_dfunc(
     if (check_ufunc_arg_types(ufunc, argcount, vararg_count, ectx) == FAIL)
 	return FAIL;
 
+    // While check_ufunc_arg_types call, def function compilation process may
+    // run.  If so many def functions are compiled, def_functions array may be
+    // reallocated and dfunc may no longer have valid pointer.  Get the object
+    // pointer from def_functions again here.
+    dfunc = ((dfunc_T *)def_functions.ga_data) + cdf_idx;
+
     // Reserve space for:
     // - missing arguments
     // - stack frame
@@ -616,6 +622,12 @@ call_dfunc(
     // the first local variable.
     if (IS_OBJECT_METHOD(ufunc))
     {
+	if (obj->v_type != VAR_OBJECT)
+	{
+	    semsg(_(e_internal_error_str), "type in stack is not an object");
+	    return FAIL;
+	}
+
 	*STACK_TV_VAR(0) = *obj;
 	obj->v_type = VAR_UNKNOWN;
     }
@@ -1023,10 +1035,9 @@ add_defer_item(int var_idx, int argcount, ectx_T *ectx)
  * Returns OK or FAIL.
  */
     static int
-defer_command(int var_idx, int has_obj, int argcount, ectx_T *ectx)
+defer_command(int var_idx, int argcount, ectx_T *ectx)
 {
-    int		obj_off = has_obj ? 1 : 0;
-    list_T	*l = add_defer_item(var_idx, argcount + obj_off, ectx);
+    list_T	*l = add_defer_item(var_idx, argcount, ectx);
     int		i;
     typval_T	*func_tv;
 
@@ -1034,20 +1045,18 @@ defer_command(int var_idx, int has_obj, int argcount, ectx_T *ectx)
 	return FAIL;
 
     func_tv = STACK_TV_BOT(-argcount - 1);
-    if (has_obj ? func_tv->v_type != VAR_PARTIAL : func_tv->v_type != VAR_FUNC)
+    if (func_tv->v_type != VAR_PARTIAL && func_tv->v_type != VAR_FUNC)
     {
 	semsg(_(e_expected_str_but_got_str),
-		has_obj ? "partial" : "function",
+		"function or partial",
 		vartype_name(func_tv->v_type));
 	return FAIL;
     }
     list_set_item(l, 0, func_tv);
-    if (has_obj)
-	list_set_item(l, 1, STACK_TV_BOT(-argcount - 2));
 
     for (i = 0; i < argcount; ++i)
-	list_set_item(l, i + 1 + obj_off, STACK_TV_BOT(-argcount + i));
-    ectx->ec_stack.ga_len -= argcount + 1 + obj_off;
+	list_set_item(l, i + 1, STACK_TV_BOT(-argcount + i));
+    ectx->ec_stack.ga_len -= argcount + 1;
     return OK;
 }
 
@@ -1110,15 +1119,12 @@ invoke_defer_funcs(ectx_T *ectx)
 	int	    i;
 	listitem_T  *arg_li = l->lv_first;
 	typval_T    *functv = &l->lv_first->li_tv;
-	int	    obj_off = functv->v_type == VAR_PARTIAL ? 1 : 0;
-	int	    argcount = l->lv_len - 1 - obj_off;
+	int	    argcount = l->lv_len - 1;
 
 	if (functv->vval.v_string == NULL)
 	    // already being called, can happen if function does ":qa"
 	    continue;
 
-	if (obj_off == 1)
-	    arg_li = arg_li->li_next;  // second list item is the object
 	for (i = 0; i < argcount; ++i)
 	{
 	    arg_li = arg_li->li_next;
@@ -1132,7 +1138,7 @@ invoke_defer_funcs(ectx_T *ectx)
 	if (functv->v_type == VAR_PARTIAL)
 	{
 	    funcexe.fe_partial = functv->vval.v_partial;
-	    funcexe.fe_object = l->lv_first->li_next->li_tv.vval.v_object;
+	    funcexe.fe_object = functv->vval.v_partial->pt_obj;
 	    if (funcexe.fe_object != NULL)
 		++funcexe.fe_object->obj_refcount;
 	}
@@ -1140,7 +1146,17 @@ invoke_defer_funcs(ectx_T *ectx)
 	char_u *name = functv->vval.v_string;
 	functv->vval.v_string = NULL;
 
+	// If the deferred function is called after an exception, then only the
+	// first statement in the function will be executed (because of the
+	// exception).  So save and restore the try/catch/throw exception
+	// state.
+	exception_state_T estate;
+	exception_state_save(&estate);
+	exception_state_clear();
+
 	(void)call_func(name, -1, &rettv, argcount, argvars, &funcexe);
+
+	exception_state_restore(&estate);
 
 	clear_tv(&rettv);
 	vim_free(name);
@@ -1496,6 +1512,23 @@ call_partial(
     {
 	partial_T   *pt = tv->vval.v_partial;
 	int	    i;
+
+	if (pt->pt_obj != NULL)
+	{
+	    // partial with an object method.  Push the object before the
+	    // function arguments.
+	    if (GA_GROW_FAILS(&ectx->ec_stack, 1))
+		return FAIL;
+	    for (i = 1; i <= argcount; ++i)
+		*STACK_TV_BOT(-i + 1) = *STACK_TV_BOT(-i);
+
+	    typval_T *obj_tv = STACK_TV_BOT(-argcount);
+	    obj_tv->v_type = VAR_OBJECT;
+	    obj_tv->v_lock = 0;
+	    obj_tv->vval.v_object = pt->pt_obj;
+	    ++pt->pt_obj->obj_refcount;
+	    ++ectx->ec_stack.ga_len;
+	}
 
 	if (pt->pt_argc > 0)
 	{
@@ -2221,7 +2254,7 @@ execute_storeindex(isn_T *iptr, ectx_T *ectx)
 	    {
 		if (*member == '_')
 		{
-		    emsg_var_cl_define(e_cannot_access_private_variable_str,
+		    emsg_var_cl_define(e_cannot_access_protected_variable_str,
 							m->ocm_name, 0, cl);
 		    status = FAIL;
 		}
@@ -3780,6 +3813,13 @@ exec_instructions(ectx_T *ectx)
 	    case ISN_STORE:
 		--ectx->ec_stack.ga_len;
 		tv = STACK_TV_VAR(iptr->isn_arg.number);
+		if (STACK_TV_BOT(0)->v_type == VAR_TYPEALIAS)
+		{
+		    semsg(_(e_using_typealias_as_value),
+				STACK_TV_BOT(0)->vval.v_typealias->ta_name);
+		    clear_tv(STACK_TV_BOT(0));
+		    goto on_error;
+		}
 		clear_tv(tv);
 		*tv = *STACK_TV_BOT(0);
 		break;
@@ -4378,9 +4418,7 @@ exec_instructions(ectx_T *ectx)
 
 	    // :defer func(arg)
 	    case ISN_DEFER:
-	    case ISN_DEFEROBJ:
 		if (defer_command(iptr->isn_arg.defer.defer_var_idx,
-			     iptr->isn_type == ISN_DEFEROBJ,
 			     iptr->isn_arg.defer.defer_argcount, ectx) == FAIL)
 		    goto on_error;
 		break;
@@ -4447,20 +4485,44 @@ exec_instructions(ectx_T *ectx)
 		    }
 		    if (extra != NULL && extra->fre_class != NULL)
 		    {
-			tv = STACK_TV_BOT(-1);
-			if (tv->v_type != VAR_OBJECT)
+			class_T	*cl;
+			if (extra->fre_object_method)
 			{
-			    object_required_error(tv);
-			    vim_free(pt);
-			    goto on_error;
-			}
-			object_T *obj = tv->vval.v_object;
-			class_T *cl = obj->obj_class;
+			    tv = STACK_TV_BOT(-1);
+			    if (tv->v_type != VAR_OBJECT)
+			    {
+				object_required_error(tv);
+				vim_free(pt);
+				goto on_error;
+			    }
 
-			// convert the interface index to the object index
-			int idx = object_index_from_itf_index(extra->fre_class,
-					      TRUE, extra->fre_method_idx, cl);
-			ufunc = cl->class_obj_methods[idx];
+			    object_T *obj = tv->vval.v_object;
+			    cl = obj->obj_class;
+			    // drop the value from the stack
+			    clear_tv(tv);
+			    --ectx->ec_stack.ga_len;
+
+			    pt->pt_obj = obj;
+			    ++obj->obj_refcount;
+			}
+			else
+			    cl = extra->fre_class;
+
+			if (extra->fre_object_method)
+			{
+			    // object method
+			    // convert the interface index to the object index
+			    int idx =
+				object_index_from_itf_index(extra->fre_class,
+					TRUE, extra->fre_method_idx, cl);
+			    ufunc = cl->class_obj_methods[idx];
+			}
+			else
+			{
+			    // class method
+			    ufunc =
+				cl->class_class_functions[extra->fre_method_idx];
+			}
 		    }
 		    else if (extra == NULL || extra->fre_func_name == NULL)
 		    {
@@ -6886,9 +6948,7 @@ list_instructions(char *pfx, isn_T *instr, int instr_count, ufunc_T *ufunc)
 		smsg("%s%4d PCALL end", pfx, current);
 		break;
 	    case ISN_DEFER:
-	    case ISN_DEFEROBJ:
-		smsg("%s%4d %s %d args", pfx, current,
-			    iptr->isn_type == ISN_DEFER ? "DEFER" : "DEFEROBJ",
+		smsg("%s%4d DEFER %d args", pfx, current,
 				      (int)iptr->isn_arg.defer.defer_argcount);
 		break;
 	    case ISN_RETURN:
@@ -7470,6 +7530,7 @@ tv2bool(typval_T *tv)
 	case VAR_INSTR:
 	case VAR_CLASS:
 	case VAR_OBJECT:
+	case VAR_TYPEALIAS:
 	    break;
     }
     return FALSE;

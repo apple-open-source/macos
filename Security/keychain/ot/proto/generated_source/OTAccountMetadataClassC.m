@@ -242,6 +242,32 @@
 {
     return _has.warnedTooManyPeers != 0;
 }
+@synthesize sendingMetricsPermitted = _sendingMetricsPermitted;
+- (OTAccountMetadataClassC_MetricsState)sendingMetricsPermitted
+{
+    return _has.sendingMetricsPermitted ? _sendingMetricsPermitted : OTAccountMetadataClassC_MetricsState_UNKNOWN;
+}
+- (void)setSendingMetricsPermitted:(OTAccountMetadataClassC_MetricsState)v
+{
+    _has.sendingMetricsPermitted = (uint)YES;
+    _sendingMetricsPermitted = v;
+}
+- (void)setHasSendingMetricsPermitted:(BOOL)f
+{
+    _has.sendingMetricsPermitted = (uint)f;
+}
+- (BOOL)hasSendingMetricsPermitted
+{
+    return _has.sendingMetricsPermitted != 0;
+}
+- (NSString *)sendingMetricsPermittedAsString:(OTAccountMetadataClassC_MetricsState)value
+{
+    return OTAccountMetadataClassC_MetricsStateAsString(value);
+}
+- (OTAccountMetadataClassC_MetricsState)StringAsSendingMetricsPermitted:(NSString *)str
+{
+    return StringAsOTAccountMetadataClassC_MetricsState(str);
+}
 
 - (NSString *)description
 {
@@ -314,6 +340,10 @@
     if (self->_has.warnedTooManyPeers)
     {
         [dict setObject:[NSNumber numberWithBool:self->_warnedTooManyPeers] forKey:@"warnedTooManyPeers"];
+    }
+    if (self->_has.sendingMetricsPermitted)
+    {
+        [dict setObject:OTAccountMetadataClassC_MetricsStateAsString(self->_sendingMetricsPermitted) forKey:@"sendingMetricsPermitted"];
     }
     return dict;
 }
@@ -431,6 +461,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             {
                 self->_has.warnedTooManyPeers = (uint)YES;
                 self->_warnedTooManyPeers = PBReaderReadBOOL(reader);
+            }
+            break;
+            case 22 /* sendingMetricsPermitted */:
+            {
+                self->_has.sendingMetricsPermitted = (uint)YES;
+                self->_sendingMetricsPermitted = PBReaderReadInt32(reader);
             }
             break;
             default:
@@ -560,6 +596,13 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteBOOLField(writer, self->_warnedTooManyPeers, 20);
         }
     }
+    /* sendingMetricsPermitted */
+    {
+        if (self->_has.sendingMetricsPermitted)
+        {
+            PBDataWriterWriteInt32Field(writer, self->_sendingMetricsPermitted, 22);
+        }
+    }
 }
 
 - (void)copyTo:(OTAccountMetadataClassC *)other
@@ -642,6 +685,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         other->_warnedTooManyPeers = _warnedTooManyPeers;
         other->_has.warnedTooManyPeers = YES;
     }
+    if (self->_has.sendingMetricsPermitted)
+    {
+        other->_sendingMetricsPermitted = _sendingMetricsPermitted;
+        other->_has.sendingMetricsPermitted = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -703,6 +751,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_warnedTooManyPeers = _warnedTooManyPeers;
         copy->_has.warnedTooManyPeers = YES;
     }
+    if (self->_has.sendingMetricsPermitted)
+    {
+        copy->_sendingMetricsPermitted = _sendingMetricsPermitted;
+        copy->_has.sendingMetricsPermitted = YES;
+    }
     return copy;
 }
 
@@ -742,6 +795,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ((self->_has.warmedEscrowCache && other->_has.warmedEscrowCache && ((self->_warmedEscrowCache && other->_warmedEscrowCache) || (!self->_warmedEscrowCache && !other->_warmedEscrowCache))) || (!self->_has.warmedEscrowCache && !other->_has.warmedEscrowCache))
     &&
     ((self->_has.warnedTooManyPeers && other->_has.warnedTooManyPeers && ((self->_warnedTooManyPeers && other->_warnedTooManyPeers) || (!self->_warnedTooManyPeers && !other->_warnedTooManyPeers))) || (!self->_has.warnedTooManyPeers && !other->_has.warnedTooManyPeers))
+    &&
+    ((self->_has.sendingMetricsPermitted && other->_has.sendingMetricsPermitted && self->_sendingMetricsPermitted == other->_sendingMetricsPermitted) || (!self->_has.sendingMetricsPermitted && !other->_has.sendingMetricsPermitted))
     ;
 }
 
@@ -780,6 +835,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     (self->_has.warmedEscrowCache ? PBHashInt((NSUInteger)self->_warmedEscrowCache) : 0)
     ^
     (self->_has.warnedTooManyPeers ? PBHashInt((NSUInteger)self->_warnedTooManyPeers) : 0)
+    ^
+    (self->_has.sendingMetricsPermitted ? PBHashInt((NSUInteger)self->_sendingMetricsPermitted) : 0)
     ;
 }
 
@@ -857,6 +914,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         self->_warnedTooManyPeers = other->_warnedTooManyPeers;
         self->_has.warnedTooManyPeers = YES;
+    }
+    if (other->_has.sendingMetricsPermitted)
+    {
+        self->_sendingMetricsPermitted = other->_sendingMetricsPermitted;
+        self->_has.sendingMetricsPermitted = YES;
     }
 }
 

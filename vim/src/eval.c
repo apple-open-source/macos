@@ -1112,7 +1112,7 @@ get_lval_check_access(
 	switch (om->ocm_access)
 	{
 	    case VIM_ACCESS_PRIVATE:
-		msg = e_cannot_access_private_variable_str;
+		msg = e_cannot_access_protected_variable_str;
 		break;
 	    case VIM_ACCESS_READ:
 		// If [idx] or .key following, read only OK.
@@ -1187,7 +1187,6 @@ get_lval(
     char buf[80];
     ch_log(NULL, "LKVAR:    ...: GLV flags: %s",
 		    flags_tostring(flags, glv_flag_strings, buf, sizeof(buf)));
-    int log_sync_root_key = FALSE;
 #endif
 
     // Clear everything in "lp".
@@ -1326,21 +1325,16 @@ get_lval(
 	}
     }
 
-    int sync_root = FALSE;
-    if (vim9script && lval_root != NULL)
-    {
-	cl_exec = lval_root->lr_cl_exec;
-	sync_root = lval_root->lr_sync_root;
-    }
-
-    // Without [idx] or .key we are done, unless doing sync_root.
-    if (*p != '[' && *p != '.' && (*name == NUL || !sync_root))
+    // Without [idx] or .key we are done.
+    if (*p != '[' && *p != '.')
     {
 	if (lval_root != NULL)
 	    fill_lval_from_lval_root(lp, lval_root);
 	return p;
     }
 
+    if (vim9script && lval_root != NULL)
+	cl_exec = lval_root->lr_cl_exec;
     if (vim9script && lval_root != NULL && lval_root->lr_tv != NULL)
     {
 	// using local variable
@@ -1375,7 +1369,7 @@ get_lval(
      */
     var1.v_type = VAR_UNKNOWN;
     var2.v_type = VAR_UNKNOWN;
-    while (*p == '[' || (*p == '.' && p[1] != '=' && p[1] != '.') || sync_root)
+    while (*p == '[' || (*p == '.' && p[1] != '=' && p[1] != '.'))
     {
 	vartype_T v_type = lp->ll_tv->v_type;
 
@@ -1439,19 +1433,7 @@ get_lval(
 	}
 
 	len = -1;
-	if (sync_root)
-	{
-	    // For example, the first token is a member variable name and
-	    // lp->ll_tv is a class/object.
-	    // Process it directly without looking for "[idx]" or ".name".
-	    key = name;
-	    sync_root = FALSE;  // only first time through
-#ifdef LOG_LOCKVAR
-	    log_sync_root_key = TRUE;
-	    ch_log(NULL, "LKVAR:    ... loop: name: %s, sync_root", name);
-#endif
-	}
-	else if (*p == '.')
+	if (*p == '.')
 	{
 	    key = p + 1;
 	    for (len = 0; ASCII_ISALNUM(key[len]) || key[len] == '_'; ++len)
@@ -1543,15 +1525,11 @@ get_lval(
 	    ++p;
 	}
 #ifdef LOG_LOCKVAR
-	if (log_sync_root_key)
-	    ch_log(NULL, "LKVAR:    ... loop: p: %s, sync_root key: %s", p,
-									key);
-	else if (len == -1)
+	if (len == -1)
 	    ch_log(NULL, "LKVAR:    ... loop: p: %s, '[' key: %s", p,
 				empty1 ? ":" : (char*)tv_get_string(&var1));
 	else
 	    ch_log(NULL, "LKVAR:    ... loop: p: %s, '.' key: %s", p, key);
-	log_sync_root_key = FALSE;
 #endif
 
 	if (v_type == VAR_DICT)
@@ -1905,6 +1883,14 @@ set_var_lval(
 	    if (eval_variable(lp->ll_name, (int)STRLEN(lp->ll_name),
 				 lp->ll_sid, &tv, &di, EVAL_VAR_VERBOSE) == OK)
 	    {
+		if (di != NULL && di->di_tv.v_type == VAR_TYPEALIAS)
+		{
+		    semsg(_(e_cannot_modify_typealias),
+					di->di_tv.vval.v_typealias->ta_name);
+		    clear_tv(&tv);
+		    return;
+		}
+
 		if ((di == NULL
 			 || (!var_check_ro(di->di_flags, lp->ll_name, FALSE)
 			   && !tv_check_lock(&di->di_tv, lp->ll_name, FALSE)))
@@ -2035,6 +2021,7 @@ tv_op(typval_T *tv1, typval_T *tv2, char_u *op)
 	    case VAR_INSTR:
 	    case VAR_CLASS:
 	    case VAR_OBJECT:
+	    case VAR_TYPEALIAS:
 		break;
 
 	    case VAR_BLOB:
@@ -2573,6 +2560,12 @@ eval_func(
 	funcexe.fe_lastline = curwin->w_cursor.lnum;
 	funcexe.fe_evaluate = evaluate;
 	funcexe.fe_partial = partial;
+	if (partial != NULL)
+	{
+	    funcexe.fe_object = partial->pt_obj;
+	    if (funcexe.fe_object != NULL)
+		++funcexe.fe_object->obj_refcount;
+	}
 	funcexe.fe_basetv = basetv;
 	funcexe.fe_check_type = type;
 	funcexe.fe_found_var = found_var;
@@ -3537,7 +3530,8 @@ eval5(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
 	    return OK;
 
 	// Handle a bitwise left or right shift operator
-	if (rettv->v_type != VAR_NUMBER)
+	evaluate = evalarg == NULL ? 0 : (evalarg->eval_flags & EVAL_EVALUATE);
+	if (evaluate && rettv->v_type != VAR_NUMBER)
 	{
 	    // left operand should be a number
 	    emsg(_(e_bitshift_ops_must_be_number));
@@ -3545,7 +3539,6 @@ eval5(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
 	    return FAIL;
 	}
 
-	evaluate = evalarg == NULL ? 0 : (evalarg->eval_flags & EVAL_EVALUATE);
 	vim9script = in_vim9script();
 	if (getnext)
 	{
@@ -3575,20 +3568,20 @@ eval5(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
 	    return FAIL;
 	}
 
-	if (var2.v_type != VAR_NUMBER || var2.vval.v_number < 0)
-	{
-	    // right operand should be a positive number
-	    if (var2.v_type != VAR_NUMBER)
-		emsg(_(e_bitshift_ops_must_be_number));
-	    else
-		emsg(_(e_bitshift_ops_must_be_positive));
-	    clear_tv(rettv);
-	    clear_tv(&var2);
-	    return FAIL;
-	}
-
 	if (evaluate)
 	{
+	    if (var2.v_type != VAR_NUMBER || var2.vval.v_number < 0)
+	    {
+		// right operand should be a positive number
+		if (var2.v_type != VAR_NUMBER)
+		    emsg(_(e_bitshift_ops_must_be_number));
+		else
+		    emsg(_(e_bitshift_ops_must_be_positive));
+		clear_tv(rettv);
+		clear_tv(&var2);
+		return FAIL;
+	    }
+
 	    if (var2.vval.v_number > MAX_LSHIFT_BITS)
 		// shifting more bits than we have always results in zero
 		rettv->vval.v_number = 0;
@@ -4052,7 +4045,8 @@ eval8(
 
 	    if (!equal_type(want_type, actual, 0))
 	    {
-		if (want_type == &t_bool && actual != &t_bool
+		if (want_type->tt_type == VAR_BOOL
+					&& actual->tt_type != VAR_BOOL
 					&& (actual->tt_flags & TTFLAG_BOOL_OK))
 		{
 		    int n = tv2bool(rettv);
@@ -5020,6 +5014,7 @@ check_can_index(typval_T *rettv, int evaluate, int verbose)
 	case VAR_INSTR:
 	case VAR_CLASS:
 	case VAR_OBJECT:
+	case VAR_TYPEALIAS:
 	    if (verbose)
 		emsg(_(e_cannot_index_special_variable));
 	    return FAIL;
@@ -5125,6 +5120,7 @@ eval_index_inner(
 	case VAR_INSTR:
 	case VAR_CLASS:
 	case VAR_OBJECT:
+	case VAR_TYPEALIAS:
 	    break; // not evaluating, skipping over subscript
 
 	case VAR_NUMBER:
@@ -5256,6 +5252,7 @@ partial_free(partial_T *pt)
     }
     else
 	func_ptr_unref(pt->pt_func);
+    object_unref(pt->pt_obj);
 
     // "out_up" is no longer used, decrement refcount on partial that owns it.
     partial_unref(pt->pt_outer.out_up_partial);
@@ -5578,6 +5575,7 @@ free_unref_items(int copyID)
     /*
      * PASS 2: free the items themselves.
      */
+    object_free_items(copyID);
     dict_free_items(copyID);
     list_free_items(copyID);
 
@@ -5818,6 +5816,15 @@ set_ref_in_item_partial(
 	set_ref_in_item(&dtv, copyID, ht_stack, list_stack);
     }
 
+    if (pt->pt_obj != NULL)
+    {
+	typval_T objtv;
+
+	objtv.v_type = VAR_OBJECT;
+	objtv.vval.v_object = pt->pt_obj;
+	set_ref_in_item(&objtv, copyID, ht_stack, list_stack);
+    }
+
     for (int i = 0; i < pt->pt_argc; ++i)
 	abort = abort || set_ref_in_item(&pt->pt_argv[i], copyID,
 		ht_stack, list_stack);
@@ -6051,6 +6058,7 @@ set_ref_in_item(
 	case VAR_FLOAT:
 	case VAR_STRING:
 	case VAR_BLOB:
+	case VAR_TYPEALIAS:
 	case VAR_INSTR:
 	    // Types that do not contain any other item
 	    break;
@@ -6333,6 +6341,13 @@ echo_string_core(
 	case VAR_SPECIAL:
 	    *tofree = NULL;
 	    r = (char_u *)get_var_special_name(tv->vval.v_number);
+	    break;
+
+	case VAR_TYPEALIAS:
+	    *tofree = vim_strsave(tv->vval.v_typealias->ta_name);
+	    r = *tofree;
+	    if (r == NULL)
+		r = (char_u *)"";
 	    break;
     }
 
@@ -7206,6 +7221,7 @@ item_copy(
 	case VAR_INSTR:
 	case VAR_CLASS:
 	case VAR_OBJECT:
+	case VAR_TYPEALIAS:
 	    copy_tv(from, to);
 	    break;
 	case VAR_LIST:

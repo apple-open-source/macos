@@ -251,7 +251,7 @@ CFStringRef SOSInterestListCopyDescription(CFArrayRef interests);
 // MARK: HSA2 Piggyback Support Functions
 //
 SOSPeerInfoRef SOSAccountCopyApplication(SOSAccount*  account, CFErrorRef*);
-CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSID, NSString* flowID, NSString* deviceSessionID, SOSPeerInfoRef applicant, CFErrorRef *error);
+CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSID, NSString* flowID, NSString* deviceSessionID, BOOL canSendMetrics, SOSPeerInfoRef applicant, CFErrorRef *error);
 bool SOSAccountJoinWithCircleJoiningBlob(SOSAccount*  account, CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error);
 CFDataRef SOSAccountCopyInitialSyncData(SOSAccount* account, SOSInitialSyncFlags flags, CFErrorRef *error);
     

@@ -132,7 +132,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSSet<NSString*>*)currentDeviceList;
 - (void)fetchCurrentDeviceListByAltDSID:(NSString *)altDSID
                                   reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs, NSString* _Nullable version, NSError * _Nullable error))complete;
-- (NSString * _Nullable)machineID:(NSString* _Nullable)altDSID flowID:(NSString* _Nullable)flowID deviceSessionID:(NSString* _Nullable)deviceSessionID error:(NSError *__autoreleasing  _Nullable * _Nullable)error;
+- (NSString * _Nullable)machineID:(NSString* _Nullable)altDSID 
+                           flowID:(NSString* _Nullable)flowID
+                  deviceSessionID:(NSString* _Nullable)deviceSessionID
+                   canSendMetrics:(BOOL)canSendMetrics
+                            error:(NSError *__autoreleasing  _Nullable * _Nullable)error;
 
 - (void)registerNotification:(id<OTAuthKitAdapterNotifier>)notifier;
 

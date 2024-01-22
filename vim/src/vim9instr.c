@@ -240,6 +240,7 @@ may_generate_2STRING(int offset, int tolerant, cctx_T *cctx)
 	case VAR_INSTR:
 	case VAR_CLASS:
 	case VAR_OBJECT:
+	case VAR_TYPEALIAS:
 			 to_string_error(type->tt_type);
 			 return FAIL;
     }
@@ -1384,6 +1385,7 @@ generate_FUNCREF(
 	cctx_T	    *cctx,
 	ufunc_T	    *ufunc,
 	class_T	    *cl,
+	int	    object_method,
 	int	    fi,
 	int	    *isn_idx)
 {
@@ -1412,6 +1414,7 @@ generate_FUNCREF(
 	{
 	    extra->fre_class = cl;
 	    ++cl->class_refcount;
+	    extra->fre_object_method = object_method;
 	    extra->fre_method_idx = fi;
 	}
     }
@@ -2037,17 +2040,14 @@ generate_PCALL(
 
 /*
  * Generate an ISN_DEFER instruction.
- * "obj_method" is one for "obj.Method()", zero otherwise.
  */
     int
-generate_DEFER(cctx_T *cctx, int var_idx, int obj_method, int argcount)
+generate_DEFER(cctx_T *cctx, int var_idx, int argcount)
 {
     isn_T *isn;
 
     RETURN_OK_IF_SKIP(cctx);
-    if ((isn = generate_instr_drop(cctx,
-		    obj_method == 0 ? ISN_DEFER : ISN_DEFEROBJ,
-		    argcount + 1)) == NULL)
+    if ((isn = generate_instr_drop(cctx, ISN_DEFER, argcount + 1)) == NULL)
 	return FAIL;
     isn->isn_arg.defer.defer_var_idx = var_idx;
     isn->isn_arg.defer.defer_argcount = argcount;
@@ -2709,7 +2709,6 @@ delete_instr(isn_T *isn)
 	case ISN_COND2BOOL:
 	case ISN_DEBUG:
 	case ISN_DEFER:
-	case ISN_DEFEROBJ:
 	case ISN_DROP:
 	case ISN_ECHO:
 	case ISN_ECHOCONSOLE:

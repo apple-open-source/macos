@@ -2105,6 +2105,19 @@ expand_set_fileformat(optexpand_T *args, int *numMatches, char_u ***matches)
 }
 
 /*
+ * Function given to ExpandGeneric() to obtain the possible arguments of the
+ * fileformat options.
+ */
+    char_u *
+get_fileformat_name(expand_T *xp UNUSED, int idx)
+{
+    if (idx >= (int)ARRAY_LENGTH(p_ff_values))
+	return NULL;
+
+    return (char_u*)p_ff_values[idx];
+}
+
+/*
  * The 'fileformats' option is changed.
  */
     char *
@@ -2569,12 +2582,13 @@ expand_set_highlight(optexpand_T *args, int *numMatches, char_u ***matches)
     if (*matches == NULL)
 	return FAIL;
 
-    size_t pattern_len = STRLEN(xp->xp_pattern);
+    int pattern_len = xp->xp_pattern_len;
 
     for (i = 0; i < num_hl_modes; i++)
     {
 	// Don't allow duplicates as these are unique flags
-	if (vim_strchr(xp->xp_pattern + 1, p_hl_mode_values[i]) != NULL)
+	char_u *dup = vim_strchr(xp->xp_pattern + 1, p_hl_mode_values[i]);
+	if (dup != NULL && (int)(dup - xp->xp_pattern) < pattern_len)
 	    continue;
 
 	// ':' only works by itself, not with other flags.

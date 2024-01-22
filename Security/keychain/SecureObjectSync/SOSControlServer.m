@@ -101,26 +101,29 @@
 - (void)validatedStashedAccountCredential:(NSString *)altDSID  
                                    flowID:(NSString* _Nullable)flowID
                           deviceSessionID:(NSString* _Nullable)deviceSessionID 
+                           canSendMetrics:(BOOL)canSendMetrics
                                  complete:(void (^)(NSData *, NSError *))complete
 {
-    [self.account validatedStashedAccountCredential:altDSID flowID:flowID deviceSessionID:deviceSessionID complete:complete];
+    [self.account validatedStashedAccountCredential:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics complete:complete];
 }
 
 - (void)stashAccountCredential:(NSData *)credential 
                        altDSID:(NSString*)altDSID
                         flowID:(NSString* _Nullable)flowID
                deviceSessionID:(NSString* _Nullable)deviceSessionID
+                canSendMetrics:(BOOL)canSendMetrics
                       complete:(void(^)(bool success, NSError *error))complete
 {
-    [self.account stashAccountCredential:credential altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID complete:complete];
+    [self.account stashAccountCredential:credential altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics complete:complete];
 }
 
 - (void)myPeerInfo:(NSString*)altDSID  
             flowID:(NSString* _Nullable)flowID
    deviceSessionID:(NSString* _Nullable)deviceSessionID
+    canSendMetrics:(BOOL)canSendMetrics
           complete:(void (^)(NSData *, NSError *))complete
 {
-    [self.account myPeerInfo:altDSID flowID:flowID deviceSessionID:deviceSessionID complete:complete];
+    [self.account myPeerInfo:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics complete:complete];
 }
 
 - (void)circleHash:(void (^)(NSString *, NSError *))complete
@@ -132,25 +135,28 @@
 - (void)circleJoiningBlob:(NSString*)altDSID 
                    flowID:(NSString* _Nullable)flowID
           deviceSessionID:(NSString* _Nullable)deviceSessionID  
-                applicant:(NSData *)applicant 
+           canSendMetrics:(BOOL)canSendMetrics
+                applicant:(NSData *)applicant
                  complete:(void (^)(NSData *blob, NSError *))complete
 {
-    [self.account circleJoiningBlob:altDSID flowID:flowID deviceSessionID:deviceSessionID applicant:applicant complete:complete];
+    [self.account circleJoiningBlob:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics applicant:applicant complete:complete];
 }
 
 - (void)joinCircleWithBlob:(NSData *)blob altDSID:(NSString*)altDSID 
                     flowID:(NSString* _Nullable)flowID
            deviceSessionID:(NSString* _Nullable)deviceSessionID
-                   version:(PiggyBackProtocolVersion)version 
+            canSendMetrics:(BOOL)canSendMetrics
+                   version:(PiggyBackProtocolVersion)version
                   complete:(void (^)(bool success, NSError *))complete
 {
-    [self.account joinCircleWithBlob:blob altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID version:version complete:complete];
+    [self.account joinCircleWithBlob:blob altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics version:version complete:complete];
 }
 
 - (void)initialSyncCredentials:(uint32_t)flags 
                        altDSID:(NSString*)altDSID
                         flowID:(NSString* _Nullable)flowID
                deviceSessionID:(NSString* _Nullable)deviceSessionID
+                canSendMetrics:(BOOL)canSendMetrics
                       complete:(void (^)(NSArray *, NSError *))complete
 {
     if (![self checkEntitlement:(__bridge NSString *)kSecEntitlementKeychainInitialSync]) {
@@ -158,7 +164,7 @@
         return;
     }
 
-    [self.account initialSyncCredentials:flags altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID complete:complete];
+    [self.account initialSyncCredentials:flags altDSID:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics complete:complete];
 }
 
 - (void)importInitialSyncCredentials:(NSArray *)items complete:(void (^)(bool success, NSError *))complete

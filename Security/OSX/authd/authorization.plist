@@ -1044,21 +1044,11 @@ See remaining rules for examples.
 			<key>mechanisms</key>
 			<array>
 				<string>CryptoTokenKit:login</string>
-				<string>builtin:kcunlock</string>
 			</array>
-		</dict>
-		<key>system.login.screensaver.new</key>
-		<dict>
-			<key>class</key>
-			<string>rule</string>
-            <key>comment</key>
-            <string>This right may be modified by a 3rd parties.</string>
-			<key>rule</key>
-			<array>
-				<string>authenticate-session-owner</string>
-			</array>
+			<key>tries</key>
+			<integer>1</integer>
 			<key>version</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>system.login.tty</key>
 		<dict>

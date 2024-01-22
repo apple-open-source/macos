@@ -673,8 +673,9 @@ static CFTypeRef SecKeyRSACopyDecryptedWithPadding(SecKeyOperationContext *conte
             err = ccrsa_oaep_decode(di, &size, CFDataGetMutableBytePtr(result),
                                     size, (cc_unit *)CFDataGetBytePtr(cc_result));
         } else {
-            err = ccrsa_eme_pkcs1v15_decode(&size, CFDataGetMutableBytePtr(result),
-                                            size, (cc_unit *)CFDataGetBytePtr(cc_result));
+            err = ccrsa_eme_pkcs1v15_decode_safe(context->key->key,
+                                                 &size, CFDataGetMutableBytePtr(result),
+                                                 size, (cc_unit *)CFDataGetBytePtr(cc_result));
         }
         require_noerr_action_quiet(err, out, (CFReleaseNull(result),
                                               SecError(errSecParam, error, CFSTR("RSAdecrypt wrong input (err %d)"), err)));

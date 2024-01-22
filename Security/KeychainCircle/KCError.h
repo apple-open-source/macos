@@ -20,6 +20,18 @@ typedef enum {
     kDERUnknownVersion,
     kProcessApplicationFailure,
     kUnsupportedTrustPlatform,
+    kMissingAcceptorEpoch,
+    kTimedoutWaitingForPrepareRPC,
+    kFailedToEncryptPeerInfo,
+    kSOSNotSupportedAndPiggyV2NotSupported,
+    kMissingVoucher,
+    kTimedoutWaitingForJoinRPC,
+    kFailureToDecryptCircleBlob,
+    kFailureToProcessCircleBlob,
+    kStartMessageEmpty,
+    kUnableToPiggyBackDueToTrustSystemSupport,
+    kTimedoutWaitingForEpochRPC,
+    kTimedOutWaitingForVoucher,
 } KCJoiningError;
 
 @interface NSError(KCJoiningError)

@@ -41,6 +41,12 @@ message AccountMetadataClassC {
         ENABLED = 2;
     }
 
+    enum MetricsState {
+        UNKNOWN = 0;
+        PERMITTED = 1;
+        NOTPERMITTED = 2;
+    }
+
     optional string peerID = 1;
     optional AccountState icloudAccountState = 2;
     optional int64 epoch = 3;
@@ -84,6 +90,9 @@ message AccountMetadataClassC {
 
     // True if we've warned the user about having too many peers
     optional bool warnedTooManyPeers = 20;
-    
+
     // reserved 21 (was account settings)
+
+    // True when the device is untrusted up until the point of the first Manatee key fetch
+    optional MetricsState sendingMetricsPermitted = 22;
 }

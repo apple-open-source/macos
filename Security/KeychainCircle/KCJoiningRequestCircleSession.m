@@ -32,6 +32,7 @@
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
 #endif
 #import <KeychainCircle/NSError+KCCreationHelpers.h>
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 typedef enum {
     kExpectingCircleBlob,
@@ -70,20 +71,20 @@ typedef enum {
 
 #endif
 
-- (nullable NSData*) encryptedPeerInfo: (NSError**) error {
+- (nullable NSData*)encryptedPeerInfo:(NSError**)error {
     // Get our peer info and send it along:
     if (self->_session == nil) {
         KCJoiningErrorCreate(kInternalError, error, @"Attempt to encrypt with no session");
         return nil;
     }
 
-    SOSPeerInfoRef us = [self.circleDelegate copyPeerInfoError:error];
-    if (us == NULL) return nil;
+    SOSPeerInfoRef application = [self.circleDelegate copyPeerInfoError:error];
+    if (application == NULL) return nil;
     CFErrorRef cfError = NULL;
-    NSData* piEncoded = (__bridge_transfer NSData*) SOSPeerInfoCopyEncodedData(us, NULL, &cfError);
-    if(us) {
-        CFRelease(us);
-        us = NULL;
+    NSData* piEncoded = (__bridge_transfer NSData*) SOSPeerInfoCopyEncodedData(application, NULL, &cfError);
+    if (application) {
+        CFRelease(application);
+        application = NULL;
     }
 
     if (piEncoded == nil) {
@@ -96,7 +97,7 @@ typedef enum {
     return [self->_session encrypt:piEncoded error:error];
 }
 
-- (nullable NSData*) encryptedInitialMessage:(NSData*)prepareMessage error:(NSError**) error {
+- (nullable NSData*)encryptedInitialMessage:(NSData*)prepareMessage error:(NSError**)error {
 
     if (self->_session == nil) {
         KCJoiningErrorCreate(kInternalError, error, @"Attempt to encrypt with no session");
@@ -109,17 +110,37 @@ typedef enum {
     return [self->_session encrypt:initialMessage.data error:error];
 }
 
+- (NSData*)encryptPeerInfo:(NSError**)error {
+    NSData* encryptedPi = nil;
+    secnotice("joining", "doing SOS encryptedPeerInfo");
 
-- (nullable NSData*) initialMessage: (NSError**) error {
+    NSError* encryptError = nil;
+    encryptedPi = [self encryptedPeerInfo:&encryptError];
+    if (encryptedPi == nil || encryptError) {
+        secerror("joining: failed to create encrypted peerInfo: %@", encryptError);
+        if (encryptError) {
+            if (error) {
+                *error = encryptError;
+            }
+        } else {
+            KCJoiningErrorCreate(kFailedToEncryptPeerInfo, error, @"failed to encrypt the SOS peer info");
+        }
+        return nil;
+    }
+
+    return encryptedPi;
+}
+
+- (nullable NSData*)initialMessage:(NSError**)error {
     secnotice("joining", "joining: KCJoiningRequestCircleSession initialMessage called");
 
-#if OCTAGON
-    if(self.piggy_version == kPiggyV2){
+    if (self.piggy_version == kPiggyV2) {
         __block NSData* next = nil;
         __block NSError* localError = nil;
 
-        if(!self.joiningConfiguration.epoch) {
-            secerror("octagon: expected epoch! returning from piggybacking.");
+        if (!self.joiningConfiguration.epoch) {
+            secerror("joining: expected acceptor epoch! returning nil.");
+            KCJoiningErrorCreate(kMissingAcceptorEpoch, error, @"expected acceptor epoch");
             return nil;
         }
 
@@ -127,13 +148,13 @@ typedef enum {
         //giving securityd the epoch, expecting identity message
         [self.otControl rpcPrepareIdentityAsApplicantWithArguments:self.controlArguments
                                                      configuration:self.joiningConfiguration
-                                                                 reply:^(NSString *peerID,
-                                                                         NSData *permanentInfo,
-                                                                         NSData *permanentInfoSig,
-                                                                         NSData *stableInfo,
-                                                                         NSData *stableInfoSig,
-                                                                         NSError *err) {
-            if(err){
+                                                             reply:^(NSString *peerID,
+                                                                     NSData *permanentInfo,
+                                                                     NSData *permanentInfoSig,
+                                                                     NSData *stableInfo,
+                                                                     NSData *stableInfoSig,
+                                                                     NSError *err) {
+            if (err) {
                 secerror("octagon: error preparing identity: %@", err);
                 localError = err;
             } else{
@@ -157,21 +178,27 @@ typedef enum {
             dispatch_semaphore_signal(sema);
         }];
 
-        if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
+        if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
             secerror("octagon: timed out preparing identity");
+            KCJoiningErrorCreate(kTimedoutWaitingForPrepareRPC, error, @"timed out waiting for rpcPrepareIdentityAsApplicantWithArguments");
             return nil;
         }
-        if(error){
-            *error = localError;
+
+        if (localError) {
+            if (error) {
+                *error = localError;
+            }
+            return nil;
         }
 
         NSData* encryptedPi = nil;
         if (SOSCCIsSOSTrustAndSyncingEnabled()) {
-            secnotice("joining", "doing SOS encryptedPeerInfo");
-            encryptedPi = [self encryptedPeerInfo:error];
-            if (encryptedPi == nil) return nil;
+            encryptedPi = [self encryptPeerInfo:error];
+            if (encryptedPi == nil) {
+                return nil;
+            }
         } else {
-            secnotice("joining", "no platform support for encryptedPeerInfo");
+            secnotice("joining", "SOS not enabled, skipping peer info encryption");
         }
 
         self->_state = kExpectingCircleBlob;
@@ -182,24 +209,30 @@ typedef enum {
                                           payload:encryptedPi
                                             error:error] der];
     }
-#endif
 
-    NSData* encryptedPi = [self encryptedPeerInfo:error];
-    if (encryptedPi == nil) return nil;
+    if (SOSCCIsSOSTrustAndSyncingEnabled()) {
+        NSData* encryptedPi = [self encryptPeerInfo:error];
+        if (encryptedPi == nil) {
+            return nil;
+        }
 
-    self->_state = kExpectingCircleBlob;
+        self->_state = kExpectingCircleBlob;
 
-    return [[KCJoiningMessage messageWithType:kPeerInfo
-                                         data:encryptedPi
-                                        error:error] der];
+        return [[KCJoiningMessage messageWithType:kPeerInfo
+                                             data:encryptedPi
+                                            error:error] der];
+    } 
 
+    secerror("joining: device does not support SOS nor piggybacking version 2");
+    KCJoiningErrorCreate(kSOSNotSupportedAndPiggyV2NotSupported, error, @"device does not support SOS nor piggybacking version 2");
+    return nil;
 }
 
-- (void) waitForOctagonUpgrade
+- (void)waitForOctagonUpgrade
 {
 #if OCTAGON
     [self.otControl waitForOctagonUpgrade:self.controlArguments reply:^(NSError *error) {
-        if(error){
+        if (error) {
             secerror("pairing: failed to upgrade initiator into Octagon: %@", error);
         }
     }];
@@ -225,21 +258,22 @@ typedef enum {
     return shouldJoin;
 }
 
-- (NSData*) handleCircleBlob: (KCJoiningMessage*) message error: (NSError**) error {
+- (NSData*)handleCircleBlob:(KCJoiningMessage*) message error:(NSError**) error {
     secnotice("joining", "joining: KCJoiningRequestCircleSession handleCircleBlob called");
     if ([message type] != kCircleBlob) {
         KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected CircleBlob!");
         return nil;
     }
 #if OCTAGON
-    if(self.piggy_version == kPiggyV2 && message.firstData != nil){
+    if (self.piggy_version == kPiggyV2 && message.firstData != nil) {
         __block NSData* nextMessage = nil;
         __block NSError* localError = nil;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-        OTPairingMessage* pairingMessage = [[OTPairingMessage alloc]initWithData:message.firstData];
-        if(!pairingMessage.hasVoucher) {
+        OTPairingMessage* pairingMessage = [[OTPairingMessage alloc] initWithData:message.firstData];
+        if (!pairingMessage.hasVoucher) {
             secerror("octagon: expected voucher! returning from piggybacking.");
+            KCJoiningErrorCreate(kMissingVoucher, error, @"Missing voucher from acceptor");
             return nil;
         }
 
@@ -248,10 +282,10 @@ typedef enum {
         //handle voucher message then join octagon
         [self.otControl rpcJoinWithArguments:self.controlArguments
                                configuration:self.joiningConfiguration
-                                       vouchData:voucher.voucher
-                                        vouchSig:voucher.voucherSignature
-                                           reply:^(NSError * _Nullable err) {
-            if(err){
+                                   vouchData:voucher.voucher
+                                    vouchSig:voucher.voucherSignature
+                                       reply:^(NSError * _Nullable err) {
+            if (err) {
                 secerror("octagon: error joining octagon: %@", err);
                 localError = err;
             }else{
@@ -260,9 +294,9 @@ typedef enum {
             dispatch_semaphore_signal(sema);
         }];
 
-        if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
-
+        if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
             secerror("octagon: timed out joining octagon");
+            KCJoiningErrorCreate(kTimedoutWaitingForJoinRPC, error, @"Timed out waiting for join rpc");
             return nil;
         }
 
@@ -274,7 +308,7 @@ typedef enum {
                 secnotice("joining", "decryptAndVerify failed: %@", error && *error ? *error : nil);
                 return nil;
             }
-            if (![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:error]){
+            if (![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:error]) {
                 secerror("joining: processCircleJoinData failed %@", error && *error ? *error : nil);
                 return nil;
             }
@@ -283,31 +317,41 @@ typedef enum {
         self->_state = kRequestCircleDone;
 
         NSData* final = nil;
-        if(nextMessage == nil){
+        if (nextMessage == nil) {
             final = [NSData data];
         }
         self->_state = kRequestCircleDone;
         return final;
     }
 #endif
-    NSData* circleBlob = [self.session decryptAndVerify:message.firstData error:error];
-    if (circleBlob == nil) return nil;
+    if (SOSCCIsSOSTrustAndSyncingEnabled()) {
+        NSData* circleBlob = [self.session decryptAndVerify:message.firstData error:error];
+        if (circleBlob == nil) {
+            secerror("joining: circleBlob is nil");
+            KCJoiningErrorCreate(kFailureToDecryptCircleBlob, error, @"Failed to decrypt circleBlob");
+            return nil;
+        }
 
-    if (![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:error]) {
-        return nil;
-    } else {
-        secnotice("joining", "joined the SOS circle!");
+        if (![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:error]) {
+            secerror("joining: failed to process SOS circle");
+            KCJoiningErrorCreate(kFailureToProcessCircleBlob, error, @"Failed to process circleBlob");
+            return nil;
+        } else {
+            secnotice("joining", "joined the SOS circle!");
 #if OCTAGON
-        secnotice("joining", "kicking off SOS Upgrade into Octagon!");
-        [self waitForOctagonUpgrade];
+            secnotice("joining", "kicking off SOS Upgrade into Octagon!");
+            [self waitForOctagonUpgrade];
 #endif
+        }
+    } else {
+        secnotice("joining", "SOS not enabled for this platform");
     }
     self->_state = kRequestCircleDone;
 
     return [NSData data]; // Success, an empty message.
 }
 
-- (NSData*) processMessage: (NSData*) incomingMessage error: (NSError**) error {
+- (NSData*)processMessage:(NSData*) incomingMessage error:(NSError**)error {
     secnotice("joining", "joining: KCJoiningRequestCircleSession processMessage called");
     NSData* result = nil;
     KCJoiningMessage* message = [KCJoiningMessage messageWithDER: incomingMessage error: error];
@@ -324,21 +368,21 @@ typedef enum {
     return result;
 }
 
-- (bool) isDone {
+- (bool)isDone {
     return self.state = kRequestCircleDone;
 }
 
-+ (instancetype) sessionWithCircleDelegate: (NSObject<KCJoiningRequestCircleDelegate>*) circleDelegate
-                                   session: (KCAESGCMDuplexSession*) session
-                                     error: (NSError**) error {
++ (instancetype)sessionWithCircleDelegate:(NSObject<KCJoiningRequestCircleDelegate>*)circleDelegate
+                                   session:(KCAESGCMDuplexSession*)session
+                                     error:(NSError**)error {
     return [[KCJoiningRequestCircleSession alloc] initWithCircleDelegate:circleDelegate
                                                                  session:session
                                                                    error:error];
 }
 
-- (instancetype) initWithCircleDelegate: (NSObject<KCJoiningRequestCircleDelegate>*) circleDelegate
-                                session: (KCAESGCMDuplexSession*) session
-                                  error: (NSError**) error {
+- (instancetype)initWithCircleDelegate:(NSObject<KCJoiningRequestCircleDelegate>*)circleDelegate
+                                session:(KCAESGCMDuplexSession*)session
+                                  error:(NSError**)error {
     return [self initWithCircleDelegate:circleDelegate
                                 session:session
                               otcontrol:[OTControl controlObject:true error:error]
@@ -346,9 +390,9 @@ typedef enum {
 }
 
 - (instancetype)initWithCircleDelegate:(NSObject<KCJoiningRequestCircleDelegate>*)circleDelegate
-                               session:(KCAESGCMDuplexSession*) session
+                               session:(KCAESGCMDuplexSession*)session
                              otcontrol:(OTControl*)otcontrol
-                                 error:(NSError**) error
+                                 error:(NSError**)error
 {
     secnotice("joining", "joining: KCJoiningRequestCircleSession initWithCircleDelegate called, uuid=%@", session.pairingUUID);
     if ((self = [super init])) {

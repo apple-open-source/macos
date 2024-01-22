@@ -79,6 +79,8 @@
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OctagonCKKSPeerAdapter.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
+#import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import <Security/SecLaunchSequence.h>
 
 #include <utilities/SecCFWrappers.h>
@@ -99,6 +101,9 @@
 #import "keychain/analytics/SecurityAnalyticsConstants.h"
 #import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
 #import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
+#import "keychain/ot/OTControl.h"
+#import "keychain/ot/OTManager.h"
 
 #if OCTAGON
 
@@ -194,7 +199,7 @@
                                                            states:CKKSStateMap()
                                                             flags:CKKSAllStateFlags()
                                                      initialState:CKKSStateWaitForCloudKitAccountStatus
-                                                            queue:self.queue
+                                                            queue:_queue
                                                       stateEngine:self
                                        unexpectedStateErrorDomain:CKKSStateTransitionErrorDomain
                                                  lockStateTracker:lockStateTracker
@@ -232,6 +237,7 @@
         [overallLaunch addAttribute:@"view" value:@"global"];
 
         _policyLoaded = [[CKKSCondition alloc] init];
+
         _operationDependencies = [[CKKSOperationDependencies alloc] initWithViewStates:[NSSet set]
                                                                              contextID:contextID
                                                                          activeAccount:activeAccount
@@ -247,21 +253,24 @@
                                                                          peerProviders:@[]
                                                                      databaseProvider:_databaseProvider
                                                                       savedTLKNotifier:savedTLKNotifier
-                                                                        personaAdapter:personaAdapter];
+                                                                        personaAdapter:personaAdapter
+                                                                            sendMetric:NO];
 
         _zoneChangeFetcher = [[CKKSZoneChangeFetcher alloc] initWithContainer:container
                                                                    fetchClass:cloudKitClassDependencies.fetchRecordZoneChangesOperationClass
                                                           reachabilityTracker:_reachabilityTracker
-                                                                      altDSID:self.operationDependencies.activeAccount.altDSID];
+                                                                      altDSID:activeAccount.altDSID
+                                                                   sendMetric:NO];
         OctagonAPSReceiver* globalAPSReceiver = [OctagonAPSReceiver receiverForNamedDelegatePort:SecCKKSAPSNamedPort
                                                                               apsConnectionClass:cloudKitClassDependencies.apsConnectionClass];
         [globalAPSReceiver registerCKKSReceiver:_zoneChangeFetcher contextID:contextID];
 
         AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                    altDSID:self.operationDependencies.activeAccount.altDSID
-                                                                                                  eventName:kSecurityRTCEventNameLaunchStart
-                                                                                            testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                   category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                          altDSID:activeAccount.altDSID
+                                                                                        eventName:kSecurityRTCEventNameLaunchStart
+                                                                                  testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                         category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                       sendMetric:YES];
         [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
 
         [_stateMachine startOperation];
@@ -1286,10 +1295,11 @@
 
             // Breadcrumb event for "CKKS believes the local keychain has all content from the account"
             AAFAnalyticsEventSecurity *localSyncFinishEvent = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                                       altDSID:self.operationDependencies.activeAccount.altDSID
-                                                                                                                     eventName:kSecurityRTCEventNameLocalSyncFinish
-                                                                                                               testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                             altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                                           eventName:kSecurityRTCEventNameLocalSyncFinish
+                                                                                                     testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                            category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                          sendMetric:YES];
             [SecurityAnalyticsReporterRTC sendMetricWithEvent:localSyncFinishEvent success:YES error:nil];
 
             for(CKKSKeychainViewState* viewState in viewsOfInterest) {
@@ -1433,10 +1443,11 @@
 
             // We believe keychain is fully in sync with CloudKit.
             AAFAnalyticsEventSecurity *contentSyncFinishEvent = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                                         altDSID:self.operationDependencies.activeAccount.altDSID
-                                                                                                                       eventName:kSecurityRTCEventNameContentSyncFinish
-                                                                                                                 testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                               altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                                             eventName:kSecurityRTCEventNameContentSyncFinish
+                                                                                                       testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                              category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                            sendMetric:YES];
             [SecurityAnalyticsReporterRTC sendMetricWithEvent:contentSyncFinishEvent success:YES error:nil];
 
             op.nextState = newState;
@@ -2305,15 +2316,17 @@
     }
 
     WEAKIFY(self);
+
     CKKSResultOperation* getCurrentItem = [CKKSResultOperation named:@"get-current-item-pointer" withBlock:^{
         if(fetchAndProcess.error) {
             ckksnotice("ckkscurrent", self, "Rejecting current item pointer get since fetch failed: %@", fetchAndProcess.error);
             complete(NULL, fetchAndProcess.error);
             return;
         }
-
+        
         STRONGIFY(self);
-
+        
+        __block bool retrievedCurrentItemPointer = false;
         [self dispatchSyncWithReadOnlySQLTransaction:^{
             NSError* error = nil;
             NSString* currentIdentifier = [NSString stringWithFormat:@"%@-%@", accessGroup, identifier];
@@ -2321,7 +2334,7 @@
             secnotice("ckkspersona", "getCurrentItemForAccessGroup: thread persona [%@/%@] this currentIdentifier [%@] viewhint [%@]",
                       [ self.personaAdapter currentThreadPersonaUniqueString ], self.operationDependencies.activeAccount.personaUniqueString,
                       currentIdentifier, viewHint);
-
+            
             CKKSCurrentItemPointer* cip = [CKKSCurrentItemPointer fromDatabase:currentIdentifier
                                                                      contextID:self.operationDependencies.contextID
                                                                          state:SecCKKSProcessedStateLocal
@@ -2338,7 +2351,7 @@
                 complete(nil, error);
                 return;
             }
-
+            
             if(!cip.currentItemUUID) {
                 ckkserror("ckkscurrent", self, "Current item pointer is empty %@", cip);
                 complete(nil, [NSError errorWithDomain:CKKSErrorDomain
@@ -2346,13 +2359,22 @@
                                            description:@"Current item pointer is empty"]);
                 return;
             }
-
+            
             ckksinfo("ckkscurrent", self, "Retrieved current item pointer: %@", cip);
+            retrievedCurrentItemPointer = true;
             CKKSCurrentItemData *data = [[CKKSCurrentItemData alloc] initWithUUID: cip.currentItemUUID];
             data.modificationDate = cip.storedCKRecord.modificationDate;
             complete(data, NULL);
             return;
         }];
+        
+        // Turn off RTC Reporting
+        if (retrievedCurrentItemPointer && !self.firstManateeKeyFetched && [viewHint isEqualToString:(id)kSecAttrViewHintManatee]) {
+            // Regardless of whether we send a metric or not, at least mark that our firstManateeKeyFetch has happened
+            self.firstManateeKeyFetched = true;
+            [self sendMetricForFirstManateeAccess];
+        }
+        
     }];
 
     [getCurrentItem addNullableDependency:fetchAndProcess];
@@ -2360,6 +2382,28 @@
         [self scheduleOperationWithoutDependencies:getCurrentItem];
     } else {
         [self scheduleOperation:getCurrentItem];
+    }
+}
+
+-(void)sendMetricForFirstManateeAccess {
+
+    if (self.operationDependencies.sendMetric) {
+        AAFAnalyticsEventSecurity* eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                           altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                         eventName:kSecurityRTCEventNameFirstManateeKeyFetch
+                                                                                   testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                          category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                        sendMetric:self.operationDependencies.sendMetric];
+        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+
+        // turn off sending the events
+        NSError* localError = nil;
+        BOOL result = [[OTManager manager] persistSendingMetricsPermitted:[[OTControlArguments alloc] initWithAltDSID:self.operationDependencies.activeAccount.altDSID] sendingMetricsPermitted:NO error:&localError];
+        if (result == NO || localError) {
+            ckkserror_global("ckks", "Error persisting sendingMetricsPermitted value: %@", localError);
+        } else {
+            secnotice("ckks", "Successfully persisted state to disable metrics");
+        }
     }
 }
 
@@ -3088,10 +3132,11 @@
     [self.operationDependencies.overallLaunch addEvent:@"ck-account-login"];
 
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
-                                                                                               eventName:kSecurityRTCEventNameCKAccountLogin
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                       altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameCKAccountLogin
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.operationDependencies.sendMetric];
     [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
 
     [self.stateMachine handleFlag:CKKSFlagCloudKitLoggedIn];
@@ -3127,10 +3172,11 @@
     }
 
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldTrustStatus:CKKSAccountStatusToString(self.trustStatus)}
-                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
-                                                                                               eventName:kSecurityRTCEventNameTrustGain
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                       altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameTrustGain
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.operationDependencies.sendMetric];
 
     dispatch_sync(self.queue, ^{
         ckksnotice("ckkstrust", self, "Beginning trusted operation");
@@ -3171,10 +3217,11 @@
 - (void)endTrustedOperation
 {
     AAFAnalyticsEventSecurity* eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
-                                                                                               eventName:kSecurityRTCEventNameTrustLoss
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                       altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameTrustLoss
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.operationDependencies.sendMetric];
 
     dispatch_sync(self.queue, ^{
         ckksnotice("ckkstrust", self, "Ending trusted operation");
@@ -3209,13 +3256,17 @@
         return NO;
     }
 
-    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldSyncingPolicy:syncingPolicy,
-                                                                                                           kSecurityRTCFieldPolicyFreshness:@(policyIsFresh),
-                                                                                                           kSecurityRTCFieldNumViews:@(syncingPolicy.viewList.count)}
-                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID
-                                                                                               eventName:kSecurityRTCEventNameSyncingPolicySet
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    TPPolicyVersion *policyVersion = syncingPolicy.version;
+    NSString *policyString = [NSString stringWithFormat: @"%llu", policyVersion.versionNumber];
+
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldSyncingPolicy:policyString,
+                                                                                                 kSecurityRTCFieldPolicyFreshness:@(policyIsFresh),
+                                                                                                 kSecurityRTCFieldNumViews:@(syncingPolicy.viewList.count)}
+                                                                                       altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameSyncingPolicySet
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.operationDependencies.sendMetric];
 
     NSSet<NSString*>* viewNames = syncingPolicy.viewList;
     ckksnotice_global("ckks-policy", "New syncing policy: %@ (%@) views: %@", syncingPolicy,

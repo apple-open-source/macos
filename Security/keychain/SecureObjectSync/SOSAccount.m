@@ -445,6 +445,7 @@ static bool Flush(CFErrorRef *error) {
 - (bool)syncWaitAndFlush:(NSString*)altDSID 
                   flowID:(NSString* _Nullable)flowID
          deviceSessionID:(NSString* _Nullable)deviceSessionID
+          canSendMetrics:(BOOL)canSendMetrics
                    error:(CFErrorRef *)error
 {
     secnotice("pairing", "sync and wait starting");
@@ -454,6 +455,7 @@ static bool Flush(CFErrorRef *error) {
                                                                                                       deviceSessionID:deviceSessionID
                                                                                                             eventName:kSecurityRTCEventNameKVSSyncAndWait
                                                                                                       testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                                       canSendMetrics:canSendMetrics
                                                                                                              category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     if (!SyncKVSAndWait(error)) {
         secnotice("pairing", "failed sync and wait: %@", error ? *error : NULL);
@@ -469,6 +471,7 @@ static bool Flush(CFErrorRef *error) {
                                                                                              deviceSessionID:deviceSessionID
                                                                                                    eventName:kSecurityRTCEventNameFlush
                                                                                              testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                              canSendMetrics:canSendMetrics
                                                                                                     category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     if (!Flush(error)) {
         secnotice("pairing", "failed flush: %@", error ? *error : NULL);
@@ -485,12 +488,14 @@ static bool Flush(CFErrorRef *error) {
 - (void)validatedStashedAccountCredential:(NSString*)altDSID 
                                    flowID:(NSString* _Nullable)flowID
                           deviceSessionID:(NSString* _Nullable)deviceSessionID
+                           canSendMetrics:(BOOL)canSendMetrics
                                  complete:(void(^)(NSData *credential, NSError *error))complete
 {
     CFErrorRef syncerror = NULL;
     if (![self syncWaitAndFlush:altDSID 
                          flowID:flowID
                 deviceSessionID:deviceSessionID
+                 canSendMetrics:canSendMetrics
                           error:&syncerror]) {
         complete(NULL, (__bridge NSError *)syncerror);
         CFReleaseNull(syncerror);
@@ -504,6 +509,7 @@ static bool Flush(CFErrorRef *error) {
                                                                                              deviceSessionID:deviceSessionID
                                                                                                    eventName:kSecurityRTCEventNameValidatedStashedAccountCredential
                                                                                              testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                              canSendMetrics:canSendMetrics
                                                                                                     category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
         CFErrorRef error = NULL;
         SecKeyRef key = NULL;
@@ -535,13 +541,14 @@ static bool Flush(CFErrorRef *error) {
                        altDSID:(NSString*)altDSID
                         flowID:(NSString* _Nullable)flowID
                deviceSessionID:(NSString* _Nullable)deviceSessionID
+                canSendMetrics:(BOOL)canSendMetrics
                       complete:(void(^)(bool success, NSError *error))complete
 {
     CFErrorRef localError = NULL;
     SOSDoWithCredentialsWhileUnlocked(&localError, ^bool(CFErrorRef *error) {
         CFErrorRef syncerror = NULL;
 
-        if (![self syncWaitAndFlush:altDSID flowID:flowID deviceSessionID:deviceSessionID error:&syncerror]) {
+        if (![self syncWaitAndFlush:altDSID flowID:flowID deviceSessionID:deviceSessionID canSendMetrics:canSendMetrics error:&syncerror]) {
             complete(NULL, (__bridge NSError *)syncerror);
             CFReleaseNull(syncerror);
         } else {
@@ -602,6 +609,7 @@ static bool Flush(CFErrorRef *error) {
 - (void)myPeerInfo:(NSString*)altDSID  
             flowID:(NSString* _Nullable)flowID
    deviceSessionID:(NSString* _Nullable)deviceSessionID 
+    canSendMetrics:(BOOL)canSendMetrics
           complete:(void (^)(NSData *, NSError *))complete
 {
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
@@ -610,6 +618,7 @@ static bool Flush(CFErrorRef *error) {
                                                                                          deviceSessionID:deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameCreatesSOSApplication
                                                                                          testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:canSendMetrics
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     __block CFErrorRef localError = NULL;
     __block NSData *applicationBlob = NULL;
@@ -927,6 +936,7 @@ static bool Flush(CFErrorRef *error) {
 - (void)circleJoiningBlob:(NSString*)altDSID  
                    flowID:(NSString* _Nullable)flowID
           deviceSessionID:(NSString* _Nullable)deviceSessionID 
+           canSendMetrics:(BOOL)canSendMetrics
                 applicant:(NSData *)applicant complete:(void (^)(NSData *blob, NSError *))complete
 {
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
@@ -935,6 +945,7 @@ static bool Flush(CFErrorRef *error) {
                                                                                          deviceSessionID:deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameCreateSOSCircleBlob
                                                                                          testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                          canSendMetrics:canSendMetrics
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     __block CFErrorRef localError = NULL;
     __block NSData *blob = NULL;
@@ -949,7 +960,7 @@ static bool Flush(CFErrorRef *error) {
     // user_only_keybag_handle ok to use here, since we don't call SOS from securityd_system
     SecAKSDoWithKeybagLockAssertionSoftly(user_only_keybag_handle, ^{
         [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-            blob = CFBridgingRelease(SOSAccountCopyCircleJoiningBlob(txn.account, altDSID, flowID, deviceSessionID, peer, &localError));
+            blob = CFBridgingRelease(SOSAccountCopyCircleJoiningBlob(txn.account, altDSID, flowID, deviceSessionID, canSendMetrics, peer, &localError));
         }];
     });
 
@@ -963,6 +974,7 @@ static bool Flush(CFErrorRef *error) {
                    altDSID:(NSString*)altDSID
                     flowID:(NSString* _Nullable)flowID
            deviceSessionID:(NSString* _Nullable)deviceSessionID
+            canSendMetrics:(BOOL)canSendMetrics
                    version:(PiggyBackProtocolVersion)version
                   complete:(void (^)(bool success, NSError *))complete
 {
@@ -976,6 +988,7 @@ static bool Flush(CFErrorRef *error) {
                                                                                              deviceSessionID:deviceSessionID
                                                                                                    eventName:kSecurityRTCEventNameInitiatorJoinsSOS
                                                                                              testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                              canSendMetrics:canSendMetrics
                                                                                                     category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
         res = SOSAccountJoinWithCircleJoiningBlob(txn.account, (__bridge CFDataRef)blob, version, &localError);
@@ -1005,6 +1018,7 @@ static bool Flush(CFErrorRef *error) {
 - (void)initialSyncCredentials:(uint32_t)flags altDSID:(NSString*)altDSID
                         flowID:(NSString* _Nullable)flowID
                deviceSessionID:(NSString* _Nullable)deviceSessionID
+                canSendMetrics:(BOOL)canSendMetrics
                       complete:(void (^)(NSArray *, NSError *))complete
 {
     CFErrorRef error = NULL;
@@ -1029,6 +1043,7 @@ static bool Flush(CFErrorRef *error) {
                                                                                           deviceSessionID:deviceSessionID
                                                                                                 eventName:kSecurityRTCEventNameAcceptorFetchesInitialSyncData
                                                                                           testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                                                           canSendMetrics:canSendMetrics
                                                                                                  category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     NSArray *array = CFBridgingRelease(_SecServerCopyInitialSyncCredentials(isflags, &tlks, &pcs, &bluetooth, &error));
@@ -3039,7 +3054,7 @@ static void pbNotice(CFStringRef operation, SOSAccount*  account, SOSGenCountRef
     CFReleaseNull(genString);
 }
 
-CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSID, NSString* flowID, NSString* deviceSessionID, SOSPeerInfoRef applicant, CFErrorRef *error) {
+CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSID, NSString* flowID, NSString* deviceSessionID, BOOL canSendMetrics, SOSPeerInfoRef applicant, CFErrorRef *error) {
     SOSGenCountRef gencount = NULL;
     CFDataRef signature = NULL;
     SecKeyRef ourKey = NULL;
@@ -3067,6 +3082,7 @@ CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSI
                                                                        flowID:flowID deviceSessionID:deviceSessionID
                                                                     eventName:kSecurityRTCEventNameVerifySOSApplication
                                                               testsAreEnabled:soft_MetricsOverrideTestsAreEnabled()
+                                                               canSendMetrics:canSendMetrics
                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     
     require_action_quiet(SOSPeerInfoApplicationVerify(applicant, userKey, error), verifyFail,

@@ -83,6 +83,7 @@
                                                                                          deviceSessionID:self.deps.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNamePrepareIdentityInTPH
                                                                                          testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                          canSendMetrics:self.deps.permittedToSendMetrics
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     self.finishedOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishedOp];

@@ -409,10 +409,11 @@
     NSMutableSet<CKRecordZoneID*>* allZoneIDs = [NSMutableSet set];
 
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldNumViews: @(self.deps.activeManagedViews.count)}
-                                                                                                 altDSID:self.deps.activeAccount.altDSID
-                                                                                               eventName:kSecurityRTCEventNameScanLocalItems
-                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                       altDSID:self.deps.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameScanLocalItems
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.deps.sendMetric];
 
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
         [allZoneIDs addObject:viewState.zoneID];
@@ -439,10 +440,11 @@
 
         // Must query per-class, so:
         AAFAnalyticsEventSecurity *querySyncableItemsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                                       altDSID:self.deps.activeAccount.altDSID
-                                                                                                                     eventName:kSecurityRTCEventNameQuerySyncableItems
-                                                                                                               testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                             altDSID:self.deps.activeAccount.altDSID
+                                                                                                           eventName:kSecurityRTCEventNameQuerySyncableItems
+                                                                                                     testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                            category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                          sendMetric:self.deps.sendMetric];
         const SecDbSchema *newSchema = current_schema();
         for (const SecDbClass *const *class = newSchema->classes; *class != NULL; class++) {
             if(!((*class)->itemclass)) {
@@ -626,10 +628,11 @@
     }
     
     AAFAnalyticsEventSecurity *onboardMissingItemsEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                                                    altDSID:self.deps.activeAccount.altDSID
-                                                                                                                  eventName:kSecurityRTCEventNameOnboardMissingItems
-                                                                                                            testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                   category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                                                                                                          altDSID:self.deps.activeAccount.altDSID
+                                                                                                        eventName:kSecurityRTCEventNameOnboardMissingItems
+                                                                                                  testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                         category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                                       sendMetric:self.deps.sendMetric];
     
     ckksnotice_global("ckksscan", "Found %d views with missing items for %@", (int)itemUUIDsNotYetInCKKS.count, self.deps.activeManagedViews);
     for(CKKSKeychainViewState* viewState in [itemUUIDsNotYetInCKKS allKeys]) {

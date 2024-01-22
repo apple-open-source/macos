@@ -245,28 +245,31 @@ ATF_TC_BODY(test_wchar_t, tc)
 
 }
 
-/* Noticed while working on wchar_t, "char" should be case insensitive. */
+/*
+ * Noticed while working on wchar_t, "char" should be case insensitive.  While
+ * we're here, it should also yield UTF-8 by default.
+ */
 ATF_TC_WITHOUT_HEAD(test_char);
 ATF_TC_BODY(test_char, tc)
 {
 	iconv_t cd;
-	char str[] = "Test";
+	char str[] = "\xe4";
 	char *inbuf = str, *outbuf, *outptr;
 	size_t insz, outsz, res;
 
 	insz = sizeof(str) - 1;
-	outsz = 4;	/* "Test" */
+	outsz = 4;	/* UTF-8's MB_CUR_MAX */
 	outptr = outbuf = malloc(outsz + 1);
 	ATF_REQUIRE(outbuf != NULL);
 
-	cd = iconv_open("CHAR", "UTF-8");
+	cd = iconv_open("CHAR", "L1");
 	ATF_REQUIRE(cd != (iconv_t)-1);
 
 	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
 	ATF_REQUIRE(res != (size_t)(iconv_t)-1);
 
-	ATF_REQUIRE_INTEQ(0, outsz);
-	ATF_REQUIRE_STREQ("Test", outbuf);
+	ATF_REQUIRE_INTEQ(2, outsz);
+	ATF_REQUIRE_STREQ("\xc3\xa4", outbuf);
 
 	iconv_close(cd);
 }

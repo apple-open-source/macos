@@ -342,6 +342,9 @@ au BufNewFile,BufRead *.cc
 au BufNewFile,BufRead *.cpp
 	\ if exists("cynlib_syntax_for_cpp")|setf cynlib|else|setf cpp|endif
 
+" Cypher query language
+au BufNewFile,BufRead *.cypher			setf cypher
+
 " C++
 au BufNewFile,BufRead *.cxx,*.c++,*.hh,*.hxx,*.hpp,*.ipp,*.moc,*.tcc,*.inl setf cpp
 if has("fname_case")
@@ -544,6 +547,7 @@ au BufNewFile,BufRead copyright
 " Debian Sources.list
 au BufNewFile,BufRead */etc/apt/sources.list		setf debsources
 au BufNewFile,BufRead */etc/apt/sources.list.d/*.list	setf debsources
+au BufNewFile,BufRead */etc/apt/sources.list.d/*.sources	setf deb822sources
 
 " Deny hosts
 au BufNewFile,BufRead denyhosts.conf		setf denyhosts
@@ -817,6 +821,9 @@ au BufNewFile,BufRead *.gleam			setf gleam
 " GLSL
 au BufNewFile,BufRead *.glsl			setf glsl
 
+" GN (generate ninja) files
+au BufNewFile,BufRead *.gn,*.gni		setf gn
+
 " GP scripts (2.0 and onward)
 au BufNewFile,BufRead *.gp,.gprc		setf gp
 
@@ -1029,6 +1036,9 @@ au BufNewFile,BufRead *.jal,*.JAL		setf jal
 
 " Jam
 au BufNewFile,BufRead *.jpl,*.jpr		setf jam
+
+" Janet
+au BufNewFile,BufRead *.janet			setf janet
 
 " Java
 au BufNewFile,BufRead *.java,*.jav		setf java
@@ -1450,10 +1460,13 @@ au BufNewFile,BufRead *.nse			setf lua
 au BufNewFile,BufRead *.nsi,*.nsh		setf nsis
 
 " Nu
-au BufNewFile,BufRead {env,config}.nu		setf nu
+au BufNewFile,BufRead *.nu		setf nu
 
 " Oblivion Language and Oblivion Script Extender
 au BufNewFile,BufRead *.obl,*.obse,*.oblivion,*.obscript  setf obse
+
+" Objdump
+au BufNewFile,BufRead *.objdump,*.cppobjdump  setf objdump
 
 " OCaml
 au BufNewFile,BufRead *.ml,*.mli,*.mll,*.mly,.ocamlinit,*.mlt,*.mlp,*.mlip,*.mli.cppo,*.ml.cppo setf ocaml
@@ -1502,7 +1515,7 @@ au BufNewFile,BufRead *.nmconnection			setf confini
 " Pacman hooks
 au BufNewFile,BufRead *.hook
 	\ if getline(1) == '[Trigger]' |
-	\   setf conf |
+	\   setf confini |
 	\ endif
 
 " Pam conf
@@ -1675,8 +1688,8 @@ au BufNewFile,BufRead .procmail,.procmailrc	setf procmail
 " Progress or CWEB
 au BufNewFile,BufRead *.w			call dist#ft#FTprogress_cweb()
 
-" Progress or assembly
-au BufNewFile,BufRead *.i			call dist#ft#FTprogress_asm()
+" Progress or assembly or Swig
+au BufNewFile,BufRead *.i			call dist#ft#FTi()
 
 " Progress or Pascal
 au BufNewFile,BufRead *.p			call dist#ft#FTprogress_pascal()
@@ -1997,9 +2010,8 @@ au BufNewFile,BufRead .tcshrc,*.tcsh,tcsh.tcshrc,tcsh.login	call dist#ft#SetFile
 " (patterns ending in a start further below)
 au BufNewFile,BufRead .login,.cshrc,csh.cshrc,csh.login,csh.logout,*.csh,.alias  call dist#ft#CSH()
 
-" Zig and Zir (Zig Intermediate Representation)
-au BufNewFile,BufRead *.zig			setf zig
-au BufNewFile,BufRead *.zir			setf zir
+" Zig and Zig Object Notation (ZON)
+au BufNewFile,BufRead *.zig,*.zon		setf zig
 
 " Zserio
 au BufNewFile,BufRead *.zs			setf zserio
@@ -2170,6 +2182,9 @@ au BufNewFile,BufRead *.swift.gyb		setf swiftgyb
 
 " Swift Intermediate Language or SILE
 au BufNewFile,BufRead *.sil			call dist#ft#FTsil()
+
+" Swig
+au BufNewFile,BufRead *.swg,*.swig setf swig
 
 " Sysctl
 au BufNewFile,BufRead */etc/sysctl.conf,*/etc/sysctl.d/*.conf	setf sysctl
@@ -2442,8 +2457,7 @@ au BufNewFile,BufRead *.vroom			setf vroom
 au BufNewFile,BufRead *.vue			setf vue
 
 " WebAssembly
-au BufNewFile,BufRead *.wat			setf wat
-au BufNewFile,BufRead *.wast		setf wast
+au BufNewFile,BufRead *.wat,*.wast		setf wat
 
 " WebAssembly Interface Type (WIT)
 au BufNewFile,BufRead *.wit			setf wit
@@ -2524,6 +2538,9 @@ au BufNewFile,BufRead */etc/xinetd.conf		setf xinetd
 
 " XS Perl extension interface language
 au BufNewFile,BufRead *.xs			setf xs
+
+" X compose file
+au BufNewFile,BufRead .XCompose,Compose	setf xcompose
 
 " X resources file
 au BufNewFile,BufRead .Xdefaults,.Xpdefaults,.Xresources,xdm-config,*.ad setf xdefaults
@@ -2858,6 +2875,9 @@ au BufNewFile,BufRead XF86Config*
 	\|  let b:xf86conf_xfree86_version = 3
 	\|endif
 	\|call s:StarSetf('xf86conf')
+
+" XKB
+au BufNewFile,BufRead */usr/share/X11/xkb/{compat,geometry,keycodes,symbols,types}/*	call s:StarSetf('xkb')
 
 " X11 xmodmap
 au BufNewFile,BufRead *xmodmap*			call s:StarSetf('xmodmap')

@@ -159,10 +159,10 @@ _gss_ntlm_destroy_cred(OM_uint32 *minor_status,
     return _gss_ntlm_release_cred(minor_status, cred_handle);
 }
 
+#ifdef HAVE_KCM
 static OM_uint32
 change_hold(OM_uint32 *minor_status, ntlm_cred cred, int op)
 {
-#ifdef HAVE_KCM
     krb5_storage *request = NULL, *response = NULL;
     krb5_data response_data;
     krb5_context context;
@@ -211,24 +211,77 @@ change_hold(OM_uint32 *minor_status, ntlm_cred cred, int op)
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
-#else /* GSSCred */
-	_gss_mg_log(1, "change_hold (NTLM)(GSSCred) -  GSS_S_UNAVAILABLE");
-	return GSS_S_UNAVAILABLE;
-#endif
 
     return GSS_S_COMPLETE;
 }
+#endif
 
 OM_uint32
-_gss_ntlm_cred_hold(OM_uint32 *minor_status, gss_cred_id_t cred)
+_gss_ntlm_cred_hold(OM_uint32 *minor_status, gss_cred_id_t incred)
 {
-    return change_hold(minor_status, (ntlm_cred)cred, KCM_OP_RETAIN_CRED);
+#ifdef HAVE_KCM
+    return change_hold(minor_status, (ntlm_cred)incred, KCM_OP_RETAIN_CRED);
+#else
+    krb5_error_code ret;
+    ntlm_cred cred = (ntlm_cred)incred;
+
+    if ((cred->flags & NTLM_UUID) == 0)
+	return GSS_S_FAILURE;
+    
+    CFUUIDBytes cfuuid;
+    CFUUIDRef uuid_cfuuid;
+    memcpy(&cfuuid, &cred->uuid, sizeof(cred->uuid));
+    uuid_cfuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, cfuuid);
+    if (!uuid_cfuuid) {
+		ret = KRB5_CC_IO;
+		*minor_status = ret;
+		return GSS_S_FAILURE;
+	} else {
+		*minor_status = 0;
+	}
+    HeimCredRef credential_cfcred = HeimCredCopyFromUUID(uuid_cfuuid);
+    if (credential_cfcred) {
+	HeimCredRetainTransient(credential_cfcred);
+    }
+    CFRELEASE_NULL(credential_cfcred);
+    CFRELEASE_NULL(uuid_cfuuid);
+    
+    return GSS_S_COMPLETE;
+#endif
 }
 
 OM_uint32
-_gss_ntlm_cred_unhold(OM_uint32 *minor_status, gss_cred_id_t cred)
+_gss_ntlm_cred_unhold(OM_uint32 *minor_status, gss_cred_id_t incred)
 {
-    return change_hold(minor_status, (ntlm_cred)cred, KCM_OP_RELEASE_CRED);
+#ifdef HAVE_KCM
+    return change_hold(minor_status, (ntlm_cred)incred, KCM_OP_RELEASE_CRED);
+#else
+    krb5_error_code ret;
+    ntlm_cred cred = (ntlm_cred)incred;
+
+    if ((cred->flags & NTLM_UUID) == 0)
+	return GSS_S_FAILURE;
+    
+    CFUUIDBytes cfuuid;
+    CFUUIDRef uuid_cfuuid;
+    memcpy(&cfuuid, &cred->uuid, sizeof(cred->uuid));
+    uuid_cfuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, cfuuid);
+    if (!uuid_cfuuid) {
+		ret = KRB5_CC_IO;
+		*minor_status = ret;
+		return GSS_S_FAILURE;
+	} else {
+		*minor_status = 0;
+	}
+    HeimCredRef credential_cfcred = HeimCredCopyFromUUID(uuid_cfuuid);
+    if (credential_cfcred) {
+	HeimCredReleaseTransient(credential_cfcred);
+    }
+    CFRELEASE_NULL(credential_cfcred);
+    CFRELEASE_NULL(uuid_cfuuid);
+    
+    return GSS_S_COMPLETE;
+#endif
 }
 
 OM_uint32

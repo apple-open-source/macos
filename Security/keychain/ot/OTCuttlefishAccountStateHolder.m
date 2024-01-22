@@ -219,6 +219,30 @@
     } error:error];
 }
 
+- (OTAccountMetadataClassC_MetricsState)fetchSendingMetricsPermitted:(NSError**)error
+{
+    NSError* localError = nil;
+
+    OTAccountMetadataClassC* metadata = [self loadOrCreateAccountMetadata:&localError];
+
+    if(localError || !metadata) {
+        if(error) {
+            *error = localError;
+        }
+        return OTAccountMetadataClassC_MetricsState_UNKNOWN;
+    }
+    return metadata.sendingMetricsPermitted;
+}
+
+- (BOOL)persistSendingMetricsPermitted:(OTAccountMetadataClassC_MetricsState)sendingMetricsPermitted
+                                 error:(NSError**)error
+{
+    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
+        metadata.sendingMetricsPermitted = sendingMetricsPermitted;
+        return metadata;
+    } error:error];
+}
+
 - (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges
                                 error:(NSError**)error
 {

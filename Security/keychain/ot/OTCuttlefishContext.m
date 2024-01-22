@@ -122,9 +122,6 @@
 #import "keychain/otpaird/OTPairingClient.h"
 #endif /* TARGET_OS_WATCH */
 
-
-
-
 NSString* OTCuttlefishContextErrorDomain = @"otcuttlefish";
 static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
@@ -157,7 +154,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 @property CKKSNearFutureScheduler* suggestTLKUploadNotifier;
 @property CKKSNearFutureScheduler* requestPolicyCheckNotifier;
 @property CKKSNearFutureScheduler* upgradeUserControllableViewsRateLimiter;
-
 @property CKKSNearFutureScheduler* fixupRetryScheduler;
 
 @property (nullable, nonatomic, strong) NSString* recoveryKey;
@@ -237,6 +233,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                               context:_contextID
                                                                        personaAdapter:personaAdapter
                                                                         activeAccount:activeAccount];
+
         [_accountMetadataStore registerNotification:self];
 
         _stateMachine = [[OctagonStateMachine alloc] initWithName:[contextID isEqualToString:OTDefaultContext] ? @"octagon" : [NSString stringWithFormat:@"octagon-%@", contextID]
@@ -307,6 +304,19 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                             keepProcessAlive:false
                                                    dependencyDescriptionCode:CKKSResultDescriptionNone
                                                                        block:^{}];
+
+        _shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_UNKNOWN;
+
+        _checkMetricsTrigger = [[CKKSNearFutureScheduler alloc] initWithName:@"ensure-metrics-off"
+                                                                initialDelay:(SecCKKSTestsEnabled() ? 2 : 600) * NSEC_PER_SEC
+                                                             continuingDelay:0
+                                                            keepProcessAlive:YES
+                                                   dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                       block:^{
+            STRONGIFY(self);
+            secnotice("octagon-metrics", "Added check-on-metrics flag to the state machine");
+            [self.stateMachine handleFlag:OctagonFlagCheckOnRTCMetrics];
+        }];
     }
     return self;
 }
@@ -463,6 +473,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 }
 
 
+- (BOOL)canSendMetricsUsingAccountState:(OTAccountMetadataClassC_MetricsState)currentState {
+    // If currentState is ENABLED or UNKNOWN, allow sending metrics.
+    // A value of DISABLED means the device is Trusted so we should stop sending metrics in for the Octagon layer.
+    return (currentState == OTAccountMetadataClassC_MetricsState_NOTPERMITTED) ? NO : YES;
+}
+
 - (void)cloudkitAccountStateChange:(CKAccountInfo* _Nullable)oldAccountInfo
                                 to:(CKAccountInfo*)currentAccountInfo
 {
@@ -477,9 +493,11 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         if(currentAccountInfo.accountStatus == CKAccountStatusAvailable && self.activeAccount == nil) {
             AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
                                                                                                          altDSID:self.activeAccount.altDSID
-                                                                                                          flowID:self.flowID deviceSessionID:self.deviceSessionID
+                                                                                                          flowID:self.flowID 
+                                                                                                 deviceSessionID:self.deviceSessionID
                                                                                                        eventName:kSecurityRTCEventNameCloudKitAccountAvailability
                                                                                                  testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                  canSendMetrics:[self canSendMetricsUsingAccountState: self.shouldSendMetricsForOctagon]
                                                                                                         category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
             // There's probably an account. Let's optimistically fill in our account specifier if it's missing.
@@ -524,6 +542,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                                              deviceSessionID:self.deviceSessionID
                                                                                                    eventName:kSecurityRTCEventNameCloudKitAccountAvailability
                                                                                              testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                              canSendMetrics:[self canSendMetricsUsingAccountState:self.shouldSendMetricsForOctagon]
                                                                                                     category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
         // Add a state machine request to return to OctagonStateWaitingForCloudKitAccount
@@ -907,6 +926,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         machineID = [self.authKitAdapter machineID:self.activeAccount.altDSID
                                             flowID:self.flowID
                                    deviceSessionID:self.deviceSessionID
+                                    canSendMetrics:[self canSendMetricsUsingAccountState:self.shouldSendMetricsForOctagon]
                                              error:&error];
     }
 
@@ -943,7 +963,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                           escrowRequestClass:self.escrowRequestClass
                                                notifierClass:self.notifierClass
                                                       flowID:self.flowID
-                                             deviceSessionID:self.deviceSessionID];
+                                             deviceSessionID:self.deviceSessionID
+                                      permittedToSendMetrics:[self canSendMetricsUsingAccountState:self.shouldSendMetricsForOctagon]];
 }
 
 - (void)startOctagonStateMachine
@@ -1737,6 +1758,41 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             [flags _onqueueRemoveFlag:OctagonFlagCDPEnabled];
         }
 
+        if([flags _onqueueContains:OctagonFlagCheckOnRTCMetrics]) {
+            secnotice("octagon-metrics", "Checking metrics");
+            [flags _onqueueRemoveFlag:OctagonFlagCheckOnRTCMetrics];
+            WEAKIFY(self);
+            return [OctagonStateTransitionOperation named:@"check-on-metrics" 
+                                                intending:OctagonStateReady
+                                               errorState:OctagonStateReady
+                                      withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
+                STRONGIFY(self);
+
+                NSError* fetchError = nil;
+                BOOL sendingMetricsPermitted = [self fetchSendingMetricsPermitted:&fetchError];
+
+                if (fetchError) {
+                    secerror("octagon-metrics: failed to fetch account metadata: %@", fetchError);
+                    [self.checkMetricsTrigger trigger];
+                } else {
+                    secnotice("octagon-metrics", "current metrics setting set to: %@", sendingMetricsPermitted ? @"Permitted" : @"Not Permitted");
+
+                    if (sendingMetricsPermitted) {
+                        NSError* persistError = nil;
+                        BOOL persisted = [self persistSendingMetricsPermitted:NO error:&persistError];
+
+                        if (persisted == NO || persistError) {
+                            secerror("octagon-metrics: failed to persist metrics setting: %@", persistError);
+                        } else {
+                            secnotice("octagon-metrics", "persisted metrics setting set to not permitted");
+                        }
+                    }
+                    [self.checkMetricsTrigger cancel];
+                    self.checkMetricsTrigger = nil;
+                }
+            }];
+        }
+
         [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:OctagonAnalyticsLastKeystateReady];
         [self.launchSequence launch];
         [[CKKSAnalytics logger] noteLaunchSequence:self.launchSequence];
@@ -1761,6 +1817,33 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return nil;
 }
 
+- (void)setMetricsStateToActive
+{
+    secnotice("octagon-metrics", "Metrics now switching to ON");
+
+    self.ckks.operationDependencies.sendMetric = true;
+    self.ckks.zoneChangeFetcher.sendMetric = true;
+    self.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_PERMITTED;
+}
+
+- (void)setMetricsStateToInactive
+{
+    secnotice("octagon-metrics", "Metrics now switching to OFF");
+
+    self.ckks.operationDependencies.sendMetric = false;
+    self.ckks.zoneChangeFetcher.sendMetric = false;
+    self.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_NOTPERMITTED;
+}
+
+- (void)setMetricsToState:(OTAccountMetadataClassC_MetricsState)state
+{
+    if (state == OTAccountMetadataClassC_MetricsState_NOTPERMITTED) {
+        [self setMetricsStateToInactive];
+    } else {
+        [self setMetricsStateToActive];
+    }
+}
+
 - (CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)initializingOperation
 {
     WEAKIFY(self);
@@ -1781,10 +1864,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
                                   if(localError || !account) {
                                       secnotice("octagon", "Error loading account data: %@", localError);
+                                      [self setMetricsStateToActive];
                                       op.nextState = OctagonStateNoAccount;
 
                                   } else if(account.icloudAccountState == OTAccountMetadataClassC_AccountState_ACCOUNT_AVAILABLE) {
                                       secnotice("octagon", "An CDP Capable iCloud account exists; waiting for CloudKit to confirm");
+
+                                      [self setMetricsToState:account.sendingMetricsPermitted];
 
                                       if(self.activeAccount == nil) {
                                           NSError* accountError = nil;
@@ -1830,16 +1916,19 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
                                   } else if(account.icloudAccountState == OTAccountMetadataClassC_AccountState_NO_ACCOUNT && account.altDSID != nil) {
                                       secnotice("octagon", "An iCloud account exists, but doesn't appear to be CDP Capable. Let's check!");
+                                      [self setMetricsToState:account.sendingMetricsPermitted];
                                       op.nextState = OctagonStateDetermineiCloudAccountState;
 
                                   } else if(account.icloudAccountState == OTAccountMetadataClassC_AccountState_NO_ACCOUNT) {
                                       [self.accountStateTracker setCDPCapableiCloudAccountStatus:CKKSAccountStatusNoAccount];
 
                                       secnotice("octagon", "No iCloud account available.");
+                                      [self setMetricsToState:account.sendingMetricsPermitted];
                                       op.nextState = OctagonStateNoAccount;
 
                                   } else {
                                       secnotice("octagon", "Unknown account state (%@). Determining...", [account icloudAccountStateAsString:account.icloudAccountState]);
+                                      [self setMetricsToState:account.sendingMetricsPermitted];
                                       op.nextState = OctagonStateDetermineiCloudAccountState;
                                   }
                               }];
@@ -2358,9 +2447,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
                                   [self.accountMetadataStore persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
                                       metadata.trustState = OTAccountMetadataClassC_TrustState_UNTRUSTED;
+                                      metadata.sendingMetricsPermitted = OTAccountMetadataClassC_MetricsState_PERMITTED;
                                       return metadata;
                                   } error:&localError];
-
+        
+                                  [self setMetricsStateToActive];
+        
                                   if(localError) {
                                       secnotice("octagon", "Unable to set trust state: %@", localError);
                                       op.nextState = OctagonStateError;
@@ -2472,6 +2564,10 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         [self notifyTrustChanged:OTAccountMetadataClassC_TrustState_TRUSTED];
 
         op.nextState = op.intendedState;
+        
+        // updating the property to halt sending metrics for Octagon
+        // metadata should only be updated to DISABLED by CKKS when the first Manatee key is downloaded.
+        self.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_NOTPERMITTED;
     }];
 }
 
@@ -2508,6 +2604,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                 return nil;
             }
             metadata.attemptedJoin = OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED;
+
             return metadata;
         } error:&localError];
 
@@ -2582,6 +2679,19 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         [self notifyTrustChanged:OTAccountMetadataClassC_TrustState_TRUSTED];
 
         op.nextState = op.intendedState;
+
+        // updating the property to halt sending metrics for Octagon
+        // metadata should only be updated to DISABLED by CKKS when the first Manatee key is downloaded.
+        self.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_NOTPERMITTED;
+
+        NSError* fetchError = nil;
+        BOOL canSendMetrics = [self fetchSendingMetricsPermitted:&fetchError];
+        if (fetchError == nil && canSendMetrics) {
+            secnotice("octagon-metrics", "triggered metrics check");
+            [self.checkMetricsTrigger trigger];
+        } else if (fetchError) {
+            secerror("octagon-metrics, failed to fetch metrics setting: %@", fetchError);
+        }
     }];
 }
 
@@ -2961,22 +3071,29 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                       policyOverride:self.policyOverride
                                                                      accountSettings:_accountSettings
                                                                                epoch:epoch];
+   
+    BOOL isSlowerDevice = [self.deviceAdapter isWatch] || [self.deviceAdapter isAppleTV] || [self.deviceAdapter isHomePod];
 
     dispatch_time_t timeOut = 0;
-    if(config.timeout != 0) {
+    if (config.timeout != 0) {
         timeOut = config.timeout;
-    } else if(!SOSCompatibilityModeGetCachedStatus()){
+    } else if(isSlowerDevice){
         // Non-iphone non-mac platforms can be slow; heuristically slow them down
-        timeOut = 60*NSEC_PER_SEC;
+        timeOut = 60 * NSEC_PER_SEC;
     } else {
-        timeOut = 10*NSEC_PER_SEC;
+        timeOut = 10 * NSEC_PER_SEC;
     }
 
     OctagonStateTransitionRequest<OTPrepareOperation*>* request = [[OctagonStateTransitionRequest alloc] init:@"prepareForApplicant"
-                                                                                                   sourceStates:[NSSet setWithArray:@[OctagonStateUntrusted, OctagonStateNoAccount, OctagonStateMachineNotStarted]]
-                                                                                                    serialQueue:self.queue
-                                                                                                        timeout:timeOut
-                                                                                                   transitionOp:pendingOp];
+                                                                                                 sourceStates:[NSSet setWithArray:@[OctagonStateUntrusted,
+                                                                                                                                    OctagonStateWaitForCDP,
+                                                                                                                                    OctagonStateWaitingForCloudKitAccount,
+                                                                                                                                    OctagonStateDetermineiCloudAccountState,
+                                                                                                                                    OctagonStateNoAccount,
+                                                                                                                                    OctagonStateMachineNotStarted]]
+                                                                                                  serialQueue:self.queue
+                                                                                                      timeout:timeOut
+                                                                                                 transitionOp:pendingOp];
 
     CKKSResultOperation* callback = [CKKSResultOperation named:@"rpcPrepare-callback"
                                                      withBlock:^{
@@ -4845,6 +4962,22 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 - (void)setAccountSettings:(OTAccountSettings*_Nullable)accountSettings
 {
     _accountSettings = accountSettings;
+}
+
+- (BOOL)fetchSendingMetricsPermitted:(NSError**)error
+{
+    return [self canSendMetricsUsingAccountState:[self.accountMetadataStore fetchSendingMetricsPermitted:error]];
+}
+
+// to be called when the device has fetched it's first Manatee key.
+- (BOOL)persistSendingMetricsPermitted:(BOOL)sendingMetricsPermitted error:(NSError**)error
+{
+    if (sendingMetricsPermitted) {
+        [self setMetricsStateToActive];
+    } else {
+        [self setMetricsStateToInactive];
+    }
+    return [self.accountMetadataStore persistSendingMetricsPermitted:self.shouldSendMetricsForOctagon error:error];
 }
 
 @end

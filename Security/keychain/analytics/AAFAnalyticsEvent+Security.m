@@ -56,6 +56,7 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
 @property AAFAnalyticsEvent* event;
 #endif
 @property BOOL areTestsEnabled;
+@property BOOL canSendMetrics;
 @property BOOL isAAAFoundationAvailable;
 @property BOOL isAuthKitAvailable;
 
@@ -102,36 +103,43 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
     return available;
 }
 
+- (BOOL)permittedToSendMetrics
+{
+    if (self.isAAAFoundationAvailable == NO ||
+        self.isAuthKitAvailable == NO ||
+        self.areTestsEnabled ||
+        self.canSendMetrics == NO) {
+        return NO;
+    }
+
+    return YES;
+}
+
 - (instancetype)initWithKeychainCircleMetrics:(NSDictionary * _Nullable)metrics
                                       altDSID:(NSString * _Nullable)altDSID
                                        flowID:(NSString * _Nullable)flowID
                               deviceSessionID:(NSString * _Nullable)deviceSessionID
                                     eventName:(NSString *)eventName
                               testsAreEnabled:(BOOL)testsAreEnabled
+                               canSendMetrics:(BOOL)canSendMetrics
                                      category:(NSNumber *)category
 {
-    if ([AAFAnalyticsEventSecurity isAAAFoundationAvailable] == NO) {
-        if (self = [super init]) {
-            _isAAAFoundationAvailable = NO;
-        }
-        return self;
-    }
-
-    if ([AAFAnalyticsEventSecurity isAuthKitAvailable] == NO) {
-        if (self = [super init]) {
-            _isAuthKitAvailable = NO;
-        }
-        return self;
-    }
-
-    // For the purposes of turning off metric sending
+    // 'enable' tests for D release effectively disabling metrics collection.
     testsAreEnabled = YES;
-    
-    if (testsAreEnabled) {
+
+    // if AAAFoundation is not available or
+    // if AuthKit is not available or
+    // if tests are running or
+    // if the device finished signing in, don't create metrics
+    if ([AAFAnalyticsEventSecurity isAAAFoundationAvailable] == NO ||
+        [AAFAnalyticsEventSecurity isAuthKitAvailable] == NO ||
+        testsAreEnabled ||
+        canSendMetrics == NO) {
         if (self = [super init]) {
+            _isAAAFoundationAvailable = [AAFAnalyticsEventSecurity isAAAFoundationAvailable];
+            _isAuthKitAvailable = [AAFAnalyticsEventSecurity isAuthKitAvailable];
             _areTestsEnabled = testsAreEnabled;
-            _isAAAFoundationAvailable = YES;
-            _isAuthKitAvailable = YES;
+            _canSendMetrics = canSendMetrics;
         }
         return self;
     }
@@ -139,6 +147,7 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
     if (self = [super init]) {
         _queue = dispatch_queue_create("com.apple.security.aafanalyticsevent.queue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _areTestsEnabled = testsAreEnabled;
+        _canSendMetrics = canSendMetrics;
         _isAAAFoundationAvailable = YES;
         _isAuthKitAvailable = YES;
 
@@ -146,11 +155,11 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
         AAFAnalyticsEvent *analyticsEvent = [[getAAFAnalyticsEventClass() alloc] initWithEventName:eventName
                                                                                      eventCategory:category
                                                                                           initData:nil];
-        if (flowID) {
+        if (flowID && [flowID isEqualToString:@""] == NO) {
             analyticsEvent[getkAAFFlowId()] = flowID;
         }
 
-        if (deviceSessionID) {
+        if (deviceSessionID && [deviceSessionID isEqualToString:@""] == NO) {
             analyticsEvent[getkAAFDeviceSessionId()] = deviceSessionID;
         } else {
             AKAccountManager *accountManager = [getAKAccountManagerClass() sharedInstance];
@@ -179,10 +188,11 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
 }
 
 - (instancetype)initWithCKKSMetrics:(NSDictionary * _Nullable)metrics
-                                      altDSID:(NSString *)altDSID
-                                    eventName:(NSString *)eventName
-                              testsAreEnabled:(BOOL)testsAreEnabled
-                                     category:(NSNumber *)category 
+                            altDSID:(NSString *)altDSID
+                          eventName:(NSString *)eventName
+                    testsAreEnabled:(BOOL)testsAreEnabled
+                           category:(NSNumber *)category
+                         sendMetric:(BOOL)sendMetric
 {
     return [self initWithKeychainCircleMetrics:metrics
                                        altDSID:altDSID
@@ -190,6 +200,7 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
                                deviceSessionID:nil
                                      eventName:eventName
                                testsAreEnabled:testsAreEnabled
+                                canSendMetrics:sendMetric
                                       category:category];
 }
 
@@ -204,21 +215,16 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
                                deviceSessionID:nil
                                      eventName:eventName
                                testsAreEnabled:NO
+                                canSendMetrics:YES
                                       category:category];
 }
 
-- (void)populateUnderlyingErrorsStartingWithRootError:(NSError* _Nullable)error {
-    if (self.isAAAFoundationAvailable == NO) {
+- (void)populateUnderlyingErrorsStartingWithRootError:(NSError* _Nullable)error 
+{
+    if ([self permittedToSendMetrics] == NO) {
         return;
     }
 
-    if (self.isAuthKitAvailable == NO) {
-        return;
-    }
-
-    if (self.areTestsEnabled) {
-        return;
-    }
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
     dispatch_sync(self.queue, ^{
         [self.event populateUnderlyingErrorsStartingWithRootError:error];
@@ -228,15 +234,7 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
 
 - (void)addMetrics:(NSDictionary*)metrics
 {
-    if (self.isAAAFoundationAvailable == NO) {
-        return;
-    }
-
-    if (self.isAuthKitAvailable == NO) {
-        return;
-    }
-
-    if (self.areTestsEnabled) {
+    if ([self permittedToSendMetrics] == NO) {
         return;
     }
 

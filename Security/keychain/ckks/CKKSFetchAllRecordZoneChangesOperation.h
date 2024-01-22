@@ -114,7 +114,8 @@ extern CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch;
                        apnsPushes:(NSSet<CKRecordZoneNotification*>* _Nullable)apnsPushes
                       forceResync:(bool)forceResync
                  ckoperationGroup:(CKOperationGroup*)ckoperationGroup
-                          altDSID:(NSString*)altDSID;
+                          altDSID:(NSString*)altDSID
+                       sendMetric:(bool)sendMetric;
 
 @end
 

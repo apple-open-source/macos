@@ -3177,6 +3177,7 @@ class Container: NSObject, ConfiguredCloudKit {
                altDSID: String?,
                flowID: String?,
                deviceSessionID: String?,
+               canSendMetrics: Bool,
                reply: @escaping (Data?, Data?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Data?, Data?, Error?) -> Void = {
@@ -3228,6 +3229,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                        deviceSessionID: deviceSessionID,
                                                        eventName: kSecurityRTCEventNameFetchPolicyDocument,
                                                        testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                       canSendMetrics: canSendMetrics,
                                                        category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
 
                 self.fetchPolicyDocumentsWithSemaphore(versions: Set([beneficiaryStableInfo.bestPolicyVersion()])) { _, policyFetchError in
@@ -4288,6 +4290,7 @@ class Container: NSObject, ConfiguredCloudKit {
               altDSID: String?,
               flowID: String?,
               deviceSessionID: String?,
+              canSendMetrics: Bool,
               reply: @escaping (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (String?, [CKRecord], TPSyncingPolicy?, Error?) -> Void = {
@@ -4303,6 +4306,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                     deviceSessionID: deviceSessionID,
                                                                     eventName: kSecurityRTCEventNameFetchAndPersistChanges,
                                                                     testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                                    canSendMetrics: canSendMetrics,
                                                                     category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
         self.fetchAndPersistChanges { error in
             guard error == nil else {
@@ -4319,6 +4323,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                      deviceSessionID: deviceSessionID,
                                                                      eventName: kSecurityRTCEventNameFetchPolicyDocument,
                                                                      testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                                     canSendMetrics: canSendMetrics,
                                                                      category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
             // To join, you must know all policies that exist
             let allPolicyVersions = self.model.allPolicyVersions()
@@ -4481,6 +4486,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                                   deviceSessionID: nil,
                                                                                   eventName: kSecurityRTCEventNameNumberOfTrustedOctagonPeers,
                                                                                   testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                                                                  canSendMetrics: canSendMetrics,
                                                                                   category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
                                             SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: true, error: nil)
 

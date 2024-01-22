@@ -627,7 +627,8 @@ for command in commands {
                       tlkShares: [],
                       preapprovedKeys: preapprovedKeys ?? [],
                       flowID: "tpctl-flowID-" + NSUUID().uuidString,
-                      deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString) { peerID, _, _, error in
+                      deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString,
+                      canSendMetrics: false) { peerID, _, _, error in
                         guard error == nil else {
                             print("Error joining:", error!)
                             return
@@ -815,8 +816,8 @@ for command in commands {
                        stableInfoSig: stableInfoSig,
                        ckksKeys: [],
                        flowID: "tpctl-flowID-" + NSUUID().uuidString,
-                       deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString
-        ) { voucher, voucherSig, error in
+                       deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString,
+                       canSendMetrics: false) { voucher, voucherSig, error in
             guard error == nil else {
                 print("Error during vouch:", error!)
                 return

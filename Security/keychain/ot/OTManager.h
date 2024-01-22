@@ -219,6 +219,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply;
 
+- (BOOL)fetchSendingMetricsPermitted:(OTControlArguments*)arguments error:(NSError**)error;
+- (BOOL)persistSendingMetricsPermitted:(OTControlArguments*)arguments sendingMetricsPermitted:(BOOL)sendingMetricsPermitted error:(NSError**)error;
+
 // Metrics and analytics
 - (void)postCDPFollowupResult:(OTControlArguments*)arguments
                       success:(BOOL)success

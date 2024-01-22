@@ -339,6 +339,8 @@ extension OctagonPairingTests {
     }
 
     func testVersion0TestVectorofPiggybacking() {
+        OctagonSetSOSFeatureEnabled(true)
+        enableSOSCompatibilityForTests()
         let (_, _, accept, request) = self.setupKCJoiningSessionObjects()
         XCTAssertNotNil(accept, "acceptor should not be nil")
         XCTAssertNotNil(request, "requester should not be nil")
@@ -351,9 +353,13 @@ extension OctagonPairingTests {
         } catch {
             XCTAssertNil(error, "error retrieving initial message")
         }
+        OctagonSetSOSFeatureEnabled(false)
     }
 
     func testVersion1TestVectorofPiggybacking() {
+        OctagonSetSOSFeatureEnabled(true)
+        enableSOSCompatibilityForTests()
+
         let (_, _, accept, request) = self.setupKCJoiningSessionObjects()
         XCTAssertNotNil(accept, "acceptor should not be nil")
         XCTAssertNotNil(request, "requester should not be nil")
@@ -365,6 +371,7 @@ extension OctagonPairingTests {
         } catch {
             XCTAssertNil(error, "error retrieving initial message")
         }
+        OctagonSetSOSFeatureEnabled(false)
     }
     /* FIX ME, This isn't testing version 1.
     func testV1() {

@@ -373,6 +373,7 @@ class Client: TrustedPeersHelperProtocol {
                ckksKeys: [CKKSKeychainBackedKeySet],
                flowID: String?,
                deviceSessionID: String?,
+               canSendMetrics: Bool,
                reply: @escaping (Data?, Data?, Error?) -> Void) {
         do {
             logger.info("Vouching \(String(describing: user), privacy: .public)")
@@ -385,7 +386,8 @@ class Client: TrustedPeersHelperProtocol {
                             ckksKeys: ckksKeys,
                             altDSID: user?.altDSID,
                             flowID: flowID,
-                            deviceSessionID: deviceSessionID) { voucher, voucherSig, error in
+                            deviceSessionID: deviceSessionID,
+                            canSendMetrics:canSendMetrics) { voucher, voucherSig, error in
                                 self.logComplete(function: "Vouching", container: container.name, error: error)
                                 reply(voucher, voucherSig, error?.sanitizeForClientXPC()) }
         } catch {
@@ -515,6 +517,7 @@ class Client: TrustedPeersHelperProtocol {
               preapprovedKeys: [Data]?,
               flowID: String?,
               deviceSessionID: String?,
+              canSendMetrics: Bool,
               reply: @escaping (String?, [CKRecord]?, TPSyncingPolicy?, Error?) -> Void) {
         do {
             logger.info("Joining \(String(describing: user), privacy: .public)")
@@ -526,7 +529,8 @@ class Client: TrustedPeersHelperProtocol {
                            preapprovedKeys: preapprovedKeys,
                            altDSID: user?.altDSID,
                            flowID: flowID,
-                           deviceSessionID: deviceSessionID) { peerID, keyHierarchyRecords, policy, error in
+                           deviceSessionID: deviceSessionID,
+                           canSendMetrics: canSendMetrics) { peerID, keyHierarchyRecords, policy, error in
                 reply(peerID, keyHierarchyRecords, policy, error?.sanitizeForClientXPC())
             }
         } catch {

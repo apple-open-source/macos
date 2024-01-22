@@ -86,6 +86,7 @@
                                                                                          deviceSessionID:self.operationDependencies.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNameCKKSTlkFetch
                                                                                          testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                          canSendMetrics:self.operationDependencies.permittedToSendMetrics
                                                                                                 category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
     // Acquire the CKKS TLKs to pass in
@@ -120,6 +121,7 @@
                                                                   ckksKeys:viewKeySets
                                                                     flowID:self.operationDependencies.flowID
                                                            deviceSessionID:self.operationDependencies.deviceSessionID
+                                                            canSendMetrics:self.operationDependencies.permittedToSendMetrics
                                                                      reply:^(NSData * _Nullable voucher,
                                                                              NSData * _Nullable voucherSig,
                                                                              NSError * _Nullable error)

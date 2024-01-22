@@ -102,6 +102,7 @@
                                                                    deviceSessionID:self.deps.deviceSessionID
                                                                          eventName:kSecurityRTCEventNamePreApprovedJoin
                                                                    testsAreEnabled:SecCKKSTestsEnabled()
+                                                                    canSendMetrics:self.deps.permittedToSendMetrics
                                                                           category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     if(!self.deps.sosAdapter.sosEnabled) {
         secnotice("octagon-sos", "SOS not enabled on this platform?");

@@ -124,7 +124,8 @@ extern NSString *const kSecurityRTCFieldItemsScanned;
 extern NSString *const kSecurityRTCFieldNewItemsScanned;
 extern NSString *const kSecurityRTCFieldFetchReasons;
 extern NSString *const kSecurityRTCFieldFullFetch;
-extern NSString *const kSecurityRTCFieldNumRemoteKeys;
+extern NSString *const kSecurityRTCFieldAvgRemoteKeys;
+extern NSString *const kSecurityRTCFieldTotalRemoteKeys;
 extern NSString *const kSecurityRTCFieldNewTLKShares;
 extern NSString *const kSecurityRTCFieldIsPrioritized;
 extern NSString *const kSecurityRTCFieldFullRefetchNeeded;
@@ -133,6 +134,8 @@ extern NSString *const kSecurityRTCFieldMissingKey;
 extern NSString *const kSecurityRTCFieldPendingClassA;
 extern NSString *const kSecurityRTCFieldSuccessfulItemsProcessed;
 extern NSString *const kSecurityRTCFieldErrorItemsProcessed;
+extern NSString *const kSecurityRTCFieldAvgSuccessfulItemsProcessed;
+extern NSString *const kSecurityRTCFieldAvgErrorItemsProcessed;
 extern NSString *const kSecurityRTCFieldIsFullUpload;
 extern NSString *const kSecurityRTCFieldPartialFailure;
 extern NSString *const kSecurityRTCFieldItemsToAdd;
@@ -143,8 +146,8 @@ extern NSString *const kSecurityRTCFieldNumViewsWithNewEntries;
 extern NSString *const kSecurityRTCFieldNeedsReencryption;
 extern NSString *const kSecurityRTCFieldNumLocalRecords;
 extern NSString *const kSecurityRTCFieldNumKeychainItems;
-extern NSString *const kSecurityRTCFieldNumCKRecords;
-
+extern NSString *const kSecurityRTCFieldTotalCKRecords;
+extern NSString *const kSecurityRTCFieldAvgCKRecords;
 
 NS_ASSUME_NONNULL_END
 
