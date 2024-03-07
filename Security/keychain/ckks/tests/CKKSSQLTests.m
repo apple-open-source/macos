@@ -51,11 +51,13 @@
 
 - (void)setUp {
     SecCKKSDisable();
+    KCSharingSetChangeTrackingEnabled(false);
     [super setUp];
 }
 
 - (void)tearDown {
     [super tearDown];
+    KCSharingClearChangeTrackingEnabledOverride();
     SecCKKSResetSyncing();
 }
 

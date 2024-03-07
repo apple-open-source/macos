@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WasmThunks.h"
 
-#if ENABLE(WEBASSEMBLY)
+#if ENABLE(WEBASSEMBLY) && ENABLE(JIT)
 
 #include "AllowMacroScratchRegisterUsage.h"
 #include "CCallHelpers.h"
@@ -37,8 +37,11 @@
 #include "WasmExceptionType.h"
 #include "WasmInstance.h"
 #include "WasmOperations.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace JSC { namespace Wasm {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Thunks);
 
 MacroAssemblerCodeRef<JITThunkPtrTag> throwExceptionFromWasmThunkGenerator(const AbstractLocker&)
 {
@@ -62,6 +65,33 @@ MacroAssemblerCodeRef<JITThunkPtrTag> throwExceptionFromWasmThunkGenerator(const
     return FINALIZE_WASM_CODE(linkBuffer, JITThunkPtrTag, "Throw exception from Wasm");
 }
 
+// This is just here to give us a unique backtrace if we ever actually hit this.
+MacroAssemblerCodeRef<JITThunkPtrTag> crashDueToBBQStackOverflowGenerator(const AbstractLocker&)
+{
+    CCallHelpers jit;
+    JIT_COMMENT(jit, "crashDueToBBQStackOverflow");
+
+    CCallHelpers::Call call = jit.call(OperationPtrTag);
+    jit.breakpoint(); // We should not reach this.
+
+    LinkBuffer linkBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::WasmThunk);
+    linkBuffer.link<OperationPtrTag>(call, operationCrashDueToBBQStackOverflow);
+    return FINALIZE_WASM_CODE(linkBuffer, JITThunkPtrTag, "crashDueToBBQStackOverflow");
+}
+
+MacroAssemblerCodeRef<JITThunkPtrTag> crashDueToOMGStackOverflowGenerator(const AbstractLocker&)
+{
+    CCallHelpers jit;
+    JIT_COMMENT(jit, "crashDueToOMGStackOverflow");
+
+    CCallHelpers::Call call = jit.call(OperationPtrTag);
+    jit.breakpoint(); // We should not reach this.
+
+    LinkBuffer linkBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::WasmThunk);
+    linkBuffer.link<OperationPtrTag>(call, operationCrashDueToOMGStackOverflow);
+    return FINALIZE_WASM_CODE(linkBuffer, JITThunkPtrTag, "crashDueToBBQStackOverflow");
+}
+
 MacroAssemblerCodeRef<JITThunkPtrTag> throwStackOverflowFromWasmThunkGenerator(const AbstractLocker& locker)
 {
     CCallHelpers jit;
@@ -71,9 +101,8 @@ MacroAssemblerCodeRef<JITThunkPtrTag> throwStackOverflowFromWasmThunkGenerator(c
     ASSERT(static_cast<unsigned>(stackSpace) < Options::softReservedZoneSize());
     jit.addPtr(CCallHelpers::TrustedImm32(-stackSpace), GPRInfo::callFrameRegister, MacroAssembler::stackPointerRegister);
     jit.move(CCallHelpers::TrustedImm32(static_cast<uint32_t>(ExceptionType::StackOverflow)), GPRInfo::argumentGPR1);
-    auto jumpToExceptionHandler = jit.jump();
+    jit.jumpThunk(CodeLocationLabel<JITThunkPtrTag> { Thunks::singleton().stub(locker, throwExceptionFromWasmThunkGenerator).code() });
     LinkBuffer linkBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::WasmThunk);
-    linkBuffer.link(jumpToExceptionHandler, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(locker, throwExceptionFromWasmThunkGenerator).code()));
     return FINALIZE_WASM_CODE(linkBuffer, JITThunkPtrTag, "Throw stack overflow from Wasm");
 }
 
@@ -119,7 +148,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> catchInWasmThunkGenerator(const AbstractLo
     // StackSlots / Registers which are not these caller-save registers. So, clobbering these registers here does not break the stackmap restoration.
     jit.prepareWasmCallOperation(GPRInfo::wasmContextInstancePointer);
     jit.setupArguments<decltype(operationWasmRetrieveAndClearExceptionIfCatchable)>(GPRInfo::wasmContextInstancePointer);
-    jit.callOperation(operationWasmRetrieveAndClearExceptionIfCatchable);
+    jit.callOperation<OperationPtrTag>(operationWasmRetrieveAndClearExceptionIfCatchable);
     static_assert(noOverlap(GPRInfo::nonPreservedNonArgumentGPR0, GPRInfo::returnValueGPR, GPRInfo::returnValueGPR2));
     jit.farJump(GPRInfo::returnValueGPR2, ExceptionHandlerPtrTag);
 
@@ -214,4 +243,4 @@ MacroAssemblerCodeRef<JITThunkPtrTag> Thunks::existingStub(ThunkGenerator genera
 
 } } // namespace JSC::Wasm
 
-#endif // ENABLE(WEBASSEMBLY)
+#endif // ENABLE(WEBASSEMBLY) && ENABLE(JIT)

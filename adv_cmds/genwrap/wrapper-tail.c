@@ -267,6 +267,39 @@ wrapper_execute_analytics_testing(const struct application *app, int argc,
 }
 #endif	/* WRAPPER_ANALYTICS_TESTING */
 
+static void
+wrapper_execute_addargs(const struct application *app, int *argc,
+    char **argv[])
+{
+	char **args;
+	int i, total_args;
+
+	if (app->app_add_nargv == 0)
+		return;
+
+	total_args = *argc + app->app_add_nargv;
+	args = malloc(sizeof(*args) * (total_args + 1));
+	if (args == NULL)
+		err(1, "malloc");
+
+	/*
+	 * Push args[1] and up out of the way for the injected args to be
+	 * prepended.
+	 */
+	i = 0;
+	args[i++] = *argv[0];
+
+	/* Arguments are off-by-one from where they land in argv. */
+	for (; i <= app->app_add_nargv; i++)
+		args[i] = __DECONST(char *, app->app_add_argv[i - 1]);
+
+	/* Copy in the trailing args */
+	memcpy(&args[i], *argv + 1, sizeof(*args) * *argc);
+
+	*argv = args;
+	*argc = total_args;
+}
+
 static int
 wrapper_execute(const struct application *app, int argc, char *argv[])
 {
@@ -291,6 +324,12 @@ wrapper_execute(const struct application *app, int argc, char *argv[])
 		return (payload);
 	});
 #endif	/* WRAPPER_ANALYTICS_IDENT */
+
+	/*
+	 * Augment argv *after* we've reported analytics on it; we only want
+	 * to collect user usage for telemetry purpose.
+	 */
+	wrapper_execute_addargs(app, &argc, &argv);
 
 	/*
 	 * Absolute paths are run directly, relative paths are relative to the

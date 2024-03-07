@@ -122,6 +122,7 @@
 
 #if MACH_ASSERT
 
+TUNABLE(bool, vm_check_refs_on_free, "vm_check_refs_on_free", true);
 #define ASSERT_PMAP_FREE(mem) pmap_assert_free(VM_PAGE_GET_PHYS_PAGE(mem))
 
 #else /* MACH_ASSERT */
@@ -3149,9 +3150,8 @@ vm_page_grab_diags(void);
  */
 static inline void
 vm_page_validate_no_references(
-	__unused vm_page_t       mem)
+	vm_page_t       mem)
 {
-#if !XNU_TARGET_OS_OSX
 	bool is_freed;
 
 	if (mem->vmp_fictitious) {
@@ -3160,7 +3160,11 @@ vm_page_validate_no_references(
 
 	pmap_paddr_t paddr = ptoa(VM_PAGE_GET_PHYS_PAGE(mem));
 
+#if CONFIG_SPTM
+	is_freed = pmap_is_page_free(paddr);
+#else
 	is_freed = pmap_verify_free(VM_PAGE_GET_PHYS_PAGE(mem));
+#endif /* CONFIG_SPTM */
 
 	if (!is_freed) {
 		/*
@@ -3171,9 +3175,6 @@ vm_page_validate_no_references(
 		ASSERT_PMAP_FREE(mem);
 		panic("%s: page 0x%llx is referenced", __func__, paddr);
 	}
-#else
-	ASSERT_PMAP_FREE(mem);
-#endif //!XNU_TARGET_OS_OSX
 }
 
 vm_page_t
@@ -3716,7 +3717,11 @@ vm_page_release(
 
 	assert(!mem->vmp_private && !mem->vmp_fictitious);
 
-	vm_page_validate_no_references(mem);
+#if MACH_ASSERT
+	if (vm_check_refs_on_free) {
+		vm_page_validate_no_references(mem);
+	}
+#endif /* MACH_ASSERT */
 
 //	dbgLog(VM_PAGE_GET_PHYS_PAGE(mem), vm_page_free_count, vm_page_wire_count, 5);	/* (TEST/DEBUG) */
 
@@ -4100,6 +4105,18 @@ static void
 vm_page_free_prepare(
 	vm_page_t       mem)
 {
+#if CONFIG_SPTM
+	/**
+	 * SPTM TODO: The pmap should retype frames automatically as mappings to them are
+	 *            created and destroyed. In order to catch potential cases where this
+	 *            does not happen, add an appropriate assert here. This code should be
+	 *            executed on every frame that is about to be released to the VM.
+	 */
+	const sptm_paddr_t paddr = ((uint64_t)VM_PAGE_GET_PHYS_PAGE(mem)) << PAGE_SHIFT;
+	__unused const sptm_frame_type_t frame_type = sptm_get_frame_type(paddr);
+
+	assert(frame_type == XNU_DEFAULT);
+#endif /* CONFIG_SPTM */
 
 	vm_page_free_prepare_queues(mem);
 	vm_page_free_prepare_object(mem, TRUE);
@@ -4236,7 +4253,11 @@ vm_page_free_prepare_object(
 		assert(mem->vmp_specialq.prev == 0);
 		assert(mem->vmp_next_m == 0);
 
-		vm_page_validate_no_references(mem);
+#if MACH_ASSERT
+		if (vm_check_refs_on_free) {
+			vm_page_validate_no_references(mem);
+		}
+#endif /* MACH_ASSERT */
 
 		{
 			vm_page_init(mem, VM_PAGE_GET_PHYS_PAGE(mem), mem->vmp_lopage);
@@ -4331,9 +4352,13 @@ vm_page_free_list(
 			mem->vmp_snext = NULL;
 			assert(mem->vmp_pageq.prev == 0);
 
-			if (!mem->vmp_fictitious && !mem->vmp_private) {
-				vm_page_validate_no_references(mem);
+#if MACH_ASSERT
+			if (vm_check_refs_on_free) {
+				if (!mem->vmp_fictitious && !mem->vmp_private) {
+					vm_page_validate_no_references(mem);
+				}
 			}
+#endif /* MACH_ASSERT */
 
 			if (__improbable(mem->vmp_realtime)) {
 				vm_page_lock_queues();
@@ -4703,6 +4728,7 @@ vm_page_wire(
 				 * wired, so adjust its state and the
 				 * accounting.
 				 */
+				vm_page_lockconvert_queues();
 				vm_object_reuse_pages(m_object,
 				    mem->vmp_offset,
 				    mem->vmp_offset + PAGE_SIZE_64,
@@ -4889,6 +4915,7 @@ vm_page_deactivate_internal(
 		return;
 	}
 	if (!m->vmp_absent && clear_hw_reference == TRUE) {
+		vm_page_lockconvert_queues();
 		pmap_clear_reference(VM_PAGE_GET_PHYS_PAGE(m));
 	}
 
@@ -6729,7 +6756,7 @@ vm_page_do_delayed_work(
 	 * successfully acquire the object lock of any candidate page
 	 * before it can steal/clean it.
 	 */
-	if (!vm_page_trylockspin_queues()) {
+	if (!vm_page_trylock_queues()) {
 		vm_object_unlock(object);
 
 		/*
@@ -6743,7 +6770,7 @@ vm_page_do_delayed_work(
 		 * case to a single mutex_pause(0) which will give vm_pageout_scan
 		 * 10us to run and grab the object if needed.
 		 */
-		vm_page_lockspin_queues();
+		vm_page_lock_queues();
 
 		for (j = 0;; j++) {
 			if ((!vm_object_lock_avoid(object) ||
@@ -6753,7 +6780,7 @@ vm_page_do_delayed_work(
 			}
 			vm_page_unlock_queues();
 			mutex_pause(j);
-			vm_page_lockspin_queues();
+			vm_page_lock_queues();
 		}
 	}
 	for (j = 0; j < dw_count; j++, dwp++) {
@@ -7645,7 +7672,7 @@ hibernate_discard_page(vm_page_t m)
 			vm_purgeable_token_delete_first(old_queue);
 		}
 		vm_object_lock_assert_exclusive(m_object);
-		m_object->purgable = VM_PURGABLE_EMPTY;
+		VM_OBJECT_SET_PURGABLE(m_object, VM_PURGABLE_EMPTY);
 
 		/*
 		 * Purgeable ledgers:  pages of VOLATILE and EMPTY objects are
@@ -9489,34 +9516,41 @@ kern_allocation_update_subtotal(kern_allocation_name_t allocation, uint32_t subt
 	struct vm_allocation_total * total;
 	uint32_t subidx;
 
-	subidx = 0;
 	assert(VM_KERN_MEMORY_NONE != subtag);
 	lck_ticket_lock(&vm_allocation_sites_lock, &vm_page_lck_grp_bucket);
-	for (; subidx < allocation->subtotalscount; subidx++) {
-		if (VM_KERN_MEMORY_NONE == allocation->subtotals[subidx].tag) {
-			allocation->subtotals[subidx].tag = (vm_tag_t)subtag;
-			break;
-		}
-		if (subtag == allocation->subtotals[subidx].tag) {
+	for (subidx = 0; subidx < allocation->subtotalscount; subidx++) {
+		total = &allocation->subtotals[subidx];
+		if (subtag == total->tag) {
 			break;
 		}
 	}
-	lck_ticket_unlock(&vm_allocation_sites_lock);
+	if (subidx >= allocation->subtotalscount) {
+		for (subidx = 0; subidx < allocation->subtotalscount; subidx++) {
+			total = &allocation->subtotals[subidx];
+			if ((VM_KERN_MEMORY_NONE == total->tag)
+			    || !total->total) {
+				total->tag = (vm_tag_t)subtag;
+				break;
+			}
+		}
+	}
 	assert(subidx < allocation->subtotalscount);
 	if (subidx >= allocation->subtotalscount) {
+		lck_ticket_unlock(&vm_allocation_sites_lock);
 		return;
 	}
-
-	total = &allocation->subtotals[subidx];
-	other = vm_allocation_sites[subtag];
-	assert(other);
-
 	if (delta < 0) {
 		assertf(total->total >= ((uint64_t)-delta), "name %p", allocation);
+	}
+	OSAddAtomic64(delta, &total->total);
+	lck_ticket_unlock(&vm_allocation_sites_lock);
+
+	other = vm_allocation_sites[subtag];
+	assert(other);
+	if (delta < 0) {
 		assertf(other->mapped >= ((uint64_t)-delta), "other %p", other);
 	}
 	OSAddAtomic64(delta, &other->mapped);
-	OSAddAtomic64(delta, &total->total);
 }
 
 const char *
@@ -10187,3 +10221,9 @@ vm_retire_boot_pages(void)
  */
 uint64_t ecc_panic_physical_address = 0;
 
+
+boolean_t
+vm_page_created(vm_page_t page)
+{
+	return (page < &vm_pages[0]) || (page >= &vm_pages[vm_pages_count]);
+}

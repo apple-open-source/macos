@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -458,11 +458,12 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -524,20 +525,25 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = (
-					"-ftrivial-auto-var-init=zero",
-					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
-				);
+				OTHER_CFLAGS = "";
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
-				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
-				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++14";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++14 -fno-rtti";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = driverkit.internal;
 				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks",
+					"$(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(DRIVERKITROOT)/usr/include",
+					"$(SRCROOT)",
+				);
 				TAPI_VERIFY_MODE = ErrorsOnly;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
@@ -550,11 +556,12 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -613,20 +620,25 @@
 				LD_RUNPATH_SEARCH_PATHS = "";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = (
-					"-ftrivial-auto-var-init=zero",
-					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
-				);
+				OTHER_CFLAGS = "";
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
-				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
-				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++14";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++14 -fno-rtti";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = driverkit.internal;
 				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks",
+					"$(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(DRIVERKITROOT)/usr/include",
+					"$(SRCROOT)",
+				);
 				TAPI_VERIFY_MODE = ErrorsOnly;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
@@ -639,11 +651,12 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -702,20 +715,25 @@
 				LD_RUNPATH_SEARCH_PATHS = "";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = (
-					"-ftrivial-auto-var-init=zero",
-					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
-				);
+				OTHER_CFLAGS = "";
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
-				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
-				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++14";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++14 -fno-rtti";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = driverkit.internal;
 				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks";
-				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks",
+					"$(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks",
+				);
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(DRIVERKITROOT)/usr/include",
+					"$(SRCROOT)",
+				);
 				TAPI_VERIFY_MODE = ErrorsOnly;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
@@ -726,6 +744,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -738,15 +758,16 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
-				OTHER_CFLAGS = (
-					"-ftrivial-auto-var-init=zero",
-					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
-				);
+				OTHER_CFLAGS = "";
 				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;
 				SECTORDER_FLAGS = "";
-				SYSTEM_HEADER_SEARCH_PATHS = "DriverKit/Headers $(SRCROOT)/SCSIControllerDriverKit $(SRCROOT)";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					DriverKit/Headers,
+					"$(SRCROOT)/SCSIControllerDriverKit",
+					"$(SRCROOT)",
+				);
 				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -762,6 +783,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=0";
@@ -772,15 +795,16 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
-				OTHER_CFLAGS = (
-					"-ftrivial-auto-var-init=zero",
-					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
-				);
+				OTHER_CFLAGS = "";
 				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;
 				SECTORDER_FLAGS = "";
-				SYSTEM_HEADER_SEARCH_PATHS = "DriverKit/Headers $(SRCROOT)/SCSIControllerDriverKit $(SRCROOT)";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					DriverKit/Headers,
+					"$(SRCROOT)/SCSIControllerDriverKit",
+					"$(SRCROOT)",
+				);
 				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -796,6 +820,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
 				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=0";
 				IIG_FRAMEWORK_NAME = SCSIControllerDriverKit;
 				INFOPLIST_FILE = "Info-IOSCSIParallelFamily.plist";
@@ -804,15 +830,16 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
-				OTHER_CFLAGS = (
-					"-ftrivial-auto-var-init=zero",
-					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
-				);
+				OTHER_CFLAGS = "";
 				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;
 				SECTORDER_FLAGS = "";
-				SYSTEM_HEADER_SEARCH_PATHS = "DriverKit/Headers $(SRCROOT)/SCSIControllerDriverKit $(SRCROOT)";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					DriverKit/Headers,
+					"$(SRCROOT)/SCSIControllerDriverKit",
+					"$(SRCROOT)",
+				);
 				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -826,18 +853,21 @@
 		E6B5F37A0A40B2E600F7D6D1 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 			};
 			name = Development;
 		};
 		E6B5F37B0A40B2E600F7D6D1 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 			};
 			name = Deployment;
 		};
 		E6B5F37C0A40B2E600F7D6D1 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 			};
 			name = Default;
 		};

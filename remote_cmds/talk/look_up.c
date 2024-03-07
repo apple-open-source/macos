@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -34,7 +32,7 @@
 #include <sys/cdefs.h>
 
 #ifndef __APPLE__
-__FBSDID("$FreeBSD: src/usr.bin/talk/look_up.c,v 1.8 2005/02/09 09:13:36 stefanf Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)look_up.c	8.1 (Berkeley) 6/6/93";
@@ -47,6 +45,7 @@ static const char sccsid[] = "@(#)look_up.c	8.1 (Berkeley) 6/6/93";
 
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "talk_ctl.h"
 #include "talk.h"
@@ -55,20 +54,16 @@ static const char sccsid[] = "@(#)look_up.c	8.1 (Berkeley) 6/6/93";
  * See if the local daemon has an invitation for us.
  */
 int
-check_local()
+check_local(void)
 {
 	CTL_RESPONSE response;
 	CTL_RESPONSE *rp = &response;
 	struct sockaddr addr;
 
 	/* the rest of msg was set up in get_names */
-#ifdef MSG_EOR
 	/* copy new style sockaddr to old, swap family (short in old) */
-	msg.ctl_addr = *(struct osockaddr *)&ctl_addr;
+	msg.ctl_addr = *(struct tsockaddr *)&ctl_addr;
 	msg.ctl_addr.sa_family = htons(ctl_addr.sin_family);
-#else
-	msg.ctl_addr = *(struct sockaddr *)&ctl_addr;
-#endif
 	/* must be initiating a talk */
 	if (!look_for_invite(rp))
 		return (0);
@@ -108,8 +103,7 @@ check_local()
  * Look for an invitation on 'machine'
  */
 int
-look_for_invite(rp)
-	CTL_RESPONSE *rp;
+look_for_invite(CTL_RESPONSE *rp)
 {
 	current_state = "Checking for invitation on caller's machine";
 	ctl_transact(his_machine_addr, msg, LOOK_UP, rp);

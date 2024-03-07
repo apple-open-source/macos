@@ -102,7 +102,7 @@ void WebSharedWorkerServer::requestSharedWorker(WebCore::SharedWorkerKey&& share
     }
 
     RELEASE_LOG(SharedWorker, "WebSharedWorkerServer::requestSharedWorker: Fetching shared worker script in client");
-    serverConnection->fetchScriptInClient(*sharedWorker, sharedWorkerObjectIdentifier, [weakThis = WeakPtr { *this }, sharedWorker = WeakPtr { *sharedWorker }](auto&& fetchResult, auto&& initializationData) {
+    serverConnection->fetchScriptInClient(*sharedWorker, sharedWorkerObjectIdentifier, [weakThis = WeakPtr { *this }, sharedWorker = WeakPtr { *sharedWorker }](WebCore::WorkerFetchResult&& fetchResult, WebCore::WorkerInitializationData&& initializationData) {
         if (weakThis && sharedWorker)
             weakThis->didFinishFetchingSharedWorkerScript(*sharedWorker, WTFMove(fetchResult), WTFMove(initializationData));
     });
@@ -125,16 +125,16 @@ void WebSharedWorkerServer::didFinishFetchingSharedWorkerScript(WebSharedWorker&
     sharedWorker.setInitializationData(WTFMove(initializationData));
     sharedWorker.setFetchResult(WTFMove(fetchResult));
 
-    if (auto* connection = m_contextConnections.get(sharedWorker.registrableDomain()))
+    if (auto* connection = m_contextConnections.get(sharedWorker.topRegistrableDomain()))
         sharedWorker.launch(*connection);
     else
-        createContextConnection(sharedWorker.registrableDomain(), sharedWorker.firstSharedWorkerObjectProcess());
+        createContextConnection(sharedWorker.topRegistrableDomain(), sharedWorker.firstSharedWorkerObjectProcess());
 }
 
 bool WebSharedWorkerServer::needsContextConnectionForRegistrableDomain(const WebCore::RegistrableDomain& registrableDomain) const
 {
     for (auto& sharedWorker : m_sharedWorkers.values()) {
-        if (registrableDomain.matches(sharedWorker->url()))
+        if (registrableDomain == sharedWorker->topRegistrableDomain())
             return true;
     }
     return false;
@@ -171,7 +171,7 @@ void WebSharedWorkerServer::addContextConnection(WebSharedWorkerServerToContextC
 
     ASSERT(!m_contextConnections.contains(contextConnection.registrableDomain()));
 
-    m_contextConnections.add(contextConnection.registrableDomain(), &contextConnection);
+    m_contextConnections.add(contextConnection.registrableDomain(), contextConnection);
 
     contextConnectionCreated(contextConnection);
 }
@@ -197,7 +197,7 @@ void WebSharedWorkerServer::contextConnectionCreated(WebSharedWorkerServerToCont
     RELEASE_LOG(SharedWorker, "WebSharedWorkerServer::contextConnectionCreated(%p) webProcessIdentifier=%" PRIu64, &contextConnection, contextConnection.webProcessIdentifier().toUInt64());
     auto& registrableDomain = contextConnection.registrableDomain();
     for (auto& sharedWorker : m_sharedWorkers.values()) {
-        if (!registrableDomain.matches(sharedWorker->url()))
+        if (registrableDomain != sharedWorker->topRegistrableDomain())
             continue;
 
         sharedWorker->didCreateContextConnection(contextConnection);

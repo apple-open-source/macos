@@ -28,6 +28,8 @@
 #include "RunLoopObserver.h"
 #include <JavaScriptCore/EdenGCActivityCallback.h>
 #include <JavaScriptCore/FullGCActivityCallback.h>
+#include <JavaScriptCore/MarkedSpace.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
@@ -118,7 +120,7 @@ private:
 
     bool shouldAllowOpportunisticallyScheduledTasks() const;
 
-    WeakPtr<Page> m_page;
+    SingleThreadWeakPtr<Page> m_page;
     uint64_t m_imminentlyScheduledWorkCount { 0 };
     uint64_t m_runloopCountAfterBeingScheduled { 0 };
     MonotonicTime m_currentDeadline;

@@ -50,24 +50,20 @@
 - (void)setLowLatency:(bool)lowLatencyEnabled;
 - (void)setUseAnnexB:(bool)useAnnexB;
 - (void)setDescriptionCallback:(RTCVideoEncoderDescriptionCallback)callback;
+- (void)setErrorCallback:(RTCVideoEncoderErrorCallback)callback;
 - (void)flush;
 @end
 
 @implementation WK_RTCLocalVideoH264H265Encoder {
     RTCVideoEncoderH264 *m_h264Encoder;
-#ifdef WEBRTC_USE_H265
     RTCVideoEncoderH265 *m_h265Encoder;
-#endif
 }
 
 - (instancetype)initWithCodecInfo:(RTCVideoCodecInfo*)codecInfo scalabilityMode:(webrtc::LocalEncoderScalabilityMode)scalabilityMode {
     if (self = [super init]) {
-#ifdef WEBRTC_USE_H265
         if ([codecInfo.name isEqualToString:@"H265"])
             m_h265Encoder = [[RTCVideoEncoderH265 alloc] initWithCodecInfo:codecInfo];
-        else
-#endif
-        {
+        else {
             m_h264Encoder = [[RTCVideoEncoderH264 alloc] initWithCodecInfo:codecInfo];
             if (scalabilityMode == webrtc::LocalEncoderScalabilityMode::L1T2)
                 [m_h264Encoder enableL1T2ScalabilityMode];
@@ -80,108 +76,76 @@
 
 - (webrtc::VideoCodecType)codecType
 {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder)
         return webrtc::kVideoCodecH264;
     return webrtc::kVideoCodecH265;
-#else
-    return webrtc::kVideoCodecH264;
-#endif
 }
 
 - (void)setCallback:(RTCVideoEncoderCallback)callback {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder)
         return [m_h264Encoder setCallback:callback];
     return [m_h265Encoder setCallback:callback];
-#else
-    return [m_h264Encoder setCallback:callback];
-#endif
 }
 
 - (NSInteger)releaseEncoder {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder)
         return [m_h264Encoder releaseEncoder];
     return [m_h265Encoder releaseEncoder];
-#else
-    return [m_h264Encoder releaseEncoder];
-#endif
 }
 
 - (NSInteger)startEncodeWithSettings:(RTCVideoEncoderSettings *)settings numberOfCores:(int)numberOfCores {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder)
         return [m_h264Encoder startEncodeWithSettings:settings numberOfCores:numberOfCores];
     return [m_h265Encoder startEncodeWithSettings:settings numberOfCores:numberOfCores];
-#else
-    return [m_h264Encoder startEncodeWithSettings:settings numberOfCores:numberOfCores];
-#endif
 }
 
 - (NSInteger)encode:(RTCVideoFrame *)frame codecSpecificInfo:(nullable id<RTCCodecSpecificInfo>)info frameTypes:(NSArray<NSNumber *> *)frameTypes {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder)
         return [m_h264Encoder encode:frame codecSpecificInfo:info frameTypes:frameTypes];
     return [m_h265Encoder encode:frame codecSpecificInfo:info frameTypes:frameTypes];
-#else
-    return [m_h264Encoder encode:frame codecSpecificInfo:info frameTypes:frameTypes];
-#endif
 }
 
 - (int)setBitrate:(uint32_t)bitrateKbit framerate:(uint32_t)framerate {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder)
         return [m_h264Encoder setBitrate:bitrateKbit framerate:framerate];
     return [m_h265Encoder setBitrate:bitrateKbit framerate:framerate];
-#else
-    return [m_h264Encoder setBitrate:bitrateKbit framerate:framerate];
-#endif
 }
 - (void)setLowLatency:(bool)lowLatencyEnabled {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder)
         [m_h264Encoder setH264LowLatencyEncoderEnabled:lowLatencyEnabled];
     [m_h265Encoder setLowLatency:lowLatencyEnabled];
-#else
-    [m_h264Encoder setH264LowLatencyEncoderEnabled:lowLatencyEnabled];
-#endif
 }
 
 - (void)setUseAnnexB:(bool)useAnnexB {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder) {
         [m_h264Encoder setUseAnnexB:useAnnexB];
         return;
     }
     [m_h265Encoder setUseAnnexB:useAnnexB];
-#else
-    [m_h264Encoder setUseAnnexB:useAnnexB];
-#endif
 }
 
 - (void)setDescriptionCallback:(RTCVideoEncoderDescriptionCallback)callback {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder) {
         [m_h264Encoder setDescriptionCallback:callback];
         return;
     }
     [m_h265Encoder setDescriptionCallback:callback];
-#else
-    [m_h264Encoder setDescriptionCallback:callback];
-#endif
+}
+
+- (void)setErrorCallback:(RTCVideoEncoderErrorCallback)callback {
+    if (m_h264Encoder) {
+        [m_h264Encoder setErrorCallback:callback];
+        return;
+    }
+    [m_h265Encoder setErrorCallback:callback];
 }
 
 - (void)flush {
-#ifdef WEBRTC_USE_H265
     if (m_h264Encoder) {
         [m_h264Encoder flush];
         return;
     }
     [m_h265Encoder flush];
-#else
-    [m_h264Encoder flush];
-#endif
 }
 @end
 
@@ -289,19 +253,7 @@ std::unique_ptr<VideoEncoder> RemoteVideoEncoderFactory::CreateVideoEncoder(cons
 
 std::unique_ptr<webrtc::VideoEncoderFactory> createWebKitEncoderFactory(WebKitH265 supportsH265, WebKitVP9 supportsVP9, WebKitH264LowLatency useH264LowLatency, WebKitAv1 supportsAv1)
 {
-#if ENABLE_VCP_ENCODER || ENABLE_VCP_VTB_ENCODER
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
-        webrtc::VPModuleInitialize();
-    });
-#endif
-
-#ifdef WEBRTC_USE_H265
-    auto withH265 = supportsH265 == WebKitH265::On;
-#else
-    auto withH265 = false;
-#endif
-    auto internalFactory = ObjCToNativeVideoEncoderFactory([[RTCDefaultVideoEncoderFactory alloc] initWithH265: withH265 vp9Profile0:supportsVP9 > WebKitVP9::Off vp9Profile2:supportsVP9 == WebKitVP9::Profile0And2 lowLatencyH264:useH264LowLatency == WebKitH264LowLatency::On av1:supportsAv1 == WebKitAv1::On]);
+    auto internalFactory = ObjCToNativeVideoEncoderFactory([[RTCDefaultVideoEncoderFactory alloc] initWithH265: supportsH265 == WebKitH265::On vp9Profile0:supportsVP9 > WebKitVP9::Off vp9Profile2:supportsVP9 == WebKitVP9::Profile0And2 lowLatencyH264:useH264LowLatency == WebKitH264LowLatency::On av1:supportsAv1 == WebKitAv1::On]);
 
     return std::make_unique<VideoEncoderFactoryWithSimulcast>(std::make_unique<RemoteVideoEncoderFactory>(std::move(internalFactory)));
 }
@@ -368,6 +320,34 @@ int32_t RemoteVideoEncoder::RegisterEncodeCompleteCallback(EncodedImageCallback*
     return videoEncoderCallbacks().registerEncodeCompleteCallback(m_internalEncoder, callback);
 }
 
+static inline VideoRotation fromEncoded(WebKitEncodedVideoRotation encoded)
+{
+    switch (encoded) {
+    case WebKitEncodedVideoRotation::kVideoRotation_0:
+        return VideoRotation::kVideoRotation_0;
+    case WebKitEncodedVideoRotation::kVideoRotation_90:
+        return VideoRotation::kVideoRotation_90;
+    case WebKitEncodedVideoRotation::kVideoRotation_180:
+        return VideoRotation::kVideoRotation_180;
+    case WebKitEncodedVideoRotation::kVideoRotation_270:
+        return VideoRotation::kVideoRotation_270;
+    }
+}
+
+static inline WebKitEncodedVideoRotation toEncoded(VideoRotation rotation)
+{
+    switch (rotation) {
+    case VideoRotation::kVideoRotation_0:
+        return WebKitEncodedVideoRotation::kVideoRotation_0;
+    case VideoRotation::kVideoRotation_90:
+        return WebKitEncodedVideoRotation::kVideoRotation_90;
+    case VideoRotation::kVideoRotation_180:
+        return WebKitEncodedVideoRotation::kVideoRotation_180;
+    case VideoRotation::kVideoRotation_270:
+        return WebKitEncodedVideoRotation::kVideoRotation_270;
+    }
+}
+
 void encoderVideoTaskComplete(void* callback, webrtc::VideoCodecType codecType, const uint8_t* buffer, size_t length, const WebKitEncodedFrameInfo& info)
 {
     webrtc::EncodedImage encodedImage;
@@ -375,12 +355,12 @@ void encoderVideoTaskComplete(void* callback, webrtc::VideoCodecType codecType, 
 
     encodedImage._encodedWidth = info.width;
     encodedImage._encodedHeight = info.height;
-    encodedImage.SetTimestamp(info.timeStamp);
+    encodedImage.SetRtpTimestamp(info.timeStamp);
     encodedImage.capture_time_ms_ = info.captureTimeMS;
     encodedImage.ntp_time_ms_ = info.ntpTimeMS;
     encodedImage.timing_ = info.timing;
     encodedImage._frameType = info.frameType;
-    encodedImage.rotation_ = info.rotation;
+    encodedImage.rotation_ = fromEncoded(info.rotation);
     encodedImage.qp_ = info.qp;
     encodedImage.content_type_ = info.contentType;
 
@@ -388,15 +368,13 @@ void encoderVideoTaskComplete(void* callback, webrtc::VideoCodecType codecType, 
     codecSpecificInfo.codecType = codecType;
     if (codecType == kVideoCodecH264)
         codecSpecificInfo.codecSpecific.H264.packetization_mode = H264PacketizationMode::NonInterleaved;
-#ifdef WEBRTC_USE_H265
     else if (codecType == kVideoCodecH265)
         codecSpecificInfo.codecSpecific.H265.packetization_mode = H265PacketizationMode::NonInterleaved;
-#endif
 
     static_cast<EncodedImageCallback*>(callback)->OnEncodedImage(encodedImage, &codecSpecificInfo);
 }
 
-void* createLocalEncoder(const webrtc::SdpVideoFormat& format, bool useAnnexB, webrtc::LocalEncoderScalabilityMode scalabilityMode, LocalEncoderCallback frameCallback, LocalEncoderDescriptionCallback descriptionCallback)
+void* createLocalEncoder(const webrtc::SdpVideoFormat& format, bool useAnnexB, webrtc::LocalEncoderScalabilityMode scalabilityMode, LocalEncoderCallback frameCallback, LocalEncoderDescriptionCallback descriptionCallback, LocalEncoderErrorCallback errorCallback)
 {
     auto *codecInfo = [[RTCVideoCodecInfo alloc] initWithNativeSdpVideoFormat: format];
     auto *encoder = [[WK_RTCLocalVideoH264H265Encoder alloc] initWithCodecInfo:codecInfo scalabilityMode:scalabilityMode];
@@ -416,7 +394,7 @@ void* createLocalEncoder(const webrtc::SdpVideoFormat& format, bool useAnnexB, w
         info.ntpTimeMS = encodedImage.ntp_time_ms_;
         info.captureTimeMS = encodedImage.capture_time_ms_;
         info.frameType = encodedImage._frameType;
-        info.rotation = encodedImage.rotation_;
+        info.rotation = toEncoded(encodedImage.rotation_);
         info.contentType = encodedImage.content_type_;
         info.qp = encodedImage.qp_;
         info.timing = encodedImage.timing_;
@@ -428,6 +406,9 @@ void* createLocalEncoder(const webrtc::SdpVideoFormat& format, bool useAnnexB, w
 
     [encoder setUseAnnexB:useAnnexB];
     [encoder setDescriptionCallback:descriptionCallback];
+    [encoder setErrorCallback:^(OSStatus result) {
+        errorCallback(result == noErr);
+    }];
 
     return (__bridge_retained void*)encoder;
 }

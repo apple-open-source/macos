@@ -35,6 +35,8 @@
 #include "ScrollingStateFrameScrollingNode.h"
 #include "ScrollingStateOverflowScrollProxyNode.h"
 #include "ScrollingStateOverflowScrollingNode.h"
+#include "ScrollingStatePluginHostingNode.h"
+#include "ScrollingStatePluginScrollingNode.h"
 #include "ScrollingStatePositionedNode.h"
 #include "ScrollingStateStickyNode.h"
 #include <wtf/text/CString.h>
@@ -61,7 +63,51 @@ ScrollingStateTree::ScrollingStateTree(AsyncScrollingCoordinator* scrollingCoord
 {
 }
 
+ScrollingStateTree::ScrollingStateTree(ScrollingStateTree&&) = default;
+
 ScrollingStateTree::~ScrollingStateTree() = default;
+
+std::optional<ScrollingStateTree> ScrollingStateTree::createAfterReconstruction(bool hasNewRootStateNode, bool hasChangedProperties, RefPtr<ScrollingStateFrameScrollingNode>&& rootStateNode)
+{
+    ScrollingStateTree tree(hasNewRootStateNode, hasChangedProperties, WTFMove(rootStateNode));
+
+    bool allIdentifiersUnique { true };
+    if (tree.m_rootStateNode) {
+        tree.m_rootStateNode->traverse([&] (auto& node) {
+            auto addResult = tree.m_stateNodeMap.add(node.scrollingNodeID(), node);
+            if (!addResult.isNewEntry)
+                allIdentifiersUnique = false;
+        });
+    }
+    if (!allIdentifiersUnique)
+        return std::nullopt;
+
+    return { WTFMove(tree) };
+}
+
+ScrollingStateTree::ScrollingStateTree(bool hasNewRootStateNode, bool hasChangedProperties, RefPtr<ScrollingStateFrameScrollingNode>&& rootStateNode)
+    : m_rootStateNode(WTFMove(rootStateNode))
+    , m_hasNewRootStateNode(hasNewRootStateNode)
+{
+    setHasChangedProperties(hasChangedProperties);
+}
+
+void ScrollingStateTree::attachDeserializedNodes()
+{
+    // This needs to be done after the move constructor has been called because we deserialize
+    // into a ScrollingStateTree then move to a std::unique_ptr<ScrollingStateTree> and if we
+    // did this in the constructor, createAfterReconstruction would be setting nodes' tree pointers
+    // to the wrong ScrollingStateTree.
+    if (m_rootStateNode) {
+        m_rootStateNode->attachAfterDeserialization(*this);
+        ASSERT(m_rootStateNode->parentPointersAreCorrect());
+    }
+}
+
+RefPtr<ScrollingStateFrameScrollingNode> ScrollingStateTree::rootStateNode() const
+{
+    return m_rootStateNode;
+}
 
 void ScrollingStateTree::setHasChangedProperties(bool changedProperties)
 {
@@ -86,6 +132,10 @@ Ref<ScrollingStateNode> ScrollingStateTree::createNode(ScrollingNodeType nodeTyp
         return ScrollingStateFrameScrollingNode::create(*this, nodeType, nodeID);
     case ScrollingNodeType::FrameHosting:
         return ScrollingStateFrameHostingNode::create(*this, nodeID);
+    case ScrollingNodeType::PluginScrolling:
+        return ScrollingStatePluginScrollingNode::create(*this, nodeType, nodeID);
+    case ScrollingNodeType::PluginHosting:
+        return ScrollingStatePluginHostingNode::create(*this, nodeID);
     case ScrollingNodeType::Overflow:
         return ScrollingStateOverflowScrollingNode::create(*this, nodeID);
     case ScrollingNodeType::OverflowProxy:
@@ -168,7 +218,7 @@ ScrollingNodeID ScrollingStateTree::insertNode(ScrollingNodeType nodeType, Scrol
         unparentNode(newNodeID);
     }
 
-    ScrollingStateNode* newNode = nullptr;
+    RefPtr<ScrollingStateNode> newNode;
     if (!parentID) {
         RELEASE_ASSERT(nodeType == ScrollingNodeType::MainFrame);
         ASSERT(!childIndex || childIndex == notFound);
@@ -275,7 +325,7 @@ void ScrollingStateTree::detachAndDestroySubtree(ScrollingNodeID nodeID)
 
 void ScrollingStateTree::clear()
 {
-    if (auto* node = rootStateNode())
+    if (auto node = rootStateNode())
         removeNodeAndAllDescendants(*node);
 
     m_stateNodeMap.clear();
@@ -296,7 +346,7 @@ std::unique_ptr<ScrollingStateTree> ScrollingStateTree::commit(LayerRepresentati
     treeStateClone->setPreferredLayerRepresentation(preferredLayerRepresentation);
 
     if (m_rootStateNode)
-        treeStateClone->setRootStateNode(static_reference_cast<ScrollingStateFrameScrollingNode>(m_rootStateNode->cloneAndReset(*treeStateClone)));
+        treeStateClone->setRootStateNode(downcast<ScrollingStateFrameScrollingNode>(m_rootStateNode->cloneAndReset(*treeStateClone)));
 
     // Now the clone tree has changed properties, and the original tree does not.
     treeStateClone->m_hasChangedProperties = std::exchange(m_hasChangedProperties, false);
@@ -326,6 +376,10 @@ bool ScrollingStateTree::isValid() const
         case ScrollingNodeType::Subframe:
             break;
         case ScrollingNodeType::FrameHosting:
+            break;
+        case ScrollingNodeType::PluginScrolling:
+            break;
+        case ScrollingNodeType::PluginHosting:
             break;
         case ScrollingNodeType::Overflow:
             break;
@@ -364,7 +418,7 @@ void ScrollingStateTree::setRootStateNode(Ref<ScrollingStateFrameScrollingNode>&
 
 void ScrollingStateTree::addNode(ScrollingStateNode& node)
 {
-    m_stateNodeMap.add(node.scrollingNodeID(), &node);
+    m_stateNodeMap.add(node.scrollingNodeID(), node);
 }
 
 void ScrollingStateTree::removeNodeAndAllDescendants(ScrollingStateNode& node)

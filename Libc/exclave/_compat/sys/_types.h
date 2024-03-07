@@ -39,7 +39,6 @@ typedef uint64_t      ino64_t;       /* [???] Used for 64 bit inodes */
 typedef ino64_t       ino_t;         /* [???] Used for inodes */
 typedef uint16_t      mode_t;        /* [???] Some file attributes */
 typedef uint16_t      nlink_t;       /* link count */
-typedef int64_t       off_t;         /* [???] Used for file sizes */
 
 #endif /* ENABLE_EXCLAVE_STORAGE */
 

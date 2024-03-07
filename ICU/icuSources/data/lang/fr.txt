@@ -86,6 +86,7 @@ fr{
         bfd{"bafut"}
         bfq{"badaga"}
         bg{"bulgare"}
+        bgc{"haryanvi"}
         bgn{"baloutchi occidental"}
         bho{"bhodjpouri"}
         bi{"bichelamar"}
@@ -1048,6 +1049,8 @@ fr{
         compatibility{"{0} — compatibilité"}
         enclosed{"{0} — entouré"}
         extended{"{0} — étendu"}
+        facing-left{"{0} vers la gauche"}
+        facing-right{"{0} vers la droite"}
         historic{"{0} — historique"}
         miscellaneous{"{0} — divers"}
         other{"{0} — autre"}
@@ -1066,7 +1069,5 @@ fr{
     }
     localeDisplayPattern{
         keyTypePattern{"{0} : {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

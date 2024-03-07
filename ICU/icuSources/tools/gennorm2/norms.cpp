@@ -5,6 +5,13 @@
 // created: 2017jun04 Markus W. Scherer
 // (pulled out of n2builder.cpp)
 
+#if /*APPLE_ICU_CHANGES*/true // APPLE_ICU_CHANGES is defined in uconfig.h below, but that's too late
+// rdar://121241618 (StarlightE: VideosUI-883.40.54#24 has failed to build in install; cannot initialize a variable of type 'const UChar *' (aka 'const char16_t)
+#ifndef UCHAR_TYPE
+#define UCHAR_TYPE char16_t
+#endif
+#endif // APPLE_ICU_CHANGES
+
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_NORMALIZATION
@@ -231,7 +238,7 @@ void Decomposer::rangeHandler(UChar32 start, UChar32 end, Norm &norm) {
     if(!norm.hasMapping()) { return; }
     const UnicodeString &m=*norm.mapping;
     UnicodeString *decomposed=nullptr;
-    const UChar *s=toUCharPtr(m.getBuffer());
+    const char16_t *s=toUCharPtr(m.getBuffer());
     int32_t length=m.length();
     int32_t prev, i=0;
     UChar32 c;
@@ -286,7 +293,7 @@ void Decomposer::rangeHandler(UChar32 start, UChar32 end, Norm &norm) {
             }
             decomposed->append(*cNorm.mapping);
         } else if(Hangul::isHangul(c)) {
-            UChar buffer[3];
+            char16_t buffer[3];
             int32_t hangulLength=Hangul::decompose(c, buffer);
             if(norm.mappingType==Norm::ROUND_TRIP && prev!=0) {
                 fprintf(stderr,

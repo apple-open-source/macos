@@ -56,3 +56,21 @@ calendar/events.c	freebsd	usr.bin/calendar/events.c	d87cb51f56615b76ecddba5a78af
 calendar/pom.c	freebsd	usr.bin/calendar/pom.c	fd1efedc79e2d29a68478fd400a42d59f1b56c7b
 calendar/sunpos.c	freebsd	usr.bin/calendar/sunpos.c	fd1efedc79e2d29a68478fd400a42d59f1b56c7b
 calendar/calendar.c	freebsd	usr.bin/calendar/calendar.c	3fa2a149d68d22fa32ba7b6c09773388ac490fd1
+
+leave/leave.1	freebsd	usr.bin/leave/leave.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+leave/leave.c	freebsd	usr.bin/leave/leave.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+ncal/calendar.c	freebsd	lib/libcalendar/calendar.c	5e53a4f90f82c4345f277dd87cc9292f26e04a29
+ncal/calendar.h	freebsd	lib/libcalendar/calendar.h	5e53a4f90f82c4345f277dd87cc9292f26e04a29
+ncal/easter.c	freebsd	lib/libcalendar/easter.c	5e53a4f90f82c4345f277dd87cc9292f26e04a29
+ncal/ncal.1	freebsd	usr.bin/ncal/ncal.1	358952cac088977287391b98a8a834141d20f42c
+ncal/ncal.c	freebsd	usr.bin/ncal/ncal.c	5903d9c00b75f17f09404d1001ee5aaae7603a61
+
+tsort/tsort.1	freebsd	usr.bin/tsort/tsort.1	9051d94e9aa55a557f22aa2e3a8a53386f6a091c
+tsort/tsort.c	freebsd	usr.bin/tsort/tsort.c	b55bc49e8694d9226a82041ff23ad61a5c7a6a76
+tsort/tests/tsort_test.sh	freebsd	usr.bin/tsort/tests/tsort_test.sh	09aee570980b7eca6e3c902a66f6db129b8c7376
+
+units/README	freebsd	usr.bin/units/README	c3aac50f284c6cca5b4f2eb46aaa13812cb8b630
+units/units.1	freebsd	usr.bin/units/units.1	3431172fa862dccb2a8b918161da186cfafc95f0
+units/units.c	freebsd	usr.bin/units/units.c	4a3b87e295e2149f7a22b41839e5df19f2b836b1
+units/units.lib	freebsd	usr.bin/units/definitions.units	4a3b87e295e2149f7a22b41839e5df19f2b836b1

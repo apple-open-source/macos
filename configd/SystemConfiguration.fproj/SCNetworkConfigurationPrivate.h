@@ -793,6 +793,16 @@ Boolean
 _SCNetworkInterfaceIsTethered				(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.6), ios(3.0));
 
 /*!
+	@function _SCNetworkInterfaceIsTetheredHotspot
+	@discussion Identifies if a network interface is an Apple tethered hotspot device (e.g. an iPhone).
+	@param interface The network interface.
+	@result TRUE if the interface is a tethered hotspot device.
+ */
+Boolean
+_SCNetworkInterfaceIsTetheredHotspot			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(14.4), ios(17.4));
+
+
+/*!
 	@function _SCNetworkInterfaceIsThunderbolt
 	@discussion Identifies if a network interface is a Thunderbolt device
 	@param interface The network interface.

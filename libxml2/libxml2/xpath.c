@@ -63,6 +63,7 @@
 #endif
 
 #include "buf.h"
+#include "private/xpath.h"
 
 #ifdef LIBXML_PATTERN_ENABLED
 #define XPATH_STREAMING
@@ -631,9 +632,9 @@ static const char * const xmlXPathErrorMessages[] = {
  * @ctxt:  an XPath context
  * @extra:  extra information
  *
- * Handle a redefinition of attribute error
+ * Handle a memory allocation failure.
  */
-static void
+void
 xmlXPathErrMemory(xmlXPathContextPtr ctxt, const char *extra)
 {
     if (ctxt != NULL) {
@@ -674,9 +675,9 @@ xmlXPathErrMemory(xmlXPathContextPtr ctxt, const char *extra)
  * @ctxt:  an XPath parser context
  * @extra:  extra information
  *
- * Handle a redefinition of attribute error
+ * Handle a memory allocation failure.
  */
-static void
+void
 xmlXPathPErrMemory(xmlXPathParserContextPtr ctxt, const char *extra)
 {
     if (ctxt == NULL)
@@ -992,8 +993,7 @@ struct _xmlXPathCompExpr {
  *			Forward declarations				*
  *									*
  ************************************************************************/
-static void
-xmlXPathFreeValueTree(xmlNodeSetPtr obj);
+
 static void
 xmlXPathReleaseObject(xmlXPathContextPtr ctxt, xmlXPathObjectPtr obj);
 static int
@@ -4195,34 +4195,6 @@ xmlXPathNodeSetKeepLast(xmlNodeSetPtr set)
     set->nodeNr = 1;
 }
 
-/**
- * xmlXPathFreeValueTree:
- * @obj:  the xmlNodeSetPtr to free
- *
- * Free the NodeSet compound and the actual tree, this is different
- * from xmlXPathFreeNodeSet()
- */
-static void
-xmlXPathFreeValueTree(xmlNodeSetPtr obj) {
-    int i;
-
-    if (obj == NULL) return;
-
-    if (obj->nodeTab != NULL) {
-	for (i = 0;i < obj->nodeNr;i++) {
-	    if (obj->nodeTab[i] != NULL) {
-		if (obj->nodeTab[i]->type == XML_NAMESPACE_DECL) {
-		    xmlXPathNodeSetFreeNs((xmlNsPtr) obj->nodeTab[i]);
-		} else {
-		    xmlFreeNodeList(obj->nodeTab[i]);
-		}
-	    }
-	}
-	xmlFree(obj->nodeTab);
-    }
-    xmlFree(obj);
-}
-
 #if defined(DEBUG) || defined(DEBUG_STEP)
 /**
  * xmlGenericErrorContextNodeSet:
@@ -4307,19 +4279,13 @@ xmlXPathObjectPtr
 xmlXPathNewValueTree(xmlNodePtr val) {
     xmlXPathObjectPtr ret;
 
-    ret = (xmlXPathObjectPtr) xmlMalloc(sizeof(xmlXPathObject));
+    ret = xmlXPathNewNodeSet(val);
     if (ret == NULL) {
         xmlXPathErrMemory(NULL, "creating result value tree\n");
 	return(NULL);
     }
-    memset(ret, 0 , (size_t) sizeof(xmlXPathObject));
     ret->type = XPATH_XSLT_TREE;
-    ret->boolval = 1;
-    ret->user = (void *) val;
-    ret->nodesetval = xmlXPathNodeSetCreate(val);
-#ifdef XP_DEBUG_OBJ_USAGE
-    xmlXPathDebugObjUsageRequested(NULL, XPATH_XSLT_TREE);
-#endif
+
     return(ret);
 }
 
@@ -5452,20 +5418,8 @@ void
 xmlXPathFreeObject(xmlXPathObjectPtr obj) {
     if (obj == NULL) return;
     if ((obj->type == XPATH_NODESET) || (obj->type == XPATH_XSLT_TREE)) {
-	if (obj->boolval) {
-#if 0
-	    if (obj->user != NULL) {
-                xmlXPathFreeNodeSet(obj->nodesetval);
-		xmlFreeNodeList((xmlNodePtr) obj->user);
-	    } else
-#endif
-	    obj->type = XPATH_XSLT_TREE; /* TODO: Just for debugging. */
-	    if (obj->nodesetval != NULL)
-		xmlXPathFreeValueTree(obj->nodesetval);
-	} else {
-	    if (obj->nodesetval != NULL)
-		xmlXPathFreeNodeSet(obj->nodesetval);
-	}
+        if (obj->nodesetval != NULL)
+            xmlXPathFreeNodeSet(obj->nodesetval);
 #ifdef LIBXML_XPTR_LOCS_ENABLED
     } else if (obj->type == XPATH_LOCATIONSET) {
 	if (obj->user != NULL)
@@ -5514,16 +5468,7 @@ xmlXPathReleaseObject(xmlXPathContextPtr ctxt, xmlXPathObjectPtr obj)
 	    case XPATH_NODESET:
 	    case XPATH_XSLT_TREE:
 		if (obj->nodesetval != NULL) {
-		    if (obj->boolval) {
-			/*
-			* It looks like the @boolval is used for
-			* evaluation if this an XSLT Result Tree Fragment.
-			* TODO: Check if this assumption is correct.
-			*/
-			obj->type = XPATH_XSLT_TREE; /* just for debugging */
-			xmlXPathFreeValueTree(obj->nodesetval);
-			obj->nodesetval = NULL;
-		    } else if ((obj->nodesetval->nodeMax <= 40) &&
+		    if ((obj->nodesetval->nodeMax <= 40) &&
 			(XP_CACHE_WANTS(cache->nodesetObjs,
 					cache->maxNodeset)))
 		    {

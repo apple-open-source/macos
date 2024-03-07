@@ -211,7 +211,9 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
   * @return BOOL                     Whether or not the payload was delivered successfully
   */
 - (BOOL)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
-                           error:(NSError**)error;
+                           error:(NSError**)error
+API_DEPRECATED("No longer needed", macos(10.15, 14.4), ios(13.0, 17.4), watchos(6.0, 10.4), tvos(13.0,17.4));
+
 
 /* *
   * @abstract                       Create and Set a Recovery Key
@@ -312,6 +314,17 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
                                      returns NO if no recovery keys are distrusted
   */
 + (BOOL)areRecoveryKeysDistrusted:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
+
+
+/* *
+  * @abstract                        Register a recovery key in SOS and force a backup
+  * @param ctx                       Configuration context containing parameters to setup OTClique
+  * @param recoveryKey               Recovery Key string
+  * @param error                     An error parameter: filled in if the call times out or fails in any way
+  * @return BOOL                     returns YES if the recovery key is successfully registered in SOS
+                                     returns NO if the operation failed
+  */
++ (BOOL)registerRecoveryKeyInSOSAndBackup:(OTConfigurationContext*)ctx recoveryKey:(NSString*)recoveryKey error:(NSError**)error;
 
 @end
 

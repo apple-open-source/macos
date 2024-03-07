@@ -334,6 +334,25 @@ en_001{
                 }
             }
         }
+        islamic{
+            availableFormats{
+                Ed{"E d"}
+                GyMMMEd{"E, d MMM y G"}
+                GyMMMd{"d MMM y G"}
+                GyMd{"dd/MM/y GGGGG"}
+                M{"LL"}
+                MEd{"E, dd/MM"}
+                MMMEd{"E, d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"dd/MM"}
+                yyyyM{"MM/y GGGGG"}
+                yyyyMEd{"E, dd/MM/y GGGGG"}
+                yyyyMMMEd{"E, d MMM y G"}
+                yyyyMMMd{"d MMM y G"}
+                yyyyMd{"dd/MM/y GGGGG"}
+            }
+        }
         japanese{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
@@ -744,6 +763,12 @@ en_001{
     }
     listPattern{
         or{
+            end{"{0} or {1}"}
+        }
+        or-narrow{
+            end{"{0} or {1}"}
+        }
+        or-short{
             end{"{0} or {1}"}
         }
         standard-short{

@@ -54,9 +54,12 @@ FILE_RCSID("@(#)$File: funcs.c,v 1.122 2021/06/30 10:08:48 christos Exp $")
 protected char *
 file_copystr(char *buf, size_t blen, size_t width, const char *str)
 {
-	if (++width > blen)
-		width = blen;
-	strlcpy(buf, str, width);
+	if (blen == 0)
+		return buf;
+	if (width >= blen)
+		width = blen - 1;
+	memcpy(buf, str, width);
+	buf[width] = '\0';
 	return buf;
 }
 

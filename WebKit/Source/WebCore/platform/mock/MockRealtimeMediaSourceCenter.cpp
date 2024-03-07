@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
- * Copyright (C) 2013-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc.  All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,6 +80,8 @@ static inline Vector<MockMediaDevice> defaultDevices()
                     { { 112, 112 },  { { 30, 30}, { 27.5, 27.5}, { 25, 25}, { 22.5, 22.5}, { 20, 20}, { 17.5, 17.5}, { 15, 15}, { 12.5, 12.5}, { 10, 10}, { 7.5, 7.5}, { 5, 5} }, 1, 1 },
                 },
                 Color::black,
+                { }, // whiteBalanceModes
+                false, // supportsTorch
             } },
 
         MockMediaDevice { "239c24b3-2b15-11e3-8224-0800200c9a66"_s, "Mock video device 2"_s, { },
@@ -96,6 +98,8 @@ static inline Vector<MockMediaDevice> defaultDevices()
                     { { 160, 120 },   { { 2, 30 } }, 1, 4 },
                 },
                 Color::darkGray,
+                { MeteringMode::Manual, MeteringMode::SingleShot, MeteringMode::Continuous },
+                true,
             } },
 
         MockMediaDevice { "SCREEN-1"_s, "Mock screen device 1"_s, { }, MockDisplayProperties { CaptureDevice::DeviceType::Screen, Color::lightGray, { 1920, 1080 } } },
@@ -254,12 +258,7 @@ private:
 #endif
 };
 
-class MockRealtimeAudioSourceFactory final
-#if PLATFORM(IOS_FAMILY)
-    : public CoreAudioCaptureSourceFactoryIOS
-#else
-    : public AudioCaptureFactory
-#endif
+class MockRealtimeAudioSourceFactory final : public AudioCaptureFactory
 {
 public:
     CaptureSourceOrError createAudioCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, PageIdentifier pageIdentifier) final

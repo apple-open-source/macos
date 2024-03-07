@@ -122,13 +122,9 @@ __FBSDID("$FreeBSD$");
 #define to_int64_time(t) \
    ((t) < 0 ? (int64_t)(t) : (uint64_t)(t) > (uint64_t)INT64_MAX ? INT64_MAX : (int64_t)(t))
 
-#if __APPLE__
-#include <TargetConditionals.h>
-#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED && HAVE_QUARANTINE_H
+#ifdef HAVE_MAC_QUARANTINE
 #include <quarantine.h>
-#define HAVE_QUARANTINE 1
-#endif
-#endif
+#endif // HAVE_MAC_QUARANTINE
 
 #ifdef HAVE_ZLIB_H
 #include <zlib.h>
@@ -321,6 +317,9 @@ struct archive_write_disk {
 	int			 stream_valid;
 	int			 decmpfs_compression_level;
 #endif
+#ifdef HAVE_MAC_QUARANTINE
+	qtn_file_t		qf;
+#endif // HAVE_MAC_QUARANTINE
 };
 
 /*
@@ -576,6 +575,17 @@ archive_write_disk_set_options(struct archive *_a, int flags)
 	return (ARCHIVE_OK);
 }
 
+#ifdef HAVE_MAC_QUARANTINE
+void
+archive_write_disk_set_quarantine(struct archive *_a, qtn_file_t qf)
+{
+	struct archive_write_disk *a = (struct archive_write_disk *)_a;
+
+	qtn_file_t new_qtn_file_t = qtn_file_clone(qf);
+	a->qf = new_qtn_file_t;
+
+}
+#endif // HAVE_MAC_QUARANTINE
 
 /*
  * Extract this entry to disk.
@@ -1843,6 +1853,17 @@ _archive_write_disk_finish_entry(struct archive *_a)
 		if (r2 < ret) ret = r2;
 	}
 
+#ifdef HAVE_MAC_QUARANTINE
+	/* Restore quarantine this needs to be done before any permissions are added */
+	if (a->qf) {
+		if (qtn_file_apply_to_path(a->qf, a->name)) {
+			if (ARCHIVE_WARN < ret) {
+				ret = ARCHIVE_WARN;
+			}
+		}
+	}
+#endif // HAVE_MAC_QUARANTINE
+
 	/*
 	 * Look up the "real" UID only if we're going to need it.
 	 * TODO: the TODO_SGID condition can be dropped here, can't it?
@@ -2721,6 +2742,12 @@ _archive_write_disk_free(struct archive *_a)
 		}
 	}
 #endif
+#ifdef HAVE_MAC_QUARANTINE
+	if (a->qf) {
+		qtn_file_free(a->qf);
+		a->qf = NULL;
+	}
+#endif // HAVE_MAC_QUARANTINE
 	free(a);
 	return (ret);
 }

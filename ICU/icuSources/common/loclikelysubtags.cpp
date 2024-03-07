@@ -233,9 +233,11 @@ private:
                 return false;
             }
             for (int i = 0; i < length; ++i) {
-                stringArray.getValue(i, value);  // returns true because i < length
-                rawIndexes[i] = strings.add(value.getUnicodeString(errorCode), errorCode);
-                if (U_FAILURE(errorCode)) { return false; }
+                if (stringArray.getValue(i, value)) {  // returns true because i < length
+                    int32_t strLength = 0;
+                    rawIndexes[i] = strings.add(value.getString(strLength, errorCode), errorCode);
+                    if (U_FAILURE(errorCode)) { return false; }
+                }
             }
         }
         return true;
@@ -399,6 +401,46 @@ LSR XLikelySubtags::maximize(const char *language, const char *script, const cha
     if (*script != 0 && *region != 0 && *language != 0) {
         return LSR(language, script, region, LSR::EXPLICIT_LSR);  // already maximized
     }
+
+#if APPLE_ICU_CHANGES
+// rdar://116151591: Work around bug in CLDR-to-ICU tool that keeps us from being able to add mappings involving
+// the "Aran" script code to likelySubtag.xml.  This is temporary code that should be removed when ICU-22571 is fixed.
+    if (uprv_strcmp(script, "Aran") == 0) {
+        if (*language == 0 && *region == 0) {
+            return LSR("ur", "Aran", "PK", LSR::EXPLICIT_LSR);
+        } else if (*region == 0) {
+            if (uprv_strcmp(language, "ks") == 0) {
+                return LSR("ks", "Aran", "IN", LSR::EXPLICIT_LSR);
+            } else if (uprv_strcmp(language, "ur") == 0 || uprv_strcmp(language, "pa") == 0) {
+                return LSR(language, "Aran", "PK", LSR::EXPLICIT_LSR);
+            }
+        } else if (*language == 0) {
+            if (uprv_strcmp(region, "IN") == 0) {
+                return LSR("ks", "Aran", "IN", LSR::EXPLICIT_LSR);
+            } else if (uprv_strcmp(region, "PK") == 0) {
+                return LSR("ur", "Aran", "PK", LSR::EXPLICIT_LSR);
+            }
+        }
+    } else if (*script == 0) {
+        if (*language == 0 && uprv_strcmp(region, "PK") == 0) {
+            return LSR("ur", "Aran", "PK", LSR::EXPLICIT_LSR);
+        } else if (uprv_strcmp(language, "ur") == 0) {
+            if (*region == 0) {
+                return LSR("ur", "Aran", "PK", LSR::EXPLICIT_LSR);
+            } else {
+                return LSR("ur", "Aran", region, LSR::EXPLICIT_LSR);
+            }
+        } else if (uprv_strcmp(language, "ks") == 0) {
+            if (*region == 0) {
+                return LSR("ks", "Aran", "IN", LSR::EXPLICIT_LSR);
+            } else {
+                return LSR("ks", "Aran", region, LSR::EXPLICIT_LSR);
+            }
+        } else if (uprv_strcmp(language, "pa") == 0 && uprv_strcmp(region, "PK") == 0) {
+            return LSR("pa", "Aran", "PK", LSR::EXPLICIT_LSR);
+        }
+    }
+#endif // APPLE_ICU_CHANGES
 
     uint32_t retainOldMask = 0;
     BytesTrie iter(trie);

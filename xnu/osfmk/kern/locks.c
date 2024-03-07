@@ -514,7 +514,7 @@ hw_lock_bit_timeout_panic(void *_lock, hw_spin_timeout_t to, hw_spin_state_t st)
 	    *lock, HW_SPIN_TIMEOUT_DETAILS_ARG(to, st));
 }
 
-static const struct hw_spin_policy hw_lock_bit_policy = {
+const struct hw_spin_policy hw_lock_bit_policy = {
 	.hwsp_name              = "hw_lock_bit_t",
 	.hwsp_timeout_atomic    = &lock_panic_timeout,
 	.hwsp_op_timeout        = hw_lock_bit_timeout_panic,
@@ -867,7 +867,8 @@ static hw_lock_status_t NOINLINE
 hw_lock_bit_to_contended(
 	hw_lock_bit_t          *lock,
 	uint32_t                bit,
-	hw_spin_policy_t        pol
+	hw_spin_policy_t        pol,
+	bool (^lock_pause)(void)
 	LCK_GRP_ARG(lck_grp_t *grp))
 {
 	hw_spin_timeout_t to = hw_spin_compute_timeout(pol);
@@ -885,10 +886,14 @@ hw_lock_bit_to_contended(
 
 	do {
 		for (int i = 0; i < LOCK_SNOOP_SPINS; i++) {
-			rc = hw_lock_trylock_bit(lock, bit, true);
+			rc = (hw_lock_trylock_bit(lock, bit, true) ? HW_LOCK_ACQUIRED : HW_LOCK_CONTENDED);
 
 			if (rc == HW_LOCK_ACQUIRED) {
 				lck_grp_spin_update_held(lock LCK_GRP_ARG(grp));
+				goto end;
+			}
+
+			if (__improbable(lock_pause && lock_pause())) {
 				goto end;
 			}
 		}
@@ -908,11 +913,12 @@ end:
 }
 
 __result_use_check
-static inline unsigned int
+static inline hw_lock_status_t
 hw_lock_bit_to_internal(
 	hw_lock_bit_t          *lock,
 	unsigned int            bit,
-	hw_spin_policy_t        pol
+	hw_spin_policy_t        pol,
+	bool (^lock_pause)(void)
 	LCK_GRP_ARG(lck_grp_t *grp))
 {
 	if (__probable(hw_lock_trylock_bit(lock, bit, true))) {
@@ -920,7 +926,7 @@ hw_lock_bit_to_internal(
 		return HW_LOCK_ACQUIRED;
 	}
 
-	return (unsigned)hw_lock_bit_to_contended(lock, bit, pol LCK_GRP_ARG(grp));
+	return hw_lock_bit_to_contended(lock, bit, pol, lock_pause LCK_GRP_ARG(grp));
 }
 
 /*
@@ -939,7 +945,7 @@ int
 	LCK_GRP_ARG(lck_grp_t *grp))
 {
 	_disable_preemption();
-	return hw_lock_bit_to_internal(lock, bit, pol LCK_GRP_ARG(grp));
+	return (unsigned int)hw_lock_bit_to_internal(lock, bit, pol, NULL LCK_GRP_ARG(grp));
 }
 
 /*
@@ -952,27 +958,50 @@ void
 (hw_lock_bit)(hw_lock_bit_t * lock, unsigned int bit LCK_GRP_ARG(lck_grp_t *grp))
 {
 	_disable_preemption();
-	(void)hw_lock_bit_to_internal(lock, bit, &hw_lock_bit_policy LCK_GRP_ARG(grp));
+	(void)hw_lock_bit_to_internal(lock, bit, &hw_lock_bit_policy, NULL LCK_GRP_ARG(grp));
 }
 
 /*
  *	Routine: hw_lock_bit_nopreempt
  *
- *	Acquire bit lock, spinning until it becomes available.
+ *	Acquire bit lock with preemption already disabled, spinning until it becomes available.
  */
 void
 (hw_lock_bit_nopreempt)(hw_lock_bit_t * lock, unsigned int bit LCK_GRP_ARG(lck_grp_t *grp))
 {
 	__lck_require_preemption_disabled(lock, current_thread());
-	(void)hw_lock_bit_to_internal(lock, bit, &hw_lock_bit_policy LCK_GRP_ARG(grp));
+	(void)hw_lock_bit_to_internal(lock, bit, &hw_lock_bit_policy, NULL LCK_GRP_ARG(grp));
+}
+
+/*
+ *	Routine: hw_lock_bit_to_b
+ *
+ *	Acquire bit lock, spinning until it becomes available, times out,
+ *      or the supplied lock_pause callout returns true.
+ *	Timeout is in mach_absolute_time ticks (TSC in Intel), return with
+ *	preemption disabled iff the lock is successfully acquired.
+ */
+hw_lock_status_t
+(hw_lock_bit_to_b)(
+	hw_lock_bit_t          * lock,
+	uint32_t                bit,
+	hw_spin_policy_t        pol,
+	bool (^lock_pause) (void)
+	LCK_GRP_ARG(lck_grp_t * grp))
+{
+	_disable_preemption();
+	hw_lock_status_t ret = hw_lock_bit_to_internal(lock, bit, pol, lock_pause LCK_GRP_ARG(grp));
+	if (ret != HW_LOCK_ACQUIRED) {
+		lock_enable_preemption();
+	}
+	return ret;
 }
 
 
-unsigned
-int
+bool
 (hw_lock_bit_try)(hw_lock_bit_t * lock, unsigned int bit LCK_GRP_ARG(lck_grp_t *grp))
 {
-	boolean_t success = false;
+	bool success = false;
 
 	_disable_preemption();
 	success = hw_lock_trylock_bit(lock, bit, false);

@@ -121,11 +121,10 @@ void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier 
 {
     ASSERT(m_imageDecoders.contains(identifier));
 
-    ShareableBitmap::Handle imageHandle;
+    std::optional<ShareableBitmap::Handle> imageHandle;
 
     auto invokeCallbackAtScopeExit = makeScopeExit([&] {
-        auto handle = !imageHandle.isNull() ? WTFMove(imageHandle) : std::optional<ShareableBitmap::Handle> { };
-        completionHandler(WTFMove(handle));
+        completionHandler(WTFMove(imageHandle));
     });
 
     if (!m_imageDecoders.contains(identifier))
@@ -144,9 +143,8 @@ void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier 
         return;
 
     FloatRect imageRect { { }, imageSize };
-    context->drawNativeImage(*nativeImage, imageSize, imageRect, imageRect, { CompositeOperator::Copy });
-    if (auto handle = bitmap->createHandle())
-        imageHandle = WTFMove(*handle);
+    context->drawNativeImage(*nativeImage, imageRect, imageRect, { CompositeOperator::Copy });
+    imageHandle = bitmap->createHandle();
 }
 
 void RemoteImageDecoderAVFProxy::clearFrameBufferCache(ImageDecoderIdentifier identifier, size_t index)

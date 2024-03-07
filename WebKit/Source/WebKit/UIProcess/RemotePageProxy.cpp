@@ -31,14 +31,17 @@
 #include "FormDataReference.h"
 #include "FrameInfoData.h"
 #include "HandleMessage.h"
+#include "NativeWebMouseEvent.h"
 #include "NavigationActionData.h"
 #include "RemotePageDrawingAreaProxy.h"
 #include "RemotePageVisitedLinkStoreRegistration.h"
 #include "WebFrameProxy.h"
+#include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxy.h"
+#include <WebCore/RemoteUserInputEventData.h>
 
 namespace WebKit {
 
@@ -52,6 +55,9 @@ RemotePageProxy::RemotePageProxy(WebPageProxy& page, WebProcessProxy& process, c
         m_messageReceiverRegistration.transferMessageReceivingFrom(*registrationToTransfer, *this);
     else
         m_messageReceiverRegistration.startReceivingMessages(m_process, m_webPageID, *this);
+
+    m_process->addRemotePageProxy(*this);
+
     page.addRemotePageProxy(domain, *this);
 }
 
@@ -59,6 +65,10 @@ void RemotePageProxy::injectPageIntoNewProcess()
 {
     RefPtr page = m_page.get();
     if (!page) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+    if (!page->mainFrame()) {
         ASSERT_NOT_REACHED();
         return;
     }
@@ -70,30 +80,24 @@ void RemotePageProxy::injectPageIntoNewProcess()
     m_visitedLinkStoreRegistration = makeUnique<RemotePageVisitedLinkStoreRegistration>(*page, m_process);
 
     auto parameters = page->creationParameters(m_process, *drawingArea);
-    parameters.subframeProcessFrameTreeCreationParameters = page->frameTreeCreationParameters();
-    parameters.isProcessSwap = true; // FIXME: This should be a parameter to creationParameters rather than doctoring up the parameters afterwards.
+    parameters.subframeProcessPageParameters = WebPageCreationParameters::SubframeProcessPageParameters {
+        URL(page->currentURL()),
+        page->mainFrame()->frameTreeCreationParameters()
+    };
+    parameters.isProcessSwap = true; // FIXME: This should be a parameter to creationParameters rather than doctoring up the parameters afterwards. <rdar://116201784>
     parameters.topContentInset = 0;
-    m_process->send(Messages::WebProcess::CreateWebPage(m_webPageID, parameters), 0);
+    m_process->send(Messages::WebProcess::CreateWebPage(m_webPageID, WTFMove(parameters)), 0);
 }
 
 RemotePageProxy::~RemotePageProxy()
 {
+    m_process->removeRemotePageProxy(*this);
     if (m_page)
         m_page->removeRemotePageProxy(m_domain);
 }
 
 void RemotePageProxy::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-#if HAVE(VISIBILITY_PROPAGATION_VIEW)
-    // FIXME: This needs to be handled correctly in a way that doesn't cause assertions or crashes..
-    if (decoder.messageName() == Messages::WebPageProxy::DidCreateContextInWebProcessForVisibilityPropagation::name())
-        return;
-#endif
-
-    // FIXME: Removing this will be necessary to getting layout tests to work with site isolation.
-    if (decoder.messageName() == Messages::WebPageProxy::HandleMessage::name())
-        return;
-
     if (decoder.messageName() == Messages::WebPageProxy::DecidePolicyForResponse::name()) {
         IPC::handleMessageAsync<Messages::WebPageProxy::DecidePolicyForResponse>(connection, decoder, this, &RemotePageProxy::decidePolicyForResponse);
         return;
@@ -119,8 +123,20 @@ void RemotePageProxy::didReceiveMessage(IPC::Connection& connection, IPC::Decode
         return;
     }
 
+    if (decoder.messageName() == Messages::WebPageProxy::HandleMessage::name()) {
+        IPC::handleMessage<Messages::WebPageProxy::HandleMessage>(connection, decoder, this, &RemotePageProxy::handleMessage);
+        return;
+    }
+
     if (m_page)
         m_page->didReceiveMessage(connection, decoder);
+}
+
+void RemotePageProxy::handleMessage(const String& messageName, const WebKit::UserData& messageBody)
+{
+    if (!m_page)
+        return;
+    m_page->handleMessageShared(m_process, messageName, messageBody);
 }
 
 void RemotePageProxy::decidePolicyForResponse(FrameInfoData&& frameInfo, uint64_t navigationID, const WebCore::ResourceResponse& response, const WebCore::ResourceRequest& request, bool canShowMIMEType, const String& downloadAttribute, CompletionHandler<void(PolicyDecision&&)>&& completionHandler)
@@ -134,8 +150,9 @@ void RemotePageProxy::didCommitLoadForFrame(WebCore::FrameIdentifier frameID, Fr
 {
     m_process->didCommitProvisionalLoad();
     RefPtr frame = WebFrameProxy::webFrame(frameID);
-    if (frame)
-        frame->commitProvisionalFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData); // Will delete |this|.
+    if (!frame)
+        return;
+    frame->commitProvisionalFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData); // Will delete |this|.
 }
 
 void RemotePageProxy::decidePolicyForNavigationActionAsync(FrameInfoData&& frameInfo, uint64_t navigationID, NavigationActionData&& navigationActionData, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&& request, IPC::FormDataReference&& requestBody, CompletionHandler<void(PolicyDecision&&)>&& completionHandler)
@@ -180,6 +197,21 @@ bool RemotePageProxy::didReceiveSyncMessage(IPC::Connection& connection, IPC::De
         return m_page->didReceiveSyncMessage(connection, decoder, encoder);
 
     return false;
+}
+
+Ref<WebProcessProxy> RemotePageProxy::protectedProcess() const
+{
+    return m_process;
+}
+
+RefPtr<WebPageProxy> RemotePageProxy::protectedPage() const
+{
+    return m_page.get();
+}
+
+WebPageProxy* RemotePageProxy::page() const
+{
+    return m_page.get();
 }
 
 }

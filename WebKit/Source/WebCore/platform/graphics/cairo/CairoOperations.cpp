@@ -174,24 +174,22 @@ enum PathDrawingStyle {
 
 static void drawShadowLayerBuffer(GraphicsContextCairo& platformContext, ImageBuffer& layerImage, const FloatPoint& layerOrigin, const FloatSize& layerSize, const ShadowState& shadowState)
 {
-    if (auto nativeImage = layerImage.copyNativeImage(DontCopyBackingStore)) {
+    if (auto nativeImage = platformContext.nativeImageForDrawing(layerImage))
         drawPlatformImage(platformContext, nativeImage->platformImage().get(), FloatRect(roundedIntPoint(layerOrigin), layerSize), FloatRect(FloatPoint(), layerSize), { shadowState.globalCompositeOperator }, shadowState.globalAlpha, ShadowState());
-    }
 }
 
 // FIXME: This is mostly same as drawShadowLayerBuffer, so we should merge two.
 static void drawShadowImage(GraphicsContextCairo& platformContext, ImageBuffer& layerImage, const FloatRect& destRect, const FloatRect& srcRect, const ShadowState& shadowState)
 {
-    if (auto nativeImage = layerImage.copyNativeImage(DontCopyBackingStore)) {
+    if (auto nativeImage = platformContext.nativeImageForDrawing(layerImage))
         drawPlatformImage(platformContext, nativeImage->platformImage().get(), destRect, srcRect, { shadowState.globalCompositeOperator }, shadowState.globalAlpha, ShadowState());
-    }
 }
 
 static void fillShadowBuffer(GraphicsContextCairo& platformContext, ImageBuffer& layerImage, const FloatPoint& layerOrigin, const FloatSize& layerSize, const ShadowState& shadowState)
 {
     platformContext.save();
 
-    if (auto nativeImage = layerImage.copyNativeImage(DontCopyBackingStore))
+    if (auto nativeImage = platformContext.nativeImageForDrawing(layerImage))
         clipToImageBuffer(platformContext, nativeImage->platformImage().get(), FloatRect(layerOrigin, expandedIntSize(layerSize)));
 
     FillSource fillSource;
@@ -826,7 +824,7 @@ void drawGlyphs(GraphicsContextCairo& platformContext, const FillSource& fillSou
     cairo_restore(cr);
 }
 
-void drawPlatformImage(GraphicsContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options, float globalAlpha, const ShadowState& shadowState)
+void drawPlatformImage(GraphicsContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options, float globalAlpha, const ShadowState& shadowState)
 {
     platformContext.save();
 
@@ -854,7 +852,7 @@ void drawPlatformImage(GraphicsContextCairo& platformContext, cairo_surface_t* s
     platformContext.restore();
 }
 
-void drawPattern(GraphicsContextCairo& platformContext, cairo_surface_t* surface, const IntSize& size, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void drawPattern(GraphicsContextCairo& platformContext, cairo_surface_t* surface, const IntSize& size, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     // FIXME: Investigate why the size has to be passed in as an IntRect.
     drawPatternToCairoContext(platformContext.cr(), surface, size, tileRect, patternTransform, phase, spacing, toCairoOperator(options.compositeOperator(), options.blendMode()), options.interpolationQuality(), destRect);
@@ -902,8 +900,10 @@ void drawSurface(GraphicsContextCairo& platformContext, cairo_surface_t* surface
 
     switch (imageInterpolationQuality) {
     case InterpolationQuality::DoNotInterpolate:
-    case InterpolationQuality::Low:
         cairo_pattern_set_filter(pattern.get(), CAIRO_FILTER_FAST);
+        break;
+    case InterpolationQuality::Low:
+        cairo_pattern_set_filter(pattern.get(), CAIRO_FILTER_BILINEAR);
         break;
     case InterpolationQuality::Medium:
     case InterpolationQuality::Default:

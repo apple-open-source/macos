@@ -259,8 +259,13 @@ statf(int indent, FTSENT *p)
 		if ((fd = open(p->fts_accpath, O_RDONLY, 0)) < 0 ||
 		    crc(fd, &val, &len)) {
 			error = errno;
-			RECORD_FAILURE(27450, error);
-			errc(1, error, "%s", p->fts_accpath);
+			// If we are requesting the dataless keyword, don't fail if we EDEADLK
+			// because that means we didn't try to materialize the file, we just skip.
+			if (!(error == EDEADLK && (keys & F_DATALESS))) {
+				RECORD_FAILURE(27450, error);
+				errc(1, error, "%s", p->fts_accpath);
+			}
+			val = 0;
 		}
 		(void)close(fd);
 		output(indent, &offset, "cksum=%lu", (unsigned long)val);

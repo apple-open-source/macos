@@ -44,31 +44,25 @@ public:
     template<class Encoder>
     void encode(Encoder& encoder) const
     {
-        bool hasImageBuffer = m_imageBuffer;
-        encoder << hasImageBuffer;
-        if (hasImageBuffer) {
-            ImageBufferBackendHandle handle;
-            if (auto* backend = m_imageBuffer->ensureBackendCreated()) {
-                auto* sharing = backend->toBackendSharing();
-                if (is<ImageBufferBackendHandleSharing>(sharing))
-                    handle = downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle();
-            }
-            encoder << WTFMove(handle);
+        std::optional<ImageBufferBackendHandle> handle;
+        if (m_imageBuffer) {
+            auto* sharing = m_imageBuffer->toBackendSharing();
+            if (is<ImageBufferBackendHandleSharing>(sharing))
+                handle = downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle();
         }
+        encoder << WTFMove(handle);
     }
 
     template <class Decoder>
     static WARN_UNUSED_RETURN bool decode(Decoder& decoder, WCBackingStore& result)
     {
-        bool hasImageBuffer;
-        if (!decoder.decode(hasImageBuffer))
+        auto handle = decoder.template decode<std::optional<ImageBufferBackendHandle>>();
+        if (UNLIKELY(!decoder.isValid()))
             return false;
-        if (hasImageBuffer) {
-            ImageBufferBackendHandle handle;
-            if (!decoder.decode(handle))
-                return false;
-            result.m_bitmap = ShareableBitmap::create(WTFMove(std::get<ShareableBitmap::Handle>(handle)));
-        }
+
+        if (*handle)
+            result.m_bitmap = ShareableBitmap::create(WTFMove(std::get<ShareableBitmap::Handle>(**handle)));
+
         return true;
     }
 

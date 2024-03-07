@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoKeyHMAC.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoAlgorithmHmacKeyParams.h"
 #include "CryptoAlgorithmRegistry.h"
 #include "ExceptionOr.h"
@@ -136,7 +134,7 @@ ExceptionOr<size_t> CryptoKeyHMAC::getKeyLength(const CryptoAlgorithmParameters&
     if (result)
         return result;
 
-    return Exception { TypeError };
+    return Exception { ExceptionCode::TypeError };
 }
 
 auto CryptoKeyHMAC::algorithm() const -> KeyAlgorithm
@@ -149,5 +147,3 @@ auto CryptoKeyHMAC::algorithm() const -> KeyAlgorithm
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

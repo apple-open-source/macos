@@ -789,18 +789,24 @@ maybe_close(struct client *c)
 	return 0;
 
 #ifdef HAVE_GCD
-    dispatch_source_cancel(c->in);
-    if ((c->flags & WAITING_READ) == 0)
-	dispatch_resume(c->in);
-    dispatch_release(c->in);
-
-    dispatch_source_cancel(c->out);
-
-    if ((c->flags & WRITE_RUN) == 0) {
-	c->flags |= WRITE_RUN;
-	dispatch_resume(c->out);
+    if (c->in) {
+	dispatch_source_cancel(c->in);
+	if ((c->flags & WAITING_READ) == 0)
+	    dispatch_resume(c->in);
+	dispatch_release(c->in);
+	c->in = NULL;
     }
-    dispatch_release(c->out);
+
+    if (c->out) {
+	dispatch_source_cancel(c->out);
+	
+	if ((c->flags & WRITE_RUN) == 0) {
+	    c->flags |= WRITE_RUN;
+	    dispatch_resume(c->out);
+	}
+	dispatch_release(c->out);
+	c->out = NULL;
+    }
 #endif
     close(c->fd); /* ref count fd close */
     free(c->inmsg);

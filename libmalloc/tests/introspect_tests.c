@@ -18,6 +18,7 @@
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
+extern int32_t malloc_num_zones;
 extern malloc_zone_t **malloc_zones;
 
 void check_stats(malloc_zone_t *zone, malloc_statistics_t *stats) 
@@ -88,4 +89,30 @@ T_DECL(szone_statistics_test, "Test that we can introspect szone zone statistics
 	(void)malloc(16);
 	T_ASSERT_EQ(malloc_engaged_nano(), 0, "Nanozone not engaged");
 	test_stats(5000);
+}
+
+
+void check_zones(vm_address_t *zones, unsigned zone_count)
+{
+	T_EXPECT_EQ(zone_count, malloc_num_zones, "zone count");
+	for (unsigned i = 0; i < zone_count; i++) {
+		T_EXPECT_EQ(zones[i], (vm_address_t)malloc_zones[i], "malloc_num_zones[%d]", i);
+	}
+}
+
+T_DECL(malloc_get_all_zones,
+		"Test that we can retrieve the zones of our own process with a NULL reader",
+		T_META_TAG_XZONE)
+{
+	vm_address_t *zones;
+	unsigned zone_count;
+	kern_return_t kr;
+
+	kr = malloc_get_all_zones(mach_task_self(), /*reader=*/NULL, &zones, &zone_count);
+	T_QUIET; T_ASSERT_EQ(kr, KERN_SUCCESS, "malloc_get_all_zones(mach_task_self(), ...)");
+	check_zones(zones, zone_count);
+
+	kr = malloc_get_all_zones(TASK_NULL, /*reader=*/NULL, &zones, &zone_count);
+	T_QUIET; T_ASSERT_EQ(kr, KERN_SUCCESS, "malloc_get_all_zones(TASK_NULL, ...)");
+	check_zones(zones, zone_count);
 }

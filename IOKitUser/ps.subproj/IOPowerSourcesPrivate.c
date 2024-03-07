@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <AppleFeatures/AppleFeatures.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFXPCBridge.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>

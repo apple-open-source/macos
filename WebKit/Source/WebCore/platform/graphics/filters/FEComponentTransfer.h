@@ -71,7 +71,7 @@ using ComponentTransferFunctions = EnumeratedArray<ComponentTransferChannel, Com
 
 class FEComponentTransfer : public FilterEffect {
 public:
-    WEBCORE_EXPORT static Ref<FEComponentTransfer> create(const ComponentTransferFunction& redFunc, const ComponentTransferFunction& greenFunc, const ComponentTransferFunction& blueFunc, const ComponentTransferFunction& alphaFunc);
+    WEBCORE_EXPORT static Ref<FEComponentTransfer> create(const ComponentTransferFunction& redFunc, const ComponentTransferFunction& greenFunc, const ComponentTransferFunction& blueFunc, const ComponentTransferFunction& alphaFunc, DestinationColorSpace = DestinationColorSpace::SRGB());
     static Ref<FEComponentTransfer> create(ComponentTransferFunctions&&);
 
     bool operator==(const FEComponentTransfer&) const;
@@ -89,11 +89,8 @@ public:
     bool setOffset(ComponentTransferChannel, float);
     bool setTableValues(ComponentTransferChannel, Vector<float>&&);
 
-    template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static std::optional<Ref<FEComponentTransfer>> decode(Decoder&);
-
 private:
-    FEComponentTransfer(const ComponentTransferFunction& redFunc, const ComponentTransferFunction& greenFunc, const ComponentTransferFunction& blueFunc, const ComponentTransferFunction& alphaFunc);
+    FEComponentTransfer(const ComponentTransferFunction& redFunc, const ComponentTransferFunction& greenFunc, const ComponentTransferFunction& blueFunc, const ComponentTransferFunction& alphaFunc, DestinationColorSpace);
     FEComponentTransfer(ComponentTransferFunctions&&);
 
     bool operator==(const FilterEffect& other) const override { return areEqual<FEComponentTransfer>(*this, other); }
@@ -126,4 +123,4 @@ template<> struct EnumTraits<WebCore::ComponentTransferType> {
 
 } // namespace WTF
 
-SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FEComponentTransfer)
+SPECIALIZE_TYPE_TRAITS_FILTER_FUNCTION(FEComponentTransfer)

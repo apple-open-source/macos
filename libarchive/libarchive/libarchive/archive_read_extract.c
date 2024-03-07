@@ -35,6 +35,12 @@ __FBSDID("$FreeBSD: src/lib/libarchive/archive_read_extract.c,v 1.61 2008/05/26 
 #include "archive_private.h"
 #include "archive_read_private.h"
 
+#ifdef HAVE_MAC_QUARANTINE
+#include "archive_write_disk_private.h"
+
+#include <quarantine.h>
+#endif
+
 int
 archive_read_extract(struct archive *_a, struct archive_entry *entry, int flags)
 {
@@ -53,7 +59,17 @@ archive_read_extract(struct archive *_a, struct archive_entry *entry, int flags)
 			return (ARCHIVE_FATAL);
 		}
 		archive_write_disk_set_standard_lookup(extract->ad);
+
+#ifdef HAVE_MAC_QUARANTINE
+		/* propagate the quarantine flag */
+
+		if (a->qf) {
+			archive_write_disk_set_quarantine(extract->ad, a->qf);
+		}
+#endif // HAVE_MAC_QUARANTINE
+
 	}
+
 
 	archive_write_disk_set_options(extract->ad, flags);
 	return (archive_read_extract2(&a->archive, entry, extract->ad));

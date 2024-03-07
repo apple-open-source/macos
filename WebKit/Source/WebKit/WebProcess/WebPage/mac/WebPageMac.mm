@@ -96,7 +96,6 @@
 #import <WebCore/ScrollView.h>
 #import <WebCore/StyleInheritedData.h>
 #import <WebCore/TextIterator.h>
-#import <WebCore/ThemeMac.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WindowsKeyboardCodes.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
@@ -203,7 +202,7 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
 
 void WebPage::handleAcceptedCandidate(WebCore::TextCheckingResult acceptedCandidate)
 {
-    RefPtr frame = m_page->focusController().focusedFrame();
+    RefPtr frame = m_page->focusController().focusedLocalFrame();
     if (!frame)
         return;
 
@@ -220,18 +219,6 @@ NSObject *WebPage::accessibilityObjectForMainFramePlugin()
         return pluginView->accessibilityObject();
 
     return nil;
-}
-
-bool WebPage::shouldUsePDFPlugin(const String& contentType, StringView path) const
-{
-    return pdfPluginEnabled()
-#if ENABLE(PDFJS)
-        && !corePage()->settings().pdfJSViewerEnabled()
-#endif
-        && getPDFLayerControllerClass()
-        && (MIMETypeRegistry::isPDFOrPostScriptMIMEType(contentType)
-            || (contentType.isEmpty()
-                && (path.endsWithIgnoringASCIICase(".pdf"_s) || path.endsWithIgnoringASCIICase(".ps"_s))));
 }
 
 static String commandNameForSelectorName(const String& selectorName)
@@ -385,7 +372,7 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
     completionHandler(WebCore::AttributedString::fromNSAttributedString(WTFMove(attributedString)), rangeToSend);
 }
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(LEGACY_PDFKIT_PLUGIN)
 
 DictionaryPopupInfo WebPage::dictionaryPopupInfoForSelectionInPDFPlugin(PDFSelection *selection, PluginView& pdfPlugin, NSDictionary *options, WebCore::TextIndicatorPresentationTransition presentationTransition)
 {
@@ -453,27 +440,27 @@ bool WebPage::performNonEditingBehaviorForSelector(const String& selector, Keybo
     
     if (!frame->eventHandler().shouldUseSmoothKeyboardScrollingForFocusedScrollableArea()) {
         if (selector == "moveUp:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Line);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Line);
         else if (selector == "moveToBeginningOfParagraph:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Page);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Page);
         else if (selector == "moveToBeginningOfDocument:"_s) {
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Document);
-            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollGranularity::Document);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Document);
+            didPerformAction |= scroll(m_page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Document);
         } else if (selector == "moveDown:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Line);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Line);
         else if (selector == "moveToEndOfParagraph:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Page);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Page);
         else if (selector == "moveToEndOfDocument:"_s) {
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Document);
-            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollGranularity::Document);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Document);
+            didPerformAction |= scroll(m_page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Document);
         } else if (selector == "moveLeft:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollGranularity::Line);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Line);
         else if (selector == "moveWordLeft:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollGranularity::Page);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Page);
         else if (selector == "moveRight:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollGranularity::Line);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollRight, ScrollGranularity::Line);
         else if (selector == "moveWordRight:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollGranularity::Page);
+            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollRight, ScrollGranularity::Page);
     }
 
     if (selector == "moveToLeftEndOfLine:"_s)
@@ -600,7 +587,7 @@ void WebPage::setTopOverhangImage(WebImage* image)
     if (!frameView)
         return;
 
-    auto* layer = frameView->setWantsLayerForTopOverHangArea(image);
+    RefPtr layer = frameView->setWantsLayerForTopOverHangArea(image);
     if (!layer)
         return;
 
@@ -619,7 +606,7 @@ void WebPage::setBottomOverhangImage(WebImage* image)
     if (!frameView)
         return;
 
-    auto* layer = frameView->setWantsLayerForBottomOverHangArea(image);
+    RefPtr layer = frameView->setWantsLayerForBottomOverHangArea(image);
     if (!layer)
         return;
 
@@ -633,7 +620,7 @@ void WebPage::setBottomOverhangImage(WebImage* image)
 
 void WebPage::setUseFormSemanticContext(bool useFormSemanticContext)
 {
-    ThemeMac::setUseFormSemanticContext(useFormSemanticContext);
+    RenderTheme::singleton().setUseFormSemanticContext(useFormSemanticContext);
 }
 
 void WebPage::semanticContextDidChange(bool useFormSemanticContext)
@@ -931,16 +918,15 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
         }
     }
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (is<HTMLPlugInImageElement>(element)) {
         if (RefPtr pluginView = static_cast<PluginView*>(downcast<HTMLPlugInImageElement>(*element).pluginWidget())) {
             // FIXME: We don't have API to identify images inside PDFs based on position.
             auto lookupResult = pluginView->lookupTextAtLocation(locationInViewCoordinates, immediateActionResult);
             if (auto lookupText = std::get<String>(lookupResult); !lookupText.isEmpty()) {
                 // FIXME (144030): Focus does not seem to get set to the PDF when invoking the menu.
-                Ref document = element->document();
-                if (is<PluginDocument>(document))
-                    downcast<PluginDocument>(document).setFocusedElement(element.get());
+                if (RefPtr pluginDocument = dynamicDowncast<PluginDocument>(element->document()))
+                    pluginDocument->setFocusedElement(element.get());
 
                 auto selection = std::get<PDFSelection *>(lookupResult);
                 auto options = std::get<NSDictionary *>(lookupResult);
@@ -1075,11 +1061,25 @@ void WebPage::playbackTargetPickerWasDismissed(PlaybackTargetClientContextIdenti
 }
 #endif
 
+void WebPage::didBeginMagnificationGesture()
+{
+#if ENABLE(PDF_PLUGIN)
+    if (auto* pluginView = mainFramePlugIn()) {
+        pluginView->didBeginMagnificationGesture();
+        return;
+    }
+#endif
+}
+
 void WebPage::didEndMagnificationGesture()
 {
 #if ENABLE(MAC_GESTURE_EVENTS)
     if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame()))
         localMainFrame->eventHandler().didEndMagnificationGesture();
+#endif
+#if ENABLE(PDF_PLUGIN)
+    if (auto* pluginView = mainFramePlugIn())
+        pluginView->didEndMagnificationGesture();
 #endif
 }
 
@@ -1114,6 +1114,8 @@ void WebPage::setAppUsesCustomAccentColor(bool appUsesCustomAccentColor)
 
 #endif // HAVE(APP_ACCENT_COLORS)
 
+#if ENABLE(PDF_PLUGIN)
+
 void WebPage::zoomPDFIn(PDFPluginIdentifier identifier)
 {
     auto pdfPlugin = m_pdfPlugInsWithHUD.get(identifier);
@@ -1146,24 +1148,26 @@ void WebPage::openPDFWithPreview(PDFPluginIdentifier identifier, CompletionHandl
     pdfPlugin->openWithPreview(WTFMove(completionHandler));
 }
 
-void WebPage::createPDFHUD(PDFPlugin& plugin, const IntRect& boundingBox)
+void WebPage::createPDFHUD(PDFPluginBase& plugin, const IntRect& boundingBox)
 {
     auto addResult = m_pdfPlugInsWithHUD.add(plugin.identifier(), plugin);
     if (addResult.isNewEntry)
         send(Messages::WebPageProxy::CreatePDFHUD(plugin.identifier(), boundingBox));
 }
 
-void WebPage::updatePDFHUDLocation(PDFPlugin& plugin, const IntRect& boundingBox)
+void WebPage::updatePDFHUDLocation(PDFPluginBase& plugin, const IntRect& boundingBox)
 {
     if (m_pdfPlugInsWithHUD.contains(plugin.identifier()))
         send(Messages::WebPageProxy::UpdatePDFHUDLocation(plugin.identifier(), boundingBox));
 }
 
-void WebPage::removePDFHUD(PDFPlugin& plugin)
+void WebPage::removePDFHUD(PDFPluginBase& plugin)
 {
     if (m_pdfPlugInsWithHUD.remove(plugin.identifier()))
         send(Messages::WebPageProxy::RemovePDFHUD(plugin.identifier()));
 }
+
+#endif // ENABLE(PDF_PLUGIN)
 
 } // namespace WebKit
 

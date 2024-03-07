@@ -468,10 +468,34 @@ warning(const char *fmt, ...)
 	}
 }
 
+#ifdef __APPLE__
+static void
+reset_signal(int sig)
+{
+	struct sigaction old = {}, new = {};
+
+	new.sa_handler = SIG_DFL;
+	(void) sigaction(sig, &new, &old);
+}
+#endif /* __APPLE__ */
+
 static void
 exit_tcpdump(int status)
 {
 	nd_cleanup();
+
+#ifdef __APPLE__
+	reset_signal(SIGPIPE);
+	reset_signal(SIGTERM);
+	reset_signal(SIGINT);
+	reset_signal(SIGQUIT);
+	reset_signal(SIGABRT);
+	reset_signal(SIGHUP);
+	reset_signal(SIGNAL_REQ_INFO);
+	reset_signal(SIGNAL_FLUSH_PCAP);
+	reset_signal(SIGALRM);
+#endif /* __APPLE__ */
+
 	exit(status);
 }
 
@@ -2736,6 +2760,9 @@ main(int argc, char **argv)
 	if (dflag) {
 		bpf_dump(&fcode, dflag);
 		pcap_close(pd);
+#ifdef __APPLE__
+		pd = NULL;
+#endif /* __APPLE__ */
 		free(cmdbuf);
 		pcap_freecode(&fcode);
 		exit_tcpdump(S_SUCCESS);
@@ -3127,6 +3154,10 @@ DIAG_ON_CLANG(assign-enum)
 			info(1);
 		}
 		pcap_close(pd);
+#ifdef __APPLE__
+		pd = NULL;
+		dumpinfo.pd = NULL;
+#endif /* __APPLE__ */
 		if (VFileName != NULL) {
 			ret = get_next_file(VFile, VFileLine);
 			if (ret) {
@@ -3267,6 +3298,8 @@ DIAG_ON_CLANG(assign-enum)
 			pcap_ng_dump_close(dumpinfo.pdd);
 		else
 			pcap_dump_close(dumpinfo.pdd);
+		dumpinfo.pdd = NULL;
+		pdd = NULL;
 	}
     pcap_freecode(&fcode);
 #else
@@ -3324,6 +3357,9 @@ cleanup(int signo _U_)
 	 * to do anything with standard I/O streams in a signal handler -
 	 * the ANSI C standard doesn't say it is).
 	 */
+#ifdef __APPLE__
+	if (pd != NULL)
+#endif /* __APPLE__ */
 	pcap_breakloop(pd);
 #else
 	/*
@@ -3540,6 +3576,8 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 				pcap_ng_dump_close(dump_info->pdd);
 			else
 				pcap_dump_close(dump_info->pdd);
+			dump_info->pdd = NULL;
+			pdd = NULL;
 #endif /* __APPLE__ */
 
 			/*
@@ -3661,6 +3699,8 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 				pcap_ng_dump_close(dump_info->pdd);
 			else
 				pcap_dump_close(dump_info->pdd);
+			dump_info->pdd = NULL;
+			pdd = NULL;
 #endif /* __APPLE__ */
 
 			/*
@@ -4054,6 +4094,24 @@ handle_bpf_exthdr_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 #define	SWAPSHORT(y) \
 ((((y)&0xff00)>>8) | (((y)>>24)&0xff))
 
+#define MAX_PROC_NAME_LEN (2 * MAXCOMLEN)
+#define MAX_PROC_NAME_SIZE (MAX_PROC_NAME_LEN + 1)
+
+static void
+get_proc_name_string(char *procname, u_short maxlen, pcapng_block_t block)
+{
+	struct pcapng_option_info option_info;
+
+	if (pcap_ng_block_get_option(block, PCAPNG_PIB_NAME, &option_info) == 1) {
+		u_short len = option_info.length < maxlen ? option_info.length : maxlen;
+
+		memcpy(procname, option_info.value, len);
+		procname[len] = 0;
+	} else {
+		procname[0] = 0;
+	}
+}
+
 int
 handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 					const u_char *sp)
@@ -4114,10 +4172,9 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 		case PCAPNG_BT_PIB: {
 			struct pcapng_process_information_fields *pibp =
 			pcap_ng_get_process_information_fields(block);
-			const char *procname = "";
+			char procname[MAX_PROC_NAME_SIZE];
 
-			if (pcap_ng_block_get_option(block, PCAPNG_PIB_NAME, &option_info) == 1)
-				procname = option_info.value;
+			get_proc_name_string(procname, MAX_PROC_NAME_LEN, block);
 
 			if (pcap_ng_block_get_option(block, PCAPNG_PIB_UUID, &option_info) == 1) {
 				(void) pcap_add_proc_info_uuid(dump_info->pd, pibp->process_id, procname, option_info.value);
@@ -4281,17 +4338,18 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 				epbp->interface_id = if_info->if_dump_id;
 			}
 			if (proc_info != NULL) {
-				uint32_t pibindex;
-
 				if (pib_index_option_info.length != 4) {
 					warning("%s: pib index option length %u != 4", __func__, pib_index_option_info.length);
 					goto done;
 				}
-				pibindex = *(uint32_t *)(pib_index_option_info.value);
-				if (pcap_is_swapped(dump_info->pd))
-					pibindex = SWAPLONG(pibindex);
-
-				proc_info = pcap_find_proc_info_by_index(dump_info->pd, pibindex);
+				*(uint32_t *)(pib_index_option_info.value) = proc_info->proc_dump_index;
+			}
+			if (e_proc_info != NULL) {
+				if (e_pib_index_option_info.length != 4) {
+					warning("%s: epib index option length %u != 4", __func__, e_pib_index_option_info.length);
+					goto done;
+				}
+				*(uint32_t *)(e_pib_index_option_info.value) = e_proc_info->proc_dump_index;
 			}
 
 			break;
@@ -4517,10 +4575,9 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		case PCAPNG_BT_PIB: {
 			struct pcapng_process_information_fields *pibp =
 			pcap_ng_get_process_information_fields(block);
-			const char *procname = "";
+			char procname[MAX_PROC_NAME_SIZE];
 
-			if (pcap_ng_block_get_option(block, PCAPNG_PIB_NAME, &option_info) == 1)
-				procname = option_info.value;
+			get_proc_name_string(procname, MAX_PROC_NAME_LEN, block);
 
 			if (pcap_ng_block_get_option(block, PCAPNG_PIB_UUID, &option_info) == 1) {
 				proc_info = pcap_add_proc_info_uuid(ndo->ndo_pcap, pibp->process_id, procname, option_info.value);

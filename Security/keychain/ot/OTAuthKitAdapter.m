@@ -114,7 +114,7 @@
     }
 
     AKAnisetteProvisioningController* anisetteController = [[AKAnisetteProvisioningController alloc] init];
-    
+
     NSError* localError = nil;
     AKAnisetteData* anisetteData = [anisetteController anisetteDataWithError:&localError];
     if(!anisetteData) {
@@ -145,16 +145,21 @@
 
     secnotice("authkit", "fetched current machine ID as: %@", machineID);
 
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];    
+    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
     return machineID;
 }
 
 - (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID
-                                  reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSString* _Nullable version, NSError* _Nullable error))complete
+                                  reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs,
+                                                  NSSet<NSString*>* _Nullable userInitiatedRemovals,
+                                                  NSSet<NSString*>* _Nullable evictedRemovals,
+                                                  NSSet<NSString*>* _Nullable unknownReasonRemovals,
+                                                  NSString* _Nullable version,
+                                                  NSError* _Nullable error))complete
 {
     if([AKDeviceListRequestContext class] == nil || [AKAppleIDAuthenticationController class] == nil) {
         secnotice("authkit", "AuthKit not available");
-        complete(nil, nil, [NSError errorWithDomain:OctagonErrorDomain
+        complete(nil, nil, nil, nil, nil, [NSError errorWithDomain:OctagonErrorDomain
                                                code:OctagonErrorRequiredLibrariesNotPresent
                                         description:@"AKAnisette not available"]);
         return;
@@ -166,11 +171,13 @@
                                              code:OctagonErrorAuthKitAKDeviceListRequestContextClass
                                       description:@"can't get AKDeviceListRequestContextClass"];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-        complete(nil, nil, error);
+        complete(nil, nil, nil, nil, nil, error);
         return;
     }
 
     context.altDSID = altDSID;
+    // Set to AKDeviceListRequestContextTypeServerOnly to bypass any caching and force a server fetch
+    context.type = AKDeviceListRequestContextTypeServerOnly;
 
     AKAppleIDAuthenticationController *authController = [[AKAppleIDAuthenticationController alloc] init];
     if(authController == nil) {
@@ -178,37 +185,64 @@
                                              code:OctagonErrorAuthKitNoAuthenticationController
                                       description:@"can't get authController"];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-        complete(nil, nil, error);
+        complete(nil, nil, nil, nil, nil, error);
         return;
     }
 
     [authController deviceListWithContext:context completion:^(AKDeviceListResponse *response, NSError *error) {
-            if (error != nil) {
-                [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-                secnotice("authkit", "received no device list(%@): %@", altDSID, error);
-                complete(nil, nil, error);
-                return;
-            }
-            if (response == nil) {
-                NSError *error = [NSError errorWithDomain:OctagonErrorDomain
-                                                     code:OctagonErrorBadAuthKitResponse
-                                              description:@"bad response from AuthKit"];
-                complete(nil, nil, error);
-                [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-                return;
-            }
+        if (error != nil) {
+            [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
+            secnotice("authkit", "received no device list(%@): %@", altDSID, error);
+            complete(nil, nil, nil, nil, nil, error);
+            return;
+        }
+        if (response == nil) {
+            NSError *error = [NSError errorWithDomain:OctagonErrorDomain
+                                                 code:OctagonErrorBadAuthKitResponse
+                                          description:@"bad response from AuthKit"];
+            complete(nil, nil, nil, nil, nil, error);
+            [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
+            return;
+        }
 
-            NSMutableSet *mids = [[NSMutableSet alloc] init];
-            NSString* version = response.deviceListVersion;
+        NSMutableSet *mids = [NSMutableSet set];
 
-            for (AKRemoteDevice *device in response.deviceList) {
-                [mids addObject:device.machineId];
-                secnotice("authkit", "Current machine ID on list for (%@) version %@: %@", altDSID, version, device.machineId);
+        NSMutableSet *userInitiatedRemovals = [NSMutableSet set];
+        NSMutableSet *evictedMids = [NSMutableSet set];
+        NSMutableSet *unknownReasonList = [NSMutableSet set];
+
+        NSString* version = response.deviceListVersion;
+
+        for (AKRemoteDevice *device in response.deviceList) {
+            [mids addObject:device.machineId];
+            secnotice("authkit", "Current machine ID on list for (%@) version %@: %@", altDSID, version, device.machineId);
+        }
+
+        for (AKRemoteDevice *device in response.deletedDeviceList) {
+            switch (device.removalReason) {
+                case AKRemoteDeviceRemovalReasonUserAction:
+                    [userInitiatedRemovals addObject:device.machineId];
+                    secnotice("authkit", "User initiated removed machine ID for (%@) version %@: %@", altDSID, version, device.machineId);
+                    break;
+                case AKRemoteDeviceRemovalReasonDeviceLimitMIDEviction:
+                    [evictedMids addObject:device.machineId];
+                    secnotice("authkit", "Device evicted due to limit for (%@) version %@: %@", altDSID, version, device.machineId);
+                    break;
+                case AKRemoteDeviceRemovalReasonUnknown:
+                    [unknownReasonList addObject:device.machineId];
+                    secnotice("authkit", "Device evicted for unknown reason for (%@) version %@: %@", altDSID, version, device.machineId);
+                    break;
+                default:
+                    secerror("authkit: super shrug here. Device is in the deletedDeviceList but has an undefined removal reason (%ld) for (%@) version %@: %@",
+                             (long)device.removalReason, altDSID, version, device.machineId);
+                    [unknownReasonList addObject:device.machineId];
+                    break;
             }
+        }
 
-            complete(mids, version, error);
-            [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventAuthKitDeviceList];
-        }];
+        complete(mids, userInitiatedRemovals, evictedMids, unknownReasonList, version, error);
+        [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventAuthKitDeviceList];
+    }];
 }
 
 - (void)registerNotification:(id<OTAuthKitAdapterNotifier>)newNotifier
@@ -237,36 +271,10 @@
 
 - (void)deliverAKDeviceListDeltaMessagePayload:(NSDictionary* _Nullable)notificationDictionary
 {
-    AKDeviceListDeltaMessagePayload* payload = [[AKDeviceListDeltaMessagePayload alloc] initWithResponseBody:notificationDictionary];
-
-    secnotice("authkit", "received notifyAKDeviceListDeltaMessagePayload: %@, parsed payload: %{BOOL}d",
-              notificationDictionary,
-              // Logging the payload logs an address, so clean it up here.
-              payload != nil);
+    secnotice("authkit", "received notifyAKDeviceListDeltaMessagePayload");
 
     [self.notifiers iterateListeners:^(id<OTAuthKitAdapterNotifier> listener) {
-        NSString* altDSID = payload.altDSID;
-        NSArray<NSString*>* machineIDs = payload.machineIDs;
-
-        if (altDSID == nil || machineIDs == nil || machineIDs.count == 0) {
-            secnotice("authkit", "partial push or no machine IDs in list; treating as incomplete");
-            [listener incompleteNotificationOfMachineIDListChange];
-            return;
-        }
-        switch (payload.operation) {
-            case AKDeviceListDeltaOperationAdd:
-                [listener machinesAdded:machineIDs altDSID:altDSID];
-                return;
-                break;
-            case AKDeviceListDeltaOperationRemove:
-                [listener machinesRemoved:machineIDs altDSID:altDSID];
-                return;
-                break;
-            case AKDeviceListDeltaOperationUnknown:
-            default:
-                break;
-        }
-        [listener incompleteNotificationOfMachineIDListChange];
+        [listener notificationOfMachineIDListChange];
     }];
 }
 

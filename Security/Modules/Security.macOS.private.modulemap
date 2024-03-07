@@ -9,6 +9,7 @@ framework module Security_Private [system] {
 
   // Use SecAsn1Templates.h instead
   exclude header "asn1Templates.h"
+  exclude header "SecAssessmentPriv.h"
 
   explicit module * { export * }
 }

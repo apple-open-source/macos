@@ -88,6 +88,7 @@ static void TestAppleLocalizationsToUse(void);
 #endif
 static void TestNorwegianDisplayNames(void);
 static void TestSpecificDisplayNames(void);
+static void TestChinaNamesNotResolving(void);
 #endif  // APPLE_ICU_CHANGES
 
 void PrintDataTable();
@@ -374,6 +375,7 @@ void addLocaleTest(TestNode** root)
 #endif
     TESTCASE(TestNorwegianDisplayNames);
     TESTCASE(TestSpecificDisplayNames);
+    TESTCASE(TestChinaNamesNotResolving);
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -688,7 +690,7 @@ static void TestSimpleResourceInfo() {
             log_err("  ISO-3 Country code mismatch:  %s versus  %s\n",  austrdup(expected),
                 austrdup(dataTable[CTRY3][i]));
         }
-        sprintf(temp2, "%x", (int)uloc_getLCID(testLocale));
+        snprintf(temp2, sizeof(temp2), "%x", (int)uloc_getLCID(testLocale));
         if (strcmp(temp2, rawData2[LCID][i]) != 0) {
             log_err("LCID mismatch: %s versus %s\n", temp2 , rawData2[LCID][i]);
         }
@@ -2624,7 +2626,7 @@ static void TestCanonicalForm(void)
         const char *canonicalFormID; /* expected ualoc_canonicalForm() result */
     } testCases[] = {
         { NULL,       "en_US",       "en_US" }, // NULL  maps to default locale
-        { "",         "en_US_POSIX", "en_US_POSIX" }, // ""  maps to C localew
+        { "",         "",            "" }, // rdar://114361374 revert to current open ICU behavior for mapping ""
         { "nb",       "nb",          "nb" },
         { "nn",       "nn",          "nn" },
         { "no",       "no",          "no" },
@@ -2656,7 +2658,7 @@ static void TestCanonicalForm(void)
             }
 
             origResultLen = _canonicalize(j+1, testCases[i].localeID, NULL, 0, &status);
-            if (status != U_BUFFER_OVERFLOW_ERROR) {
+            if (*expected != 0 && status != U_BUFFER_OVERFLOW_ERROR) { // rdar://114361374 handle zero-length expected result
                 log_err("FAIL: uloc_%s(%s) => %s, expected U_BUFFER_OVERFLOW_ERROR\n",
                         label[j], testCases[i].localeID, u_errorName(status));
                 continue;
@@ -2735,6 +2737,10 @@ static void TestCanonicalization21749StackUseAfterScope(void)
                 input, u_errorName(status));
         return;
     }
+
+    // ICU-22475 test that we don't free an internal buffer twice.
+    status = U_ZERO_ERROR;
+    uloc_canonicalize("ti-defaultgR-lS-z-UK-0P", buffer, UPRV_LENGTHOF(buffer), &status);
 }
 
 static void TestDisplayKeywords(void)
@@ -2811,6 +2817,7 @@ static void TestDisplayKeywordValues(void){
         const char *displayLocale;
         
         #if APPLE_ICU_CHANGES
+            // rdar://107558312
         	const UChar displayKeywordValue[500];
         #else
         	UChar displayKeywordValue[500];
@@ -4523,7 +4530,7 @@ const char* const full_data[][3] = {
 #endif  // APPLE_ICU_CHANGES
   }, {
     "pap",
-    "pap_Latn_AW",
+    "pap_Latn_CW",
     "pap"
   }, {
     "pau",
@@ -4971,8 +4978,8 @@ const char* const full_data[][3] = {
     "am"
   }, {
     "und_Ethi_ER",
-    "am_Ethi_ER",
-    "am_ER"
+    "ti_Ethi_ER",
+    "ti_ER"
   }, {
     "und_FI",
     "fi_Latn_FI",
@@ -5708,14 +5715,8 @@ const char* const full_data[][3] = {
     "zh_HK"
   }, {
     "und_AQ",
-#if APPLE_ICU_CHANGES
-// rdar://
-    "und_Latn_AQ",
-    "und_AQ"
-#else
-    "_Latn_AQ",
-    "_AQ"
-#endif  // APPLE_ICU_CHANGES
+    "en_Latn_AQ",
+    "en_AQ"
   }, {
     "und_Zzzz",
     "en_Latn_US",
@@ -5738,14 +5739,8 @@ const char* const full_data[][3] = {
     "zh_HK"
   }, {
     "und_Zzzz_AQ",
-#if APPLE_ICU_CHANGES
-// rdar://
-    "und_Latn_AQ",
-    "und_AQ"
-#else
-    "_Latn_AQ",
-    "_AQ"
-#endif  // APPLE_ICU_CHANGES
+    "en_Latn_AQ",
+    "en_AQ"
   }, {
     "und_Latn",
     "en_Latn_US",
@@ -5764,18 +5759,12 @@ const char* const full_data[][3] = {
     "trv"
   }, {
     "und_Latn_HK",
-    "zh_Latn_HK",
-    "zh_Latn_HK"
+    "en_Latn_HK",
+    "en_HK"
   }, {
     "und_Latn_AQ",
-#if APPLE_ICU_CHANGES
-// rdar://
-    "und_Latn_AQ",
-    "und_AQ"
-#else
-    "_Latn_AQ",
-    "_AQ"
-#endif  // APPLE_ICU_CHANGES
+    "en_Latn_AQ",
+    "en_AQ"
   }, {
     "und_Hans",
     "zh_Hans_CN",
@@ -5846,14 +5835,8 @@ const char* const full_data[][3] = {
     "zh_Moon_HK"
   }, {
     "und_Moon_AQ",
-#if APPLE_ICU_CHANGES
-// rdar://
-    "und_Moon_AQ",
-    "und_Moon_AQ"
-#else
-    "_Moon_AQ",
-    "_Moon_AQ"
-#endif  // APPLE_ICU_CHANGES
+    "en_Moon_AQ",
+    "en_Moon_AQ"
   }, {
     "es",
     "es_Latn_ES",
@@ -7288,6 +7271,10 @@ static void TestIsRightToLeft() {
     if(uloc_isRightToLeft("root") || !uloc_isRightToLeft("EN-HEBR")) {
         log_err("uloc_isRightToLeft() failed");
     }
+    // ICU-22466 Make sure no crash when locale is bogus
+    uloc_isRightToLeft(
+        "uF-Vd_u-VaapoPos-u1-Pos-u1-Pos-u1-Pos-u1-oPos-u1-Pufu1-PuosPos-u1-Pos-u1-Pos-u1-Pzghu1-Pos-u1-PoP-u1@osus-u1");
+    uloc_isRightToLeft("-Xa");
 }
 
 typedef struct {
@@ -7387,6 +7374,7 @@ static const UDisplayContext optStdMidShrt[3] = {UDISPCTX_STANDARD_NAMES, UDISPC
 #if APPLE_ICU_CHANGES
 // rdar://
 static const UDisplayContext optStdMidVrnt[3] = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_VARIANT};
+static const UDisplayContext optStdMidPrc[3]  = {UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_PRC};
 #endif  // APPLE_ICU_CHANGES
 static const UDisplayContext optDiaMidLong[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL};
 static const UDisplayContext optDiaMidShrt[3] = {UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_SHORT};
@@ -7455,7 +7443,7 @@ static const UldnItem en_StdMidLong[] = {
 #if APPLE_ICU_CHANGES
 // rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
 // rdar://50687287 #20 add names for ks/pa/ur_Arab using script Naskh, force their use, remove redundant parens
-// rdar:
+// rdar://68351139 change names for region IO per GA, Legal, ET
 	// Apple additions
 	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },                  // rdar://50750364
 	{ "zh_Hans_CN",             TEST_ULDN_LOCALE, u"Chinese, Simplified (China mainland)" }, // rdar://50750364
@@ -7482,7 +7470,7 @@ static const UldnItem en_StdMidLong[] = {
 	{ "GB",                     TEST_ULDN_REGION, u"United Kingdom" },
 	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
 	{ "MO",                     TEST_ULDN_REGION, u"Macao" },
-	{ "IO",                     TEST_ULDN_REGION, u"Chagos Archipelago" },
+	{ "IO",                     TEST_ULDN_REGION, u"Chagos Archipelago" }, // rdar://68351139 change names for region IO per GA, Legal, ET
 	{ "ps_Arab",                TEST_ULDN_LOCALE, u"Pashto (Arabic)" },
 	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"Pashto (Arabic, Afghanistan)" },
 	{ "ks_Arab",                TEST_ULDN_LOCALE, u"Kashmiri (Naskh)" }, // rdar://50687287
@@ -7619,7 +7607,25 @@ static const UldnItem en_StdMidLong[] = {
 	// tests for rdar://80374611 #295 Add en names for languages mdh,otk,oui to enable locale use in Xcode
 	{ "mdh",                    TEST_ULOC_LOCALE, u"Maguindanaon" },
 	{ "otk",                    TEST_ULOC_LOCALE, u"Old Turkish" },
-	{ "oui",                    TEST_ULOC_LOCALE, u"Old Uighur" },	
+	{ "oui",                    TEST_ULOC_LOCALE, u"Old Uighur" },
+    // tests for rdar://115264744 (Sub-TLF: China geopolitical location display via ICU)
+    // (compare with values under en_StdMidPrc[] below)
+    { "zh_HK",                  TEST_ULOC_LOCALE, u"Chinese (Hong Kong)" },
+    { "zh_MO",                  TEST_ULOC_LOCALE, u"Chinese (Macao)" },
+    { "zh_TW",                  TEST_ULOC_LOCALE, u"Chinese (Taiwan)" },
+    { "zh_CN",                  TEST_ULOC_LOCALE, u"Chinese (China mainland)" },
+    { "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+    { "MO",                     TEST_ULDN_REGION, u"Macao" },
+    { "TW",                     TEST_ULDN_REGION, u"Taiwan" },
+    { "CN",                     TEST_ULDN_REGION, u"China mainland" },
+    { "en_HK",                  TEST_ULOC_LOCALE, u"English (Hong Kong)" },
+    { "en_MO",                  TEST_ULOC_LOCALE, u"English (Macao)" },
+    { "en_TW",                  TEST_ULOC_LOCALE, u"English (Taiwan)" },
+    { "en_CN",                  TEST_ULOC_LOCALE, u"English (China mainland)" },
+    { "en_HK",                  TEST_ULOC_REGION, u"Hong Kong" },
+    { "en_MO",                  TEST_ULOC_REGION, u"Macao" },
+    { "en_TW",                  TEST_ULOC_REGION, u"Taiwan" },
+    { "en_CN",                  TEST_ULOC_REGION, u"China mainland" },
 #endif  // APPLE_ICU_CHANGES
 };
 
@@ -7666,6 +7672,35 @@ static const UldnItem en_StdMidVrnt[] = {
     { "en_GB",                  TEST_ULDN_LOCALE,   u"English (UK)" },
     { "fr_CG",                  TEST_ULDN_LOCALE,   u"French (Congo [Republic])" },
     { "fr_FR",                  TEST_ULDN_LOCALE,   u"French (France)" },
+};
+#endif  // APPLE_ICU_CHANGES
+
+#if APPLE_ICU_CHANGES
+// rdar://
+static const UldnItem en_StdMidPrc[] = {
+    // tests for rdar://115264744 (Sub-TLF: China geopolitical location display via ICU)
+    // (compare with values under en_StdMidLong[] above)
+    { "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong [China])" },
+    { "zh_MO",                  TEST_ULDN_LOCALE, u"Chinese (Macao [China])" },
+    { "zh_TW",                  TEST_ULDN_LOCALE, u"Chinese (Taiwan [China])" },
+    { "zh_CN",                  TEST_ULDN_LOCALE, u"Chinese (China)" },
+    { "HK",                     TEST_ULDN_REGION, u"Hong Kong (China)" },
+    { "MO",                     TEST_ULDN_REGION, u"Macao (China)" },
+    { "TW",                     TEST_ULDN_REGION, u"Taiwan (China)" },
+    { "CN",                     TEST_ULDN_REGION, u"China" },
+};
+
+static const UldnItem en_StdLstLong[] = {
+    // tests for rdar://115264744 (Sub-TLF: China geopolitical location display via ICU)
+    // (compare with values under en_StdMidLong[] above)
+    { "zh_HK",                  TEST_ULDN_LOCALE, u"Chinese (Hong Kong)" },
+    { "zh_MO",                  TEST_ULDN_LOCALE, u"Chinese (Macao)" },
+    { "zh_TW",                  TEST_ULDN_LOCALE, u"Chinese (Taiwan)" },
+    { "zh_CN",                  TEST_ULDN_LOCALE, u"Chinese (China mainland)" },
+    { "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+    { "MO",                     TEST_ULDN_REGION, u"Macao" },
+    { "TW",                     TEST_ULDN_REGION, u"Taiwan" },
+    { "CN",                     TEST_ULDN_REGION, u"China mainland" },
 };
 #endif  // APPLE_ICU_CHANGES
 
@@ -7728,8 +7763,8 @@ static const UldnItem en_DiaMidShrt[] = {
 static const UldnItem en_CA_DiaMidLong[] = { // rdar://60916890
 	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
 	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"simplified Chinese" },
-	{ "zh_Hant",                TEST_ULDN_LOCALE, u"traditional Chinese" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
+	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },
 	{ "ar_001",                 TEST_ULDN_LOCALE, u"Arabic (Modern Standard)" },
 	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
 	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
@@ -7741,8 +7776,8 @@ static const UldnItem en_CA_DiaMidLong[] = { // rdar://60916890
 static const UldnItem en_CA_DiaMidShrt[] = { // rdar://60916890
 	{ "yue_Hans",               TEST_ULDN_LOCALE, u"Cantonese, Simplified" },
 	{ "yue_Hant",               TEST_ULDN_LOCALE, u"Cantonese, Traditional" },
-	{ "zh_Hans",                TEST_ULDN_LOCALE, u"simplified Chinese" },
-	{ "zh_Hant",                TEST_ULDN_LOCALE, u"traditional Chinese" },
+	{ "zh_Hans",                TEST_ULDN_LOCALE, u"Chinese, Simplified" },
+	{ "zh_Hant",                TEST_ULDN_LOCALE, u"Chinese, Traditional" },
 	{ "ar_001",                 TEST_ULDN_LOCALE, u"Arabic (Modern Standard)" },
 	{ "de_AT",                  TEST_ULDN_LOCALE, u"Austrian German" },
 	{ "es_419",                 TEST_ULDN_LOCALE, u"Latin American Spanish" },
@@ -7784,22 +7819,24 @@ static const UldnItem en_IN_StdMidLong[] = {
 	{ "or_Orya",                TEST_ULDN_LOCALE, u"Odia (Odia)" },
 };
 
+// rdar://102511347 Incorrect character case for language names in dictionary settings; some tests for 'cic'
 static const UldnItem fi_StdMidLong[] = {
 	{ "en",                     TEST_ULDN_LOCALE, u"englanti" },
 };
 
+//rdar://102511347 Incorrect character case for language names in dictionary settings; some tests for 'cic'
 static const UldnItem fi_StdBegLong[] = {
 	{ "en",                     TEST_ULDN_LOCALE, u"Englanti" },
 };
 
 // rdar://47499172 a7fdc2124c.. Update loc names for CN,HK,MO; delete redundant short names for them
-// rdar:// 
+// rdar://68351139 change names for region IO per GA, Legal, ET
 static const UldnItem fr_StdMidLong[] = {
 	{ "en_US",                  TEST_ULDN_LOCALE, u"anglais (É.-U.)" },
 	{ "US",                     TEST_ULDN_REGION, u"États-Unis" },
 	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
 	{ "MO",                     TEST_ULDN_REGION, u"Macao" },
-	{ "IO",                     TEST_ULDN_REGION, u"Archipel des Chagos" },
+	{ "IO",                     TEST_ULDN_REGION, u"Archipel des Chagos" }, // rdar://68351139 change names for region IO per GA, Legal, ET
 	// tests for rdar://63655841 #173 en/fr language names for Canadian Aboriginal Peoples TV
 	// & rdar://79400781 #240 (Add en/fr display names for language tce)
 	{ "atj",                    TEST_ULDN_LOCALE, u"atikamekw" },
@@ -7828,6 +7865,18 @@ static const UldnItem fr_StdMidLong[] = {
 	{ "Syrc",                   TEST_ULDN_SCRIPT, u"syriaque" },
 	{ "syr",                    TEST_ULOC_LOCALE, u"soureth" },
 	{ "apw",                    TEST_ULOC_LOCALE, u"apache occidental" },
+    // tests for rdar://115264744 (Sub-TLF: China geopolitical location display via ICU)
+    // (compare with values under en_StdMidLong above and fr_StdMidPrc[] below-- in this case, we
+    // should get the same results for "Long" and "Prc" because French doesn't have special names
+    // for use in the PRC)
+    { "zh_HK",                  TEST_ULOC_LOCALE, u"chinois (Hong Kong)" },
+    { "zh_MO",                  TEST_ULOC_LOCALE, u"chinois (Macao)" },
+    { "zh_TW",                  TEST_ULOC_LOCALE, u"chinois (Taïwan)" },
+    { "zh_CN",                  TEST_ULOC_LOCALE, u"chinois (Chine continentale)" },
+    { "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+    { "MO",                     TEST_ULDN_REGION, u"Macao" },
+    { "TW",                     TEST_ULDN_REGION, u"Taïwan" },
+    { "CN",                     TEST_ULDN_REGION, u"Chine continentale" },
 };
 
 static const UldnItem fr_StdMidShrt[] = {
@@ -7835,6 +7884,23 @@ static const UldnItem fr_StdMidShrt[] = {
 	{ "US",                     TEST_ULDN_REGION, u"É.-U." },
 	{ "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
 };
+    
+#if APPLE_ICU_CHANGES
+// rdar://
+static const UldnItem fr_StdMidPrc[] = {
+    // tests for rdar://115264744 (Sub-TLF: China geopolitical location display via ICU)
+    // (compare with values under fr_StdMidLong[] above-- in this case, we should get the same
+    // results for "Long" and "Prc" because French doesn't have special names for use in the PRC)
+    { "zh_HK",                  TEST_ULOC_LOCALE, u"chinois (Hong Kong)" },
+    { "zh_MO",                  TEST_ULOC_LOCALE, u"chinois (Macao)" },
+    { "zh_TW",                  TEST_ULOC_LOCALE, u"chinois (Taïwan)" },
+    { "zh_CN",                  TEST_ULOC_LOCALE, u"chinois (Chine continentale)" },
+    { "HK",                     TEST_ULDN_REGION, u"Hong Kong" },
+    { "MO",                     TEST_ULDN_REGION, u"Macao" },
+    { "TW",                     TEST_ULDN_REGION, u"Taïwan" },
+    { "CN",                     TEST_ULDN_REGION, u"Chine continentale" },
+};
+#endif  // APPLE_ICU_CHANGES
 
 static const UldnItem fr_StdBegLong[] = {
 	{ "en_US",                  TEST_ULDN_LOCALE, u"Anglais (É.-U.)" },
@@ -7858,7 +7924,7 @@ static const UldnItem ca_StdLstLong[] = {
 
 static const UldnItem nb_StdMidLong[] = {
 	{ "ur_Arab",                TEST_ULDN_LOCALE, u"urdu (naskh)" },
-	// tests for rdar://75064267, rdar://89394823 
+	// tests for rdar://75064267, rdar://89394823, rdar://91073737 #298 Add/update more localized names for apw, Western Apache
 	{ "rhg",                    TEST_ULOC_LOCALE, u"rohingya" },
 	{ "Adlm",                   TEST_ULDN_SCRIPT, u"adlam" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"hanifi" },
@@ -7866,6 +7932,7 @@ static const UldnItem nb_StdMidLong[] = {
 	{ "apw",                    TEST_ULOC_LOCALE, u"apache, vestlig" },
 };
 
+// rdar://102511347 Incorrect character case for language names in dictionary settings; some tests for 'cic'
 static const UldnItem ru_StdMidLong[] = {
 	{ "cic",                    TEST_ULDN_LOCALE, u"чикасо" },
 	{ "cic_Latn",               TEST_ULDN_LOCALE, u"чикасо" },
@@ -7935,7 +8002,7 @@ static const UldnItem zh_StdMidLong[] = {
 	{ "ii",                     TEST_ULDN_LANGUAGE, u"凉山彝语" },  // rdar://107440844,rdar://108460253
     { "pqm",                    TEST_ULDN_LANGUAGE, u"沃拉斯托基语" }, // rdar://107600615
 
-	// tests for rdar://75064267, rdar://89394823, rdar://59762233
+	// tests for rdar://75064267, rdar://89394823, rdar://59762233, rdar://91073737 #298 Add/update more localized names for apw, Western Apache
 	{ "rhg",                    TEST_ULOC_LOCALE, u"罗兴亚语" },
 	{ "Adlm",                   TEST_ULDN_SCRIPT, u"阿德拉姆文" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"哈乃斐文" },
@@ -7951,7 +8018,7 @@ static const UldnItem zh_Hant_StdMidLong[] = {
 	{ "MO",                     TEST_ULDN_REGION, u"澳門" },
     
     { "ars",                    TEST_ULDN_LANGUAGE, u"阿拉伯文（內志）" },  // rdar://69728925
-	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕切文（西部）" }, // rdar://89394823 
+	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕切文（西部）" }, // rdar://89394823, rdar://91073737 #298 Add/update more localized names for apw, Western Apache
 };
 
 static const UldnItem zh_Hant_HK_StdMidLong[] = {
@@ -7973,7 +8040,7 @@ static const UldnItem yue_Hans_StdMidLong[] = {
 	{ "yue_Hant_HK",            TEST_ULOC_LOCALE, u"繁体粤语（香港）" },    // rdar://53136228
 	{ "HK",                     TEST_ULDN_REGION, u"香港" },
 	{ "MO",                     TEST_ULDN_REGION, u"澳门" },
-	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕奇语（西方）" }, // rdar://89394823 
+	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕奇语（西方）" }, // rdar://89394823, rdar://91073737 #298 Add/update more localized names for apw, Western Apache
 };
 
 static const UldnItem nds_StdMidLong[] = { // rdar://64703717
@@ -7982,7 +8049,7 @@ static const UldnItem nds_StdMidLong[] = { // rdar://64703717
 
 static const UldnItem hi_StdMidLong[] = { // rdar://53653337
 	{ "Aran",                   TEST_ULDN_SCRIPT, u"नस्तालीक़" },
-	// tests for rdar://75064267, rdar://89394823, rdar://59762233
+	// tests for rdar://75064267, rdar://89394823, rdar://59762233, rdar://91073737 #298 Add/update more localized names for apw, Western Apache
 	{ "rhg",                    TEST_ULOC_LOCALE, u"रोहिंग्या" },
 	{ "Adlm",                   TEST_ULDN_SCRIPT, u"ऐडलम" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"हनिफ़ि" },
@@ -8000,7 +8067,7 @@ static const UldnItem hi_Latn_StdMidLong[] = { // rdar://53216112
 
 static const UldnItem mni_Beng_StdMidLong[] = { // rdar://54153189
 	{ "mni_Beng",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (বাংলা)" },
-	{ "mni_Mtei",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (মেইটেই মায়েক)" },
+	{ "mni_Mtei",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (মীতৈ ময়েক)" },
 };
 
 static const UldnItem mni_Mtei_StdMidLong[] = { // rdar://54153189
@@ -8071,7 +8138,7 @@ static const UldnItem kk_StdMidLong[] = { // rdar://95015661
     { "053",                TEST_ULDN_REGION,   u"Аустралазия" },
     { "de_AT",              TEST_ULOC_LOCALE,   u"неміс тілі (Аустрия)" },
     { "en_AU",              TEST_ULOC_LOCALE,   u"ағылшын тілі (Аустралия)" },
-	{ "cic",                TEST_ULDN_LOCALE,   u"чикасо тілі" },
+	{ "cic",                TEST_ULDN_LOCALE,   u"чикасо тілі" }, // rdar://102511347 Incorrect character case for language names in dictionary settings; some tests for 'cic'
     // rdar://95777359
     { "yue_Hans",           TEST_ULOC_LOCALE, u"кантон тілі (жеңілдетілген жазу)" },
     { "yue_Hant",           TEST_ULOC_LOCALE, u"кантон тілі (дәстүрлі жазу)" },
@@ -8086,7 +8153,7 @@ static const UldnItem kk_DiaMidLong[] = { // rdar://95015661
 };
 
 static const UldnItem nv_StdMidLong[] = { // Apple <rdar:/74820154>
-	{ "nv",                 TEST_ULOC_LOCALE, u"Diné bizaad" },
+	{ "nv",                 TEST_ULOC_LOCALE, u"Diné Bizaad" },
 };
 
 static const UldnItem rhg_StdMidLong[] = { // Apple <rdar:/74820154>
@@ -8121,6 +8188,53 @@ static const UldnItem yi_StdMidLong[] = { // https://unicode-org.atlassian.net/b
 	{ "ji",                     TEST_ULDN_LANGUAGE, u"ייִדיש" },
 	{ "ji_US",                  TEST_ULOC_LOCALE, u"ייִדיש (פֿאַראייניגטע שטאַטן)" },
 	{ "ji",                     TEST_ULOC_LANGUAGE, u"ייִדיש" },
+};
+
+static const UldnItem zh_DiaMidLong[] = {
+    // zh and zh_Hant both have dialect names for the following in ICU 73
+    { "ar_001",                 TEST_ULDN_LOCALE, u"现代标准阿拉伯语" },
+    { "nl_BE",                  TEST_ULDN_LOCALE, u"弗拉芒语" },
+    { "ro_MD",                  TEST_ULDN_LOCALE, u"摩尔多瓦语" },
+    // zh has dialect names for the following in ICU 73
+    { "en_AU",                  TEST_ULDN_LOCALE, u"澳大利亚英语" },
+    { "en_CA",                  TEST_ULDN_LOCALE, u"加拿大英语" },
+    { "en_GB",                  TEST_ULDN_LOCALE, u"英国英语" },
+    { "en_US",                  TEST_ULDN_LOCALE, u"美国英语" },
+    { "es_419",                 TEST_ULDN_LOCALE, u"拉丁美洲西班牙语" },
+    { "es_ES",                  TEST_ULDN_LOCALE, u"欧洲西班牙语" },
+    { "es_MX",                  TEST_ULDN_LOCALE, u"墨西哥西班牙语" },
+    { "fr_CA",                  TEST_ULDN_LOCALE, u"加拿大法语" },
+    { "fr_CH",                  TEST_ULDN_LOCALE, u"瑞士法语" },
+};
+
+static const UldnItem zh_Hant_DiaMidLong[] = {
+    // zh and zh_Hant both have dialect names for the following in ICU 73
+    { "ar_001",                 TEST_ULDN_LOCALE, u"現代標準阿拉伯文" },
+    { "nl_BE",                  TEST_ULDN_LOCALE, u"法蘭德斯文" },
+    { "ro_MD",                  TEST_ULDN_LOCALE, u"摩爾多瓦文" },
+    // zh_Hant no dialect names for the following in ICU-73,
+    // use standard name
+#if APPLE_ICU_CHANGES // rdar://
+    { "en_AU",                  TEST_ULDN_LOCALE, u"澳洲英文" },
+    { "en_CA",                  TEST_ULDN_LOCALE, u"加拿大英文" },
+    { "en_GB",                  TEST_ULDN_LOCALE, u"英式英文" },
+    { "en_US",                  TEST_ULDN_LOCALE, u"美式英文" },
+#else
+    { "en_AU",                  TEST_ULDN_LOCALE, u"英文（澳洲）" },
+    { "en_CA",                  TEST_ULDN_LOCALE, u"英文（加拿大）" },
+    { "en_GB",                  TEST_ULDN_LOCALE, u"英文（英國）" },
+    { "en_US",                  TEST_ULDN_LOCALE, u"英文（美國）" },
+#endif // APPLE_ICU_CHANGES
+    { "es_419",                 TEST_ULDN_LOCALE, u"西班牙文（拉丁美洲）" },
+    { "es_ES",                  TEST_ULDN_LOCALE, u"西班牙文（西班牙）" },
+    { "es_MX",                  TEST_ULDN_LOCALE, u"西班牙文（墨西哥）" },
+#if APPLE_ICU_CHANGES // rdar://
+    { "fr_CA",                  TEST_ULDN_LOCALE, u"加拿大法文" },
+    { "fr_CH",                  TEST_ULDN_LOCALE, u"瑞士法文" },
+#else
+    { "fr_CA",                  TEST_ULDN_LOCALE, u"法文（加拿大）" },
+    { "fr_CH",                  TEST_ULDN_LOCALE, u"法文（瑞士）" },
+#endif // APPLE_ICU_CHANGES
 };
 
 #if APPLE_ICU_CHANGES
@@ -8215,25 +8329,30 @@ static const UldnItem no_StdLstLong[] = { // rdar://81296782
 #endif  // APPLE_ICU_CHANGES
 
 static const UldnLocAndOpts uldnLocAndOpts[] = {
-    { "en", optStdMidLong, en_StdMidLong, UPRV_LENGTHOF(en_StdMidLong) },
-    { "en", optStdMidShrt, en_StdMidShrt, UPRV_LENGTHOF(en_StdMidShrt) },
-    { "en", optDiaMidLong, en_DiaMidLong, UPRV_LENGTHOF(en_DiaMidLong) },
-    { "en", optDiaMidShrt, en_DiaMidShrt, UPRV_LENGTHOF(en_DiaMidShrt) },
-    { "ro", optStdMidLong, ro_StdMidLong, UPRV_LENGTHOF(ro_StdMidLong) },
-    { "yi", optStdMidLong, yi_StdMidLong, UPRV_LENGTHOF(yi_StdMidLong) },
+    { "en", optStdMidLong,      en_StdMidLong,      UPRV_LENGTHOF(en_StdMidLong) },
+    { "en", optStdMidShrt,      en_StdMidShrt,      UPRV_LENGTHOF(en_StdMidShrt) },
+    { "en", optDiaMidLong,      en_DiaMidLong,      UPRV_LENGTHOF(en_DiaMidLong) },
+    { "en", optDiaMidShrt,      en_DiaMidShrt,      UPRV_LENGTHOF(en_DiaMidShrt) },
+    { "ro", optStdMidLong,      ro_StdMidLong,      UPRV_LENGTHOF(ro_StdMidLong) },
+    { "yi", optStdMidLong,      yi_StdMidLong,      UPRV_LENGTHOF(yi_StdMidLong) },
+    { "zh", optDiaMidLong,      zh_DiaMidLong,      UPRV_LENGTHOF(zh_DiaMidLong) },
+    { "zh_Hant", optDiaMidLong, zh_Hant_DiaMidLong, UPRV_LENGTHOF(zh_Hant_DiaMidLong) },
 #if APPLE_ICU_CHANGES
-// rdar://
+//// rdar://
     // Apple additions
     { "en", optStdMidVrnt, en_StdMidVrnt, UPRV_LENGTHOF(en_StdMidVrnt) },
+    { "en", optStdMidPrc, en_StdMidPrc, UPRV_LENGTHOF(en_StdMidPrc) }, // rdar://115264744
+    { "en", optStdLstLong, en_StdLstLong, UPRV_LENGTHOF(en_StdLstLong) }, // rdar://115264744
     { "en_CA", optDiaMidLong, en_CA_DiaMidLong, UPRV_LENGTHOF(en_CA_DiaMidLong) }, // rdar://60916890
     { "en_CA", optDiaMidShrt, en_CA_DiaMidShrt, UPRV_LENGTHOF(en_CA_DiaMidShrt) }, // rdar://60916890
     { "en_GB", optDiaMidLong, en_GB_DiaMidLong, UPRV_LENGTHOF(en_GB_DiaMidLong) }, // rdar://60916890
     { "en_GB", optDiaMidShrt, en_GB_DiaMidShrt, UPRV_LENGTHOF(en_GB_DiaMidShrt) }, // rdar://60916890
     { "en_IN", optStdMidLong, en_IN_StdMidLong, UPRV_LENGTHOF(en_IN_StdMidLong) }, // rdar://65959353
     { "ber", optStdMidLong, ber_StdMidLong, UPRV_LENGTHOF(ber_StdMidLong) }, // rdar://104877633
-	{ "fi", optStdMidLong, fi_StdMidLong, UPRV_LENGTHOF(fi_StdMidLong) },
-	{ "fi", optStdLstLong, fi_StdBegLong, UPRV_LENGTHOF(fi_StdBegLong) },
+	{ "fi", optStdMidLong, fi_StdMidLong, UPRV_LENGTHOF(fi_StdMidLong) }, // rdar://102511347 Incorrect character case for language names in dictionary settings; some tests for 'cic'
+	{ "fi", optStdLstLong, fi_StdBegLong, UPRV_LENGTHOF(fi_StdBegLong) }, // rdar://102511347 Incorrect character case for language names in dictionary settings; some tests for 'cic'
     { "fr", optStdMidLong, fr_StdMidLong, UPRV_LENGTHOF(fr_StdMidLong) },
+    { "fr", optStdMidPrc, fr_StdMidPrc, UPRV_LENGTHOF(fr_StdMidPrc) }, // rdar://115264744
     { "fr", optStdMidShrt, fr_StdMidShrt, UPRV_LENGTHOF(fr_StdMidShrt) },
     { "fr", optStdBegLong, fr_StdBegLong, UPRV_LENGTHOF(fr_StdBegLong) },
     { "fr", optStdLstLong, fr_StdLstLong, UPRV_LENGTHOF(fr_StdLstLong) },
@@ -8246,7 +8365,7 @@ static const UldnLocAndOpts uldnLocAndOpts[] = {
     { "inh", optStdMidLong, inh_StdMidLong, UPRV_LENGTHOF(inh_StdMidLong) }, // rdar://109529736
     { "osa", optStdMidLong, osa_StdMidLong, UPRV_LENGTHOF(osa_StdMidLong) }, // rdar://111138831
     { "nb", optStdMidLong, nb_StdMidLong, UPRV_LENGTHOF(nb_StdMidLong) }, // rdar://65008672
-	{ "ru", optStdMidLong, ru_StdMidLong, UPRV_LENGTHOF(ru_StdMidLong) },
+	{ "ru", optStdMidLong, ru_StdMidLong, UPRV_LENGTHOF(ru_StdMidLong) }, // rdar://102511347 Incorrect character case for language names in dictionary settings; some tests for 'cic'
     { "ur", optStdMidLong,      ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
     { "ur_Arab", optStdMidLong, ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
     { "ur_Aran", optStdMidLong, ur_StdMidLong,      UPRV_LENGTHOF(ur_StdMidLong) },
@@ -8460,6 +8579,10 @@ static void TestCDefaultLocale() {
       log_verbose("Skipping TestCDefaultLocale test, as the LANG variable is not set.");
       return;
     }
+    if (getenv("LC_ALL") != NULL) {
+      log_verbose("Skipping TestCDefaultLocale test, as the LC_ALL variable is set.");
+      return;
+    }
     if ((strcmp(env_var, "C") == 0 || strcmp(env_var, "C.UTF-8") == 0) && strcmp(defaultLocale, "en_US_POSIX") != 0) {
       log_err("The default locale for LANG=%s should be en_US_POSIX, not %s\n", env_var, defaultLocale);
     }
@@ -8524,9 +8647,9 @@ static void TestExcessivelyLongIDs(void) {
 static const char* for_empty[ULOC_UND_TESTNUM] = { // ""
     "",                 // uloc_getName
     "",                 // uloc_getLanguage
-    "en_Latn_US_POSIX", // uloc_addLikelySubtags
-    "en__POSIX",        // uloc_minimizeSubtags
-    "en_US_POSIX",      // uloc_canonicalize
+    "en_Latn_US",       // uloc_addLikelySubtags // rdar://114361374 revert to current open ICU behavior for mapping ""
+    "en",               // uloc_minimizeSubtags // rdar://114361374 revert to current open ICU behavior for mapping ""
+    "",                 // uloc_canonicalize // rdar://114361374 revert to current open ICU behavior for mapping ""
     "",                 // uloc_getParent
     "und",              // uloc_toLanguageTag
     "",                 // uloc_getDisplayName in en
@@ -9980,6 +10103,10 @@ static const char * appleLocsMAM[]    = { "en", "no" };
 static const char * prefLangsMAMa[]   = { "nn" };
 static const char * prefLangsMAMb[]   = { "nb" };
 static const char * locsToUseMAM[]    = { "no" };
+// For rdar://120006679
+static const char * appleLocsMAN[]    = { "ar", "bg", "cs", "en-AU", "en-GB", "en-IN", "hi", "ja", "pt", "zh-Hans", "zh-Hant" };
+static const char * prefLangsMAN[]    = { "en", "en-GB", "en-AU", "en-IN", "zh-Hans", "zh-Hant", "zh-HK", "ja", "es", "es-419", "fr", "fr-CA", "de", "ru", "pt-BR", "pt-PT", "it", "ko", "tr", "nl", "ar", "th", "sv", "da", "vi", "nb", "pl", "fi", "id", "he", "el", "ro", "hu", "cs", "ca", "sk", "uk", "hr", "ms", "hi", "kk-Cyrl", "bg", };
+static const char * locsToUseMAN[]    = { "en-GB" };
 
 
 typedef struct {
@@ -10125,6 +10252,7 @@ static const MultiPrefTest multiTestSets[] = {
     { "MAL",     appleLocsMAL,   UPRV_LENGTHOF(appleLocsMAL),  prefLangsMAL,  UPRV_LENGTHOF(prefLangsMAL),  locsToUseMAL,     UPRV_LENGTHOF(locsToUseMAL)  },  // rdar://79163271
     { "MAMa",    appleLocsMAM,   UPRV_LENGTHOF(appleLocsMAM),  prefLangsMAMa,  UPRV_LENGTHOF(prefLangsMAMa),  locsToUseMAM,     UPRV_LENGTHOF(locsToUseMAM)  },  // rdar://99195843
     { "MAMb",    appleLocsMAM,   UPRV_LENGTHOF(appleLocsMAM),  prefLangsMAMb,  UPRV_LENGTHOF(prefLangsMAMb),  locsToUseMAM,     UPRV_LENGTHOF(locsToUseMAM)  },  // rdar://99195843
+    { "MAN" ,    appleLocsMAN,   UPRV_LENGTHOF(appleLocsMAN),  prefLangsMAN,  UPRV_LENGTHOF(prefLangsMAN),  locsToUseMAN,     UPRV_LENGTHOF(locsToUseMAN)  },  // rdar://120006679
 
     { NULL, NULL, 0, NULL, 0, NULL, 0 }
 };
@@ -10294,4 +10422,29 @@ static void TestSpecificDisplayNames(void) {
         }
     }
 }
+
+static void TestChinaNamesNotResolving(void) { // rdar://121879891
+    UChar result[256] = {'\0'};
+    UErrorCode status = U_ZERO_ERROR;
+    UErrorCode expected_status = U_USING_DEFAULT_WARNING;
+    char *localeToName;
+
+    char * localesToName[5] = {
+        "en_HK",
+        "en_MO",
+        "en_TW",
+        "en_CN",
+        "en_US"
+    };
+    
+    for(int i=0; i < 5; i++) {
+        status = U_ZERO_ERROR;
+        localeToName = localesToName[i];
+        uloc_getDisplayCountry(localeToName, "", result, 256, &status);
+        if (status != expected_status) {
+            log_data_err("uloc_getDisplayCountry for empty displayLocale and namedLocale %s returns unexpected status %s\n", localeToName, myErrorName(status));
+        }
+    }
+}
+
 #endif  // APPLE_ICU_CHANGES

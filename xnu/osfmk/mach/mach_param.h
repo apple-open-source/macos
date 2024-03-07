@@ -83,6 +83,6 @@
 #define THREAD_SELF_PORT_COUNT 3
 
 /* Max length of conclave name */
-#define MAXCONCLAVENAME    256
+#define MAXCONCLAVENAME    128
 
 #endif  /* _MACH_MACH_PARAM_H_ */

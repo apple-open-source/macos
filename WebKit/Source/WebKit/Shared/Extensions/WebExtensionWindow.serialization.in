@@ -40,13 +40,14 @@ struct WebKit::WebExtensionWindowParameters {
 
 [Nested] enum class WebKit::WebExtensionWindow::PopulateTabs : bool;
 
-[Nested] enum class WebKit::WebExtensionWindow::Type : bool;
-
-[Nested, OptionSet] enum class WebKit::WebExtensionWindow::TypeFilter : uint8_t {
-    None,
+[Nested] enum class WebKit::WebExtensionWindow::Type : uint8_t {
     Normal,
     Popup,
-    All,
+};
+
+[OptionSet] enum class WebKit::WebExtensionWindowTypeFilter : uint8_t {
+    Normal,
+    Popup,
 };
 
 [Nested] enum class WebKit::WebExtensionWindow::State : uint8_t {

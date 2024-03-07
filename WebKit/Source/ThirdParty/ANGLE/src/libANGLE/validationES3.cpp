@@ -407,7 +407,8 @@ static bool ValidateES3CompressedFormatForTexture2DArray(const Context *context,
                                                          angle::EntryPoint entryPoint,
                                                          GLenum format)
 {
-    if (IsETC1Format(format) || IsPVRTC1Format(format))
+    if ((IsETC1Format(format) && !context->getExtensions().compressedETC1RGB8SubTextureEXT) ||
+        IsPVRTC1Format(format))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kInternalFormatRequiresTexture2D);
         return false;
@@ -2946,13 +2947,6 @@ bool ValidateCompressedTexSubImage3D(const Context *context,
             ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kPixelDataNull);
             return false;
         }
-
-        if (context->getTextureByTarget(target)->isCompressedFormatEmulated(context, target, level))
-        {
-            // TODO (anglebug.com/7464): Can't populate from a buffer using emulated format
-            ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kInvalidEmulatedFormat);
-            return false;
-        }
     }
 
     return true;
@@ -3822,7 +3816,7 @@ bool ValidateDrawElementsInstanced(const Context *context,
     }
 
     return ValidateDrawElementsInstancedBase(context, entryPoint, mode, count, type, indices,
-                                             instanceCount);
+                                             instanceCount, 0);
 }
 
 bool ValidateMultiDrawArraysInstancedANGLE(const Context *context,
@@ -3853,7 +3847,7 @@ bool ValidateMultiDrawArraysInstancedANGLE(const Context *context,
     for (GLsizei drawID = 0; drawID < drawcount; ++drawID)
     {
         if (!ValidateDrawArraysInstancedBase(context, entryPoint, mode, firsts[drawID],
-                                             counts[drawID], instanceCounts[drawID]))
+                                             counts[drawID], instanceCounts[drawID], 0))
         {
             return false;
         }
@@ -3890,7 +3884,7 @@ bool ValidateMultiDrawElementsInstancedANGLE(const Context *context,
     for (GLsizei drawID = 0; drawID < drawcount; ++drawID)
     {
         if (!ValidateDrawElementsInstancedBase(context, entryPoint, mode, counts[drawID], type,
-                                               indices[drawID], instanceCounts[drawID]))
+                                               indices[drawID], instanceCounts[drawID], 0))
         {
             return false;
         }
@@ -3912,7 +3906,8 @@ bool ValidateDrawArraysInstancedBaseInstanceANGLE(const Context *context,
         return false;
     }
 
-    return ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, instanceCount);
+    return ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, instanceCount,
+                                           baseInstance);
 }
 
 bool ValidateDrawElementsInstancedBaseVertexBaseInstanceANGLE(const Context *context,
@@ -3932,7 +3927,7 @@ bool ValidateDrawElementsInstancedBaseVertexBaseInstanceANGLE(const Context *con
     }
 
     return ValidateDrawElementsInstancedBase(context, entryPoint, mode, count, type, indices,
-                                             instanceCount);
+                                             instanceCount, baseInstance);
 }
 
 bool ValidateMultiDrawArraysInstancedBaseInstanceANGLE(const Context *context,
@@ -3956,7 +3951,8 @@ bool ValidateMultiDrawArraysInstancedBaseInstanceANGLE(const Context *context,
     for (GLsizei drawID = 0; drawID < drawcount; ++drawID)
     {
         if (!ValidateDrawArraysInstancedBase(context, entryPoint, modePacked, firsts[drawID],
-                                             counts[drawID], instanceCounts[drawID]))
+                                             counts[drawID], instanceCounts[drawID],
+                                             baseInstances[drawID]))
         {
             return false;
         }
@@ -3987,7 +3983,8 @@ bool ValidateMultiDrawElementsInstancedBaseVertexBaseInstanceANGLE(const Context
     for (GLsizei drawID = 0; drawID < drawcount; ++drawID)
     {
         if (!ValidateDrawElementsInstancedBase(context, entryPoint, modePacked, counts[drawID],
-                                               typePacked, indices[drawID], instanceCounts[drawID]))
+                                               typePacked, indices[drawID], instanceCounts[drawID],
+                                               baseInstances[drawID]))
         {
             return false;
         }
@@ -4727,7 +4724,7 @@ bool ValidateDrawArraysInstanced(const Context *context,
         return false;
     }
 
-    return ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, primcount);
+    return ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, primcount, 0);
 }
 
 bool ValidateFenceSync(const Context *context,
@@ -4993,34 +4990,6 @@ bool ValidateGetSamplerParameteriv(const Context *context,
     return ValidateGetSamplerParameterBase(context, entryPoint, sampler, pname, nullptr);
 }
 
-bool ValidateGetSamplerParameterIivOES(const Context *context,
-                                       angle::EntryPoint entryPoint,
-                                       SamplerID sampler,
-                                       GLenum pname,
-                                       const GLint *params)
-{
-    if (context->getClientMajorVersion() < 3)
-    {
-        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES3Required);
-        return false;
-    }
-    return ValidateGetSamplerParameterBase(context, entryPoint, sampler, pname, nullptr);
-}
-
-bool ValidateGetSamplerParameterIuivOES(const Context *context,
-                                        angle::EntryPoint entryPoint,
-                                        SamplerID sampler,
-                                        GLenum pname,
-                                        const GLuint *params)
-{
-    if (context->getClientMajorVersion() < 3)
-    {
-        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES3Required);
-        return false;
-    }
-    return ValidateGetSamplerParameterBase(context, entryPoint, sampler, pname, nullptr);
-}
-
 bool ValidateSamplerParameterf(const Context *context,
                                angle::EntryPoint entryPoint,
                                SamplerID sampler,
@@ -5054,34 +5023,6 @@ bool ValidateSamplerParameteriv(const Context *context,
                                 GLenum pname,
                                 const GLint *params)
 {
-    return ValidateSamplerParameterBase(context, entryPoint, sampler, pname, -1, true, params);
-}
-
-bool ValidateSamplerParameterIivOES(const Context *context,
-                                    angle::EntryPoint entryPoint,
-                                    SamplerID sampler,
-                                    GLenum pname,
-                                    const GLint *params)
-{
-    if (context->getClientMajorVersion() < 3)
-    {
-        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES3Required);
-        return false;
-    }
-    return ValidateSamplerParameterBase(context, entryPoint, sampler, pname, -1, true, params);
-}
-
-bool ValidateSamplerParameterIuivOES(const Context *context,
-                                     angle::EntryPoint entryPoint,
-                                     SamplerID sampler,
-                                     GLenum pname,
-                                     const GLuint *params)
-{
-    if (context->getClientMajorVersion() < 3)
-    {
-        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kES3Required);
-        return false;
-    }
     return ValidateSamplerParameterBase(context, entryPoint, sampler, pname, -1, true, params);
 }
 

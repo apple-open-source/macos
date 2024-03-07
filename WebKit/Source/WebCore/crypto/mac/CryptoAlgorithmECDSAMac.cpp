@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmECDSA.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CommonCryptoDERUtilities.h"
 #include "CommonCryptoUtilities.h"
 #include "CryptoAlgorithmEcdsaParams.h"
@@ -40,14 +38,14 @@ static ExceptionOr<Vector<uint8_t>> signECDSA(CryptoAlgorithmIdentifier hash, co
 {
     CCDigestAlgorithm digestAlgorithm;
     if (!getCommonCryptoDigestAlgorithm(hash, digestAlgorithm))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto cryptoDigestAlgorithm = WebCore::cryptoDigestAlgorithm(hash);
     if (!cryptoDigestAlgorithm)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     auto digest = PAL::CryptoDigest::create(*cryptoDigestAlgorithm);
     if (!digest)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     digest->addBytes(data.data(), data.size());
     auto digestData = digest->computeHash();
 
@@ -58,7 +56,7 @@ static ExceptionOr<Vector<uint8_t>> signECDSA(CryptoAlgorithmIdentifier hash, co
 
     CCCryptorStatus status = CCECCryptorSignHash(key, digestData.data(), digestData.size(), signature.data(), &signatureSize);
     if (status)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     // FIXME: <rdar://problem/31618371>
     // convert the DER binary into r + s
@@ -101,14 +99,14 @@ static ExceptionOr<bool> verifyECDSA(CryptoAlgorithmIdentifier hash, const Platf
 {
     CCDigestAlgorithm digestAlgorithm;
     if (!getCommonCryptoDigestAlgorithm(hash, digestAlgorithm))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto cryptoDigestAlgorithm = WebCore::cryptoDigestAlgorithm(hash);
     if (!cryptoDigestAlgorithm)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     auto digest = PAL::CryptoDigest::create(*cryptoDigestAlgorithm);
     if (!digest)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     digest->addBytes(data.data(), data.size());
     auto digestData = digest->computeHash();
 
@@ -168,5 +166,3 @@ ExceptionOr<bool> CryptoAlgorithmECDSA::platformVerify(const CryptoAlgorithmEcds
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

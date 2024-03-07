@@ -758,6 +758,10 @@ extern uint16_t kern_packet_get_vlan_id(const uint16_t);
 extern uint8_t kern_packet_get_vlan_priority(const uint16_t);
 extern void kern_packet_set_wake_flag(const kern_packet_t);
 extern boolean_t kern_packet_get_wake_flag(const kern_packet_t);
+extern errno_t kern_packet_set_fpd_sequence_number(const kern_packet_t,
+    uint32_t);
+extern errno_t kern_packet_set_fpd_context_id(const kern_packet_t, uint16_t);
+extern errno_t kern_packet_set_fpd_command(const kern_packet_t, uint8_t);
 extern errno_t kern_packet_get_flowid(const kern_packet_t, packet_flowid_t *);
 extern void kern_packet_set_trace_tag(const kern_packet_t ph, packet_trace_tag_t tag);
 extern packet_trace_tag_t kern_packet_get_trace_tag(const kern_packet_t ph);

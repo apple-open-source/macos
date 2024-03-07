@@ -34,17 +34,29 @@
 struct WGPURenderBundleImpl {
 };
 
+@interface ResourceUsageAndRenderStage : NSObject
+- (instancetype)initWithUsage:(MTLResourceUsage)usage renderStages:(MTLRenderStages)renderStages;
+
+@property (nonatomic) MTLResourceUsage usage;
+@property (nonatomic) MTLRenderStages renderStages;
+@end
+
+@class RenderBundleICBWithResources;
+
 namespace WebGPU {
 
 class Device;
+
+class RenderBundleEncoder;
 
 // https://gpuweb.github.io/gpuweb/#gpurenderbundle
 class RenderBundle : public WGPURenderBundleImpl, public RefCounted<RenderBundle> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RenderBundle> create(id<MTLIndirectCommandBuffer> indirectCommandBuffer, Vector<BindableResources>&& resources, Device& device)
+    using ResourcesContainer = NSMapTable<id<MTLResource>, ResourceUsageAndRenderStage*>;
+    static Ref<RenderBundle> create(NSArray<RenderBundleICBWithResources*> *resources, RefPtr<WebGPU::RenderBundleEncoder> encoder, Device& device)
     {
-        return adoptRef(*new RenderBundle(indirectCommandBuffer, WTFMove(resources), device));
+        return adoptRef(*new RenderBundle(resources, encoder, device));
     }
     static Ref<RenderBundle> createInvalid(Device& device)
     {
@@ -55,21 +67,23 @@ public:
 
     void setLabel(String&&);
 
-    bool isValid() const { return m_indirectCommandBuffer; }
-
-    id<MTLIndirectCommandBuffer> indirectCommandBuffer() const { return m_indirectCommandBuffer; }
+    bool isValid() const { return m_renderBundlesResources != nil; }
 
     Device& device() const { return m_device; }
-    const Vector<BindableResources>& resources() const { return m_resources; }
+    NSArray<RenderBundleICBWithResources*> *renderBundlesResources() const { return m_renderBundlesResources; }
+
+    void replayCommands(id<MTLRenderCommandEncoder>) const;
+    void updateMinMaxDepths(float minDepth, float maxDepth);
 
 private:
-    RenderBundle(id<MTLIndirectCommandBuffer>, Vector<BindableResources>&&, Device&);
+    RenderBundle(NSArray<RenderBundleICBWithResources*> *, RefPtr<RenderBundleEncoder>, Device&);
     RenderBundle(Device&);
 
-    const id<MTLIndirectCommandBuffer> m_indirectCommandBuffer { nil };
-
     const Ref<Device> m_device;
-    Vector<BindableResources> m_resources;
+    RefPtr<RenderBundleEncoder> m_renderBundleEncoder;
+    NSArray<RenderBundleICBWithResources*> *m_renderBundlesResources;
+    float m_minDepth { 0.f };
+    float m_maxDepth { 1.f };
 };
 
 } // namespace WebGPU

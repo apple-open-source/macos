@@ -1,5 +1,3 @@
-from __future__ import absolute_import, print_function
-
 import os
 import re
 
@@ -82,12 +80,6 @@ def CheckMissingLibs(debugger):
         import macholib
     except:
         print(cmd_fmt.format(mod="macholib"))
-        return False
-
-    try:
-        from future import standard_library
-    except:
-        print(cmd_fmt.format(mod="future"))
         return False
 
     return True

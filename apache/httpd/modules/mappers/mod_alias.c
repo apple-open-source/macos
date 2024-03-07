@@ -37,6 +37,12 @@
 #include "ap_expr.h"
 
 
+#define ALIAS_FLAG_DEFAULT -1
+#define ALIAS_FLAG_OFF 0
+#define ALIAS_FLAG_ON  1
+
+#define ALIAS_PRESERVE_PATH_DEFAULT 0
+
 typedef struct {
     const char *real;
     const char *fake;
@@ -55,9 +61,12 @@ typedef struct {
     unsigned int redirect_set:1;
     apr_array_header_t *redirects;
     const ap_expr_info_t *alias;
+    const char *alias_fake;
     char *handler;
     const ap_expr_info_t *redirect;
     int redirect_status;                /* 301, 302, 303, 410, etc */
+    int allow_relative;                 /* skip ap_construct_url() */
+    int alias_preserve_path;            /* map full path */
 } alias_dir_conf;
 
 module AP_MODULE_DECLARE_DATA alias_module;
@@ -80,6 +89,8 @@ static void *create_alias_dir_config(apr_pool_t *p, char *d)
     alias_dir_conf *a =
     (alias_dir_conf *) apr_pcalloc(p, sizeof(alias_dir_conf));
     a->redirects = apr_array_make(p, 2, sizeof(alias_entry));
+    a->allow_relative = ALIAS_FLAG_DEFAULT;
+    a->alias_preserve_path = ALIAS_FLAG_DEFAULT;
     return a;
 }
 
@@ -105,12 +116,19 @@ static void *merge_alias_dir_config(apr_pool_t *p, void *basev, void *overridesv
     a->redirects = apr_array_append(p, overrides->redirects, base->redirects);
 
     a->alias = (overrides->alias_set == 0) ? base->alias : overrides->alias;
+    a->alias_fake = (overrides->alias_set == 0) ? base->alias_fake : overrides->alias_fake;
     a->handler = (overrides->alias_set == 0) ? base->handler : overrides->handler;
     a->alias_set = overrides->alias_set || base->alias_set;
 
     a->redirect = (overrides->redirect_set == 0) ? base->redirect : overrides->redirect;
     a->redirect_status = (overrides->redirect_set == 0) ? base->redirect_status : overrides->redirect_status;
     a->redirect_set = overrides->redirect_set || base->redirect_set;
+    a->allow_relative = (overrides->allow_relative != ALIAS_FLAG_DEFAULT)
+                                  ? overrides->allow_relative 
+                                  : base->allow_relative;
+    a->alias_preserve_path = (overrides->alias_preserve_path != ALIAS_FLAG_DEFAULT)
+                                  ? overrides->alias_preserve_path
+                                  : base->alias_preserve_path;
 
     return a;
 }
@@ -210,6 +228,7 @@ static const char *add_alias(cmd_parms *cmd, void *dummy, const char *fake,
                     NULL);
         }
 
+        dirconf->alias_fake = cmd->path;
         dirconf->handler = cmd->info;
         dirconf->alias_set = 1;
 
@@ -428,6 +447,17 @@ static char *try_alias(request_rec *r)
             return PREGSUB_ERROR;
         }
 
+        if (dirconf->alias_fake && dirconf->alias_preserve_path == ALIAS_FLAG_ON) {
+            int l;
+
+            l = alias_matches(r->uri, dirconf->alias_fake);
+
+            if (l > 0) {
+                ap_set_context_info(r, dirconf->alias_fake, found);
+                found = apr_pstrcat(r->pool, found, r->uri + l, NULL);
+            }
+        }
+
         if (dirconf->handler) { /* Set handler, and leave a note for mod_cgi */
             r->handler = dirconf->handler;
             apr_table_setn(r->notes, "alias-forced-type", r->handler);
@@ -591,31 +621,33 @@ static int translate_alias_redir(request_rec *r)
         if (ret == PREGSUB_ERROR)
             return HTTP_INTERNAL_SERVER_ERROR;
         if (ap_is_HTTP_REDIRECT(status)) {
-            if (ret[0] == '/') {
-                char *orig_target = ret;
+            alias_dir_conf *dirconf = (alias_dir_conf *) 
+                ap_get_module_config(r->per_dir_config, &alias_module);
+            if (dirconf->allow_relative != ALIAS_FLAG_ON || ret[0] != '/') {
+                if (ret[0] == '/') {
+                    char *orig_target = ret;
 
-                ret = ap_construct_url(r->pool, ret, r);
-                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00673)
-                              "incomplete redirection target of '%s' for "
-                              "URI '%s' modified to '%s'",
-                              orig_target, r->uri, ret);
-            }
-            if (!ap_is_url(ret)) {
-                status = HTTP_INTERNAL_SERVER_ERROR;
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00674)
-                              "cannot redirect '%s' to '%s'; "
-                              "target is not a valid absoluteURI or abs_path",
-                              r->uri, ret);
-            }
-            else {
-                /* append requested query only, if the config didn't
-                 * supply its own.
-                 */
-                if (r->args && !ap_strchr(ret, '?')) {
-                    ret = apr_pstrcat(r->pool, ret, "?", r->args, NULL);
+                    ret = ap_construct_url(r->pool, ret, r);
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00673)
+                                  "incomplete redirection target of '%s' for "
+                                  "URI '%s' modified to '%s'",
+                                  orig_target, r->uri, ret);
                 }
-                apr_table_setn(r->headers_out, "Location", ret);
+                if (!ap_is_url(ret)) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00674)
+                                  "cannot redirect '%s' to '%s'; "
+                                  "target is not a valid absoluteURI or abs_path",
+                                  r->uri, ret);
+                    return HTTP_INTERNAL_SERVER_ERROR;
+                }
             }
+            /* append requested query only, if the config didn't
+             * supply its own.
+             */
+            if (r->args && !ap_strchr(ret, '?')) {
+                ret = apr_pstrcat(r->pool, ret, "?", r->args, NULL);
+            }
+            apr_table_setn(r->headers_out, "Location", ret);
         }
         return status;
     }
@@ -646,31 +678,31 @@ static int fixup_redir(request_rec *r)
         if (ret == PREGSUB_ERROR)
             return HTTP_INTERNAL_SERVER_ERROR;
         if (ap_is_HTTP_REDIRECT(status)) {
-            if (ret[0] == '/') {
-                char *orig_target = ret;
+            if (dirconf->allow_relative != ALIAS_FLAG_ON || ret[0] != '/') {
+                if (ret[0] == '/') {
+                    char *orig_target = ret;
 
-                ret = ap_construct_url(r->pool, ret, r);
-                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00675)
-                              "incomplete redirection target of '%s' for "
-                              "URI '%s' modified to '%s'",
-                              orig_target, r->uri, ret);
-            }
-            if (!ap_is_url(ret)) {
-                status = HTTP_INTERNAL_SERVER_ERROR;
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00676)
-                              "cannot redirect '%s' to '%s'; "
-                              "target is not a valid absoluteURI or abs_path",
-                              r->uri, ret);
-            }
-            else {
-                /* append requested query only, if the config didn't
-                 * supply its own.
-                 */
-                if (r->args && !ap_strchr(ret, '?')) {
-                    ret = apr_pstrcat(r->pool, ret, "?", r->args, NULL);
+                    ret = ap_construct_url(r->pool, ret, r);
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00675)
+                                  "incomplete redirection target of '%s' for "
+                                  "URI '%s' modified to '%s'",
+                                  orig_target, r->uri, ret);
                 }
-                apr_table_setn(r->headers_out, "Location", ret);
+                if (!ap_is_url(ret)) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00676)
+                                  "cannot redirect '%s' to '%s'; "
+                                  "target is not a valid absoluteURI or abs_path",
+                                  r->uri, ret);
+                    return HTTP_INTERNAL_SERVER_ERROR;
+                }
             }
+            /* append requested query only, if the config didn't
+             * supply its own.
+             */
+            if (r->args && !ap_strchr(ret, '?')) {
+                ret = apr_pstrcat(r->pool, ret, "?", r->args, NULL);
+            }
+            apr_table_setn(r->headers_out, "Location", ret);
         }
         return status;
     }
@@ -702,6 +734,13 @@ static const command_rec alias_cmds[] =
     AP_INIT_TAKE2("RedirectPermanent", add_redirect2,
                   (void *) HTTP_MOVED_PERMANENTLY, OR_FILEINFO,
                   "a document to be redirected, then the destination URL"),
+    AP_INIT_FLAG("RedirectRelative", ap_set_flag_slot,
+                  (void*)APR_OFFSETOF(alias_dir_conf, allow_relative), OR_FILEINFO,
+                  "Set to ON to allow relative redirect targets to be issued as-is"),
+    AP_INIT_FLAG("AliasPreservePath", ap_set_flag_slot,
+                  (void*)APR_OFFSETOF(alias_dir_conf, alias_preserve_path), OR_FILEINFO,
+                  "Set to ON to map the full path after the fakename to the realname."),
+
     {NULL}
 };
 

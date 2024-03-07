@@ -327,14 +327,12 @@ test_task_thread_port_values(void)
 	}
 }
 
-T_DECL(imm_pinned_control_port, "Test pinned & immovable task and thread control ports",
-    T_META_IGNORECRASHES(".*pinned_rights_child.*"),
-    T_META_CHECK_LEAKS(false))
+static void
+test_imm_pinned_control_port(const char *test_prog_name)
 {
 	uint32_t task_exc_guard = 0;
 	size_t te_size = sizeof(&task_exc_guard);
 	posix_spawnattr_t       attrs;
-	char *test_prog_name = "./imm_pinned_control_port_crasher";
 	char *child_args[MAX_ARGV];
 	pid_t client_pid = 0;
 	uint32_t opts = 0;
@@ -432,4 +430,18 @@ T_DECL(imm_pinned_control_port, "Test pinned & immovable task and thread control
 		T_LOG("Exception code: Received code = 0x%llx Expected code = 0x%llx", exc_id, test_exception_code[i]);
 		T_EXPECT_EQ(exc_id, test_exception_code[i], "Exception code: Received == Expected");
 	}
+}
+
+T_DECL(imm_pinned_control_port_hardened, "Test pinned & immovable task and thread control ports for hardened runtime binary",
+    T_META_IGNORECRASHES(".*pinned_rights_child.*"),
+    T_META_CHECK_LEAKS(false))
+{
+	test_imm_pinned_control_port("imm_pinned_control_port_crasher_3P_hardened");
+}
+
+T_DECL(imm_pinned_control_port, "Test pinned & immovable task and thread control ports for first party binary",
+    T_META_IGNORECRASHES(".*pinned_rights_child.*"),
+    T_META_CHECK_LEAKS(false))
+{
+	test_imm_pinned_control_port("imm_pinned_control_port_crasher");
 }

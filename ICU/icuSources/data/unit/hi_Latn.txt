@@ -48,8 +48,10 @@ hi_Latn{
             }
         }
         graphics{
-            em{
-                dnam{"typographic em"}
+            dot-per-centimeter{
+                dnam{"dots per centimeter"}
+                one{"{0} dot per centimeter"}
+                other{"{0} dots per centimeter"}
             }
         }
         length{
@@ -68,6 +70,9 @@ hi_Latn{
             }
         }
         pressure{
+            gasoline-energy-density{
+                dnam{"gasoline equivalent"}
+            }
             inch-ofhg{
                 one{"{0} inch mercury"}
                 other{"{0} inches mercury"}
@@ -115,6 +120,9 @@ hi_Latn{
         }
     }
     unitsNarrow{
+        compound{
+            10p-6{"μ {0}"}
+        }
         concentr{
             karat{
                 dnam{"karat"}
@@ -139,11 +147,6 @@ hi_Latn{
                 dnam{"PByte"}
             }
         }
-        length{
-            meter{
-                dnam{"metre"}
-            }
-        }
         mass{
             pound{
                 one{"{0}#"}
@@ -155,14 +158,8 @@ hi_Latn{
                 one{"{0}bar"}
                 other{"{0}bars"}
             }
-            millimeter-ofhg{
-                dnam{"mmHg"}
-            }
         }
         speed{
-            kilometer-per-hour{
-                dnam{"km/h"}
-            }
             mile-per-hour{
                 dnam{"mi/hr"}
             }
@@ -206,13 +203,6 @@ hi_Latn{
                 other{"{0} rev"}
             }
         }
-        compound{
-            10p-6{"μ {0}"}
-            10p-9{"n {0}"}
-            10p12{"T {0}"}
-            10p15{"P {0}"}
-            10p6{"M {0}"}
-        }
         concentr{
             karat{
                 dnam{"karats"}
@@ -235,10 +225,6 @@ hi_Latn{
                 one{"{0} din"}
                 other{"{0} din"}
             }
-            minute{
-                one{"{0} min"}
-                other{"{0} mins"}
-            }
         }
         graphics{
             dot{
@@ -259,11 +245,6 @@ hi_Latn{
             bar{
                 one{"{0} bar"}
                 other{"{0} bars"}
-            }
-            millimeter-ofhg{
-                dnam{"mmHg"}
-                one{"{0} mmHg"}
-                other{"{0} mmHg"}
             }
         }
         volume{

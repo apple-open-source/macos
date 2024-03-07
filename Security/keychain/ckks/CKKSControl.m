@@ -36,7 +36,6 @@
 
 @interface CKKSControl ()
 @property (readwrite,assign) BOOL synchronous;
-@property xpc_endpoint_t endpoint;
 @property NSXPCConnection *connection;
 @end
 
@@ -80,6 +79,8 @@
 
     }] rpcStatus:viewName fast:fast waitForNonTransientState:nonTransientStateTimeout reply:^(NSArray<NSDictionary*>* result, NSError* error){
         reply(result, error);
+	// Prevent CKKSControl Object from being dealloced until completion fires
+        (void)self;
     }];
 }
 
@@ -94,6 +95,7 @@
             secnotice("ckkscontrol", "Local reset finished successfully");
         }
         reply(error);
+        (void)self;
     }];
 }
 
@@ -108,6 +110,7 @@
             secnotice("ckkscontrol", "CloudKit reset finished successfully");
         }
         reply(error);
+        (void)self;
     }];
 }
 
@@ -123,6 +126,7 @@
             secnotice("ckkscontrol", "Local resync finished successfully");
         }
         reply(error);
+        (void)self;
     }];
 }
 - (void)rpcResync:(NSString*)viewName reply:(void(^)(NSError* error))reply {
@@ -136,6 +140,7 @@
             secnotice("ckkscontrol", "Resync finished successfully");
         }
         reply(error);
+        (void)self;
     }];
 }
 
@@ -151,6 +156,7 @@
             secnotice("ckkscontrol", "Fetch finished successfully");
         }
         reply(error);
+        (void)self;
     }];
 }
 - (void)rpcFetchAndProcessChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
@@ -174,6 +180,7 @@
             secnotice("ckkscontrol", "Push finished successfully");
         }
         reply(error);
+        (void)self;
     }];
 }
 
@@ -182,6 +189,7 @@
         reply(error);
     }] rpcCKMetric:eventName attributes:attributes reply:^(NSError* error){
         reply(error);
+        (void)self;
     }];
 }
 
@@ -190,6 +198,7 @@
         reply(nil, error);
     }] performanceCounters:^(NSDictionary <NSString *, NSNumber *> *counters){
         reply(counters, nil);
+        (void)self;
     }];
 }
 
@@ -198,6 +207,7 @@
         reply(nil);
     }] rpcGetCKDeviceIDWithReply:^(NSString *ckdeviceID) {
         reply(ckdeviceID);
+        (void)self;
     }];
 }
 
@@ -281,7 +291,10 @@
                proposedTLK:proposedTLK
              wrappedOldTLK:wrappedOldTLK
                  tlkShares:shares
-                     reply:reply];
+     reply:^(NSError* _Nullable error) {
+        reply(error);
+        (void)self;
+    }];
 }
 
 - (void)fetchSEViewKeyHierarchy:(NSString*)seViewName
@@ -304,7 +317,14 @@
 {
     [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         reply(nil, nil, nil, error);
-    }] fetchSEViewKeyHierarchy:seViewName forceFetch:forceFetch reply:reply];
+    }] fetchSEViewKeyHierarchy:seViewName forceFetch:forceFetch reply:^(CKKSExternalKey* _Nullable currentTLK,
+                                                                        NSArray<CKKSExternalKey*>* _Nullable pastTLKs,
+                                                                        NSArray<CKKSExternalTLKShare*>* _Nullable currentTLKShares,
+                                                                        NSError* _Nullable error){
+        reply(currentTLK, pastTLKs, currentTLKShares, error);
+        (void)self;
+    }]; 
+    
 }
 
 - (void)modifyTLKSharesForSEView:(NSString*)seViewName
@@ -314,7 +334,10 @@
 {
     [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         reply(error);
-    }] modifyTLKSharesForSEView:seViewName adding:sharesToAdd deleting:sharesToDelete reply:reply];
+    }] modifyTLKSharesForSEView:seViewName adding:sharesToAdd deleting:sharesToDelete reply:^(NSError* _Nullable error) {
+        reply(error);
+        (void)self;
+    }];
 }
 
 - (void)deleteSEView:(NSString*)seViewName
@@ -322,21 +345,33 @@
 {
     [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         reply(error);
-    }] deleteSEView:seViewName reply:reply];
+    }] deleteSEView:seViewName reply:^(NSError * _Nonnull error){
+        reply(error);
+        (void)self;
+    }];
+    
 }
 
 - (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply
 {
     [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         reply(NO, error);
-    }] toggleHavoc:reply];
+    }] toggleHavoc:^(BOOL havoc,
+                     NSError* _Nullable error){
+        reply(NO, error);
+        (void)self;
+    }];
+    
 }
 
 - (void)pcsMirrorKeysForServices:(NSDictionary<NSNumber*,NSArray<NSData*>*>*)services reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result, NSError* _Nullable error))reply
 {
     [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         reply(nil, error);
-    }] pcsMirrorKeysForServices:services reply:reply];
+    }] pcsMirrorKeysForServices:services reply:^(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result, NSError* _Nullable error){
+        reply(result, error);
+        (void)self;
+    }];
 }
 
 + (CKKSControl*)controlObject:(NSError* __autoreleasing *)error {

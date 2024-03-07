@@ -152,6 +152,37 @@ env_selector_body()
 	atf_check -o match:"old" env FOO_COMMAND="invalid" $(atf_get_srcdir)/env_selector
 }
 
+atf_test_case env_selector_addarg
+env_selector_addarg_body()
+{
+	mkdir -p bin
+
+	printf "#!/bin/sh\necho \$@" > bin/foo
+
+	chmod 755 bin/foo
+
+	atf_check -o match:"^$" $(atf_get_srcdir)/env_selector_addarg
+
+	# Only adds one arg
+	atf_check -o match:"-x" \
+	    env FOO_COMMAND="newfoo" $(atf_get_srcdir)/env_selector_addarg
+	atf_check -o match:"-x -y" \
+	    env FOO_COMMAND="newfoo" $(atf_get_srcdir)/env_selector_addarg -y
+
+	# Adds multiple args, but in the same addarg
+	atf_check -o match:"-x -y" \
+	    env FOO_COMMAND="bestfoo" $(atf_get_srcdir)/env_selector_addarg
+	atf_check -o match:"-x -y -z" \
+	    env FOO_COMMAND="bestfoo" $(atf_get_srcdir)/env_selector_addarg -z
+
+	# Same, but in multiple addargs; they should be processed in order.
+	atf_check -o match:"-x -y -z" \
+	    env FOO_COMMAND="worstfoo" $(atf_get_srcdir)/env_selector_addarg
+	atf_check -o match:"-x -y -z -0" \
+	    env FOO_COMMAND="worstfoo" $(atf_get_srcdir)/env_selector_addarg -0
+}
+
+
 atf_test_case simple_shim
 simple_shim_body()
 {
@@ -196,6 +227,7 @@ atf_init_test_cases()
 	atf_add_test_case arg_selector_simple
 	atf_add_test_case arg_selector_complex
 	atf_add_test_case env_selector
+	atf_add_test_case env_selector_addarg
 	atf_add_test_case simple_shim
 	atf_add_test_case ui_infile_stdin
 	atf_add_test_case ui_outfile_stdout

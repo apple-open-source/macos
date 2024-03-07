@@ -26,7 +26,7 @@
 #include "config.h"
 #include "ReplayKitCaptureSource.h"
 
-#if ENABLE(MEDIA_STREAM) && (PLATFORM(IOS) || PLATFORM(VISION))
+#if ENABLE(MEDIA_STREAM) && HAVE(REPLAYKIT)
 
 #import "Logging.h"
 #import "RealtimeVideoUtilities.h"
@@ -132,8 +132,10 @@ bool ReplayKitCaptureSource::start()
     if (screenRecorder.recording)
         return true;
 
+#if !PLATFORM(APPLETV)
     // FIXME: Add support for concurrent audio capture.
     [screenRecorder setMicrophoneEnabled:NO];
+#endif
 
     if (!m_recorderHelper)
         m_recorderHelper = ([[WebCoreReplayKitScreenRecorderHelper alloc] initWithCallback:this]);
@@ -143,7 +145,7 @@ bool ReplayKitCaptureSource::start()
         if (bufferType != RPSampleBufferTypeVideo)
             return;
 
-        ERROR_LOG_IF(error && loggerPtr(), identifier, "startCaptureWithHandler failed ", [error localizedDescription].UTF8String);
+        ERROR_LOG_IF(error && loggerPtr(), identifier, "startCaptureWithHandler failed ", error);
 
         ++m_frameCount;
 
@@ -161,7 +163,7 @@ bool ReplayKitCaptureSource::start()
             if (!weakThis || !error)
                 return;
 
-            ERROR_LOG_IF(loggerPtr(), identifier, "completionHandler failed ", [error localizedDescription].UTF8String);
+            ERROR_LOG_IF(loggerPtr(), identifier, "completionHandler failed ", error.get());
             weakThis->stop();
         });
     });
@@ -204,7 +206,7 @@ void ReplayKitCaptureSource::stop()
     auto *screenRecorder = [PAL::getRPScreenRecorderClass() sharedRecorder];
     if (screenRecorder.recording) {
         [screenRecorder stopCaptureWithHandler:^(NSError * _Nullable error) {
-            ERROR_LOG_IF(error && loggerPtr(), identifier, "startCaptureWithHandler failed ", [error localizedDescription].UTF8String);
+            ERROR_LOG_IF(error && loggerPtr(), identifier, "startCaptureWithHandler failed ", error);
         }];
     }
 }
@@ -278,4 +280,4 @@ void ReplayKitCaptureSource::screenCaptureDevices(Vector<CaptureDevice>& display
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM) && (PLATFORM(IOS) || PLATFORM(VISION))
+#endif // ENABLE(MEDIA_STREAM) && HAVE(REPLAYKIT)

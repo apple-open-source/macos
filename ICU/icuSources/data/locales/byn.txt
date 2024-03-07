@@ -23,13 +23,11 @@ byn{
         " ጠ ጨ ጸ ፈ ፐ]"
     }
     NumberElements{
-        default{"latn"}
         latn{
             patterns{
                 currencyFormat{"¤#,##0.00"}
             }
         }
-        native{"latn"}
         traditional{"ethi"}
     }
     calendar{

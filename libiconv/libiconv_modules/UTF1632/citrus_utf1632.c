@@ -131,6 +131,16 @@ _citrus_UTF1632_mbrtowc_priv(_UTF1632EncodingInfo *ei, wchar_t *pwc,
 	result = 0;
 	chlenbak = psenc->chlen;
 
+#ifdef __APPLE__
+	/*
+	 * If we have an explicit endian, set it now and skip any of the BOM
+	 * bits below -- those are in the middle of the data stream.
+	 */
+	if ((ei->mode & _MODE_FORCE_ENDIAN) != 0)
+		endian = psenc->current_endian = ei->preffered_endian;
+	else
+		endian = _ENDIAN_UNKNOWN;
+#endif
 refetch:
 	needlen = ((ei->mode & _MODE_UTF32) != 0 || chlenbak >= 2) ? 4 : 2;
 
@@ -141,6 +151,18 @@ refetch:
 		n--;
 		result++;
 	}
+
+#ifdef __APPLE__
+	/*
+	 * Without a forced endian-ness, the data stream may have internal BOM
+	 * bytes to swap back and forth within the stream.  If we have an
+	 * explicit request for endianness, though, BOMs are always converted
+	 * literally.
+	 */
+	if ((ei->mode & _MODE_FORCE_ENDIAN) != 0) {
+		goto skipbom;
+	}
+#endif
 
 	/* judge endian marker */
 	if ((ei->mode & _MODE_UTF32) == 0) {
@@ -172,6 +194,10 @@ refetch:
 	    psenc->current_endian == _ENDIAN_UNKNOWN) ? ei->preffered_endian :
 	    psenc->current_endian;
 
+#ifdef __APPLE__
+skipbom:
+	assert(endian != _ENDIAN_UNKNOWN);
+#endif
 	/* get wc */
 	if ((ei->mode & _MODE_UTF32) == 0) {
 		/* UTF16 */
@@ -414,6 +440,15 @@ _citrus_UTF1632_encoding_module_init(_UTF1632EncodingInfo * __restrict ei,
 	/* 6: endian + surrogate */
 	/* 8: endian + normal */
 
+#ifdef __APPLE__
+	/*
+	 * 'force' doesn't make sense unless an explicit endian-ness has been
+	 * requested; enforce it.
+	 */
+	if ((ei->mode & _MODE_FORCE_ENDIAN) != 0 &&
+	    ei->preffered_endian == _ENDIAN_UNKNOWN)
+		return (EINVAL);
+#endif
 	if (ei->preffered_endian == _ENDIAN_UNKNOWN) {
 		ei->preffered_endian = _ENDIAN_BIG;
 	}

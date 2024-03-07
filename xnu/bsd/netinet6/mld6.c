@@ -1411,11 +1411,11 @@ mld_v1_input_report(struct ifnet *ifp, struct mbuf *m,
 		IFA_LOCK(&ia->ia_ifa);
 		if ((IN6_ARE_ADDR_EQUAL(&ip6->ip6_src, IA6_IN6(ia)))) {
 			IFA_UNLOCK(&ia->ia_ifa);
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 			return 0;
 		}
 		IFA_UNLOCK(&ia->ia_ifa);
-		IFA_REMREF(&ia->ia_ifa);
+		ifa_remref(&ia->ia_ifa);
 	} else if (IN6_IS_ADDR_UNSPECIFIED(&src)) {
 		return 0;
 	}
@@ -2340,7 +2340,7 @@ mld_v1_transmit_report(struct in6_multi *in6m, const uint8_t type)
 	MGETHDR(mh, M_DONTWAIT, MT_HEADER);
 	if (mh == NULL) {
 		if (ia != NULL) {
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 		}
 		return ENOMEM;
 	}
@@ -2348,7 +2348,7 @@ mld_v1_transmit_report(struct in6_multi *in6m, const uint8_t type)
 	if (md == NULL) {
 		m_free(mh);
 		if (ia != NULL) {
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 		}
 		return ENOMEM;
 	}
@@ -2375,7 +2375,7 @@ mld_v1_transmit_report(struct in6_multi *in6m, const uint8_t type)
 	ip6_output_setsrcifscope(mh, IFSCOPE_NONE, ia);
 	if (ia != NULL) {
 		IFA_UNLOCK(&ia->ia_ifa);
-		IFA_REMREF(&ia->ia_ifa);
+		ifa_remref(&ia->ia_ifa);
 		ia = NULL;
 	}
 	ip6->ip6_dst = in6m->in6m_addr;
@@ -2886,7 +2886,7 @@ mld_v2_enqueue_group_record(struct ifqueue *ifq, struct in6_multi *inm,
 	struct mldv2_record     *pmr;
 	struct ifnet            *ifp;
 	struct ip6_msource      *ims, *nims;
-	struct mbuf             *m0, *m, *md;
+	mbuf_ref_t               m0, m, md;
 	int                      error, is_filter_list_change;
 	int                      minrec0len, m0srcs, msrcs, nbytes, off;
 	int                      record_has_sources;
@@ -3286,7 +3286,7 @@ mld_v2_enqueue_filter_change(struct ifqueue *ifq, struct in6_multi *inm)
 	struct mldv2_record      mr;
 	struct mldv2_record     *pmr;
 	struct ip6_msource      *ims, *nims;
-	struct mbuf             *m, *m0, *md;
+	mbuf_ref_t               m, m0, md;
 	int                      m0srcs, nbytes, npbytes, off, rsrcs, schanged;
 	int                      nallow, nblock;
 	uint8_t                  mode, now, then;
@@ -3490,10 +3490,10 @@ static int
 mld_v2_merge_state_changes(struct in6_multi *inm, struct ifqueue *ifscq)
 {
 	struct ifqueue  *gq;
-	struct mbuf     *m;             /* pending state-change */
-	struct mbuf     *m0;            /* copy of pending state-change */
-	struct mbuf     *mt;            /* last state-change in packet */
-	struct mbuf     *n;
+	mbuf_ref_t       m;    /* pending state-change */
+	mbuf_ref_t       m0;   /* copy of pending state-change */
+	mbuf_ref_t       mt;   /* last state-change in packet */
+	mbuf_ref_t       n;
 	int              docopy, domerge;
 	u_int            recslen;
 
@@ -3677,16 +3677,16 @@ next:
  *
  * Must not be called with in6m_lockm or mli_lock held.
  */
+__attribute__((noinline))
 static void
 mld_dispatch_packet(struct mbuf *m)
 {
 	struct ip6_moptions     *im6o;
 	struct ifnet            *ifp;
-	struct ifnet            *oifp = NULL;
-	struct mbuf             *m0;
-	struct mbuf             *md;
+	struct ifnet            *__single oifp = NULL;
+	mbuf_ref_t               m0, md;
 	struct ip6_hdr          *ip6;
-	struct mld_hdr          *mld;
+	struct icmp6_hdr        *icmp6;
 	int                      error;
 	int                      off;
 	int                      type;
@@ -3705,7 +3705,6 @@ mld_dispatch_packet(struct mbuf *m)
 		ip6stat.ip6s_noroute++;
 		return;
 	}
-
 	im6o = ip6_allocmoptions(Z_WAITOK);
 	if (im6o == NULL) {
 		m_freem(m);
@@ -3715,7 +3714,6 @@ mld_dispatch_packet(struct mbuf *m)
 	im6o->im6o_multicast_hlim  = 1;
 	im6o->im6o_multicast_loop = 0;
 	im6o->im6o_multicast_ifp = ifp;
-
 	if (m->m_flags & M_MLDV1) {
 		m0 = m;
 	} else {
@@ -3731,7 +3729,6 @@ mld_dispatch_packet(struct mbuf *m)
 			return;
 		}
 	}
-
 	mld_scrub_context(m0);
 	m->m_flags &= ~(M_PROTOFLAGS);
 	m0->m_pkthdr.rcvif = lo_ifp;
@@ -3744,8 +3741,8 @@ mld_dispatch_packet(struct mbuf *m)
 	 * so we can bump the stats.
 	 */
 	md = m_getptr(m0, sizeof(struct ip6_hdr), &off);
-	mld = (struct mld_hdr *)(mtod(md, uint8_t *) + off);
-	type = mld->mld_type;
+	icmp6 = (struct icmp6_hdr *)(mtod(md, uint8_t *) + off);
+	type = icmp6->icmp6_type;
 
 	if (ifp->if_eflags & IFEF_TXSTART) {
 		/*
@@ -3816,7 +3813,7 @@ mld_v2_encap_report(struct ifnet *ifp, struct mbuf *m)
 	MGETHDR(mh, M_DONTWAIT, MT_HEADER);
 	if (mh == NULL) {
 		if (ia != NULL) {
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 		}
 		m_freem(m);
 		return NULL;
@@ -3843,7 +3840,7 @@ mld_v2_encap_report(struct ifnet *ifp, struct mbuf *m)
 
 	if (ia != NULL) {
 		IFA_UNLOCK(&ia->ia_ifa);
-		IFA_REMREF(&ia->ia_ifa);
+		ifa_remref(&ia->ia_ifa);
 		ia = NULL;
 	}
 	ip6->ip6_dst = in6addr_linklocal_allv2routers;

@@ -210,8 +210,8 @@ private:
     void didCleanupFullscreen() final;
     void fullscreenMayReturnToInline() final;
 
-    HashSet<PlaybackSessionModelClient*> m_playbackClients;
-    HashSet<VideoPresentationModelClient*> m_presentationClients;
+    HashSet<CheckedPtr<PlaybackSessionModelClient>> m_playbackClients;
+    HashSet<CheckedPtr<VideoPresentationModelClient>> m_presentationClients;
     RefPtr<VideoFullscreenInterfaceAVKit> m_interface;
     RefPtr<VideoPresentationModelVideoElement> m_presentationModel;
     RefPtr<PlaybackSessionModelMediaElement> m_playbackModel;
@@ -649,35 +649,35 @@ bool VideoFullscreenControllerContext::isPictureInPictureSupported() const
 void VideoFullscreenControllerContext::willEnterPictureInPicture()
 {
     ASSERT(isUIThread());
-    for (auto* client : m_presentationClients)
+    for (auto& client : m_presentationClients)
         client->willEnterPictureInPicture();
 }
 
 void VideoFullscreenControllerContext::didEnterPictureInPicture()
 {
     ASSERT(isUIThread());
-    for (auto* client : m_presentationClients)
+    for (auto& client : m_presentationClients)
         client->didEnterPictureInPicture();
 }
 
 void VideoFullscreenControllerContext::failedToEnterPictureInPicture()
 {
     ASSERT(isUIThread());
-    for (auto* client : m_presentationClients)
+    for (auto& client : m_presentationClients)
         client->failedToEnterPictureInPicture();
 }
 
 void VideoFullscreenControllerContext::willExitPictureInPicture()
 {
     ASSERT(isUIThread());
-    for (auto* client : m_presentationClients)
+    for (auto& client : m_presentationClients)
         client->willExitPictureInPicture();
 }
 
 void VideoFullscreenControllerContext::didExitPictureInPicture()
 {
     ASSERT(isUIThread());
-    for (auto* client : m_presentationClients)
+    for (auto& client : m_presentationClients)
         client->didExitPictureInPicture();
 }
 

@@ -220,7 +220,7 @@ void IOAudioClientBufferSet::setWatchdogTimeout(AbsoluteTime *timeout)
 void IOAudioClientBufferSet::cancelWatchdogTimer()
 {
     audioDebugIOLog(4, "+- IOAudioClientBufferSet[%p]::cancelWatchdogTimer()\n", this);
-    AudioTrace_Start(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientCancelWatchdogTimer, (uintptr_t)this, timerPending, NULL, NULL);
+    AudioTrace_Start(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientCancelWatchdogTimer, (uintptr_t)this, timerPending, 0, 0);
 
 	if (NULL != userClient) {
 		userClient->retain();
@@ -234,7 +234,7 @@ void IOAudioClientBufferSet::cancelWatchdogTimer()
 		userClient->release();
 	}
 	
-    AudioTrace_End(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientCancelWatchdogTimer, (uintptr_t)this, timerPending, NULL, NULL);
+    AudioTrace_End(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientCancelWatchdogTimer, (uintptr_t)this, timerPending, 0, 0);
 	return;
 }
 

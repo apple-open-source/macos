@@ -136,8 +136,8 @@ malloc_freezedry(void)
 	for (i = 0; i < malloc_num_zones; i++) {
 		if (strcmp(malloc_zones[i]->zone_name, "DefaultMallocZone")) {
 			/* Unknown zone type. */
-			free(data->szones);
-			free(data);
+			_free(data->szones);
+			_free(data);
 			return 0;
 		}
 		memcpy(&data->szones[i], malloc_zones[i], sizeof(szone_t));

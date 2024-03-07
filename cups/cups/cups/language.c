@@ -1983,6 +1983,12 @@ cups_unquote(char       *d,		/* O - Unquoted string */
     if (*s == '\\')
     {
       s ++;
+
+      if (s[0] == 0)
+      {
+        break;
+      }
+
       if (isdigit(*s))
       {
 	*d = 0;

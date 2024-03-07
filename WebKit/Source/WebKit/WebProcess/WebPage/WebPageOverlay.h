@@ -30,6 +30,7 @@
 #include <WebCore/PageOverlay.h>
 #include <WebCore/SimpleRange.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/WeakPtr.h>
 
 #if HAVE(SECURE_ACTION_CONTEXT)
 OBJC_CLASS DDSecureActionContext;
@@ -48,7 +49,7 @@ namespace WebKit {
 class WebFrame;
 class WebPage;
 
-class WebPageOverlay : public API::ObjectImpl<API::Object::Type::BundlePageOverlay>, private WebCore::PageOverlay::Client {
+class WebPageOverlay : public API::ObjectImpl<API::Object::Type::BundlePageOverlay>, public CanMakeWeakPtr<WebPageOverlay>, private WebCore::PageOverlay::Client {
 public:
     struct ActionContext;
 

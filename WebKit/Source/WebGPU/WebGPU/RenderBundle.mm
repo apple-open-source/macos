@@ -28,13 +28,26 @@
 
 #import "APIConversions.h"
 
+@implementation ResourceUsageAndRenderStage
+- (instancetype)initWithUsage:(MTLResourceUsage)usage renderStages:(MTLRenderStages)renderStages
+{
+    if (!(self = [super init]))
+        return nil;
+
+    _usage = usage;
+    _renderStages = renderStages;
+
+    return self;
+}
+@end
+
 namespace WebGPU {
 
-RenderBundle::RenderBundle(id<MTLIndirectCommandBuffer> indirectCommandBuffer, Vector<BindableResources>&& resources, Device& device)
-    : m_indirectCommandBuffer(indirectCommandBuffer)
-    , m_device(device)
-    , m_resources(WTFMove(resources))
+RenderBundle::RenderBundle(NSArray<RenderBundleICBWithResources*> *resources, RefPtr<RenderBundleEncoder> encoder, Device& device)
+    : m_device(device)
+    , m_renderBundleEncoder(encoder)
 {
+    m_renderBundlesResources = resources;
 }
 
 RenderBundle::RenderBundle(Device& device)
@@ -46,7 +59,25 @@ RenderBundle::~RenderBundle() = default;
 
 void RenderBundle::setLabel(String&& label)
 {
-    m_indirectCommandBuffer.label = label;
+    m_renderBundlesResources.firstObject.indirectCommandBuffer.label = label;
+}
+
+void RenderBundle::replayCommands(id<MTLRenderCommandEncoder> commandEncoder) const
+{
+    if (m_renderBundleEncoder)
+        m_renderBundleEncoder->replayCommands(commandEncoder);
+}
+
+void RenderBundle::updateMinMaxDepths(float minDepth, float maxDepth)
+{
+    if (m_minDepth == minDepth && m_maxDepth == maxDepth)
+        return;
+
+    m_minDepth = minDepth;
+    m_maxDepth = maxDepth;
+    float twoFloats[2] = { m_minDepth, m_maxDepth };
+    for (RenderBundleICBWithResources* icb in m_renderBundlesResources)
+        m_device->getQueue().writeBuffer(icb.fragmentDynamicOffsetsBuffer, 0, twoFloats, sizeof(float) * 2);
 }
 
 } // namespace WebGPU

@@ -4,12 +4,24 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <TargetConditionals.h>
+
+#if !TARGET_OS_SIMULATOR
+#import <libamfi-interface.h>
+#include "TLE.h"
+#endif
+
+#undef verify // Macro from Foundation conflicts with Security framework headers and isn't used below.
+
 #import <Security/Security.h>
-#import <TLE/TLE.h>
 #import <kern/cs_blobs.h>
 #import <security_utilities/debugging.h>
+#import <security_utilities/errors.h>
+#import <sys/types.h>
+#import <sys/sysctl.h>
+#import <os/variant_private.h>
+
 #import "LWCRHelper.h"
-#import <TargetConditionals.h>
 
 #if TARGET_OS_SIMULATOR
 // lwcr_keys.h doesn't exist for simulator builds yet...
@@ -233,3 +245,143 @@ CFDictionaryRef copyDefaultDesignatedLWCRMaker(unsigned int validationCategory,
 	}
 	return (__bridge_retained CFDictionaryRef)lwcr;
 }
+
+#if !TARGET_OS_SIMULATOR
+static sec_LWCR* makeLightweightCodeRequirement(CFDataRef lwcrData)
+{
+	NSError* error = nil;
+	sec_LWCR* lwcr = [sec_LWCR withData:(__bridge NSData*)lwcrData withError:&error];
+	if (error) {
+		secerror ("%s: failed to parse LightweightCodeRequirement", __FUNCTION__);
+	}
+	return lwcr;
+}
+
+OSStatus validateLightweightCodeRequirementData(CFDataRef lwcrData)
+{
+	sec_LWCR* lwcr = makeLightweightCodeRequirement(lwcrData);
+	if (lwcr == nil) {
+		Security::MacOSError::throwMe(errSecBadReq);
+	}
+	return errSecSuccess;
+}
+
+static NSString* getOSEnvironment()
+{
+	size_t len = 0;
+	int ret = sysctlbyname("hw.osenvironment", NULL, &len, NULL, 0);
+	if (ret) {
+		secerror("%s: failed to query hw.osenvironment sysctl (error: %s)", __FUNCTION__, strerror(errno));
+		return nil;
+	}
+	if (len == 0) {
+		return [NSString new];
+	}
+	char* buf = (char*)malloc(len);
+	
+	NSString* osenv = nil;
+	ret = sysctlbyname("hw.osenvironment", buf, &len, NULL, 0);
+	if (ret) {
+		secerror("%s: failed to retrieve hw.osenvironment (error: %s)", __FUNCTION__, strerror(errno));
+		// Fall through to clean up and return nil.
+	} else {
+		osenv = [NSString stringWithCString:buf encoding:NSUTF8StringEncoding];
+	}
+	free(buf);
+	return osenv;
+}
+
+static void bindAndAdd(NSMutableDictionary<NSString*, sec_LWCRFact*>* facts, const char* key, sec_LWCRFact* fact)
+{
+	[fact bindName:key withLength:strlen(key)];
+	facts[@(key)] = fact;
+}
+
+static void bindAndAddIntegerFact(NSMutableDictionary<NSString*, sec_LWCRFact*>* facts, const char* key, int64_t val)
+{
+	sec_LWCRFact* fact = [sec_LWCRFact integerFact:[NSNumber numberWithLongLong:val]];
+	bindAndAdd(facts, key, fact);
+}
+
+static void bindAndAddStringFact(NSMutableDictionary<NSString*, sec_LWCRFact*>* facts, const char* key, const char* val)
+{
+	sec_LWCRFact* fact = [sec_LWCRFact stringFact:@(val)];
+	bindAndAdd(facts, key, fact);
+}
+
+static void bindAndAddBoolFact(NSMutableDictionary<NSString*, sec_LWCRFact*>* facts, const char* key, bool val)
+{
+	sec_LWCRFact* fact = [sec_LWCRFact boolFact:val];
+	bindAndAdd(facts, key, fact);
+}
+
+static NSDictionary<NSString*, sec_LWCRFact*>* collectFacts(const Security::CodeSigning::Requirement::Context &ctx)
+{
+	NSMutableDictionary<NSString*, sec_LWCRFact*>* facts = [NSMutableDictionary dictionary];
+	//kLWCRFact_AppleInternal
+	bool appleInternal = os_variant_allows_internal_security_policies("com.apple.security.codesigning");
+	bindAndAddBoolFact(facts,kLWCRFact_AppleInternal, appleInternal);
+	//kLWCRFact_CDhash
+	sec_LWCRFact* cdhash = [sec_LWCRFact dataFact:(__bridge_transfer NSData*)ctx.directory->cdhash()];
+	bindAndAdd(facts, kLWCRFact_CDhash, cdhash);
+	//kLWCRFact_CodeSigningFlags
+	uint32_t csflags_raw = ctx.directory->flags;
+	bindAndAddIntegerFact(facts, kLWCRFact_CodeSigningFlags, csflags_raw);
+	//kLWCRFact_DeveloperModeEnabled
+	bool developer_mode_status = amfi_developer_mode_status();
+	bindAndAddBoolFact(facts, kLWCRFact_DeveloperModeEnabled, developer_mode_status);
+	//kLWCRFact_Entitlements
+	sec_LWCRFact* entitlements = [sec_LWCRFact entitlementsFact:(__bridge NSDictionary*)ctx.entitlements];
+	bindAndAdd(facts, kLWCRFact_Entitlements, entitlements);
+	//kLWCRFact_InfoPlistHash
+	uint8_t hashSize = ctx.directory->hashSize;
+	const uint8_t* infoPlistHashData_raw = ctx.directory->getSlot(-Security::CodeSigning::cdInfoSlot, false);
+	NSData* infoPlistHashData = [NSData dataWithBytes:(void*)infoPlistHashData_raw length:hashSize];
+	sec_LWCRFact* infoPlistHash = [sec_LWCRFact dataFact:infoPlistHashData];
+	bindAndAdd(facts, kLWCRFact_InfoPlistHash, infoPlistHash);
+	//kLWCRFact_InTrustcacheWithConstraintCategory is unsupported for now. Need a new kernel interface.
+	//kLWCRFact_IsMainBinary
+	bindAndAddBoolFact(facts, kLWCRFact_IsMainBinary, (ctx.directory->execSegFlags & CS_EXECSEG_MAIN_BINARY) ? true : false);
+	//kLWCRFact_IsSIPProtected
+	bindAndAddBoolFact(facts, kLWCRFact_IsSIPProtected, ctx.isSIPProtected);
+	//kLWCRFact_OnAuthorizedAuthAPFSVolume
+	bindAndAddBoolFact(facts, kLWCRFact_OnAuthorizedAuthAPFSVolume, ctx.onAuthorizedAuthAPFSVolume);
+	//kLWCRFact_OnSystemVolume
+	bindAndAddBoolFact(facts, kLWCRFact_OnSystemVolume, ctx.onSystemVolume);
+	//kLWCRFact_OSEnvironment
+	NSString* osenvironment = getOSEnvironment();
+	if (osenvironment) {
+		bindAndAddStringFact(facts, kLWCRFact_OSEnvironment, osenvironment.UTF8String);
+	} else {
+		bindAndAddStringFact(facts, kLWCRFact_OSEnvironment, "");
+	}
+	//kLWCRFact_Platform
+	bindAndAddIntegerFact(facts, kLWCRFact_Platform, ctx.platformType);
+	//kLWCRFact_PlatformIdentifier
+	uint8_t platformIdentifier_raw = ctx.directory->platform;
+	bindAndAddIntegerFact(facts, kLWCRFact_PlatformIdentifier, platformIdentifier_raw);
+	//kLWCRFact_SigningIdentifier
+	bindAndAddStringFact(facts, kLWCRFact_SigningIdentifier, ctx.identifier.c_str());
+	//kLWCRFact_TeamIdentifier
+	if (ctx.teamIdentifier != NULL) {
+		bindAndAddStringFact(facts, kLWCRFact_TeamIdentifier, ctx.teamIdentifier);
+	}
+	//kLWCRFact_ValidationCategory
+	bindAndAddIntegerFact(facts, kLWCRFact_ValidationCategory, ctx.validationCategory);
+	return facts;
+}
+
+bool evaluateLightweightCodeRequirement(const Security::CodeSigning::Requirement::Context &ctx, CFDataRef lwcrData)
+{
+	@autoreleasepool {
+		NSDictionary<NSString*, sec_LWCRFact*>* facts = collectFacts(ctx);
+		sec_LWCR* lwcr = makeLightweightCodeRequirement(lwcrData);
+		if (lwcr == nil) {
+			Security::MacOSError::throwMe(errSecBadReq);
+		}
+		
+		BOOL matches = [[sec_LWCRExecutor executor] evaluateRequirements:lwcr withFacts:facts];
+		return matches == YES ? true : false;
+	}
+}
+#endif

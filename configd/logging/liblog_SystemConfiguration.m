@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2017, 2020, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -67,16 +67,7 @@ NSAttributedString *
 OSLogCopyFormattedString(const char *type, id value, os_log_type_info_t info)
 {
 #pragma	unused(info)
-	// add functions for each type into this list
-	static const struct SC_OSLog_Formatters formatters[] = {
-//		{ .type = "???",  .function = _SC_OSLogCopyFormattedString_??? },
-	};
-
-	for (int i = 0; i < (int)(sizeof(formatters) / sizeof(formatters[0])); i++) {
-		if (strcmp(type, formatters[i].type) == 0) {
-			return formatters[i].function(value);
-		}
-	}
+#pragma unused(value)
 
 	return SCASWithFormat(@"liblog_SystemConfiguration: Not yet supported os_log formatting type: %s", type);
 }

@@ -78,6 +78,11 @@ public:
     std::optional<uint64_t> volumeCapacityOverride() const { return m_volumeCapacityOverride; }
     void setVolumeCapacityOverride(std::optional<uint64_t> capacity) { m_volumeCapacityOverride = capacity; }
 
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+    bool isDeclarativeWebPushEnabled() const { return m_isDeclarativeWebPushEnabled; }
+    void setIsDeclarativeWebPushEnabled(bool enabled) { m_isDeclarativeWebPushEnabled = enabled; }
+#endif
+
     const String& applicationCacheDirectory() const { return m_applicationCacheDirectory; }
     void setApplicationCacheDirectory(String&& directory) { m_applicationCacheDirectory = WTFMove(directory); }
     
@@ -239,11 +244,6 @@ public:
     void setWebPushMachServiceName(String&& name) { m_webPushMachServiceName = WTFMove(name); }
     const String& webPushMachServiceName() const { return m_webPushMachServiceName; }
 
-#if !HAVE(NSURLSESSION_WEBSOCKET)
-    bool shouldAcceptInsecureCertificatesForWebSockets() const { return m_shouldAcceptInsecureCertificatesForWebSockets; }
-    void setShouldAcceptInsecureCertificatesForWebSockets(bool accept) { m_shouldAcceptInsecureCertificatesForWebSockets = accept; }
-#endif
-
 private:
     WebsiteDataStoreConfiguration(const String& baseCacheDirectory, const String& baseDataDirectory);
     static Ref<WebsiteDataStoreConfiguration> create(IsPersistent isPersistent, ShouldInitializePaths shouldInitializePaths) { return adoptRef(*new WebsiteDataStoreConfiguration(isPersistent, shouldInitializePaths)); }
@@ -313,12 +313,12 @@ private:
     bool m_enableInAppBrowserPrivacyForTesting { false };
     bool m_allowsHSTSWithUntrustedRootCertificate { false };
     bool m_trackingPreventionDebugModeEnabled { false };
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+    bool m_isDeclarativeWebPushEnabled { false };
+#endif
     String m_pcmMachServiceName;
     String m_webPushMachServiceName;
     String m_webPushPartitionString;
-#if !HAVE(NSURLSESSION_WEBSOCKET)
-    bool m_shouldAcceptInsecureCertificatesForWebSockets { false };
-#endif
 #if PLATFORM(COCOA)
     RetainPtr<CFDictionaryRef> m_proxyConfiguration;
 #endif

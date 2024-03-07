@@ -461,25 +461,49 @@ void cache_t::maybeConvertToPreoptimized()
 void cache_t::initializeToEmptyOrPreoptimizedInDisguise()
 {
     if (os_fastpath(!DisablePreoptCaches)) {
-        // TODO: we really only want to disallow preoptimized caches in the
-        // presence of roots if `this` is outside the shared cache, or if `this`
-        // is an inside-out patched class. But detecting an inside-out patched
-        // class is trivial. Disable them all for now, until we figure out how
-        // to detect those.
-        if (dyld_shared_cache_some_image_overridden()) {
-            // If the system has roots, then we must disable preoptimized
-            // caches completely. If a class in another image has a
-            // superclass in the root, the offset to the superclass will
-            // be wrong. rdar://problem/61601961
-            cls()->setDisallowPreoptCachesRecursively("roots");
-        }
-
         if (!objc::dataSegmentsRanges.inSharedCache((uintptr_t)this)) {
             return initializeToEmpty();
         }
 
         auto cache = _originalPreoptCache.load(memory_order_relaxed);
         if (cache) {
+            // When roots are installed, then the class's preoptimized cache
+            // might not be valid. This is the case if the fallback class is
+            // in a root, or if any class between this class and the fallback
+            // is in a root. Note, this class cannot itself be in a root,
+            // because a class in a root can't have a preoptimized cache in the
+            // first place.
+            //
+            // "In a root" needs to include inside-out patched classes which are
+            // physically in the shared cache but conceptually in a root.
+            // objc::classInSharedCache knows how to check for that.
+            if (dyld_shared_cache_some_image_overridden()) {
+                // If there's a fallback class, then we need to check it and the
+                // intermediate classes. If not, then the preoptimized cache is
+                // good.
+                if (cache->fallback_class_offset) {
+                    Class fallback = (Class)((intptr_t)cls() + cache->fallback_class_offset);
+
+                    // Iterate through the superclasses until we find `fallback`
+                    // or we go off the end. We'll go off the end if the
+                    // fallback class is in a root and is not inside-out
+                    // patched, because `fallback` will point to the original.
+                    Class intermediate = cls();
+                    do {
+                        intermediate = intermediate->getSuperclass();
+
+                        // If we never found `fallback`, or we found a class
+                        // not in the shared cache, then this preoptimized cache
+                        // is no good.
+                        if (!intermediate || !objc::classInSharedCache(intermediate)) {
+                            initializeToEmpty();
+                            cls()->setDisallowPreoptCachesRecursively("roots");
+                            return;
+                        }
+                    } while (intermediate != fallback);
+                }
+            }
+
             return initializeToPreoptCacheInDisguise(cache);
         }
     }
@@ -677,6 +701,11 @@ size_t cache_t::bytesForCapacity(uint32_t cap)
     return sizeof(bucket_t) * cap;
 }
 
+bucket_t *cache_t::mallocBuckets(mask_t newCapacity)
+{
+    return (bucket_t *)_calloc_canonical(bytesForCapacity(newCapacity));
+}
+
 #if CACHE_END_MARKER
 
 bucket_t *cache_t::endMarker(struct bucket_t *b, uint32_t cap)
@@ -688,7 +717,7 @@ bucket_t *cache_t::allocateBuckets(mask_t newCapacity)
 {
     // Allocate one extra bucket to mark the end of the list.
     // This can't overflow mask_t because newCapacity is a power of 2.
-    bucket_t *newBuckets = (bucket_t *)calloc(bytesForCapacity(newCapacity), 1);
+    bucket_t *newBuckets = mallocBuckets(newCapacity);
 
     bucket_t *end = endMarker(newBuckets, newCapacity);
 
@@ -712,7 +741,7 @@ bucket_t *cache_t::allocateBuckets(mask_t newCapacity)
 {
     if (PrintCaches) recordNewCache(newCapacity);
 
-    return (bucket_t *)calloc(bytesForCapacity(newCapacity), 1);
+    return mallocBuckets(newCapacity);
 }
 
 #endif
@@ -747,7 +776,7 @@ bucket_t *cache_t::emptyBucketsForCapacity(mask_t capacity, bool allocate)
         if (!allocate) return nil;
 
         mask_t newListCount = index + 1;
-        bucket_t *newBuckets = (bucket_t *)calloc(bytes, 1);
+        bucket_t *newBuckets = mallocBuckets(capacity);
         emptyBucketsList = (bucket_t**)
             realloc(emptyBucketsList, newListCount * sizeof(bucket_t *));
         // Share newBuckets for every un-allocated size smaller than index.

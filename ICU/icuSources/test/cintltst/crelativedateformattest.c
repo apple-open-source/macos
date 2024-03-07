@@ -402,6 +402,9 @@ static const RelDateTimeFormatTestItem fmtTestItems[] = {
     // Apple addition (rdar://80742319)
     { "hu", -1, UDAT_STYLE_NARROW,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_MINUTE,
       hu_decDef_narrow_midSent_min,   hu_attrDef_narrow_midSent_min},
+    // test for rdar://121455212
+    { "en@calendar=iso8601", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_SECOND,
+      en_decDef_long_midSent_sec,   en_attrDef_long_midSent_sec },
 #endif  // APPLE_ICU_CHANGES
     { NULL,  0, (UDateRelativeDateTimeFormatterStyle)0, (UDisplayContext)0, (URelativeDateTimeUnit)0, NULL, NULL } /* terminator */
 };

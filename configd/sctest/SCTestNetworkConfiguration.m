@@ -640,10 +640,9 @@ done:
 	if (bondInterfacesCopy != nil && CFArrayContainsValue((__bridge CFArrayRef)bondInterfacesCopy,
 							      CFRangeMake(0, CFArrayGetCount((__bridge CFArrayRef)bondInterfacesCopy)),
 							      bondInterface)) {
-		SCTestLog("Bondinterfaces copy %@", bondInterfacesCopy);
 		CFStringRef bsdName = SCNetworkInterfaceGetBSDName(bondInterface);
-		SCTestLog("bsdname %@", bsdName);
-		SCTestLog("SCBondInterfaceRemove() validation: SCBondInterfaceCopyAll() retrieved a deleted bond interface from prefs.");
+		SCTestLog("Bondinterfaces copy %@", bondInterfacesCopy);
+		SCTestLog("SCBondInterfaceRemove() validation: SCBondInterfaceCopyAll() retrieved a deleted bond interface %@ from prefs.", bsdName);
 		goto done;
 	}
 

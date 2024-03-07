@@ -45,6 +45,8 @@ String toString(TokenType type)
         return "IntegerLiteralUnsigned"_s;
     case TokenType::FloatLiteral:
         return "FloatLiteral"_s;
+    case TokenType::HalfLiteral:
+        return "HalfLiteral"_s;
     case TokenType::Identifier:
         return "Identifier"_s;
     case TokenType::ReservedWord:
@@ -86,6 +88,7 @@ FOREACH_KEYWORD(KEYWORD_TO_STRING)
         return "="_s;
     case TokenType::EqEq:
         return "=="_s;
+    case TokenType::TemplateArgsRight:
     case TokenType::Gt:
         return ">"_s;
     case TokenType::GtEq:
@@ -94,6 +97,7 @@ FOREACH_KEYWORD(KEYWORD_TO_STRING)
         return ">>"_s;
     case TokenType::GtGtEq:
         return ">>="_s;
+    case TokenType::TemplateArgsLeft:
     case TokenType::Lt:
         return "<"_s;
     case TokenType::LtEq:
@@ -148,6 +152,8 @@ FOREACH_KEYWORD(KEYWORD_TO_STRING)
         return "^"_s;
     case TokenType::XorEq:
         return "^="_s;
+    case TokenType::Placeholder:
+        return "<placeholder>"_s;
     }
 }
 

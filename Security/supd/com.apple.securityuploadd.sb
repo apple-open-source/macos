@@ -79,5 +79,6 @@
     (global-name "com.apple.SecurityServer"))
 
 ;; allow network
+(system-network)
 (allow network-outbound)
 (allow system-socket)

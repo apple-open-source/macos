@@ -29,7 +29,7 @@ CUPS_ModuleMapUnifdefOptions=-UBUILD_FOR_MACOS
 endif
 
 Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
-		  --with-cups-build="cups-509" \
+		  --with-cups-build="cups-509.2" \
 		  --with-adminkey="system.print.admin" \
 		  --with-operkey="system.print.operator" \
 		  --with-pam-module=opendirectory \

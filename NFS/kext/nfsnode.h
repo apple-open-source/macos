@@ -319,7 +319,7 @@ struct nfsdmap {
 #define NFSTIME_CHANGE  2       /* time file changed */
 #define NFSTIME_CREATE  3       /* time file created */
 #define NFSTIME_BACKUP  4       /* time of last backup */
-#define NFSTIME_COUNT   6
+#define NFSTIME_COUNT   5
 
 #define NFS_COMPARE_MTIME(TVP, NVAP, CMP) \
 	(((TVP)->tv_sec == (NVAP)->nva_timesec[NFSTIME_MODIFY]) ?       \
@@ -339,7 +339,7 @@ struct nfs_vattr {
 	guid_t          nva_uuuid;      /* owner user UUID */
 	guid_t          nva_guuid;      /* owner group UUID */
 	kauth_acl_t     nva_acl;        /* access control list */
-	nfs_specdata    nva_rawdev;     /* device the special file represents */
+	dev_t           nva_rawdev;     /* device the special file represents */
 	uint32_t        nva_flags;      /* file flags (see below) */
 	uint32_t        nva_maxlink;    /* maximum # of links (v4) */
 	uint64_t        nva_nlink;      /* number of references to file */
@@ -492,6 +492,7 @@ struct nfs_open_file {
 #define NFS_OPEN_FILE_LOST      0x0080  /* open state has been lost */
 #define NFS_OPEN_FILE_REOPEN    0x0100  /* file needs to be reopened */
 #define NFS_OPEN_FILE_REOPENING 0x0200  /* file is being reopened */
+#define NFS_OPEN_FILE_MERGED    0x0400  /* open file was merged */
 
 struct nfs_lock_owner;
 /*
@@ -593,8 +594,6 @@ struct nfsnode {
 	uint32_t                n_access[NFS_ACCESS_CACHE_SIZE + 1];      /* ACCESS cache */
 	uid_t                   n_accessuid[NFS_ACCESS_CACHE_SIZE];     /* credentials having access */
 	time_t                  n_accessstamp[NFS_ACCESS_CACHE_SIZE];   /* access cache timestamp */
-	time_t                  n_rdirplusstamp_sof; /* Readdirplus sof timestamp */
-	time_t                  n_rdirplusstamp_eof; /* Readdirplus eof timestamp */
 	union {
 		struct {
 			struct timespec n3_mtime; /* Prev modify time. */
@@ -611,7 +610,6 @@ struct nfsnode {
 	u_char                  *n_fhp;         /* NFS File Handle */
 	vnode_t                 n_vnode;        /* associated vnode */
 	mount_t                 n_mount;        /* associated mount (NHINIT) */
-	int                     n_error;        /* Save write error value */
 	union {
 		struct timespec ns_atim;        /* Special file times */
 		struct timespec nl_rltim;       /* Time of last readlink */
@@ -633,7 +631,9 @@ struct nfsnode {
 	u_short                 n_bflag;        /* node buffer flags */
 	u_short                 n_mflag;        /* node mount flags */
 	u_char                  n_fh[NFS_SMALLFH];/* Small File Handle */
+	u_short                 n_bufiterflags; /* buf iterator flags */
 	uint32_t                n_auth;         /* security flavor used for this node */
+	int                     n_error;        /* Save write error value */
 	struct nfsbuflists      n_cleanblkhd;   /* clean blocklist head */
 	struct nfsbuflists      n_dirtyblkhd;   /* dirty blocklist head */
 	union {
@@ -644,14 +644,13 @@ struct nfsnode {
 		int             nf_needcommitcnt;/* # bufs that need committing */
 		daddr64_t       nd_lastdbl;     /* last dir buf lookup block# */
 	} n_un6;
-	int                     n_bufiterflags; /* buf iterator flags */
 	union {
 		int             nf_numoutput;   /* write I/Os in progress */
 		int             nd_trigseq;     /* vnode trigger seq# */
 	} n_un7;
 	/* open state */
-	lck_mtx_t               n_openlock;     /* nfs node open lock */
 	uint32_t                n_openflags;    /* open state flags */
+	lck_mtx_t               n_openlock;     /* nfs node open lock */
 	thread_t                n_openstate_busyowner; /* thread that marked this open state as busy */
 	uint32_t                n_openstate_busycnt;   /* open state busy file count */
 	uint32_t                n_openrefcnt;   /* # non-file opens */
@@ -659,8 +658,13 @@ struct nfsnode {
 	/* lock state */
 	TAILQ_HEAD(, nfs_lock_owner) n_lock_owners; /* list of lock owners */
 	struct nfs_file_lock_queue n_locks;     /* list of locks */
-	/* delegation state */
-	nfs_stateid             n_dstateid;     /* delegation stateid */
+	union {
+		struct {
+			time_t    n_sof;        /* Readdirplus sof timestamp */
+			time_t    n_eof;        /* Readdirplus eof timestamp */
+		} rdirplusstamp;
+		nfs_stateid       n_dstateid;   /* delegation stateid */
+	} n_un8;
 	TAILQ_ENTRY(nfsnode)    n_dlink;        /* delegation list link */
 	TAILQ_ENTRY(nfsnode)    n_dreturn;      /* delegation return list link */
 	struct kauth_ace        n_dace;         /* delegation ACE */
@@ -668,6 +672,8 @@ struct nfsnode {
 
 #define NFS_DATA_LOCK_SHARED    1
 #define NFS_DATA_LOCK_EXCLUSIVE 2
+
+#define NFSNODE_FILEID(np)  ((np) && NFS_BITMAP_ISSET((np)->n_vattr.nva_bitmap, NFS_FATTR_FILEID) ? (np)->n_vattr.nva_fileid : 0xFFFFFFFFFFFFFFFF)
 
 #define nfstimespeccmp(tvp, uvp, cmp)           \
 	(((tvp)->tv_sec == (uvp)->tv_sec) ?     \
@@ -703,6 +709,9 @@ struct nfsnode {
 #define n_ncchange              n_un4.v4.n4_ncchange
 #define n_attrdirfh             n_un4.v4.n4_attrdirfh
 #define n_lastio                n_un4.v4.n4_lastio
+#define n_rdirplusstamp_eof     n_un8.rdirplusstamp.n_eof
+#define n_rdirplusstamp_sof     n_un8.rdirplusstamp.n_sof
+#define n_dstateid              n_un8.n_dstateid
 
 /*
  * Flags for n_flag
@@ -794,7 +803,7 @@ struct nfsnode {
  * Convert between nfsnode pointers and vnode pointers
  */
 #define VTONFS(vp)      ((nfsnode_t)vnode_fsnode(vp))
-#define NFSTOV(np)      ((np)->n_vnode)
+#define NFSTOV(np)      ((np) ? (np)->n_vnode : NULLVP)
 
 /*
  * printf-like helper macro that also outputs node name.

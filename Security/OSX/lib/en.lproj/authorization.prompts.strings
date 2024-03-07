@@ -1,8 +1,8 @@
-"system.preferences.accounts" = "__APPNAME__ is trying to unlock Users & Groups settings.";
+"system.preferences.accounts" = "__APPNAME__ is trying to unlock system settings.";
 
 "com.apple.SoftwareUpdate.scan" = "__APPNAME__ is trying to check for new Apple software.";
 
-"system.preferences.datetime" = "__APPNAME__ is trying to unlock the Date & Time settings.";
+"system.preferences.datetime" = "__APPNAME__ is trying to unlock system settings.";
 
 "system.identity.write.credential" = "__APPNAME__ is trying to update the authentication credentials.";
 
@@ -44,7 +44,7 @@
 
 "com.apple.Safari.allow-javascript-in-smart-search-field" = "__APPNAME__ is trying to allow JavaScript to be used in the Smart Search Field.";
 
-"system.sharepoints." = "__APPNAME__ is trying to modify Sharing settings.";
+"system.sharepoints." = "__APPNAME__ is trying to modify system settings.";
 
 "system.preferences.energysaver" = "__APPNAME__ is trying to unlock the Energy Saver settings.";
 
@@ -64,7 +64,7 @@
 
 "system.device.dvd.setregion.initial" = "__APPNAME__ is trying to set the DVD region code for the first time.";
 
-"system.preferences.network" = "__APPNAME__ is trying to unlock the Network settings.";
+"system.preferences.network" = "__APPNAME__ is trying to unlock system settings.";
 
 "system.identity.write." = "__APPNAME__ is trying to update the set of local users.";
 
@@ -88,9 +88,9 @@
 
 "system.preferences.parental-controls" = "__APPNAME__ is trying to unlock Screen Time settings.";
 
-"system.preferences.security" = "__APPNAME__ is trying to unlock Privacy & Security settings.";
+"system.preferences.security" = "__APPNAME__ is trying to unlock system settings.";
 
-"system.preferences.startupdisk" = "__APPNAME__ is trying to unlock the Startup Disk settings.";
+"system.preferences.startupdisk" = "__APPNAME__ is trying to unlock system settings.";
 
 "com.apple.ServiceManagement.daemons.modify" = "__APPNAME__ is trying to add a new helper tool.";
 

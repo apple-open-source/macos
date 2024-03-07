@@ -24,12 +24,15 @@
 #ifndef __NANOV2_MALLOC_H
 #define __NANOV2_MALLOC_H
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 // Forward declaration for the nanozonev2 structure.
 typedef struct nanozonev2_s nanozonev2_t;
 
 MALLOC_NOEXPORT
 void
-nanov2_init(const char *envp[], const char *apple[], const char *bootargs);
+nanov2_init(const char * __null_terminated * __null_terminated envp, const char * __null_terminated * __null_terminated apple, const char *bootargs);
 
 MALLOC_NOEXPORT
 void

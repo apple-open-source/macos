@@ -1444,6 +1444,10 @@ bool SecDbItemIsSyncable(SecDbItemRef item) {
     return false;
 }
 
+bool SecDbItemIsShared(SecDbItemRef item) {
+    CFTypeRef value = SecDbItemGetValueWithName(item, kSecAttrSharingGroup, NULL);
+    return value != NULL && isString(value);
+}
 
 bool SecDbItemSetSyncable(SecDbItemRef item, bool sync, CFErrorRef *error)
 {

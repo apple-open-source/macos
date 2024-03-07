@@ -1,6 +1,6 @@
-/*	$NetBSD: tsort.c,v 1.13 1998/08/25 20:59:42 ross Exp $	*/
-
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -15,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,18 +32,18 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)tsort.c	8.3 (Berkeley) 5/4/95";
-#endif
-__RCSID("$NetBSD: tsort.c,v 1.13 1998/08/25 20:59:42 ross Exp $");
+static const char sccsid[] = "@(#)tsort.c	8.3 (Berkeley) 5/4/95";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
@@ -67,10 +63,10 @@ __RCSID("$NetBSD: tsort.c,v 1.13 1998/08/25 20:59:42 ross Exp $");
  *  standard output in sorted order, one per line.
  *
  *  usage:
- *     tsort [-l] [inputfile]
+ *     tsort [-dlq] [inputfile]
  *  If no input file is specified, standard input is read.
  *
- *  Should be compatable with AT&T tsort HOWEVER the output is not identical
+ *  Should be compatible with AT&T tsort HOWEVER the output is not identical
  *  (i.e. for most graphs there is more than one sorted order, and this tsort
  *  usually generates a different one then the AT&T tsort).  Also, cycle
  *  reporting seems to be more accurate in this version (the AT&T tsort
@@ -78,10 +74,11 @@ __RCSID("$NetBSD: tsort.c,v 1.13 1998/08/25 20:59:42 ross Exp $");
  *
  *  Michael Rendell, michael@stretch.cs.mun.ca - Feb 26, '90
  */
-#define	HASHSIZE	53		/* doesn't need to be big */
+
 #define	NF_MARK		0x1		/* marker for cycle detection */
 #define	NF_ACYCLIC	0x2		/* this node is cycle free */
 #define	NF_NODEST	0x4		/* Unreachable */
+
 
 typedef struct node_str NODE;
 
@@ -101,24 +98,21 @@ typedef struct _buf {
 	int b_bsize;
 } BUF;
 
-DB *db;
-NODE *graph, **cycle_buf, **longest_cycle;
-int debug, longest, quiet;
+static DB *db;
+static NODE *graph, **cycle_buf, **longest_cycle;
+static int debug, longest, quiet;
 
-void	 add_arc __P((char *, char *));
-void	 clear_cycle __P((void));
-int	 find_cycle __P((NODE *, NODE *, int, int));
-NODE	*get_node __P((char *));
-void	*grow_buf __P((void *, int));
-int	 main __P((int, char **));
-void	 remove_node __P((NODE *));
-void	 tsort __P((void));
-void	 usage __P((void));
+static void	 add_arc(char *, char *);
+static int	 find_cycle(NODE *, NODE *, int, int);
+static NODE	*get_node(char *);
+static void	*grow_buf(void *, size_t);
+static void	 remove_node(NODE *);
+static void	 clear_cycle(void);
+static void	 tsort(void);
+static void	 usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	BUF *b;
 	int c, n;
@@ -189,21 +183,17 @@ main(argc, argv)
 
 	/* do the sort */
 	tsort();
-#ifdef __APPLE__
 	if (ferror(stdout) != 0 || fflush(stdout) != 0)
 		err(1, "stdout");
-#endif
 	exit(0);
 }
 
 /* double the size of oldbuf and return a pointer to the new buffer. */
-void *
-grow_buf(bp, size)
-	void *bp;
-	int size;
+static void *
+grow_buf(void *bp, size_t size)
 {
-	if ((bp = realloc(bp, (u_int)size)) == NULL)
-		err(1, "realloc");
+	if ((bp = realloc(bp, size)) == NULL)
+		err(1, NULL);
 	return (bp);
 }
 
@@ -211,9 +201,8 @@ grow_buf(bp, size)
  * add an arc from node s1 to node s2 in the graph.  If s1 or s2 are not in
  * the graph, then add them.
  */
-void
-add_arc(s1, s2)
-	char *s1, *s2;
+static void
+add_arc(char *s1, char *s2)
 {
 	NODE *n1;
 	NODE *n2;
@@ -247,9 +236,8 @@ add_arc(s1, s2)
 }
 
 /* Find a node in the graph (insert if not found) and return a pointer to it. */
-NODE *
-get_node(name)
-	char *name;
+static NODE *
+get_node(char *name)
 {
 	DBT data, key;
 	NODE *n;
@@ -263,7 +251,7 @@ get_node(name)
 
 	switch ((*db->get)(db, &key, &data, 0)) {
 	case 0:
-		memmove(&n, data.data, sizeof(n));
+		memcpy(&n, data.data, sizeof(n));
 		return (n);
 	case 1:
 		break;
@@ -273,14 +261,14 @@ get_node(name)
 	}
 
 	if ((n = malloc(sizeof(NODE) + key.size)) == NULL)
-		err(1, "malloc");
+		err(1, NULL);
 
 	n->n_narcs = 0;
 	n->n_arcsize = 0;
 	n->n_arcs = NULL;
 	n->n_refcnt = 0;
 	n->n_flags = 0;
-	memmove(n->n_name, name, key.size);
+	memcpy(n->n_name, name, key.size);
 
 	/* Add to linked list. */
 	if ((n->n_next = graph) != NULL)
@@ -300,8 +288,8 @@ get_node(name)
 /*
  * Clear the NODEST flag from all nodes.
  */
-void
-clear_cycle()
+static void
+clear_cycle(void)
 {
 	NODE *n;
 
@@ -310,8 +298,8 @@ clear_cycle()
 }
 
 /* do topological sort on graph */
-void
-tsort()
+static void
+tsort(void)
 {
 	NODE *n, *next;
 	int cnt, i;
@@ -343,18 +331,18 @@ tsort()
 			 */
 			for (cnt = 0, n = graph; n != NULL; n = n->n_next)
 				++cnt;
-			cycle_buf = malloc((u_int)sizeof(NODE *) * cnt);
-			longest_cycle = malloc((u_int)sizeof(NODE *) * cnt);
+			cycle_buf = malloc(sizeof(NODE *) * cnt);
+			longest_cycle = malloc(sizeof(NODE *) * cnt);
 			if (cycle_buf == NULL || longest_cycle == NULL)
-				err(1, "malloc");
+				err(1, NULL);
 		}
-		for (n = graph; n != NULL; n = n->n_next) {
+		for (n = graph; n != NULL; n = n->n_next)
 			if (!(n->n_flags & NF_ACYCLIC)) {
-				if ((cnt = find_cycle(n, n, 0, 0)) != 0) {
+				if ((cnt = find_cycle(n, n, 0, 0))) {
 					if (!quiet) {
 						warnx("cycle in data");
 						for (i = 0; i < cnt; i++)
-							warnx("%s", 
+							warnx("%s",
 							    longest_cycle[i]->n_name);
 					}
 					remove_node(n);
@@ -366,16 +354,15 @@ tsort()
 					clear_cycle();
 				}
 			}
-		}
+
 		if (n == NULL)
 			errx(1, "internal error -- could not find cycle");
 	}
 }
 
 /* print node and remove from graph (does not actually free node) */
-void
-remove_node(n)
-	NODE *n;
+static void
+remove_node(NODE *n)
 {
 	NODE **np;
 	int i;
@@ -391,10 +378,8 @@ remove_node(n)
 
 
 /* look for the longest? cycle from node from to node to. */
-int
-find_cycle(from, to, longest_len, depth)
-	NODE *from, *to;
-	int depth, longest_len;
+static int
+find_cycle(NODE *from, NODE *to, int longest_len, int depth)
 {
 	NODE **np;
 	int i, len;
@@ -439,9 +424,9 @@ find_cycle(from, to, longest_len, depth)
 	return (longest_len);
 }
 
-void
-usage()
+static void
+usage(void)
 {
-	(void)fprintf(stderr, "usage: tsort [-lq] [file]\n");
+	(void)fprintf(stderr, "usage: tsort [-dlq] [file]\n");
 	exit(1);
 }

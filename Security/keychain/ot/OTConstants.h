@@ -90,6 +90,7 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorUnsupportedAccount                              = 69,
     OctagonErrorSOSDisabled                                     = 70,
     OctagonErrorNotInSOS                                        = 71,
+    OctagonErrorInjectedError                                   = 72,
 };
 
 /* used for defaults writes */

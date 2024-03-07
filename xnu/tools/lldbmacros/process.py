@@ -2,11 +2,6 @@
 """ Please make sure you read the README file COMPLETELY BEFORE reading anything below.
     It is very critical that you read coding guidelines in Section E in README file.
 """
-from __future__ import absolute_import, division, print_function
-
-from builtins import hex
-from builtins import range
-
 from xnu import *
 import sys, shlex
 from utils import *
@@ -1482,8 +1477,8 @@ def GetFullBackTrace(frame_addr, verbosity = vHUMAN, prefix = ""):
     bt_count = 0
     frame_ptr = frame_addr
     previous_frame_ptr = 0
-    # <rdar://problem/12677290> lldb unable to find symbol for _mh_execute_header
-    mh_execute_addr = int(lldb_run_command('p/x (uintptr_t *)&_mh_execute_header').split('=')[-1].strip(), 16)
+    mh_execute_addr = kern.GetLoadAddressForSymbol('_mh_execute_header')
+
     while frame_ptr and frame_ptr != previous_frame_ptr and bt_count < 128:
         if (not kern.arch.startswith('arm') and frame_ptr < mh_execute_addr) or (kern.arch.startswith('arm') and frame_ptr > mh_execute_addr):
             break

@@ -213,13 +213,14 @@ struct nfsreq {
 	struct nfsmount         *r_nmp;         /* NFS mount point */
 	uint64_t                r_xid;          /* RPC transaction ID */
 	uint32_t                r_procnum;      /* NFS procedure number */
+	int                     r_error;        /* request error */
 	size_t                  r_mreqlen;      /* request length */
 	int                     r_flags;        /* flags on request, see below */
 	int                     r_lflags;       /* flags protected by list mutex, see below */
 	int                     r_refs;         /* # outstanding references */
 	uint8_t                 r_delay;        /* delay to use for jukebox error */
-	uint32_t                r_retry;        /* max retransmission count */
 	uint8_t                 r_rexmit;       /* current retrans count */
+	uint32_t                r_retry;        /* max retransmission count */
 	int                     r_rtt;          /* RTT for rpc */
 	thread_t                r_thread;       /* thread that did I/O system call */
 	kauth_cred_t            r_cred;         /* credential used for request */
@@ -232,7 +233,6 @@ struct nfsreq {
 	uint32_t                r_gss_arglen;   /* RPCSEC_GSS arg length */
 	uint32_t                r_auth;         /* security flavor request sent with */
 	uint32_t                *r_wrongsec;    /* wrongsec: other flavors to try */
-	int                     r_error;        /* request error */
 	struct nfsreq_cbinfo    r_callback;     /* callback info */
 	struct nfsreq_secinfo_args r_secinfo;   /* secinfo args */
 };
@@ -481,12 +481,12 @@ void    nfs_owner_seqid_increment(struct nfs_open_owner *, struct nfs_lock_owner
 int     nfs_open_file_find(nfsnode_t, struct nfs_open_owner *, struct nfs_open_file **, uint32_t, uint32_t, int);
 int     nfs_open_file_find_internal(nfsnode_t, struct nfs_open_owner *, struct nfs_open_file **, uint32_t, uint32_t, int);
 void    nfs_open_file_destroy(struct nfs_open_file *);
-void    nfs_open_file_busy_ref(struct nfs_open_file *);
 int     nfs_open_file_set_busy(struct nfs_open_file *, thread_t);
 void    nfs_open_file_clear_busy(struct nfs_open_file *);
 void    nfs_open_file_add_open(struct nfs_open_file *, uint32_t, uint32_t, int);
 void    nfs_open_file_remove_open_find(struct nfs_open_file *, uint32_t, uint32_t, uint8_t *, uint8_t *, int *);
 void    nfs_open_file_remove_open(struct nfs_open_file *, uint32_t, uint32_t);
+int     nfs_open_file_merge(struct nfs_open_file *, struct nfs_open_file *, uint32_t, uint32_t);
 void    nfs_get_stateid(nfsnode_t, thread_t, kauth_cred_t, nfs_stateid *, int);
 int     nfs_check_for_locks(struct nfs_open_owner *, struct nfs_open_file *);
 int     nfs_close(nfsnode_t, struct nfs_open_file *, uint32_t, uint32_t, vfs_context_t);
@@ -503,7 +503,6 @@ void    nfs_lock_owner_insert_held_lock(struct nfs_lock_owner *, struct nfs_file
 struct nfs_file_lock *nfs_file_lock_alloc(struct nfs_lock_owner *);
 void    nfs_file_lock_destroy(nfsnode_t, struct nfs_file_lock *, thread_t, kauth_cred_t);
 int     nfs_file_lock_conflict(struct nfs_file_lock *, struct nfs_file_lock *, int *);
-int     nfs_unlock_rpc(nfsnode_t, struct nfs_lock_owner *, int, uint64_t, uint64_t, thread_t, kauth_cred_t, int);
 int     nfs_advlock_getlock(nfsnode_t, struct nfs_lock_owner *, struct flock *, uint64_t, uint64_t, vfs_context_t);
 int     nfs_advlock_setlock(nfsnode_t, struct nfs_open_file *, struct nfs_lock_owner *, int, uint64_t, uint64_t, int, short, vfs_context_t);
 int     nfs_advlock_unlock(nfsnode_t, struct nfs_open_file *, struct nfs_lock_owner *, uint64_t, uint64_t, int, vfs_context_t);
@@ -519,11 +518,12 @@ int     nfs4_open_rpc_internal(struct nfs_open_file *, vfs_context_t, thread_t, 
 int     nfs4_open_confirm_rpc(struct nfsmount *, nfsnode_t, u_char *, int, struct nfs_open_owner *, nfs_stateid *, thread_t, kauth_cred_t, struct nfs_vattr *, uint64_t *);
 int     nfs4_open_reopen_rpc(struct nfs_open_file *, thread_t, kauth_cred_t, struct componentname *, vnode_t, vnode_t *, int, int);
 int     nfs4_open_reclaim_rpc(struct nfs_open_file *, int, int);
+int     nfs4_open_handle_fh_mismatch(nfsnode_t, struct nfs_open_file *, char *, int, fhandle_t *, struct nfs_vattr *, u_int64_t *, uint32_t, thread_t, kauth_cred_t);
 int     nfs4_claim_delegated_open_rpc(struct nfs_open_file *, int, int, int);
 int     nfs4_claim_delegated_state_for_open_file(struct nfs_open_file *, int);
 int     nfs4_claim_delegated_state_for_node(nfsnode_t, int);
 int     nfs4_open_downgrade_rpc(nfsnode_t, struct nfs_open_file *, vfs_context_t);
-int     nfs4_close_rpc(nfsnode_t, struct nfs_open_file *, thread_t, kauth_cred_t, int);
+int     nfs4_close_rpc(nfsnode_t, struct nfs_open_file *, thread_t, kauth_cred_t, int, int);
 void    nfs4_delegation_return_enqueue(nfsnode_t);
 void    nfs4_delegation_return_read(nfsnode_t, int, thread_t, kauth_cred_t);
 int     nfs4_delegation_return(nfsnode_t, int, thread_t, kauth_cred_t);
@@ -593,8 +593,7 @@ int     nfs4_getlock_rpc(nfsnode_t, struct nfs_lock_owner *, struct flock *, uin
 #endif
 
 int     nfs_read_rpc(nfsnode_t, uio_t, vfs_context_t);
-int     nfs_write_rpc(nfsnode_t, uio_t, vfs_context_t, int *, uint64_t *);
-int     nfs_write_rpc2(nfsnode_t, uio_t, thread_t, kauth_cred_t, int *, uint64_t *);
+int     nfs_write_rpc(nfsnode_t, uio_t, thread_t, kauth_cred_t, int *, uint64_t *);
 
 int     nfs3_access_rpc(nfsnode_t, u_int32_t *, int, vfs_context_t);
 int     nfs3_getattr_rpc(nfsnode_t, mount_t, u_char *, size_t, int, vfs_context_t, struct nfs_vattr *, u_int64_t *);

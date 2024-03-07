@@ -35,92 +35,29 @@
 // is intended to go away very soon.
 extern malloc_zone_t **malloc_zones;
 extern malloc_zone_t* lite_zone;
-extern void malloc_zone_register_while_locked(malloc_zone_t *zone, bool make_default);
 extern boolean_t has_default_zone0(void);
 
-static szone_t *create_and_insert_msl_lite_zone(const char *name,
-		void *mallocp, void *callocp,
-		void *vallocp, void *reallocp, void *batch_mallocp,
-		void *batch_freep, void *memalignp, void *freep,
-		void *free_definite_sizep, void *sizep);
-
-static size_t
-_calloc_get_size(size_t num_items, size_t size, size_t extra_size,
-		size_t *total_size)
+static void
+insert_msl_lite_zone(malloc_zone_t *zone)
 {
-	// calloc_get_size is inlined.
-	return calloc_get_size(num_items, size, extra_size, total_size);
-}
-
-static malloc_zone_t *
-szone_helper_zone(szone_t *zone)
-{
-	return &zone->helper_zone->basic_zone;
-}
-
-static malloc_zone_t *
-szone_basic_zone(szone_t *zone)
-{
-	return &zone->basic_zone;
-}
-
-static struct _malloc_msl_lite_hooks_s malloc_msl_lite_hooks = {
-	.create_and_insert_msl_lite_zone = &create_and_insert_msl_lite_zone,
-	.helper_zone = &szone_helper_zone,
-	.szone_size = &szone_size,
-	.szone_malloc = &szone_malloc,
-	.szone_malloc_should_clear = &szone_malloc_should_clear,
-	.szone_free = &szone_free,
-	.szone_realloc = &szone_realloc,
-	.szone_valloc = &szone_valloc,
-	.szone_memalign = &szone_memalign,
-	.szone_batch_malloc = &szone_batch_malloc,
-	.szone_batch_free = &szone_batch_free,
-	.has_default_zone0 = &has_default_zone0,
-	.calloc_get_size = &_calloc_get_size,
-	.basic_zone = &szone_basic_zone,
-	.szone_good_size = &szone_good_size,
-};
-
-static szone_t *
-create_and_insert_msl_lite_zone(const char *name,
-		void *mallocp, void *callocp,
-		void *vallocp, void *reallocp, void *batch_mallocp,
-		void *batch_freep, void *memalignp, void *freep,
-		void *free_definite_sizep, void *sizep)
-{
-// TODO: this has to be locked in some way....
-	szone_t* szone = create_scalable_szone(0, malloc_debug_flags);
-	malloc_zone_t *zone = &szone->basic_zone;
-	
-	// unprotect function pointers
-	mprotect(szone, sizeof(szone->basic_zone), PROT_READ | PROT_WRITE);
-	
-	// set the function pointers
-	szone->basic_zone.malloc = mallocp;
-	szone->basic_zone.calloc = callocp;
-	szone->basic_zone.valloc = vallocp;
-	szone->basic_zone.realloc = reallocp;
-	szone->basic_zone.batch_malloc = batch_mallocp;
-	szone->basic_zone.batch_free = batch_freep;
-	szone->basic_zone.memalign = memalignp;
-	szone->basic_zone.free = freep;
-	szone->basic_zone.free_definite_size = free_definite_sizep;
-	szone->basic_zone.size = sizep;
-	
-	// protect function pointers
-	mprotect(szone, sizeof(szone->basic_zone), PROT_READ);
-	
-	// set helper zone
-	szone->helper_zone = (szone_t *)malloc_zones[0];  // TODO: this is broken
-	
-	malloc_zone_register_while_locked(zone, false);
-	malloc_set_zone_name(zone, name);
 	lite_zone = zone;
 	malloc_slowpath_update();
-
-	return szone;
 }
+
+static malloc_zone_t *
+get_global_helper_zone(void)
+{
+	return malloc_zones[0];  // TODO: this is broken
+}
+
+// This struct contains many more function pointers than the ones given here. MSL previously used
+// those when it called into libmalloc to create a lite zone.
+// Now that MSL creates a lite zone itself, we don't need to provide those other function pointers.
+static struct _malloc_msl_lite_hooks_s malloc_msl_lite_hooks = {
+	.has_default_zone0      = &has_default_zone0,
+	.insert_msl_lite_zone   = &insert_msl_lite_zone,
+	.get_global_helper_zone = &get_global_helper_zone,
+};
 
 /*
  * Copies the malloc library's _malloc_msl_lite_hooks_t structure to a given

@@ -29,6 +29,7 @@
 #include "unicode/localpointer.h"
 #include "cmemory.h"
 #include "cstring.h"
+#include "iso8601cal.h"
 #include "ustrenum.h"
 #include "uenumimp.h"
 #include "ulist.h"
@@ -37,7 +38,7 @@
 U_NAMESPACE_USE
 
 static TimeZone*
-_createTimeZone(const UChar* zoneID, int32_t len, UErrorCode* ec) {
+_createTimeZone(const char16_t* zoneID, int32_t len, UErrorCode* ec) {
     TimeZone* zone = nullptr;
     if (ec != nullptr && U_SUCCESS(*ec)) {
         // Note that if zoneID is invalid, we get back GMT. This odd
@@ -72,7 +73,7 @@ ucal_openCountryTimeZones(const char* country, UErrorCode* ec) {
 }
 
 U_CAPI int32_t U_EXPORT2
-ucal_getDefaultTimeZone(UChar* result, int32_t resultCapacity, UErrorCode* ec) {
+ucal_getDefaultTimeZone(char16_t* result, int32_t resultCapacity, UErrorCode* ec) {
     int32_t len = 0;
     if (ec != nullptr && U_SUCCESS(*ec)) {
         TimeZone* zone = TimeZone::createDefault();
@@ -89,7 +90,7 @@ ucal_getDefaultTimeZone(UChar* result, int32_t resultCapacity, UErrorCode* ec) {
 }
 
 U_CAPI void U_EXPORT2
-ucal_setDefaultTimeZone(const UChar* zoneID, UErrorCode* ec) {
+ucal_setDefaultTimeZone(const char16_t* zoneID, UErrorCode* ec) {
     TimeZone* zone = _createTimeZone(zoneID, -1, ec);
     if (zone != nullptr) {
         TimeZone::adoptDefault(zone);
@@ -97,7 +98,7 @@ ucal_setDefaultTimeZone(const UChar* zoneID, UErrorCode* ec) {
 }
 
 U_CAPI int32_t U_EXPORT2
-ucal_getHostTimeZone(UChar* result, int32_t resultCapacity, UErrorCode* ec) {
+ucal_getHostTimeZone(char16_t* result, int32_t resultCapacity, UErrorCode* ec) {
     int32_t len = 0;
     if (ec != nullptr && U_SUCCESS(*ec)) {
         TimeZone *zone = TimeZone::detectHostTimeZone();
@@ -114,7 +115,7 @@ ucal_getHostTimeZone(UChar* result, int32_t resultCapacity, UErrorCode* ec) {
 }
 
 U_CAPI int32_t U_EXPORT2
-ucal_getDSTSavings(const UChar* zoneID, UErrorCode* ec) {
+ucal_getDSTSavings(const char16_t* zoneID, UErrorCode* ec) {
     int32_t result = 0;
     TimeZone* zone = _createTimeZone(zoneID, -1, ec);
     if (U_SUCCESS(*ec)) {
@@ -153,7 +154,7 @@ ucal_getNow()
 #define ULOC_LOCALE_IDENTIFIER_CAPACITY (ULOC_FULLNAME_CAPACITY + 1 + ULOC_KEYWORD_AND_VALUES_CAPACITY)
 
 U_CAPI UCalendar*  U_EXPORT2
-ucal_open(  const UChar*  zoneID,
+ucal_open(  const char16_t*  zoneID,
             int32_t       len,
             const char*   locale,
             UCalendarType caltype,
@@ -216,7 +217,7 @@ ucal_clone(const UCalendar* cal,
 
 U_CAPI void  U_EXPORT2
 ucal_setTimeZone(    UCalendar*      cal,
-            const    UChar*            zoneID,
+            const    char16_t*            zoneID,
             int32_t        len,
             UErrorCode *status)
 {
@@ -255,7 +256,7 @@ ucal_setTimeZone(    UCalendar*      cal,
 
 U_CAPI int32_t U_EXPORT2
 ucal_getTimeZoneID(const UCalendar *cal,
-                   UChar *result,
+                   char16_t *result,
                    int32_t resultLength,
                    UErrorCode *status)
 {
@@ -272,7 +273,7 @@ U_CAPI int32_t U_EXPORT2
 ucal_getTimeZoneDisplayName(const     UCalendar*                 cal,
                     UCalendarDisplayNameType     type,
                     const char             *locale,
-                    UChar*                  result,
+                    char16_t*                  result,
                     int32_t                 resultLength,
                     UErrorCode*             status)
 {
@@ -333,7 +334,8 @@ ucal_setGregorianChange(UCalendar *cal, UDate date, UErrorCode *pErrorCode) {
         *pErrorCode = U_ILLEGAL_ARGUMENT_ERROR;
         return;
     }
-    if(typeid(*cpp_cal) != typeid(GregorianCalendar)) {
+    if(typeid(*cpp_cal) != typeid(GregorianCalendar) &&
+       typeid(*cpp_cal) != typeid(ISO8601Calendar)) {
         *pErrorCode = U_UNSUPPORTED_ERROR;
         return;
     }
@@ -355,7 +357,8 @@ ucal_getGregorianChange(const UCalendar *cal, UErrorCode *pErrorCode) {
         *pErrorCode = U_ILLEGAL_ARGUMENT_ERROR;
         return (UDate)0;
     }
-    if(typeid(*cpp_cal) != typeid(GregorianCalendar)) {
+    if(typeid(*cpp_cal) != typeid(GregorianCalendar) &&
+       typeid(*cpp_cal) != typeid(ISO8601Calendar)) {
         *pErrorCode = U_UNSUPPORTED_ERROR;
         return (UDate)0;
     }
@@ -364,9 +367,7 @@ ucal_getGregorianChange(const UCalendar *cal, UErrorCode *pErrorCode) {
 
 U_CAPI int32_t U_EXPORT2
 ucal_getAttribute(    const    UCalendar*              cal,
-                  UCalendarAttribute      attr)
-{
-
+                  UCalendarAttribute      attr) UPRV_NO_SANITIZE_UNDEFINED {
     switch(attr) {
   case UCAL_LENIENT:
       return ((Calendar*)cal)->isLenient();
@@ -494,10 +495,12 @@ U_CAPI void  U_EXPORT2
 ucal_add(    UCalendar*                cal,
          UCalendarDateFields        field,
          int32_t                    amount,
-         UErrorCode*                status)
-{
-
+         UErrorCode*                status) UPRV_NO_SANITIZE_UNDEFINED {
     if(U_FAILURE(*status)) return;
+    if (field < 0 || UCAL_FIELD_COUNT <= field) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
 
     ((Calendar*)cal)->add(field, amount, *status);
 }
@@ -506,10 +509,12 @@ U_CAPI void  U_EXPORT2
 ucal_roll(        UCalendar*            cal,
           UCalendarDateFields field,
           int32_t                amount,
-          UErrorCode*            status)
-{
-
+          UErrorCode*            status) UPRV_NO_SANITIZE_UNDEFINED {
     if(U_FAILURE(*status)) return;
+    if (field < 0 || UCAL_FIELD_COUNT <= field) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
 
     ((Calendar*)cal)->roll(field, amount, *status);
 }
@@ -517,10 +522,12 @@ ucal_roll(        UCalendar*            cal,
 U_CAPI int32_t  U_EXPORT2
 ucal_get(    const    UCalendar*                cal,
          UCalendarDateFields        field,
-         UErrorCode*                status )
-{
-
+         UErrorCode*                status ) UPRV_NO_SANITIZE_UNDEFINED {
     if(U_FAILURE(*status)) return -1;
+    if (field < 0 || UCAL_FIELD_COUNT <= field) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return -1;
+    }
 
     return ((Calendar*)cal)->get(field, *status);
 }
@@ -528,24 +535,30 @@ ucal_get(    const    UCalendar*                cal,
 U_CAPI void  U_EXPORT2
 ucal_set(    UCalendar*                cal,
          UCalendarDateFields        field,
-         int32_t                    value)
-{
+         int32_t                    value) UPRV_NO_SANITIZE_UNDEFINED {
+    if (field < 0 || UCAL_FIELD_COUNT <= field) {
+        return;
+    }
 
     ((Calendar*)cal)->set(field, value);
 }
 
 U_CAPI UBool  U_EXPORT2
 ucal_isSet(    const    UCalendar*                cal,
-           UCalendarDateFields        field)
-{
+           UCalendarDateFields        field) UPRV_NO_SANITIZE_UNDEFINED {
+    if (field < 0 || UCAL_FIELD_COUNT <= field) {
+        return false;
+    }
 
     return ((Calendar*)cal)->isSet(field);
 }
 
 U_CAPI void  U_EXPORT2
 ucal_clearField(    UCalendar*            cal,
-                UCalendarDateFields field)
-{
+                UCalendarDateFields field) UPRV_NO_SANITIZE_UNDEFINED {
+    if (field < 0 || UCAL_FIELD_COUNT <= field) {
+        return;
+    }
 
     ((Calendar*)cal)->clear(field);
 }
@@ -561,10 +574,12 @@ U_CAPI int32_t  U_EXPORT2
 ucal_getLimit(    const    UCalendar*              cal,
               UCalendarDateFields     field,
               UCalendarLimitType      type,
-              UErrorCode        *status)
-{
-
+              UErrorCode        *status) UPRV_NO_SANITIZE_UNDEFINED {
     if(status==0 || U_FAILURE(*status)) {
+        return -1;
+    }
+    if (field < 0 || UCAL_FIELD_COUNT <= field) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
         return -1;
     }
 
@@ -614,8 +629,8 @@ ucal_getTZDataVersion(UErrorCode* status)
 }
 
 U_CAPI int32_t U_EXPORT2
-ucal_getCanonicalTimeZoneID(const UChar* id, int32_t len,
-                            UChar* result, int32_t resultCapacity, UBool *isSystemID, UErrorCode* status) {
+ucal_getCanonicalTimeZoneID(const char16_t* id, int32_t len,
+                            char16_t* result, int32_t resultCapacity, UBool *isSystemID, UErrorCode* status) {
     if(status == 0 || U_FAILURE(*status)) {
         return 0;
     }
@@ -638,6 +653,16 @@ ucal_getCanonicalTimeZoneID(const UChar* id, int32_t len,
     }
     return reslen;
 }
+
+U_DRAFT int32_t U_EXPORT2
+ucal_getIanaTimeZoneID(const char16_t* id, int32_t len,
+                        char16_t* result, int32_t resultCapacity, UErrorCode* status)
+{
+    UnicodeString ianaID;
+    TimeZone::getIanaID(UnicodeString(id, len), ianaID, *status);
+    return ianaID.extract(result, resultCapacity, *status);
+}
+
 
 U_CAPI const char * U_EXPORT2
 ucal_getType(const UCalendar *cal, UErrorCode* status)
@@ -741,7 +766,7 @@ ucal_getKeywordValuesForLocale(const char * /* key */, const char* locale, UBool
         if (U_SUCCESS(*status)) {
             for (int i = 0; i < ures_getSize(order); i++) {
                 int32_t len;
-                const UChar *type = ures_getStringByIndex(order, i, &len, status);
+                const char16_t *type = ures_getStringByIndex(order, i, &len, status);
                 char *caltype = (char*)uprv_malloc(len + 1);
                 if (caltype == nullptr) {
                     *status = U_MEMORY_ALLOCATION_ERROR;
@@ -819,7 +844,7 @@ ucal_getTimeZoneTransitionDate(const UCalendar* cal, UTimeZoneTransitionType typ
 }
 
 U_CAPI int32_t U_EXPORT2
-ucal_getWindowsTimeZoneID(const UChar* id, int32_t len, UChar* winid, int32_t winidCapacity, UErrorCode* status) {
+ucal_getWindowsTimeZoneID(const char16_t* id, int32_t len, char16_t* winid, int32_t winidCapacity, UErrorCode* status) {
     if (U_FAILURE(*status)) {
         return 0;
     }
@@ -837,7 +862,7 @@ ucal_getWindowsTimeZoneID(const UChar* id, int32_t len, UChar* winid, int32_t wi
 }
 
 U_CAPI int32_t U_EXPORT2
-ucal_getTimeZoneIDForWindowsID(const UChar* winid, int32_t len, const char* region, UChar* id, int32_t idCapacity, UErrorCode* status) {
+ucal_getTimeZoneIDForWindowsID(const char16_t* winid, int32_t len, const char* region, char16_t* id, int32_t idCapacity, UErrorCode* status) {
     if (U_FAILURE(*status)) {
         return 0;
     }

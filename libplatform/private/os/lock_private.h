@@ -277,6 +277,11 @@ void os_lock_unlock(os_lock_t lock);
  * This flag allows for the kernel to use adaptive spinning when the holder
  * of the lock is currently on core. This should only be used for locks
  * where the protected critical section is always extremely short.
+ *
+ * @const OS_UNFAIR_LOCK_DEADLINE
+ * This flag can be used as an argument to os_unfair_lock_trylock_with_options
+ * to specify that the timeout specified is an absolute deadline until which the
+ * caller is willing to wait to acquire the lock.
  */
 OS_OPTIONS(os_unfair_lock_options, uint32_t,
 	OS_UNFAIR_LOCK_NONE OS_SWIFT_NAME(None)
@@ -286,6 +291,9 @@ OS_OPTIONS(os_unfair_lock_options, uint32_t,
 	OS_UNFAIR_LOCK_ADAPTIVE_SPIN OS_SWIFT_NAME(AdaptiveSpin)
 		__API_AVAILABLE(macos(10.15), ios(13.0),
 		tvos(13.0), watchos(6.0), bridgeos(4.0)) = 0x00040000,
+	OS_UNFAIR_LOCK_DEADLINE OS_SWIFT_NAME(Deadline)
+		__API_AVAILABLE(macos(14.3), ios(17.4),
+		watchos(10.4), tvos(17.4)) = 0x02000000,
 );
 
 #if __swift__
@@ -314,6 +322,35 @@ OS_UNFAIR_LOCK_AVAILABILITY
 OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
 void os_unfair_lock_lock_with_options(os_unfair_lock_t lock,
 		os_unfair_lock_options_t options);
+
+/*!
+ * @function os_unfair_lock_trylock_with_options
+ *
+ * @abstract
+ * Locks an os_unfair_lock if it is not already locked. If the lock is already
+ * acquired, it will wait up until the specified timeout.
+ *
+ * @param lock
+ * Pointer to an os_unfair_lock.
+ *
+ * @param options
+ * Options to alter the behavior of the lock. See os_unfair_lock_options_t.
+ *
+ * @params duration
+ * Max time to wait for contended lock before returning. The input by default is
+ * a duration specified in nanoseconds. Clients can optionally specify an
+ * absolute deadline in mach_absolute_time units along with the
+ * OS_UNFAIR_LOCK_DEADLINE flag in the options.  Duration of 0 has the same
+ * behaviour as os_unfair_lock_trylock().
+ *
+ * @result
+ * Returns true if the lock was succesfully locked and false if the lock was
+ * already locked or the timeout was hit.
+ */
+SPI_AVAILABLE(macos(14.3), ios(17.4), watchos(10.4), tvos(17.4))
+OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
+bool os_unfair_lock_trylock_with_options(os_unfair_lock_t lock,
+		os_unfair_lock_options_t options, uint64_t duration);
 
 /*!
  * @group os_unfair_lock no-TSD interfaces

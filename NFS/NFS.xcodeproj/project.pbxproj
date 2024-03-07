@@ -650,6 +650,7 @@
 		C440FC9029B4F44500EFF849 /* nlm_rpc.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = nlm_rpc.m; sourceTree = "<group>"; };
 		C440FC9229B4F7F400EFF849 /* nlm_nfsrvTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = nlm_nfsrvTests.m; sourceTree = "<group>"; };
 		C440FC9429B5E08A00EFF849 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		C44454022A8B9A5900C23F19 /* nfsstat-entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "nfsstat-entitlements.plist"; sourceTree = "<group>"; };
 		C455A5D128A010A3002BEE04 /* mountd_rpc.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mountd_rpc.x; sourceTree = "<group>"; };
 		C455A5D428A01213002BEE04 /* mountd_rpc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mountd_rpc.h; sourceTree = "<group>"; };
 		C455A5D528A01213002BEE04 /* mountd_rpc_clnt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mountd_rpc_clnt.c; sourceTree = "<group>"; };
@@ -1290,6 +1291,7 @@
 				C434111F24ADCCA500C92762 /* printer.c */,
 				C4C9E62324B36FE0006667D4 /* json_support.m */,
 				C4C9E62524B36FFC006667D4 /* json_support.h */,
+				C44454022A8B9A5900C23F19 /* nfsstat-entitlements.plist */,
 			);
 			path = nfsstat;
 			sourceTree = "<group>";
@@ -3065,6 +3067,7 @@
 		D6354A8C1FA3CECF00AACC99 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "nfsstat/nfsstat-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
@@ -3076,6 +3079,7 @@
 		D6354A8D1FA3CECF00AACC99 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "nfsstat/nfsstat-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
@@ -3468,6 +3472,7 @@
 		D6EA4AA01FBA8BF0002AF776 /* Coverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "nfsstat/nfsstat-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;

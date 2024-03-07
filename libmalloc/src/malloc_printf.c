@@ -20,8 +20,10 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include "internal.h"
 
+#if !MALLOC_TARGET_EXCLAVES
 /* global flag to suppress ASL logging e.g. for syslogd */
 int _malloc_no_asl_log = 0;
 
@@ -37,6 +39,7 @@ static write_debug_mode_t debug_mode = DEBUG_WRITE_NONE;
 static boolean_t malloc_error_stop;		// Stop when reporting error.
 static boolean_t malloc_error_sleep;	// Sleep after reporting error.
 static const int default_sleep_time = 3600;
+#endif /* !MALLOC_TARGET_EXCLAVES */
 
 // Gets the default time to sleep for when reporting an error. Returns 0
 // (meaning do not sleep) if malloc_error_sleep is 0 (that is, if sleeping on
@@ -44,14 +47,20 @@ static const int default_sleep_time = 3600;
 unsigned
 _malloc_default_debug_sleep_time(void)
 {
+#if !MALLOC_TARGET_EXCLAVES
 	return malloc_error_sleep ? default_sleep_time : 0;
+#else
+	return 0;
+#endif /* !MALLOC_TARGET_EXCLAVES */
 }
 
+#if !MALLOC_TARGET_EXCLAVES
 #define WRITE_TO_DEBUG_FILE(flags) \
 		(((flags) & MALLOC_REPORT_NOWRITE) == 0 && \
 		((debug_mode == DEBUG_WRITE_ALWAYS) || \
 		(debug_mode == DEBUG_WRITE_ON_CRASH && ((flags) & MALLOC_REPORT_CRASH))))
 #define	MALLOC_REPORT_LEVEL_MASK	0x0f
+#endif /* !MALLOC_TARGET_EXCLAVES */
 
 #pragma mark -
 #pragma mark Configuration
@@ -59,6 +68,7 @@ _malloc_default_debug_sleep_time(void)
 void
 malloc_print_configure(bool restricted)
 {
+#if !MALLOC_TARGET_EXCLAVES
 	char *flag = getenv("MallocDebugReport");
 	if (flag) {
 		if (!strcmp(flag, "stderr")) {
@@ -83,6 +93,9 @@ malloc_print_configure(bool restricted)
 	if (getenv("MallocErrorSleep")) {
 		malloc_error_sleep = TRUE;
 	}
+#else
+	(void)restricted;
+#endif /* !MALLOC_TARGET_EXCLAVES */
 }
 
 #pragma mark -
@@ -93,8 +106,9 @@ malloc_print_configure(bool restricted)
  * subset of printf format specifiers and do not call malloc internally.
  */
 static void
-_malloc_put(uint32_t flags, const char *msg)
+_malloc_put(uint32_t flags, const char * __null_terminated msg)
 {
+#if !MALLOC_TARGET_EXCLAVES
 	_SIMPLE_STRING b;
 	if ((b = _simple_salloc()) == NULL) {
 		if (WRITE_TO_DEBUG_FILE(flags)) {
@@ -119,6 +133,13 @@ _malloc_put(uint32_t flags, const char *msg)
 		_simple_asl_log(flags & MALLOC_REPORT_LEVEL_MASK, Malloc_Facility, _simple_string(b));
 	}
 	_simple_sfree(b);
+#else
+	if (!(flags & MALLOC_REPORT_NOPREFIX)) {
+		printf("(0x%lx) malloc: ", pthread_self());
+	}
+
+	printf("%s", msg);
+#endif /* !MALLOC_TARGET_EXCLAVES */
 }
 
 #pragma mark -
@@ -129,18 +150,23 @@ _malloc_put(uint32_t flags, const char *msg)
 static void
 _malloc_append_backtrace(_SIMPLE_STRING b)
 {
-	void *btarray[MALLOC_BT_DEPTH];
+	void * __unsafe_indexable btarray[MALLOC_BT_DEPTH];
 
-	int count = backtrace(btarray, MALLOC_BT_DEPTH);
+	ssize_t count = backtrace(btarray, MALLOC_BT_DEPTH);
 	if (!count) {
 		return;
 	}
 
+#if !MALLOC_TARGET_EXCLAVES
 	struct image_offset bt_image_offsets[MALLOC_BT_DEPTH];
-	backtrace_image_offsets(btarray, bt_image_offsets, count);
+	backtrace_image_offsets(btarray, bt_image_offsets, (int)count);
+#else
+	(void)b;
+#endif /* !MALLOC_TARGET_EXCLAVES */
 
-	uuid_t last_uuid;
-	for (int i = 0; i < count; i++) {
+	for (ssize_t i = 0; i < count; i++) {
+#if !MALLOC_TARGET_EXCLAVES
+		uuid_t last_uuid;
 		// simple de-duping for runs of UUIDs common in backtraces
 		if (i == 0 || uuid_compare(last_uuid, bt_image_offsets[i].uuid) != 0) {
 			uuid_copy(last_uuid, bt_image_offsets[i].uuid);
@@ -152,13 +178,18 @@ _malloc_append_backtrace(_SIMPLE_STRING b)
 			_simple_sappend(b, "last");
 		}
 		_simple_sprintf(b, "+%u,", bt_image_offsets[i].offset);
+#else
+		printf("+%p", btarray[i]);
+#endif /* !MALLOC_TARGET_EXCLAVES */
 	}
 }
 
 MALLOC_NOINLINE void
-malloc_vreport(uint32_t flags, unsigned sleep_time, const char *prefix_msg,
-		const void *prefix_arg, const char *fmt, va_list ap)
+malloc_vreport(uint32_t flags, unsigned sleep_time,
+		const char * __null_terminated prefix_msg, const void *prefix_arg,
+		const char * __null_terminated fmt, va_list ap)
 {
+#if !MALLOC_TARGET_EXCLAVES
 	const char *crash_msg = NULL;
 	_SIMPLE_STRING b = NULL;
 	if ((b = _simple_salloc()) == NULL) {
@@ -219,6 +250,36 @@ malloc_vreport(uint32_t flags, unsigned sleep_time, const char *prefix_msg,
 		_os_set_crash_log_message_dynamic(crash_msg);
 		abort();
 	}
+#else
+	if (!(flags & MALLOC_REPORT_NOPREFIX)) {
+		printf("(0x%lx) malloc: ", pthread_self());
+	}
+	if (prefix_msg) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+		printf(prefix_msg, prefix_arg);
+#pragma GCC diagnostic pop
+	}
+	vprintf(fmt, ap);
+
+	if (flags & MALLOC_REPORT_BACKTRACE) {
+		_malloc_append_backtrace(NULL);
+	}
+
+	if (flags & (MALLOC_REPORT_DEBUG | MALLOC_REPORT_CRASH)) {
+		_malloc_put(flags, "*** set a breakpoint in malloc_error_break to debug\n");
+		malloc_error_break();
+
+		if (sleep_time) {
+			_malloc_put(ASL_LEVEL_NOTICE, "*** sleeping to help debug\n");
+			sleep(sleep_time);
+		}
+	}
+
+	if (flags & MALLOC_REPORT_CRASH) {
+		abort();
+	}
+#endif /* !MALLOC_TARGET_EXCLAVES */
 }
 
 MALLOC_NOEXPORT void
@@ -262,6 +323,18 @@ malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
 
 #endif // MALLOC_BUILDING_XCTESTS
 
+#if MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR
+MALLOC_NOEXPORT
+void
+malloc_error_break(void)
+{
+	// Provides a non-inlined place for various malloc error procedures to call
+	// that will be called after an error message appears.  It does not make
+	// sense for developers to call this function, so it is marked
+	// hidden to prevent it from becoming API.
+}
+#endif // MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR
+
 #pragma mark -
 #pragma mark Malloc Output API.
 
@@ -270,6 +343,9 @@ malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
 // a flags value of ASL_LEVEL_ERR, so does not result in a crash or any prompts
 // for diagnostics or breakpoints.
 // Do not use in malloc code.
+#if MALLOC_TARGET_EXCLAVES
+MALLOC_NOEXPORT
+#endif // MALLOC_TARGET_EXCLAVES
 void
 malloc_printf(const char *fmt, ...)
 {

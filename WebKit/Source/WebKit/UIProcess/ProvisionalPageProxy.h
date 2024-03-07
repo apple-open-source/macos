@@ -31,6 +31,7 @@
 #include "NetworkResourceLoadIdentifier.h"
 #include "PolicyDecision.h"
 #include "ProcessThrottler.h"
+#include "RemotePageProxyState.h"
 #include "SandboxExtension.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebPageProxyIdentifier.h"
@@ -57,6 +58,7 @@ enum class ShouldTreatAsContinuingLoad : uint8_t;
 
 namespace WebKit {
 
+class BrowsingContextGroup;
 class DrawingAreaProxy;
 class RemotePageProxy;
 class SuspendedPageProxy;
@@ -86,13 +88,16 @@ public:
 
     WebPageProxy& page() { return m_page.get(); }
     const WebPageProxy& page() const { return m_page.get(); }
+    Ref<WebPageProxy> protectedPage() const;
+
     WebCore::PageIdentifier webPageID() const { return m_webPageID; }
     WebFrameProxy* mainFrame() const { return m_mainFrame.get(); }
+    BrowsingContextGroup* browsingContextGroup() { return m_browsingContextGroup.get(); }
+    RemotePageProxyState takeRemotePageProxyState() { return std::exchange(m_remotePageProxyState, { }); }
     WebProcessProxy& process() { return m_process.get(); }
     ProcessSwapRequestedByClient processSwapRequestedByClient() const { return m_processSwapRequestedByClient; }
     uint64_t navigationID() const { return m_navigationID; }
     const URL& provisionalURL() const { return m_provisionalLoadURL; }
-    std::optional<HashMap<WebCore::RegistrableDomain, WeakPtr<RemotePageProxy>>> takeRemotePageMap();
 
     bool isProcessSwappingOnNavigationResponse() const { return m_isProcessSwappingOnNavigationResponse; }
 
@@ -124,8 +129,9 @@ public:
 
     void processDidTerminate();
 
+    bool needsCookieAccessAddedInNetworkProcess() const { return m_needsCookieAccessAddedInNetworkProcess; }
+
 private:
-    Ref<WebPageProxy> protectedPage() const;
     RefPtr<WebFrameProxy> protectedMainFrame() const;
 
     // IPC::MessageReceiver
@@ -176,19 +182,22 @@ private:
     void initializeWebPage(RefPtr<API::WebsitePolicies>&&);
     bool validateInput(WebCore::FrameIdentifier, const std::optional<uint64_t>& navigationID = std::nullopt);
 
-    CheckedRef<WebPageProxy> m_page;
+    WeakRef<WebPageProxy> m_page;
     WebCore::PageIdentifier m_webPageID;
     Ref<WebProcessProxy> m_process;
     // Keep WebsiteDataStore alive for provisional page load.
     RefPtr<WebsiteDataStore> m_websiteDataStore;
     std::unique_ptr<DrawingAreaProxy> m_drawingArea;
     RefPtr<WebFrameProxy> m_mainFrame;
+    RefPtr<BrowsingContextGroup> m_browsingContextGroup;
+    RemotePageProxyState m_remotePageProxyState;
     uint64_t m_navigationID;
     bool m_isServerRedirect;
     WebCore::ResourceRequest m_request;
     ProcessSwapRequestedByClient m_processSwapRequestedByClient;
     bool m_wasCommitted { false };
     bool m_isProcessSwappingOnNavigationResponse { false };
+    bool m_needsCookieAccessAddedInNetworkProcess { false };
     URL m_provisionalLoadURL;
     WebPageProxyMessageReceiverRegistration m_messageReceiverRegistration;
 
@@ -208,7 +217,6 @@ private:
     LayerHostingContextID m_contextIDForVisibilityPropagationInGPUProcess { 0 };
 #endif
 #endif
-    std::optional<HashMap<WebCore::RegistrableDomain, WeakPtr<RemotePageProxy>>> m_remotePageMap;
 };
 
 } // namespace WebKit

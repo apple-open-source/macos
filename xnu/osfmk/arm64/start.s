@@ -788,7 +788,7 @@ common_start:
 
 	APPLY_TUNABLES x12, x13, x14
 
-#if HAS_CLUSTER
+#if HAS_CLUSTER && !NO_CPU_OVRD
 	// Unmask external IRQs if we're restarting from non-retention WFI
 	mrs		x9, CPU_OVRD
 	and		x9, x9, #(~(ARM64_REG_CYC_OVRD_irq_mask | ARM64_REG_CYC_OVRD_fiq_mask))

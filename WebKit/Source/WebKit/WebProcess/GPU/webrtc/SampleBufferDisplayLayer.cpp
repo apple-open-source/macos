@@ -59,9 +59,9 @@ SampleBufferDisplayLayer::SampleBufferDisplayLayer(SampleBufferDisplayLayerManag
     gpuProcessConnection->addClient(*this);
 }
 
-void SampleBufferDisplayLayer::initialize(bool hideRootLayer, IntSize size, CompletionHandler<void(bool)>&& callback)
+void SampleBufferDisplayLayer::initialize(bool hideRootLayer, IntSize size, bool shouldMaintainAspectRatio, CompletionHandler<void(bool)>&& callback)
 {
-    m_connection->sendWithAsyncReply(Messages::RemoteSampleBufferDisplayLayerManager::CreateLayer { m_identifier, hideRootLayer, size }, [this, weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto contextId) mutable {
+    m_connection->sendWithAsyncReply(Messages::RemoteSampleBufferDisplayLayerManager::CreateLayer { m_identifier, hideRootLayer, size, shouldMaintainAspectRatio }, [this, weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto contextId) mutable {
         if (!weakThis)
             return callback(false);
         m_hostingContextID = contextId;
@@ -136,7 +136,7 @@ void SampleBufferDisplayLayer::enqueueVideoFrame(VideoFrame& videoFrame)
 
     auto sharedVideoFrame = m_sharedVideoFrameWriter.write(videoFrame,
         [this](auto& semaphore) { m_connection->send(Messages::RemoteSampleBufferDisplayLayer::SetSharedVideoFrameSemaphore { semaphore }, m_identifier); },
-        [this](auto&& handle) { m_connection->send(Messages::RemoteSampleBufferDisplayLayer::SetSharedVideoFrameMemory { WTFMove(handle) }, m_identifier); }
+        [this](SharedMemory::Handle&& handle) { m_connection->send(Messages::RemoteSampleBufferDisplayLayer::SetSharedVideoFrameMemory { WTFMove(handle) }, m_identifier); }
     );
     if (!sharedVideoFrame)
         return;
@@ -169,6 +169,11 @@ void SampleBufferDisplayLayer::gpuProcessConnectionDidClose(GPUProcessConnection
     m_didFail = true;
     if (m_client)
         m_client->sampleBufferDisplayLayerStatusDidFail();
+}
+
+void SampleBufferDisplayLayer::setShouldMaintainAspectRatio(bool shouldMaintainAspectRatio)
+{
+    m_connection->send(Messages::RemoteSampleBufferDisplayLayer::SetShouldMaintainAspectRatio { shouldMaintainAspectRatio }, m_identifier);
 }
 
 }

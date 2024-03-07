@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmEd25519.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyOKP.h"
 #include <pal/spi/cocoa/CoreCryptoSPI.h>
 
@@ -39,7 +37,13 @@ static ExceptionOr<Vector<uint8_t>> signEd25519(const Vector<uint8_t>& sk, size_
     const struct ccdigest_info* di = ccsha512_di();
     cced25519_make_pub(di, pk, sk.data());
     ccec25519signature newSignature;
+
+#if HAVE(CORE_CRYPTO_SIGNATURES_INT_RETURN_VALUE)
+    if (cced25519_sign(di, newSignature, data.size(), data.data(), pk, sk.data()))
+        return Exception { ExceptionCode::OperationError };
+#else
     cced25519_sign(di, newSignature, data.size(), data.data(), pk, sk.data());
+#endif
     return Vector<uint8_t>(newSignature, 64);
 }
 
@@ -61,5 +65,4 @@ ExceptionOr<bool> CryptoAlgorithmEd25519::platformVerify(const CryptoKeyOKP& key
     return verifyEd25519(key.platformKey(), key.keySizeInBytes(), signature, data);
 }
 
-}
-#endif
+} // namespace WebCore

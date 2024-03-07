@@ -275,10 +275,10 @@ void MediaElementSession::visibilityChanged()
     if (!isPlayingAudio) {
         if (elementIsHidden) {
             ALWAYS_LOG(LOGIDENTIFIER, "Suspending silent playback after page visibility: hidden");
-            beginInterruption(PlatformMediaSession::EnteringBackground);
+            beginInterruption(PlatformMediaSession::InterruptionType::EnteringBackground);
         } else {
             ALWAYS_LOG(LOGIDENTIFIER, "Resuming silent playback after page visibility: showing");
-            endInterruption(PlatformMediaSession::MayResumePlaying);
+            endInterruption(PlatformMediaSession::EndInterruptionFlags::MayResumePlaying);
         }
         return;
     }
@@ -286,10 +286,10 @@ void MediaElementSession::visibilityChanged()
     if (hasBehaviorRestriction(RequirePageVisibilityToPlayAudio)) {
         if (elementIsHidden) {
             ALWAYS_LOG(LOGIDENTIFIER, "Suspending audible playback after page visibility: hidden");
-            beginInterruption(PlatformMediaSession::EnteringBackground);
+            beginInterruption(PlatformMediaSession::InterruptionType::EnteringBackground);
         } else {
             ALWAYS_LOG(LOGIDENTIFIER, "Resuming audible playback after page visibility: showing");
-            endInterruption(PlatformMediaSession::MayResumePlaying);
+            endInterruption(PlatformMediaSession::EndInterruptionFlags::MayResumePlaying);
         }
     }
 }
@@ -324,7 +324,7 @@ void MediaElementSession::clientDataBufferingTimerFired()
 
     updateClientDataBuffering();
 
-    if (state() != Playing || !m_element.elementIsHidden())
+    if (state() != PlatformMediaSession::State::Playing || !m_element.elementIsHidden())
         return;
 
     PlatformMediaSessionManager::SessionRestrictions restrictions = PlatformMediaSessionManager::sharedManager().restrictions(mediaType());
@@ -500,7 +500,7 @@ MediaPlayer::BufferingPolicy MediaElementSession::preferredBufferingPolicy() con
     if (bufferingSuspended())
         return MediaPlayer::BufferingPolicy::LimitReadAhead;
 
-    if (state() == PlatformMediaSession::Playing)
+    if (state() == PlatformMediaSession::State::Playing)
         return MediaPlayer::BufferingPolicy::Default;
 
     if (shouldOverrideBackgroundLoadingRestriction())
@@ -625,10 +625,12 @@ bool MediaElementSession::canShowControlsManager(PlaybackControlsPurpose purpose
 
 #if ENABLE(FULLSCREEN_API)
     // Elements which are not descendants of the current fullscreen element cannot be main content.
-    auto* fullscreenElement = m_element.document().fullscreenManager().currentFullscreenElement();
-    if (fullscreenElement && !m_element.isDescendantOf(*fullscreenElement)) {
-        INFO_LOG(LOGIDENTIFIER, "returning FALSE: outside of full screen");
-        return false;
+    if (CheckedPtr fullsreenManager = m_element.document().fullscreenManagerIfExists()) {
+        auto* fullscreenElement = fullsreenManager->currentFullscreenElement();
+        if (fullscreenElement && !m_element.isDescendantOf(*fullscreenElement)) {
+            INFO_LOG(LOGIDENTIFIER, "returning FALSE: outside of full screen");
+            return false;
+        }
     }
 #endif
 
@@ -866,7 +868,6 @@ bool MediaElementSession::requiresFullscreenForVideoPlayback() const
         return false;
 
     if (m_element.document().isMediaDocument()) {
-        ASSERT(is<HTMLVideoElement>(m_element));
         const HTMLVideoElement& videoElement = *downcast<const HTMLVideoElement>(&m_element);
         if (m_element.readyState() < HTMLVideoElement::HAVE_METADATA || !videoElement.hasEverHadVideo())
             return false;
@@ -1045,11 +1046,7 @@ static bool isElementRectMostlyInMainFrame(const HTMLMediaElement& element)
     if (!documentFrame)
         return false;
 
-    auto* localFrame = dynamicDowncast<LocalFrame>(documentFrame->mainFrame());
-    if (!localFrame)
-        return false;
-
-    auto mainFrameView = localFrame->view();
+    RefPtr mainFrameView = documentFrame->mainFrame().virtualView();
     if (!mainFrameView)
         return false;
 
@@ -1155,7 +1152,7 @@ bool MediaElementSession::allowsPlaybackControlsForAutoplayingAudio() const
 
 #if ENABLE(MEDIA_SESSION)
 #if ENABLE(MEDIA_STREAM)
-static bool isDocumentPlayingSeveralMediaStreams(Document& document)
+static bool isDocumentPlayingSeveralMediaStreamsAndCapturing(Document& document)
 {
     // We restrict to capturing document for now, until we have a good way to state to the UIProcess application that audio rendering is muted from here.
     auto* page = document.page();
@@ -1168,7 +1165,7 @@ static bool processRemoteControlCommandIfPlayingMediaStreams(Document& document,
     if (!page)
         return false;
 
-    if (!isDocumentPlayingSeveralMediaStreams(document))
+    if (!isDocumentPlayingSeveralMediaStreamsAndCapturing(document))
         return false;
 
     WebCore::MediaProducerMutedStateFlags mutedState;
@@ -1270,12 +1267,18 @@ void MediaElementSession::didReceiveRemoteControlCommand(RemoteControlCommandTyp
 std::optional<NowPlayingInfo> MediaElementSession::nowPlayingInfo() const
 {
     auto* page = m_element.document().page();
-    bool allowsNowPlayingControlsVisibility = page && !page->isVisibleAndActive();
-    bool isPlaying = state() == PlatformMediaSession::Playing;
-#if ENABLE(MEDIA_SESSION) && ENABLE(MEDIA_STREAM)
-    if (isPlaying && isDocumentPlayingSeveralMediaStreams(m_element.document()) && page)
-        isPlaying = !page->mutedState().contains(MediaProducerMutedState::AudioIsMuted);
+
+#if ENABLE(MEDIA_SESSION)
+    auto* session = mediaSession();
 #endif
+
+#if ENABLE(MEDIA_SESSION) && ENABLE(MEDIA_STREAM)
+    if (isDocumentPlayingSeveralMediaStreamsAndCapturing(m_element.document()) && (!session || !session->hasActiveActionHandlers()))
+        return { };
+#endif
+
+    bool allowsNowPlayingControlsVisibility = page && !page->isVisibleAndActive();
+    bool isPlaying = state() == PlatformMediaSession::State::Playing;
 
     bool supportsSeeking = m_element.supportsSeeking();
     double rate = 1.0;
@@ -1293,7 +1296,6 @@ std::optional<NowPlayingInfo> MediaElementSession::nowPlayingInfo() const
 #endif
 
 #if ENABLE(MEDIA_SESSION)
-    auto* session = mediaSession();
     auto positionState = session ? session->positionState() : std::nullopt;
     auto currentPosition = session ? session->currentPosition() : std::nullopt;
     if (positionState) {
@@ -1331,8 +1333,10 @@ void MediaElementSession::updateMediaUsageIfChanged()
 
     bool isOutsideOfFullscreen = false;
 #if ENABLE(FULLSCREEN_API)
-    if (auto* fullscreenElement = document.fullscreenManager().currentFullscreenElement())
-        isOutsideOfFullscreen = !m_element.isDescendantOf(*fullscreenElement);
+    if (CheckedPtr fullscreenManager = document.fullscreenManagerIfExists()) {
+        if (auto* fullscreenElement = document.fullscreenManager().currentFullscreenElement())
+            isOutsideOfFullscreen = m_element.isDescendantOf(*fullscreenElement);
+    }
 #endif
     bool isAudio = client().presentationType() == MediaType::Audio;
     bool isVideo = client().presentationType() == MediaType::Video;
@@ -1342,7 +1346,7 @@ void MediaElementSession::updateMediaUsageIfChanged()
     MediaUsageInfo usage = {
         m_element.currentSrc(),
         m_element.hasSource(),
-        state() == PlatformMediaSession::Playing,
+        state() == PlatformMediaSession::State::Playing,
         canShowControlsManager(PlaybackControlsPurpose::ControlsManager),
         !page->isVisibleAndActive(),
         m_element.isSuspended(),

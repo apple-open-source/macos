@@ -231,12 +231,12 @@ _voucher_find_and_retain(mach_voucher_t kv)
 	while (v) {
 		if (v->v_ipc_kvoucher == kv) {
 			int xref_cnt = os_atomic_inc(&v->os_obj_xref_cnt, relaxed);
-			_dispatch_voucher_debug("retain  -> %d", v, xref_cnt + 1);
-			if (unlikely(xref_cnt < 0)) {
+			_dispatch_voucher_debug("retain  -> %d", v, xref_cnt);
+			if (unlikely(xref_cnt < 1)) {
 				_dispatch_voucher_debug("over-release", v);
 				_OS_OBJECT_CLIENT_CRASH("Voucher over-release");
 			}
-			if (xref_cnt == 0) {
+			if (xref_cnt == 1) {
 				// resurrection: raced with _voucher_remove
 				(void)os_atomic_inc(&v->os_obj_ref_cnt, relaxed);
 			}
@@ -283,7 +283,7 @@ _voucher_remove(voucher_t v)
 		DISPATCH_CLIENT_CRASH(0, "Voucher corruption");
 	}
 	// check for resurrection race with _voucher_find_and_retain
-	if (os_atomic_load(&v->os_obj_xref_cnt, ordered) < 0) {
+	if (os_atomic_load(&v->os_obj_xref_cnt, ordered) < 1) {
 		if (_voucher_hash_is_enqueued(v)) _voucher_hash_remove(v);
 	}
 	_voucher_hash_lock_unlock();
@@ -1735,7 +1735,7 @@ _voucher_debug(voucher_t v, char *buf, size_t bufsiz)
 {
 	size_t offset = 0;
 	bufprintf("voucher[%p] = { xref = %d, ref = %d", v,
-			v->os_obj_xref_cnt + 1, v->os_obj_ref_cnt + 1);
+			v->os_obj_xref_cnt, v->os_obj_ref_cnt);
 
 	if (v->v_kvbase) {
 		bufprintf(", base voucher %p", v->v_kvbase);

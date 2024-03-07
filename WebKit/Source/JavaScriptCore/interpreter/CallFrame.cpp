@@ -350,11 +350,15 @@ void CallFrame::convertToStackOverflowFrame(VM& vm, CodeBlock* codeBlockToKeepAl
         throwOriginFrame = throwOriginFrame->callerFrame(entryFrame);
     } while (throwOriginFrame && throwOriginFrame->callee().isNativeCallee());
 
-    JSObject* originCallee = throwOriginFrame ? throwOriginFrame->jsCallee() : vmEntryRecord(vm.topEntryFrame)->callee();
-    JSObject* stackOverflowCallee = originCallee->globalObject()->stackOverflowFrameCallee();
+    JSGlobalObject* globalObject = nullptr;
+    if (throwOriginFrame)
+        globalObject = throwOriginFrame->jsCallee()->globalObject();
+    else
+        globalObject = vm.entryScope->globalObject();
+    JSObject* partiallyInitializedFrameCallee = globalObject->partiallyInitializedFrameCallee();
 
     setCodeBlock(codeBlockToKeepAliveUntilFrameIsUnwound);
-    setCallee(stackOverflowCallee);
+    setCallee(partiallyInitializedFrameCallee);
     setArgumentCountIncludingThis(0);
 }
 

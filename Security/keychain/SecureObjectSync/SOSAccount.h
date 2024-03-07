@@ -127,6 +127,7 @@ CFArrayRef SOSAccountCopyPeersToListenTo(SOSAccount*  account, CFErrorRef *error
 CFArrayRef SOSAccountCopyNotValidPeers(SOSAccount*  account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyRetired(SOSAccount*  account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyViewUnaware(SOSAccount*  account, CFErrorRef *error);
+CFArrayRef SOSAccountCopyViewUnawareIncludingInvalid(SOSAccount* account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyPeers(SOSAccount*  account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyActivePeers(SOSAccount*  account, CFErrorRef *error);
 CFArrayRef CF_RETURNS_RETAINED SOSAccountCopyActiveValidPeers(SOSAccount*  account, CFErrorRef *error);

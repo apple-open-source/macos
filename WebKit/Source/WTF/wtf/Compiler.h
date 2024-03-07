@@ -170,6 +170,16 @@
 #define SUPPRESS_TSAN
 #endif
 
+/* COVERAGE_ENABLED and SUPPRESS_COVERAGE */
+
+#define COVERAGE_ENABLED COMPILER_HAS_CLANG_FEATURE(coverage_sanitizer)
+
+#if COVERAGE_ENABLED
+#define SUPPRESS_COVERAGE __attribute__((no_sanitize("coverage")))
+#else
+#define SUPPRESS_COVERAGE
+#endif
+
 /* ==== Compiler-independent macros for various compiler features, in alphabetical order ==== */
 
 /* ALWAYS_INLINE */
@@ -444,6 +454,16 @@
 /* UNUSED_VARIABLE */
 #if !defined(UNUSED_VARIABLE)
 #define UNUSED_VARIABLE(variable) UNUSED_PARAM(variable)
+#endif
+
+/* UNUSED_VARIADIC_PARAMS */
+
+#if !defined(UNUSED_VARIADIC_PARAMS) && (COMPILER(GCC) || COMPILER(CLANG))
+#define UNUSED_VARIADIC_PARAMS __attribute__((unused))
+#endif
+
+#if !defined(UNUSED_VARIADIC_PARAMS)
+#define UNUSED_VARIADIC_PARAMS
 #endif
 
 /* WARN_UNUSED_RETURN */

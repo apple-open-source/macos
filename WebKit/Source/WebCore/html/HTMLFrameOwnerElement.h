@@ -67,8 +67,7 @@ public:
     virtual bool isLazyLoadObserverActive() const { return false; }
 
 protected:
-    constexpr static auto CreateHTMLFrameOwnerElement = CreateHTMLElement;
-    HTMLFrameOwnerElement(const QualifiedName& tagName, Document&, ConstructionType = CreateHTMLFrameOwnerElement);
+    HTMLFrameOwnerElement(const QualifiedName& tagName, Document&, OptionSet<TypeFlag> = { });
     void setSandboxFlags(SandboxFlags);
     bool isProhibitedSelfReference(const URL&) const;
     bool isKeyboardFocusable(KeyboardEvent*) const override;
@@ -108,6 +107,11 @@ private:
 };
 
 inline HTMLFrameOwnerElement* Frame::ownerElement() const
+{
+    return m_ownerElement.get();
+}
+
+inline RefPtr<HTMLFrameOwnerElement> Frame::protectedOwnerElement() const
 {
     return m_ownerElement.get();
 }

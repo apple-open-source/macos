@@ -227,12 +227,32 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
     }
 }
 
-- (void)handleExternalClientStateMachineRequest:(OctagonStateTransitionRequest<CKKSResultOperation<OctagonStateTransitionOperationProtocol>*>*)request client:(NSString*)clientName
+- (NSError* _Nullable)timeoutErrorForState:(OctagonState*)state {
+    NSNumber* number = OctagonClientStateMap()[state];
+    if(number != nil) {
+        return [NSError errorWithDomain:@"com.apple.security.octagon.client"
+                                   code:[number integerValue]
+                            description:[NSString stringWithFormat:@"Current state: '%@'", state]];
+    }
+
+    return nil;
+}
+
+- (void)handleExternalClientStateMachineRequest:(OctagonStateTransitionRequest<CKKSResultOperation<OctagonStateTransitionOperationProtocol>*>*)request
+                                         client:(NSString*)clientName
+                                        timeout:(dispatch_time_t)timeout
 {
     dispatch_sync(self.queue, ^{
         [self.stateMachineClientRequests addObject:request];
-
         [self _onqueuePokeClientStateMachine:clientName];
+
+        if(timeout != 0 && timeout != DISPATCH_TIME_FOREVER) {
+            WEAKIFY(self);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.queue, ^{
+                STRONGIFY(self);
+                [request onqueueHandleStartTimeout:[self timeoutErrorForState:self.currentState]];
+            });
+        }
     });
 }
 -(BOOL) isAcceptorWaitingForFirstMessage
@@ -289,7 +309,6 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
     OctagonStateTransitionRequest<OTEpochOperation*>* request = [[OctagonStateTransitionRequest alloc] init:@"rpcEpoch"
                                                                                                sourceStates:[NSSet setWithArray:@[OctagonStateAcceptorBeginClientJoin]]
                                                                                                 serialQueue:self.queue
-                                                                                                    timeout:2*NSEC_PER_SEC
                                                                                                transitionOp:pendingOp];
 
     CKKSResultOperation* callback = [CKKSResultOperation named:@"rpcEpoch-callback"
@@ -301,7 +320,7 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
     [callback addDependency:pendingOp];
     [self.operationQueue addOperation: callback];
 
-    [self handleExternalClientStateMachineRequest:request client:self.clientName];
+    [self handleExternalClientStateMachineRequest:request client:self.clientName timeout:2*NSEC_PER_SEC];
 
     return;
 }
@@ -327,8 +346,6 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
     OctagonStateTransitionRequest<OTClientVoucherOperation*>* request = [[OctagonStateTransitionRequest alloc] init:@"rpcVoucher"
                                                                                                        sourceStates:[NSSet setWithArray:@[OctagonStateAcceptorAwaitingIdentity]]
                                                                                                         serialQueue:self.queue
-                                                                                                            timeout:2*NSEC_PER_SEC
-
                                                                                                        transitionOp:pendingOp];
     CKKSResultOperation* callback = [CKKSResultOperation named:@"rpcVoucher-callback"
                                                      withBlock:^{
@@ -338,7 +355,7 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
     [callback addDependency:pendingOp];
     [self.operationQueue addOperation: callback];
 
-    [self handleExternalClientStateMachineRequest:request client:self.clientName];
+    [self handleExternalClientStateMachineRequest:request client:self.clientName timeout:2*NSEC_PER_SEC];
 
     return;
 }

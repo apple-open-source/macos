@@ -29,6 +29,7 @@
 
 #include "UserStyleSheet.h"
 #include <memory>
+#include <wtf/CheckedRef.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RobinHoodHashMap.h>
@@ -48,7 +49,7 @@ class StyleSheet;
 class StyleSheetContents;
 class StyleSheetList;
 
-class ExtensionStyleSheets {
+class ExtensionStyleSheets : public CanMakeCheckedPtr {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit ExtensionStyleSheets(Document&);
@@ -81,7 +82,9 @@ public:
     void detachFromDocument();
 
 private:
-    Document& m_document;
+    Ref<Document> protectedDocument() const;
+
+    CheckedRef<Document> m_document;
 
     RefPtr<CSSStyleSheet> m_pageUserSheet;
 

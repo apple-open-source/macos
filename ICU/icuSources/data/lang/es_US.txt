@@ -9,6 +9,7 @@ es_US{
         arp{"arapaho"}
         ars{"árabe najdi"}
         bax{"bamun"}
+        bgc{"hariana"}
         bho{"bhojpuri"}
         bla{"siksika"}
         bua{"buriat"}
@@ -43,7 +44,6 @@ es_US{
         ojb{"ojibwa del noroeste"}
         ojw{"ojibwa del oeste"}
         pis{"pijín"}
-        pqm{"maliseet-passamaquoddy"}
         rm{"romanche"}
         se{"sami del norte"}
         shu{"árabe chadiano"}

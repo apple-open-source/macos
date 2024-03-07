@@ -93,6 +93,32 @@ static void tests(void)
     CFArrayRef peers = SOSAccountCopyViewUnawarePeers_wTxn(alice_account, &error);
     ok(peers, "peers should not be nil");
     is(CFArrayGetCount(peers), 1, "count should be 1");
+
+    CFReleaseNull(cfpassword);
+
+    // now change the account key on alice account
+    cfpassword = CFDataCreate(NULL, (uint8_t *) "NewFooFooFoo", 10);
+
+    CFDataRef parameters = SOSUserKeyCreateGenerateParameters(&error);
+    SecKeyRef user_private = SOSUserKeygen(cfpassword, parameters, &error);
+    SOSAccountSetParameters(alice_account, parameters);
+    SecKeyRef publicKey = SecKeyCreatePublicFromPrivate(user_private);
+    alice_account.accountKey = publicKey;
+
+    // now there should be 0 active view unaware peers
+    CFArrayRef activeViewUnawarePeers = SOSAccountCopyViewUnawarePeers_wTxn(alice_account, &error);
+    ok(activeViewUnawarePeers, "peers should not be nil");
+    is(CFArrayGetCount(activeViewUnawarePeers), 0, "count should be 0");
+
+    // assert new password
+    ok(SOSAccountAssertUserCredentialsAndUpdate(alice_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
+    CFReleaseNull(error);
+    is(ProcessChangesUntilNoChange(changes, alice_account, NULL), 1, "updates");
+
+    CFReleaseNull(parameters);
+    CFReleaseNull(user_private);
+    CFReleaseNull(publicKey);
+
     if(CFArrayGetCount(peers) > 0) {
         SOSPeerInfoRef bobPeer = (SOSPeerInfoRef)CFArrayGetValueAtIndex(peers, 0);
         ok(CFStringCompare(SOSPeerInfoGetPeerID(bobPeer), SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(bobsV0FPI)), 0) == kCFCompareEqualTo, "PeerInfo's should be equal");
@@ -103,8 +129,7 @@ static void tests(void)
     
         is(ProcessChangesUntilNoChange(changes, alice_account, NULL), 1, "updates");
     }
-    
-    
+
     is(SOSCircleCountPeers(alice_account.trust.trustedCircle), 1, "Bob should not be in the circle");
 
     CFReleaseNull(changes);

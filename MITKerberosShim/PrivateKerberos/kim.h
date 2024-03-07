@@ -25,10 +25,6 @@
 #ifndef KIM_H
 #define KIM_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <Kerberos/kim_types.h>
 #include <Kerberos/kim_errors.h>
 #include <Kerberos/kim_string.h>
@@ -38,6 +34,10 @@ extern "C" {
 #include <Kerberos/kim_preferences.h>
 #include <Kerberos/kim_credential.h>
 #include <Kerberos/kim_ccache.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*!
  * \mainpage Kerberos Identity Management (KIM) API Documentation

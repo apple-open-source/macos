@@ -13,6 +13,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				5FB8078C2AEA4C8B0011C191 /* PBXTargetDependency */,
 				33AB6D6025D3763100EB50F2 /* PBXTargetDependency */,
 				4D559357153CE4EA009F2584 /* PBXTargetDependency */,
 				4D559472153DC87B009F2584 /* PBXTargetDependency */,
@@ -86,6 +87,17 @@
 			);
 			name = tmp_cleaner;
 			productName = tmp_cleaner;
+		};
+		5F975B4E2AE0367B005A0CA9 /* Tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 5F975B502AE0367B005A0CA9 /* Build configuration list for PBXAggregateTarget "Tests" */;
+			buildPhases = (
+				5F74F1922AE571B200CFEA90 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = Tests;
+			productName = Tests;
 		};
 /* End PBXAggregateTarget section */
 
@@ -172,7 +184,7 @@
 		B19B23A321C8DFCF0001F35C /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041032091EE910061D05A /* APFS.framework */; };
 		B19B23A421C8DFD50001F35C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041012091EE830061D05A /* IOKit.framework */; };
 		B19B23A521C8DFE10001F35C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041052091EE980061D05A /* CoreFoundation.framework */; };
-		B1EBE452298BF127006FF901 /* UserManagementLayout.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1EBE451298BF127006FF901 /* UserManagementLayout.framework */; platformFilters = (ios, tvos, watchos, ); settings = {ATTRIBUTES = (Required, ); }; };
+		B1EBE452298BF127006FF901 /* UserManagementLayout.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1EBE451298BF127006FF901 /* UserManagementLayout.framework */; platformFilters = (ios, tvos, watchos, xros, ); settings = {ATTRIBUTES = (Required, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -329,6 +341,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 5939BB7229A9919B002CA3D5;
 			remoteInfo = tmp_cleaner;
+		};
+		5FB8078B2AEA4C8B0011C191 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5F975B4E2AE0367B005A0CA9;
+			remoteInfo = Tests;
 		};
 		B12C9C9122A7CDE300B9F497 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -753,6 +772,8 @@
 		5939BB7029A99188002CA3D5 /* tmp_cleaner.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = tmp_cleaner.8; sourceTree = "<group>"; };
 		5939BB7829A993E2002CA3D5 /* com.apple.tmp_cleaner.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.tmp_cleaner.plist; sourceTree = "<group>"; };
 		5939BB7B29A994E3002CA3D5 /* tmp_cleaner */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = tmp_cleaner; sourceTree = "<group>"; };
+		5FB807842AE56DE00011C191 /* dirs_cleaner.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = dirs_cleaner.sh; sourceTree = "<group>"; };
+		5FB807852AE56DE00011C191 /* diskdev_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = diskdev_cmds.plist; sourceTree = "<group>"; };
 		785314FE227120BD00B25661 /* MediaKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaKit.framework; path = System/Library/PrivateFrameworks/MediaKit.framework; sourceTree = SDKROOT; };
 		785315012277BEA700B25661 /* mount.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = mount.entitlements; path = mount.tproj/mount.entitlements; sourceTree = SOURCE_ROOT; };
 		B10B90C5253C4D5D006545C2 /* vfslist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vfslist.h; path = disklib/vfslist.h; sourceTree = "<group>"; };
@@ -964,6 +985,7 @@
 		4D07DD29153CA616002B57CB = {
 			isa = PBXGroup;
 			children = (
+				5FB807832AE56DE00011C191 /* unit_tests */,
 				5939BB6F29A99188002CA3D5 /* tmp_cleaner */,
 				B1DF3D3D21C27FE00099F594 /* edt_fstab */,
 				072AAAA32167CD68004ED4E2 /* mount_flags_dir */,
@@ -1252,6 +1274,15 @@
 				5939BB7B29A994E3002CA3D5 /* tmp_cleaner */,
 			);
 			path = tmp_cleaner;
+			sourceTree = "<group>";
+		};
+		5FB807832AE56DE00011C191 /* unit_tests */ = {
+			isa = PBXGroup;
+			children = (
+				5FB807842AE56DE00011C191 /* dirs_cleaner.sh */,
+				5FB807852AE56DE00011C191 /* diskdev_cmds.plist */,
+			);
+			path = unit_tests;
 			sourceTree = "<group>";
 		};
 		B1DF3D3D21C27FE00099F594 /* edt_fstab */ = {
@@ -1657,6 +1688,9 @@
 					5939BB7229A9919B002CA3D5 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					5F975B4E2AE0367B005A0CA9 = {
+						CreatedOnToolsVersion = 15.0;
+					};
 				};
 			};
 			buildConfigurationList = 4D07DD2E153CA616002B57CB /* Build configuration list for PBXProject "diskdev_cmds" */;
@@ -1698,6 +1732,7 @@
 				4D55944D153DC634009F2584 /* vsdbutil */,
 				33DE5A4425D34CC800360074 /* dirs_cleaner */,
 				5939BB7229A9919B002CA3D5 /* tmp_cleaner */,
+				5F975B4E2AE0367B005A0CA9 /* Tests */,
 			);
 		};
 /* End PBXProject section */
@@ -1737,6 +1772,27 @@
 			shellPath = /bin/sh;
 			shellScript = "set -x\nset -e\n\nln -fhv \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nmkdir -p \"${DSTROOT}/usr/share/man/man8\"\nln -fhv \"${SCRIPT_INPUT_FILE_1}\" \"${SCRIPT_OUTPUT_FILE_1}\"\n";
 			showEnvVarsInLog = 0;
+		};
+		5F74F1922AE571B200CFEA90 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/unit_tests/diskdev_cmds.plist",
+				"$(SRCROOT)/unit_tests",
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(INSTALL_ROOT)/AppleInternal/CoreOS/BATS/unit_tests/diskdev_cmds.plist",
+				"$(INSTALL_ROOT)/AppleInternal/CoreOS/tests/diskdev_cmds/",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "plistPath=`dirname \"${SCRIPT_OUTPUT_FILE_0}\"`\nmkdir -p \"${plistPath}\"\ncp \"${SCRIPT_INPUT_FILE_0}\" \"${plistPath}\"\n\nmkdir -p \"${SCRIPT_OUTPUT_FILE_1}\"\ncp \"${SCRIPT_INPUT_FILE_1}\"/*.sh  \"${SCRIPT_OUTPUT_FILE_1}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -2041,6 +2097,11 @@
 			isa = PBXTargetDependency;
 			target = 5939BB7229A9919B002CA3D5 /* tmp_cleaner */;
 			targetProxy = 5939BB7D29A99A76002CA3D5 /* PBXContainerItemProxy */;
+		};
+		5FB8078C2AEA4C8B0011C191 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5F975B4E2AE0367B005A0CA9 /* Tests */;
+			targetProxy = 5FB8078B2AEA4C8B0011C191 /* PBXContainerItemProxy */;
 		};
 		B12C9C9222A7CDE300B9F497 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2458,6 +2519,15 @@
 			};
 			name = Release;
 		};
+		5FB8078D2AEA4C8B0011C191 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = Tests;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -2673,6 +2743,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5939BB7429A9919B002CA3D5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5F975B502AE0367B005A0CA9 /* Build configuration list for PBXAggregateTarget "Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5FB8078D2AEA4C8B0011C191 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -90,7 +90,9 @@
 #include <IOKit/IOHibernatePrivate.h>
 #include <machine/pal_hibernate.h>
 #endif /* HIBERNATION */
+#if XNU_MONITOR
 #include <arm/pmap/pmap_data.h>
+#endif /* XNU_MONITOR */
 #if defined(KERNEL_INTEGRITY_CTRR) && KERNEL_CTRR_VERSION >= 3
 #include <arm64/amcc_rorgn.h>
 #endif /* defined(KERNEL_INTEGRITY_CTRR) && KERNEL_CTRR_VERSION >= 3 */
@@ -120,6 +122,13 @@ main(int     argc,
 {
 	DECLARE("AST_URGENT", AST_URGENT);
 
+#if CONFIG_SPTM
+	DECLARE("TH_TXM_THREAD_STACK", offsetof(struct thread, txm_thread_stack));
+#if CONFIG_EXCLAVES
+	DECLARE("TH_EXCLAVES_INTSTATE", offsetof(struct thread, th_exclaves_intstate));
+	DECLARE("TH_EXCLAVES_EXECUTION", TH_EXCLAVES_EXECUTION);
+#endif /* CONFIG_EXCLAVES */
+#endif /* CONFIG_SPTM */
 	DECLARE("TH_RECOVER", offsetof(struct thread, recover));
 	DECLARE("TH_KSTACKPTR", offsetof(struct thread, machine.kstackptr));
 #if __has_feature(ptrauth_calls)
@@ -260,7 +269,6 @@ main(int     argc,
 
 
 
-
 	DECLARE("PGBYTES", ARM_PGBYTES);
 	DECLARE("PGSHIFT", ARM_PGSHIFT);
 
@@ -358,6 +366,12 @@ main(int     argc,
 	DECLARE("HIBGLOBALS_KERNELSLIDE", offsetof(pal_hib_globals_t, kernelSlide));
 #endif /* HIBERNATION */
 
+#if CONFIG_SPTM
+	DECLARE("SPTM_CPU_BOOT_COLD", SPTM_CPU_BOOT_COLD);
+	DECLARE("SPTM_CPU_BOOT_SECONDARY", SPTM_CPU_BOOT_SECONDARY);
+	DECLARE("SPTM_CPU_BOOT_WARM", SPTM_CPU_BOOT_WARM);
+	DECLARE("SPTM_CPU_PANIC", SPTM_CPU_PANIC);
+#endif
 
 #if defined(KERNEL_INTEGRITY_CTRR) && KERNEL_CTRR_VERSION >= 3
 	DECLARE("CTXR_XN_DISALLOW_ALL", CTXR_XN_DISALLOW_ALL);

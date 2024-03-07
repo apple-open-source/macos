@@ -478,6 +478,18 @@ snprintf(char *str, size_t size, const char *format, ...)
 	return retval;
 }
 
+const char *
+tsnprintf(char *__counted_by(count)dst, size_t count, const char *fmt, ...)
+{
+	const char *result;
+	va_list ap;
+
+	va_start(ap, fmt);
+	result = vtsnprintf(dst, count, fmt, ap);
+	va_end(ap);
+	return result;
+}
+
 /*
  * Scaled down version of vsnprintf(3).
  */
@@ -494,6 +506,16 @@ vsnprintf(char *str, size_t size, const char *format, va_list ap)
 		*info.str++ = '\0';
 	}
 	return retval;
+}
+
+const char *
+vtsnprintf(char *__counted_by(count)dst, size_t count, const char *fmt, va_list ap)
+{
+	if (count == 0) {
+		return NULL;
+	}
+	(void) vsnprintf(dst, count, fmt, ap);
+	return __unsafe_forge_null_terminated(const char *, dst);
 }
 
 int

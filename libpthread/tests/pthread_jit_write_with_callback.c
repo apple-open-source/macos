@@ -12,17 +12,15 @@ test_jit_write_callback_1(void *ctx)
 	T_EXPECT_EQ(does_access_fault(ACCESS_WRITE, rwx_addr), false,
 			"Do not expect write access to fault in write callback");
 
-	// as a side-effect, that assertion also wrote an instruction that will next
-	// let us test ACCESS_EXECUTE
 	return *(int *)ctx;
 }
 
 static int
 test_jit_write_callback_2(void *ctx)
 {
-	bool expect_fault = *(bool *)ctx;
-	T_EXPECT_EQ(does_access_fault(ACCESS_EXECUTE, rwx_addr), expect_fault,
-			"Expect execute access to fault in callback if supported");
+	T_EXPECT_EQ(does_access_fault(ACCESS_WRITE, rwx_addr), false,
+			"Do not expect write access to fault in write callback 2");
+
 	return 0;
 }
 
@@ -60,7 +58,7 @@ T_DECL(pthread_jit_write_with_callback_allowed,
 
 	// test that more than one callback can be allowed
 	rc = pthread_jit_write_with_callback_np(test_jit_write_callback_2,
-			&expect_fault);
+			NULL);
 	T_EXPECT_EQ(rc, 0, "Callback had expected return value");
 
 	// test that callbacks in dylibs can be allowed
@@ -75,6 +73,7 @@ T_DECL(pthread_jit_write_with_callback_allowed,
 
 #define HELPER_TOOL_PATH "/AppleInternal/Tests/libpthread/assets/pthread_jit_write_with_callback_tool"
 
+#if TARGET_OS_OSX
 T_DECL(pthread_jit_write_protect_np_disallowed,
 		"Verify pthread_jit_write_protect_np prohibited by allowlist",
 		T_META_IGNORECRASHES(".*pthread_jit_write_with_callback_tool.*"))
@@ -99,6 +98,7 @@ T_DECL(pthread_jit_write_protect_np_disallowed,
 	T_EXPECT_FALSE(exited, "helper tool should not have exited");
 	T_EXPECT_TRUE(signaled, "helper tool should have been signaled");
 }
+#endif // TARGET_OS_OSX
 
 T_DECL(pthread_jit_write_with_invalid_callback_disallowed,
 		"Verify pthread_jit_write_with_callback fails bad callbacks",

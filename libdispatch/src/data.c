@@ -115,7 +115,11 @@ _dispatch_data_alloc(size_t n, size_t extra)
 		return DISPATCH_OUT_OF_MEMORY;
 	}
 
+#if DISPATCH_DATA_IS_BRIDGED_TO_NSDATA
+	data = _dispatch_object_alloc_bridged(DISPATCH_DATA_CLASS, size);
+#else
 	data = _dispatch_object_alloc(DISPATCH_DATA_CLASS, size);
+#endif
 	data->num_records = n;
 #if !DISPATCH_DATA_IS_BRIDGED_TO_NSDATA
 	data->do_targetq = _dispatch_get_default_queue(false);

@@ -121,13 +121,12 @@ calculate_SHA256_XATTRs(char *path, char *buf)
 {
 	errno_t error = 0;
 	char *xattrsSummary = NULL;
-	int options = XATTR_SHOWCOMPRESSION | XATTR_NOFOLLOW;
-	ssize_t nameBufSize = listxattr(path, NULL, 0, options);
+	ssize_t nameBufSize = listxattr(path, NULL, 0, xattr_options);
 	uint64_t xd_obj_id = 0;
 	if (nameBufSize > 0) {
 		char *nameBuf = malloc(nameBufSize);
 		
-		listxattr(path, nameBuf, nameBufSize, options);
+		listxattr(path, nameBuf, nameBufSize, xattr_options);
 		
 		size_t xattrsLen = 1;
 		size_t xattrIndex = 0;
@@ -162,13 +161,13 @@ calculate_SHA256_XATTRs(char *path, char *buf)
 		xattr_info *ai = (xattr_info *) malloc(sizeof(xattr_info));
 		for (int i = 0; i < xattrIndex; i++) {
 			char *name = xattrs[i];
-			ssize_t xlen = getxattr(path, name, NULL, 0, 0, options);
+			ssize_t xlen = getxattr(path, name, NULL, 0, 0, xattr_options);
 			if (xlen > xattrBufLen) {
 				xattrBufLen = xlen;
 				xattrBuf = realloc(xattrBuf, xattrBufLen);
 			}
 			bzero(xattrBuf, xattrBufLen);
-			result = getxattr(path, name, xattrBuf, xattrBufLen, 0, options);
+			result = getxattr(path, name, xattrBuf, xattrBufLen, 0, xattr_options);
 			if (result < 0) {
 				error = errno;
 				RECORD_FAILURE(27442, error);
@@ -229,8 +228,7 @@ calculate_SHA256_XATTRs(char *path, char *buf)
 xattr_info *
 get_xdstream_privateid(char *path, char *buf) {
 	errno_t error = 0;
-	int options = XATTR_SHOWCOMPRESSION | XATTR_NOFOLLOW;
-	ssize_t nameBufSize = listxattr(path, NULL, 0, options);
+	ssize_t nameBufSize = listxattr(path, NULL, 0, xattr_options);
 	uint64_t xd_obj_id = 0;
 
 	if (nameBufSize > 0) {
@@ -239,7 +237,7 @@ get_xdstream_privateid(char *path, char *buf) {
 		char *nameBuf = malloc(nameBufSize);
 		int result = 0;
 
-		listxattr(path, nameBuf, nameBufSize, options);
+		listxattr(path, nameBuf, nameBufSize, xattr_options);
 
 		size_t xattrsLen = 1;
 		size_t xattrIndex = 0;
@@ -382,16 +380,14 @@ uint64_t
 get_xattr_count(const char *path)
 {
 	uint64_t xattrs_count = 0;
-	int options = XATTR_SHOWCOMPRESSION | XATTR_NOFOLLOW;
-
-	ssize_t xattr_size = listxattr(path, NULL, 0, options);
+	ssize_t xattr_size = listxattr(path, NULL, 0, xattr_options);
 	if (xattr_size > 0) {
 		char *xattr_buffer = calloc(1, xattr_size);
 		if (xattr_buffer == NULL) {
 			RECORD_FAILURE(611832, ENOMEM);
 			err(1, "get_xattr_count: failed to allocate xattr buffer size:(%zd)\n", xattr_size);
 		}
-		errno_t error = listxattr(path, xattr_buffer, xattr_size, options);
+		errno_t error = listxattr(path, xattr_buffer, xattr_size, xattr_options);
 		if (error == -1) {
 			RECORD_FAILURE(611833, errno);
 			err(1, "get_xattr_count: listxattr failed with %s(%d) for <%s>\n", strerror(errno), errno, path);

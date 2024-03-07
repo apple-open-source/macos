@@ -268,6 +268,11 @@
 {
     return StringAsOTAccountMetadataClassC_MetricsState(str);
 }
+- (BOOL)hasOldPeerID
+{
+    return _oldPeerID != nil;
+}
+@synthesize oldPeerID = _oldPeerID;
 
 - (NSString *)description
 {
@@ -344,6 +349,10 @@
     if (self->_has.sendingMetricsPermitted)
     {
         [dict setObject:OTAccountMetadataClassC_MetricsStateAsString(self->_sendingMetricsPermitted) forKey:@"sendingMetricsPermitted"];
+    }
+    if (self->_oldPeerID)
+    {
+        [dict setObject:self->_oldPeerID forKey:@"oldPeerID"];
     }
     return dict;
 }
@@ -467,6 +476,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             {
                 self->_has.sendingMetricsPermitted = (uint)YES;
                 self->_sendingMetricsPermitted = PBReaderReadInt32(reader);
+            }
+            break;
+            case 23 /* oldPeerID */:
+            {
+                NSString *new_oldPeerID = PBReaderReadString(reader);
+                self->_oldPeerID = new_oldPeerID;
             }
             break;
             default:
@@ -603,6 +618,13 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteInt32Field(writer, self->_sendingMetricsPermitted, 22);
         }
     }
+    /* oldPeerID */
+    {
+        if (self->_oldPeerID)
+        {
+            PBDataWriterWriteStringField(writer, self->_oldPeerID, 23);
+        }
+    }
 }
 
 - (void)copyTo:(OTAccountMetadataClassC *)other
@@ -690,6 +712,10 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         other->_sendingMetricsPermitted = _sendingMetricsPermitted;
         other->_has.sendingMetricsPermitted = YES;
     }
+    if (_oldPeerID)
+    {
+        other.oldPeerID = _oldPeerID;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -756,6 +782,7 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_sendingMetricsPermitted = _sendingMetricsPermitted;
         copy->_has.sendingMetricsPermitted = YES;
     }
+    copy->_oldPeerID = [_oldPeerID copyWithZone:zone];
     return copy;
 }
 
@@ -797,6 +824,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ((self->_has.warnedTooManyPeers && other->_has.warnedTooManyPeers && ((self->_warnedTooManyPeers && other->_warnedTooManyPeers) || (!self->_warnedTooManyPeers && !other->_warnedTooManyPeers))) || (!self->_has.warnedTooManyPeers && !other->_has.warnedTooManyPeers))
     &&
     ((self->_has.sendingMetricsPermitted && other->_has.sendingMetricsPermitted && self->_sendingMetricsPermitted == other->_sendingMetricsPermitted) || (!self->_has.sendingMetricsPermitted && !other->_has.sendingMetricsPermitted))
+    &&
+    ((!self->_oldPeerID && !other->_oldPeerID) || [self->_oldPeerID isEqual:other->_oldPeerID])
     ;
 }
 
@@ -837,6 +866,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     (self->_has.warnedTooManyPeers ? PBHashInt((NSUInteger)self->_warnedTooManyPeers) : 0)
     ^
     (self->_has.sendingMetricsPermitted ? PBHashInt((NSUInteger)self->_sendingMetricsPermitted) : 0)
+    ^
+    [self->_oldPeerID hash]
     ;
 }
 
@@ -919,6 +950,10 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         self->_sendingMetricsPermitted = other->_sendingMetricsPermitted;
         self->_has.sendingMetricsPermitted = YES;
+    }
+    if (other->_oldPeerID)
+    {
+        [self setOldPeerID:other->_oldPeerID];
     }
 }
 

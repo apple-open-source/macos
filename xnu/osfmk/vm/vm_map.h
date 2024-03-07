@@ -626,7 +626,8 @@ struct _vm_map {
 	/* boolean_t */ uses_user_ranges:1,       /* has the map been configured to use user VM ranges */
 	/* boolean_t */ tpro_enforcement:1,       /* enforce TPRO propagation */
 	/* boolean_t */ corpse_source:1,          /* map is being used to create a corpse for diagnostics.*/
-	/* reserved  */ pad:10;
+	/* reserved */ res0:1,
+	/* reserved  */pad:9;
 	unsigned int            timestamp;        /* Version number */
 };
 

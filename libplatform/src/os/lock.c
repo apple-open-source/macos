@@ -32,6 +32,7 @@
 #include <mach/thread_switch.h>
 #include <mach/mach_time.h>
 #include <os/tsd.h>
+#include <os/os_sync_wait_on_address.h>
 
 #pragma mark -
 #pragma mark _os_lock_base_t
@@ -114,6 +115,7 @@ _os_lock_yield_deadline(mach_msg_timeout_t timeout)
 #endif
 	return mach_absolute_time() + abstime;
 }
+
 
 OS_ALWAYS_INLINE
 static bool
@@ -476,10 +478,15 @@ _Static_assert(OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION ==
 _Static_assert(OS_UNFAIR_LOCK_ADAPTIVE_SPIN ==
 		ULF_WAIT_ADAPTIVE_SPIN,
 		"check value for OS_UNFAIR_LOCK_ADAPTIVE_SPIN");
+
+_Static_assert(OS_UNFAIR_LOCK_DEADLINE == ULF_DEADLINE,
+		"check value for OS_UNFAIR_LOCK_DEADLINE");
+
 #define OS_UNFAIR_LOCK_OPTIONS_MASK \
 		(os_unfair_lock_options_t)(OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION | \
-				OS_UNFAIR_LOCK_ADAPTIVE_SPIN)
+				OS_UNFAIR_LOCK_ADAPTIVE_SPIN | OS_UNFAIR_LOCK_DEADLINE)
 #define OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER 0x01000000u
+
 
 
 OS_NOINLINE OS_NORETURN OS_COLD
@@ -517,10 +524,42 @@ _os_unfair_lock_corruption_abort(os_ulock_value_t current)
 }
 
 
+#if defined(__i386__) || defined(__x86_64__)
+
+#define _os_lock_deadline_to_duration(deadline_abs) deadline_abs
+#define _os_lock_duration_to_deadline(timeout_ns) timeout_ns
+
+#elif defined(__arm__)
+
+#define _os_lock_deadline_to_duration(deadline_abs) ({ \
+	uint64_t _delta_abs = deadline_abs - mach_absolute_time(); \
+	_delta_abs * 128 / 3; \
+})
+#define _os_lock_duration_to_deadline(timeout_ns) ({ \
+	mach_absolute_time() + (timeout_ns * 3 / 128);
+})
+
+#else
+
+#define _os_lock_deadline_to_duration(deadline_abs) ({ \
+	mach_timebase_info_data_t tbi; \
+	mach_timebase_info(&tbi); \
+	uint64_t _delta_abs = deadline_abs - mach_absolute_time(); \
+	_delta_abs * tbi.numer / tbi.denom; \
+})
+#define _os_lock_duration_to_deadline(timeout_ns) ({ \
+	mach_timebase_info_data_t tbi; \
+	mach_timebase_info(&tbi); \
+	uint64_t abstime = timeout_ns * tbi.denom / tbi.numer; \
+	mach_absolute_time() + abstime; \
+})
+
+#endif
+
 OS_NOINLINE
-static void
+static bool
 _os_unfair_lock_lock_slow(_os_unfair_lock_t l,
-		os_unfair_lock_options_t options, os_lock_owner_t self)
+		os_unfair_lock_options_t options, uint64_t duration, os_lock_owner_t self)
 {
 	os_unfair_lock_options_t allow_anonymous_owner =
 			options & OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER;
@@ -528,12 +567,13 @@ _os_unfair_lock_lock_slow(_os_unfair_lock_t l,
 	if (unlikely(options & ~OS_UNFAIR_LOCK_OPTIONS_MASK)) {
 		__LIBPLATFORM_CLIENT_CRASH__(options, "Invalid options");
 	}
+
 	os_ulock_value_t current, new, waiters_mask = 0;
 	while (unlikely((current = os_atomic_load(&l->oul_value, relaxed)) !=
 			OS_LOCK_NO_OWNER)) {
 _retry:
 		if (unlikely(OS_ULOCK_IS_OWNER(current, self, allow_anonymous_owner))) {
-			return _os_unfair_lock_recursive_abort(self);
+			_os_unfair_lock_recursive_abort(self);
 		}
 		new = current & ~OS_ULOCK_NOWAITERS_BIT;
 		if (current != new) {
@@ -544,8 +584,8 @@ _retry:
 			}
 			current = new;
 		}
-		int ret = __ulock_wait(UL_UNFAIR_LOCK | ULF_NO_ERRNO | options,
-				l, current, 0);
+		int ret = __ulock_wait2(UL_UNFAIR_LOCK | ULF_NO_ERRNO | options,
+				l, current, duration, 0);
 		if (unlikely(ret < 0)) {
 			switch (-ret) {
 			case EINTR:
@@ -554,8 +594,10 @@ _retry:
 			case EOWNERDEAD:
 				_os_unfair_lock_corruption_abort(current);
 				break;
+			case ETIMEDOUT:
+				return false;
 			default:
-				__LIBPLATFORM_INTERNAL_CRASH__(-ret, "ulock_wait failure");
+				__LIBPLATFORM_INTERNAL_CRASH__(-ret, "ulock_wait2 failure");
 			}
 		}
 		if (ret > 0) {
@@ -567,6 +609,7 @@ _retry:
 	bool r = os_atomic_cmpxchgv(&l->oul_value, OS_LOCK_NO_OWNER, new,
 			&current, acquire);
 	if (unlikely(!r)) goto _retry;
+	return true; // Successfully acquired
 }
 
 OS_NOINLINE
@@ -606,7 +649,7 @@ os_unfair_lock_lock(os_unfair_lock_t lock)
 	os_lock_owner_t self = _os_lock_owner_get_self();
 	bool r = os_atomic_cmpxchg(&l->oul_value, OS_LOCK_NO_OWNER, self, acquire);
 	if (likely(r)) return;
-	return _os_unfair_lock_lock_slow(l, OS_UNFAIR_LOCK_NONE, self);
+	return (void) _os_unfair_lock_lock_slow(l, OS_UNFAIR_LOCK_NONE, 0, self);
 }
 
 void
@@ -617,7 +660,7 @@ os_unfair_lock_lock_with_options(os_unfair_lock_t lock,
 	os_lock_owner_t self = _os_lock_owner_get_self();
 	bool r = os_atomic_cmpxchg(&l->oul_value, OS_LOCK_NO_OWNER, self, acquire);
 	if (likely(r)) return;
-	return _os_unfair_lock_lock_slow(l, options, self);
+	return (void) _os_unfair_lock_lock_slow(l, options, 0, self);
 }
 
 bool
@@ -627,6 +670,59 @@ os_unfair_lock_trylock(os_unfair_lock_t lock)
 	os_lock_owner_t self = _os_lock_owner_get_self();
 	bool r = os_atomic_cmpxchg(&l->oul_value, OS_LOCK_NO_OWNER, self, acquire);
 	return r;
+}
+
+OS_ALWAYS_INLINE
+static bool
+_os_unfair_lock_trylock_with_options_deadline_inline(_os_unfair_lock_t l,
+		os_unfair_lock_options_t options, uint64_t timeout, os_lock_owner_t self)
+{
+	// Until the chroot moves to Sunburst, handle any deadlines as timeouts.
+
+	return _os_unfair_lock_lock_slow(l, options, timeout, self);
+}
+
+static bool
+_os_unfair_lock_trylock_with_options_deadline(_os_unfair_lock_t l,
+		os_unfair_lock_options_t options, uint64_t timeout, os_lock_owner_t self)
+{
+	if (timeout < mach_absolute_time()) return false;
+	return _os_unfair_lock_trylock_with_options_deadline_inline(l, options, timeout, self);
+}
+
+static bool
+_os_unfair_lock_trylock_with_options_duration(_os_unfair_lock_t l,
+		os_unfair_lock_options_t options, uint64_t timeout_ns, os_lock_owner_t self)
+{
+	uint64_t time_to_wait;
+	time_to_wait = _os_lock_duration_to_deadline(timeout_ns);
+	options |= OS_UNFAIR_LOCK_DEADLINE;
+
+	return _os_unfair_lock_trylock_with_options_deadline_inline(l, options, time_to_wait, self);
+}
+
+static bool
+_os_unfair_lock_trylock_with_options_slow(_os_unfair_lock_t l,
+		os_unfair_lock_options_t options, uint64_t timeout, os_lock_owner_t self)
+{
+	if (!(options & OS_UNFAIR_LOCK_DEADLINE)) {
+		if (timeout == 0) return false;
+		return _os_unfair_lock_trylock_with_options_duration(l, options, timeout, self);
+	}
+
+	return _os_unfair_lock_trylock_with_options_deadline(l, options, timeout, self);
+}
+
+bool
+os_unfair_lock_trylock_with_options(os_unfair_lock_t lock,
+		os_unfair_lock_options_t options, uint64_t timeout)
+{
+	_os_unfair_lock_t l = (_os_unfair_lock_t) lock;
+	os_lock_owner_t self = _os_lock_owner_get_self();
+	bool r = os_atomic_cmpxchg(&l->oul_value, OS_LOCK_NO_OWNER, self, acquire);
+	if (likely(r)) return r;
+
+	return _os_unfair_lock_trylock_with_options_slow(l, options, timeout, self);
 }
 
 void
@@ -647,7 +743,7 @@ os_unfair_lock_lock_no_tsd(os_unfair_lock_t lock,
 	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
 	bool r = os_atomic_cmpxchg(&l->oul_value, OS_LOCK_NO_OWNER, self, acquire);
 	if (likely(r)) return;
-	return _os_unfair_lock_lock_slow(l, options, self);
+	return (void) _os_unfair_lock_lock_slow(l, options, 0, self);
 }
 
 void
@@ -736,7 +832,7 @@ os_unfair_recursive_lock_lock_with_options(os_unfair_recursive_lock_t lock,
 		return;
 	}
 
-	return _os_unfair_lock_lock_slow(l, options, self);
+	return (void) _os_unfair_lock_lock_slow(l, options, 0, self);
 }
 
 bool
@@ -1222,5 +1318,190 @@ _os_once(os_once_t *val, void *ctxt, os_function_t func)
 		return _os_once_callout(og, ctxt, func, self);
 	}
 	return _os_once_gate_wait(og, ctxt, func, self);
+}
+
+
+#pragma mark -
+#pragma mark os_sync_wait_on_address
+
+#define OS_SYNC_WAIT_ON_ADDRESS_FLAGS_MASK \
+		(os_sync_wait_on_address_flags_t)(OS_SYNC_WAIT_ON_ADDRESS_SHARED)
+
+#define OS_SYNC_WAKE_BY_ADDRESS_FLAGS_MASK \
+		(os_sync_wake_by_address_flags_t)(OS_SYNC_WAKE_BY_ADDRESS_SHARED)
+
+#define OS_ADDR_SIZE_VALID(size) \
+		((size == 4) || (size == 8))
+
+OS_ATOMIC_EXPORT int os_sync_wait_on_address(void *addr,
+										uint64_t value,
+										size_t size,
+										os_sync_wait_on_address_flags_t flags);
+
+OS_ATOMIC_EXPORT int os_sync_wait_on_address_with_deadline(void *addr,
+										uint64_t value,
+										size_t size,
+										os_sync_wait_on_address_flags_t flags,
+										os_clockid_t clockid,
+										uint64_t deadline);
+
+OS_ATOMIC_EXPORT int os_sync_wait_on_address_with_timeout(void *addr,
+										uint64_t value,
+										size_t size,
+										os_sync_wait_on_address_flags_t flags,
+										os_clockid_t clockid,
+										uint64_t timeout_ns);
+
+OS_ATOMIC_EXPORT int os_sync_wake_by_address_any(void *addr,
+										size_t size,
+										os_sync_wake_by_address_flags_t flags);
+
+OS_ATOMIC_EXPORT int os_sync_wake_by_address_all(void *addr,
+										size_t size,
+										os_sync_wake_by_address_flags_t flags);
+
+OS_ALWAYS_INLINE
+static uint32_t
+_os_ulock_operation(size_t size, bool is_shared)
+{
+	switch(size) {
+		case 4:
+			return (is_shared ?
+				UL_COMPARE_AND_WAIT_SHARED : UL_COMPARE_AND_WAIT);
+		case 8:
+			return (is_shared ?
+				UL_COMPARE_AND_WAIT64_SHARED : UL_COMPARE_AND_WAIT64);
+	}
+	return 0;
+}
+
+int
+os_sync_wait_on_address_with_deadline(void *addr,
+									  uint64_t value,
+									  size_t size,
+									  os_sync_wait_on_address_flags_t flags,
+									  os_clockid_t clockid,
+									  uint64_t deadline)
+{
+	if (unlikely((flags & ~OS_SYNC_WAIT_ON_ADDRESS_FLAGS_MASK) ||
+				 !OS_ADDR_SIZE_VALID(size) ||
+				 !deadline)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	// The default kernel implementation uses MAT today.
+	if (clockid != OS_CLOCK_MACH_ABSOLUTE_TIME) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	uint32_t ul_operation = _os_ulock_operation(size,
+								(flags & OS_SYNC_WAIT_ON_ADDRESS_SHARED));
+
+	uint32_t ul_flags = ULF_DEADLINE | ULF_NO_ERRNO;
+
+
+	int ret = __ulock_wait2(ul_operation | ul_flags, addr, value, deadline, 0);
+	if (unlikely(ret < 0)) {
+		errno = -ret;
+		return -1;
+	}
+	return ret;
+}
+
+int
+os_sync_wait_on_address_with_timeout(void *addr,
+									 uint64_t value,
+									 size_t size,
+									 os_sync_wait_on_address_flags_t flags,
+									 os_clockid_t clockid,
+									 uint64_t timeout_ns)
+{
+	if (unlikely((flags & ~OS_SYNC_WAIT_ON_ADDRESS_FLAGS_MASK) ||
+				 !OS_ADDR_SIZE_VALID(size) ||
+				 !timeout_ns)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	// The default kernel implementation uses MAT today.
+	if (clockid != OS_CLOCK_MACH_ABSOLUTE_TIME) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	uint32_t ul_operation = _os_ulock_operation(size,
+								(flags & OS_SYNC_WAIT_ON_ADDRESS_SHARED));
+	int ret = __ulock_wait2(ul_operation | ULF_NO_ERRNO,
+								addr, value, timeout_ns, 0);
+	if (unlikely(ret < 0)) {
+		errno = -ret;
+		return -1;
+	}
+	return ret;
+}
+
+int
+os_sync_wait_on_address(void *addr,
+						uint64_t value,
+						size_t size,
+						os_sync_wait_on_address_flags_t flags)
+{
+	if (unlikely((flags & ~OS_SYNC_WAIT_ON_ADDRESS_FLAGS_MASK) ||
+				 !OS_ADDR_SIZE_VALID(size))) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	uint32_t ul_operation = _os_ulock_operation(size,
+								(flags & OS_SYNC_WAIT_ON_ADDRESS_SHARED));
+	int ret = __ulock_wait2(ul_operation | ULF_NO_ERRNO,
+								addr, value, 0 /* timeout */, 0);
+	if (unlikely(ret < 0)) {
+		errno = -ret;
+		return -1;
+	}
+	return ret;
+}
+
+OS_ALWAYS_INLINE
+static int
+_os_sync_wake_by_address(void *addr,
+						 size_t size,
+						 os_sync_wake_by_address_flags_t flags,
+						 uint32_t ul_flags) {
+
+	if (unlikely((flags & ~OS_SYNC_WAKE_BY_ADDRESS_FLAGS_MASK) ||
+				 !OS_ADDR_SIZE_VALID(size))) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	uint32_t ul_operation = _os_ulock_operation(size,
+								(flags & OS_SYNC_WAKE_BY_ADDRESS_SHARED));
+	int ret = __ulock_wake(ul_operation | ul_flags | ULF_NO_ERRNO, addr, 0);
+	if (unlikely(ret < 0)) {
+		errno = -ret;
+		return -1;
+	}
+	return ret;
+}
+
+int
+os_sync_wake_by_address_any(void *addr,
+							size_t size,
+							os_sync_wake_by_address_flags_t flags)
+{
+	/* The default behaviour of __ulock_wake is to wake any. */
+	return _os_sync_wake_by_address(addr, size, flags, 0);
+}
+
+int
+os_sync_wake_by_address_all(void *addr,
+							size_t size,
+							os_sync_wake_by_address_flags_t flags)
+{
+	return _os_sync_wake_by_address(addr, size, flags, ULF_WAKE_ALL);
 }
 

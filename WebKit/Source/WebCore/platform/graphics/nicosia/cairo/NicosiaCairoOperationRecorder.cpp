@@ -548,7 +548,7 @@ void CairoOperationRecorder::drawDecomposedGlyphs(const Font& font, const Decomp
     return drawGlyphs(font, positionedGlyphs.glyphs.data(), positionedGlyphs.advances.data(), positionedGlyphs.glyphs.size(), positionedGlyphs.localAnchor, positionedGlyphs.smoothingMode);
 }
 
-void CairoOperationRecorder::drawImageBuffer(ImageBuffer& buffer, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void CairoOperationRecorder::drawImageBuffer(ImageBuffer& buffer, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     struct DrawImageBuffer final : PaintingOperation, OperationData<RefPtr<cairo_surface_t>, FloatRect, FloatRect, ImagePaintingOptions, float, Cairo::ShadowState> {
         virtual ~DrawImageBuffer() = default;
@@ -564,11 +564,7 @@ void CairoOperationRecorder::drawImageBuffer(ImageBuffer& buffer, const FloatRec
         }
     };
 
-    RefPtr<Image> image = buffer.copyImage(DontCopyBackingStore);
-    if (!image)
-        return;
-
-    auto nativeImage = image->nativeImageForCurrentFrame();
+    auto nativeImage = buffer.createNativeImageReference();
     if (!nativeImage)
         return;
 
@@ -602,11 +598,7 @@ void CairoOperationRecorder::drawFilteredImageBuffer(ImageBuffer* srcImage, cons
     if (!imageBuffer)
         return;
 
-    RefPtr<Image> image = imageBuffer->copyImage(DontCopyBackingStore);
-    if (!image)
-        return;
-
-    auto nativeImage = image->nativeImageForCurrentFrame();
+    auto nativeImage = imageBuffer->createNativeImageReference();
     if (!nativeImage)
         return;
 
@@ -614,7 +606,7 @@ void CairoOperationRecorder::drawFilteredImageBuffer(ImageBuffer* srcImage, cons
     append(createCommand<DrawFilteredImageBuffer>(nativeImage->platformImage(), FloatRect(result->absoluteImageRect()), FloatRect({ } , imageBuffer->logicalSize()), filter.filterScale(), ImagePaintingOptions(state.imageInterpolationQuality()), state.alpha(), Cairo::ShadowState(state)));
 }
 
-void CairoOperationRecorder::drawNativeImageInternal(NativeImage& nativeImage, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void CairoOperationRecorder::drawNativeImageInternal(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     struct DrawNativeImage final : PaintingOperation, OperationData<RefPtr<cairo_surface_t>, FloatRect, FloatRect, ImagePaintingOptions, float, Cairo::ShadowState> {
         virtual ~DrawNativeImage() = default;
@@ -630,12 +622,11 @@ void CairoOperationRecorder::drawNativeImageInternal(NativeImage& nativeImage, c
         }
     };
 
-    UNUSED_PARAM(imageSize);
     auto& state = this->state();
     append(createCommand<DrawNativeImage>(nativeImage.platformImage(), destRect, srcRect, ImagePaintingOptions(options, state.imageInterpolationQuality()), state.alpha(), Cairo::ShadowState(state)));
 }
 
-void CairoOperationRecorder::drawPattern(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void CairoOperationRecorder::drawPattern(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     struct DrawPattern final : PaintingOperation, OperationData<RefPtr<cairo_surface_t>, IntSize, FloatRect, FloatRect, AffineTransform, FloatPoint, FloatSize, ImagePaintingOptions> {
         virtual ~DrawPattern() = default;
@@ -1161,11 +1152,7 @@ void CairoOperationRecorder::clipToImageBuffer(ImageBuffer& buffer, const FloatR
         }
     };
 
-    RefPtr<Image> image = buffer.copyImage(DontCopyBackingStore);
-    if (!image)
-        return;
-
-    if (auto nativeImage = image->nativeImageForCurrentFrame())
+    if (auto nativeImage = buffer.createNativeImageReference())
         append(createCommand<ClipToImageBuffer>(nativeImage->platformImage(), destRect));
 }
 

@@ -25,11 +25,9 @@
 
 #if CONFIG_EARLY_MALLOC
 
-#include <assert.h>
-#include <os/atomic_private.h>
-#include <os/crashlog_private.h>
-#include <os/lock_private.h>
-#include <sys/param.h>
+#if MALLOC_TARGET_EXCLAVES_INTROSPECTOR
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif // MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 
 /*
  * An arena looks like this:
@@ -46,7 +44,11 @@
  */
 
 #define MFM_TRACE           0
+#if MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR
+#define MFM_ARENA_SIZE      (1ul << 20)
+#else
 #define MFM_ARENA_SIZE      (8ul << 20)
+#endif /* MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR */
 #define MFM_QUANTUM         16ul
 #define MFM_SIZE_CLASSES    (__builtin_ctz(MFM_ALLOC_SIZE_MAX / MFM_QUANTUM) + 1)
 #define MFM_USABLE_SIZE     (MFM_ARENA_SIZE - sizeof(struct mfm_header) - 4 * sizeof(uint64_t))
@@ -69,6 +71,7 @@ static_assert(CHAR_BIT == 8, "CHAR_BIT is 8");
 static_assert(powerof2(MFM_ALLOC_SIZE_MAX), "MFM_ALLOC_SIZE_MAX is a power of 2");
 static_assert(powerof2(MFM_BLOCK_SIZE_MAX), "MFM_ALLOC_SIZE_MAX is a power of 2");
 
+#if !MALLOC_TARGET_EXCLAVES
 #define MFM_INTERNAL_CRASH(code, msg)  ({ \
 	_os_set_crash_log_cause_and_message(code, "BUG IN LIBMALLOC: " msg); \
 	__builtin_trap(); \
@@ -79,6 +82,13 @@ static_assert(powerof2(MFM_BLOCK_SIZE_MAX), "MFM_ALLOC_SIZE_MAX is a power of 2"
 			"BUG IN CLIENT OF LIBMALLOC: " msg); \
 	__builtin_trap(); \
 })
+#else
+#define MFM_INTERNAL_CRASH(code, msg) \
+	__liblibc_fatal_error("BUG IN LIBMALLOC (%llu): " msg, (uint64_t)code)
+
+#define MFM_CLIENT_CRASH(code, msg) \
+	__liblibc_fatal_error("BUG IN CLIENT OF LIBMALLOC (%llu): " msg, (uint64_t)code)
+#endif // !MALLOC_TARGET_EXCLAVES
 
 struct mfm_block {
 #if __has_feature(ptrauth_calls)
@@ -99,6 +109,9 @@ struct mfm_header {
 	size_t                  mfm_bump_hwm;
 	size_t                  mfm_alloc_count;
 	struct mfm_block        mfm_freelist[MFM_SIZE_CLASSES];
+#if MALLOC_TARGET_EXCLAVES
+	plat_map_t              mfm_map;
+#endif // MALLOC_TARGET_EXCLAVES
 };
 
 struct mfm_arena {
@@ -608,6 +621,7 @@ mfm_reinit_lock(void)
 
 #pragma mark external interface
 
+#if !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 static void
 __mfm_free_block(struct mfm_arena *arena, size_t index, size_t size)
 {
@@ -621,14 +635,52 @@ void
 mfm_initialize(void)
 {
 	struct mfm_arena *arena;
+#if MALLOC_TARGET_EXCLAVES
+	plat_map_t map = {0};
+#endif // MALLOC_TARGET_EXCLAVES
 
+	// FIXME: rdar://115739995
+	// On exclaves, we initialize the early allocator first, so probe addresses
+	// above the reserved 4GB region to map it. This will block the subsequent
+	// xzone data/pointer regions from landing in the reserved region as well.
+	// Note that we cannot exhaustively map the reserved region because the
+	// PMM may run out of untyped memory, and on ASAN, the shadow already
+	// occupies the reserved region
+#if MALLOC_TARGET_EXCLAVES
+#if !__LIBLIBC_F_ASAN_INSTRUMENTATION
+	arena = NULL;
+	for (uintptr_t probe_addr = GiB(4); !arena; probe_addr += MFM_ARENA_SIZE) {
+		arena = mvm_allocate_plat(probe_addr, MFM_ARENA_SIZE, 0,
+				VM_FLAGS_FIXED, DISABLE_ASLR | MALLOC_NO_POPULATE,
+				VM_MEMORY_MALLOC, mvm_plat_map(map));
+	}
+#else
+	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0,
+			DISABLE_ASLR | MALLOC_NO_POPULATE, VM_MEMORY_MALLOC,
+			mvm_plat_map(map));
+#endif // !__LIBLIBC_F_ASAN_INSTRUMENTATION
+#else
 	/* this is called early, which means the address space _does_ have 8M */
-	arena = mvm_allocate_pages(MFM_ARENA_SIZE, 0,
-			DISABLE_ASLR | MALLOC_ADD_GUARD_PAGE_FLAGS, VM_MEMORY_MALLOC);
+	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0,
+			DISABLE_ASLR | MALLOC_ADD_GUARD_PAGE_FLAGS, VM_MEMORY_MALLOC,
+			NULL);
+#endif // MALLOC_TARGET_EXCLAVES
+
 	if (arena == NULL) {
-		MFM_INTERNAL_CRASH(0, "failed to allocate memory");
+		MFM_INTERNAL_CRASH(arena, "failed to allocate memory");
 	}
 
+#if MALLOC_TARGET_EXCLAVES
+	/* populate the header up to the block storage */
+	const uintptr_t addr = (uintptr_t)mvm_allocate_plat((uintptr_t)arena,
+			roundup(offsetof(struct mfm_arena, mfm_blocks), PAGE_SIZE), 0,
+			VM_FLAGS_FIXED, 0, 0, mvm_plat_map(map));
+	if (addr != (uintptr_t)arena) {
+		MFM_INTERNAL_CRASH(addr, "populate of header failed");
+	}
+
+	arena->mfm_header.mfm_map = map;
+#else
 	/* to make clear that this region is not purely metadata, we'll now
 	 * overwrite the allocation we received with another at the same location
 	 * and size using VM_MEMORY_MALLOC_TINY - we couldn't use that tag
@@ -638,12 +690,13 @@ mfm_initialize(void)
 	int alloc_flags = VM_FLAGS_OVERWRITE | VM_MAKE_TAG(VM_MEMORY_MALLOC_TINY);
 	kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr, vm_size,
 			/* mask */ 0, alloc_flags, MEMORY_OBJECT_NULL, /* offset */ 0,
-			/* copy */ FALSE, VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+			/* copy */ false, VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 	if (kr != KERN_SUCCESS) {
 		MFM_INTERNAL_CRASH(kr, "failed to overwrite mfm arena");
 	}
+#endif // MALLOC_TARGET_EXCLAVES
 
-	arena->mfmh_lock = OS_UNFAIR_LOCK_INIT;
+	arena->mfmh_lock = _MALLOC_LOCK_INIT;
 
 	/*
 	 * mfm_before pretend the bitmap is larger
@@ -739,12 +792,30 @@ mfm_alloc(size_t alloc_size)
 		__mfm_block_mark_start(arena, index + size);
 		__mfm_block_mark_allocated(arena, index, size);
 		mfm_arena->mfmh_bump += size;
-		if (mfm_arena->mfmh_bump_hwm < mfm_arena->mfmh_bump) {
-			mfm_arena->mfmh_bump_hwm = mfm_arena->mfmh_bump;
-		}
+
 		arena->mfmh_size += size;
 		arena->mfmh_alloc_count += 1;
 		ptr = arena->mfm_blocks + index;
+
+		if (mfm_arena->mfmh_bump_hwm < mfm_arena->mfmh_bump) {
+#if MALLOC_TARGET_EXCLAVES
+			const uintptr_t begin = roundup(
+					(uintptr_t)(arena->mfm_blocks + mfm_arena->mfmh_bump_hwm),
+					 PAGE_SIZE);
+			const uintptr_t end = roundup((uintptr_t)ptr + alloc_size, PAGE_SIZE);
+			const size_t bytes = end - begin;
+			if (bytes) {
+				const uintptr_t addr = (uintptr_t)mvm_allocate_plat(begin,
+						bytes, 0, VM_FLAGS_FIXED, 0, 0,
+						mvm_plat_map(arena->mfm_header.mfm_map));
+				if (addr != begin) {
+					MFM_INTERNAL_CRASH(ptr, "populate of pages failed");
+				}
+			}
+#endif
+
+			mfm_arena->mfmh_bump_hwm = mfm_arena->mfmh_bump;
+		}
 	}
 
 out:
@@ -836,6 +907,7 @@ mfm_zone_address(void)
 {
 	return os_atomic_load(&mfm_arena, relaxed);
 }
+#endif // !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 
 #pragma mark introspection
 
@@ -901,9 +973,7 @@ mfmi_read_zone(
 	memory_reader_t         reader,
 	struct mfm_arena      **arena_out)
 {
-	if (!reader && task == mach_task_self()) {
-		reader = _malloc_default_reader;
-	}
+	reader = reader_or_in_memory_fallback(reader, task);
 
 	return reader(task, zone_address, MFM_ARENA_SIZE, (void **)arena_out);
 }
@@ -1075,7 +1145,7 @@ mfmi_good_size(malloc_zone_t *zone __unused, size_t size)
 static boolean_t
 mfmi_check(malloc_zone_t *zone __unused)
 {
-	return TRUE;
+	return true;
 }
 
 /* locking */
@@ -1104,9 +1174,9 @@ mfmi_locked(malloc_zone_t *zone __unused)
 
 	if (arena && _malloc_lock_trylock(&arena->mfmh_lock)) {
 		_malloc_lock_unlock(&arena->mfmh_lock);
-		return TRUE;
+		return true;
 	}
-	return FALSE;
+	return false;
 }
 
 const struct malloc_introspection_t mfm_introspect = {

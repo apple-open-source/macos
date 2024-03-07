@@ -36,12 +36,23 @@ messages -> RemoteRenderingBackend NotRefCounted Stream {
     ReleaseAllImageResources()
     ReleaseRenderingResource(WebCore::RenderingResourceIdentifier renderingResourceIdentifier)
 
+    CreateRemoteImageBufferSet(WebKit::RemoteImageBufferSetIdentifier bufferSetIdentifier, WebCore::RenderingResourceIdentifier displayListIdentifier)
+    ReleaseRemoteImageBufferSet(WebKit::RemoteImageBufferSetIdentifier bufferSetIdentifier)
+
 #if PLATFORM(COCOA)
-    PrepareBuffersForDisplay(Vector<WebKit::PrepareBackingStoreBuffersInputData> swapBuffersInput) -> (Vector<WebKit::PrepareBackingStoreBuffersOutputData> swapBuffersOutput) Synchronous NotStreamEncodableReply
+    // These messages also result in the 'DidPrepareForDisplay' message being
+    // returned on the RemoteImageBufferSetProxy message receiver (one for each
+    // inputData)
+    PrepareImageBufferSetsForDisplay(Vector<WebKit::ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput, WebKit::RenderingUpdateID renderingUpdateID)
+    PrepareImageBufferSetsForDisplaySync(Vector<WebKit::ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput, WebKit::RenderingUpdateID renderingUpdateID)  -> (Vector<WebKit::SwapBuffersDisplayRequirement> displayRequirements) Synchronous
 #endif
 
-    MarkSurfacesVolatile(WebKit::MarkSurfacesAsVolatileRequestIdentifier requestIdentifier, Vector<WebCore::RenderingResourceIdentifier> renderingResourceIdentifiers)
+    MarkSurfacesVolatile(WebKit::MarkSurfacesAsVolatileRequestIdentifier requestIdentifier, Vector<std::pair<WebKit::RemoteImageBufferSetIdentifier, OptionSet<WebKit::BufferInSetType>>> renderingResourceIdentifiers)
     FinalizeRenderingUpdate(WebKit::RenderingUpdateID renderingUpdateID)
+
+#if USE(GRAPHICS_LAYER_WC)
+    Flush(IPC::Semaphore semaphore) NotStreamEncodable
+#endif
 
     MoveToSerializedBuffer(WebCore::RenderingResourceIdentifier sourceImageBuffer)
     MoveToImageBuffer(WebCore::RenderingResourceIdentifier destinationImageBuffer)

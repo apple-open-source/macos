@@ -21,6 +21,11 @@
 #ifndef __OS_CRASHLOG_PRIVATE__
 #define __OS_CRASHLOG_PRIVATE__
 
+#if __has_include(<ptrcheck.h>)
+#include <ptrcheck.h>
+__ptrcheck_abi_assume_single()
+#endif /* __has_include(<ptrcheck.h>) */
+
 #include <os/base_private.h>
 
 #if __has_include(<CrashReporterClient.h>)
@@ -98,7 +103,7 @@
 			"str	x20, [x21, %[_msgo]]\n\t" \
 			set_cause \
 			"ldp	x20, x21, [sp], #16" \
-			::	[_cr] "i" (&gCRAnnotations), \
+			::	[_cr] "i" ((void * __single)&gCRAnnotations), \
 				[_msgo] "i" (__builtin_offsetof(__typeof__(gCRAnnotations), message)), \
 				[_msg] "i" (("" msg)), \
 				## __VA_ARGS__); })

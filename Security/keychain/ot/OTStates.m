@@ -155,6 +155,11 @@ OctagonState* const OctagonStateSetAccountSettings = (OctagonState*)@"SetAccount
 /* escrow */
 OctagonState* const OctagonStateEscrowTriggerUpdate = (OctagonState*)@"EscrowTriggerUpdate";
 
+/* reroll */
+OctagonState* const OctagonStateStashAccountSettingsForReroll = (OctagonState*)@"OctagonStateStashAccountSettingsForReroll";
+OctagonState* const OctagonStateCreateIdentityForReroll = (OctagonState*)@"OctagonStateCreateIdentityForReroll";
+OctagonState* const OctagonStateVouchWithReroll = (OctagonState*)@"OctagonStateVouchWithReroll";
+
 // Flags
 OctagonFlag* const OctagonFlagIDMSLevelChanged = (OctagonFlag*) @"idms_level";
 OctagonFlag* const OctagonFlagEgoPeerPreapproved = (OctagonFlag*) @"preapproved";
@@ -169,7 +174,6 @@ OctagonFlag* const OctagonFlagFetchAuthKitMachineIDList = (OctagonFlag*)@"attemp
 OctagonFlag* const OctagonFlagUnlocked = (OctagonFlag*)@"unlocked";
 OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals = (OctagonFlag*)@"attempt_sos_update_preapprovals";
 OctagonFlag* const OctagonFlagAttemptSOSConsistency = (OctagonFlag*)@"attempt_sos_consistency";
-OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation = (OctagonFlag*)@"escrowrequest_inform_cloudservices";
 OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction = (OctagonFlag*)@"retry_bottle_tlk_extraction";
 OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction = (OctagonFlag*)@"retry_rk_tlk_extraction";
 OctagonFlag* const OctagonFlagSecureElementIdentityChanged  = (OctagonFlag*)@"se_id_changed";
@@ -280,6 +284,9 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
                                      @[OctagonStateStashAccountSettingsForRecoveryKey,       @93U,],
                                      @[OctagonStateCuttlefishReset,                          @94U,],
                                      @[OctagonStateCKKSResetAfterOctagonReset,               @95U,],
+                                     @[OctagonStateStashAccountSettingsForReroll,            @96U,],
+                                     @[OctagonStateCreateIdentityForReroll,                  @97U,],
+                                     @[OctagonStateVouchWithReroll,                          @98U,],
                                      ];
     return stateInit;
 }
@@ -349,6 +356,25 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
     return s;
 }
 
++ (NSSet<OctagonState *>*) OctagonHealthSourceStates
+{
+    static NSSet<OctagonState*>* s = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSMutableSet* sourceStates = [NSMutableSet set];
+
+        [sourceStates addObject:OctagonStateReady];
+        [sourceStates addObject:OctagonStateError];
+        [sourceStates addObject:OctagonStateUntrusted];
+        [sourceStates addObject:OctagonStateWaitForCDPCapableSecurityLevel];
+        [sourceStates addObject:OctagonStateWaitForUnlock];
+        [sourceStates addObject:OctagonStateWaitForCDP];
+
+        s = sourceStates;
+    });
+    return s;
+}
+
 + (NSSet<OctagonState*>*) OctagonNotInCliqueStates
 {
     static NSSet<OctagonState*>* s = nil;
@@ -371,26 +397,27 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
     return s;
 }
 
-+ (NSSet<OctagonState *>*) OctagonHealthSourceStates
++ (NSSet<OctagonState*>*) OctagonReadyStates
 {
     static NSSet<OctagonState*>* s = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        NSMutableSet* sourceStates = [NSMutableSet set];
-
-        [sourceStates addObject:OctagonStateReady];
-        [sourceStates addObject:OctagonStateError];
-        [sourceStates addObject:OctagonStateUntrusted];
-        [sourceStates addObject:OctagonStateWaitForCDPCapableSecurityLevel];
-        [sourceStates addObject:OctagonStateWaitForUnlock];
-        [sourceStates addObject:OctagonStateWaitForCDP];
-
-        s = sourceStates;
+         s = [NSSet setWithObject:OctagonStateReady];
     });
     return s;
 }
 
-+ (NSSet<OctagonFlag *>*) AllOctagonFlags
++ (NSSet<OctagonState*>*) OctagonAllStates
+{
+    static NSSet<OctagonState*>* s = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        s = [NSSet setWithArray: [self OctagonStateMap].allKeys];
+    });
+    return s;
+}
+
++ (NSSet<OctagonFlag*>*) AllOctagonFlags
 {
     static NSSet<OctagonFlag*>* f = nil;
     static dispatch_once_t onceToken;
@@ -410,10 +437,10 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
         [flags addObject:OctagonFlagUnlocked];
         [flags addObject:OctagonFlagAttemptSOSUpdatePreapprovals];
         [flags addObject:OctagonFlagAttemptSOSConsistency];
-        [flags addObject:OctagonFlagAttemptUserControllableViewStatusUpgrade];
         [flags addObject:OctagonFlagAttemptBottleTLKExtraction];
         [flags addObject:OctagonFlagAttemptRecoveryKeyTLKExtraction];
         [flags addObject:OctagonFlagSecureElementIdentityChanged];
+        [flags addObject:OctagonFlagAttemptUserControllableViewStatusUpgrade];
         [flags addObject:OctagonFlagCheckOnRTCMetrics];
 
         f = flags;

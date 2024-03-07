@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		092D891F2AA28DC100623C9C /* removefile.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 092D891E2AA28DB100623C9C /* removefile.plist */; };
 		09B71A752613FB310086781E /* removefile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE179713592780002CEE6D /* removefile.c */; };
 		09B71A762613FB330086781E /* removefile_random.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE179213592780002CEE6D /* removefile_random.c */; };
 		09B71A772613FB350086781E /* removefile_rename_unlink.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE179313592780002CEE6D /* removefile_rename_unlink.c */; };
@@ -23,7 +24,21 @@
 		FCCE17DE135A69CD002CEE6D /* test-removefile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE17DD135A69CD002CEE6D /* test-removefile.c */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		092D891D2AA28CFB00623C9C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				092D891F2AA28DC100623C9C /* removefile.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		092D891E2AA28DB100623C9C /* removefile.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = removefile.plist; path = test/removefile.plist; sourceTree = "<group>"; };
 		3FE582A1185C51BD007B3FA6 /* removefile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = removefile.xcconfig; path = xcodescripts/removefile.xcconfig; sourceTree = "<group>"; };
 		FCCE1789135924FC002CEE6D /* libremovefile.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libremovefile.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCCE178F13592780002CEE6D /* checkint.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = checkint.3; sourceTree = "<group>"; };
@@ -59,9 +74,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		092D89202AA28E1700623C9C /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				FCCE17DD135A69CD002CEE6D /* test-removefile.c */,
+				092D891E2AA28DB100623C9C /* removefile.plist */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
 		FCCE1779135924CD002CEE6D = {
 			isa = PBXGroup;
 			children = (
+				092D89202AA28E1700623C9C /* tests */,
 				3FE582A1185C51BD007B3FA6 /* removefile.xcconfig */,
 				FCCE179813592780002CEE6D /* removefile.h */,
 				FCCE179113592780002CEE6D /* removefile_priv.h */,
@@ -71,7 +96,6 @@
 				FCCE179313592780002CEE6D /* removefile_rename_unlink.c */,
 				FCCE179413592780002CEE6D /* removefile_sunlink.c */,
 				FCCE179513592780002CEE6D /* removefile_tree_walker.c */,
-				FCCE17DD135A69CD002CEE6D /* test-removefile.c */,
 				FCCE17A5135A3E9C002CEE6D /* install_files.sh */,
 				FCCE179013592780002CEE6D /* checkint.h */,
 				FCCE178F13592780002CEE6D /* checkint.3 */,
@@ -128,6 +152,7 @@
 			buildPhases = (
 				FCCE17CF135A6961002CEE6D /* Sources */,
 				FCCE17D0135A6961002CEE6D /* Frameworks */,
+				092D891D2AA28CFB00623C9C /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -251,6 +276,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/removefile/;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

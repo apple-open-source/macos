@@ -59,6 +59,25 @@ template<> void derefGPtr<GstMiniObject>(GstMiniObject* ptr)
         gst_mini_object_unref(ptr);
 }
 
+template<> GRefPtr<GstObject> adoptGRef(GstObject* ptr)
+{
+    return GRefPtr<GstObject>(ptr, GRefPtrAdopt);
+}
+
+template<> GstObject* refGPtr<GstObject>(GstObject* ptr)
+{
+    if (ptr)
+        gst_object_ref(ptr);
+
+    return ptr;
+}
+
+template<> void derefGPtr<GstObject>(GstObject* ptr)
+{
+    if (ptr)
+        gst_object_unref(ptr);
+}
+
 template <> GRefPtr<GstElement> adoptGRef(GstElement* ptr)
 {
     ASSERT(!ptr || !g_object_is_floating(ptr));
@@ -293,6 +312,24 @@ template<> void derefGPtr<GstBufferPool>(GstBufferPool* ptr)
 {
     if (ptr)
         gst_object_unref(ptr);
+}
+
+template<> GRefPtr<GstMemory> adoptGRef(GstMemory* ptr)
+{
+    return GRefPtr<GstMemory>(ptr, GRefPtrAdopt);
+}
+
+template<> GstMemory* refGPtr<GstMemory>(GstMemory* ptr)
+{
+    if (ptr)
+        gst_memory_ref(ptr);
+    return ptr;
+}
+
+template<> void derefGPtr<GstMemory>(GstMemory* ptr)
+{
+    if (ptr)
+        gst_memory_unref(ptr);
 }
 
 template<> GRefPtr<GstSample> adoptGRef(GstSample* ptr)

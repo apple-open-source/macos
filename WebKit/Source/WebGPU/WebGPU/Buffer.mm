@@ -106,7 +106,7 @@ id<MTLBuffer> Device::safeCreateBuffer(NSUInteger length, MTLStorageMode storage
 
 Ref<Buffer> Device::createBuffer(const WGPUBufferDescriptor& descriptor)
 {
-    if (descriptor.nextInChain)
+    if (descriptor.nextInChain || !isValid())
         return Buffer::createInvalid(*this);
 
     // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createbuffer
@@ -210,7 +210,7 @@ void* Buffer::getMappedRange(size_t offset, size_t size)
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpubuffer-getmappedrange
     if (!isValid()) {
-        m_emptyBuffer.resize(size);
+        m_emptyBuffer.resize(std::max<size_t>(size, 1));
         return &m_emptyBuffer[0];
     }
 
@@ -224,6 +224,7 @@ void* Buffer::getMappedRange(size_t offset, size_t size)
     m_mappedRanges.add({ offset, offset + rangeSize });
     m_mappedRanges.compact();
 
+    m_device->getQueue().waitUntilIdle();
     ASSERT(m_buffer.contents);
     return static_cast<char*>(m_buffer.contents) + offset;
 }
@@ -352,6 +353,11 @@ uint64_t Buffer::size() const
     return m_emptyBuffer.size() ?: m_size;
 }
 
+bool Buffer::isDestroyed() const
+{
+    return state() == State::Destroyed;
+}
+
 } // namespace WebGPU
 
 #pragma mark WGPU Stubs
@@ -426,8 +432,7 @@ void wgpuBufferSetLabel(WGPUBuffer buffer, const char* label)
     WebGPU::fromAPI(buffer).setLabel(WebGPU::fromAPI(label));
 }
 
-WGPUBufferUsage wgpuBufferGetUsage(WGPUBuffer buffer)
+WGPUBufferUsageFlags wgpuBufferGetUsage(WGPUBuffer buffer)
 {
-    // FIXME: this shouldn't need a cast - https://github.com/webgpu-native/webgpu-headers/issues/172
-    return static_cast<WGPUBufferUsage>(WebGPU::fromAPI(buffer).usage());
+    return WebGPU::fromAPI(buffer).usage();
 }

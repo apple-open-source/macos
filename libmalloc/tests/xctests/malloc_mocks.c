@@ -31,7 +31,7 @@ malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
 		__builtin_trap();
 	}
 
-	longjmp(zone_error_expected_jmp, 1);
+	longjmp(*zone_error_expected_jmp, 1);
 }
 
 void

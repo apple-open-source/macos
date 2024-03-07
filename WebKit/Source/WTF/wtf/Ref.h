@@ -139,6 +139,9 @@ private:
     friend Ref adoptRef<T>(T&);
     template<typename X, typename Y> friend class Ref;
 
+    template<typename X, typename Y, typename W, typename Z>
+    friend bool operator==(const Ref<X, Y>&, const Ref<W, Z>&);
+
     enum AdoptTag { Adopt };
     Ref(T& object, AdoptTag)
         : m_ptr(&object)
@@ -208,6 +211,24 @@ inline Ref<T, U>& Ref<T, U>::operator=(const Ref<X, Y>& reference)
     return *this;
 }
 
+template<typename X, typename Y, typename W, typename Z>
+inline bool operator==(const Ref<X, Y>& a, const Ref<W, Z>& b)
+{
+    return a.m_ptr == b.m_ptr;
+}
+
+template<typename X, typename Y, typename W, typename Z>
+inline bool operator==(const RefPtr<X, Y>& a, W* b)
+{
+    return a.m_ptr == b;
+}
+
+template<typename X, typename Y, typename W, typename Z>
+inline bool operator==(W* a, const RefPtr<X, Y>& b)
+{
+    return a == b.m_ptr;
+}
+
 template<typename T, typename U>
 template<typename X, typename Y>
 inline void Ref<T, U>::swap(Ref<X, Y>& other)
@@ -248,13 +269,15 @@ ALWAYS_INLINE Ref<T, U> static_reference_cast(const Ref<X, Y>& reference)
 
 template <typename T, typename U>
 struct GetPtrHelper<Ref<T, U>> {
-    typedef T* PtrType;
+    using PtrType = T*;
+    using UnderlyingType = T;
     static T* getPtr(const Ref<T, U>& p) { return const_cast<T*>(p.ptr()); }
 };
 
 template <typename T, typename U>
 struct IsSmartPtr<Ref<T, U>> {
     static constexpr bool value = true;
+    static constexpr bool isNullable = false;
 };
 
 template<typename T, typename U>
@@ -265,36 +288,52 @@ inline Ref<T, U> adoptRef(T& reference)
 }
 
 template<typename ExpectedType, typename ArgType, typename PtrTraits>
-inline bool is(Ref<ArgType, PtrTraits>& source)
-{
-    return is<ExpectedType>(source.get());
-}
-
-template<typename ExpectedType, typename ArgType, typename PtrTraits>
 inline bool is(const Ref<ArgType, PtrTraits>& source)
 {
     return is<ExpectedType>(source.get());
 }
 
 template<typename Target, typename Source, typename PtrTraits>
-inline Target& downcast(Ref<Source, PtrTraits>& source)
-{
-    return downcast<Target>(source.get());
-}
-
-template<typename Target, typename Source, typename PtrTraits>
-inline Ref<Target> checkedDowncast(Ref<Source, PtrTraits> source)
+inline Ref<match_constness_t<Source, Target>> checkedDowncast(Ref<Source, PtrTraits> source)
 {
     static_assert(!std::is_same_v<Source, Target>, "Unnecessary cast to same type");
     static_assert(std::is_base_of_v<Source, Target>, "Should be a downcast");
     RELEASE_ASSERT(is<Target>(source));
-    return static_reference_cast<Target>(WTFMove(source));
+    return static_reference_cast<match_constness_t<Source, Target>>(WTFMove(source));
 }
 
 template<typename Target, typename Source, typename PtrTraits>
-inline Target& downcast(const Ref<Source, PtrTraits>& source)
+inline Ref<match_constness_t<Source, Target>> uncheckedDowncast(Ref<Source, PtrTraits> source)
 {
-    return downcast<Target>(source.get());
+    static_assert(!std::is_same_v<Source, Target>, "Unnecessary cast to same type");
+    static_assert(std::is_base_of_v<Source, Target>, "Should be a downcast");
+    ASSERT_WITH_SECURITY_IMPLICATION(is<Target>(source));
+    return static_reference_cast<match_constness_t<Source, Target>>(WTFMove(source));
+}
+
+template<typename Target, typename Source, typename PtrTraits>
+inline Ref<match_constness_t<Source, Target>> downcast(Ref<Source, PtrTraits> source)
+{
+    static_assert(!std::is_same_v<Source, Target>, "Unnecessary cast to same type");
+    static_assert(std::is_base_of_v<Source, Target>, "Should be a downcast");
+    // FIXME: This is too expensive to enable on x86 for now but we should try and
+    // enable the RELEASE_ASSERT() on all architectures.
+#if CPU(ARM64)
+    RELEASE_ASSERT(is<Target>(source));
+#else
+    ASSERT_WITH_SECURITY_IMPLICATION(is<Target>(source));
+#endif
+    return static_reference_cast<match_constness_t<Source, Target>>(WTFMove(source));
+}
+
+template<typename Target, typename Source, typename PtrTraits>
+inline RefPtr<match_constness_t<Source, Target>> dynamicDowncast(Ref<Source, PtrTraits> source)
+{
+    static_assert(!std::is_same_v<Source, Target>, "Unnecessary cast to same type");
+    static_assert(std::is_base_of_v<Source, Target>, "Should be a downcast");
+    if (!is<Target>(source))
+        return nullptr;
+    return static_reference_cast<match_constness_t<Source, Target>>(WTFMove(source));
 }
 
 } // namespace WTF

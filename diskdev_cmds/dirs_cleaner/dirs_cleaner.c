@@ -43,13 +43,11 @@
 // TBD integrate with CacheDelete
 //#include <CacheDelete/CacheDeletePrivate.h>
 
-#define USER_VOLUME_MNT_PATH "/private/var/mobile/"
-#define DATA_VOLUME_MNT_PATH "/private/var/"
+#define USER_VOLUME_MNT_PATH "/private/var/mobile"
+#define DATA_VOLUME_MNT_PATH "/private/var"
 
-#define ALTUSER_VOL_MNT_PATH "/var/mobile/"
-
-#define CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY	DATA_VOLUME_MNT_PATH "dirs_cleaner/"
-#define CACHE_DELETE_USER_AUTO_PURGE_DIRECTORY	USER_VOLUME_MNT_PATH "dirs_cleaner/"
+#define CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY	DATA_VOLUME_MNT_PATH "/dirs_cleaner/"
+#define CACHE_DELETE_USER_AUTO_PURGE_DIRECTORY	USER_VOLUME_MNT_PATH "/dirs_cleaner/"
 
 #define SYSTEM_TMP_DIR      "/tmp"
 #define SYSTEM_TMP_DIR_MODE (S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO)
@@ -626,6 +624,47 @@ dc_clean_sync(dir_ctx_t *ctx, bool input_path)
 	return res;
 }
 
+static const char*
+get_tmp_path(char *path) {
+	struct statfs sfsbuf = {};
+	char realpath_name[MAXPATHLEN] = {};
+	int tmp_err = 0;
+
+	/* Resolve symlinks in path */
+	char *rpath = realpath(path, realpath_name);
+	if (rpath == NULL) {
+		tmp_err = errno;
+		DIRS_CLEANER_ERROR(tmp_err, "realpath: (%s, NULL, ...)", path);
+		return NULL;
+	}
+
+	/* Acquire canonical mount for path */
+	tmp_err = statfs(rpath, &sfsbuf);
+	if (tmp_err) {
+		DIRS_CLEANER_ERROR(tmp_err, "statfs: (%s, NULL, ...)", rpath);
+		return NULL;
+	}
+
+	/*
+	 * Now it should be safe to validate the input `path` mount to see if it is
+	 * the user volume or system data volume
+	 */
+	const char* mntpath = sfsbuf.f_mntonname;
+	size_t mntpath_len = strlen(mntpath);
+
+	if ((strlen(USER_VOLUME_MNT_PATH) == mntpath_len) &&
+			strncmp(USER_VOLUME_MNT_PATH, mntpath, strlen(USER_VOLUME_MNT_PATH)) == 0) {
+		return CACHE_DELETE_USER_AUTO_PURGE_DIRECTORY;
+	} else if ((strlen(DATA_VOLUME_MNT_PATH) == mntpath_len) &&
+				strncmp(DATA_VOLUME_MNT_PATH, mntpath, strlen(DATA_VOLUME_MNT_PATH)) == 0) {
+		return CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY;
+	}
+	DIRS_CLEANER_ERROR(EINVAL, "(bad path: %s, NULL, ...)", mntpath);
+
+	//any unexpected vends NULL;
+	return NULL;
+}
+
 static void
 usage(void)
 {
@@ -674,9 +713,14 @@ main(int argc, char *argv[])
 	bool encountered_errors = false;
 	bool clean_async = false;
 
-	if (argc == 1)
+	if (argc == 1) {
 		usage();
+	}
 
+	/*
+	 * --init is intended to be used by launchd or other early-boot task.
+	 * This implies that the directory in question must be deleted in full before returning.
+	 */
 	init = strcmp(argv[1], "--init") ? 0 : 1;
 	if (init == 1 && argc == 2) {
 		usage();
@@ -686,35 +730,46 @@ main(int argc, char *argv[])
 
 	for (int i = 1 + init; i < argc; i++) {
 		/* reinitialize the dcs state for a new input directory */
-		char *tmp_path = CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY;
+		const char *tmp_path = NULL;
+
 		/*
-		 * See if the input arg is on the user volume or not; be sure to check either the pre-symlink
-		 * path (/var/mobile) or the post-symlink path (/private/var/mobile)
+		 * In the event that errors were encountered in the tmp_path resolution, this
+		 * defaults to an extant path (data volume) so that the synchronous clean-up
+		 * will still accomplish the job.
 		 */
-		if ((strncmp(USER_VOLUME_MNT_PATH, argv[i], strlen(USER_VOLUME_MNT_PATH)) == 0) ||
-			   (strncmp(ALTUSER_VOL_MNT_PATH, argv[i], strlen(ALTUSER_VOL_MNT_PATH)) == 0))	{
-			tmp_path = CACHE_DELETE_USER_AUTO_PURGE_DIRECTORY;
+		tmp_path = get_tmp_path (argv[i]);
+		if (tmp_path == NULL) {
+			tmp_path = CACHE_DELETE_DATA_AUTO_PURGE_DIRECTORY;
 		}
 
+
+		/* attempt to create the temporary swap-to/swap-from directory according to the template */
 		if (dc_prep_temp_dir(&ctx, tmp_path)) {
+			/* mark ourselves as willing to synchronously delete the hierarchy if necessary */
 			dc_state_set_dirs_sync(&ctx);
 		}
 
+		/* Actually do the directory swap with the templated temp-item */
 		res = dc_reset (&ctx, argv[i]);
 
 		if (res) {
 			fprintf(stderr, "dc_reset: %s: %s\n", argv[i], strerror(res));
 			encountered_errors = true;
 		} else {
-			/* check if we need to do this synchronously.  If so, do it */
-			if (dc_state_should_rmdir_synchronously(&ctx) && (res = dc_clean_sync(&ctx, true))) {
-				fprintf(stderr, "dc_clean_sync: %s: %s\n", argv[i], strerror(res));
-				encountered_errors = true;
+			/*
+			 * Reset/swap completed successfully.
+			 * check if we need to do this synchronously.  If so, do it
+			 */
+			if (dc_state_should_rmdir_synchronously(&ctx)) {
+				res = dc_clean_sync(&ctx, true);
+				if (res) {
+					fprintf(stderr, "dc_clean_sync: %s: %s\n", argv[i], strerror(res));
+					encountered_errors = true;
+				}
+			} else {
+				/* Not removing items synchronously */
+				clean_async = true;
 			}
-		}
-
-		if (!res && !dc_state_should_rmdir_synchronously(&ctx)) {
-			clean_async = true;
 		}
 	}
 
@@ -726,6 +781,11 @@ main(int argc, char *argv[])
 				(void)dc_clean_sync(&ctx, false);
 			}
 		} else if (clean_async && dc_should_reclaim(&ctx)) {
+			/*
+			 * If no errors encountered, then check if async is OK.
+			 * If so, then do the removefile() calls only if we've got less
+			 * than the desired free space
+			 */
 			dc_clean_part_sync(&ctx);
 		}
 	}

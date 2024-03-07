@@ -49,6 +49,8 @@
 #import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
 #import "keychain/analytics/AAFAnalyticsEvent+Security.h"
 
+#define OQEDELAY SecCKKSTestsEnabled() ? 10 : 30*60
+
 @interface CKKSOutgoingQueueOperation ()
 @property OctagonState* ckErrorState;
 @end
@@ -534,6 +536,11 @@
                 if(askForReencrypt) {
                     [self.deps.flagHandler _onqueueHandleFlag:CKKSFlagItemReencryptionNeeded];
                 }
+            } else if ([ckerror isCKInternalServerHTTPError]) {
+                // Internal Server error - retry upload after 30 minutes.
+                ckksnotice("ckks", viewState.zoneID, "CloudKit is presumably down; scheduling upload after %d seconds", OQEDELAY);
+                [self _onqueueSaveRecordsWithDelay:[recordIDsModified allObjects]
+                                         viewState:viewState];
             } else {
                 // Some non-partial error occured. We should place all "inflight" OQEs back into the outgoing queue.
                 ckksnotice("ckks", viewState.zoneID, "Error is scary: putting all inflight OQEs back into state 'new'");
@@ -712,6 +719,37 @@
             self.error = error;
         }
         count ++;
+    }
+}
+
+- (void)_onqueueSaveRecordsWithDelay:(NSArray<CKRecordID*>*)recordIDs
+                           viewState:(CKKSKeychainViewState*)viewState
+{
+    NSError* error = nil;
+    NSDate* processTime = [NSDate dateWithTimeIntervalSinceNow:OQEDELAY];
+    for(CKRecordID* recordID in recordIDs) {
+        CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:recordID.recordName
+                                                                     state:SecCKKSStateInFlight
+                                                                 contextID:self.deps.contextID
+                                                                    zoneID:viewState.zoneID
+                                                                     error:&error];
+
+        if(error || !oqe) {
+            ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't fetch OQE %@: %@", recordID.recordName, error);
+            self.error = error;
+            continue;
+        }
+
+        oqe.waitUntil = processTime;
+        ckksnotice("ckksoutgoing", viewState.zoneID, "Saving OQE %@ scheduled for retry at: %@", recordID.recordName, oqe.waitUntil);
+
+        [oqe intransactionMoveToState:SecCKKSStateNew
+                            viewState:viewState
+                                error:&error];
+        if(error) {
+            ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save OQE %@ as %@: %@", recordID.recordName, SecCKKSStateNew, error);
+            self.error = error;
+        }
     }
 }
 

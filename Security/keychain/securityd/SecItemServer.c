@@ -64,6 +64,9 @@
 #import "keychain/ot/OTConstants.h"
 #import "keychain/escrowrequest/EscrowRequestServerHelpers.h"
 
+#if KCSHARING
+#include "keychain/Sharing/KCSharingSupport.h"
+#endif  // KCSHARING
 
 #if USE_KEYSTORE
 
@@ -119,6 +122,22 @@ void SecItemServerSetKeychainChangedNotification(const char *notification_name)
     g_keychain_changed_notification = notification_name;
 }
 
+static os_unfair_lock sharedItemNotifierLock = OS_UNFAIR_LOCK_INIT;
+static CFNotificationCenterRef sharedItemNotifier;
+
+void SecServerSetSharedItemNotifier(CFNotificationCenterRef notifier) {
+    os_unfair_lock_lock_scoped_guard(lock, &sharedItemNotifierLock);
+    sharedItemNotifier = notifier;
+}
+
+static CFNotificationCenterRef SecServerGetSharedItemNotifier(void) {
+    os_unfair_lock_lock_scoped_guard(lock, &sharedItemNotifierLock);
+    return sharedItemNotifier ?: CFNotificationCenterGetDistributedCenter();
+}
+
+void SecSharedItemsChanged(void) {
+    CFNotificationCenterPostNotificationWithOptions(SecServerGetSharedItemNotifier(), CFSTR(kSecServerSharedItemsChangedNotification), NULL, NULL, 0);
+}
 
 void SecKeychainChanged(void) {
     static dispatch_once_t once;
@@ -1805,6 +1824,15 @@ SecDbRef SecKeychainDbInitialize(SecDbRef db) {
         });
     }
 
+#if KCSHARING
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        // Unconditionally register for events; the event handler will check if
+        // the feature is enabled.
+        KCSharingRegisterForDatabaseEvents(db);
+
+        KCSharingPreflight();
+    });
+#endif  // KCSHARING
 #endif  // OCTAGON
 
     return db;
@@ -2346,6 +2374,27 @@ static bool queryHasValidAttributes(CFDictionaryRef attrs, QueryAttributesDescri
         return SecError(errSecParam, error, CFSTR("Non-API attributes present in query"));
     }
 
+    bool hasSharingGroup = CFDictionaryContainsKey(attrs, kSecAttrSharingGroup);
+    if (hasSharingGroup) {
+        if (SecItemSynchronizable(attrs)) {
+            // Shared credentials are never synced, so querying the synced keychain
+            // for them is likely a programmer error.
+            return SecError(errSecParam, error, CFSTR("Can't query the synced keychain with a sharing group"));
+        }
+        switch (desc) {
+            case QueryAttributesForAdd:
+                // SecItemAdd into a group is allowed. This allows both sidecar creation alongside existing items,
+                // and creating a new password directly into a group.
+                break;
+
+            case QueryAttributesForUpdate:
+                return SecError(errSecParam, error, CFSTR("Can't update an item's sharing group"));
+
+            case QueryAttributesForSearch:
+            case QueryAttributesForDelete:
+                break;
+        }
+    }
 
     return true;
 }
@@ -2480,6 +2529,8 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
             ok = SecError(errSecUnsupportedOperation, error, CFSTR("unsupported kSecMatchPolicy attribute"));
         } else if (q->q_return_type != 0 && result == NULL) {
             ok = SecError(errSecReturnMissingPointer, error, CFSTR("missing pointer"));
+        } else if (q->q_skip_shared_items && CFDictionaryContainsKey(q->q_item, kSecAttrSharingGroup)) {
+            ok = SecError(errSecMissingEntitlement, error, CFSTR("can't copy shared items without Keychain Sharing client entitlement"));
         } else if (!q->q_error) {
             ok = kc_with_dbt(false, error, ^(SecDbConnectionRef dbt) {
                 return s3dl_copy_matching(dbt, q, result, accessGroups, error);
@@ -2608,6 +2659,8 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
 #endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
             } else if (q->q_row_id || q->q_token_object_id) {
                 ok = SecError(errSecValuePersistentRefUnsupported, error, CFSTR("q_row_id"));  // TODO: better error string
+            } else if (q->q_skip_shared_items && CFDictionaryContainsKey(q->q_item, kSecAttrSharingGroup)) {
+                ok = SecError(errSecMissingEntitlement, error, CFSTR("can't add shared item without Keychain Sharing client entitlement"));
             } else if (!q->q_error) {
                 ok = kc_with_dbt(true, error, ^(SecDbConnectionRef dbt){
                     return kc_transaction(dbt, error, ^{
@@ -2628,6 +2681,264 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
     return ok;
 }
 
+/// Clones a database item into the given group. This function _mutates the
+/// original item_.
+static bool
+shareDatabaseItemWithGroup(SecDbItemRef item, SecDbConnectionRef dbt, CFStringRef sharingGroup, CFErrorRef *error) {
+    const SecDbAttr *uuidAttr = NULL;
+    const SecDbAttr *sharingGroupAttr = NULL;
+    const SecDbAttr *synchronizableAttr = NULL;
+    const SecDbAttr *persistentRefAttr = NULL;
+    SecDbForEachAttr(item->class, attr) {
+        if (CFEqual(attr->name, kSecAttrUUID)) {
+            uuidAttr = attr;
+        } else if (CFEqual(attr->name, kSecAttrSharingGroup)) {
+            sharingGroupAttr = attr;
+        } else if (CFEqual(attr->name, kSecAttrSynchronizable)) {
+            synchronizableAttr = attr;
+        } else if (attr->kind == kSecDbUUIDAttr) {
+            persistentRefAttr = attr;
+        }
+        if (uuidAttr && sharingGroupAttr && synchronizableAttr && persistentRefAttr) {
+            break;
+        }
+    }
+    if (!sharingGroupAttr) {
+        return SecError(errSecParam, error, CFSTR("Items of class '%@' can't be shared"), item->class->name);
+    }
+
+    // We want to insert a fresh copy of the original item, so forget its old
+    // row ID and UUID, and give it a new persistent reference.
+    if (!SecDbItemClearRowId(item, error) ||
+        (uuidAttr && !SecDbItemSetValue(item, uuidAttr, NULL, error))) {
+        return false;
+    }
+    if (persistentRefAttr) {
+        CFDataRef uuidData = UUIDDataCreate();
+        bool ret = SecDbItemSetValue(item, persistentRefAttr, uuidData, error);
+        CFReleaseNull(uuidData);
+        if (!ret) {
+            return false;
+        }
+    }
+
+    // Set the new sharing group for the clone.
+    if (!SecDbItemSetValue(item, sharingGroupAttr, sharingGroup, error)) {
+        return false;
+    }
+
+    // Make sure the clone isn't synced via iCloud Keychain.
+    if (synchronizableAttr && !SecDbItemSetValue(item, synchronizableAttr, kCFBooleanFalse, error)) {
+        return false;
+    }
+
+    CFErrorRef insertError = NULL;
+    if (!SecDbItemInsert(item, dbt, false /* always_use_uuid_from_new_item */, false /* always_use_persistentref_from_backup */, &insertError)) {
+        if (SecErrorIsSqliteDuplicateItemError(insertError)) {
+            CFReleaseNull(insertError);
+            return SecError(errSecDuplicateItem, error, CFSTR("Item is already shared with this group"));
+        }
+        return SecErrorPropagate(insertError, error);
+    }
+
+    return true;
+}
+
+CFTypeRef
+_SecItemShareWithGroup(CFDictionaryRef query, CFStringRef sharingGroup, SecurityClient *client, CFErrorRef *error)
+{
+    if (sharingGroup == NULL || CFEqualSafe(sharingGroup, kSecAttrSharingGroupNone)) {
+        (void)SecError(errSecParam, error, CFSTR("A group must be specified to share the item"));
+        return NULL;
+    }
+
+    if (!client->allowKeychainSharing) {
+        (void)SecError(errSecMissingEntitlement, error, CFSTR("Client doesn't have Keychain Sharing client entitlement"));
+        return NULL;
+    }
+
+    if (!queryHasValidAttributes(query, QueryAttributesForSearch, error)) {
+        return NULL;
+    }
+
+    if (CFDictionaryContainsKey(query, kSecAttrTombstone)) {
+        (void)SecError(errSecParam, error, CFSTR("Tombstones can't be shared"));
+        return NULL;
+    }
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+    if (client->inEduMode) {
+        (void)SecError(errSecBadReq, error, CFSTR("This client can't share items"));
+        return NULL;
+    }
+#endif
+
+    // If we were given an explicit access group, use that. If not, we'll use
+    // all access groups the client can write to (`*` means the client is
+    // entitled to all of them). Since we clone items into the same access
+    // groups as their originals, the client must be entitled to write to those
+    // groups.
+    CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
+    if (!accessGroups || CFArrayGetCount(accessGroups) == 0) {
+        CFReleaseNull(accessGroups);
+        (void)SecEntitlementError(error);
+        return NULL;
+    }
+    if (CFArrayContainsValue(accessGroups, CFRangeMake(0, CFArrayGetCount(accessGroups)), CFSTR("*"))) {
+        CFReleaseNull(accessGroups);
+    }
+    CFStringRef explicitAccessGroup = CFDictionaryGetValue(query, kSecAttrAccessGroup);
+    if (explicitAccessGroup) {
+        if (!accessGroupsAllows(accessGroups, explicitAccessGroup, client)) {
+            CFReleaseNull(accessGroups);
+            (void)SecEntitlementErrorForExplicitAccessGroup(explicitAccessGroup, accessGroups, error);
+            return NULL;
+        }
+        CFReleaseNull(accessGroups);
+        accessGroups = CFArrayCreateForCFTypes(kCFAllocatorDefault, explicitAccessGroup, NULL);
+    }
+
+    // First, search for the original items we want to share. The default
+    // behavior is to share all matching items if the query doesn't specify a
+    // limit.
+    Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, client, error);
+    if (!q) {
+        CFReleaseNull(accessGroups);
+        return NULL;
+    }
+    query_set_caller_access_groups(q, accessGroups);
+    bool queryIsValid = true;
+    if (!SecMUSRIsSingleUserView(q->q_musrView)) {
+        queryIsValid = SecError(errSecBadReq, error, CFSTR("Items from a multi-user view can't be shared"));
+    }
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+    if (queryIsValid && q->q_system_keychain != SystemKeychainFlag_NEITHER) {
+        // System keychain items aren't syncable, so it doesn't make sense
+        // to share them.
+        queryIsValid = SecError(errSecBadReq, error, CFSTR("System keychain items can't be shared"));
+    }
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+    if (queryIsValid && q->q_sync_bubble) {
+        queryIsValid = SecError(errSecBadReq, error, CFSTR("Items in a sync bubble can't be shared"));
+    }
+#endif
+
+    // The return result keys in the input query apply to the _new shared
+    // copies_, not the originals. When searching for the originals, we want to
+    // fetch all data and attributes, so that we can copy them.
+    ReturnTypeMask originalReturnType = q->q_return_type;
+    q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
+
+    CFIndex originalMatchLimit = q->q_limit;
+
+    // Exclude existing clones when searching for the originals, unless the
+    // input query explicitly specified a group. This avoids a corner case where
+    // omitting the group for an item that hasn't been shared yet will work, but
+    // omitting the group for an item that's already shared with a different
+    // group will try to copy both the original and the existing clone to the
+    // new group, and fail with a duplicate item error.
+    if (!CFDictionaryContainsKey(q->q_item, kSecAttrSharingGroup)) {
+        query_add_attribute(kSecAttrSharingGroup, kSecAttrSharingGroupNone, q);
+    }
+
+    if (queryIsValid && q->q_error) {
+        queryIsValid = query_error(q, error);
+    }
+    if (!queryIsValid) {
+        (void)query_destroy(q, NULL);
+        CFReleaseNull(accessGroups);
+        return NULL;
+    }
+
+    __block bool ok = true;
+    __block CFErrorRef localError = NULL;
+    __block CFMutableArrayRef results = NULL;
+    bool didCommit = kc_with_dbt(true, error, ^bool(SecDbConnectionRef dbt) {
+        return kc_transaction(dbt, error, ^bool{
+            CFMutableArrayRef itemsToShare = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+            ok = SecDbItemQuery(q, accessGroups, dbt, &localError, ^(SecDbItemRef item, bool *stop) {
+                CFArrayAppendValue(itemsToShare, item);
+            });
+            if (!ok) {
+                CFReleaseNull(itemsToShare);
+                return false;
+            }
+            if (CFArrayGetCount(itemsToShare) == 0) {
+                ok = SecError(errSecItemNotFound, error, CFSTR("No items matched the query"));
+                CFReleaseNull(itemsToShare);
+                return false;
+            }
+
+            results = CFArrayCreateMutableForCFTypesWithCapacity(kCFAllocatorDefault, CFArrayGetCount(itemsToShare));
+
+            for (CFIndex i = 0; i < CFArrayGetCount(itemsToShare); i++) {
+                SecDbItemRef item = (SecDbItemRef)CFArrayGetValueAtIndex(itemsToShare, i);
+
+                // Insert a clone of the original item into the database. This
+                // call mutates `item` into the cloned item.
+                ok = shareDatabaseItemWithGroup(item, dbt, sharingGroup, &localError);
+                if (!ok) {
+                    break;
+                }
+
+                CFTypeRef result = SecDbItemCopyResult(item, originalReturnType, &localError);
+                if (!result) {
+                    ok = false;
+                    break;
+                }
+                if (!CFEqual(result, kCFNull)) {
+                    CFArrayAppendValue(results, result);
+                }
+                CFReleaseNull(result);
+            }
+
+            CFReleaseNull(itemsToShare);
+            return ok;
+        });
+    });
+
+    (void)query_destroy(q, error);
+    q = NULL;
+    CFReleaseNull(accessGroups);
+
+    if (!ok) {
+        CFReleaseNull(results);
+        (void)SecErrorPropagate(localError, error);
+        return NULL;
+    }
+
+    if (!didCommit) {
+        // Transaction errors set `error` directly, not `localError`, so we
+        // don't use `SecErrorPropagate` here.
+        CFReleaseNull(results);
+        return NULL;
+    }
+
+    SecKeychainChanged();
+    SecSharedItemsChanged();
+
+    CFTypeRef result = NULL;
+    if (originalReturnType) {
+        // If the query specified a return result key, the return type depends
+        // on the match limit: for `kSecMatchLimitOne`, return the (one) result;
+        // for `kSecMatchLimitAll`, return an immutable copy of the entire
+        // array.
+        if (originalMatchLimit == 1) {
+            assert(CFArrayGetCount(results) == 1);
+            result = CFArrayGetCount(results) == 1 ? CFRetain(CFArrayGetValueAtIndex(results, 0)) : NULL;
+        } else {
+            result = CFArrayCreateCopy(kCFAllocatorDefault, results);
+        }
+    } else {
+        // If the query didn't specify a return result key, don't return
+        // anything.
+        result = kCFNull;
+    }
+    CFReleaseNull(results);
+
+    return result;
+}
 
 bool
 _SecDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error)
@@ -2692,6 +3003,7 @@ _SecDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error)
 
     if (ok) {
         SecKeychainChanged();
+        SecSharedItemsChanged();
     }
 
     return ok;
@@ -2780,6 +3092,8 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
             ok = SecError(errSecReturnRefUnsupported, error, CFSTR("return ref not supported by update"));
         } else if (q->q_return_type & kSecReturnPersistentRefMask) {
             ok = SecError(errSecReturnPersistentRefUnsupported, error, CFSTR("return persistent ref not supported by update"));
+        } else if (q->q_skip_shared_items && CFDictionaryContainsKey(q->q_item, kSecAttrSharingGroup)) {
+            ok = SecError(errSecMissingEntitlement, error, CFSTR("can't update shared items without Keychain Sharing client entitlement"));
         } else {
             CFStringRef agrp = (CFStringRef)CFDictionaryGetValue(attributesToUpdate,
                 kSecAttrAccessGroup);
@@ -2881,6 +3195,8 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
             ok = SecError(errSecItemIllegalQuery, error, CFSTR("rowid and other attributes are mutually exclusive"));
         } else if (q->q_token_object_id && query_attr_count(q) != 1) {
             ok = SecError(errSecItemIllegalQuery, error, CFSTR("token persistent ref and other attributes are mutually exclusive"));
+        } else if (q->q_skip_shared_items && CFDictionaryContainsKey(q->q_item, kSecAttrSharingGroup)) {
+            ok = SecError(errSecMissingEntitlement, error, CFSTR("can't delete shared items without Keychain Sharing client entitlement"));
         } else {
             ok = kc_with_dbt(true, error, ^(SecDbConnectionRef dbt) {
                 return kc_transaction(dbt, error, ^{
@@ -3475,6 +3791,7 @@ _SecServerKeychainRestore(CFDataRef backup, SecurityClient *client, CFDataRef ke
 
     if (ok) {
         SecKeychainChanged();
+        SecSharedItemsChanged();
     }
 
     return ok;

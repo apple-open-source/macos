@@ -25,6 +25,7 @@ int main(int argc, char * const *argv)
     // secdtests should not run any CKKS. It's not entitled for CloudKit, and CKKS threading interferes with many of the tests.
     SecCKKSDisable();
 
+    KCSharingSetChangeTrackingEnabled(false);
 
     securityd_init(NULL);
 

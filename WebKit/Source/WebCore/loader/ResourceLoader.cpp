@@ -37,6 +37,7 @@
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
@@ -287,6 +288,11 @@ FrameLoader* ResourceLoader::frameLoader() const
     return &m_frame->loader();
 }
 
+RefPtr<DocumentLoader> ResourceLoader::protectedDocumentLoader() const
+{
+    return m_documentLoader;
+}
+
 void ResourceLoader::loadDataURL()
 {
     auto url = m_request.url();
@@ -456,9 +462,7 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
     if (isRedirect) {
         RESOURCELOADER_RELEASE_LOG("willSendRequestInternal: Processing cross-origin redirect");
         platformStrategies()->loaderStrategy()->crossOriginRedirectReceived(this, request.url());
-#if ENABLE(TRACKING_PREVENTION)
         frameLoader()->client().didLoadFromRegistrableDomain(RegistrableDomain(request.url()));
-#endif
     }
     m_request = request;
 

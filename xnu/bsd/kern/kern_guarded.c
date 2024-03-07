@@ -428,6 +428,7 @@ guarded_close_np(proc_t p, struct guarded_close_np_args *uap,
     __unused int32_t *retval)
 {
 	struct fileproc *fp;
+	kauth_cred_t p_cred;
 	int fd = uap->fd;
 	int error;
 	guardid_t uguard;
@@ -444,7 +445,9 @@ guarded_close_np(proc_t p, struct guarded_close_np_args *uap,
 		return error;
 	}
 	fp_drop(p, fd, fp, 1);
-	return fp_close_and_unlock(p, fd, fp, 0);
+
+	p_cred = current_cached_proc_cred(p);
+	return fp_close_and_unlock(p, p_cred, fd, fp, 0);
 }
 
 /*
@@ -760,6 +763,7 @@ int
 falloc_guarded(struct proc *p, struct fileproc **fp, int *fd,
     vfs_context_t ctx, const guardid_t *guard, u_int attrs)
 {
+	kauth_cred_t p_cred = current_cached_proc_cred(p);
 	struct gfp_crarg crarg;
 
 	if (((attrs & GUARD_REQUIRED) != GUARD_REQUIRED) ||
@@ -771,7 +775,7 @@ falloc_guarded(struct proc *p, struct fileproc **fp, int *fd,
 	crarg.gca_guard = *guard;
 	crarg.gca_attrs = (uint16_t)attrs;
 
-	return falloc_withinit(p, fp, fd, ctx, guarded_fileproc_init, &crarg);
+	return falloc_withinit(p, p_cred, ctx, fp, fd, guarded_fileproc_init, &crarg);
 }
 
 #if CONFIG_MACF && CONFIG_VNGUARD

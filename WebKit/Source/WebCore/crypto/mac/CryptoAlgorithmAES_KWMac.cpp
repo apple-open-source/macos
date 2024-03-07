@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmAES_KW.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyAES.h"
 #include <CommonCrypto/CommonCrypto.h>
 
@@ -38,7 +36,7 @@ static ExceptionOr<Vector<uint8_t>> wrapKeyAES_KW(const Vector<uint8_t>& key, co
     Vector<uint8_t> result(CCSymmetricWrappedSize(kCCWRAPAES, data.size()));
     size_t resultSize = result.size();
     if (CCSymmetricKeyWrap(kCCWRAPAES, CCrfc3394_iv, CCrfc3394_ivLen, key.data(), key.size(), data.data(), data.size(), result.data(), &resultSize))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     result.shrink(resultSize);
     return WTFMove(result);
@@ -50,10 +48,10 @@ static ExceptionOr<Vector<uint8_t>> unwrapKeyAES_KW(const Vector<uint8_t>& key, 
     size_t resultSize = result.size();
 
     if (resultSize % 8)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     if (CCSymmetricKeyUnwrap(kCCWRAPAES, CCrfc3394_iv, CCrfc3394_ivLen, key.data(), key.size(), data.data(), data.size(), result.data(), &resultSize))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     result.shrink(resultSize);
     return WTFMove(result);
@@ -70,5 +68,3 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmAES_KW::platformUnwrapKey(const Cryp
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

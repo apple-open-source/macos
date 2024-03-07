@@ -1149,6 +1149,10 @@ firehose_buffer_ring_enqueue(firehose_buffer_t fb, firehose_chunk_ref_t ref)
 	// really it's waiting on itself. It's better for the scheduler if we
 	// make it clear that we're waiting on ourselves!
 
+#if FIREHOSE_YIELD_TO_ENQUEUER
+	_dispatch_set_enqueuer_for(fbh_ring_head);
+#endif // FIREHOSE_YIELD_TO_ENQUEUER
+
 	head = os_atomic_load(fbh_ring_head, relaxed);
 	for (;;) {
 		gen = head & FIREHOSE_RING_POS_GEN_MASK;
@@ -1168,7 +1172,16 @@ firehose_buffer_ring_enqueue(firehose_buffer_t fb, firehose_chunk_ref_t ref)
 			os_atomic_store(&fbh_ring[idx], gen, relaxed);
 			continue;
 		}
-
+#if FIREHOSE_YIELD_TO_ENQUEUER
+		_dispatch_wait_for_enqueuer_until(fbh_ring_head, ({
+			// wait until either the head moves (another enqueuer is done)
+			// or (not very likely) a recycler is very slow
+			// or (very unlikely) the confused thread undoes its enqueue
+			uint16_t old_head = head;
+			head = *fbh_ring_head;
+			head != old_head || fbh_ring[idx] == gen;
+		}));
+#else
 		_dispatch_wait_until(({
 			// wait until either the head moves (another enqueuer is done)
 			// or (not very likely) a recycler is very slow
@@ -1177,7 +1190,11 @@ firehose_buffer_ring_enqueue(firehose_buffer_t fb, firehose_chunk_ref_t ref)
 			head = *fbh_ring_head;
 			head != old_head || fbh_ring[idx] == gen;
 		}));
+#endif // FIREHOSE_YIELD_TO_ENQUEUER
 	}
+#if FIREHOSE_YIELD_TO_ENQUEUER
+	_dispatch_clear_enqueuer();
+#endif // FIREHOSE_YIELD_TO_ENQUEUER
 
 	firehose_client_send_push_async(fb, QOS_CLASS_UNSPECIFIED, for_io);
 #endif

@@ -42,4 +42,13 @@ struct archive_write_disk;
 int archive_write_disk_set_acls(struct archive *, int, const char *,
     struct archive_acl *, __LA_MODE_T);
 
+#ifdef __APPLE__
+#include "archive_mac.h"
+#endif // __APPLE__
+
+#ifdef HAVE_MAC_QUARANTINE
+
+void archive_write_disk_set_quarantine(struct archive *, qtn_file_t qf);
+#endif // HAVE_MAC_QUARANTINE
+
 #endif

@@ -68,8 +68,6 @@ public:
     }
     virtual ~VideoPresentationModelContext();
 
-    void invalidate() { m_manager = nullptr; }
-
     PlatformView *layerHostView() const { return m_layerHostView.get(); }
     void setLayerHostView(RetainPtr<PlatformView>&& layerHostView) { m_layerHostView = WTFMove(layerHostView); }
 
@@ -133,7 +131,7 @@ private:
     WTFLogChannel& logChannel() const;
 #endif
 
-    VideoPresentationManagerProxy* m_manager;
+    WeakPtr<VideoPresentationManagerProxy> m_manager;
     Ref<PlaybackSessionModelContext> m_playbackSessionModel;
     PlaybackSessionContextIdentifier m_contextId;
     RetainPtr<PlatformView> m_layerHostView;
@@ -144,7 +142,7 @@ private:
     RetainPtr<WKVideoView> m_videoView;
 #endif
 
-    HashSet<WebCore::VideoPresentationModelClient*> m_clients;
+    WeakHashSet<WebCore::VideoPresentationModelClient> m_clients;
     WebCore::FloatSize m_videoDimensions;
     bool m_hasVideo { false };
 
@@ -153,8 +151,15 @@ private:
 #endif
 };
 
-class VideoPresentationManagerProxy : public RefCounted<VideoPresentationManagerProxy>, private IPC::MessageReceiver {
+class VideoPresentationManagerProxy
+    : public RefCounted<VideoPresentationManagerProxy>
+    , public CanMakeWeakPtr<VideoPresentationManagerProxy>
+    , private IPC::MessageReceiver {
 public:
+    using CanMakeWeakPtr<VideoPresentationManagerProxy>::WeakPtrImplType;
+    using CanMakeWeakPtr<VideoPresentationManagerProxy>::WeakValueType;
+    using CanMakeWeakPtr<VideoPresentationManagerProxy>::weakPtrFactory;
+
     static Ref<VideoPresentationManagerProxy> create(WebPageProxy&, PlaybackSessionManagerProxy&);
     virtual ~VideoPresentationManagerProxy();
 
@@ -178,7 +183,7 @@ public:
 
     void forEachSession(Function<void(VideoPresentationModelContext&, WebCore::PlatformVideoFullscreenInterface&)>&&);
 
-    void requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
+    void requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier, CompletionHandler<void(std::optional<ShareableBitmap::Handle>&&)>&&);
 
 #if PLATFORM(IOS_FAMILY)
     WebCore::PlatformVideoFullscreenInterface* returningToStandbyInterface() const;
@@ -257,7 +262,7 @@ private:
     bool m_mockVideoPresentationModeEnabled { false };
     WebCore::FloatSize m_mockPictureInPictureWindowSize { DefaultMockPictureInPictureWindowWidth, DefaultMockPictureInPictureWindowHeight };
 
-    WebPageProxy* m_page;
+    WeakPtr<WebPageProxy> m_page;
     Ref<PlaybackSessionManagerProxy> m_playbackSessionManagerProxy;
     HashMap<PlaybackSessionContextIdentifier, ModelInterfaceTuple> m_contextMap;
     HashMap<PlaybackSessionContextIdentifier, int> m_clientCounts;

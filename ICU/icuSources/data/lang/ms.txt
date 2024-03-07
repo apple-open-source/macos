@@ -75,6 +75,7 @@ ms{
         bez{"Bena"}
         bfd{"Bafut"}
         bg{"Bulgaria"}
+        bgc{"Haryanvi"}
         bgn{"Balochi Barat"}
         bho{"Bhojpuri"}
         bi{"Bislama"}
@@ -400,6 +401,7 @@ ms{
         pt_PT{"Portugis Eropah"}
         qu{"Quechua"}
         quc{"Kʼicheʼ"}
+        raj{"Rajasthani"}
         rap{"Rapanui"}
         rar{"Rarotonga"}
         rej{"Rejang"}
@@ -967,10 +969,11 @@ ms{
     }
     characterLabelPattern{
         all{"{0} — Semua"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} — Keserasian"}
         enclosed{"{0} — Dikurung"}
         extended{"{0} — Dilanjutkan"}
+        facing-left{"{0} menghadap kiri"}
+        facing-right{"{0} menghadap kanan"}
         historic{"{0} — Bersejarah"}
         miscellaneous{"{0} — Pelbagai"}
         other{"{0} — Lain"}
@@ -985,10 +988,5 @@ ms{
         language{"Bahasa: {0}"}
         script{"Skrip: {0}"}
         territory{"Kawasan: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

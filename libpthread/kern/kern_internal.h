@@ -55,11 +55,6 @@ struct ksyn_waitq_element;
  * from this call either zero or -1, allowing us to return a positive number for feature bits.
  */
 
-/* Note: This 'feature' is determined by an entitlement.
- * XXX Re-order to the end of the list when practical.
- */
-#define PTHREAD_FEATURE_JIT_ALLOWLIST	0x200		/* Enforce JIT callback allowlist */
-
 #define PTHREAD_FEATURE_DISPATCHFUNC	0x01		/* same as WQOPS_QUEUE_NEWSPISUPP, checks for dispatch function support */
 #define PTHREAD_FEATURE_FINEPRIO		0x02		/* are fine grained prioirities available */
 #define PTHREAD_FEATURE_BSDTHREADCTL	0x04		/* is the bsdthread_ctl syscall available */
@@ -71,8 +66,10 @@ struct ksyn_waitq_element;
 #define PTHREAD_FEATURE_QOS_DEFAULT		0x40000000	/* the kernel supports QOS_CLASS_DEFAULT */
 #define PTHREAD_FEATURE_COOPERATIVE_WORKQ	0x100		/* Supports a cooperative workqueue pool */
 
-
-#define PTHREAD_FEATURE_JIT_FREEZE_LATE	0x00000800 /* Enforce JIT callback allowlist */
+/* Note: These 'features' are determined by entitlement. */
+#define PTHREAD_FEATURE_JIT_ALLOWLIST	0x0200		/* Enforce JIT callback allowlist */
+#define PTHREAD_FEATURE_JIT_FREEZE_LATE	0x0800		/* Allow late freezing for JIT callback allowlist */
+#define PTHREAD_FEATURE_JIT_ENTITLED	0x1000		/* Process is entitled for JIT */
 
 /* userspace <-> kernel registration struct, for passing data to/from the kext during main thread init. */
 struct _pthread_registration_data {
@@ -111,10 +108,18 @@ struct _pthread_registration_data {
 #define VARIANT_DYLD 0
 #endif // !defined(VARIANT_DYLD)
 
-#if TARGET_OS_OSX && TARGET_CPU_ARM64 && !VARIANT_DYLD
+#define PTHREAD_TARGET_OS_IOS_ONLY (TARGET_OS_IOS && !TARGET_OS_VISION)
+
+#if (TARGET_OS_OSX || PTHREAD_TARGET_OS_IOS_ONLY) && TARGET_CPU_ARM64 && !VARIANT_DYLD
 #define _PTHREAD_CONFIG_JIT_WRITE_PROTECT 1
 #else
 #define _PTHREAD_CONFIG_JIT_WRITE_PROTECT 0
+#endif
+
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT && !TARGET_OS_OSX
+#define _PTHREAD_CONFIG_JIT_LOCKDOWN_DEFAULT 1
+#else
+#define _PTHREAD_CONFIG_JIT_LOCKDOWN_DEFAULT 0
 #endif
 
 #ifdef KERNEL

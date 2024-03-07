@@ -91,6 +91,7 @@ extern "C" {
 #define SMBFS_MNT_NO_PASSWORD_PROMPT        0x10000000
 #define SMBFS_MNT_FORCE_NEW_SESSION         0x20000000
 #define SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY   0x40000000
+#define SMBFS_MNT_HIFI_DISABLED             0x80000000
 
 /*
  * Async Read/Write defaults

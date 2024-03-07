@@ -28,10 +28,12 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "APIUIClient.h"
 #import "AccessibilitySupportSPI.h"
 #import "WKFullKeyboardAccessWatcher.h"
 #import "WKMouseDeviceObserver.h"
 #import "WKStylusDeviceObserver.h"
+#import "WebPageProxy.h"
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
 #import <pal/system/cocoa/SleepDisablerCocoa.h>
@@ -52,11 +54,11 @@ void WebProcessProxy::platformInitialize()
         didSetScreenWakeLockHandler = true;
         PAL::SleepDisablerCocoa::setScreenWakeLockHandler([](bool shouldKeepScreenAwake) {
             RefPtr<WebPageProxy> visiblePage;
-            for (auto& page : globalPageMap().values()) {
+            for (auto&& page : globalPageMap().values()) {
                 if (!visiblePage)
-                    visiblePage = page.get();
+                    visiblePage = page.ptr();
                 else if (page->isViewVisible()) {
-                    visiblePage = page.get();
+                    visiblePage = page.ptr();
                     break;
                 }
             }

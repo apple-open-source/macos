@@ -210,6 +210,14 @@
   #define SPI_AVAILABLE(...)
 #endif
 
+#ifndef SPI_AVAILABLE_BEGIN
+  #define SPI_AVAILABLE_BEGIN(...)
+#endif
+
+#ifndef SPI_AVAILABLE_END
+  #define SPI_AVAILABLE_END(...)
+#endif
+
 #ifndef SPI_DEPRECATED
   #define SPI_DEPRECATED(...)
 #endif

@@ -103,7 +103,9 @@ private:
             m_description = *std::get<const AudioStreamBasicDescription*>(description.platformDescription().description);
             size_t numberOfFrames = m_description->sampleRate() * 2;
             auto& format = m_description->streamDescription();
-            auto [ringBuffer, handle] = ProducerSharedCARingBuffer::allocate(format, numberOfFrames);
+            auto result = ProducerSharedCARingBuffer::allocate(format, numberOfFrames);
+            RELEASE_ASSERT(result); // FIXME(https://bugs.webkit.org/show_bug.cgi?id=262690): Handle allocation failure.
+            auto [ringBuffer, handle] = WTFMove(*result);
             m_ringBuffer = WTFMove(ringBuffer);
             m_connection->send(Messages::SpeechRecognitionRemoteRealtimeMediaSourceManager::SetStorage(m_identifier, WTFMove(handle), format), 0);
         }
@@ -150,49 +152,6 @@ SpeechRecognitionRealtimeMediaSourceManager::~SpeechRecognitionRealtimeMediaSour
     WebProcess::singleton().removeMessageReceiver(*this);
 }
 
-#if ENABLE(SANDBOX_EXTENSIONS)
-
-void SpeechRecognitionRealtimeMediaSourceManager::grantSandboxExtensions(SandboxExtension::Handle&& machBootstrapHandle,  SandboxExtension::Handle&& sandboxHandleForTCCD, SandboxExtension::Handle&& sandboxHandleForMicrophone)
-{
-    m_machBootstrapExtension = SandboxExtension::create(WTFMove(machBootstrapHandle));
-    if (!m_machBootstrapExtension)
-        RELEASE_LOG_ERROR(Media, "Failed to create Mach bootstrap sandbox extension");
-    else
-        m_machBootstrapExtension->consume();
-
-    m_sandboxExtensionForTCCD = SandboxExtension::create(WTFMove(sandboxHandleForTCCD));
-    if (!m_sandboxExtensionForTCCD)
-        RELEASE_LOG_ERROR(Media, "Failed to create sandbox extension for tccd");
-    else
-        m_sandboxExtensionForTCCD->consume();
-
-    m_sandboxExtensionForMicrophone = SandboxExtension::create(WTFMove(sandboxHandleForMicrophone));
-    if (!m_sandboxExtensionForMicrophone)
-        RELEASE_LOG_ERROR(Media, "Failed to create sandbox extension for microphone");
-    else
-        m_sandboxExtensionForMicrophone->consume();
-}
-
-void SpeechRecognitionRealtimeMediaSourceManager::revokeSandboxExtensions()
-{
-    if (m_sandboxExtensionForTCCD) {
-        m_sandboxExtensionForTCCD->revoke();
-        m_sandboxExtensionForTCCD = nullptr;
-    }
-
-    if (m_sandboxExtensionForMicrophone) {
-        m_sandboxExtensionForMicrophone->revoke();
-        m_sandboxExtensionForMicrophone = nullptr;
-    }
-
-    if (m_machBootstrapExtension) {
-        m_machBootstrapExtension->revoke();
-        m_machBootstrapExtension = nullptr;
-    }
-}
-
-#endif
-
 void SpeechRecognitionRealtimeMediaSourceManager::createSource(RealtimeMediaSourceIdentifier identifier, const CaptureDevice& device, PageIdentifier pageIdentifier)
 {
     auto result = SpeechRecognitionCaptureSource::createRealtimeMediaSource(device, pageIdentifier);
@@ -203,7 +162,7 @@ void SpeechRecognitionRealtimeMediaSourceManager::createSource(RealtimeMediaSour
     }
 
     ASSERT(!m_sources.contains(identifier));
-    m_sources.add(identifier, makeUnique<Source>(identifier, result.source(), *messageSenderConnection()));
+    m_sources.add(identifier, makeUnique<Source>(identifier, result.source(), m_connection.copyRef()));
 }
 
 void SpeechRecognitionRealtimeMediaSourceManager::deleteSource(RealtimeMediaSourceIdentifier identifier)

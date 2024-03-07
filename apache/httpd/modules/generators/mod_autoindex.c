@@ -2045,7 +2045,7 @@ static int index_directory(request_rec *r,
         charset = autoindex_conf->charset;
     }
     else {
-#if APR_HAS_UNICODE_FS || defined(__APPLE__)
+#if APR_HAS_UNICODE_FS
         charset = "UTF-8";
 #else
         charset = "ISO-8859-1";

@@ -61,6 +61,9 @@
 #include "citrus_lookup.h"
 #include "citrus_hash.h"
 #include "citrus_iconv.h"
+#ifdef __APPLE__
+#include "citrus_mapper.h"
+#endif
 
 #define _CITRUS_ICONV_DIR	"iconv.dir"
 #define _CITRUS_ICONV_ALIAS	"iconv.alias"
@@ -114,7 +117,11 @@ close_shared(struct _citrus_iconv_shared *ci)
 static __inline int
 open_shared(struct _citrus_iconv_shared * __restrict * __restrict rci,
     const char * __restrict convname, const char * __restrict src,
+#ifdef __APPLE__
+    const char * __restrict dst, int wchar_dir)
+#else
     const char * __restrict dst)
+#endif
 {
 	struct _citrus_iconv_shared *ci;
 	_citrus_iconv_getops_t getops;
@@ -139,6 +146,16 @@ open_shared(struct _citrus_iconv_shared * __restrict * __restrict rci,
 	 */
 	module = (strcmp(src, dst) != 0) ? "iconv_std" : "iconv_none";
 #else
+#ifdef __APPLE__
+	/*
+	 * The above commentary is wrong on one account; GNU libiconv reportedly
+	 * *will* just pass it through if both encodings are wchar_t.  It still
+	 * expects wc_hook to be invoked on every character.
+	 */
+	if (wchar_dir == MDIR_UCS_BOTH)
+		module = "iconv_none";
+	else
+#endif
 	module = "iconv_std";
 #endif
 
@@ -215,7 +232,11 @@ match_func(struct _citrus_iconv_shared * __restrict ci,
 
 static int
 get_shared(struct _citrus_iconv_shared * __restrict * __restrict rci,
+#ifdef __APPLE__
+    const char *src, const char *dst, int wchar_dir)
+#else
     const char *src, const char *dst)
+#endif
 {
 	struct _citrus_iconv_shared * ci;
 	char convname[PATH_MAX];
@@ -241,7 +262,11 @@ get_shared(struct _citrus_iconv_shared * __restrict * __restrict rci,
 	}
 
 	/* create new entry */
+#ifdef __APPLE__
+	ret = open_shared(&ci, convname, src, dst, wchar_dir);
+#else
 	ret = open_shared(&ci, convname, src, dst);
+#endif
 	if (ret)
 		goto quit;
 
@@ -292,6 +317,9 @@ _citrus_iconv_open(struct _citrus_iconv * __restrict * __restrict rcv,
 #ifdef _PATH_ICONV
 	char buf[PATH_MAX], path[PATH_MAX];
 #endif
+#ifdef __APPLE__
+	int wchar_dir = 0;
+#endif
 	int ret;
 
 	init_cache();
@@ -315,21 +343,25 @@ _citrus_iconv_open(struct _citrus_iconv * __restrict * __restrict rcv,
 	/*
 	 * GNU behaviour:
 	 * - Use locale encoding if "" or "char" is specified.
-	 * * Use UCS-4 of the native endianness if "wchar_t" is specified.
+	 * * locale encoding + wcrtomb()/mbrtowc() if "wchar_t" is specified.
 	 *
 	 * These should only be checked after we're certain we've stripped
 	 * trailing slashes, as //IGNORE is still valid.  For GNU compatibility,
 	 * we also need these to be case insensitive.
 	 */
-	if (realsrc[0] == '\0' || strcasecmp(realsrc, "char") == 0)
+	if (realsrc[0] == '\0' || strcasecmp(realsrc, "char") == 0) {
 		strlcpy(realsrc, locale_charset(), sizeof(realsrc));
-	else if (strcasecmp(realsrc, "wchar_t") == 0)
-		strlcpy(realsrc, "UCS-4-INTERNAL", sizeof(realsrc));
+	} else if (strcasecmp(realsrc, "wchar_t") == 0) {
+		wchar_dir |= MDIR_UCS_SRC;
+		strlcpy(realsrc, nl_langinfo(CODESET), sizeof(realsrc));
+	}
 
-	if (realdst[0] == '\0' || strcasecmp(realdst, "char") == 0)
+	if (realdst[0] == '\0' || strcasecmp(realdst, "char") == 0) {
 		strlcpy(realdst, locale_charset(), sizeof(realdst));
-	else if (strcasecmp(realdst, "wchar_t") == 0)
-		strlcpy(realdst, "UCS-4-INTERNAL", sizeof(realdst));
+	} else if (strcasecmp(realdst, "wchar_t") == 0) {
+		wchar_dir |= MDIR_UCS_DST;
+		strlcpy(realdst, nl_langinfo(CODESET), sizeof(realdst));
+	}
 #endif
 
 	/* resolve codeset name aliases */
@@ -351,7 +383,11 @@ _citrus_iconv_open(struct _citrus_iconv * __restrict * __restrict rcv,
 		return (EINVAL);
 
 	/* get shared record */
+#ifdef __APPLE__
+	ret = get_shared(&ci, realsrc, realdst, wchar_dir);
+#else
 	ret = get_shared(&ci, realsrc, realdst);
+#endif
 	if (ret)
 		return (ret);
 
@@ -367,6 +403,13 @@ _citrus_iconv_open(struct _citrus_iconv * __restrict * __restrict rcv,
 	}
 	(*rcv)->cv_shared = ci;
 	ret = (*ci->ci_ops->io_init_context)(*rcv);
+#ifdef __APPLE__
+	/*
+	 * cv_wchar_dir specifically encodes whether src/dst are wchar_t so that
+	 * we can invoke our wc fallbacks only for the correct encodings.
+	 */
+	(*rcv)->cv_wchar_dir = wchar_dir;
+#endif
 	if (ret) {
 		release_shared(ci);
 		free(cv);

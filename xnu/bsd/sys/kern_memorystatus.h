@@ -69,6 +69,12 @@
 
 #define JETSAM_PRIORITY_MAX                      210
 
+/*
+ * Used to show that a process is so high priority it is not processed by jetsam at all.
+ * This is set on launchd and kernel_task.
+ */
+#define JETSAM_PRIORITY_INTERNAL                 999
+
 /* TODO - tune. This should probably be lower priority */
 #define JETSAM_PRIORITY_DEFAULT                  180
 #define JETSAM_PRIORITY_TELEPHONY                190

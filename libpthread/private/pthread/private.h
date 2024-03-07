@@ -91,6 +91,21 @@ int pthread_fchdir_np(int fd);
 __API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 int pthread_attr_setcpupercent_np(pthread_attr_t * __restrict, int, unsigned long);
 
+/*!
+ * @function pthread_attr_setworkinterval_np
+ *
+ * @abstract
+ * A private interface for libdispatch to configure work interval
+ * properties on pthreads it requests.
+ *
+ * @discussion
+ * This method expects the mach port name to represent a valid send right
+ * to a work interval object in kernel. It takes an additional +1 ref to that
+ * send right which is released in pthread_attr_destroy.
+ */
+__API_AVAILABLE(macos(14.3), ios(17.4), tvos(17.4), watchos(10.4), xros(1.1), driverkit(23.4))
+int pthread_attr_setworkinterval_np(pthread_attr_t * __restrict, mach_port_t);
+
 __API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0))
 int pthread_current_stack_contains_np(const void *, size_t);
 

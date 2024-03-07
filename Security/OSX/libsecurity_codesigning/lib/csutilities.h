@@ -231,6 +231,9 @@ private:
 // Check if the path is on the root filesystem, protected by the OS.
 bool isOnRootFilesystem(const char *path);
 
+// Check if the path is on an auth apfs volume.
+bool isOnAuthAPFSVolume(const char* path);
+
 // Check if a path exists.
 bool pathExists(const char *path);
 

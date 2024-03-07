@@ -156,10 +156,10 @@ OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgr
     OctagonStateTransitionRequest<OctagonStateTransitionOperation*>* request = [[OctagonStateTransitionRequest alloc] init:@"request-item-upgrade"
                                                                                                               sourceStates:sourceStates
                                                                                                                serialQueue:self.queue
-                                                                                                                   timeout:10*NSEC_PER_SEC
                                                                                                               transitionOp:requestUpgrade];
-    [self.stateMachine handleExternalRequest:request];
-    
+    [self.stateMachine handleExternalRequest:request
+                                startTimeout:10*NSEC_PER_SEC];
+
     reply(nil);
 }
 

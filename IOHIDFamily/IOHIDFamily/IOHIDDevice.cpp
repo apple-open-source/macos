@@ -32,6 +32,7 @@
 #include <IOKit/IOMessage.h>
 #include <libkern/OSKextLib.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/IOReporter.h>
 
 #include "IOHIDFamilyPrivate.h"
 #include <IOKit/hid/IOHIDDevice.h>

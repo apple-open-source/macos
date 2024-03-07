@@ -202,6 +202,10 @@ extern OctagonState* const OctagonStateUntrustedUpdated;
 // Cuttlefish notifiation while ready.
 extern OctagonState* const OctagonStateReadyUpdated;
 
+extern OctagonState* const OctagonStateStashAccountSettingsForReroll;
+extern OctagonState* const OctagonStateCreateIdentityForReroll;
+extern OctagonState* const OctagonStateVouchWithReroll;
+
 extern OctagonState* const OctagonStateUnimplemented;
 
 @interface OTStates: NSObject
@@ -212,9 +216,11 @@ extern OctagonState* const OctagonStateUnimplemented;
 // of our state machine RPCs will work in the SA case.
 // <rdar://problem/54094162> Octagon: ensure Octagon operations can't occur on SA accounts
 + (NSSet<OctagonState*>*) OctagonInAccountStates;
-+ (NSSet<OctagonState *>*) OctagonHealthSourceStates;
-+ (NSSet<OctagonFlag *>*) AllOctagonFlags;
++ (NSSet<OctagonState*>*) OctagonHealthSourceStates;
 + (NSSet<OctagonState*>*) OctagonNotInCliqueStates;
++ (NSSet<OctagonState*>*) OctagonReadyStates;
++ (NSSet<OctagonState*>*) OctagonAllStates;
++ (NSSet<OctagonFlag*>*)  AllOctagonFlags;
 
 @end
 
@@ -232,26 +238,24 @@ extern OctagonFlag* const OctagonFlagCKKSViewSetChanged;
 // We've received a change notification from cuttlefish; we should probably see what's new
 extern OctagonFlag* const OctagonFlagCuttlefishNotification NS_SWIFT_NAME(OctagonFlagCuttlefishNotification);
 
-
-extern OctagonFlag* const OctagonFlagFetchAuthKitMachineIDList;
-
 extern OctagonFlag* const OctagonFlagAccountIsAvailable;
 extern OctagonFlag* const OctagonFlagCDPEnabled;
 
 extern OctagonFlag* const OctagonFlagAttemptSOSUpgrade;
+
+extern OctagonFlag* const OctagonFlagFetchAuthKitMachineIDList;
+
 extern OctagonFlag* const OctagonFlagUnlocked;
 
 extern OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals;
 extern OctagonFlag* const OctagonFlagAttemptSOSConsistency;
 
-extern OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation;
-
 extern OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction;
 extern OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction;
 
-extern OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade;
-
 extern OctagonFlag* const OctagonFlagSecureElementIdentityChanged;
+
+extern OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade;
 
 extern OctagonFlag* const OctagonFlagCheckOnRTCMetrics;
 

@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <assert.h>
+
 #include "table.h"
 #include "notify_internal.h"
 
@@ -66,16 +68,16 @@ void *_nc_table_find_64(table_64_t *t, uint64_t key) {
 	return (offset_result != NULL) ? (void *)((uintptr_t)offset_result - (uintptr_t)t->key_offset)  : NULL;
 }
 
-void _nc_table_delete(table_t *t, const char *key) {
-	(void)os_set_delete(&t->set, key);
+void _nc_table_delete(table_t *t, const char *key, char **expected) {
+	assert(os_set_delete(&t->set, key) == expected);
 }
 
-void _nc_table_delete_n(table_n_t *t, uint32_t key) {
-	(void)os_set_delete(&t->set, key);
+void _nc_table_delete_n(table_n_t *t, uint32_t key, uint32_t *expected) {
+	assert(os_set_delete(&t->set, key) == expected);
 }
 
-void _nc_table_delete_64(table_64_t *t, uint64_t key) {
-	(void)os_set_delete(&t->set, key);
+void _nc_table_delete_64(table_64_t *t, uint64_t key, uint64_t *expected) {
+	assert(os_set_delete(&t->set, key) == expected);
 }
 
 typedef bool (^payload_handler_t) (void *);

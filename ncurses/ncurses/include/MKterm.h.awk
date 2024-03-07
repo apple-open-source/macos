@@ -46,6 +46,7 @@ BEGIN		{
 		    print  "#undef  NCURSES_VERSION"
 		    print  "#define NCURSES_VERSION \"6.0\""
 		    print  ""
+		    print  "#include <AvailabilityMacros.h>"
 		    print  "#include <ncurses_dll.h>"
 		    print  ""
 		    print  "#ifdef __cplusplus"

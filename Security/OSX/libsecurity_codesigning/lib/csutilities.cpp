@@ -43,6 +43,7 @@
 #include <security_utilities/errors.h>
 #include <sys/mount.h>
 #include <sys/utsname.h>
+#include <sys/fsctl.h>
 #include <errno.h>
 #include <sys/attr.h>
 #include <sys/xattr.h>
@@ -337,6 +338,16 @@ bool isOnRootFilesystem(const char *path)
 		return false;
 	}
 	return ((sfb.f_flags & MNT_ROOTFS) == MNT_ROOTFS);
+}
+
+bool isOnAuthAPFSVolume(const char* path)
+{
+	int fd = openat_authenticated_np(AT_FDCWD, path, O_RDONLY, AUTH_OPEN_NOAUTHFD);
+	if (fd == -1) {
+		return false;
+	}
+	close(fd);
+	return true;
 }
 
 bool pathExists(const char *path)

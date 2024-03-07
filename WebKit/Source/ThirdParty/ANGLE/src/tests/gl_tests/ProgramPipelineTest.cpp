@@ -614,7 +614,7 @@ void main()
     glDeleteProgram(mFragProg);
 }
 
-// Test glUniformBlockBinding and followed by glBindBufferRange
+// Test glUniformBlockBinding followed by glBindBufferRange
 TEST_P(ProgramPipelineTest31, FragmentStageUniformBlockBindBufferRangeTest)
 {
     ANGLE_SKIP_TEST_IF(!IsVulkan());
@@ -628,21 +628,25 @@ layout (std140) uniform color_ubo
 {
     float redColorIn;
     float greenColorIn;
+    float blueColorIn;
 };
 
 out vec4 my_FragColor;
 void main()
 {
-    my_FragColor = vec4(redColorIn, greenColorIn, 0.0, 1.0);
+    my_FragColor = vec4(redColorIn, greenColorIn, blueColorIn, 1.0);
 })";
 
-    // Setup two uniform buffers, one with red and one with green
+    // Setup three uniform buffers, one with red, one with green, and one with blue
     GLBuffer uboBufRed;
     glBindBuffer(GL_UNIFORM_BUFFER, uboBufRed);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatRed, GL_STATIC_DRAW);
     GLBuffer uboBufGreen;
     glBindBuffer(GL_UNIFORM_BUFFER, uboBufGreen);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatGreen, GL_STATIC_DRAW);
+    GLBuffer uboBufBlue;
+    glBindBuffer(GL_UNIFORM_BUFFER, uboBufBlue);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatBlue, GL_STATIC_DRAW);
 
     // Setup pipeline program using red uniform buffer
     bindProgramPipeline(vertString, fragString);
@@ -661,11 +665,286 @@ void main()
     // bind to green uniform buffer
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uboBufGreen);
     drawQuadWithPPO(essl31_shaders::PositionAttrib(), 0.5f, 1.0f);
+    // bind to blue uniform buffer
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uboBufBlue);
+    drawQuadWithPPO(essl31_shaders::PositionAttrib(), 0.5f, 1.0f);
     ASSERT_GL_NO_ERROR();
-    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
 
     glDeleteProgram(mVertProg);
     glDeleteProgram(mFragProg);
+}
+
+// Test that glUniformBlockBinding can successfully change the binding for PPOs
+TEST_P(ProgramPipelineTest31, FragmentStageUniformBlockBinding)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    // Create two separable program objects from a
+    // single source string respectively (vertSrc and fragSrc)
+    const GLchar *vertString = essl31_shaders::vs::Simple();
+    const GLchar *fragString = R"(#version 310 es
+precision highp float;
+layout (std140) uniform color_ubo
+{
+    float redColorIn;
+    float greenColorIn;
+    float blueColorIn;
+};
+
+out vec4 my_FragColor;
+void main()
+{
+    my_FragColor = vec4(redColorIn, greenColorIn, blueColorIn, 1.0);
+})";
+
+    // Setup three uniform buffers, one with red, one with green, and one with blue
+    GLBuffer uboBufRed;
+    glBindBuffer(GL_UNIFORM_BUFFER, uboBufRed);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatRed, GL_STATIC_DRAW);
+    GLBuffer uboBufGreen;
+    glBindBuffer(GL_UNIFORM_BUFFER, uboBufGreen);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatGreen, GL_STATIC_DRAW);
+    GLBuffer uboBufBlue;
+    glBindBuffer(GL_UNIFORM_BUFFER, uboBufBlue);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatBlue, GL_STATIC_DRAW);
+
+    // Setup pipeline program using red uniform buffer
+    bindProgramPipeline(vertString, fragString);
+    glActiveShaderProgram(mPipeline, mFragProg);
+    GLint uboIndex = glGetUniformBlockIndex(mFragProg, "color_ubo");
+
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uboBufRed);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboBufGreen);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboBufBlue);
+
+    // Bind the UBO to binding 0 and draw, should be red
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, 0, w / 2, h / 2);
+    glUniformBlockBinding(mFragProg, uboIndex, 0);
+    drawQuadWithPPO(essl31_shaders::PositionAttrib(), 0.5f, 1.0f);
+
+    // Bind it to binding 1 and draw, should be green
+    glScissor(w / 2, 0, w - w / 2, h / 2);
+    glUniformBlockBinding(mFragProg, uboIndex, 1);
+    drawQuadWithPPO(essl31_shaders::PositionAttrib(), 0.5f, 1.0f);
+
+    // Bind it to binding 2 and draw, should be blue
+    glScissor(0, h / 2, w, h);
+    glUniformBlockBinding(mFragProg, uboIndex, 2);
+    drawQuadWithPPO(essl31_shaders::PositionAttrib(), 0.5f, 1.0f);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w / 2, h / 2, GLColor::red);
+    EXPECT_PIXEL_RECT_EQ(w / 2, 0, w - w / 2, h / 2, GLColor::green);
+    EXPECT_PIXEL_RECT_EQ(0, h / 2, w, h - h / 2, GLColor::blue);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that dirty bits related to UBOs propagates to the PPO.
+TEST_P(ProgramPipelineTest31, UniformBufferUpdatesBeforeBindToPPO)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    const GLchar *vertString = essl31_shaders::vs::Simple();
+    const GLchar *fragString = R"(#version 310 es
+precision highp float;
+layout (std140) uniform color_ubo
+{
+    float redColorIn;
+    float greenColorIn;
+    float blueColorIn;
+};
+
+out vec4 my_FragColor;
+void main()
+{
+    my_FragColor = vec4(redColorIn, greenColorIn, blueColorIn, 1.0);
+})";
+
+    GLuint vs = CompileShader(GL_VERTEX_SHADER, vertString);
+    GLuint fs = CompileShader(GL_FRAGMENT_SHADER, fragString);
+    mVertProg = glCreateProgram();
+    mFragProg = glCreateProgram();
+
+    // Compile and link a separable vertex shader
+    glProgramParameteri(mVertProg, GL_PROGRAM_SEPARABLE, GL_TRUE);
+    glAttachShader(mVertProg, vs);
+    glLinkProgram(mVertProg);
+    EXPECT_GL_NO_ERROR();
+
+    // Compile and link a separable fragment shader
+    glProgramParameteri(mFragProg, GL_PROGRAM_SEPARABLE, GL_TRUE);
+    glAttachShader(mFragProg, fs);
+    glLinkProgram(mFragProg);
+    EXPECT_GL_NO_ERROR();
+
+    // Generate a program pipeline and attach the programs
+    glGenProgramPipelines(1, &mPipeline);
+    glUseProgramStages(mPipeline, GL_VERTEX_SHADER_BIT, mVertProg);
+    glUseProgramStages(mPipeline, GL_FRAGMENT_SHADER_BIT, mFragProg);
+    glBindProgramPipeline(mPipeline);
+    EXPECT_GL_NO_ERROR();
+
+    GLBuffer uboBufRed;
+    glBindBuffer(GL_UNIFORM_BUFFER, uboBufRed);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatRed, GL_STATIC_DRAW);
+    GLBuffer uboBufGreen;
+    glBindBuffer(GL_UNIFORM_BUFFER, uboBufGreen);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatGreen, GL_STATIC_DRAW);
+    GLBuffer uboBufBlue;
+    glBindBuffer(GL_UNIFORM_BUFFER, uboBufBlue);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatBlue, GL_STATIC_DRAW);
+
+    glActiveShaderProgram(mPipeline, mFragProg);
+    GLint uboIndex = glGetUniformBlockIndex(mFragProg, "color_ubo");
+    glUniformBlockBinding(mFragProg, uboIndex, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uboBufRed);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboBufGreen);
+
+    // Draw once so all dirty bits are handled.  Should be red
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, 0, w / 2, h / 2);
+    drawQuadWithPPO(essl31_shaders::PositionAttrib(), 0.5f, 1.0f);
+
+    // Unbind the fragment program from the PPO
+    glUseProgramStages(mPipeline, GL_FRAGMENT_SHADER_BIT, 0);
+    EXPECT_GL_NO_ERROR();
+
+    // Modify the UBO bindings, reattach the program and draw again.  Should be green
+    glUniformBlockBinding(mFragProg, uboIndex, 1);
+
+    glUseProgramStages(mPipeline, GL_FRAGMENT_SHADER_BIT, mFragProg);
+    glScissor(w / 2, 0, w - w / 2, h / 2);
+    drawQuadWithPPO(essl31_shaders::PositionAttrib(), 0.5f, 1.0f);
+
+    // Unbind the fragment program from the PPO again, and modify the UBO bindings differently.
+    // Draw again, which should be blue.
+    glUseProgramStages(mPipeline, GL_FRAGMENT_SHADER_BIT, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboBufBlue);
+
+    glUseProgramStages(mPipeline, GL_FRAGMENT_SHADER_BIT, mFragProg);
+    glScissor(0, h / 2, w, h);
+    drawQuadWithPPO(essl31_shaders::PositionAttrib(), 0.5f, 1.0f);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w / 2, h / 2, GLColor::red);
+    EXPECT_PIXEL_RECT_EQ(w / 2, 0, w - w / 2, h / 2, GLColor::green);
+    EXPECT_PIXEL_RECT_EQ(0, h / 2, w, h - h / 2, GLColor::blue);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test glBindBufferRange between draw calls in the presence of multiple UBOs between VS and FS
+TEST_P(ProgramPipelineTest31, BindBufferRangeForMultipleUBOsInMultipleStages)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    // Create two separable program objects from a
+    // single source string respectively (vertSrc and fragSrc)
+    const GLchar *vertString = R"(#version 310 es
+precision highp float;
+layout (std140) uniform vsUBO1
+{
+    float redIn;
+};
+
+layout (std140) uniform vsUBO2
+{
+    float greenIn;
+};
+
+out float red;
+out float green;
+
+void main()
+{
+    vec2 pos = vec2(0.0);
+    switch (gl_VertexID) {
+        case 0: pos = vec2(-1.0, -1.0); break;
+        case 1: pos = vec2(3.0, -1.0); break;
+        case 2: pos = vec2(-1.0, 3.0); break;
+    };
+    gl_Position = vec4(pos, 0.0, 1.0);
+    red = redIn;
+    green = greenIn;
+})";
+    const GLchar *fragString = R"(#version 310 es
+precision highp float;
+layout (std140) uniform fsUBO1
+{
+    float blueIn;
+};
+
+layout (std140) uniform fsUBO2
+{
+    float alphaIn;
+};
+
+in float red;
+in float green;
+
+out vec4 my_FragColor;
+void main()
+{
+    my_FragColor = vec4(red, green, blueIn, alphaIn);
+})";
+
+    // Setup two uniform buffers, one with 1, one with 0
+    GLBuffer ubo0;
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatBlack, GL_STATIC_DRAW);
+    GLBuffer ubo1;
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo1);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLColor32F), &kFloatRed, GL_STATIC_DRAW);
+
+    bindProgramPipeline(vertString, fragString);
+
+    // Setup the initial bindings to draw red
+    const GLint vsUBO1 = glGetUniformBlockIndex(mVertProg, "vsUBO1");
+    const GLint vsUBO2 = glGetUniformBlockIndex(mVertProg, "vsUBO2");
+    const GLint fsUBO1 = glGetUniformBlockIndex(mFragProg, "fsUBO1");
+    const GLint fsUBO2 = glGetUniformBlockIndex(mFragProg, "fsUBO2");
+    glUniformBlockBinding(mVertProg, vsUBO1, 0);
+    glUniformBlockBinding(mVertProg, vsUBO2, 1);
+    glUniformBlockBinding(mFragProg, fsUBO1, 2);
+    glUniformBlockBinding(mFragProg, fsUBO2, 3);
+
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo1);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, ubo0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, ubo0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 3, ubo1);
+
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, 0, w / 2, h / 2);
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    // Change the bindings in the vertex shader UBO binding and draw again, should be yellow.
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, ubo1);
+    glScissor(w / 2, 0, w - w / 2, h / 2);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    // Change the bindings in the fragment shader UBO binding and draw again, should be white.
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, ubo1);
+    glScissor(0, h / 2, w / 2, h - h / 2);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    // Change the bindings in both shader UBO bindings and draw again, should be green.
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, ubo0);
+    glScissor(w / 2, h / 2, w - w / 2, h - h / 2);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, w / 2, h / 2, GLColor::red);
+    EXPECT_PIXEL_RECT_EQ(w / 2, 0, w - w / 2, h / 2, GLColor::yellow);
+    EXPECT_PIXEL_RECT_EQ(0, h / 2, w / 2, h - h / 2, GLColor::white);
+    EXPECT_PIXEL_RECT_EQ(w / 2, h / 2, w - w / 2, h - h / 2, GLColor::green);
+    ASSERT_GL_NO_ERROR();
 }
 
 // Test varyings
@@ -1822,6 +2101,122 @@ void main()
     drawQuadWithPPO("a_position", 0.5f, 1.0f);
     ASSERT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test a PPO scenario from a game, calling glBindBufferRange between two draws with
+// multiple binding points, some unused.  This would result in a crash without the fix.
+// https://issuetracker.google.com/issues/299532942
+TEST_P(ProgramPipelineTest31, ProgramPipelineBindBufferRange)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    const GLchar *vertString = R"(#version 310 es
+in vec4 position;
+layout(std140, binding = 0) uniform ubo1 {
+    vec4 color;
+};
+layout(location=0) out vec4 vsColor;
+void main()
+{
+    vsColor = color;
+    gl_Position = position;
+})";
+
+    const GLchar *fragString = R"(#version 310 es
+precision mediump float;
+layout(std140, binding = 1) uniform globals {
+    vec4 fsColor;
+};
+layout(std140, binding = 2) uniform params {
+    vec4 foo;
+};
+layout(std140, binding = 3) uniform layer {
+    vec4 bar;
+};
+layout(location=0) highp in vec4 vsColor;
+layout(location=0) out vec4 diffuse;
+void main()
+{
+    diffuse = vsColor + fsColor;
+})";
+
+    // Create the pipeline
+    GLProgramPipeline programPipeline;
+    glBindProgramPipeline(programPipeline);
+
+    // Create the vertex shader
+    GLShader vertShader(GL_VERTEX_SHADER);
+    glShaderSource(vertShader, 1, &vertString, nullptr);
+    glCompileShader(vertShader);
+    mVertProg = glCreateProgram();
+    glProgramParameteri(mVertProg, GL_PROGRAM_SEPARABLE, 1);
+    glAttachShader(mVertProg, vertShader);
+    glLinkProgram(mVertProg);
+    glUseProgramStages(programPipeline, GL_VERTEX_SHADER_BIT, mVertProg);
+    EXPECT_GL_NO_ERROR();
+
+    // Create the fragment shader
+    GLShader fragShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragShader, 1, &fragString, nullptr);
+    glCompileShader(fragShader);
+    mFragProg = glCreateProgram();
+    glProgramParameteri(mFragProg, GL_PROGRAM_SEPARABLE, 1);
+    glAttachShader(mFragProg, fragShader);
+    glLinkProgram(mFragProg);
+    glUseProgramStages(programPipeline, GL_FRAGMENT_SHADER_BIT, mFragProg);
+    EXPECT_GL_NO_ERROR();
+
+    // Set up a uniform buffer with room for five offsets, four active at a time
+    GLBuffer ubo;
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+    glBufferData(GL_UNIFORM_BUFFER, 2048, 0, GL_DYNAMIC_DRAW);
+    uint8_t *mappedBuffer =
+        static_cast<uint8_t *>(glMapBufferRange(GL_UNIFORM_BUFFER, 0, 2048, GL_MAP_WRITE_BIT));
+    ASSERT_NE(nullptr, mappedBuffer);
+
+    // Only set up three of the five offsets. The other two must be present, but unused.
+    GLColor32F *binding0 = reinterpret_cast<GLColor32F *>(mappedBuffer);
+    GLColor32F *binding1 = reinterpret_cast<GLColor32F *>(mappedBuffer + 256);
+    GLColor32F *binding4 = reinterpret_cast<GLColor32F *>(mappedBuffer + 1024);
+    *binding0            = kFloatRed;
+    *binding1            = kFloatGreen;
+    *binding4            = kFloatBlue;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+
+    // Start with binding0=red and binding1=green
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo, 0, 256);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 1, ubo, 256, 512);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 2, ubo, 512, 768);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 3, ubo, 768, 1024);
+    EXPECT_GL_NO_ERROR();
+
+    // Set up data for draw
+    std::array<Vector3, 6> verts = GetQuadVertices();
+    GLBuffer vbo;
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(verts[0]), verts.data(), GL_STATIC_DRAW);
+    GLint posLoc = glGetAttribLocation(mVertProg, "position");
+    glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glEnableVertexAttribArray(posLoc);
+    EXPECT_GL_NO_ERROR();
+
+    // Perform the first draw
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // At this point we have red+green=yellow, but read-back changes dirty bits and breaks the test
+    // EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::yellow);
+    EXPECT_GL_NO_ERROR();
+
+    // This is the key here - call glBindBufferRange between glDraw* calls, changing binding0=blue
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo, 1024, 1280);
+    EXPECT_GL_NO_ERROR();
+
+    // The next draw would crash in handleDirtyGraphicsUniformBuffers without the accompanying fix
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // We should now have green+blue=cyan
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::cyan);
+    EXPECT_GL_NO_ERROR();
 }
 
 class ProgramPipelineTest32 : public ProgramPipelineTest

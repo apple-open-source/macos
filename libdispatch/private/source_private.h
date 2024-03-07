@@ -123,6 +123,15 @@ DISPATCH_SOURCE_TYPE_DECL(sock);
 API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0)) DISPATCH_LINUX_UNAVAILABLE()
 DISPATCH_SOURCE_TYPE_DECL(nw_channel);
 
+/*!
+ * @const DISPATCH_SOURCE_TYPE_EXCLAVES_NOTIFICATION
+ * @discussion A dispatch source that monitors exclaves notifications
+ * The mask describes desired events from exclaves.
+ */
+#define DISPATCH_SOURCE_TYPE_EXCLAVES_NOTIFICATION (&_dispatch_source_type_exclaves_notification)
+API_AVAILABLE(macos(14.3), ios(17.4)) DISPATCH_LINUX_UNAVAILABLE()
+DISPATCH_SOURCE_TYPE_DECL_SWIFT(exclaves_notification, DispatchSourceExclavesNotification);
+
 __END_DECLS
 
 /*!

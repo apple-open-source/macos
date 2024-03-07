@@ -165,6 +165,15 @@ enum UDisplayContext {
      */
     UDISPCTX_LENGTH_VARIANT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 2,
 #endif // APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES
+// rdar://115264744 (Sub-TLF: China geopolitical location display via ICU)
+    /**
+     * [Apple-specific addition for rdar://115264744]
+     * Use government-approved locale names when running in the People's Republic of China
+     * ( e.g., "Taiwan (China)" instead of just "Taiwan")
+     */
+    UDISPCTX_LENGTH_PRC = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 10,
+#endif // APPLE_ICU_CHANGES
     /**
      * ================================
      * SUBSTITUTE_HANDLING can be set to one of UDISPCTX_SUBSTITUTE or

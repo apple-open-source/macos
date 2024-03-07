@@ -62,7 +62,8 @@ StyleCachedImage::~StyleCachedImage() = default;
 
 bool StyleCachedImage::operator==(const StyleImage& other) const
 {
-    return is<StyleCachedImage>(other) && equals(downcast<StyleCachedImage>(other));
+    auto* otherCachedImage = dynamicDowncast<StyleCachedImage>(other);
+    return otherCachedImage && equals(*otherCachedImage);
 }
 
 bool StyleCachedImage::equals(const StyleCachedImage& other) const
@@ -88,14 +89,14 @@ URL StyleCachedImage::reresolvedURL(const Document& document) const
     return m_cssValue->reresolvedURL(document);
 }
 
-RenderSVGResourceContainer* StyleCachedImage::uncheckedRenderSVGResource(TreeScope& treeScope, const AtomString& fragment) const
+LegacyRenderSVGResourceContainer* StyleCachedImage::uncheckedRenderSVGResource(TreeScope& treeScope, const AtomString& fragment) const
 {
     auto renderSVGResource = ReferencedSVGResources::referencedRenderResource(treeScope, fragment);
     m_isRenderSVGResource = renderSVGResource != nullptr;
     return renderSVGResource;
 }
 
-RenderSVGResourceContainer* StyleCachedImage::uncheckedRenderSVGResource(const RenderElement* renderer) const
+LegacyRenderSVGResourceContainer* StyleCachedImage::uncheckedRenderSVGResource(const RenderElement* renderer) const
 {
     if (!renderer)
         return nullptr;
@@ -125,7 +126,7 @@ RenderSVGResourceContainer* StyleCachedImage::uncheckedRenderSVGResource(const R
     return uncheckedRenderSVGResource(rootElement->treeScopeForSVGReferences(), fragmentIdentifier.toAtomString());
 }
 
-RenderSVGResourceContainer* StyleCachedImage::renderSVGResource(const RenderElement* renderer) const
+LegacyRenderSVGResourceContainer* StyleCachedImage::renderSVGResource(const RenderElement* renderer) const
 {
     if (m_isRenderSVGResource && !*m_isRenderSVGResource)
         return nullptr;

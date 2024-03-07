@@ -34,6 +34,7 @@
 #include "MediaPlayerEnums.h"
 #include "MediaPlayerIdentifier.h"
 #include "PlaybackSessionModel.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/WeakPtr.h>
 
@@ -97,7 +98,7 @@ public:
 #endif
 };
 
-class VideoPresentationModelClient {
+class VideoPresentationModelClient : public CanMakeWeakPtr<VideoPresentationModelClient>, public CanMakeCheckedPtr {
 public:
     virtual ~VideoPresentationModelClient() = default;
     virtual void hasVideoChanged(bool) { }

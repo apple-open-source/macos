@@ -1,49 +1,49 @@
-SDKROOT = exclavecore.iphoneos.internal
-SUPPORTED_PLATFORMS = exclavekit.iphoneos
-BUILD_VARIANTS = normal asan
+#include "libmalloc_common.xcconfig"
+
+SDKROOT = exclavekit.iphoneos.internal
+SUPPORTED_PLATFORMS = exclavekit.iphoneos exclavekit.macosx exclavekit.appletvos exclavekit.watchos exclavekit.xros
+BUILD_VARIANTS = normal asan debug
 
 PRODUCT_NAME = libsystem_malloc
 INSTALL_PATH = $(SYSTEM_PREFIX)/usr/lib/system
 
-// Use matching directory structure as liblibc
-PUBLIC_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/include/knrheap
-PRIVATE_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/include/_knrheap
+PUBLIC_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/include/malloc
+PRIVATE_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/local/include
 USE_HEADERMAP = NO
 
-// The main heap header files are still installed by liblibc
-TAPI_EXTRA_PUBLIC_HEADERS = $(inherited) $(SDKROOT)/$(SYSTEM_PREFIX)/usr/include/_liblibc/_malloc.h
-TAPI_EXTRA_PUBLIC_HEADERS = $(inherited) $(SDKROOT)/$(SYSTEM_PREFIX)/usr/include/malloc/malloc.h
-
-// Add the local include directory only to the user header search path to ensure
-// that malloc/malloc.h comes from the SDK whereas knrheap/heap.h is local
-ALWAYS_SEARCH_USER_PATHS = NO
-USER_HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/include
-HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/include/knrheap
+HEADER_SEARCH_PATHS = $(SRCROOT)/include $(SRCROOT)/private $(inherited)
+USER_HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/private
+SYSTEM_HEADER_SEARCH_PATHS = $(inherited) $(SDKROOT)/System/ExclaveKit/usr/local/standalone/cL4-future/include
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) L4_CONFIG_PLAT_EXCLAVE_GENERIC
 
 SUPPORTS_TEXT_BASED_API = YES
 TAPI_VERIFY_MODE = Pedantic
 
+CLANG_ENABLE_MODULES = YES
+// Force modulemap to be copied in installhdrs phase
+DEFINES_MODULE = YES
+MODULEMAP_FILE = $(SRCROOT)/include/malloc/allocator.modulemap
+INSTALLHDRS_COPY_PHASE = YES
+
 // Don't link against libSystem, link against liblibc directly
 LINK_WITH_STANDARD_LIBRARIES = NO
 LIBRARY_SEARCH_PATHS = $(inherited) $(SDKROOT)/$(SYSTEM_PREFIX)/usr/lib/system
-OTHER_LDFLAGS = $(inherited) -umbrella System -Wl,-upward-llibc
+// `___chkstk_darwin` comes from compiler-rt
+OTHER_LDFLAGS = $(inherited) -fapple-link-rtlib -umbrella System -Wl,-upward-llibc -Wl,-upward-lsystem_blocks -Wl,-upward-lsystem_platform
 
 // ASan builds need to produce a different file with different build settings
-OTHER_LDFLAGS_asan = $(inherited) -fsanitize=address
-OTHER_LDFLAGS_asan = $(inherited) -fno-sanitize-link-runtime
 OTHER_LDFLAGS_asan = $(inherited) -Wl,-image_suffix,_asan
 
-OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_INSTRUMENTATION=1
-OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_RUNTIME=1
-OTHER_CFLAGS_asan = $(inherited) -fsanitize=address
-OTHER_CFLAGS_asan = $(inherited) -fsanitize-address-use-after-return=never
-OTHER_CFLAGS_asan = $(inherited) -mllvm -asan-constructor-kind=none
-OTHER_CFLAGS_asan = $(inherited) -mllvm -asan-guard-against-version-mismatch=0
+OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_INSTRUMENTATION=1 -D__LIBLIBC_F_UBSAN_INSTRUMENTATION=1
+OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_RUNTIME=1 -D__LIBLIBC_F_UBSAN_RUNTIME=1
+// Don't instrument actual libmalloc code with ASan instrumentation
+OTHER_CFLAGS_asan = $(inherited) -fno-sanitize=address -fsanitize=undefined
 
-OTHER_TAPI_FLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_INSTRUMENTATION=1
-OTHER_TAPI_FLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_RUNTIME=1
+OTHER_TAPI_FLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_INSTRUMENTATION=1 -D__LIBLIBC_F_UBSAN_INSTRUMENTATION=1
+OTHER_TAPI_FLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_RUNTIME=1 -D__LIBLIBC_F_UBSAN_RUNTIME=1
 
+TAPI_EXTRA_PRIVATE_HEADERS = $(inherited) $(SRCROOT)/private/make_tapi_happy.h
 OTHER_TAPI_FLAGS = $(inherited) -umbrella System $(OTHER_TAPI_FLAGS_$(CURRENT_VARIANT))
 
-// Enable firebloom to match liblibc build settings
-CLANG_ENABLE_BOUNDS_ATTRIBUTES = YES
+// Set on files that can build with bounds attributes in the xcodeproj
+MALLOC_BOUNDS_ATTRIBUTES_SUPPORT = -fbounds-attributes

@@ -259,8 +259,8 @@ SVGLengthValue SVGLengthValue::fromCSSPrimitiveValue(const CSSPrimitiveValue& va
 
 Ref<CSSPrimitiveValue> SVGLengthValue::toCSSPrimitiveValue(const Element* element) const
 {
-    if (is<SVGElement>(element)) {
-        SVGLengthContext context { downcast<SVGElement>(element) };
+    if (auto* svgElement = dynamicDowncast<SVGElement>(element)) {
+        SVGLengthContext context { svgElement };
         auto computedValue = context.convertValueToUserUnits(valueInSpecifiedUnits(), lengthType(), lengthMode());
         if (!computedValue.hasException())
             return CSSPrimitiveValue::create(computedValue.releaseReturnValue(), CSSUnitType::CSS_PX);
@@ -329,11 +329,11 @@ ExceptionOr<void> SVGLengthValue::setValueAsString(StringView string)
     return readCharactersForParsing(string, [&](auto buffer) -> ExceptionOr<void> {
         auto convertedNumber = parseNumber(buffer, SuffixSkippingPolicy::DontSkip);
         if (!convertedNumber)
-            return Exception { SyntaxError };
+            return Exception { ExceptionCode::SyntaxError };
 
         auto lengthType = parseLengthType(buffer);
         if (lengthType == SVGLengthType::Unknown)
-            return Exception { SyntaxError };
+            return Exception { ExceptionCode::SyntaxError };
 
         m_lengthType = lengthType;
         m_valueInSpecifiedUnits = *convertedNumber;

@@ -187,7 +187,7 @@ public:
             m_before = MonotonicTime::now();
     }
     
-    TimingScope(Heap& heap, const char* name)
+    TimingScope(JSC::Heap& heap, const char* name)
         : TimingScope(heap.collectionScope(), name)
     {
     }
@@ -197,7 +197,7 @@ public:
         m_scope = scope;
     }
     
-    void setScope(Heap& heap)
+    void setScope(JSC::Heap& heap)
     {
         setScope(heap.collectionScope());
     }
@@ -222,7 +222,7 @@ private:
 
 class Heap::HeapThread final : public AutomaticThread {
 public:
-    HeapThread(const AbstractLocker& locker, Heap& heap)
+    HeapThread(const AbstractLocker& locker, JSC::Heap& heap)
         : AutomaticThread(locker, heap.m_threadLock, heap.m_threadCondition.copyRef())
         , m_heap(heap)
     {
@@ -264,7 +264,7 @@ private:
         m_heap.m_collectorThreadIsRunning = false;
     }
 
-    Heap& m_heap;
+    JSC::Heap& m_heap;
 };
 
 #define INIT_SERVER_ISO_SUBSPACE(name, heapCellType, type) \
@@ -587,9 +587,49 @@ void Heap::releaseDelayedReleasedObjects()
 #endif
 }
 
-void Heap::reportExtraMemoryAllocatedSlowCase(GCDeferralContext* deferralContext, size_t size)
+void Heap::reportExtraMemoryAllocatedPossiblyFromAlreadyMarkedCell(const JSCell* cell, size_t size)
+{
+    ASSERT(cell);
+
+    // Increasing extraMemory of already marked objects will not be visible as a retained memory.
+    // We need to report this additionally to tell GC that we get additional extra memory now,
+    // and GC needs to consider scheduling GC based on this increase.
+
+    if (UNLIKELY(mutatorShouldBeFenced())) {
+        // In this case, the barrierThreshold is the tautological threshold, so cell could still be
+        // not black. But we can't know for sure until we fire off a fence.
+        WTF::storeLoadFence();
+        if (cell->cellState() != CellState::PossiblyBlack)
+            return;
+
+        WTF::loadLoadFence();
+        if (!isMarked(cell)) {
+            // During a full collection a store into an unmarked object that had surivived past
+            // collections will manifest as a store to an unmarked PossiblyBlack object. If the
+            // object gets marked at some time after this then it will go down the normal marking
+            // path. So, we don't have to remember this object. We could return here. But we go
+            // further and attempt to re-white the object.
+            ASSERT(m_collectionScope && m_collectionScope.value() == CollectionScope::Full);
+            return;
+        }
+    } else
+        ASSERT(isMarked(cell));
+
+    // It could be that the object was *just* marked. This means that the collector may set the
+    // state to DefinitelyGrey and then to PossiblyOldOrBlack at any time. It's OK for us to
+    // race with the collector here. If we win then this is accurate because the object _will_
+    // get scanned again. If we lose then someone else will barrier the object again. That would
+    // be unfortunate but not the end of the world.
+    reportExtraMemoryVisited(size);
+}
+
+void Heap::reportExtraMemoryAllocatedSlowCase(GCDeferralContext* deferralContext, const JSCell* cell, size_t size)
 {
     didAllocate(size);
+    if (cell) {
+        if (UNLIKELY(isWithinThreshold(cell->cellState(), barrierThreshold())))
+            reportExtraMemoryAllocatedPossiblyFromAlreadyMarkedCell(cell, size);
+    }
     collectIfNecessaryOrDefer(deferralContext);
 }
 
@@ -600,7 +640,7 @@ void Heap::deprecatedReportExtraMemorySlowCase(size_t size)
     CheckedSize checkedNewSize = m_deprecatedExtraMemorySize;
     checkedNewSize += size;
     m_deprecatedExtraMemorySize = UNLIKELY(checkedNewSize.hasOverflowed()) ? std::numeric_limits<size_t>::max() : checkedNewSize.value();
-    reportExtraMemoryAllocatedSlowCase(nullptr, size);
+    reportExtraMemoryAllocatedSlowCase(nullptr, nullptr, size);
 }
 
 bool Heap::overCriticalMemoryThreshold(MemoryThresholdCallType memoryThresholdCallType)
@@ -1073,11 +1113,7 @@ void Heap::deleteAllUnlinkedCodeBlocks(DeleteAllCodeEffort effort)
 
 void Heap::deleteUnmarkedCompiledCode()
 {
-    forEachScriptExecutableSpace([] (auto& space) { space.space.sweep(); });
-    // Sweeping must occur before deleting stubs, otherwise the stubs might still think they're alive as they get deleted.
-    // And CodeBlock destructor is assuming that CodeBlock gets destroyed before UnlinkedCodeBlock gets destroyed.
-    forEachCodeBlockSpace([] (auto& space) { space.space.sweep(); });
-    m_jitStubRoutines->deleteUnmarkedJettisonedStubRoutines();
+    m_jitStubRoutines->deleteUnmarkedJettisonedStubRoutines(vm());
 }
 
 void Heap::addToRememberedSet(const JSCell* constCell)
@@ -1635,6 +1671,7 @@ NEVER_INLINE bool Heap::runEndPhase(GCConductor conn)
         finalizeUnconditionalFinalizers(); // We rely on these unconditional finalizers running before clearCurrentlyExecuting since CodeBlock's finalizer relies on querying currently executing.
         removeDeadCompilerWorklistEntries();
     }
+    deleteUnmarkedCompiledCode();
 
     notifyIncrementalSweeper();
     
@@ -1642,8 +1679,8 @@ NEVER_INLINE bool Heap::runEndPhase(GCConductor conn)
         [&] (CodeBlock* codeBlock) {
             writeBarrier(codeBlock);
         });
-    m_codeBlocks->clearCurrentlyExecuting();
-        
+    m_codeBlocks->clearCurrentlyExecutingAndRemoveDeadCodeBlocks(vm());
+
     m_objectSpace.prepareForAllocation();
     updateAllocationLimits();
 
@@ -2176,7 +2213,6 @@ void Heap::finalize()
     
     {
         SweepingScope sweepingScope(*this);
-        deleteUnmarkedCompiledCode();
         deleteSourceProviderCaches();
         sweepInFinalize();
     }
@@ -2950,7 +2986,7 @@ void Heap::addCoreConstraints()
     m_constraintSet->add(
         "O", "Output",
         MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([] (auto& visitor) {
-            Heap* heap = visitor.heap();
+            JSC::Heap* heap = visitor.heap();
 
             // The `visitor2` argument is strangely named because the WinCairo port
             // gets confused  and thinks we're trying to capture the outer visitor

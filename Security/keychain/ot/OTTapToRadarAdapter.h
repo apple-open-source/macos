@@ -6,7 +6,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol OTTapToRadarAdapter
 
-- (void)postHomePodLostTrustTTR;
+- (void)postHomePodLostTrustTTR:(NSString*)identifiers;
 @end
 
 @interface OTTapToRadarActualAdapter : NSObject <OTTapToRadarAdapter>

@@ -246,14 +246,34 @@ void AppleCSPSession::WrapKey(
 	
 	switch(UnwrappedKey.blobType()) {
 		case CSSM_KEYBLOB_RAW:
-			/* 
-			 * Trivial case - we already have the blob.
-			 * This op - wrapping a raw key - is not supported for the 
-			 * CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1 format since that doesn't
-			 * operate on a key blob.
-			 */
-			rawBlob = CssmData::overlay(UnwrappedKey.KeyData);
-			rawFormat = UnwrappedKey.blobFormat();
+            rawFormat = requestedKeyFormat(Context, UnwrappedKey, UnwrappedKey.blobFormat());
+            if (rawFormat == UnwrappedKey.blobFormat()) {
+                /*
+                 * Trivial case - we already have the blob.
+                 * This op - wrapping a raw key - is not supported for the
+                 * CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1 format since that doesn't
+                 * operate on a key blob.
+                 */
+                rawBlob = CssmData::overlay(UnwrappedKey.KeyData);
+            } else {
+                /*
+                 * Caller requests different key format, so go through BinaryKey
+                 * and reexport data in requested format.
+                 */
+                CSPKeyInfoProvider *provider = infoProvider(UnwrappedKey);
+                CSSM_KEYATTR_FLAGS flags = UnwrappedKey.KeyHeader.KeyAttr;
+                BinaryKey *rawBinKey = NULL;
+                provider->CssmKeyToBinary(NULL, flags, &rawBinKey);
+                auto binKey = std::unique_ptr<BinaryKey>(rawBinKey);
+                binKey->mKeyHeader = CssmKey::Header::overlay(UnwrappedKey.header());
+                binKey->generateKeyBlob(privAllocator,
+                                        rawBlob,
+                                        rawFormat,
+                                        *this,
+                                        Context.get<CssmKey>(CSSM_ATTRIBUTE_PARAM_KEY),
+                                        unwrappedKeyAttrFlags);
+                allocdRawBlob = true;
+            }
 			break;
 		case CSSM_KEYBLOB_REFERENCE:
 			/* get binary key, then get blob from it */

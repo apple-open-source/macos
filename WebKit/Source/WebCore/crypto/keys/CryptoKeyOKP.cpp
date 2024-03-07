@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoKeyOKP.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoAlgorithmRegistry.h"
 #include "JsonWebKey.h"
 #include <wtf/text/Base64.h>
@@ -64,11 +62,11 @@ CryptoKeyOKP::CryptoKeyOKP(CryptoAlgorithmIdentifier identifier, NamedCurve curv
 ExceptionOr<CryptoKeyPair> CryptoKeyOKP::generatePair(CryptoAlgorithmIdentifier identifier, NamedCurve namedCurve, bool extractable, CryptoKeyUsageBitmap usages)
 {
     if (!isPlatformSupportedCurve(namedCurve))
-        return Exception { NotSupportedError };
+        return Exception { ExceptionCode::NotSupportedError };
 
     auto result = platformGeneratePair(identifier, namedCurve, extractable, usages);
     if (!result)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     return WTFMove(*result);
 }
@@ -139,11 +137,11 @@ RefPtr<CryptoKeyOKP> CryptoKeyOKP::importJwk(CryptoAlgorithmIdentifier identifie
 ExceptionOr<Vector<uint8_t>> CryptoKeyOKP::exportRaw() const
 {
     if (type() != CryptoKey::Type::Public)
-        return Exception { InvalidAccessError };
+        return Exception { ExceptionCode::InvalidAccessError };
 
     auto result = platformExportRaw();
     if (result.isEmpty())
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     return result;
 }
 
@@ -172,7 +170,7 @@ ExceptionOr<JsonWebKey> CryptoKeyOKP::exportJwk() const
         result.x = generateJwkX();
         break;
     case CryptoKeyType::Secret:
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     }
 
     return result;
@@ -226,7 +224,7 @@ RefPtr<CryptoKeyOKP> CryptoKeyOKP::importSpki(CryptoAlgorithmIdentifier, NamedCu
 
 ExceptionOr<Vector<uint8_t>> CryptoKeyOKP::exportSpki() const
 {
-    return Exception { NotSupportedError };
+    return Exception { ExceptionCode::NotSupportedError };
 }
 
 RefPtr<CryptoKeyOKP> CryptoKeyOKP::importPkcs8(CryptoAlgorithmIdentifier, NamedCurve, Vector<uint8_t>&&, bool, CryptoKeyUsageBitmap)
@@ -237,7 +235,7 @@ RefPtr<CryptoKeyOKP> CryptoKeyOKP::importPkcs8(CryptoAlgorithmIdentifier, NamedC
 
 ExceptionOr<Vector<uint8_t>> CryptoKeyOKP::exportPkcs8() const
 {
-    return Exception { NotSupportedError };
+    return Exception { ExceptionCode::NotSupportedError };
 }
 
 String CryptoKeyOKP::generateJwkD() const
@@ -257,5 +255,3 @@ Vector<uint8_t> CryptoKeyOKP::platformExportRaw() const
 #endif
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

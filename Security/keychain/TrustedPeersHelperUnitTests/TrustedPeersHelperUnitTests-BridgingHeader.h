@@ -23,5 +23,6 @@
 #import "keychain/securityd/SecItemDataSource.h"
 
 #import "keychain/ckks/tests/MockCloudKit.h"
+#import "tests/secdmockaks/mockaks.h"
 
 #include "featureflags/featureflags.h"

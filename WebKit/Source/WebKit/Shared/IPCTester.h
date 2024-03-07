@@ -63,7 +63,7 @@ private:
     // Messages.
     void startMessageTesting(IPC::Connection&, String&& driverName);
     void stopMessageTesting(CompletionHandler<void()>&&);
-    void createStreamTester(IPCStreamTesterIdentifier, IPC::StreamServerConnection::Handle&&);
+    void createStreamTester(IPC::Connection&, IPCStreamTesterIdentifier, IPC::StreamServerConnection::Handle&&);
     void releaseStreamTester(IPCStreamTesterIdentifier, CompletionHandler<void()>&&);
     void createConnectionTester(IPC::Connection&, IPCConnectionTesterIdentifier, IPC::Connection::Handle&&);
     void createConnectionTesterAndSendAsyncMessages(IPC::Connection&, IPCConnectionTesterIdentifier, IPC::Connection::Handle&&, uint32_t messageCount);
@@ -71,8 +71,9 @@ private:
     void sendSameSemaphoreBack(IPC::Connection&, IPC::Semaphore&&);
     void sendSemaphoreBackAndSignalProtocol(IPC::Connection&, IPC::Semaphore&&);
     void sendAsyncMessageToReceiver(IPC::Connection&, uint32_t);
-    void asyncPing(IPC::Connection&, CompletionHandler<void()>&&);
-    void syncPing(IPC::Connection&, CompletionHandler<void()>&&);
+    void asyncPing(IPC::Connection&, uint32_t value, CompletionHandler<void(uint32_t)>&&);
+    void syncPing(IPC::Connection&, uint32_t value, CompletionHandler<void(uint32_t)>&&);
+    void syncPingEmptyReply(IPC::Connection&, uint32_t value, CompletionHandler<void()>&&);
 
     void stopIfNeeded();
 

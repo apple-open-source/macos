@@ -2,14 +2,16 @@
 		<key>OpenSourceProject</key>
 		<string>units</string>
 		<key>OpenSourceVersion</key>
-		<string>2008-08-16</string>
+		<string>2020-03-17</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/units?id=9c95bc1c1ca13c4de56fd983391d5068f2c004b0</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/units?id=3431172fa862dccb2a8b918161da186cfafc95f0</string>
 		<key>OpenSourceImportDate</key>
-		<string>2010-04-06</string>
+		<string>2023-05-04</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>units.c: Use len when comparing prefixes</string>
+			<string>units.1: swap -v and -V options</string>
+			<string>units.c: swap -v and -V options</string>
+			<string>units.c: reimplement -U option</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

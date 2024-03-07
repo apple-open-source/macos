@@ -45,7 +45,7 @@ do { \
     void* ptr = reinterpret_cast<void*>(ipint_ ## name ## _validate); \
     void* untaggedBase = CodePtr<CFunctionPtrTag>::fromTaggedPtr(base).template untaggedPtr(); \
     void* untaggedPtr = CodePtr<CFunctionPtrTag>::fromTaggedPtr(ptr).template untaggedPtr(); \
-    RELEASE_ASSERT((char*)(untaggedPtr) - (char*)(untaggedBase) == opcode * 256); \
+    RELEASE_ASSERT_WITH_MESSAGE((char*)(untaggedPtr) - (char*)(untaggedBase) == opcode * 256, #name); \
 } while (false);
 
 #define VALIDATE_IPINT_0xFC_OPCODE(opcode, name) \
@@ -54,7 +54,7 @@ do { \
     void* ptr = reinterpret_cast<void*>(ipint_ ## name ## _validate); \
     void* untaggedBase = CodePtr<CFunctionPtrTag>::fromTaggedPtr(base).template untaggedPtr(); \
     void* untaggedPtr = CodePtr<CFunctionPtrTag>::fromTaggedPtr(ptr).template untaggedPtr(); \
-    RELEASE_ASSERT((char*)(untaggedPtr) - (char*)(untaggedBase) == opcode * 256); \
+    RELEASE_ASSERT_WITH_MESSAGE((char*)(untaggedPtr) - (char*)(untaggedBase) == opcode * 256, #name); \
 } while (false);
 
 #define VALIDATE_IPINT_SIMD_OPCODE(opcode, name) \
@@ -63,7 +63,16 @@ do { \
     void* ptr = reinterpret_cast<void*>(ipint_ ## name ## _validate); \
     void* untaggedBase = CodePtr<CFunctionPtrTag>::fromTaggedPtr(base).template untaggedPtr(); \
     void* untaggedPtr = CodePtr<CFunctionPtrTag>::fromTaggedPtr(ptr).template untaggedPtr(); \
-    RELEASE_ASSERT((char*)(untaggedPtr) - (char*)(untaggedBase) == opcode * 256); \
+    RELEASE_ASSERT_WITH_MESSAGE((char*)(untaggedPtr) - (char*)(untaggedBase) == opcode * 256, #name); \
+} while (false);
+
+#define VALIDATE_IPINT_ATOMIC_OPCODE(opcode, name) \
+do { \
+    void* base = reinterpret_cast<void*>(ipint_memory_atomic_notify_validate); \
+    void* ptr = reinterpret_cast<void*>(ipint_ ## name ## _validate); \
+    void* untaggedBase = CodePtr<CFunctionPtrTag>::fromTaggedPtr(base).template untaggedPtr(); \
+    void* untaggedPtr = CodePtr<CFunctionPtrTag>::fromTaggedPtr(ptr).template untaggedPtr(); \
+    RELEASE_ASSERT_WITH_MESSAGE((char*)(untaggedPtr) - (char*)(untaggedBase) == opcode * 256, #name); \
 } while (false);
 
 void initialize()
@@ -72,6 +81,7 @@ void initialize()
     FOR_EACH_IPINT_OPCODE(VALIDATE_IPINT_OPCODE);
     FOR_EACH_IPINT_0xFC_TRUNC_OPCODE(VALIDATE_IPINT_0xFC_OPCODE);
     FOR_EACH_IPINT_SIMD_OPCODE(VALIDATE_IPINT_SIMD_OPCODE);
+    FOR_EACH_IPINT_ATOMIC_OPCODE(VALIDATE_IPINT_ATOMIC_OPCODE);
 #else
     RELEASE_ASSERT_NOT_REACHED("IPInt only supports ARM64 and X86_64 (for now).");
 #endif

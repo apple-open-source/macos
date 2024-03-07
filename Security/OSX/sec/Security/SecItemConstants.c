@@ -285,6 +285,10 @@ SEC_CONST_DECL (kSecAttrTokenIDSecureElement, "com.apple.secelemtoken");
 /* Internal kSecAttrAccessGroup for syncing */
 SEC_CONST_DECL (kSOSInternalAccessGroup, "com.apple.security.sos");
 
+SEC_CONST_DECL (kSecAttrSharingGroup, "ggrp");
+const CFStringRef kSecAttrGroupKitGroup = kSecAttrSharingGroup;
+
+SEC_CONST_DECL (kSecAttrSharingGroupNone, "");
 
 /*  View Hint Constants */
 

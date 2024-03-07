@@ -202,7 +202,7 @@ static int                          gPendingResponseTimeout = 5;
 static uint32_t                     gSleepBlockers = 0;
 
 static CFMutableSetRef              gPendingLoggingResponses = NULL;
-static bool                         gActivityUpdateInProgress = false;
+static uint32_t                     gActivityUpdateToken = 0;
 static CFMutableDictionaryRef       gAsyncActiveAssertions = NULL;
 static bool                         gActivityUpdateActivesOnly = false;
 static bool                         gActivityUpdateClientOverflow = false;
@@ -812,25 +812,37 @@ void sendAssertionActivityUpdateMsg(ProcessInfo *pinfo, bool actives_only, void(
     } else {
         xpc_dictionary_set_uint64(msg, kAssertionUpdateActivityMsg, 1);
     }
+    xpc_dictionary_set_uint64(msg, kAssertionCheckTokenKey, gActivityUpdateToken);
+    DEBUG_LOG("sendAssertionActivityUpdateMsg: Sending token: %u to pid: %d\n", gActivityUpdateToken, pinfo->pid);
     xpc_connection_send_message_with_reply(pinfo->remoteConnection, msg, _getPMMainQueue(), responseHandler);
     xpc_release(msg);
 }
 
 void processAssertionActivityUpdateResp(xpc_object_t reply, pid_t pid, bool actives_only)
 {
-    if (gActivityUpdateInProgress == false) {
-        ERROR_LOG("processAssertionActivityUpdateResp: client %d responded after timeout", pid);
+    uint32_t    token = 0;
+
+    xpc_type_t type = xpc_get_type(reply);
+    if (type != XPC_TYPE_DICTIONARY) {
+        ERROR_LOG("processAssertionActivityUpdateResp: Reply type isn't XPC_TYPE_DICTIONARY from pid: %d\n", pid);
+        return;
+    }
+
+    token = (uint32_t)xpc_dictionary_get_uint64(reply, kAssertionCheckTokenKey);
+    if (token != gActivityUpdateToken) {
+        if (gActivityUpdateToken == 0) {
+            ERROR_LOG("processAssertionActivityUpdateResp: client %d responded after timeout", pid);
+        }
+        else {
+            ERROR_LOG("processAssertionActivityUpdateResp: Unexpected response from pid %d. token: %u expected: %u\n",
+                      pid, token, gActivityUpdateToken);
+        }
         return;
     }
 
     ProcessInfo *pinfo = processInfoGet(pid);
     if (!pinfo) {
         ERROR_LOG("Process for pid %d not found", pid);
-        return;
-    }
-    
-    if (!CFSetContainsValue(gPendingLoggingResponses, pinfo)) {
-        INFO_LOG("Reply from pid:%d not considered pending. Reply likely from a previous request.\n", pid);
         return;
     }
     
@@ -867,13 +879,25 @@ void processAssertionActivityUpdateResp(xpc_object_t reply, pid_t pid, bool acti
         } else {
             _sendAssertionActivityUpdate(NULL, gActivityUpdateClientOverflow);
         }
-        gActivityUpdateInProgress = false;
+        gActivityUpdateToken = 0;
     }
 }
 
 bool assertionActivityUpdateInProgress(void)
 {
-    return gActivityUpdateInProgress;
+    return (gActivityUpdateToken != 0);
+}
+
+// Generates monotonically increasing tokens from (1 to (2^32)-1). 0 is reserved to indicate NULL.
+uint32_t generateAssertionActivityUpdateToken(void)
+{
+    static uint32_t lastToken = 0;
+
+    if (lastToken == UINT32_MAX)
+        lastToken = 0;
+
+    lastToken += 1;
+    return lastToken;
 }
 
 void checkForAssertionActivityUpdates(bool actives_only)
@@ -890,7 +914,8 @@ void checkForAssertionActivityUpdates(bool actives_only)
     if (actives_only) {
         gAsyncActiveAssertions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     }
-    gActivityUpdateInProgress = true;
+
+    gActivityUpdateToken = generateAssertionActivityUpdateToken();
 
     if (gPendingLoggingResponses == NULL) {
         gPendingLoggingResponses = CFSetCreateMutable(0, 0, NULL);
@@ -901,7 +926,7 @@ void checkForAssertionActivityUpdates(bool actives_only)
             } else {
                 _sendAssertionActivityUpdate(NULL, false);
             }
-            gActivityUpdateInProgress = false;
+            gActivityUpdateToken = 0;
             goto exit;
         }
     }
@@ -915,7 +940,7 @@ void checkForAssertionActivityUpdates(bool actives_only)
         } else {
             _sendAssertionActivityUpdate(NULL, false);
         }
-        gActivityUpdateInProgress = false;
+        gActivityUpdateToken = 0;
         goto exit;
     }
     CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
@@ -928,8 +953,8 @@ void checkForAssertionActivityUpdates(bool actives_only)
         processInfoRetain(pinfo->pid);
         CFSetAddValue(gPendingLoggingResponses, (const void*)pinfo);
         pid_t pid = pinfo->pid;
-        sendAssertionActivityUpdateMsg(pinfo, actives_only, ^(xpc_object_t reply) {
-            processAssertionActivityUpdateResp(reply, pid, actives_only);
+        sendAssertionActivityUpdateMsg(pinfo, gActivityUpdateActivesOnly, ^(xpc_object_t reply) {
+            processAssertionActivityUpdateResp(reply, pid, gActivityUpdateActivesOnly);
         });
     }
 
@@ -941,7 +966,7 @@ void checkForAssertionActivityUpdates(bool actives_only)
         } else {
             _sendAssertionActivityUpdate(NULL, false);
         }
-        gActivityUpdateInProgress = false;
+        gActivityUpdateToken = 0;
         goto exit;
     }
     if (timer == 0) {
@@ -979,7 +1004,7 @@ void checkForAssertionActivityUpdates(bool actives_only)
             if (timedOutProcesses) {
                 CFRelease(timedOutProcesses);
             }
-            gActivityUpdateInProgress = false;
+            gActivityUpdateToken = 0;
             CFSetRemoveAllValues(gPendingLoggingResponses);
         });
 

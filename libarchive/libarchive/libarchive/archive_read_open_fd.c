@@ -50,6 +50,8 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read_open_fd.c 201103 2009-12-28
 
 #include "archive.h"
 
+#include "archive_mac.h"
+
 struct read_fd_data {
 	int	 fd;
 	size_t	 block_size;
@@ -100,6 +102,10 @@ archive_read_open_fd(struct archive *a, int fd, size_t block_size)
 #if defined(__CYGWIN__) || defined(_WIN32)
 	setmode(mine->fd, O_BINARY);
 #endif
+
+#ifdef HAVE_MAC_QUARANTINE
+	archive_read_get_quarantine_from_fd(a, fd);
+#endif //HAVE_MAC_QUARANTINE
 
 	archive_read_set_read_callback(a, file_read);
 	archive_read_set_skip_callback(a, file_skip);

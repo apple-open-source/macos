@@ -62,6 +62,19 @@
 	<dict>
 		<key>com.apple.xpc.activity</key>
 		<dict>
+			<key>com.apple.securityd.kcsharing.resync</key>
+			<dict>
+				<key>RequiresClassA</key>
+				<true/>
+				<key>RequireInexpensiveNetworkConnectivity</key>
+				<true/>
+				<key>GracePeriod</key>
+				<integer>172800</integer>
+				<key>Interval</key>
+				<integer>604800</integer>
+				<key>Priority</key>
+				<string>Maintenance</string>
+			</dict>
 			<key>com.apple.securityd.daily</key>
 			<dict>
 				<key>Priority</key>

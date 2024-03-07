@@ -28,6 +28,7 @@
 
 #include "BreakLines.h"
 #include "FontCascade.h"
+#include "InlineLineTypes.h"
 #include "InlineTextItem.h"
 #include "Latin1TextIterator.h"
 #include "LayoutInlineTextBox.h"
@@ -68,9 +69,13 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
         ++to;
     auto width = 0.f;
     auto useSimplifiedContentMeasuring = inlineTextBox.canUseSimplifiedContentMeasuring();
-    if (useSimplifiedContentMeasuring)
-        width = fontCascade.widthForSimpleText(StringView(text).substring(from, to - from));
-    else {
+    if (useSimplifiedContentMeasuring) {
+        auto view = StringView(text).substring(from, to - from);
+        if (fontCascade.canTakeFixedPitchFastContentMeasuring())
+            width = fontCascade.widthForSimpleTextWithFixedPitch(view, inlineTextBox.style().collapseWhiteSpace());
+        else
+            width = fontCascade.widthForSimpleText(view);
+    } else {
         auto& style = inlineTextBox.style();
         auto directionalOverride = style.unicodeBidi() == UnicodeBidi::Override;
         auto run = WebCore::TextRun { StringView(text).substring(from, to - from), contentLogicalLeft, { }, ExpansionBehavior::defaultBehavior(), directionalOverride ? style.direction() : TextDirection::LTR, directionalOverride };
@@ -82,7 +87,9 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
     if (extendedMeasuring)
         width -= (spaceWidth(fontCascade, useSimplifiedContentMeasuring) + fontCascade.wordSpacing());
 
-    return std::isnan(width) ? 0.0f : std::isinf(width) ? maxInlineLayoutUnit() : width;
+    if (UNLIKELY(std::isnan(width) || std::isinf(width)))
+        return std::isnan(width) ? 0.0f : maxInlineLayoutUnit();
+    return std::max(0.f, width);
 }
 
 InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, const FontCascade& fontCascade, InlineLayoutUnit contentLogicalLeft)
@@ -103,7 +110,9 @@ InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, const Fon
 
         if (singleWhiteSpace) {
             auto width = spaceWidth(fontCascade, useSimplifiedContentMeasuring);
-            return std::isnan(width) ? 0.0f : std::isinf(width) ? maxInlineLayoutUnit() : width;
+            if (UNLIKELY(std::isnan(width) || std::isinf(width)))
+                return std::isnan(width) ? 0.0f : maxInlineLayoutUnit();
+            return std::max(0.f, width);
         }
     }
     return width(inlineTextItem.inlineTextBox(), fontCascade, from, to, contentLogicalLeft, useTrailingWhitespaceMeasuringOptimization);
@@ -119,18 +128,18 @@ InlineLayoutUnit TextUtil::trailingWhitespaceWidth(const InlineTextBox& inlineTe
 }
 
 template <typename TextIterator>
-static void fallbackFontsForRunWithIterator(HashSet<const Font*>& fallbackFonts, const FontCascade& fontCascade, const TextRun& run, TextIterator& textIterator)
+static void fallbackFontsForRunWithIterator(SingleThreadWeakHashSet<const Font>& fallbackFonts, const FontCascade& fontCascade, const TextRun& run, TextIterator& textIterator)
 {
     auto isRTL = run.rtl();
     auto isSmallCaps = fontCascade.isSmallCaps();
     auto& primaryFont = fontCascade.primaryFont();
 
-    UChar32 currentCharacter = 0;
+    char32_t currentCharacter = 0;
     unsigned clusterLength = 0;
     while (textIterator.consume(currentCharacter, clusterLength)) {
 
         auto addFallbackFontForCharacterIfApplicable = [&](auto character) {
-            if (isSmallCaps && character != u_toupper(character))
+            if (isSmallCaps)
                 character = u_toupper(character);
 
             auto glyphData = fontCascade.glyphDataForCharacter(character, isRTL);
@@ -144,7 +153,7 @@ static void fallbackFontsForRunWithIterator(HashSet<const Font*>& fallbackFonts,
                 // If we include the synthetic bold expansion, then even zero-width glyphs will have their fonts added.
                 if (isNonSpacingMark || glyphData.font->widthForGlyph(glyphData.glyph, Font::SyntheticBoldInclusion::Exclude))
                     if (!isIgnored)
-                        fallbackFonts.add(glyphData.font);
+                        fallbackFonts.add(*glyphData.font);
             }
         };
         addFallbackFontForCharacterIfApplicable(currentCharacter);
@@ -183,12 +192,12 @@ static TextUtil::EnclosingAscentDescent enclosingGlyphBoundsForRunWithIterator(c
     auto isSmallCaps = fontCascade.isSmallCaps();
     auto& primaryFont = fontCascade.primaryFont();
 
-    UChar32 currentCharacter = 0;
+    char32_t currentCharacter = 0;
     unsigned clusterLength = 0;
     while (textIterator.consume(currentCharacter, clusterLength)) {
 
         auto computeTopAndBottomForCharacter = [&](auto character) {
-            if (isSmallCaps && character != u_toupper(character))
+            if (isSmallCaps)
                 character = u_toupper(character);
 
             auto glyphData = fontCascade.glyphDataForCharacter(character, isRTL);
@@ -382,13 +391,13 @@ bool TextUtil::shouldPreserveNewline(const Box& layoutBox)
 bool TextUtil::isWrappingAllowed(const RenderStyle& style)
 {
     // https://www.w3.org/TR/css-text-4/#text-wrap
-    return style.textWrap() != TextWrap::NoWrap;
+    return style.textWrapMode() != TextWrapMode::NoWrap;
 }
 
 bool TextUtil::shouldTrailingWhitespaceHang(const RenderStyle& style)
 {
     // https://www.w3.org/TR/css-text-4/#white-space-phase-2
-    return style.whiteSpaceCollapse() == WhiteSpaceCollapse::Preserve && style.textWrap() != TextWrap::NoWrap;
+    return style.whiteSpaceCollapse() == WhiteSpaceCollapse::Preserve && style.textWrapMode() != TextWrapMode::NoWrap;
 }
 
 TextBreakIterator::LineMode::Behavior TextUtil::lineBreakIteratorMode(LineBreak lineBreak)
@@ -417,10 +426,22 @@ TextBreakIterator::ContentAnalysis TextUtil::contentAnalysis(WordBreak wordBreak
     case WordBreak::KeepAll:
     case WordBreak::BreakWord:
         return TextBreakIterator::ContentAnalysis::Mechanical;
-    case WordBreak::Auto:
+    case WordBreak::AutoPhrase:
         return TextBreakIterator::ContentAnalysis::Linguistic;
     }
     return TextBreakIterator::ContentAnalysis::Mechanical;
+}
+
+bool TextUtil::isStrongDirectionalityCharacter(char32_t character)
+{
+    auto bidiCategory = u_charDirection(character);
+    return bidiCategory == U_RIGHT_TO_LEFT
+        || bidiCategory == U_RIGHT_TO_LEFT_ARABIC
+        || bidiCategory == U_RIGHT_TO_LEFT_EMBEDDING
+        || bidiCategory == U_RIGHT_TO_LEFT_OVERRIDE
+        || bidiCategory == U_LEFT_TO_RIGHT_EMBEDDING
+        || bidiCategory == U_LEFT_TO_RIGHT_OVERRIDE
+        || bidiCategory == U_POP_DIRECTIONAL_FORMAT;
 }
 
 bool TextUtil::containsStrongDirectionalityText(StringView text)
@@ -430,18 +451,9 @@ bool TextUtil::containsStrongDirectionalityText(StringView text)
 
     auto length = text.length();
     for (size_t position = 0; position < length;) {
-        UChar32 character;
+        char32_t character;
         U16_NEXT(text.characters16(), position, length, character);
-
-        auto bidiCategory = u_charDirection(character);
-        bool hasBidiContent = bidiCategory == U_RIGHT_TO_LEFT
-            || bidiCategory == U_RIGHT_TO_LEFT_ARABIC
-            || bidiCategory == U_RIGHT_TO_LEFT_EMBEDDING
-            || bidiCategory == U_RIGHT_TO_LEFT_OVERRIDE
-            || bidiCategory == U_LEFT_TO_RIGHT_EMBEDDING
-            || bidiCategory == U_LEFT_TO_RIGHT_OVERRIDE
-            || bidiCategory == U_POP_DIRECTIONAL_FORMAT;
-        if (hasBidiContent)
+        if (isStrongDirectionalityCharacter(character))
             return true;
     }
 
@@ -456,7 +468,7 @@ size_t TextUtil::firstUserPerceivedCharacterLength(const InlineTextBox& inlineTe
     if (textContent.is8Bit())
         return 1;
     if (inlineTextBox.canUseSimpleFontCodePath()) {
-        UChar32 character;
+        char32_t character;
         size_t endOfCodePoint = startPosition;
         U16_NEXT(textContent.characters16(), endOfCodePoint, textContent.length(), character);
         ASSERT(endOfCodePoint > startPosition);
@@ -551,6 +563,21 @@ float TextUtil::hangableStopOrCommaEndWidth(const InlineTextItem& inlineTextItem
     return width(inlineTextItem, style.fontCascade(), trailingPosition, trailingPosition + 1, { });
 }
 
+template<typename CharacterType>
+static bool canUseSimplifiedTextMeasuringForCharacters(std::span<const CharacterType> characters, const FontCascade& fontCascade, const Font& primaryFont, bool whitespaceIsCollapsed)
+{
+    auto* rawCharacters = characters.data();
+    for (unsigned i = 0; i < characters.size(); ++i) {
+        auto character = rawCharacters[i]; // Not using characters[i] to bypass the bounds check.
+        if (!WidthIterator::characterCanUseSimplifiedTextMeasuring(character, whitespaceIsCollapsed))
+            return false;
+        auto glyphData = fontCascade.glyphDataForCharacter(character, false);
+        if (!glyphData.isValid() || glyphData.font != &primaryFont)
+            return false;
+    }
+    return true;
+}
+
 bool TextUtil::canUseSimplifiedTextMeasuring(StringView textContent, const RenderStyle& style, const RenderStyle* firstLineStyle)
 {
     ASSERT(textContent.is8Bit() || FontCascade::characterRangeCodePath(textContent.characters16(), textContent.length()) == FontCascade::CodePath::Simple);
@@ -573,15 +600,18 @@ bool TextUtil::canUseSimplifiedTextMeasuring(StringView textContent, const Rende
         return false;
 
     auto whitespaceIsCollapsed = style.collapseWhiteSpace();
-    for (unsigned i = 0; i < textContent.length(); ++i) {
-        auto character = textContent[i];
-        if (!WidthIterator::characterCanUseSimplifiedTextMeasuring(character, whitespaceIsCollapsed))
-            return false;
-        auto glyphData = fontCascade.glyphDataForCharacter(character, false);
-        if (!glyphData.isValid() || glyphData.font != &primaryFont)
-            return false;
+    if (textContent.is8Bit())
+        return canUseSimplifiedTextMeasuringForCharacters(textContent.span8(), fontCascade, primaryFont, whitespaceIsCollapsed);
+    return canUseSimplifiedTextMeasuringForCharacters(textContent.span16(), fontCascade, primaryFont, whitespaceIsCollapsed);
+}
+
+bool TextUtil::hasPositionDependentContentWidth(StringView textContent)
+{
+    for (char32_t character : StringView(textContent).codePoints()) {
+        if (character == tabCharacter)
+            return true;
     }
-    return true;
+    return false;
 }
 
 }

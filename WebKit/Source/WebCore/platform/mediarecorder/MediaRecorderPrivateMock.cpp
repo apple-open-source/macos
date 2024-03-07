@@ -36,11 +36,6 @@
 
 namespace WebCore {
 
-Ref<MediaRecorderPrivateMock> MediaRecorderPrivateMock::create(MediaStreamPrivate& stream)
-{
-    return adoptRef(*new MediaRecorderPrivateMock(stream));
-}
-
 MediaRecorderPrivateMock::MediaRecorderPrivateMock(MediaStreamPrivate& stream)
 {
     auto selectedTracks = MediaRecorderPrivate::selectTracks(stream);

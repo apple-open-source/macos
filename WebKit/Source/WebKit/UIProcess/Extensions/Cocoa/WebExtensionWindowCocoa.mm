@@ -35,9 +35,11 @@
 #import "CocoaHelpers.h"
 #import "Logging.h"
 #import "WebExtensionContext.h"
+#import "WebExtensionTabQueryParameters.h"
 #import "WebExtensionUtilities.h"
 #import "_WKWebExtensionTab.h"
 #import "_WKWebExtensionWindow.h"
+#import <wtf/BlockPtr.h>
 
 namespace WebKit {
 
@@ -76,10 +78,9 @@ WebExtensionWindowParameters WebExtensionWindow::parameters(PopulateTabs populat
 
     if (populate == PopulateTabs::Yes) {
         auto tabs = this->tabs();
-        tabParameters.reserveInitialCapacity(tabs.size());
-
-        for (auto& tab : tabs)
-            tabParameters.uncheckedAppend(tab->parameters());
+        tabParameters = WTF::map(tabs, [](auto& tab) {
+            return tab->parameters();
+        });
     }
 
     auto frame = this->normalizedFrame();
@@ -88,8 +89,10 @@ WebExtensionWindowParameters WebExtensionWindow::parameters(PopulateTabs populat
         identifier(),
         state(),
         type(),
+
         populate == PopulateTabs::Yes ? std::optional(WTFMove(tabParameters)) : std::nullopt,
         !CGRectIsNull(frame) ? std::optional(frame) : std::nullopt,
+
         isFocused(),
         isPrivate()
     };
@@ -106,6 +109,52 @@ WebExtensionWindowParameters WebExtensionWindow::minimalParameters() const
         std::nullopt,
         std::nullopt
     };
+}
+
+bool WebExtensionWindow::matches(OptionSet<TypeFilter> filter) const
+{
+    if (!extensionHasAccess())
+        return false;
+
+    switch (type()) {
+    case Type::Normal:
+        return filter.contains(TypeFilter::Normal);
+
+    case Type::Popup:
+        return filter.contains(TypeFilter::Popup);
+    }
+}
+
+bool WebExtensionWindow::matches(const WebExtensionTabQueryParameters& parameters, std::optional<WebPageProxyIdentifier> webPageProxyIdentifier) const
+{
+    if (!extensionHasAccess())
+        return false;
+
+    if (parameters.windowIdentifier && identifier() != parameters.windowIdentifier.value())
+        return false;
+
+    if (parameters.windowType && !matches(parameters.windowType.value()))
+        return false;
+
+    if (parameters.frontmostWindow && isFrontmost() != parameters.frontmostWindow.value())
+        return false;
+
+    if (parameters.currentWindow) {
+        auto currentWindow = extensionContext()->getWindow(WebExtensionWindowConstants::CurrentIdentifier, webPageProxyIdentifier);
+        if (!currentWindow)
+            return false;
+
+        if (identifier() != currentWindow->identifier())
+            return false;
+    }
+
+    return true;
+}
+
+bool WebExtensionWindow::extensionHasAccess() const
+{
+    bool isPrivate = this->isPrivate();
+    return !isPrivate || (isPrivate && extensionContext()->hasAccessInPrivateBrowsing());
 }
 
 WebExtensionWindow::TabVector WebExtensionWindow::tabs() const
@@ -125,7 +174,7 @@ WebExtensionWindow::TabVector WebExtensionWindow::tabs() const
 
     for (id<_WKWebExtensionTab> tab in tabs) {
         THROW_UNLESS([tab conformsToProtocol:@protocol(_WKWebExtensionTab)], @"Object in array returned by tabsForWebExtensionContext: does not conform to the _WKWebExtensionTab protocol");
-        result.uncheckedAppend(m_extensionContext->getOrCreateTab(tab));
+        result.append(m_extensionContext->getOrCreateTab(tab));
     }
 
     if (auto activeTab = [m_delegate activeTabForWebExtensionContext:m_extensionContext->wrapper()]) {
@@ -238,7 +287,7 @@ void WebExtensionWindow::setState(WebExtensionWindow::State state, CompletionHan
         return;
     }
 
-    [m_delegate setWindowState:toAPI(state) forWebExtensionContext:m_extensionContext->wrapper() completionHandler:^(NSError *error) {
+    [m_delegate setWindowState:toAPI(state) forWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for setWindowState: %{private}@", error);
             completionHandler(error.localizedDescription);
@@ -246,7 +295,7 @@ void WebExtensionWindow::setState(WebExtensionWindow::State state, CompletionHan
         }
 
         completionHandler(std::nullopt);
-    }];
+    }).get()];
 }
 
 bool WebExtensionWindow::isFocused() const
@@ -257,6 +306,14 @@ bool WebExtensionWindow::isFocused() const
     return this == m_extensionContext->focusedWindow();
 }
 
+bool WebExtensionWindow::isFrontmost() const
+{
+    if (!isValid())
+        return false;
+
+    return this == m_extensionContext->frontmostWindow();
+}
+
 void WebExtensionWindow::focus(CompletionHandler<void(Error)>&& completionHandler)
 {
     if (!isValid() || !m_respondsToFocus) {
@@ -264,7 +321,7 @@ void WebExtensionWindow::focus(CompletionHandler<void(Error)>&& completionHandle
         return;
     }
 
-    [m_delegate focusForWebExtensionContext:m_extensionContext->wrapper() completionHandler:^(NSError *error) {
+    [m_delegate focusForWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for window focus: %{private}@", error);
             completionHandler(error.localizedDescription);
@@ -272,15 +329,22 @@ void WebExtensionWindow::focus(CompletionHandler<void(Error)>&& completionHandle
         }
 
         completionHandler(std::nullopt);
-    }];
+    }).get()];
 }
 
 bool WebExtensionWindow::isPrivate() const
 {
+    if (m_cachedPrivate)
+        return m_private;
+
     if (!isValid() || !m_respondsToIsUsingPrivateBrowsing)
         return false;
 
-    return [m_delegate isUsingPrivateBrowsingForWebExtensionContext:m_extensionContext->wrapper()];
+    // Private can't change after the fact, so cache it for quick access and to ensure it does not change.
+    m_private = [m_delegate isUsingPrivateBrowsingForWebExtensionContext:m_extensionContext->wrapper()];
+    m_cachedPrivate = true;
+
+    return m_private;
 }
 
 CGRect WebExtensionWindow::normalizedFrame() const
@@ -322,7 +386,7 @@ void WebExtensionWindow::setFrame(CGRect frame, CompletionHandler<void(Error)>&&
 
     frame = CGRectStandardize(frame);
 
-    [m_delegate setFrame:frame forWebExtensionContext:m_extensionContext->wrapper() completionHandler:^(NSError *error) {
+    [m_delegate setFrame:frame forWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for setFrame: %{private}@", error);
             completionHandler(error.localizedDescription);
@@ -330,7 +394,7 @@ void WebExtensionWindow::setFrame(CGRect frame, CompletionHandler<void(Error)>&&
         }
 
         completionHandler(std::nullopt);
-    }];
+    }).get()];
 }
 
 CGRect WebExtensionWindow::screenFrame() const
@@ -348,7 +412,7 @@ void WebExtensionWindow::close(CompletionHandler<void(Error)>&& completionHandle
         return;
     }
 
-    [m_delegate closeForWebExtensionContext:m_extensionContext->wrapper() completionHandler:^(NSError *error) {
+    [m_delegate closeForWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for window close: %{private}@", error);
             completionHandler(error.localizedDescription);
@@ -356,7 +420,7 @@ void WebExtensionWindow::close(CompletionHandler<void(Error)>&& completionHandle
         }
 
         completionHandler(std::nullopt);
-    }];
+    }).get()];
 }
 
 } // namespace WebKit

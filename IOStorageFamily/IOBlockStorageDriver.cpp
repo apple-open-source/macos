@@ -235,7 +235,7 @@ void IOBlockStorageDriver::systemWillShutdown(IOOptionBits inOptions)
                     if (!this->_writeProtected) {
                         this->getProvider()->doSynchronize(0,0);
                 	}
-                	if (!this->_removable && (inOptions == kIOMessageSystemWillPowerOff)) {
+                	if (!this->_removable && ((inOptions == kIOMessageSystemWillPowerOff) || (inOptions == kIOMessageSystemWillRestart))) {
                     	this->getProvider()->doEjectMedia();
                 	}
             	}
@@ -703,8 +703,10 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
         driver->incrementErrors(isWrite);
     }
 
+    // Release the retain taken on buffer before calling the completion.
+    context->request.buffer->release();
+    
     // Complete the transfer request.
-
     IOStorage::complete(&context->request.completion, status, actualByteCount);
 
     clock_get_uptime(&postCompletionTime);
@@ -735,7 +737,7 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
 
     // Release our resources.
 
-    context->request.buffer->release();
+    
 
     driver->deleteContext(context);
 
@@ -1635,17 +1637,8 @@ IOBlockStorageDriver::rejectMedia(void)
 void
 IOBlockStorageDriver::stop(IOService * provider)
 {
-    if (_userBlockStorageDevice == NULL)
-    {
-        if (_perfControlClient) {
-            _perfControlClient->unregisterDevice(provider, this);
-            _perfControlClient->release();
-            _perfControlClient = NULL;
-        }
-    }
-    
     PMstop ( );
-    
+
     super::stop(provider);
 }
 

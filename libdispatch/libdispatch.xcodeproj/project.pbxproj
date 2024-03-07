@@ -776,6 +776,7 @@
 /* Begin PBXFileReference section */
 		01176208299D5059007B4D84 /* dispatch_swift_shims.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dispatch_swift_shims.h; sourceTree = "<group>"; };
 		01A5F2202950587900AFDFF4 /* Dispatch.apinotes */ = {isa = PBXFileReference; lastKnownFileType = text.apinotes; path = Dispatch.apinotes; sourceTree = "<group>"; };
+		01FE68822ACD2E47004A2C3C /* dispatch_workqueue_signals.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dispatch_workqueue_signals.c; sourceTree = "<group>"; };
 		2BBF5A5F154B64D8002B20F9 /* allocator_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = allocator_internal.h; sourceTree = "<group>"; };
 		2BBF5A62154B64F5002B20F9 /* allocator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = allocator.c; sourceTree = "<group>"; };
 		2BE17C6318EA305E002CA4E8 /* layout_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = layout_private.h; sourceTree = "<group>"; };
@@ -1312,6 +1313,7 @@
 				92F3FE921BEC686300025962 /* Makefile */,
 				6E8E4E6E1C1A35EE0004F5CC /* test_lib.c */,
 				6E8E4E6F1C1A35EE0004F5CC /* test_lib.h */,
+				01FE68822ACD2E47004A2C3C /* dispatch_workqueue_signals.c */,
 			);
 			name = "Darwin Tests";
 			path = tests;

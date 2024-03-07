@@ -135,7 +135,7 @@ netif_gso_get_frame_header_len(struct mbuf *m, uint8_t *hlen)
 	    ph < (char *)m->m_data)) {
 		return ERANGE;
 	}
-	len = (ph - m->m_data);
+	len = (ph - m_mtod_current(m));
 	if (__improbable(len > UINT8_MAX)) {
 		return ERANGE;
 	}

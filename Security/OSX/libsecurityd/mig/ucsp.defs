@@ -345,3 +345,5 @@ routine getUserPromptAttempts(UCSP_PORTS; out attempts: uint32_t);
 
 routine setupWithBootstrap(UCSP_PORTS; in bootstrap: mach_port_t; in info: SetupInfo; in FilePath: FilePath);
 routine setupThreadWithBootstrap(UCSP_PORTS; in bootstrap: mach_port_t);
+
+routine getPublicKey(UCSP_PORTS;  in context: Data; in key: IPCKeyHandle; out pubKeyData: Data);

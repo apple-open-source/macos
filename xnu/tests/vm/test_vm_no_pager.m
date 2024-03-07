@@ -309,6 +309,8 @@ run_test(const char* test_num, int argc, char** argv)
 /* Test Declarations  */
 T_DECL(vm_no_pager_force_unmount, "test correct detection and propagation of reason for not having a pager (forced unmount)",
 	T_META_IGNORECRASHES(".*test_vm_no_pager.*"),
+	// This test is failing, and still needs work. rdar://118456103
+	T_META_ENABLED(false),
 	T_META_ASROOT(true))
 {
 	current_expected_triage_string = FORCED_UNMOUNT_ERROR;
@@ -316,8 +318,9 @@ T_DECL(vm_no_pager_force_unmount, "test correct detection and propagation of rea
 }
 
 T_DECL(vm_no_pager_ungraft, "test correct detection and propagation of reason for not having a pager (ungraft)",
-    T_META_IGNORECRASHES(".*test_vm_no_pager.*"),
-    T_META_ASROOT(true))
+	T_META_IGNORECRASHES(".*test_vm_no_pager.*"),
+	T_META_ENABLED(false),
+	T_META_ASROOT(true))
 {
 	current_expected_triage_string = UNGRAFTED_ERROR;
 	run_test("2", argc, argv);

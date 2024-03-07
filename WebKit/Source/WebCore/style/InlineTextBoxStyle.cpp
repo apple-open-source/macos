@@ -65,7 +65,7 @@ static float minLogicalTopForTextDecorationLineUnder(const InlineIterator::LineB
         if (!run->style().textDecorationsInEffect().contains(TextDecorationLine::Underline))
             continue; // If the text decoration isn't in effect on the child, then it must be outside of |decoratingBoxRendererForUnderline|'s hierarchy.
 
-        if (decoratingBoxRendererForUnderline.isRenderInline() && !isAncestorAndWithinBlock(downcast<RenderInline>(decoratingBoxRendererForUnderline), &run->renderer()))
+        if (auto* renderInline = dynamicDowncast<RenderInline>(decoratingBoxRendererForUnderline); renderInline && !isAncestorAndWithinBlock(*renderInline, &run->renderer()))
             continue;
 
         if (run->isText() || run->style().textDecorationSkipInk() == TextDecorationSkipInk::None)
@@ -84,7 +84,7 @@ static float maxLogicalBottomForTextDecorationLineUnder(const InlineIterator::Li
         if (!run->style().textDecorationsInEffect().contains(TextDecorationLine::Underline))
             continue; // If the text decoration isn't in effect on the child, then it must be outside of |decoratingBoxRendererForUnderline|'s hierarchy.
 
-        if (decoratingBoxRendererForUnderline.isRenderInline() && !isAncestorAndWithinBlock(downcast<RenderInline>(decoratingBoxRendererForUnderline), &run->renderer()))
+        if (auto* renderInline = dynamicDowncast<RenderInline>(decoratingBoxRendererForUnderline); renderInline && !isAncestorAndWithinBlock(*renderInline, &run->renderer()))
             continue;
 
         if (run->isText() || run->style().textDecorationSkipInk() == TextDecorationSkipInk::None)
@@ -167,7 +167,7 @@ static float computedUnderlineOffset(const UnderlineOffsetArguments& context)
     auto underlineOffset = context.lineStyle.textUnderlineOffset();
     auto& fontMetrics = context.lineStyle.metricsOfPrimaryFont();
 
-    float computedUnderlineOffset = fontMetrics.ascent() + gap;
+    float computedUnderlineOffset;
     switch (context.resolvedUnderlinePosition) {
     case TextUnderlinePosition::Auto:
         computedUnderlineOffset = fontMetrics.ascent() + underlineOffset.lengthOr(gap);
@@ -183,6 +183,7 @@ static float computedUnderlineOffset(const UnderlineOffsetArguments& context)
         break;
     }
     default:
+        computedUnderlineOffset = fontMetrics.ascent() + gap;
         ASSERT_NOT_REACHED();
         break;
     }

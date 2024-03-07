@@ -672,7 +672,15 @@ main(int argc, char *argv[])
 	(void)setegid(egid);
 #endif /* !__APPLE__ */
 	if (!quietlog) {
+#ifdef __APPLE__
+		int hd = open(pwd->pw_dir, O_RDONLY);
+		if (hd >= 0) {
+			quietlog = faccessat(hd, _PATH_HUSHLOGIN, F_OK, 0) == 0;
+			close(hd);
+		}
+#else
 		quietlog = access(_PATH_HUSHLOGIN, F_OK) == 0;
+#endif
 #ifdef USE_PAM
 		if (!quietlog)
 			pam_silent = 0;

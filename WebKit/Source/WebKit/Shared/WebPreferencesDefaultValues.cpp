@@ -175,7 +175,7 @@ bool defaultManageCaptureStatusBarInGPUProcessEnabled()
 
 #endif // ENABLE(MEDIA_STREAM)
 
-#if ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE)
+#if ENABLE(MEDIA_SOURCE)
 bool defaultManagedMediaSourceEnabled()
 {
 #if PLATFORM(COCOA)
@@ -186,7 +186,7 @@ bool defaultManagedMediaSourceEnabled()
 }
 #endif
 
-#if ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE) && ENABLE(WIRELESS_PLAYBACK_TARGET)
+#if ENABLE(MEDIA_SOURCE) && ENABLE(WIRELESS_PLAYBACK_TARGET)
 bool defaultManagedMediaSourceNeedsAirPlay()
 {
 #if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
@@ -229,6 +229,16 @@ bool defaultShouldDropNearSuspendedAssertionAfterDelay()
     return newSDK;
 #else
     return false;
+#endif
+}
+
+bool defaultShouldTakeNearSuspendedAssertion()
+{
+#if PLATFORM(IOS_FAMILY)
+    static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::FullySuspendsBackgroundContentImmediately);
+    return !newSDK;
+#else
+    return true;
 #endif
 }
 

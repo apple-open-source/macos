@@ -28,10 +28,11 @@
 #include "IdentifierTypes.h"
 #include <WebCore/DatabaseProvider.h>
 #include <wtf/HashMap.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebKit {
 
-class WebDatabaseProvider final : public WebCore::DatabaseProvider {
+class WebDatabaseProvider final : public WebCore::DatabaseProvider, public CanMakeWeakPtr<WebDatabaseProvider> {
 public:
     static Ref<WebDatabaseProvider> getOrCreate(PageGroupIdentifier);
     virtual ~WebDatabaseProvider();

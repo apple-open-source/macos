@@ -86,10 +86,6 @@ extern ExplicitInitLock<mutex_t> DemangleCacheLock;
 extern void SideTableLockAll();
 extern void SideTableUnlockAll();
 extern void SideTableForceResetAll();
-extern void SideTableDefineLockOrder();
-extern void SideTableLocksPrecedeLock(const void *newlock);
-extern void SideTableLocksSucceedLock(const void *oldlock);
-extern void SideTableLocksPrecedeLocks(StripedMap<spinlock_t>& newlocks);
-extern void SideTableLocksSucceedLocks(StripedMap<spinlock_t>& oldlocks);
+extern spinlock_t *SideTableGetLock(unsigned n);
 
 #endif

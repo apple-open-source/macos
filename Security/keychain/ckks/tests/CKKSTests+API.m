@@ -1182,11 +1182,11 @@
     self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
     OCMExpect([self.suggestTLKUpload trigger]);
 
-    self.nextModifyRecordZonesError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+    self.nextModifyRecordZonesError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                                        code:CKErrorZoneBusy
                                                                    userInfo:@{
                                                                               CKErrorRetryAfterKey: @(0.2),
-                                                                              NSUnderlyingErrorKey: [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                                              NSUnderlyingErrorKey: [[NSError alloc] initWithDomain:CKErrorDomain
                                                                                                                                      code:2029
                                                                                                                                  userInfo:nil],
                                                                               }];
@@ -1523,7 +1523,7 @@
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
-    [self.keychainZone failNextFetchWith:[[CKPrettyError alloc] initWithDomain:CKErrorDomain
+    [self.keychainZone failNextFetchWith:[[NSError alloc] initWithDomain:CKErrorDomain
                                                                           code:CKErrorRequestRateLimited
                                                                       userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:30]}]];
 
@@ -1972,9 +1972,9 @@
     OctagonStateTransitionRequest* request = [[OctagonStateTransitionRequest alloc] init:@"enter-wait-for-trust"
                                                                             sourceStates:CKKSAllStates()
                                                                              serialQueue:self.defaultCKKS.queue
-                                                                                 timeout:10 * NSEC_PER_SEC
                                                                             transitionOp:op];
-    [self.defaultCKKS.stateMachine handleExternalRequest:request];
+    [self.defaultCKKS.stateMachine handleExternalRequest:request
+                                            startTimeout:10*NSEC_PER_SEC];
 
     self.keychainView.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateError] wait:20*NSEC_PER_SEC], "CKKS entered 'error'");

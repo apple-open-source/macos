@@ -2053,7 +2053,7 @@ elles sont envoyées sur le réseau</td></tr>
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Seuil au-delà duquel les données en attente sont envoyées sur le
 réseau</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>FlushMaxThreshold <var>number-of-bytes</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>FlushMaxThreshold 65536</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>FlushMaxThreshold 65535</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale, serveur virtuel</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Noyau httpd</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
@@ -3312,8 +3312,8 @@ spécifiées</td></tr>
     qu'il est difficile de distinguer <code>~</code> de <code>-</code>
     dans la plupart des fontes.</p>
 
-    <p>La directive <code class="directive">&lt;Location&gt;</code>
-    s'utilise principalement avec la directive <code class="directive"><a href="#sethandler">SetHandler</a></code>. Par exemple, pour activer les
+    <p>La fonctionnalité <code class="directive">&lt;Location&gt;</code>
+    est particulièrement utile avec la directive <code class="directive"><a href="#sethandler">SetHandler</a></code>. Par exemple, pour activer les
     requêtes d'état, mais ne les autoriser que depuis des navigateurs
     appartenant au domaine <code>example.com</code>, vous pouvez
     utiliser :</p>

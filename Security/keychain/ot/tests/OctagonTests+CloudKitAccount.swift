@@ -379,6 +379,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
     }
 
     func testStatusRPCsWithUnknownCloudKitAccount() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         // If CloudKit isn't returning our calls, we should still return something reasonable...
         let statusexpectation = self.expectation(description: "trust status returns")
         let configuration = OTOperationConfiguration()

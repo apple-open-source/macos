@@ -3,6 +3,6 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 nv{
     Languages{
-        nv{"Diné bizaad"}
+        nv{"Diné Bizaad"}
     }
 }

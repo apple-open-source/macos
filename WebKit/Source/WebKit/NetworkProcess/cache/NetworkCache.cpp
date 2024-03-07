@@ -33,6 +33,7 @@
 #include "NetworkCacheStorage.h"
 #include "NetworkProcess.h"
 #include "NetworkSession.h"
+#include "WebsiteDataType.h"
 #include <WebCore/CacheValidation.h>
 #include <WebCore/HTTPHeaderNames.h>
 #include <WebCore/LowPowerModeNotifier.h>
@@ -535,14 +536,10 @@ std::unique_ptr<Entry> Cache::storeRedirect(const WebCore::ResourceRequest& requ
 
     auto cacheEntry = makeRedirectEntry(request, response, redirectRequest);
 
-#if ENABLE(TRACKING_PREVENTION)
     if (maxAgeCap) {
         LOG(NetworkCache, "(NetworkProcess) capping max age for redirect %s -> %s", request.url().string().latin1().data(), redirectRequest.url().string().latin1().data());
         cacheEntry->capMaxAge(maxAgeCap.value());
     }
-#else
-    UNUSED_PARAM(maxAgeCap);
-#endif
 
     auto record = cacheEntry->encodeAsStorageRecord();
 
@@ -707,26 +704,6 @@ void Cache::clear()
 String Cache::recordsPathIsolatedCopy() const
 {
     return m_storage->recordsPathIsolatedCopy();
-}
-
-void Cache::retrieveData(const DataKey& dataKey, Function<void(const uint8_t*, size_t)> completionHandler)
-{
-    Key key { dataKey, m_storage->salt() };
-    m_storage->retrieve(key, 4, [completionHandler = WTFMove(completionHandler)] (auto record, auto) mutable {
-        if (!record || !record->body.size()) {
-            completionHandler(nullptr, 0);
-            return true;
-        }
-        completionHandler(record->body.data(), record->body.size());
-        return true;
-    });
-}
-
-void Cache::storeData(const DataKey& dataKey, const uint8_t* data, size_t size)
-{
-    Key key { dataKey, m_storage->salt() };
-    Storage::Record record { key, WallTime::now(), { }, Data { data, size }, { } };
-    m_storage->store(record, { });
 }
 
 void Cache::fetchData(bool shouldComputeSize, CompletionHandler<void(Vector<WebsiteData::Entry>&&)>&& completionHandler)

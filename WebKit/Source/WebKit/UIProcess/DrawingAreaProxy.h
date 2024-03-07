@@ -37,6 +37,7 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/WeakRef.h>
 
 #if PLATFORM(COCOA)
 namespace WTF {
@@ -88,10 +89,6 @@ public:
     const WebCore::IntSize& size() const { return m_size; }
     bool setSize(const WebCore::IntSize&, const WebCore::IntSize& scrollOffset = { });
 
-#if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
-    virtual void targetRefreshRateDidChange(unsigned) { }
-#endif
-
     virtual void minimumSizeForAutoLayoutDidChange() { }
     virtual void sizeToContentAutoSizeMaximumSizeDidChange() { }
     virtual void windowKindDidChange() { }
@@ -127,7 +124,7 @@ public:
     virtual bool shouldCoalesceVisualEditorStateUpdates() const { return false; }
     virtual bool shouldSendWheelEventsToEventDispatcher() const { return false; }
 
-    WebPageProxy& page() const { return m_webPageProxy; }
+    WebPageProxy& page() const;
     virtual void viewWillStartLiveResize() { };
     virtual void viewWillEndLiveResize() { };
 
@@ -146,9 +143,11 @@ public:
 protected:
     DrawingAreaProxy(DrawingAreaType, WebPageProxy&, WebProcessProxy&);
 
+    Ref<WebPageProxy> protectedWebPageProxy() const;
+
     DrawingAreaType m_type;
     DrawingAreaIdentifier m_identifier;
-    WebPageProxy& m_webPageProxy;
+    WeakRef<WebPageProxy> m_webPageProxy;
     Ref<WebProcessProxy> m_webProcessProxy;
 
     WebCore::IntSize m_size;

@@ -488,7 +488,7 @@ T_HELPER_DECL(allocate_pages,
 
 T_DECL(memorystatus_freeze_default_state, "Test that the freezer is enabled or disabled as expected by default.", T_META_ASROOT(true)) {
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || TARGET_OS_WATCH
 	bool expected_freeze_enabled = true;
 #else
 	bool expected_freeze_enabled = false;
@@ -1709,6 +1709,7 @@ dock_proc(pid_t pid)
 }
 
 T_DECL(memorystatus_freeze_skip_docked, "memorystatus_freeze_top_process does not freeze docked processes",
+	T_META_ENABLED(!TARGET_OS_WATCH),
 	T_META_BOOTARGS_SET("freeze_enabled=1"),
 	T_META_REQUIRES_SYSCTL_EQ("vm.freeze_enabled", 1),
     T_META_ASROOT(true),

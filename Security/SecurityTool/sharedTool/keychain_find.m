@@ -67,6 +67,14 @@ static void add_key(const void *key, const void *value, void *context) {
     CFArrayAppendValue(context, key);
 }
 
+static void print_error(int error) {
+    if (error == errSecItemNotFound) {
+        fprintf(stderr, "The specified item could not be found in the keychain.\n");
+    } else if (error == errSecInteractionNotAllowed) {
+        fprintf(stderr, "User interaction is not allowed. Device may be locked.\n");
+    }
+}
+
 static bool isPrintableString(CFStringRef theString){
     bool result = false;
     CFCharacterSetRef controlSet = CFCharacterSetGetPredefined(kCFCharacterSetControl);
@@ -501,6 +509,7 @@ int keychain_item(int argc, char * const *argv) {
     bool json = false;
     int limit = 0;
     bool authSucceeded = false;
+    NSString *sharingGroup;
 
     query = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 #if TARGET_OS_OSX
@@ -594,8 +603,12 @@ int keychain_item(int argc, char * const *argv) {
                 break;
             case 's':
             {
-                result = 1;
-                goto out;
+                sharingGroup = [NSString stringWithCString:optarg encoding:NSUTF8StringEncoding];
+                if (!sharingGroup) {
+                    result = 1;
+                    goto out;
+                }
+                break;
             }
             case 'y':
             {
@@ -628,6 +641,12 @@ int keychain_item(int argc, char * const *argv) {
         goto out;
     }
 
+    if (sharingGroup != nil && (!query || do_add || do_delete || update)) {
+        // Sharing an item with a group searches for the original item,
+        // which can't be done together with a different mode.
+        result = 2;
+        goto out;
+    }
 
     if (((do_add || do_delete) && (get_password || update)) || !query) {
         result = 2;
@@ -677,12 +696,14 @@ int keychain_item(int argc, char * const *argv) {
         error = SecItemAdd(query, NULL);
         if (error) {
             sec_perror("SecItemAdd", error);
+            print_error(error);
             result = 1;
         }
     } else if (update) {
         error = SecItemUpdate(query, update);
         if (error) {
             sec_perror("SecItemUpdate", error);
+            print_error(error);
             result = 1;
         }
     } else if (do_delete) {
@@ -690,7 +711,23 @@ int keychain_item(int argc, char * const *argv) {
         error = SecItemDelete(query);
         if (error) {
             sec_perror("SecItemDelete", error);
+            print_error(error);
             result = 1;
+        }
+    }
+    else if (sharingGroup != nil) {
+        CFErrorRef rawLocalError = NULL;
+        id sharedItems = CFBridgingRelease(SecItemShareWithGroup(query, (__bridge CFStringRef)sharingGroup, &rawLocalError));
+        NSError *localError = CFBridgingRelease(rawLocalError);
+        if (!sharedItems) {
+            NSString *message = [NSString stringWithFormat:@"SecItemShareWithGroup: %@", localError];
+            sec_error("%s", message.UTF8String);
+            result = 1;
+        } else if (json) {
+            display_results_json((__bridge CFTypeRef)sharedItems);
+        }
+        else {
+            display_results((__bridge CFTypeRef)sharedItems);
         }
     }
     else {
@@ -705,6 +742,7 @@ int keychain_item(int argc, char * const *argv) {
         OSStatus status = SecItemCopyMatching(query, &results);
         if (status) {
             sec_perror("SecItemCopyMatching", status);
+            print_error(status);
             if (status != errSecItemNotFound) {
                 result = 1;
             }

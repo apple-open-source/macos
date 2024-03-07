@@ -1,5 +1,3 @@
-.\"	$NetBSD: tftp.1,v 1.18 2003/08/07 11:16:14 agc Exp $
-.\"
 .\" Copyright (c) 1990, 1993, 1994
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -28,19 +26,17 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)tftp.1	8.2 (Berkeley) 4/18/94
-.\" $FreeBSD: src/usr.bin/tftp/tftp.1,v 1.20 2007/11/07 07:56:57 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd June 11, 2003
+.Dd November 16, 2022
 .Dt TFTP 1
 .Os
 .Sh NAME
 .Nm tftp
-.Nd "trivial file transfer program"
+.Nd trivial file transfer program
 .Sh SYNOPSIS
 .Nm
-.Op Fl e
-.Op Ar host
-.Op Ar port
+.Op Ar host Op Ar port
 .Sh DESCRIPTION
 The
 .Nm
@@ -50,32 +46,29 @@ utility is the user interface to the Internet
 which allows users to transfer files to and from a remote machine.
 The remote
 .Ar host
-(and optional
-.Ar port )
 may be specified on the command line, in which case
 .Nm
 uses
 .Ar host
-(and
-.Ar port )
-as the default for future transfers (see the
+as the default host for future transfers (see the
 .Cm connect
 command below).
 .Pp
 The optional
 .Fl e
-argument sets a binary transfer mode as well as setting the extended options
-as if
-.Cm tout ,
-.Cm tsize ,
-and
-.Cm blksize 65464 ,
-had been given.
+argument sets the blocksize to the largest supported value and enables
+the TFTP timeout option as if the
+.Cm tout
+command had been given.
+In previous versions of
+.Nm ,
+it also enabled binary mode and the TFTP blksize option; these are now
+on by default.
 .Sh COMMANDS
 Once
 .Nm
 is running, it issues the prompt
-.Ql tftp\*[Gt]
+.Dq Li tftp>
 and recognizes the following commands:
 .Pp
 .Bl -tag -width verbose -compact
@@ -83,27 +76,28 @@ and recognizes the following commands:
 Print help information.
 .Pp
 .It Cm ascii
-Shorthand for
-.Ic mode Cm ascii .
+Shorthand for "mode ascii"
 .Pp
 .It Cm binary
-Shorthand for
-.Ic mode Cm binary .
+Shorthand for "mode binary"
 .Pp
-.It Cm blksize Ar blk-size
-Set the tftp blksize option to
-.Ar blk-size
-octets (8-bit bytes).  Since the number of blocks in a tftp
-.Cm get
-or
-.Cm put
-is 65535, the default block size of 512 bytes only allows a maximum of
-just under 32 megabytes to be transferred.  The value given for
-.Ar blk-size
-must be between 8 and 65464, inclusive.
-Note that many servers will not respect this option.
+.It Cm blocksize Ar [size]
+Sets the TFTP blksize option in TFTP Read Request or Write Request packets
+to
+.Ar [size]
+as specified in RFC 2348.
+Valid values are between 8 and 65464.
+If no blocksize is specified, then by default a blocksize of 512 bytes
+will be used.
 .Pp
-.It Cm connect Ar host-name Op Ar port
+.It Cm blocksize2 Ar [size]
+Sets the TFTP blksize2 option in TFTP Read Request or Write Request packets
+to
+.Ar [size] .
+Values are restricted to powers of 2 between 8 and 32768.
+This is a non-standard TFTP option.
+.Pp
+.It Cm connect Ar host Op Ar port
 Set the
 .Ar host
 (and optionally
@@ -126,9 +120,21 @@ or
 .Cm put
 commands.
 .Pp
-.It Cm get Ar filename
-.It Cm get Ar remotename localname
-.It Cm get Ar file1 file2 ...  fileN
+.It Cm debug Ar level
+Enable or disable debugging levels during verbose output.
+The value of
+.Ar level
+can be one of
+.Cm packet , simple , options ,
+or
+.Cm access .
+.Pp
+.It Cm get Oo Ar host : Oc Ns Ar file Op Ar localname
+.It Cm get Xo
+.Oo Ar host1 : Oc Ns Ar file1
+.Oo Ar host2 : Oc Ns Ar file2 ...
+.Oo Ar hostN : Oc Ns Ar fileN
+.Xc
 Get one or more files from the remote host.
 When using the
 .Ar host
@@ -154,25 +160,21 @@ the filename.
 Set the mode for transfers;
 .Ar transfer-mode
 may be one of
-.Cm ascii
+.Em ascii
 or
-.Cm binary .
+.Em binary .
 The default is
-.Cm ascii .
+.Em binary .
 .Pp
-.It Cm put Ar file
-.It Cm put Ar localfile remotefile
-.It Cm put Ar file1 file2 ... fileN remote-directory
-Put a file or set of files to the specified
-remote file or directory.
-The destination
-can be in one of two forms:
-a filename on the remote host, if the host has already been specified,
-or a string of the form
-.Ar hosts:filename
-to specify both a host and filename at the same time.
-If the latter form is used,
-the hostname specified becomes the default for future transfers.
+.It Cm packetdrop [arg]
+Randomly drop
+.Ar arg
+out of 100 packets during a transfer.
+This is a debugging feature.
+.Pp
+.It Cm put Ar file Op Oo Ar host : Oc Ns Ar remotename
+.It Cm put Ar file1 file2 ... fileN Op Oo Ar host : Oc Ns Ar remote-directory
+Put a file or set of files to the remote host.
 When
 .Ar remotename
 is specified, the file is stored remotely as
@@ -189,6 +191,18 @@ see the example under the
 .Cm get
 command.
 .Pp
+.It Cm options Ar [arg]
+Enable or disable support for TFTP options.
+The valid values of
+.Ar arg
+are
+.Cm on
+(enable RFC 2347 options),
+.Cm off
+(disable RFC 2347 options), and
+.Cm extra
+(toggle support for non-RFC defined options).
+.Pp
 .It Cm quit
 Exit
 .Nm .
@@ -197,39 +211,79 @@ An end of file also exits.
 .It Cm rexmt Ar retransmission-timeout
 Set the per-packet retransmission timeout, in seconds.
 .Pp
+.It Cm rollover [arg]
+Specify the rollover option in TFTP Read Request or Write
+Request packets.
+After 65535 packets have been transmitted, set the block counter to
+.Ar arg .
+Valid values of
+.Ar arg
+are 0 and 1.  This is a non-standard TFTP option.
+.Pp
 .It Cm status
 Show current status.
 .Pp
 .It Cm timeout Ar total-transmission-timeout
 Set the total transmission timeout, in seconds.
 .Pp
-.It Cm tout
-Toggle the tftp "timeout" option.  If enabled, the client will pass its
-.Ar retransmission-timeout
-to the server.
-Note that many servers will not respect this option.
-.Pp
 .It Cm trace
 Toggle packet tracing.
 .Pp
-.It Cm tsize
-Toggle the tftp "tsize" option.  If enabled, the client will pass and
-request the filesize of a file at the beginning of a file transfer.
-Note that many servers will not respect this option.
-.Pp
 .It Cm verbose
 Toggle verbose mode.
+.Pp
+.It Cm windowsize Op Ar size
+Sets the TFTP windowsize option in TFTP Read Request or Write Request packets to
+.Op Ar size
+blocks as specified in RFC 7440.
+Valid values are between 1 and 65535.
+If no windowsize is specified,
+then the default windowsize of 1 block will be used.
 .El
+.Sh SEE ALSO
+.Xr tftpd 8
+.Pp
+The following RFC's are supported:
+.Rs
+.%T RFC 1350: The TFTP Protocol (Revision 2)
+.Re
+.Rs
+.%T RFC 2347: TFTP Option Extension
+.Re
+.Rs
+.%T RFC 2348: TFTP Blocksize Option
+.Re
+.Rs
+.%T RFC 2349: TFTP Timeout Interval and Transfer Size Options
+.Re
+.Rs
+.%T RFC 3617: Uniform Resource Identifier (URI) Scheme and Applicability Statement for the Trivial File Transfer Protocol (TFTP)
+.Re
+.Rs
+.%T RFC 7440: TFTP Windowsize Option
+.Re
+.Pp
+The non-standard
+.Cm rollover
+and
+.Cm blksize2
+TFTP options are mentioned here:
+.Rs
+.%T Extending TFTP
+.%U https://www.compuphase.com/tftp.htm
+.Re
 .Sh HISTORY
 The
 .Nm
 command appeared in
 .Bx 4.3 .
-IPv6 support was implemented by WIDE/KAME project in 1999.
-TFTP options were implemented by Wasabi Systems, Inc., in 2003,
-and first appeared in
-.Nx 2.0 .
-.Sh SECURITY CONSIDERATIONS
+.Pp
+Edwin Groothuis <edwin@FreeBSD.org> performed a major rewrite of the
+.Xr tftpd 8
+and
+.Nm
+code to support RFC2348.
+.Sh NOTES
 Because there is no user-login or validation within
 the
 .Tn TFTP
@@ -240,4 +294,5 @@ exact methods are specific to each site and therefore
 difficult to document here.
 .Pp
 Files larger than 33488896 octets (65535 blocks) cannot be transferred
-without client and server supporting blocksize negotiation (RFC1783).
+without client and server supporting the TFTP blocksize option (RFC2348),
+or the non-standard TFTP rollover option.

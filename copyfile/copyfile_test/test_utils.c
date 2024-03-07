@@ -10,11 +10,14 @@
 #include <removefile.h>
 #include <unistd.h>
 #include <sys/fcntl.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 
 #include "test_utils.h"
 #include "systemx.h"
+
+#pragma mark -- Helpers that verify data and properties
 
 bool verify_times(const char *timename, const struct timespec *expected, const struct timespec *actual) {
 	bool equal = true;
@@ -297,6 +300,8 @@ bool verify_copy_sizes(const struct stat *orig_sb, const struct stat *copy_sb, c
 	return result;
 }
 
+#pragma mark -- Helpers that write / modify files
+
 int create_hole_in_fd(int fd, off_t offset, off_t length) {
 	struct fpunchhole punchhole_args = {
 		.fp_flags = 0,
@@ -327,6 +332,63 @@ void create_test_file_name(const char *dir, const char *postfix, int id, char *s
 	// Make a name for this new file and put it in string_out, which should be BSIZE_B bytes.
 	assert_with_errno(snprintf(string_out, BSIZE_B, "%s/testfile-%d.%s", dir, id, postfix) > 0);
 }
+
+void set_up_test_dir(uint32_t *bsize_out) {
+	(void)removefile(TEST_DIR, NULL, REMOVEFILE_RECURSIVE);
+	assert_no_err(mkdir(TEST_DIR, 0777));
+
+	if (bsize_out) {
+		// Make sure the test directory is apfs formatted
+		// and we have a sane block size.
+		// Then, save that block size.
+		struct statfs stb;
+
+		assert_no_err(statfs(TEST_DIR, &stb));
+		assert_no_err(memcmp(stb.f_fstypename, APFS_FSTYPE, sizeof(APFS_FSTYPE)));
+		if (stb.f_bsize < MIN_BLOCKSIZE_B || stb.f_bsize > MAX_BLOCKSIZE_B) {
+			stb.f_bsize = DEFAULT_BLOCKSIZE_B;
+		}
+		*bsize_out = stb.f_bsize;
+	}
+}
+
+// This is necessary so we don't have to worry about
+// the actual size/lifetime of the contents of each test_t
+// (like the string name).
+typedef struct compared_test {
+	test_t *test;
+} compared_test_t;
+
+static int test_comp(const void *_lhs, const void *_rhs) {
+	test_t *lhs = ((compared_test_t *)_lhs)->test;
+	test_t *rhs = ((compared_test_t *)_rhs)->test;
+
+	return -strcmp(lhs->t_name, rhs->t_name);
+}
+
+void sort_tests(tests_t *tests) {
+	// adapted from test_apfs
+	test_t *test, *next_test;
+	unsigned test_idx = 0;
+	compared_test_t *sorted_tests;
+	assert_with_errno(sorted_tests = malloc(sizeof(compared_test_t) * tests->t_num));
+
+	LIST_FOREACH_SAFE(test, &tests->t_tests, t_list, next_test) {
+		sorted_tests[test_idx].test = test;
+		test_idx++;
+		LIST_REMOVE(test, t_list);
+	}
+
+	qsort(sorted_tests, tests->t_num, sizeof(compared_test_t), test_comp);
+
+	for (test_idx = 0; test_idx < tests->t_num; test_idx++) {
+		LIST_INSERT_HEAD(&tests->t_tests, sorted_tests[test_idx].test, t_list);
+	}
+
+	free(sorted_tests);
+}
+
+#pragma mark -- Disk image functions
 
 #if TARGET_OS_OSX
 
@@ -371,4 +433,5 @@ void disk_image_destroy(const char *mount_path, bool allow_failure) {
 	}
 }
 
-#endif
+#endif // TARGET_OS_OSX
+

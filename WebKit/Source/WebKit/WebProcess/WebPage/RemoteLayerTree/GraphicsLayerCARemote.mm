@@ -127,25 +127,23 @@ public:
         auto clone = buffer.clone();
         if (!clone)
             return false;
-        auto* backend = clone->ensureBackendCreated();
-        if (!backend)
-            return false;
 
         clone->flushDrawingContext();
 
-        auto* sharing = dynamicDowncast<ImageBufferBackendHandleSharing>(backend->toBackendSharing());
+        auto* sharing = dynamicDowncast<ImageBufferBackendHandleSharing>(clone->toBackendSharing());
         if (!sharing)
             return false;
 
         auto backendHandle = sharing->createBackendHandle(SharedMemory::Protection::ReadOnly);
+        ASSERT(backendHandle);
 
         {
             Locker locker { m_surfaceLock };
-            m_surfaceBackendHandle = ImageBufferBackendHandle { backendHandle };
+            m_surfaceBackendHandle = ImageBufferBackendHandle { *backendHandle };
             m_surfaceIdentifier = clone->renderingResourceIdentifier();
         }
 
-        m_connection->send(Messages::RemoteLayerTreeDrawingAreaProxy::AsyncSetLayerContents(m_layerID, WTFMove(backendHandle), clone->renderingResourceIdentifier()), m_drawingArea.toUInt64());
+        m_connection->send(Messages::RemoteLayerTreeDrawingAreaProxy::AsyncSetLayerContents(m_layerID, WTFMove(*backendHandle), clone->renderingResourceIdentifier()), m_drawingArea.toUInt64());
 
         return true;
     }

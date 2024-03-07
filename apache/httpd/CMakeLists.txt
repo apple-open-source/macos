@@ -71,6 +71,14 @@ ELSE()
   SET(default_brotli_libraries)
 ENDIF()
 
+IF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/libcurl_imp.lib")
+  SET(default_curl_libraries "${CMAKE_INSTALL_PREFIX}/lib/libcurl_imp.lib")
+ELSEIF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/libcurl.lib")
+  SET(default_curl_libraries "${CMAKE_INSTALL_PREFIX}/lib/libcurl.lib")
+ELSE()
+  SET(default_curl_libraries)
+ENDIF()
+
 IF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/jansson.lib")
   SET(default_jansson_libraries "${CMAKE_INSTALL_PREFIX}/lib/jansson.lib")
 ELSE()
@@ -88,6 +96,8 @@ SET(LIBXML2_ICONV_INCLUDE_DIR     ""                     CACHE STRING "Directory
 SET(LIBXML2_ICONV_LIBRARIES       ""                     CACHE STRING "iconv libraries to link with for libxml2")
 SET(BROTLI_INCLUDE_DIR    "${CMAKE_INSTALL_PREFIX}/include" CACHE STRING "Directory with include files for Brotli")
 SET(BROTLI_LIBRARIES      ${default_brotli_libraries}    CACHE STRING "Brotli libraries to link with")
+SET(CURL_INCLUDE_DIR      "${CMAKE_INSTALL_PREFIX}/include" CACHE STRING "Directory with include files for cURL")
+SET(CURL_LIBRARIES        ${default_curl_libraries}         CACHE STRING "cURL libraries to link with")
 SET(JANSSON_INCLUDE_DIR   "${CMAKE_INSTALL_PREFIX}/include" CACHE STRING "Directory with include files for jansson")
 SET(JANSSON_LIBRARIES     "${default_jansson_libraries}" CACHE STRING "Jansson libraries to link with")
 # end support library configuration
@@ -443,15 +453,16 @@ SET(mod_http2_extra_defines          ssize_t=long)
 SET(mod_http2_extra_includes         ${NGHTTP2_INCLUDE_DIR})
 SET(mod_http2_extra_libs             ${NGHTTP2_LIBRARIES})
 SET(mod_http2_extra_sources
-   modules/http2/h2_bucket_beam.c     modules/http2/h2_bucket_eos.c
-   modules/http2/h2_c1.c              modules/http2/h2_c1_io.c
-   modules/http2/h2_c2.c              modules/http2/h2_c2_filter.c
-   modules/http2/h2_config.c          modules/http2/h2_conn_ctx.c
-   modules/http2/h2_mplx.c            modules/http2/h2_headers.c
-   modules/http2/h2_protocol.c        modules/http2/h2_push.c
-   modules/http2/h2_request.c         modules/http2/h2_session.c
-   modules/http2/h2_stream.c          modules/http2/h2_switch.c
-   modules/http2/h2_util.c            modules/http2/h2_workers.c
+  modules/http2/h2_bucket_beam.c     modules/http2/h2_bucket_eos.c
+  modules/http2/h2_c1.c              modules/http2/h2_c1_io.c
+  modules/http2/h2_c2.c              modules/http2/h2_c2_filter.c
+  modules/http2/h2_config.c          modules/http2/h2_conn_ctx.c
+  modules/http2/h2_mplx.c            modules/http2/h2_headers.c
+  modules/http2/h2_protocol.c        modules/http2/h2_push.c
+  modules/http2/h2_request.c         modules/http2/h2_session.c
+  modules/http2/h2_stream.c          modules/http2/h2_switch.c
+  modules/http2/h2_util.c            modules/http2/h2_workers.c
+  modules/http2/h2_ws.c
 )
 SET(mod_ldap_extra_defines           LDAP_DECLARE_EXPORT)
 SET(mod_ldap_extra_libs              wldap32)
@@ -1010,6 +1021,8 @@ MESSAGE(STATUS "  libxml2 iconv prereq libraries .. : ${LIBXML2_ICONV_LIBRARIES}
 MESSAGE(STATUS "  Brotli include directory......... : ${BROTLI_INCLUDE_DIR}")
 MESSAGE(STATUS "  Brotli libraries ................ : ${BROTLI_LIBRARIES}")
 MESSAGE(STATUS "  Curl include directory........... : ${CURL_INCLUDE_DIR}")
+MESSAGE(STATUS "  Curl libraries .................. : ${CURL_LIBRARIES}")
+MESSAGE(STATUS "  Jansson include directory ....... : ${JANSSON_INCLUDE_DIR}")
 MESSAGE(STATUS "  Jansson libraries ............... : ${JANSSON_LIBRARIES}")
 MESSAGE(STATUS "  Extra include directories ....... : ${EXTRA_INCLUDES}")
 MESSAGE(STATUS "  Extra compile flags ............. : ${EXTRA_COMPILE_FLAGS}")

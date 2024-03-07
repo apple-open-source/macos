@@ -30,6 +30,7 @@
 #include <WebCore/LibWebRTCProvider.h>
 #include <WebCore/LibWebRTCSocketIdentifier.h>
 #include <wtf/Forward.h>
+#include <wtf/WeakPtr.h>
 
 ALLOW_COMMA_BEGIN
 
@@ -46,7 +47,7 @@ namespace WebKit {
 
 class LibWebRTCSocketFactory;
 
-class LibWebRTCSocket final : public rtc::AsyncPacketSocket {
+class LibWebRTCSocket final : public rtc::AsyncPacketSocket, public CanMakeWeakPtr<LibWebRTCSocket> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class Type { UDP, ClientTCP, ServerConnectionTCP };

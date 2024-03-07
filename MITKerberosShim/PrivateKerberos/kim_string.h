@@ -25,11 +25,11 @@
 #ifndef KIM_STRING_H
 #define KIM_STRING_H
 
+#include <Kerberos/kim_types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <Kerberos/kim_types.h>
 
 /*!
  * \page kim_string_overview KIM String Overview

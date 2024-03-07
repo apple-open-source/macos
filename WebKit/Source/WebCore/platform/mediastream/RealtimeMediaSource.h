@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2011 Ericsson AB. All rights reserved.
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,14 +40,19 @@
 #include "MediaAccessDenialReason.h"
 #include "MediaConstraints.h"
 #include "MediaDeviceHashSalts.h"
+#include "PhotoCapabilities.h"
+#include "PhotoSettings.h"
 #include "PlatformLayer.h"
 #include "RealtimeMediaSourceCapabilities.h"
 #include "RealtimeMediaSourceFactory.h"
 #include "RealtimeMediaSourceIdentifier.h"
 #include "VideoFrameTimeMetadata.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/Forward.h>
 #include <wtf/Lock.h>
 #include <wtf/LoggerHelper.h>
+#include <wtf/NativePromise.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakHashSet.h>
@@ -102,7 +107,7 @@ public:
 
         virtual void hasStartedProducingData() { }
     };
-    class AudioSampleObserver {
+    class AudioSampleObserver : public CanMakeCheckedPtr {
     public:
         virtual ~AudioSampleObserver() = default;
 
@@ -174,14 +179,20 @@ public:
     double frameRate() const { return m_frameRate; }
     void setFrameRate(double);
 
-    double zoom() const { return m_zoom; }
-    void setZoom(double);
-
     VideoFacingMode facingMode() const { return m_facingMode; }
     void setFacingMode(VideoFacingMode);
 
+    MeteringMode whiteBalanceMode() const { return m_whiteBalanceMode; }
+    void setWhiteBalanceMode(MeteringMode);
+
     double volume() const { return m_volume; }
     void setVolume(double);
+
+    double zoom() const { return m_zoom; }
+    void setZoom(double);
+
+    double torch() const { return m_torch; }
+    void setTorch(bool);
 
     int sampleRate() const { return m_sampleRate; }
     void setSampleRate(int);
@@ -199,6 +210,15 @@ public:
     virtual void ref() const = 0;
     virtual void deref() const = 0;
     virtual ThreadSafeWeakPtrControlBlock& controlBlock() const = 0;
+
+    using TakePhotoNativePromise = NativePromise<std::pair<Vector<uint8_t>, String>, String>;
+    virtual Ref<TakePhotoNativePromise> takePhoto(PhotoSettings&&);
+
+    using PhotoCapabilitiesNativePromise = NativePromise<PhotoCapabilities, String>;
+    virtual Ref<PhotoCapabilitiesNativePromise> getPhotoCapabilities();
+
+    using PhotoSettingsNativePromise = NativePromise<PhotoSettings, String>;
+    virtual Ref<PhotoSettingsNativePromise> getPhotoSettings();
 
     struct ApplyConstraintsError {
         String badConstraint;
@@ -261,8 +281,8 @@ protected:
 
     void scheduleDeferredTask(Function<void()>&&);
 
-    virtual void beginConfiguration() { }
-    virtual void commitConfiguration() { }
+    virtual void startApplyingConstraints() { }
+    virtual void endApplyingConstraints() { }
 
     bool selectSettings(const MediaConstraints&, FlattenedConstraint&, String&);
     double fitnessDistance(const MediaConstraint&);
@@ -327,7 +347,7 @@ private:
     WeakHashSet<Observer> m_observers;
 
     mutable Lock m_audioSampleObserversLock;
-    HashSet<AudioSampleObserver*> m_audioSampleObservers WTF_GUARDED_BY_LOCK(m_audioSampleObserversLock);
+    HashSet<CheckedPtr<AudioSampleObserver>> m_audioSampleObservers WTF_GUARDED_BY_LOCK(m_audioSampleObserversLock);
 
     mutable Lock m_videoFrameObserversLock;
     HashMap<VideoFrameObserver*, std::unique_ptr<VideoFrameAdaptor>> m_videoFrameObservers WTF_GUARDED_BY_LOCK(m_videoFrameObserversLock);
@@ -339,12 +359,15 @@ private:
     // Set on sample generation thread.
     IntSize m_intrinsicSize;
     double m_frameRate { 30 };
-    double m_zoom { 1 };
     double m_volume { 1 };
     double m_sampleRate { 0 };
     double m_sampleSize { 0 };
     double m_fitnessScore { 0 };
     VideoFacingMode m_facingMode { VideoFacingMode::User };
+
+    MeteringMode m_whiteBalanceMode { MeteringMode::None };
+    double m_zoom { 1 };
+    bool m_torch { false };
 
     bool m_muted { false };
     bool m_pendingSettingsDidChangeNotification { false };

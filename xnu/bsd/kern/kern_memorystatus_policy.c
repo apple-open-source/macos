@@ -69,6 +69,15 @@ extern bool vm_compressor_compressed_pages_nearing_limit(void);
 extern bool vm_compressor_is_thrashing(void);
 extern bool vm_compressor_swapout_is_ripe(void);
 
+#if XNU_TARGET_OS_WATCH
+#define FREEZE_PREVENT_REFREEZE_OF_LAST_THAWED true
+#define FREEZE_PREVENT_REFREEZE_OF_LAST_THAWED_TIMEOUT_SECONDS (60 * 15)
+#else
+#define FREEZE_PREVENT_REFREEZE_OF_LAST_THAWED false
+#endif
+extern pid_t memorystatus_freeze_last_pid_thawed;
+extern uint64_t memorystatus_freeze_last_pid_thawed_ts;
+
 static void
 memorystatus_health_check(memorystatus_system_health_t *status)
 {
@@ -569,12 +578,26 @@ memorystatus_freeze_pick_refreeze_process(proc_t last_p)
 		if (p->p_memstat_state & P_MEMSTAT_LOCKED) {
 			continue;
 		}
+
+#if FREEZE_PREVENT_REFREEZE_OF_LAST_THAWED
+		/*
+		 * Don't refreeze the last process we just thawed if still within the timeout window
+		 */
+		if (p->p_pid == memorystatus_freeze_last_pid_thawed) {
+			uint64_t timeout_delta_abs;
+			nanoseconds_to_absolutetime(FREEZE_PREVENT_REFREEZE_OF_LAST_THAWED_TIMEOUT_SECONDS * NSEC_PER_SEC, &timeout_delta_abs);
+			if (mach_absolute_time() < (memorystatus_freeze_last_pid_thawed_ts + timeout_delta_abs)) {
+				continue;
+			}
+		}
+#endif
+
 		/*
 		 * Found it
 		 */
-		break;
+		return p;
 	}
-	return p;
+	return PROC_NULL;
 }
 
 proc_t
@@ -604,26 +627,28 @@ memorystatus_freeze_pick_process(struct memorystatus_freeze_list_iterator *itera
 	 * Search for the next freezer candidate.
 	 */
 	if (memorystatus_freezer_use_ordered_list) {
-		next_p = memorystatus_freezer_candidate_list_get_proc(
-			&memorystatus_global_freeze_list,
-			(iterator->global_freeze_list_index)++,
-			&memorystatus_freezer_stats.mfs_freeze_pid_mismatches);
-	} else if (iterator->last_p == PROC_NULL) {
-		next_p = memorystatus_get_first_proc_locked(&band, FALSE);
+		while (iterator->global_freeze_list_index < memorystatus_global_freeze_list.mfcl_length) {
+			p = memorystatus_freezer_candidate_list_get_proc(
+				&memorystatus_global_freeze_list,
+				(iterator->global_freeze_list_index)++,
+				&memorystatus_freezer_stats.mfs_freeze_pid_mismatches);
+
+			if (p != PROC_NULL && memorystatus_is_process_eligible_for_freeze(p)) {
+				iterator->last_p = p;
+				return iterator->last_p;
+			}
+		}
 	} else {
-		next_p = memorystatus_get_next_proc_locked(&band, iterator->last_p, FALSE);
-	}
-	while (next_p) {
-		p = next_p;
-		if (memorystatus_is_process_eligible_for_freeze(p)) {
-			iterator->last_p = p;
-			return iterator->last_p;
+		if (iterator->last_p == PROC_NULL) {
+			next_p = memorystatus_get_first_proc_locked(&band, FALSE);
 		} else {
-			if (memorystatus_freezer_use_ordered_list) {
-				next_p = memorystatus_freezer_candidate_list_get_proc(
-					&memorystatus_global_freeze_list,
-					(iterator->global_freeze_list_index)++,
-					&memorystatus_freezer_stats.mfs_freeze_pid_mismatches);
+			next_p = memorystatus_get_next_proc_locked(&band, iterator->last_p, FALSE);
+		}
+		while (next_p) {
+			p = next_p;
+			if (memorystatus_is_process_eligible_for_freeze(p)) {
+				iterator->last_p = p;
+				return iterator->last_p;
 			} else {
 				next_p = memorystatus_get_next_proc_locked(&band, p, FALSE);
 			}
@@ -660,7 +685,7 @@ memorystatus_freeze_thread_should_run()
 	 * within memorystatus_pages_update().
 	 */
 
-	if (memorystatus_freeze_enabled == FALSE) {
+	if (memorystatus_freeze_enabled == false) {
 		return false;
 	}
 

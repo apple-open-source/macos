@@ -32,7 +32,6 @@
 #include "MessageReceiver.h"
 #include "SandboxExtension.h"
 #include "ShareableBitmap.h"
-#include "TrackPrivateRemoteIdentifier.h"
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <wtf/Lock.h>
@@ -67,7 +66,7 @@ public:
 
     RefPtr<WebCore::MediaPlayer> mediaPlayer(const WebCore::MediaPlayerIdentifier&);
 
-    ShareableBitmap::Handle bitmapImageForCurrentTime(WebCore::MediaPlayerIdentifier);
+    std::optional<ShareableBitmap::Handle> bitmapImageForCurrentTime(WebCore::MediaPlayerIdentifier);
 
 private:
     // IPC::MessageReceiver

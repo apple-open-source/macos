@@ -74,7 +74,8 @@ declare_args() {
     angle_use_android_tls_slot = !build_with_chromium
   }
 
-  angle_enable_global_mutex_recursion = is_android && angle_enable_vulkan
+  angle_enable_global_mutex_recursion =
+      is_android && angle_enable_vulkan && !build_with_chromium
 
   # Potentially can be enabled for other platforms, but limiting to Android platform for now.
   # Chromium may have problems (requires verification), disabled for safety.
@@ -148,17 +149,7 @@ config("internal_config") {
     "src",
   ]
 
-  # Handle breaking changes in VulkanMemoryAllocator.
-  angle_vma_version_define = "ANGLE_VMA_VERSION="
-  if (defined(angle_vma_version)) {
-    angle_vma_version_define += angle_vma_version
-  } else {
-    # Default to 2.3.0. This can be bumped and include guards removed when all
-    # clients have migrated to 3.x.
-    angle_vma_version_define += 2003000
-  }
-
-  defines = [ angle_vma_version_define ]
+  defines = []
 
   if (is_win) {
     defines += [ "ANGLE_IS_WIN" ]
@@ -824,6 +815,7 @@ action("angle_program_version_id") {
   visibility = [ ":angle_version" ]
 
   inputs = angle_code_affecting_program_serialize
+  deps = angle_dependencies_affecting_program_serialize
 
   args = [
     rebase_path(_program_version_header, root_build_dir),

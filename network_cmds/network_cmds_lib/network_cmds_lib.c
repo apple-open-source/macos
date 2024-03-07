@@ -27,6 +27,7 @@
  */
 
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -48,4 +49,22 @@ clean_non_printable(char *str, const size_t len)
 	}
 
 	return str;
+}
+
+void
+dump_hex(const unsigned char *ptr, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < len; i++) {
+		printf("%02x", ptr[i]);
+		if (i % 16 == 15) {
+			printf("\n");
+		} else if (i % 2 == 1) {
+			printf(" ");
+		}
+	}
+	if (i % 16 != 0) {
+			printf("\n");
+	}
 }

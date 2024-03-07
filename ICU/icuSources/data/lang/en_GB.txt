@@ -3,10 +3,4 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_GB{
     %%Parent{"en_001"}
-    Languages{
-        ii{"Sichuan Yi"}
-        mus{"Creek"}
-        sah{"Yakut"}
-        zgh{"Standard Moroccan Tamazight"}
-    }
 }

@@ -89,16 +89,13 @@ void ConcurrentWorkQueue::apply(size_t iterations, WTF::Function<void(size_t ind
     class ThreadPool {
     public:
         ThreadPool()
-        {
             // We don't need a thread for the current core.
-            unsigned threadCount = numberOfProcessorCores() - 1;
-
-            m_workers.reserveInitialCapacity(threadCount);
-            for (unsigned i = 0; i < threadCount; ++i) {
-                m_workers.uncheckedAppend(Thread::create("ThreadPool Worker", [this] {
+            : m_workers(numberOfProcessorCores() - 1, [this](size_t) {
+                return Thread::create("ThreadPool Worker", [this] {
                     threadBody();
-                }));
-            }
+                });
+            })
+        {
         }
 
         size_t workerCount() const { return m_workers.size(); }
@@ -203,6 +200,16 @@ void WorkQueue::dispatch(Function<void()>&& function)
 bool WorkQueue::isCurrent() const
 {
     return currentSequence() == m_threadID;
+}
+
+void WorkQueue::ref() const
+{
+    ThreadSafeRefCounted::ref();
+}
+
+void WorkQueue::deref() const
+{
+    ThreadSafeRefCounted::deref();
 }
 
 ConcurrentWorkQueue::ConcurrentWorkQueue(const char* name, QOS qos)

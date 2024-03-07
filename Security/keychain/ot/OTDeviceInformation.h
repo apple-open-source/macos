@@ -45,6 +45,7 @@ NS_ASSUME_NONNULL_BEGIN
                           deviceName:(NSString*)deviceName
                         serialNumber:(NSString*)serialNumber
                            osVersion:(NSString*)osVersion;
++ (bool)isFullPeer:(NSString*)modelID;
 @end
 
 NS_ASSUME_NONNULL_END

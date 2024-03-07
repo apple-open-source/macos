@@ -178,12 +178,32 @@ void *_dispatch_wait_for_enqueuer(void **ptr, void **tailp);
 		_dispatch_thread_setspecific(dispatch_enqueue_key, NULL);
 #define _dispatch_yield_to_enqueuer(q, n) \
 		(void) _pthread_yield_to_enqueuer_4dispatch(dispatch_enqueue_key, q, n)
+
+#define _dispatch_wait_for_enqueuer_until(q, c) ({ \
+		__typeof__(c) _c; \
+		int _spins = -(DISPATCH_WAIT_SPINS); \
+		for (;;) { \
+			if (likely(_c = (c))) break; \
+			if (unlikely(_spins++ >= 0)) { \
+				_dispatch_yield_to_enqueuer((void *) (q), (unsigned int) (_spins)); \
+			} else { \
+				dispatch_hardware_pause(); \
+			} \
+		} \
+		_c; })
+
 #else
 #define _dispatch_set_enqueuer_for(ptr)
 #define _dispatch_clear_enqueuer(ptr)
 #define _dispatch_yield_to_enqueuer(q, n) \
 		((void) (q), _dispatch_preemption_yield(n))
 #endif /* DISPATCH_HAVE_YIELD_TO_ENQUEUER */
+
+#if DISPATCH_HAVE_YIELD_TO_ENQUEUER
+#define FIREHOSE_YIELD_TO_ENQUEUER 1
+#else
+#define FIREHOSE_YIELD_TO_ENQUEUER 0
+#endif /* FIREHOSE_YIELD_TO_ENQUEUER */
 
 #pragma mark -
 #pragma mark _dispatch_contention_usleep

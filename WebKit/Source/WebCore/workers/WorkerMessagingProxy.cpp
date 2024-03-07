@@ -147,9 +147,7 @@ void WorkerMessagingProxy::startWorkerGlobalScope(const URL& scriptURL, PAL::Ses
     m_scriptURL = scriptURL;
 
     WorkerParameters params { scriptURL, m_scriptExecutionContext->url(), name, identifier, WTFMove(initializationData.userAgent), isOnline, contentSecurityPolicyResponseHeaders, shouldBypassMainWorldContentSecurityPolicy, crossOriginEmbedderPolicy, timeOrigin, referrerPolicy, workerType, credentials, m_scriptExecutionContext->settingsValues(), WorkerThreadMode::CreateNewThread, sessionID,
-#if ENABLE(SERVICE_WORKER)
         WTFMove(initializationData.serviceWorkerData),
-#endif
         initializationData.clientIdentifier.value_or(ScriptExecutionContextIdentifier { }),
         m_scriptExecutionContext->noiseInjectionHashSalt()
     };
@@ -157,8 +155,8 @@ void WorkerMessagingProxy::startWorkerGlobalScope(const URL& scriptURL, PAL::Ses
 
     if (parentWorkerGlobalScope) {
         parentWorkerGlobalScope->thread().addChildThread(thread);
-        if (parentWorkerGlobalScope->thread().workerClient())
-            thread->setWorkerClient(parentWorkerGlobalScope->thread().workerClient()->clone(thread.get()));
+        if (auto* parentWorkerClient = parentWorkerGlobalScope->workerClient())
+            thread->setWorkerClient(parentWorkerClient->createNestedWorkerClient(thread.get()).moveToUniquePtr());
     } else if (is<Document>(m_scriptExecutionContext.get())) {
         auto& document = downcast<Document>(*m_scriptExecutionContext);
         if (auto* page = document.page()) {

@@ -68,13 +68,6 @@ static constexpr double defaultBrowserOriginQuotaRatio = 0.6;
 static constexpr double defaultAppTotalQuotaRatio = 0.2;
 static constexpr double defaultAppOriginQuotaRatio = 0.15;
 
-static HashSet<WebsiteDataStore*>& dataStores()
-{
-    static NeverDestroyed<HashSet<WebsiteDataStore*>> dataStores;
-
-    return dataStores;
-}
-
 #if ENABLE(APP_BOUND_DOMAINS)
 static WorkQueue& appBoundDomainQueue()
 {
@@ -95,13 +88,18 @@ static std::atomic<bool> hasInitializedManagedDomains = false;
 static std::atomic<bool> managedKeyExists = false;
 #endif
 
-bool experimentalFeatureEnabled(const String& key, bool defaultValue)
+static std::optional<bool> optionalExperimentalFeatureEnabled(const String& key, std::optional<bool> defaultValue = false)
 {
     auto defaultsKey = adoptNS([[NSString alloc] initWithFormat:@"WebKitExperimental%@", static_cast<NSString *>(key)]);
     if ([[NSUserDefaults standardUserDefaults] objectForKey:defaultsKey.get()] != nil)
         return [[NSUserDefaults standardUserDefaults] boolForKey:defaultsKey.get()];
 
     return defaultValue;
+}
+
+bool experimentalFeatureEnabled(const String& key, bool defaultValue)
+{
+    return *optionalExperimentalFeatureEnabled(key, defaultValue);
 }
 
 static NSString* applicationOrProcessIdentifier()
@@ -117,7 +115,6 @@ static NSString* applicationOrProcessIdentifier()
     return identifier;
 }
 
-#if ENABLE(TRACKING_PREVENTION)
 WebCore::ThirdPartyCookieBlockingMode WebsiteDataStore::thirdPartyCookieBlockingMode() const
 {
     if (!m_thirdPartyCookieBlockingMode) {
@@ -128,7 +125,6 @@ WebCore::ThirdPartyCookieBlockingMode WebsiteDataStore::thirdPartyCookieBlocking
     }
     return *m_thirdPartyCookieBlockingMode;
 }
-#endif
 
 void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& parameters)
 {
@@ -139,7 +135,6 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
     auto sameSiteStrictEnforcementEnabled = WebCore::SameSiteStrictEnforcementEnabled::No;
     auto firstPartyWebsiteDataRemovalMode = WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies;
     WebCore::RegistrableDomain resourceLoadStatisticsManualPrevalentResource { };
-#if ENABLE(TRACKING_PREVENTION)
     if (experimentalFeatureEnabled(WebPreferencesKey::isSameSiteStrictEnforcementEnabledKey()))
         sameSiteStrictEnforcementEnabled = WebCore::SameSiteStrictEnforcementEnabled::Yes;
 
@@ -165,7 +160,6 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
     static NSString * const WebKitLogCookieInformationDefaultsKey = @"WebKitLogCookieInformation";
     shouldLogCookieInformation = [defaults boolForKey:WebKitLogCookieInformationDefaultsKey];
 #endif
-#endif // ENABLE(TRACKING_PREVENTION)
 
     URL httpProxy = m_configuration->httpProxy();
     URL httpsProxy = m_configuration->httpsProxy();
@@ -223,10 +217,10 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
     parameters.networkSessionParameters.enablePrivateClickMeasurementDebugMode = experimentalFeatureEnabled(WebPreferencesKey::privateClickMeasurementDebugModeEnabledKey());
 }
 
-bool WebsiteDataStore::useNetworkLoader()
+std::optional<bool> WebsiteDataStore::useNetworkLoader()
 {
 #if HAVE(NETWORK_LOADER)
-    return experimentalFeatureEnabled(WebPreferencesKey::cFNetworkNetworkLoaderEnabledKey());
+    return optionalExperimentalFeatureEnabled(WebPreferencesKey::cFNetworkNetworkLoaderEnabledKey(), std::nullopt);
 #else
     return false;
 #endif
@@ -234,8 +228,6 @@ bool WebsiteDataStore::useNetworkLoader()
 
 void WebsiteDataStore::platformInitialize()
 {
-    ASSERT(!dataStores().contains(this));
-    dataStores().add(this);
 #if ENABLE(APP_BOUND_DOMAINS)
     initializeAppBoundDomains();
 #endif
@@ -246,8 +238,6 @@ void WebsiteDataStore::platformInitialize()
 
 void WebsiteDataStore::platformDestroy()
 {
-    ASSERT(dataStores().contains(this));
-    dataStores().remove(this);
 }
 
 static String defaultWebsiteDataStoreRootDirectory()

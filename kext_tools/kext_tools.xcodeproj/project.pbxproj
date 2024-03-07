@@ -293,10 +293,6 @@
 		274B8E6C13621CBE00DDD2DF /* libcsfde.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B5563461267821C009908A3 /* libcsfde.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		274B8E6D13621CD200DDD2DF /* libCoreStorage.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0022F3BB11758B0700EE4798 /* libCoreStorage.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		331983F41C9B3A4A009D04F3 /* bootcaches.plist in Copy Files bootcaches.plist */ = {isa = PBXBuildFile; fileRef = 24AF80980E09E94A002ED318 /* bootcaches.plist */; };
-		354A56E21E9C3F21006C72A2 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 354A56E11E9C3F21006C72A2 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
-		354A56E31E9C3F34006C72A2 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 354A56E11E9C3F21006C72A2 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
-		354A56E41E9C3F48006C72A2 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 354A56E11E9C3F21006C72A2 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
-		35C528FA1E9D5155002E15E9 /* libdz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 35C528F91E9D5155002E15E9 /* libdz.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		364A90B4203FB79200F223BF /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 146BE2D201F7A95A02CA2A87 /* CoreFoundation.framework */; };
 		364A90BF203FB86100F223BF /* kextaudit_test.m in Sources */ = {isa = PBXBuildFile; fileRef = 364A90BE203FB86100F223BF /* kextaudit_test.m */; };
 		365342F7203F91AA007C5B77 /* KextAudit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 365342EF203F91A9007C5B77 /* KextAudit.cpp */; };
@@ -1045,8 +1041,6 @@
 		24FD2F590DC1218F0065A35B /* kextutil */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextutil; sourceTree = BUILT_PRODUCTS_DIR; };
 		24FD2F6E0DC121DD0065A35B /* kextutil_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kextutil_main.h; sourceTree = "<group>"; };
 		24FD2F6F0DC121DD0065A35B /* kextutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kextutil_main.c; sourceTree = "<group>"; };
-		354A56E11E9C3F21006C72A2 /* libdz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libdz.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/usr/lib/libdz.dylib; sourceTree = DEVELOPER_DIR; };
-		35C528F91E9D5155002E15E9 /* libdz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libdz.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/usr/lib/libdz.dylib; sourceTree = DEVELOPER_DIR; };
 		364A90BC203FB79200F223BF /* kextaudit_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kextaudit_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		364A90BD203FB86100F223BF /* kextaudit_test.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = kextaudit_test.entitlements; path = tests/kextaudit_test.entitlements; sourceTree = "<group>"; };
 		364A90BE203FB86100F223BF /* kextaudit_test.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = kextaudit_test.m; path = tests/kextaudit_test.m; sourceTree = "<group>"; };
@@ -1174,7 +1168,6 @@
 				7205579A1C879B6B00D9808C /* libkext.a in Frameworks */,
 				727DB8A61C87A5CC00FE59B8 /* libkxld.dylib in Frameworks */,
 				720557941C879A8800D9808C /* libz.dylib in Frameworks */,
-				354A56E41E9C3F48006C72A2 /* libdz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1197,7 +1190,6 @@
 				0022F3C311758B6300EE4798 /* libCoreStorage.dylib in Frameworks */,
 				24D2EF6D1222FF8800073FFB /* libCrashReporterClient.a in Frameworks */,
 				245CC4080DDD767D002E3E22 /* libz.dylib in Frameworks */,
-				354A56E21E9C3F21006C72A2 /* libdz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1295,7 +1287,6 @@
 				24C4E6C50DD3EC9900A70AB5 /* IOKit.framework in Frameworks */,
 				72E0A41F192AD0B80013C30C /* Security.framework in Frameworks */,
 				A6D6981B1E56B2940050FC06 /* SystemPolicy.framework in Frameworks */,
-				354A56E31E9C3F34006C72A2 /* libdz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1317,7 +1308,6 @@
 				D33D8396241A1A7700A12443 /* KernelManagement.framework in Frameworks */,
 				728BAE26167F7FE7004193C6 /* Security.framework in Frameworks */,
 				A6D6981C1E56B2C70050FC06 /* SystemPolicy.framework in Frameworks */,
-				35C528FA1E9D5155002E15E9 /* libdz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1887,8 +1877,6 @@
 				36F3F5A1204F8380006108B8 /* RemoteServiceDiscovery.framework */,
 				36F3F59F204F837B006108B8 /* RemoteXPC.framework */,
 				365888B0203668A8002DF547 /* libSMC.tbd */,
-				35C528F91E9D5155002E15E9 /* libdz.dylib */,
-				354A56E11E9C3F21006C72A2 /* libdz.dylib */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

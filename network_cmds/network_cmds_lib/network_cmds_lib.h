@@ -39,4 +39,12 @@
  */
 extern char *clean_non_printable(char *str, size_t len);
 
+/*
+ * @function   dump_hex
+ * @discussion Dump hex bytes to stdout
+ * @param ptr  The buffer to dump
+ * @param len  The length of the string
+ */
+extern void dump_hex(const unsigned char *ptr, size_t len);
+
 #endif /* network_cmds_lib_h */

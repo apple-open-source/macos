@@ -580,6 +580,8 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionViaAskingSOS() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         self.mockSOSAdapter!.safariViewEnabled = true
 
         self.startCKAccountStatusMock()
@@ -684,6 +686,8 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionWhileLocked() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         self.mockSOSAdapter!.safariViewEnabled = true
 
         self.startCKAccountStatusMock()

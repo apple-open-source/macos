@@ -89,7 +89,9 @@ tdesc_layouthash(int nbuckets, void *node)
 			 * incorporate the name of the first member into
 			 * the hash value.
 			 */
-			name = tdp->t_members->ml_name;
+			if (tdp->t_members != NULL) {
+				name = tdp->t_members->ml_name;
+			}
 			break;
 		case ENUM:
 			/* Use the first element in the hash value */

@@ -118,46 +118,40 @@ public:
     void setStretch(FontSelectionValue stretch) { m_fontSelectionRequest.width = stretch; }
     void setIsItalic(bool isItalic) { setItalic(isItalic ? std::optional<FontSelectionValue> { italicValue() } : std::optional<FontSelectionValue> { }); }
     void setWeight(FontSelectionValue weight) { m_fontSelectionRequest.weight = weight; }
-    void setTextRenderingMode(TextRenderingMode rendering) { m_textRendering = static_cast<unsigned>(rendering); }
-    void setOrientation(FontOrientation orientation) { m_orientation = static_cast<unsigned>(orientation); }
-    void setNonCJKGlyphOrientation(NonCJKGlyphOrientation orientation) { m_nonCJKGlyphOrientation = static_cast<unsigned>(orientation); }
-    void setWidthVariant(FontWidthVariant widthVariant) { m_widthVariant = static_cast<unsigned>(widthVariant); } // Make sure new callers of this sync with FontPlatformData::isForTextCombine()!
+    void setTextRenderingMode(TextRenderingMode rendering) { m_textRendering = enumToUnderlyingType(rendering); }
+    void setOrientation(FontOrientation orientation) { m_orientation = enumToUnderlyingType(orientation); }
+    void setNonCJKGlyphOrientation(NonCJKGlyphOrientation orientation) { m_nonCJKGlyphOrientation = enumToUnderlyingType(orientation); }
+    void setWidthVariant(FontWidthVariant widthVariant) { m_widthVariant = enumToUnderlyingType(widthVariant); } // Make sure new callers of this sync with FontPlatformData::isForTextCombine()!
     void setSpecifiedLocale(const AtomString&);
     void setFeatureSettings(FontFeatureSettings&& settings) { m_featureSettings = WTFMove(settings); }
     void setVariationSettings(FontVariationSettings&& settings) { m_variationSettings = WTFMove(settings); }
-    void setFontSynthesisWeight(FontSynthesisLonghandValue value) { m_fontSynthesisWeight =  static_cast<unsigned>(value); }
-    void setFontSynthesisStyle(FontSynthesisLonghandValue value) { m_fontSynthesisStyle = static_cast<unsigned>(value); }
-    void setFontSynthesisSmallCaps(FontSynthesisLonghandValue value) { m_fontSynthesisCaps = static_cast<unsigned>(value); }
-    void setVariantCommonLigatures(FontVariantLigatures variant) { m_variantCommonLigatures = static_cast<unsigned>(variant); }
-    void setVariantDiscretionaryLigatures(FontVariantLigatures variant) { m_variantDiscretionaryLigatures = static_cast<unsigned>(variant); }
-    void setVariantHistoricalLigatures(FontVariantLigatures variant) { m_variantHistoricalLigatures = static_cast<unsigned>(variant); }
-    void setVariantContextualAlternates(FontVariantLigatures variant) { m_variantContextualAlternates = static_cast<unsigned>(variant); }
-    void setVariantPosition(FontVariantPosition variant) { m_variantPosition = static_cast<unsigned>(variant); }
-    void setVariantCaps(FontVariantCaps variant) { m_variantCaps = static_cast<unsigned>(variant); }
-    void setVariantNumericFigure(FontVariantNumericFigure variant) { m_variantNumericFigure = static_cast<unsigned>(variant); }
-    void setVariantNumericSpacing(FontVariantNumericSpacing variant) { m_variantNumericSpacing = static_cast<unsigned>(variant); }
-    void setVariantNumericFraction(FontVariantNumericFraction variant) { m_variantNumericFraction = static_cast<unsigned>(variant); }
-    void setVariantNumericOrdinal(FontVariantNumericOrdinal variant) { m_variantNumericOrdinal = static_cast<unsigned>(variant); }
-    void setVariantNumericSlashedZero(FontVariantNumericSlashedZero variant) { m_variantNumericSlashedZero = static_cast<unsigned>(variant); }
+    void setFontSynthesisWeight(FontSynthesisLonghandValue value) { m_fontSynthesisWeight =  enumToUnderlyingType(value); }
+    void setFontSynthesisStyle(FontSynthesisLonghandValue value) { m_fontSynthesisStyle = enumToUnderlyingType(value); }
+    void setFontSynthesisSmallCaps(FontSynthesisLonghandValue value) { m_fontSynthesisCaps = enumToUnderlyingType(value); }
+    void setVariantCommonLigatures(FontVariantLigatures variant) { m_variantCommonLigatures = enumToUnderlyingType(variant); }
+    void setVariantDiscretionaryLigatures(FontVariantLigatures variant) { m_variantDiscretionaryLigatures = enumToUnderlyingType(variant); }
+    void setVariantHistoricalLigatures(FontVariantLigatures variant) { m_variantHistoricalLigatures = enumToUnderlyingType(variant); }
+    void setVariantContextualAlternates(FontVariantLigatures variant) { m_variantContextualAlternates = enumToUnderlyingType(variant); }
+    void setVariantPosition(FontVariantPosition variant) { m_variantPosition = enumToUnderlyingType(variant); }
+    void setVariantCaps(FontVariantCaps variant) { m_variantCaps = enumToUnderlyingType(variant); }
+    void setVariantNumericFigure(FontVariantNumericFigure variant) { m_variantNumericFigure = enumToUnderlyingType(variant); }
+    void setVariantNumericSpacing(FontVariantNumericSpacing variant) { m_variantNumericSpacing = enumToUnderlyingType(variant); }
+    void setVariantNumericFraction(FontVariantNumericFraction variant) { m_variantNumericFraction = enumToUnderlyingType(variant); }
+    void setVariantNumericOrdinal(FontVariantNumericOrdinal variant) { m_variantNumericOrdinal = enumToUnderlyingType(variant); }
+    void setVariantNumericSlashedZero(FontVariantNumericSlashedZero variant) { m_variantNumericSlashedZero = enumToUnderlyingType(variant); }
     void setVariantAlternates(FontVariantAlternates variant) { m_variantAlternates = variant; }
-    void setVariantEastAsianVariant(FontVariantEastAsianVariant variant) { m_variantEastAsianVariant = static_cast<unsigned>(variant); }
-    void setVariantEastAsianWidth(FontVariantEastAsianWidth variant) { m_variantEastAsianWidth = static_cast<unsigned>(variant); }
-    void setVariantEastAsianRuby(FontVariantEastAsianRuby variant) { m_variantEastAsianRuby = static_cast<unsigned>(variant); }
-    void setVariantEmoji(FontVariantEmoji variant) { m_variantEmoji = static_cast<unsigned>(variant); }
-    void setOpticalSizing(FontOpticalSizing sizing) { m_opticalSizing = static_cast<unsigned>(sizing); }
+    void setVariantEastAsianVariant(FontVariantEastAsianVariant variant) { m_variantEastAsianVariant = enumToUnderlyingType(variant); }
+    void setVariantEastAsianWidth(FontVariantEastAsianWidth variant) { m_variantEastAsianWidth = enumToUnderlyingType(variant); }
+    void setVariantEastAsianRuby(FontVariantEastAsianRuby variant) { m_variantEastAsianRuby = enumToUnderlyingType(variant); }
+    void setVariantEmoji(FontVariantEmoji variant) { m_variantEmoji = enumToUnderlyingType(variant); }
+    void setOpticalSizing(FontOpticalSizing sizing) { m_opticalSizing = enumToUnderlyingType(sizing); }
     void setFontStyleAxis(FontStyleAxis axis) { m_fontStyleAxis = axis == FontStyleAxis::ital; }
-    void setShouldAllowUserInstalledFonts(AllowUserInstalledFonts shouldAllowUserInstalledFonts) { m_shouldAllowUserInstalledFonts = static_cast<unsigned>(shouldAllowUserInstalledFonts); }
+    void setShouldAllowUserInstalledFonts(AllowUserInstalledFonts shouldAllowUserInstalledFonts) { m_shouldAllowUserInstalledFonts = enumToUnderlyingType(shouldAllowUserInstalledFonts); }
     void setShouldDisableLigaturesForSpacing(bool shouldDisableLigaturesForSpacing) { m_shouldDisableLigaturesForSpacing = shouldDisableLigaturesForSpacing; }
     void setFontPalette(FontPalette fontPalette) { m_fontPalette = fontPalette; }
     void setFontSizeAdjust(FontSizeAdjust fontSizeAdjust) { m_sizeAdjust = fontSizeAdjust; }
 
     static AtomString platformResolveGenericFamily(UScriptCode, const AtomString& locale, const AtomString& familyName);
-
-    template<class Encoder>
-    void encode(Encoder&) const;
-
-    template<class Decoder>
-    static std::optional<FontDescription> decode(Decoder&);
 
 private:
     // FIXME: Investigate moving these into their own object on the heap (to save memory).
@@ -201,284 +195,5 @@ private:
     unsigned m_shouldAllowUserInstalledFonts : 1; // AllowUserInstalledFonts: If this description is allowed to match a user-installed font
     unsigned m_shouldDisableLigaturesForSpacing : 1; // If letter-spacing is nonzero, we need to disable ligatures, which affects font preparation
 };
-
-template<class Encoder>
-void FontDescription::encode(Encoder& encoder) const
-{
-    encoder << featureSettings();
-    encoder << variationSettings();
-    encoder << computedLocale();
-    encoder << italic();
-    encoder << stretch();
-    encoder << weight();
-    encoder << m_computedSize;
-    encoder << orientation();
-    encoder << nonCJKGlyphOrientation();
-    encoder << widthVariant();
-    encoder << textRenderingMode();
-    encoder << fontSynthesisWeight();
-    encoder << fontSynthesisStyle();
-    encoder << fontSynthesisSmallCaps();
-    encoder << variantCommonLigatures();
-    encoder << variantDiscretionaryLigatures();
-    encoder << variantHistoricalLigatures();
-    encoder << variantContextualAlternates();
-    encoder << variantPosition();
-    encoder << variantCaps();
-    encoder << variantNumericFigure();
-    encoder << variantNumericSpacing();
-    encoder << variantNumericFraction();
-    encoder << variantNumericOrdinal();
-    encoder << variantNumericSlashedZero();
-    encoder << variantAlternates();
-    encoder << variantEastAsianVariant();
-    encoder << variantEastAsianWidth();
-    encoder << variantEastAsianRuby();
-    encoder << variantEmoji();
-    encoder << opticalSizing();
-    encoder << fontStyleAxis();
-    encoder << shouldAllowUserInstalledFonts();
-    encoder << shouldDisableLigaturesForSpacing();
-    encoder << fontPalette();
-    encoder << fontSizeAdjust();
-    encoder << textAutospace();
-    encoder << textSpacingTrim();
-}
-
-template<class Decoder>
-std::optional<FontDescription> FontDescription::decode(Decoder& decoder)
-{
-    FontDescription fontDescription;
-    std::optional<FontFeatureSettings> featureSettings;
-    decoder >> featureSettings;
-    if (!featureSettings)
-        return std::nullopt;
-
-    std::optional<FontVariationSettings> variationSettings;
-    decoder >> variationSettings;
-    if (!variationSettings)
-        return std::nullopt;
-
-    std::optional<AtomString> locale;
-    decoder >> locale;
-    if (!locale)
-        return std::nullopt;
-
-    std::optional<std::optional<FontSelectionValue>> italic;
-    decoder >> italic;
-    if (!italic)
-        return std::nullopt;
-
-    std::optional<FontSelectionValue> stretch;
-    decoder >> stretch;
-    if (!stretch)
-        return std::nullopt;
-
-    std::optional<FontSelectionValue> weight;
-    decoder >> weight;
-    if (!weight)
-        return std::nullopt;
-
-    std::optional<float> computedSize;
-    decoder >> computedSize;
-    if (!computedSize)
-        return std::nullopt;
-
-    std::optional<FontOrientation> orientation;
-    decoder >> orientation;
-    if (!orientation)
-        return std::nullopt;
-
-    std::optional<NonCJKGlyphOrientation> nonCJKGlyphOrientation;
-    decoder >> nonCJKGlyphOrientation;
-    if (!nonCJKGlyphOrientation)
-        return std::nullopt;
-
-    std::optional<FontWidthVariant> widthVariant;
-    decoder >> widthVariant;
-    if (!widthVariant)
-        return std::nullopt;
-
-    std::optional<TextRenderingMode> textRenderingMode;
-    decoder >> textRenderingMode;
-    if (!textRenderingMode)
-        return std::nullopt;
-
-    std::optional<FontSynthesisLonghandValue> fontSynthesisWeight;
-    decoder >> fontSynthesisWeight;
-    if (!fontSynthesisWeight)
-        return std::nullopt;
-
-    std::optional<FontSynthesisLonghandValue> fontSynthesisStyle;
-    decoder >> fontSynthesisStyle;
-    if (!fontSynthesisStyle)
-        return std::nullopt;
-
-    std::optional<FontSynthesisLonghandValue> fontSynthesisSmallCaps;
-    decoder >> fontSynthesisSmallCaps;
-    if (!fontSynthesisSmallCaps)
-        return std::nullopt;
-
-    std::optional<FontSizeAdjust> sizeAdjust;
-    decoder >> sizeAdjust;
-    if (!sizeAdjust)
-        return std::nullopt;
-
-    std::optional<FontVariantLigatures> variantCommonLigatures;
-    decoder >> variantCommonLigatures;
-    if (!variantCommonLigatures)
-        return std::nullopt;
-
-    std::optional<FontVariantLigatures> variantDiscretionaryLigatures;
-    decoder >> variantDiscretionaryLigatures;
-    if (!variantDiscretionaryLigatures)
-        return std::nullopt;
-
-    std::optional<FontVariantLigatures> variantHistoricalLigatures;
-    decoder >> variantHistoricalLigatures;
-    if (!variantHistoricalLigatures)
-        return std::nullopt;
-
-    std::optional<FontVariantLigatures> variantContextualAlternates;
-    decoder >> variantContextualAlternates;
-    if (!variantContextualAlternates)
-        return std::nullopt;
-
-    std::optional<FontVariantPosition> variantPosition;
-    decoder >> variantPosition;
-    if (!variantPosition)
-        return std::nullopt;
-
-    std::optional<FontVariantCaps> variantCaps;
-    decoder >> variantCaps;
-    if (!variantCaps)
-        return std::nullopt;
-
-    std::optional<FontVariantNumericFigure> variantNumericFigure;
-    decoder >> variantNumericFigure;
-    if (!variantNumericFigure)
-        return std::nullopt;
-
-    std::optional<FontVariantNumericSpacing> variantNumericSpacing;
-    decoder >> variantNumericSpacing;
-    if (!variantNumericSpacing)
-        return std::nullopt;
-
-    std::optional<FontVariantNumericFraction> variantNumericFraction;
-    decoder >> variantNumericFraction;
-    if (!variantNumericFraction)
-        return std::nullopt;
-
-    std::optional<FontVariantNumericOrdinal> variantNumericOrdinal;
-    decoder >> variantNumericOrdinal;
-    if (!variantNumericOrdinal)
-        return std::nullopt;
-
-    std::optional<FontVariantNumericSlashedZero> variantNumericSlashedZero;
-    decoder >> variantNumericSlashedZero;
-    if (!variantNumericSlashedZero)
-        return std::nullopt;
-
-    std::optional<FontVariantAlternates> variantAlternates;
-    decoder >> variantAlternates;
-    if (!variantAlternates)
-        return std::nullopt;
-
-    std::optional<FontVariantEastAsianVariant> variantEastAsianVariant;
-    decoder >> variantEastAsianVariant;
-    if (!variantEastAsianVariant)
-        return std::nullopt;
-
-    std::optional<FontVariantEastAsianWidth> variantEastAsianWidth;
-    decoder >> variantEastAsianWidth;
-    if (!variantEastAsianWidth)
-        return std::nullopt;
-
-    std::optional<FontVariantEastAsianRuby> variantEastAsianRuby;
-    decoder >> variantEastAsianRuby;
-    if (!variantEastAsianRuby)
-        return std::nullopt;
-
-    std::optional<FontVariantEmoji> variantEmoji;
-    decoder >> variantEmoji;
-    if (!variantEmoji)
-        return std::nullopt;
-
-    std::optional<FontOpticalSizing> opticalSizing;
-    decoder >> opticalSizing;
-    if (!opticalSizing)
-        return std::nullopt;
-
-    std::optional<FontStyleAxis> fontStyleAxis;
-    decoder >> fontStyleAxis;
-    if (!fontStyleAxis)
-        return std::nullopt;
-
-    std::optional<AllowUserInstalledFonts> shouldAllowUserInstalledFonts;
-    decoder >> shouldAllowUserInstalledFonts;
-    if (!shouldAllowUserInstalledFonts)
-        return std::nullopt;
-
-    std::optional<bool> shouldDisableLigaturesForSpacing;
-    decoder >> shouldDisableLigaturesForSpacing;
-    if (!shouldDisableLigaturesForSpacing)
-        return std::nullopt;
-
-    std::optional<FontPalette> fontPalette;
-    decoder >> fontPalette;
-    if (!fontPalette)
-        return std::nullopt;
-
-    std::optional<TextSpacingTrim> textSpacingTrim;
-    decoder >> textSpacingTrim;
-    if (!textSpacingTrim)
-        return std::nullopt;
-
-    std::optional<TextAutospace> textAutospace;
-    decoder >> textAutospace;
-    if (!textAutospace)
-        return std::nullopt;
-
-    fontDescription.setFeatureSettings(WTFMove(*featureSettings));
-    fontDescription.setVariationSettings(WTFMove(*variationSettings));
-    fontDescription.setSpecifiedLocale(*locale);
-    fontDescription.setItalic(*italic);
-    fontDescription.setStretch(*stretch);
-    fontDescription.setWeight(*weight);
-    fontDescription.setComputedSize(*computedSize);
-    fontDescription.setOrientation(*orientation);
-    fontDescription.setNonCJKGlyphOrientation(*nonCJKGlyphOrientation);
-    fontDescription.setWidthVariant(*widthVariant);
-    fontDescription.setTextRenderingMode(*textRenderingMode);
-    fontDescription.setFontSynthesisWeight(*fontSynthesisWeight);
-    fontDescription.setFontSynthesisStyle(*fontSynthesisStyle);
-    fontDescription.setFontSynthesisSmallCaps(*fontSynthesisSmallCaps);
-    fontDescription.setVariantCommonLigatures(*variantCommonLigatures);
-    fontDescription.setVariantDiscretionaryLigatures(*variantDiscretionaryLigatures);
-    fontDescription.setVariantHistoricalLigatures(*variantHistoricalLigatures);
-    fontDescription.setVariantContextualAlternates(*variantContextualAlternates);
-    fontDescription.setVariantPosition(*variantPosition);
-    fontDescription.setVariantCaps(*variantCaps);
-    fontDescription.setVariantNumericFigure(*variantNumericFigure);
-    fontDescription.setVariantNumericSpacing(*variantNumericSpacing);
-    fontDescription.setVariantNumericFraction(*variantNumericFraction);
-    fontDescription.setVariantNumericOrdinal(*variantNumericOrdinal);
-    fontDescription.setVariantNumericSlashedZero(*variantNumericSlashedZero);
-    fontDescription.setVariantAlternates(*variantAlternates);
-    fontDescription.setVariantEastAsianVariant(*variantEastAsianVariant);
-    fontDescription.setVariantEastAsianWidth(*variantEastAsianWidth);
-    fontDescription.setVariantEastAsianRuby(*variantEastAsianRuby);
-    fontDescription.setVariantEmoji(*variantEmoji);
-    fontDescription.setOpticalSizing(*opticalSizing);
-    fontDescription.setFontStyleAxis(*fontStyleAxis);
-    fontDescription.setShouldAllowUserInstalledFonts(*shouldAllowUserInstalledFonts);
-    fontDescription.setShouldDisableLigaturesForSpacing(*shouldDisableLigaturesForSpacing);
-    fontDescription.setFontPalette(*fontPalette);
-    fontDescription.setFontSizeAdjust(*sizeAdjust);
-    fontDescription.setTextAutospace(*textAutospace);
-    fontDescription.setTextSpacingTrim(*textSpacingTrim);
-
-    return fontDescription;
-}
 
 }

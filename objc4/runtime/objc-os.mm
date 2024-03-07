@@ -86,13 +86,6 @@ static header_info * addHeader(const headerType *mhdr, const char *path,
         if (PrintPreopt) {
             _objc_inform("PREOPTIMIZATION: honoring preoptimized header info at %p for %s", hi, hi->fname());
         }
-
-#if DEBUG
-        // Verify image_info
-        size_t info_size = 0;
-        const objc_image_info *image_info = _getObjcImageInfo(mhdr, dyldObjCInfo, &info_size);
-        ASSERT(image_info == hi->info());
-#endif
     }
     else 
     {
@@ -304,7 +297,8 @@ void objc_addLoadImageFunc2(objc_func_loadImage2 _Nonnull func) {
 
 void 
 map_images_nolock(unsigned mhCount, const struct _dyld_objc_notify_mapped_info infos[],
-                  bool *disabledClassROEnforcement)
+                  bool *disabledClassROEnforcement,
+                  _dyld_objc_mark_image_mutable makeImageMutable)
 {
     static bool firstTime = YES;
     static bool executableHasClassROSigning = false;
@@ -533,7 +527,7 @@ map_images_nolock(unsigned mhCount, const struct _dyld_objc_notify_mapped_info i
     }
 
     if (hCount > 0) {
-        _read_images(mappedInfos, hCount, totalClasses, unoptimizedTotalClasses);
+        _read_images(mappedInfos, hCount, totalClasses, unoptimizedTotalClasses, makeImageMutable);
     }
 
     firstTime = NO;
@@ -717,6 +711,82 @@ static void static_init()
 #endif
 }
 
+// Invoke `call` on each global lock in the runtime that's expected to be
+// ordered with respect to other locks. The calls are made in the same order
+// that the locks must be acquired in. This is also the set of locks that need
+// to be locked/unlocked/reset in our atfork handlers.
+template<typename Fn>
+void forEachOrderedLock(const Fn &call) {
+    // Helper that takes a function that enumerates a list of locks, and invokes
+    // `call` with each lock returned, until the function starts returning NULL.
+    auto callOnLocks = [&](auto getLock) {
+        for (unsigned n = 0; auto lock = getLock(n); n++)
+            call(lock);
+    };
+
+    // Helper that invokes `call` on each lock within a StripedMap.
+    auto callOnStripedMap = [&](StripedMap<spinlock_t> &map) {
+        map.forEach([&](spinlock_t &lock) {
+            call(&lock);
+        });
+    };
+
+    // Load methods run arbitrary code, so just about any runtime lock might be
+    // acquired while it's held.
+    call(&loadMethodLock);
+
+    // PropertyLocks can be held when retaining a property, which can also run
+    // arbitrary code. Similar for CppObjectLocks, which can be held when
+    // copying a C++ object. StructLocks just does a memmove so its ordering
+    // is less important, but we can put it with the other property locks.
+    callOnStripedMap(PropertyLocks.get());
+    callOnStripedMap(StructLocks.get());
+    callOnStripedMap(CppObjectLocks.get());
+
+    callOnLocks(_objc_sync_locks_get_lock);
+
+    // AssociationsManagerLock can also be held when retaining ObjC objects or
+    // copying C++ objects.
+    call(&AssociationsManagerLock);
+
+    // Runtime operations may occur inside SideTable locks (such as storeWeak
+    // calling getMethodImplementation).
+    callOnLocks(SideTableGetLock);
+
+    call(&classInitLock);
+    call(&pendingInitializeMapLock);
+
+    // Some other operations may occur with runtimeLock held.
+    call(&runtimeLock);
+    call(&DemangleCacheLock);
+    call(&selLock);
+#if CONFIG_USE_CACHE_LOCK
+    call(&cacheUpdateLock);
+#endif
+    call(&objcMsgLogLock);
+    call(&AltHandlerDebugLock);
+
+    // crashlog_lock comes at the end, on assumption that fatal errors could be
+    // anywhere.
+    call(&crashlog_lock);
+}
+
+// Check lock ordering.
+#if LOCKDEBUG
+bool lockdebug::lock_precedes_lock(const void *old_lock, const void *new_lock) {
+    bool sawNewLock = false;
+    bool result = false;
+    forEachOrderedLock([&](const void *lock) {
+        if (lock == old_lock && !sawNewLock)
+            result = true;
+        if (lock == new_lock)
+            sawNewLock = true;
+    });
+    return result;
+}
+// LOCKDEBUG
+#endif
+
 /***********************************************************************
 * _objc_atfork_prepare
 * _objc_atfork_parent
@@ -729,97 +799,6 @@ static void static_init()
 * _objc_atfork_child() forcibly resets the locks.
 **********************************************************************/
 
-// Declare lock ordering.
-#if LOCKDEBUG
-__attribute__((constructor))
-static void defineLockOrder()
-{
-    // Every lock precedes crashlog_lock
-    // on the assumption that fatal errors could be anywhere.
-    lockdebug::lock_precedes_lock(&loadMethodLock, &crashlog_lock);
-    lockdebug::lock_precedes_lock(&classInitLock, &crashlog_lock);
-    lockdebug::lock_precedes_lock(&pendingInitializeMapLock, &crashlog_lock);
-    lockdebug::lock_precedes_lock(&runtimeLock, &crashlog_lock);
-    lockdebug::lock_precedes_lock(&DemangleCacheLock, &crashlog_lock);
-    lockdebug::lock_precedes_lock(&selLock, &crashlog_lock);
-#if CONFIG_USE_CACHE_LOCK
-    lockdebug::lock_precedes_lock(&cacheUpdateLock, &crashlog_lock);
-#endif
-    lockdebug::lock_precedes_lock(&objcMsgLogLock, &crashlog_lock);
-    lockdebug::lock_precedes_lock(&AltHandlerDebugLock, &crashlog_lock);
-    lockdebug::lock_precedes_lock(&AssociationsManagerLock, &crashlog_lock);
-    SideTableLocksPrecedeLock(&crashlog_lock);
-    PropertyLocks.get().precedeLock(&crashlog_lock);
-    StructLocks.get().precedeLock(&crashlog_lock);
-    CppObjectLocks.get().precedeLock(&crashlog_lock);
-
-    // loadMethodLock precedes everything
-    // because it is held while +load methods run
-    lockdebug::lock_precedes_lock(&loadMethodLock, &classInitLock);
-    lockdebug::lock_precedes_lock(&loadMethodLock, &pendingInitializeMapLock);
-    lockdebug::lock_precedes_lock(&loadMethodLock, &runtimeLock);
-    lockdebug::lock_precedes_lock(&loadMethodLock, &DemangleCacheLock);
-    lockdebug::lock_precedes_lock(&loadMethodLock, &selLock);
-#if CONFIG_USE_CACHE_LOCK
-    lockdebug::lock_precedes_lock(&loadMethodLock, &cacheUpdateLock);
-#endif
-    lockdebug::lock_precedes_lock(&loadMethodLock, &objcMsgLogLock);
-    lockdebug::lock_precedes_lock(&loadMethodLock, &AltHandlerDebugLock);
-    lockdebug::lock_precedes_lock(&loadMethodLock, &AssociationsManagerLock);
-    SideTableLocksSucceedLock(&loadMethodLock);
-    PropertyLocks.get().succeedLock(&loadMethodLock);
-    StructLocks.get().succeedLock(&loadMethodLock);
-    CppObjectLocks.get().succeedLock(&loadMethodLock);
-
-    // PropertyLocks and CppObjectLocks and AssociationManagerLock 
-    // precede everything because they are held while objc_retain() 
-    // or C++ copy are called.
-    // (StructLocks do not precede everything because it calls memmove only.)
-    auto PropertyAndCppObjectAndAssocLocksPrecedeLock = [&](const void *lock) {
-        PropertyLocks.get().precedeLock(lock);
-        CppObjectLocks.get().precedeLock(lock);
-        lockdebug::lock_precedes_lock(&AssociationsManagerLock, lock);
-    };
-    PropertyAndCppObjectAndAssocLocksPrecedeLock(&runtimeLock);
-    PropertyAndCppObjectAndAssocLocksPrecedeLock(&DemangleCacheLock);
-    PropertyAndCppObjectAndAssocLocksPrecedeLock(&classInitLock);
-    PropertyAndCppObjectAndAssocLocksPrecedeLock(&selLock);
-#if CONFIG_USE_CACHE_LOCK
-    PropertyAndCppObjectAndAssocLocksPrecedeLock(&cacheUpdateLock);
-#endif
-    PropertyAndCppObjectAndAssocLocksPrecedeLock(&objcMsgLogLock);
-    PropertyAndCppObjectAndAssocLocksPrecedeLock(&AltHandlerDebugLock);
-
-    SideTableLocksSucceedLocks(PropertyLocks.get());
-    SideTableLocksSucceedLocks(CppObjectLocks.get());
-    SideTableLocksSucceedLock(&AssociationsManagerLock);
-
-    PropertyLocks.get().precedeLock(&AssociationsManagerLock);
-    CppObjectLocks.get().precedeLock(&AssociationsManagerLock);
-
-    lockdebug::lock_precedes_lock(&classInitLock, &runtimeLock);
-    lockdebug::lock_precedes_lock(&pendingInitializeMapLock, &runtimeLock);
-
-    // Runtime operations may occur inside SideTable locks
-    // (such as storeWeak calling getMethodImplementation)
-    SideTableLocksPrecedeLock(&runtimeLock);
-    SideTableLocksPrecedeLock(&classInitLock);
-    // Some operations may occur inside runtimeLock.
-    lockdebug::lock_precedes_lock(&runtimeLock, &selLock);
-#if CONFIG_USE_CACHE_LOCK
-    lockdebug::lock_precedes_lock(&runtimeLock, &cacheUpdateLock);
-#endif
-    lockdebug::lock_precedes_lock(&runtimeLock, &DemangleCacheLock);
-
-    // Striped locks use address order internally.
-    SideTableDefineLockOrder();
-    PropertyLocks.get().defineLockOrder();
-    StructLocks.get().defineLockOrder();
-    CppObjectLocks.get().defineLockOrder();
-}
-// LOCKDEBUG
-#endif
-
 static bool ForkIsMultithreaded;
 void _objc_atfork_prepare()
 {
@@ -827,57 +806,23 @@ void _objc_atfork_prepare()
     ForkIsMultithreaded = objc_is_threaded();
 
     lockdebug::assert_no_locks_locked();
-    lockdebug::set_in_fork_prepare(true);
 
     classInitializeAtforkPrepare();
 
-    _objc_sync_lock_atfork_prepare();
-
-    loadMethodLock.lock();
-    PropertyLocks.get().lockAll();
-    CppObjectLocks.get().lockAll();
-    AssociationsManagerLock.lock();
-    SideTableLockAll();
-    classInitLock.lock();
-    pendingInitializeMapLock.lock();
-    runtimeLock.lock();
-    DemangleCacheLock.lock();
-    selLock.lock();
-#if CONFIG_USE_CACHE_LOCK
-    cacheUpdateLock.lock();
-#endif
-    objcMsgLogLock.lock();
-    AltHandlerDebugLock.lock();
-    StructLocks.get().lockAll();
-    crashlog_lock.lock();
+    forEachOrderedLock([&](auto lock) {
+        lock->lock();
+    });
 
     lockdebug::assert_all_locks_locked();
-    lockdebug::set_in_fork_prepare(false);
 }
 
 void _objc_atfork_parent()
 {
     lockdebug::assert_all_locks_locked();
 
-    CppObjectLocks.get().unlockAll();
-    StructLocks.get().unlockAll();
-    PropertyLocks.get().unlockAll();
-    AssociationsManagerLock.unlock();
-    AltHandlerDebugLock.unlock();
-    objcMsgLogLock.unlock();
-    crashlog_lock.unlock();
-    loadMethodLock.unlock();
-#if CONFIG_USE_CACHE_LOCK
-    cacheUpdateLock.unlock();
-#endif
-    selLock.unlock();
-    SideTableUnlockAll();
-    DemangleCacheLock.unlock();
-    runtimeLock.unlock();
-    classInitLock.unlock();
-    pendingInitializeMapLock.unlock();
-
-    _objc_sync_lock_atfork_parent();
+    forEachOrderedLock([&](auto lock) {
+        lock->unlock();
+    });
 
     classInitializeAtforkParent();
 
@@ -893,23 +838,9 @@ void _objc_atfork_child()
 
     lockdebug::assert_all_locks_locked();
 
-    CppObjectLocks.get().forceResetAll();
-    StructLocks.get().forceResetAll();
-    PropertyLocks.get().forceResetAll();
-    AssociationsManagerLock.reset();
-    AltHandlerDebugLock.reset();
-    objcMsgLogLock.reset();
-    crashlog_lock.reset();
-    loadMethodLock.reset();
-#if CONFIG_USE_CACHE_LOCK
-    cacheUpdateLock.forceReset();
-#endif
-    selLock.reset();
-    SideTableForceResetAll();
-    DemangleCacheLock.reset();
-    runtimeLock.reset();
-    classInitLock.reset();
-    pendingInitializeMapLock.reset();
+    forEachOrderedLock([&](auto lock) {
+        lock->reset();
+    });
 
     _objc_sync_lock_atfork_child();
 
@@ -948,6 +879,7 @@ void _objc_init(void)
     initialized = true;
     
     // fixme defer initialization until an objc-using image is found?
+    masks_init();
     locks_init();
     environ_init();
     runtime_tls_init();
@@ -963,8 +895,8 @@ void _objc_init(void)
     _imp_implementationWithBlock_init();
 #endif
 
-    _dyld_objc_callbacks_v2 callbacks = {
-        2, // version
+    _dyld_objc_callbacks_v3 callbacks = {
+        3, // version
         &map_images,
         &load_images,
         unmap_image,

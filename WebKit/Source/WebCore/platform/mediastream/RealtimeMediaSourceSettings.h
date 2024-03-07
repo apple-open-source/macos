@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #if ENABLE(MEDIA_STREAM)
 
+#include "MeteringMode.h"
 #include "RealtimeMediaSourceSupportedConstraints.h"
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
@@ -53,10 +54,9 @@ enum class DisplaySurfaceType : uint8_t {
 
 class RealtimeMediaSourceSettings {
 public:
-    static String facingMode(VideoFacingMode);
     static VideoFacingMode videoFacingModeEnum(const String&);
     static String displaySurface(DisplaySurfaceType);
-    
+
     enum Flag {
         Width = 1 << 0,
         Height = 1 << 1,
@@ -71,15 +71,17 @@ public:
         Label = 1 << 10,
         DisplaySurface = 1 << 11,
         LogicalSurface = 1 << 12,
-        Zoom = 1 << 13,
+        WhiteBalanceMode = 1 << 13,
+        Zoom = 1 << 14,
+        Torch = 1 << 15,
     };
 
-    static constexpr OptionSet<Flag> allFlags() { return { Width, Height, FrameRate, FacingMode, Volume, SampleRate, SampleSize, EchoCancellation, DeviceId, GroupId, Label, DisplaySurface, LogicalSurface, Zoom }; }
+    static constexpr OptionSet<Flag> allFlags() { return { Width, Height, FrameRate, FacingMode, Volume, SampleRate, SampleSize, EchoCancellation, DeviceId, GroupId, Label, DisplaySurface, LogicalSurface, WhiteBalanceMode, Zoom, Torch }; }
 
     WEBCORE_EXPORT OptionSet<RealtimeMediaSourceSettings::Flag> difference(const RealtimeMediaSourceSettings&) const;
 
     RealtimeMediaSourceSettings() = default;
-    RealtimeMediaSourceSettings(uint32_t width, uint32_t height, float frameRate, VideoFacingMode facingMode, double volume, uint32_t sampleRate, uint32_t sampleSize, bool echoCancellation, AtomString&& deviceId, String&& groupId, AtomString&& label, DisplaySurfaceType displaySurface, bool logicalSurface, double zoom, RealtimeMediaSourceSupportedConstraints&& supportedConstraints)
+    RealtimeMediaSourceSettings(uint32_t width, uint32_t height, float frameRate, VideoFacingMode facingMode, double volume, uint32_t sampleRate, uint32_t sampleSize, bool echoCancellation, AtomString&& deviceId, String&& groupId, AtomString&& label, DisplaySurfaceType displaySurface, bool logicalSurface, MeteringMode whiteBalanceMode, double zoom, bool torch, RealtimeMediaSourceSupportedConstraints&& supportedConstraints)
         : m_width(width)
         , m_height(height)
         , m_frameRate(frameRate)
@@ -93,7 +95,9 @@ public:
         , m_label(WTFMove(label))
         , m_displaySurface(displaySurface)
         , m_logicalSurface(logicalSurface)
+        , m_whiteBalanceMode(whiteBalanceMode)
         , m_zoom(zoom)
+        , m_torch(torch)
         , m_supportedConstraints(WTFMove(supportedConstraints))
     {
     }
@@ -148,9 +152,17 @@ public:
     bool logicalSurface() const { return m_logicalSurface; }
     void setLogicalSurface(bool logicalSurface) { m_logicalSurface = logicalSurface; }
 
+    bool supportsWhiteBalanceMode() const { return m_supportedConstraints.supportsWhiteBalanceMode(); }
+    MeteringMode whiteBalanceMode() const { return m_whiteBalanceMode; }
+    void setWhiteBalanceMode(MeteringMode mode) { m_whiteBalanceMode = mode; }
+
     bool supportsZoom() const { return m_supportedConstraints.supportsZoom(); }
     double zoom() const { return m_zoom; }
     void setZoom(double zoom) { m_zoom = zoom; }
+
+    bool supportsTorch() const { return m_supportedConstraints.supportsTorch(); }
+    bool torch() const { return m_torch; }
+    void setTorch(bool torch) { m_torch = torch; }
 
     const RealtimeMediaSourceSupportedConstraints& supportedConstraints() const { return m_supportedConstraints; }
     void setSupportedConstraints(const RealtimeMediaSourceSupportedConstraints& supportedConstraints) { m_supportedConstraints = supportedConstraints; }
@@ -176,7 +188,10 @@ private:
 
     DisplaySurfaceType m_displaySurface { DisplaySurfaceType::Invalid };
     bool m_logicalSurface { 0 };
+
+    MeteringMode m_whiteBalanceMode { MeteringMode::None };
     double m_zoom { 1.0 };
+    bool m_torch { false };
 
     RealtimeMediaSourceSupportedConstraints m_supportedConstraints;
 };

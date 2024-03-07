@@ -627,7 +627,7 @@ IOReturn AppleLVMGroup::writeLogicalVolumeEntry(IOBufferMemoryDescriptor * lveBu
     AppleLVMVolumeOnDisk * lve = (AppleLVMVolumeOnDisk *)lveBuffer->getBytesNoCopy();
     if (strncmp(lve->lvMagic, kAppleLVMVolumeMagic, sizeof(lve->lvMagic))) {
 	lveBuffer->release();
-	return NULL;
+	return kIOReturnSuccess;
     }
 
 #if defined(__LITTLE_ENDIAN__)
@@ -642,7 +642,7 @@ IOReturn AppleLVMGroup::writeLogicalVolumeEntry(IOBufferMemoryDescriptor * lveBu
     AppleRAIDMember * member;
     UInt64 memberOffset;
     if (!memberOffsetFromLVGOffset(offset, &member, &memberOffset)) {
-	return NULL;
+	return kIOReturnSuccess;
     }
 
     return writeFromBuffer(member, lveBuffer, memberOffset);

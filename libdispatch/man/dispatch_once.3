@@ -36,6 +36,9 @@ FILE *getlogfile(void)
 	return logfile;
 }
 .Ed
+.Sh SCOPE OF PREDICATE
+The variable of type dispatch_once_t must have global or static scope. The
+result of using this type with automatic or dynamic allocation is undefined.
 .Sh FUNDAMENTALS
 The
 .Fn dispatch_once

@@ -9,6 +9,45 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.otControlEntitlementBearer.entitlements[kSecEntitlementPrivateOctagonWalrus] = true
     }
 
+    func makeAccountSettings(walrus: Bool) -> OTAccountSettings {
+        let ret = OTAccountSettings()!
+        ret.walrus = OTWalrus()!
+        ret.walrus.enabled = walrus
+        return ret
+    }
+
+    func makeAccountSettings(webAccess: Bool) -> OTAccountSettings {
+        let ret = OTAccountSettings()!
+        ret.webAccess = OTWebAccess()!
+        ret.webAccess.enabled = webAccess
+        return ret
+    }
+
+    func makeAccountSettings(walrus: Bool, webAccess: Bool) -> OTAccountSettings {
+        let ret = OTAccountSettings()!
+        ret.walrus = OTWalrus()
+        ret.walrus.enabled = walrus
+        ret.webAccess = OTWebAccess()!
+        ret.webAccess.enabled = webAccess
+        return ret
+    }
+
+    func XCTAssertEqualAccountSettings(_ a: OTAccountSettings,
+                                       _ b: OTAccountSettings,
+                                       _ message: String,
+                                       file: StaticString = #file,
+                                       line: UInt = #line) {
+        let match = isEqualAccountSettings(a, b)
+        guard match else {
+            XCTFail("\(message): account settings not matching \(a) != \(b)", file: file, line: line)
+            return
+        }
+    }
+
+    func isEqualAccountSettings(_ a: OTAccountSettings, _ b: OTAccountSettings) -> Bool {
+        a.walrus?.enabled == b.walrus?.enabled && a.webAccess?.enabled == b.webAccess?.enabled
+    }
+
     func testWalrusAPIRequiresEntitlement() throws {
         self.otControlEntitlementBearer.entitlements.removeAll()
 
@@ -19,11 +58,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         XCTAssertThrowsError(try cliqueBridge.setAccountSetting(setting)) { error in
             let nserror = error as NSError
             XCTAssertEqual(nserror.code, Int(errSecMissingEntitlement), "Error should be errSecMissingEntitlement")
@@ -37,11 +72,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Set walrus
         let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -64,11 +95,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Set walrus
         let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -148,11 +175,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Set walrus
         let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -225,14 +248,13 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         for i in 1...10 {
             // Set walrus
-            let setting = OTAccountSettings()!
-            let walrus = OTWalrus()!
+            let enabled: Bool
             if i % 2 == 0 {
-                walrus.enabled = true
+                enabled = true
             } else {
-                walrus.enabled = false
+                enabled = false
             }
-            setting.walrus = walrus
+            let setting = makeAccountSettings(walrus: enabled)
 
             let setExpectation = self.expectation(description: "walrus expectation")
             self.fakeCuttlefishServer.updateListener = { request in
@@ -308,11 +330,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Set walrus
         var setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -348,19 +366,18 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         // peer 2 sets a different setting
-        walrus.enabled = false
-        setting.walrus = walrus
+        let setting2 = makeAccountSettings(walrus: false)
         setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
+            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting2.walrus.enabled, "walrus should be set correctly")
 
             setExpectation.fulfill()
             return nil
         }
 
         let secondSetExpectation = self.expectation(description: "walrus expectation again")
-        peer2.rpcSetAccountSetting(setting) { error in
+        peer2.rpcSetAccountSetting(setting2) { error in
             XCTAssertNil(error, "error should be nil")
             secondSetExpectation.fulfill()
         }
@@ -371,18 +388,17 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        walrus.enabled = true
-        setting.walrus = walrus
+        let setting3 = makeAccountSettings(walrus: true)
         setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
+            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting3.walrus.enabled, "walrus should be set correctly")
 
             setExpectation.fulfill()
             return nil
         }
 
-        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting), "Should be able to successfully set walrus setting")
+        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting3), "Should be able to successfully set walrus setting")
         self.wait(for: [setExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -431,14 +447,13 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         for i in 1...10 {
             // Set walrus
-            let setting = OTAccountSettings()!
-            let walrus = OTWalrus()!
+            let enabled: Bool
             if i % 2 == 0 {
-                walrus.enabled = true
+                enabled = true
             } else {
-                walrus.enabled = false
+                enabled = false
             }
-            setting.walrus = walrus
+            let setting = makeAccountSettings(walrus: enabled)
 
             let setExpectation = self.expectation(description: "walrus expectation")
             self.fakeCuttlefishServer.updateListener = { request in
@@ -550,10 +565,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = false
-        setting.walrus = walrus
+        let setting = makeAccountSettings(walrus: false)
 
         let peer1SetExpectation = self.expectation(description: "peer 1 expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
@@ -568,21 +580,28 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: peer2)
 
         let container2 = try! self.tphClient.getContainer(with: try XCTUnwrap(peer2.activeAccount))
-        let peersFromContainer2 = container2.model.allPeers()
-        XCTAssertNotNil(peersFromContainer2, "peersFromContainer2 should not be nil")
+        try container2.moc.performAndWait {
+            XCTAssertEqual(container2.model.peerCount(), 2, "container2 should have 2 peers")
 
-        let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
-        let oldStableInfo: TPPeerStableInfo! = container2.model.getStableInfoForPeer(withID: egoPeerID)
-        let newWalrus: TPPBPeerStableInfoSetting! = TPPBPeerStableInfoSetting()
-        newWalrus.value = false
-        newWalrus.clock = 1
+            let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
+            let oldStableInfo: TPPeerStableInfo! = container2.model.getStableInfoForPeer(withID: egoPeerID)
+            let newWalrus: TPPBPeerStableInfoSetting! = TPPBPeerStableInfoSetting()
+            newWalrus.value = false
+            newWalrus.clock = 1
 
-        let newStableInfo = try copyStableInfo(model: container2.model,
-                                               key: self.loadPeerKeys(context: self.cuttlefishContext).signingKey,
-                                               oldInfo: oldStableInfo,
-                                               walrus: newWalrus,
-                                               webAccess: oldStableInfo.webAccess)
-        try container2.model.update(newStableInfo, forPeerWithID: egoPeerID)
+            let newStableInfo = try self.copyStableInfo(model: container2.model,
+                                                        key: self.loadPeerKeys(context: self.cuttlefishContext).signingKey,
+                                                        oldInfo: oldStableInfo,
+                                                        walrus: newWalrus,
+                                                        webAccess: oldStableInfo.webAccess)
+            let newPeer = try container2.model.copyPeer(withNewStableInfo: newStableInfo, forPeerWithID: egoPeerID)
+            guard let peerMO = try container2.fetchPeerMO(peerID: egoPeerID) else {
+                throw ContainerError.peerRegisteredButNotStored(egoPeerID)
+            }
+            peerMO.stableInfo = newPeer.stableInfo?.data
+            peerMO.stableInfoSig = newPeer.stableInfo?.sig
+            try container2.moc.save()
+        }
 
         let peer2SetExpectation = self.expectation(description: "peer 2 expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -593,9 +612,6 @@ class OctagonWalrusTests: OctagonTestsBase {
             peer2SetExpectation.fulfill()
             return nil
         }
-
-        walrus.enabled = false
-        setting.walrus = walrus
 
         let secondSetExpectation = self.expectation(description: "walrus expectation again")
         peer2.rpcSetAccountSetting(setting) { error in
@@ -675,11 +691,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         let peer1SetExpectation = self.expectation(description: "peer 1 expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
             peer1SetExpectation.fulfill()
@@ -693,25 +705,15 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: peer2)
 
         let container2 = try! self.tphClient.getContainer(with: try XCTUnwrap(peer2.activeAccount))
-        let peersFromContainer2 = container2.model.allPeers()
-        XCTAssertNotNil(peersFromContainer2, "peersFromContainer2 should not be nil")
+        try container2.moc.performAndWait {
+            XCTAssertEqual(container2.model.peerCount(), 2, "container2 should have 2 peers")
 
-        let firstPeer = peersFromContainer2[0]
-        let firstPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
-        if firstPeer.permanentInfo.peerID == firstPeerID {
-            firstPeer.stableInfo!.walrusSetting!.value = false
-            firstPeer.stableInfo!.walrusSetting!.clock = 1
-
-            let secondPeer = peersFromContainer2[1]
-            secondPeer.stableInfo!.walrusSetting!.value = true
-            secondPeer.stableInfo!.walrusSetting!.clock = 1
-        } else {
-            firstPeer.stableInfo!.walrusSetting!.value = true
-            firstPeer.stableInfo!.walrusSetting!.clock = 1
-
-            let secondPeer = peersFromContainer2[1]
-            secondPeer.stableInfo!.walrusSetting!.value = false
-            secondPeer.stableInfo!.walrusSetting!.clock = 1
+            let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
+            // set walrus to false on ego peer, true on other peer
+            container2.model.enumeratePeers { peer, _ in
+                peer.stableInfo!.walrusSetting!.value = egoPeerID != peer.peerID
+                peer.stableInfo!.walrusSetting!.clock = 1
+            }
         }
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
@@ -763,11 +765,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Attempt to set walrus
         let setExpectation = self.expectation(description: "walrus expectation")
         setExpectation.isInverted = true
@@ -793,11 +791,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: true)
         XCTAssertThrowsError(try cliqueBridge.setAccountSetting(setting)) { error in
             let nserror = error as NSError
             XCTAssertEqual(nserror.code, Int(errSecMissingEntitlement), "Error should be errSecMissingEntitlement")
@@ -811,11 +805,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: true)
         // Set web access
         let setExpectation = self.expectation(description: "web access expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -838,11 +828,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: true)
         // Set web access
         let setExpectation = self.expectation(description: "web access expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -922,11 +908,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: true)
         // Set webAccess
         let setExpectation = self.expectation(description: "webAccess expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -999,14 +981,13 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         for i in 1...10 {
             // Set webAccess
-            let setting = OTAccountSettings()!
-            let webAccess = OTWebAccess()!
+            let enabled: Bool
             if i % 2 == 0 {
-                webAccess.enabled = true
+                enabled = true
             } else {
-                webAccess.enabled = false
+                enabled = false
             }
-            setting.webAccess = webAccess
+            let setting = makeAccountSettings(webAccess: enabled)
 
             let setExpectation = self.expectation(description: "webAccess expectation")
             self.fakeCuttlefishServer.updateListener = { request in
@@ -1081,11 +1062,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: true)
         // Set webAccess
         var setExpectation = self.expectation(description: "webAccess expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -1120,19 +1097,18 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         // peer 2 sets a different setting
-        webAccess.enabled = false
-        setting.webAccess = webAccess
+        let setting2 = makeAccountSettings(webAccess: false)
         setExpectation = self.expectation(description: "webAccess expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.webAccess!.value, setting.webAccess.enabled, "webAccess should be set correctly")
+            XCTAssertEqual(newStableInfo.webAccess!.value, setting2.webAccess.enabled, "webAccess should be set correctly")
 
             setExpectation.fulfill()
             return nil
         }
 
         let secondSetExpectation = self.expectation(description: "webAccess expectation again")
-        peer2.rpcSetAccountSetting(setting) { error in
+        peer2.rpcSetAccountSetting(setting2) { error in
             XCTAssertNil(error, "error should be nil")
             secondSetExpectation.fulfill()
         }
@@ -1143,18 +1119,17 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        webAccess.enabled = true
-        setting.webAccess = webAccess
+        let setting3 = makeAccountSettings(webAccess: true)
         setExpectation = self.expectation(description: "webAccess expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.webAccess!.value, setting.webAccess.enabled, "webAccess should be set correctly")
+            XCTAssertEqual(newStableInfo.webAccess!.value, setting3.webAccess.enabled, "webAccess should be set correctly")
 
             setExpectation.fulfill()
             return nil
         }
 
-        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting), "Should be able to successfully set webAccess setting")
+        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting3), "Should be able to successfully set webAccess setting")
         self.wait(for: [setExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -1203,14 +1178,13 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         for i in 1...10 {
             // Set webAccess
-            let setting = OTAccountSettings()!
-            let webAccess = OTWebAccess()!
+            let enabled: Bool
             if i % 2 == 0 {
-                webAccess.enabled = true
+                enabled = true
             } else {
-                webAccess.enabled = false
+                enabled = false
             }
-            setting.webAccess = webAccess
+            let setting = makeAccountSettings(webAccess: enabled)
 
             let setExpectation = self.expectation(description: "webAccess expectation")
             self.fakeCuttlefishServer.updateListener = { request in
@@ -1281,10 +1255,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
+        let setting = makeAccountSettings(webAccess: true)
 
         // Attempt to set webAccess
         let setExpectation = self.expectation(description: "webAccess expectation")
@@ -1308,11 +1279,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Attempt to set walrus
         let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
@@ -1326,11 +1293,8 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        var fetchedSetting: OTAccountSettings?
-        XCTAssertNoThrow(fetchedSetting = try cliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == true, "walrus should be enabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == false, "webAccess should not be enabled")
+        let fetchedSetting = try cliqueBridge.fetchAccountSettings()
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: false), "settings not as expected")
     }
 
     func testFetchWebAccessSetting() throws {
@@ -1340,11 +1304,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: true)
         // Attempt to set webAccess
         let setExpectation = self.expectation(description: "webAccess expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
@@ -1358,11 +1318,8 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        var fetchedSetting: OTAccountSettings?
-        XCTAssertNoThrow(fetchedSetting = try cliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == false, "walrus should not be enabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == true, "webAccess should be enabled")
+        let fetchedSetting = try cliqueBridge.fetchAccountSettings()
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: false, webAccess: true), "settings not as expected")
     }
 
     func testFetchEmptyAccountSettings() throws {
@@ -1374,11 +1331,8 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        var fetchedSetting: OTAccountSettings?
-        XCTAssertNoThrow(fetchedSetting = try cliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == false, "walrus should not be enabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == false, "webAccess should not be enabled")
+        let fetchedSetting = try cliqueBridge.fetchAccountSettings()
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: false, webAccess: false), "settings not as expected")
     }
 
     // this test forces two peers to have the same clock but different values at the same time as a stable changes update
@@ -1412,11 +1366,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = false
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: false)
         let peer1SetExpectation = self.expectation(description: "peer 1 expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
             peer1SetExpectation.fulfill()
@@ -1430,24 +1380,30 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: peer2)
 
         let container2 = try! self.tphClient.getContainer(with: try XCTUnwrap(peer2.activeAccount))
-        let peersFromContainer2 = container2.model.allPeers()
-        XCTAssertNotNil(peersFromContainer2, "peersFromContainer2 should not be nil")
+        try container2.moc.performAndWait {
+            XCTAssertEqual(container2.model.peerCount(), 2, "container2 should have 2 peers")
 
-        let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
-        let oldStableInfo: TPPeerStableInfo! = container2.model.getStableInfoForPeer(withID: egoPeerID)
-        let newWebAccess: TPPBPeerStableInfoSetting = TPPBPeerStableInfoSetting()
-        newWebAccess.value = false
-        newWebAccess.clock = 1
+            let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
+            let oldStableInfo: TPPeerStableInfo! = container2.model.getStableInfoForPeer(withID: egoPeerID)
+            let newWebAccess: TPPBPeerStableInfoSetting = TPPBPeerStableInfoSetting()
+            newWebAccess.value = false
+            newWebAccess.clock = 1
 
-        let newStableInfo = try copyStableInfo(model: container2.model,
-                                               key: self.loadPeerKeys(context: self.cuttlefishContext).signingKey,
-                                               oldInfo: oldStableInfo,
-                                               walrus: oldStableInfo.walrusSetting,
-                                               webAccess: newWebAccess)
-        try container2.model.update(newStableInfo, forPeerWithID: egoPeerID)
+            let newStableInfo = try copyStableInfo(model: container2.model,
+                                                   key: self.loadPeerKeys(context: self.cuttlefishContext).signingKey,
+                                                   oldInfo: oldStableInfo,
+                                                   walrus: oldStableInfo.walrusSetting,
+                                                   webAccess: newWebAccess)
+            let newPeer = try container2.model.copyPeer(withNewStableInfo: newStableInfo, forPeerWithID: egoPeerID)
+            guard let peerMO = try container2.fetchPeerMO(peerID: egoPeerID) else {
+                throw ContainerError.peerRegisteredButNotStored(egoPeerID)
+            }
+            peerMO.stableInfo = newPeer.stableInfo?.data
+            peerMO.stableInfoSig = newPeer.stableInfo?.sig
+            try container2.moc.save()
+        }
 
-        webAccess.enabled = false
-        setting.webAccess = webAccess
+        let setting2 = makeAccountSettings(webAccess: false)
 
         let peer2SetExpectation = self.expectation(description: "peer 2 expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -1460,7 +1416,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
 
         let secondSetExpectation = self.expectation(description: "webAccess expectation again")
-        peer2.rpcSetAccountSetting(setting) { error in
+        peer2.rpcSetAccountSetting(setting2) { error in
             XCTAssertNil(error, "error should be nil")
             secondSetExpectation.fulfill()
         }
@@ -1538,11 +1494,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: true)
         let peer1SetExpectation = self.expectation(description: "peer 1 expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
             peer1SetExpectation.fulfill()
@@ -1556,25 +1508,15 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: peer2)
 
         let container2 = try! self.tphClient.getContainer(with: try XCTUnwrap(peer2.activeAccount))
-        let peersFromContainer2 = container2.model.allPeers()
-        XCTAssertNotNil(peersFromContainer2, "peersFromContainer2 should not be nil")
+        try container2.moc.performAndWait {
+            XCTAssertEqual(container2.model.peerCount(), 2, "container2 should have 2 peers")
 
-        let firstPeer = peersFromContainer2[0]
-        let firstPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
-        if firstPeer.permanentInfo.peerID == firstPeerID {
-            firstPeer.stableInfo!.webAccess!.value = false
-            firstPeer.stableInfo!.webAccess!.clock = 1
-
-            let secondPeer = peersFromContainer2[1]
-            secondPeer.stableInfo!.webAccess!.value = true
-            secondPeer.stableInfo!.webAccess!.clock = 1
-        } else {
-            firstPeer.stableInfo!.webAccess!.value = true
-            firstPeer.stableInfo!.webAccess!.clock = 1
-
-            let secondPeer = peersFromContainer2[1]
-            secondPeer.stableInfo!.webAccess!.value = false
-            secondPeer.stableInfo!.webAccess!.clock = 1
+            let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
+            // set webAccess to false on ego peer, true on other peer
+            container2.model.enumeratePeers { peer, _ in
+                peer.stableInfo!.webAccess!.value = egoPeerID != peer.peerID
+                peer.stableInfo!.webAccess!.clock = 1
+            }
         }
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
@@ -1626,11 +1568,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Attempt to set walrus
         let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
@@ -1644,11 +1582,8 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        var fetchedSetting: OTAccountSettings?
-        XCTAssertNoThrow(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(self.otcliqueContext), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == true, "walrus should be enabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == false, "webAccess should not be enabled")
+        let fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(self.otcliqueContext)
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: false), "settings not as expected")
     }
 
     func testFetchAccountWideSettingsTwoPeerSet() throws {
@@ -1658,11 +1593,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Attempt to set walrus
         var setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
@@ -1690,21 +1621,20 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        walrus.enabled = false
-        setting.walrus = walrus
+        let setting2 = makeAccountSettings(walrus: false)
 
         setExpectation = self.expectation(description: "second peer sets walrus expectation")
 
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
+            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting2.walrus.enabled, "walrus should be set correctly")
 
             setExpectation.fulfill()
             return nil
         }
 
         let secondSetExpectation = self.expectation(description: "walrus expectation again")
-        joiningContext.rpcSetAccountSetting(setting) { error in
+        joiningContext.rpcSetAccountSetting(setting2) { error in
             XCTAssertNil(error, "error should be nil")
             secondSetExpectation.fulfill()
         }
@@ -1716,21 +1646,16 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: joiningContext)
 
-        var fetchedSetting: OTAccountSettings?
-        XCTAssertNoThrow(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(self.otcliqueContext), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == false, "walrus should be disabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == false, "webAccess should not be enabled")
+        let fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(self.otcliqueContext)
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: false, webAccess: false), "settings not as expected")
 
         let secondPeerContext = OTConfigurationContext()
         secondPeerContext.context = "peer2"
         secondPeerContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         secondPeerContext.otControl = self.otControl
 
-        XCTAssertNoThrow(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(secondPeerContext), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == false, "walrus should be disabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == false, "webAccess should not be enabled")
+        let fetchedSetting2 = try OctagonTrustCliqueBridge.fetchAccountWideSettings(secondPeerContext)
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting2), makeAccountSettings(walrus: false, webAccess: false), "settings not as expected")
     }
 
     func testFetchAccountWideSettingsNoPeers() throws {
@@ -1789,13 +1714,13 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.fakeCuttlefishServer.fetchChangesListener = { _ in
             fetchChangesExpectations.fulfill()
             self.fakeCuttlefishServer.fetchChangesListener = nil
-            return NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+            return NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown, userInfo: nil)
         }
 
         var fetchedSetting: OTAccountSettings?
         XCTAssertThrowsError(fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(withForceFetch: true, configuration: self.otcliqueContext), "Should throw an error fetching account settings") { error in
             let nserror = error as NSError
-            XCTAssertEqual(nserror.code, NSURLErrorNotConnectedToInternet, "error code")
+            XCTAssertEqual(nserror.code, NSURLErrorUnknown, "error code")
             XCTAssertEqual(nserror.domain, NSURLErrorDomain, "error domain")
         }
         XCTAssertNil(fetchedSetting, "fetched setting should be nil")
@@ -1810,14 +1735,11 @@ class OctagonWalrusTests: OctagonTestsBase {
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
         do {
-            let setting = OTAccountSettings()!
-            setting.walrus = OTWalrus()!
-            setting.walrus.enabled = true
-
+            let setting = makeAccountSettings(walrus: true)
             let setWalrusExpectation = self.expectation(description: "walrus expectation")
             self.fakeCuttlefishServer.updateListener = { _ in
                 setWalrusExpectation.fulfill()
-                return NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+                return NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown, userInfo: nil)
             }
 
             XCTAssertThrowsError(try cliqueBridge.setAccountSetting(setting), "Should not be able to successfully set walrus setting when there's no network connectivity") { error in
@@ -1828,21 +1750,18 @@ class OctagonWalrusTests: OctagonTestsBase {
                 let underlying = nserror.userInfo[NSUnderlyingErrorKey] as? NSError
                 XCTAssertNotNil(underlying, "Should have an underlying error")
                 XCTAssertEqual(underlying?.domain ?? "", NSURLErrorDomain, "Underlying error should be NSURLErrorDomain")
-                XCTAssertEqual(underlying?.code ?? 0, NSURLErrorNotConnectedToInternet, "Underlying error code should be NSURLErrorNotConnectedToInternet")
+                XCTAssertEqual(underlying?.code ?? 0, NSURLErrorUnknown, "Underlying error code should be NSURLErrorUnknown")
             }
             self.wait(for: [setWalrusExpectation], timeout: 10)
             self.fakeCuttlefishServer.updateListener = nil
         }
 
         do {
-            let setting = OTAccountSettings()!
-            setting.webAccess = OTWebAccess()!
-            setting.webAccess.enabled = true
-
+            let setting = makeAccountSettings(webAccess: true)
             let setWebAccessExpectation = self.expectation(description: "walrus expectation")
             self.fakeCuttlefishServer.updateListener = { _ in
                 setWebAccessExpectation.fulfill()
-                return NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+                return NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown, userInfo: nil)
             }
 
             XCTAssertThrowsError(try cliqueBridge.setAccountSetting(setting), "Should not be able to successfully set web access setting when there's no network connectivity") { error in
@@ -1853,7 +1772,7 @@ class OctagonWalrusTests: OctagonTestsBase {
                 let underlying = nserror.userInfo[NSUnderlyingErrorKey] as? NSError
                 XCTAssertNotNil(underlying, "Should have an underlying error")
                 XCTAssertEqual(underlying?.domain ?? "", NSURLErrorDomain, "Underlying error should be NSURLErrorDomain")
-                XCTAssertEqual(underlying?.code ?? 0, NSURLErrorNotConnectedToInternet, "Underlying error code should be NSURLErrorNotConnectedToInternet")
+                XCTAssertEqual(underlying?.code ?? 0, NSURLErrorUnknown, "Underlying error code should be NSURLErrorUnknown")
             }
             self.wait(for: [setWebAccessExpectation], timeout: 10)
             self.fakeCuttlefishServer.updateListener = nil
@@ -1869,11 +1788,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let firstCliqueIdentifier = clique.cliqueMemberIdentifier
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Attempt to set walrus
         let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
@@ -1887,11 +1802,8 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        var fetchedSetting: OTAccountSettings?
-        XCTAssertNoThrow(fetchedSetting = try cliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == true, "walrus should be enabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == false, "webAccess should not be enabled")
+        let fetchedSetting = try cliqueBridge.fetchAccountSettings()
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: false), "settings not as expected")
 
         let otcliqueContext = OTConfigurationContext()
         otcliqueContext.context = self.cuttlefishContext.contextID
@@ -1921,7 +1833,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         XCTAssertNoThrow(reFetchedSettings = try newCliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
         XCTAssertNotNil(reFetchedSettings, "fetched setting should not be nil")
 
-        XCTAssertEqual(fetchedSetting, reFetchedSettings, "account settings should be equal")
+        XCTAssertEqual(try XCTUnwrap(fetchedSetting), reFetchedSettings, "account settings should be equal")
         self.verifyDatabaseMocks()
     }
 
@@ -1934,11 +1846,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let firstCliqueIdentifier = clique.cliqueMemberIdentifier
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
+        let setting = makeAccountSettings(webAccess: true)
         // Attempt to set webaccess
         let setExpectation = self.expectation(description: "webaccess expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
@@ -1952,11 +1860,8 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        var fetchedSetting: OTAccountSettings?
-        XCTAssertNoThrow(fetchedSetting = try cliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == false, "walrus should not be enabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == true, "webAccess should be enabled")
+        let fetchedSetting = try cliqueBridge.fetchAccountSettings()
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: false, webAccess: true), "settings not as expected")
 
         let otcliqueContext = OTConfigurationContext()
         otcliqueContext.context = self.cuttlefishContext.contextID
@@ -1986,7 +1891,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         XCTAssertNoThrow(reFetchedSettings = try newCliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
         XCTAssertNotNil(reFetchedSettings, "fetched setting should not be nil")
 
-        XCTAssertEqual(fetchedSetting, reFetchedSettings, "account settings should be equal")
+        XCTAssertEqual(try XCTUnwrap(fetchedSetting), reFetchedSettings, "account settings should be equal")
         self.verifyDatabaseMocks()
     }
 
@@ -1999,14 +1904,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let firstCliqueIdentifier = clique.cliqueMemberIdentifier
 
-        let setting = OTAccountSettings()!
-        let webAccess = OTWebAccess()!
-        webAccess.enabled = true
-        setting.webAccess = webAccess
-
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
+        let setting = makeAccountSettings(walrus: true, webAccess: true)
 
         // Attempt to set webaccess
         let setExpectation = self.expectation(description: "webaccess expectation")
@@ -2021,11 +1919,8 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        var fetchedSetting: OTAccountSettings?
-        XCTAssertNoThrow(fetchedSetting = try cliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
-        XCTAssertNotNil(fetchedSetting, "fetched setting should not be nil")
-        XCTAssertTrue(fetchedSetting?.walrus?.enabled == true, "walrus should be enabled")
-        XCTAssertTrue(fetchedSetting?.webAccess?.enabled == true, "webAccess should be enabled")
+        let fetchedSetting = try cliqueBridge.fetchAccountSettings()
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: true), "settings not as expected")
 
         let otcliqueContext = OTConfigurationContext()
         otcliqueContext.context = self.cuttlefishContext.contextID
@@ -2055,7 +1950,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         XCTAssertNoThrow(reFetchedSettings = try newCliqueBridge.fetchAccountSettings(), "Should not throw an error fetching account settings")
         XCTAssertNotNil(reFetchedSettings, "fetched setting should not be nil")
 
-        XCTAssertEqual(fetchedSetting, reFetchedSettings, "account settings should be equal")
+        XCTAssertEqual(try XCTUnwrap(fetchedSetting), reFetchedSettings, "account settings should be equal")
         self.verifyDatabaseMocks()
     }
 
@@ -2096,11 +1991,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let peer2 = self.makeInitiatorContext(contextID: "peer2", authKitAdapter: self.mockAuthKit2)
         self.assertJoinViaEscrowRecovery(joiningContext: peer2, sponsor: self.cuttlefishContext)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Set walrus on peer2
         let setExpectation = self.expectation(description: "walrus set expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -2121,19 +2012,19 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.fakeCuttlefishServer.updateListener = nil
 
         // Unset walrus on peer2
-        walrus.enabled = false
+        let setting2 = makeAccountSettings(walrus: false)
 
         let unsetExpectation = self.expectation(description: "walrus unset expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
+            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting2.walrus.enabled, "walrus should be set correctly")
 
             unsetExpectation.fulfill()
             return nil
         }
 
         let peer2SetExpectation2 = self.expectation(description: "peer2 walrus unset")
-        peer2.rpcSetAccountSetting(setting) { error in
+        peer2.rpcSetAccountSetting(setting2) { error in
             XCTAssertNil(error, "error should be nil")
             peer2SetExpectation2.fulfill()
         }
@@ -2145,16 +2036,16 @@ class OctagonWalrusTests: OctagonTestsBase {
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
         // Set walrus on peer1
-        walrus.enabled = true
+        let setting3 = makeAccountSettings(walrus: true)
         let set2Expectation = self.expectation(description: "walrus set 2 expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
+            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting3.walrus.enabled, "walrus should be set correctly")
 
             set2Expectation.fulfill()
             return nil
         }
-        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting), "Should be able to successfully set walrus setting")
+        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting3), "Should be able to successfully set walrus setting")
         self.wait(for: [set2Expectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -2176,7 +2067,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         var retSettings: OTAccountSettings?
         let fetchExpectation = self.expectation(description: "account setting fetch")
         self.cuttlefishContext.rpcFetchAccountSettings { settings, error in
-            XCTAssertNotNil(setting, "setting should not be nil")
+            XCTAssertNotNil(settings, "setting should not be nil")
             XCTAssertNil(error, "error should be nil")
             retSettings = settings
             fetchExpectation.fulfill()
@@ -2225,11 +2116,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let peer2 = self.makeInitiatorContext(contextID: "peer2", authKitAdapter: self.mockAuthKit2)
         self.assertJoinViaEscrowRecovery(joiningContext: peer2, sponsor: self.cuttlefishContext)
 
-        let setting = OTAccountSettings()!
-        let walrus = OTWalrus()!
-        walrus.enabled = true
-        setting.walrus = walrus
-
+        let setting = makeAccountSettings(walrus: true)
         // Set walrus on peer2
         let setExpectation = self.expectation(description: "walrus set expectation")
         self.fakeCuttlefishServer.updateListener = { request in
@@ -2250,19 +2137,19 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.fakeCuttlefishServer.updateListener = nil
 
         // Unset walrus on peer2
-        walrus.enabled = false
+        let setting2 = makeAccountSettings(walrus: false)
 
         let unsetExpectation = self.expectation(description: "walrus unset expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
+            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting2.walrus.enabled, "walrus should be set correctly")
 
             unsetExpectation.fulfill()
             return nil
         }
 
         let peer2SetExpectation2 = self.expectation(description: "peer2 walrus unset")
-        peer2.rpcSetAccountSetting(setting) { error in
+        peer2.rpcSetAccountSetting(setting2) { error in
             XCTAssertNil(error, "error should be nil")
             peer2SetExpectation2.fulfill()
         }
@@ -2274,16 +2161,16 @@ class OctagonWalrusTests: OctagonTestsBase {
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
         // Set walrus on peer1
-        walrus.enabled = true
+        let setting3 = makeAccountSettings(walrus: true)
         let set2Expectation = self.expectation(description: "walrus set 2 expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
+            XCTAssertEqual(newStableInfo.walrusSetting!.value, setting3.walrus.enabled, "walrus should be set correctly")
 
             set2Expectation.fulfill()
             return nil
         }
-        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting), "Should be able to successfully set walrus setting")
+        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting3), "Should be able to successfully set walrus setting")
         self.wait(for: [set2Expectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -2300,7 +2187,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         var retSettings: OTAccountSettings?
         let fetchExpectation = self.expectation(description: "account setting fetch")
         self.cuttlefishContext.rpcFetchAccountSettings { settings, error in
-            XCTAssertNotNil(setting, "setting should not be nil")
+            XCTAssertNotNil(settings, "setting should not be nil")
             XCTAssertNil(error, "error should be nil")
             retSettings = settings
             fetchExpectation.fulfill()

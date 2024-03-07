@@ -219,6 +219,8 @@ extern const CFStringRef kSecPolicyApplePPMAggregatorConfigSigning
     API_AVAILABLE(macos(13.1), ios(16.2), watchos(9.2), tvos(16.2));
 extern const CFStringRef kSecPolicyAppleXROSApplicationSigning
     API_AVAILABLE(macos(14.0), ios(17.0), watchos(10.0), tvos(17.0));
+extern const CFStringRef kSecPolicyAppleEDPSigning
+    API_AVAILABLE(macos(14.4), ios(17.4), watchos(10.4), tvos(17.4));
 
 
 /*!
@@ -2343,6 +2345,22 @@ SecPolicyRef SecPolicyCreateEscrowServiceIdKeySigning(void)
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreatePCSEscrowServiceIdKeySigning(void)
     API_AVAILABLE(macos(10.15.6), ios(13.6));
+
+/*!
+ @function SecPolicyCreateEDPSigning
+ @abstract Returns a policy object for verifying EDP signatures.
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.17.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.12.47.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateEDPSigning(void)
+    API_AVAILABLE(macos(14.4), ios(17.4), watchos(10.4), tvos(17.4));
 
 /*
  * MARK: SecPolicyCheckCert functions

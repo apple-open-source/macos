@@ -192,13 +192,13 @@ nfs_nget(
 	uint32_t vid, cn_namelen;
 	u_long nfshash;
 
-	NFS_KDBG_ENTRY(NFSDBG_OP_NGET, mp, dnp, flags, npp);
+	NFS_KDBG_ENTRY(NFSDBG_OP_NGET, mp, NFSTOV(dnp), flags, npp);
 
 	/* Check for unmount in progress */
 	if (!mp || vfs_isforce(mp)) {
 		*npp = NULL;
 		error = ENXIO;
-		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef001, dnp, *npp, error);
+		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef001, NFSTOV(dnp), *npp, error);
 		return error;
 	}
 	nfsvers = VFSTONFS(mp)->nm_vers;
@@ -230,13 +230,13 @@ loop:
 				continue;
 			}
 		}
-		NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc001, dnp, np, np->n_flag);
+		NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc001, NFSTOV(dnp), np, np->n_flag);
 		/* if the node is being initialized or locked, sleep on it */
 		if ((np->n_hflag & NHINIT) || ((np->n_hflag & NHLOCKED) && !(flags & NG_NOCREATE))) {
 			np->n_hflag |= NHLOCKWANT;
-			NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc002, dnp, np, np->n_flag);
+			NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc002, NFSTOV(dnp), np, np->n_flag);
 			msleep(np, get_lck_mtx(NLM_NODE_HASH), PDROP | PINOD, "nfs_nget", NULL);
-			NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc003, dnp, np, np->n_flag);
+			NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc003, NFSTOV(dnp), np, np->n_flag);
 			goto loop;
 		}
 		vp = NFSTOV(np);
@@ -249,18 +249,18 @@ loop:
 			 * If vnode is being reclaimed or has already
 			 * changed identity, no need to wait.
 			 */
-			NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef002, dnp, *npp, error);
+			NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef002, NFSTOV(dnp), *npp, error);
 			return error;
 		}
 		vnode_drop(vp);
 		if ((error = nfs_node_lock(np))) {
 			/* this only fails if the node is now unhashed */
 			/* so let's see if we can find/create it again */
-			NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc004, dnp, *npp, error);
+			NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc004, NFSTOV(dnp), *npp, error);
 			vnode_put(vp);
 			if (flags & NG_NOCREATE) {
 				*npp = 0;
-				NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef003, dnp, *npp, ENOENT);
+				NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef003, NFSTOV(dnp), *npp, ENOENT);
 				return ENOENT;
 			}
 			goto loop;
@@ -367,16 +367,16 @@ loop:
 
 			*npp = np;
 		}
-		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef004, dnp, *npp, error);
+		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef004, NFSTOV(dnp), *npp, error);
 		return error;
 	}
 
-	NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc005, mp, dnp, npp);
+	NFS_KDBG_INFO(NFSDBG_OP_NGET, 0xabc005, mp, NFSTOV(dnp), npp);
 
 	if (flags & NG_NOCREATE) {
 		lck_mtx_unlock(get_lck_mtx(NLM_NODE_HASH));
 		*npp = 0;
-		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef005, dnp, *npp, ENOENT);
+		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef005, NFSTOV(dnp), *npp, ENOENT);
 		return ENOENT;
 	}
 
@@ -424,7 +424,7 @@ loop:
 			lck_mtx_unlock(get_lck_mtx(NLM_NODE_HASH));
 			NFS_ZFREE(get_zone(NFS_NODE_ZONE), np);
 			*npp = 0;
-			NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef006, dnp, *npp, ENOMEM);
+			NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef006, NFSTOV(dnp), *npp, ENOMEM);
 			return ENOMEM;
 		}
 	} else {
@@ -482,7 +482,7 @@ loop:
 		}
 		NFS_ZFREE(get_zone(NFS_NODE_ZONE), np);
 		*npp = 0;
-		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef007, dnp, *npp, error);
+		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef007, NFSTOV(dnp), *npp, error);
 		return error;
 	}
 	NFS_CHANGED_UPDATE(nfsvers, np, nvap);
@@ -524,7 +524,11 @@ loop:
 	}
 	vfsp.vnfs_markroot = (flags & NG_MARKROOT) ? 1 : 0;
 	vfsp.vnfs_marksystem = 0;
-	vfsp.vnfs_rdev = 0;
+	if (nvap->nva_type == VBLK || nvap->nva_type == VCHR) {
+		vfsp.vnfs_rdev = nvap->nva_rawdev;
+	} else {
+		vfsp.vnfs_rdev = 0;
+	}
 	vfsp.vnfs_filesize = nvap->nva_size;
 	vfsp.vnfs_cnp = cnp;
 	vfsp.vnfs_flags = VNFS_ADDFSREF;
@@ -575,7 +579,7 @@ loop:
 		}
 		NFS_ZFREE(get_zone(NFS_NODE_ZONE), np);
 		*npp = 0;
-		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef008, dnp, *npp, error);
+		NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef008, NFSTOV(dnp), *npp, error);
 		return error;
 	}
 	vp = np->n_vnode;
@@ -593,7 +597,7 @@ loop:
 
 	*npp = np;
 
-	NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef009, dnp, *npp, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_NGET, 0xdef009, NFSTOV(dnp), *npp, error);
 	return error;
 }
 
@@ -611,13 +615,11 @@ nfs_vnop_inactive(
 	nfsnode_t np;
 	struct nfs_sillyrename *nsp;
 	struct nfs_vattr *nvattr;
-	int unhash, attrerr, busyerror, error, inuse, busied, force;
+	int unhash, attrerr, busyerror, error, inuse, filebusyerror, force;
 	struct nfs_open_file *nofp;
 	struct componentname cn;
 	struct nfsmount *nmp;
 	mount_t mp;
-
-	NFS_KDBG_ENTRY(NFSDBG_VN_INACTIVE, vp, 0, 0, 0);
 
 	if (vp == NULL) {
 		panic("nfs_vnop_inactive: vp == NULL");
@@ -626,6 +628,8 @@ nfs_vnop_inactive(
 	if (np == NULL) {
 		panic("nfs_vnop_inactive: np == NULL");
 	}
+
+	NFS_KDBG_ENTRY(NFSDBG_VN_INACTIVE, NFSNODE_FILEID(np), vp, np, 0);
 
 	nmp = NFSTONMP(np);
 	mp = vnode_mount(vp);
@@ -657,21 +661,13 @@ restart:
 	}
 
 	TAILQ_FOREACH(nofp, &np->n_opens, nof_link) {
-		lck_mtx_lock(&nofp->nof_lock);
-		if (nofp->nof_flags & NFS_OPEN_FILE_BUSY) {
-			if (!force) {
-				NP(np, "nfs_vnop_inactive: open file busy");
-			}
-			busied = 0;
-		} else {
-			nfs_open_file_busy_ref(nofp);
-			busied = 1;
+		filebusyerror = nfs_open_file_set_busy(nofp, vfs_context_thread(ctx));
+		if (filebusyerror) {
+			NP(np, "nfs_vnop_inactive: open file busy %d", filebusyerror);
+			continue;
 		}
-		lck_mtx_unlock(&nofp->nof_lock);
 		if ((np->n_flag & NREVOKE) || (nofp->nof_flags & NFS_OPEN_FILE_LOST)) {
-			if (busied) {
-				nfs_open_file_clear_busy(nofp);
-			}
+			nfs_open_file_clear_busy(nofp);
 			continue;
 		}
 		/*
@@ -684,9 +680,7 @@ restart:
 		if ((nofp->nof_flags & NFS_OPEN_FILE_CREATE) && nofp->nof_creator && !force) {
 			if (nofp->nof_flags & NFS_OPEN_FILE_REOPEN) {
 				lck_mtx_unlock(&np->n_openlock);
-				if (busied) {
-					nfs_open_file_clear_busy(nofp);
-				}
+				nfs_open_file_clear_busy(nofp);
 				if (inuse) {
 					nfs_mount_state_in_use_end(nmp, 0);
 					inuse = 0;
@@ -704,9 +698,7 @@ restart:
 					nofp->nof_flags |= NFS_OPEN_FILE_CREATE;
 				}
 			}
-			if (busied) {
-				nfs_open_file_clear_busy(nofp);
-			}
+			nfs_open_file_clear_busy(nofp);
 			if (inuse) {
 				nfs_mount_state_in_use_end(nmp, error);
 			}
@@ -728,9 +720,7 @@ restart:
 				lck_mtx_unlock(&np->n_openlock);
 				if (nofp->nof_flags & NFS_OPEN_FILE_REOPEN) {
 					int should_restart = 0;
-					if (busied) {
-						nfs_open_file_clear_busy(nofp);
-					}
+					nfs_open_file_clear_busy(nofp);
 #if CONFIG_NFS4
 					if (!nfs4_reopen(nofp, NULL)) {
 						should_restart = 1;
@@ -750,9 +740,7 @@ restart:
 						nofp->nof_flags |= NFS_OPEN_FILE_NEEDCLOSE;
 					}
 				}
-				if (busied) {
-					nfs_open_file_clear_busy(nofp);
-				}
+				nfs_open_file_clear_busy(nofp);
 				if (inuse) {
 					nfs_mount_state_in_use_end(nmp, error);
 				}
@@ -783,9 +771,7 @@ restart:
 			    nofp->nof_w_drw, nofp->nof_d_w_drw,
 			    nofp->nof_rw_drw, nofp->nof_d_rw_drw);
 		}
-		if (busied) {
-			nfs_open_file_clear_busy(nofp);
-		}
+		nfs_open_file_clear_busy(nofp);
 	}
 	lck_mtx_unlock(&np->n_openlock);
 
@@ -917,7 +903,7 @@ restart:
 	kfree_type(struct nfs_sillyrename, nsp);
 out_free:
 	kfree_type(struct nfs_vattr, nvattr);
-	NFS_KDBG_EXIT(NFSDBG_VN_INACTIVE, vp, error, 0, 0);
+	NFS_KDBG_EXIT(NFSDBG_VN_INACTIVE, NFSNODE_FILEID(np), vp, np, error, 0);
 	return 0;
 }
 
@@ -942,7 +928,7 @@ nfs_vnop_reclaim(
 	mount_t mp = vnode_mount(vp);
 	int force;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN_RECLAIM, nmp, vp, np, np->n_flag);
+	NFS_KDBG_ENTRY(NFSDBG_VN_RECLAIM, NFSNODE_FILEID(np), vp, np, np->n_flag);
 	force = (!mp || vfs_isforce(mp) || nfs_mount_gone(nmp));
 
 	/* There shouldn't be any open or lock state at this point */
@@ -1045,7 +1031,7 @@ nfs_vnop_reclaim(
 				if (nofp->nof_r || nofp->nof_w || nofp->nof_rw ||
 				    nofp->nof_r_dw || nofp->nof_w_dw || nofp->nof_rw_dw ||
 				    nofp->nof_r_drw || nofp->nof_w_drw || nofp->nof_rw_drw) {
-					nfs4_close_rpc(np, nofp, NULL, nofp->nof_owner->noo_cred, R_RECOVER);
+					nfs4_close_rpc(np, nofp, NULL, nofp->nof_owner->noo_cred, R_RECOVER, 0);
 				}
 #endif
 			}
@@ -1129,7 +1115,7 @@ nfs_vnop_reclaim(
 	lck_rw_destroy(&np->n_datalock, get_lck_group(NLG_DATA));
 	lck_mtx_destroy(&np->n_openlock, get_lck_group(NLG_OPEN));
 
-	NFS_KDBG_EXIT(NFSDBG_VN_RECLAIM, nmp, vp, np, np->n_flag);
+	NFS_KDBG_EXIT(NFSDBG_VN_RECLAIM, NFSNODE_FILEID(np), vp, np, np->n_flag);
 	NFS_ZFREE(get_zone(NFS_NODE_ZONE), np);
 	return 0;
 }
@@ -1142,13 +1128,13 @@ int
 nfs_node_lock_internal(nfsnode_t np, int force)
 {
 	int error = 0;
-	NFS_KDBG_ENTRY(NFSDBG_OP_NODE_LOCK, np, force);
+	NFS_KDBG_ENTRY(NFSDBG_OP_NODE_LOCK, NFSTOV(np), np, force);
 	lck_mtx_lock(&np->n_lock);
 	if (!force && !(np->n_hflag & NHHASHED)) {
 		lck_mtx_unlock(&np->n_lock);
 		error = ENOENT;
 	}
-	NFS_KDBG_EXIT(NFSDBG_OP_NODE_LOCK, np, force, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_NODE_LOCK, NFSTOV(np), np, force, error);
 	return error;
 }
 
@@ -1170,7 +1156,7 @@ nfs_node_lock_force(nfsnode_t np)
 void
 nfs_node_unlock(nfsnode_t np)
 {
-	NFS_KDBG_INFO(NFSDBG_OP_NODE_UNLOCK, 0xabc001, np, current_thread());
+	NFS_KDBG_INFO(NFSDBG_OP_NODE_UNLOCK, 0xabc001, NFSTOV(np), np, current_thread());
 	lck_mtx_unlock(&np->n_lock);
 }
 
@@ -1357,7 +1343,7 @@ nfs_data_lock_noupdate(nfsnode_t np, int locktype)
 void
 nfs_data_lock_internal(nfsnode_t np, int locktype, int updatesize)
 {
-	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_LOCK, np, locktype, np->n_datalockowner, updatesize);
+	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_LOCK, NFSTOV(np), locktype, np->n_datalockowner, updatesize);
 	if (locktype == NFS_DATA_LOCK_SHARED) {
 		if (updatesize && ISSET(np->n_flag, NUPDATESIZE)) {
 			nfs_data_update_size(np, 0);
@@ -1370,7 +1356,7 @@ nfs_data_lock_internal(nfsnode_t np, int locktype, int updatesize)
 			nfs_data_update_size(np, 1);
 		}
 	}
-	NFS_KDBG_EXIT(NFSDBG_OP_DATA_LOCK, np, locktype, np->n_datalockowner, updatesize);
+	NFS_KDBG_EXIT(NFSDBG_OP_DATA_LOCK, NFSTOV(np), locktype, np->n_datalockowner, updatesize);
 }
 
 /*
@@ -1390,7 +1376,7 @@ void
 nfs_data_unlock_internal(nfsnode_t np, int updatesize)
 {
 	int mine = (np->n_datalockowner == current_thread());
-	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_UNLOCK, np, np->n_datalockowner, current_thread(), updatesize);
+	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_UNLOCK, NFSTOV(np), np->n_datalockowner, current_thread(), updatesize);
 	if (updatesize && mine && ISSET(np->n_flag, NUPDATESIZE)) {
 		nfs_data_update_size(np, 1);
 	}
@@ -1399,7 +1385,7 @@ nfs_data_unlock_internal(nfsnode_t np, int updatesize)
 	if (updatesize && !mine && ISSET(np->n_flag, NUPDATESIZE)) {
 		nfs_data_update_size(np, 0);
 	}
-	NFS_KDBG_EXIT(NFSDBG_OP_DATA_UNLOCK, np, np->n_datalockowner, current_thread(), updatesize);
+	NFS_KDBG_EXIT(NFSDBG_OP_DATA_UNLOCK, NFSTOV(np), np->n_datalockowner, current_thread(), updatesize);
 }
 
 
@@ -1411,7 +1397,7 @@ nfs_data_update_size(nfsnode_t np, int datalocked)
 {
 	int error;
 
-	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_UPDATE_SIZE, np, np->n_flag, np->n_size, np->n_newsize);
+	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_UPDATE_SIZE, NFSTOV(np), np->n_flag, np->n_size, np->n_newsize);
 	if (!datalocked) {
 		nfs_data_lock(np, NFS_DATA_LOCK_EXCLUSIVE);
 		/* grabbing data lock will automatically update size */
@@ -1433,7 +1419,7 @@ nfs_data_update_size(nfsnode_t np, int datalocked)
 	ubc_setsize(NFSTOV(np), (off_t)np->n_size); /* XXX error? */
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_OP_DATA_UPDATE_SIZE, np, np->n_flag, np->n_size, np->n_newsize);
+	NFS_KDBG_EXIT(NFSDBG_OP_DATA_UPDATE_SIZE, NFSTOV(np), np->n_flag, np->n_size, np->n_newsize);
 }
 
 /*
@@ -1442,19 +1428,19 @@ out_return:
 void
 nfs_data_shared_to_exclusive(nfsnode_t np)
 {
-	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_LOCK_STOE, np, np->n_datalockowner, current_thread());
+	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_LOCK_STOE, NFSTOV(np), np, np->n_datalockowner, current_thread());
 
 	lck_rw_lock_shared_to_exclusive(&np->n_datalock);
 	np->n_datalockowner = current_thread();
 
-	NFS_KDBG_EXIT(NFSDBG_OP_DATA_LOCK_STOE, np, np->n_datalockowner, current_thread());
+	NFS_KDBG_EXIT(NFSDBG_OP_DATA_LOCK_STOE, NFSTOV(np), np, np->n_datalockowner, current_thread());
 }
 int
 nfs_data_exclusive_to_shared(nfsnode_t np)
 {
 	int error = 0;
 
-	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_LOCK_ETOS, np, np->n_datalockowner, current_thread());
+	NFS_KDBG_ENTRY(NFSDBG_OP_DATA_LOCK_ETOS, NFSTOV(np), np, np->n_datalockowner, current_thread());
 	if (current_thread() != np->n_datalockowner) {
 		/* lock is not held in exclusive mode! */
 		error = EINVAL;
@@ -1464,7 +1450,7 @@ nfs_data_exclusive_to_shared(nfsnode_t np)
 	lck_rw_lock_exclusive_to_shared(&np->n_datalock);
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_OP_DATA_LOCK_ETOS, np, np->n_datalockowner, current_thread(), error);
+	NFS_KDBG_EXIT(NFSDBG_OP_DATA_LOCK_ETOS, NFSTOV(np), np->n_datalockowner, current_thread(), error);
 	return error;
 }
 

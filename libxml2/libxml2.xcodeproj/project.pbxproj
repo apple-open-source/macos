@@ -904,6 +904,8 @@
 		446BE02D28122CCE00718659 /* xmlversionInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xmlversionInternal.h; sourceTree = "<group>"; };
 		446BE02E28122CCE00718659 /* save.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = save.h; sourceTree = "<group>"; };
 		446C9ABA1E25B40B008D92EA /* Libxml2XCTests.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Libxml2XCTests.xcconfig; sourceTree = "<group>"; };
+		4481A37A2B6C9BC60001E87A /* parser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
+		4484EAA72B69E66F00FC27B4 /* xpath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xpath.h; sourceTree = "<group>"; };
 		44877C971EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libxml2_xml_read_memory_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
 		44877C971EADB79900B105D2 /* fuzz-xml */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-xml"; sourceTree = BUILT_PRODUCTS_DIR; };
 		44877CA71EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libxml2_xml_regexp_compile_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1327,6 +1329,15 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		4484EAA62B69E63D00FC27B4 /* private */ = {
+			isa = PBXGroup;
+			children = (
+				4481A37A2B6C9BC60001E87A /* parser.h */,
+				4484EAA72B69E66F00FC27B4 /* xpath.h */,
+			);
+			path = private;
+			sourceTree = "<group>";
+		};
 		44A4F47729EF3D54009518B2 /* libxml2 */ = {
 			isa = PBXGroup;
 			children = (
@@ -1573,6 +1584,7 @@
 		5D58B06814F825E900BE69D8 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				4484EAA62B69E63D00FC27B4 /* private */,
 				5D58B06A14F8261200BE69D8 /* c14n.h */,
 				5D58B06B14F8261200BE69D8 /* catalog.h */,
 				5D58B06C14F8261200BE69D8 /* chvalid.h */,

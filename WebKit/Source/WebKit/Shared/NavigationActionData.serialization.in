@@ -32,11 +32,13 @@ struct WebKit::NavigationActionData {
     WTF::String downloadAttribute;
     WebCore::FloatPoint clickLocationInRootViewCoordinates;
     WebCore::ResourceResponse redirectResponse;
+    bool isRequestFromClientOrUserInput;
     bool treatAsSameOriginNavigation;
     bool hasOpenedFrames;
     bool openedByDOMWithOpener;
     bool hasOpener;
     WebCore::SecurityOriginData requesterOrigin;
+    WebCore::SecurityOriginData requesterTopOrigin;
     std::optional<WebCore::BackForwardItemIdentifier> targetBackForwardItemIdentifier;
     std::optional<WebCore::BackForwardItemIdentifier> sourceBackForwardItemIdentifier;
     WebCore::LockHistory lockHistory;

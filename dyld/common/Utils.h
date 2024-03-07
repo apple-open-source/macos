@@ -43,4 +43,8 @@ size_t concatenatePaths(char *path, const char *suffix, size_t pathsize);
 }; /* namespace dyld4 */
 
 
+// escape a cstring literal, output buffer is always null terminated and parameter `end` will point to the null terminator if given
+VIS_HIDDEN
+void escapeCStringLiteral(const char* s, char* b, size_t bufferLength, char**end=nullptr);
+
 #endif /* Utils_h */

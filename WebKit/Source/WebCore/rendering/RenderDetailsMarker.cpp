@@ -38,8 +38,9 @@ using namespace HTMLNames;
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderDetailsMarker);
 
 RenderDetailsMarker::RenderDetailsMarker(DetailsMarkerControl& element, RenderStyle&& style)
-    : RenderBlockFlow(element, WTFMove(style))
+    : RenderBlockFlow(Type::DetailsMarker, element, WTFMove(style))
 {
+    ASSERT(isRenderDetailsMarker());
 }
 
 static Path createPath(const FloatPoint* path)

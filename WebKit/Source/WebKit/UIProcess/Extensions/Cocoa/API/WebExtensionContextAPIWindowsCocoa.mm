@@ -39,21 +39,11 @@
 #import "WebExtensionWindowIdentifier.h"
 #import "_WKWebExtensionControllerDelegatePrivate.h"
 #import "_WKWebExtensionWindowCreationOptionsInternal.h"
+#import <wtf/BlockPtr.h>
 
 namespace WebKit {
 
-static inline bool matchesFilter(const WebExtensionWindow& window, OptionSet<WebExtensionWindow::TypeFilter> filter)
-{
-    switch (window.type()) {
-    case WebExtensionWindow::Type::Normal:
-        return filter.contains(WebExtensionWindow::TypeFilter::Normal);
-
-    case WebExtensionWindow::Type::Popup:
-        return filter.contains(WebExtensionWindow::TypeFilter::Popup);
-    }
-}
-
-void WebExtensionContext::windowsCreate(WebExtensionWindowParameters creationParameters, CompletionHandler<void(std::optional<WebExtensionWindowParameters>, WebExtensionWindow::Error)>&& completionHandler)
+void WebExtensionContext::windowsCreate(const WebExtensionWindowParameters& creationParameters, CompletionHandler<void(std::optional<WebExtensionWindowParameters>, WebExtensionWindow::Error)>&& completionHandler)
 {
     auto delegate = extensionController()->delegate();
     if (![delegate respondsToSelector:@selector(webExtensionController:openNewWindowWithOptions:forExtensionContext:completionHandler:)]) {
@@ -65,10 +55,10 @@ void WebExtensionContext::windowsCreate(WebExtensionWindowParameters creationPar
     static constexpr CGRect CGRectNaN = { { NaN, NaN }, { NaN, NaN } };
 
     auto *creationOptions = [[_WKWebExtensionWindowCreationOptions alloc] _init];
-    creationOptions.desiredWindowType = creationParameters.type ? toAPI(creationParameters.type.value()) : _WKWebExtensionWindowTypeNormal;
-    creationOptions.desiredWindowState = creationParameters.state ? toAPI(creationParameters.state.value()) : _WKWebExtensionWindowStateNormal;
-    creationOptions.shouldFocus = creationParameters.focused && creationParameters.focused.value();
-    creationOptions.shouldUsePrivateBrowsing = creationParameters.privateBrowsing && creationParameters.privateBrowsing.value();
+    creationOptions.desiredWindowType = toAPI(creationParameters.type.value_or(WebExtensionWindow::Type::Normal));
+    creationOptions.desiredWindowState = toAPI(creationParameters.state.value_or(WebExtensionWindow::State::Normal));
+    creationOptions.shouldFocus = creationParameters.focused.value_or(true);
+    creationOptions.shouldUsePrivateBrowsing = creationParameters.privateBrowsing.value_or(false);
 
     if (creationParameters.frame) {
         CGRect desiredFrame = creationParameters.frame.value();
@@ -94,8 +84,13 @@ void WebExtensionContext::windowsCreate(WebExtensionWindowParameters creationPar
     if (creationParameters.tabs) {
         for (auto& tabParameters : creationParameters.tabs.value()) {
             if (tabParameters.identifier) {
-                if (auto tab = getTab(tabParameters.identifier.value()); tab && tab->isValid())
-                    [tabs addObject:tab->delegate()];
+                auto tab = getTab(tabParameters.identifier.value());
+                if (!tab) {
+                    completionHandler(std::nullopt, toErrorString(@"windows.create()", nil, @"tab '%llu' was not found", tabParameters.identifier.value().toUInt64()));
+                    return;
+                }
+
+                [tabs addObject:tab->delegate()];
             } else if (tabParameters.url)
                 [urls addObject:static_cast<NSURL *>(tabParameters.url.value())];
         }
@@ -104,7 +99,7 @@ void WebExtensionContext::windowsCreate(WebExtensionWindowParameters creationPar
     creationOptions.desiredURLs = [urls copy];
     creationOptions.desiredTabs = [tabs copy];
 
-    [delegate webExtensionController:extensionController()->wrapper() openNewWindowWithOptions:creationOptions forExtensionContext:wrapper() completionHandler:^(id<_WKWebExtensionWindow> newWindow, NSError *error) {
+    [delegate webExtensionController:extensionController()->wrapper() openNewWindowWithOptions:creationOptions forExtensionContext:wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](id<_WKWebExtensionWindow> newWindow, NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for open new window: %{private}@", error);
             completionHandler(std::nullopt, error.localizedDescription);
@@ -118,8 +113,10 @@ void WebExtensionContext::windowsCreate(WebExtensionWindowParameters creationPar
 
         THROW_UNLESS([newWindow conformsToProtocol:@protocol(_WKWebExtensionWindow)], @"Object returned by webExtensionController:openNewWindowWithOptions:forExtensionContext:completionHandler: does not conform to the _WKWebExtensionWindow protocol");
 
-        completionHandler(getOrCreateWindow(newWindow)->parameters(), std::nullopt);
-    }];
+        auto window = getOrCreateWindow(newWindow);
+
+        completionHandler(window->extensionHasAccess() ? std::optional(window->parameters()) : std::nullopt, std::nullopt);
+    }).get()];
 }
 
 void WebExtensionContext::windowsGet(WebPageProxyIdentifier, WebExtensionWindowIdentifier windowIdentifier, OptionSet<WindowTypeFilter> filter, PopulateTabs populate, CompletionHandler<void(std::optional<WebExtensionWindowParameters>, WebExtensionWindow::Error)>&& completionHandler)
@@ -132,7 +129,7 @@ void WebExtensionContext::windowsGet(WebPageProxyIdentifier, WebExtensionWindowI
         return;
     }
 
-    if (!matchesFilter(*window, filter)) {
+    if (!window->matches(filter)) {
         completionHandler(std::nullopt, toErrorString(apiName, nil, @"window does not match requested 'windowTypes'"));
         return;
     }
@@ -150,7 +147,7 @@ void WebExtensionContext::windowsGetLastFocused(OptionSet<WindowTypeFilter> filt
         return;
     }
 
-    if (!matchesFilter(*window, filter)) {
+    if (!window->matches(filter)) {
         completionHandler(std::nullopt, toErrorString(apiName, nil, @"window does not match requested 'windowTypes'"));
         return;
     }
@@ -162,7 +159,7 @@ void WebExtensionContext::windowsGetAll(OptionSet<WindowTypeFilter> filter, Popu
 {
     Vector<WebExtensionWindowParameters> result;
     for (auto& window : openWindows()) {
-        if (!matchesFilter(window, filter))
+        if (!window->matches(filter))
             continue;
 
         result.append(window->parameters(populate));

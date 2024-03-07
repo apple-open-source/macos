@@ -305,9 +305,12 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 {
     return [self.ctx makeOTControl:error];
 }
+#endif
 
 - (BOOL)establish:(NSError**)error
 {
+    __block BOOL success = NO;
+#if OCTAGON
     secnotice("clique-establish", "establish started");
     OctagonSignpost establishSignPost = OctagonSignpostBegin(OctagonSignpostNameEstablish);
     bool subTaskSuccess = false;
@@ -337,7 +340,6 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         return YES;
     }
     
-    __block BOOL success = NO;
     __block NSError* localError = nil;
 
     //only establish
@@ -356,9 +358,11 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     subTaskSuccess = success ? true : false;
     OctagonSignpostEnd(establishSignPost, OctagonSignpostNameEstablish, OctagonSignpostNumber1(OctagonSignpostNameEstablish), (int)subTaskSuccess);
 
+#endif /* OCTAGON */
     return success;
 }
 
+#if OCTAGON
 - (BOOL)resetAndEstablish:(CuttlefishResetReason)resetReason
         idmsTargetContext:(NSString*_Nullable)idmsTargetContext
    idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
@@ -685,16 +689,49 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         if(fetchError){
             octagonStatus = CliqueStatusError;
             localError = fetchError;
-            secnotice("clique-status", "octagon clique status errored: %@", fetchError);
+            secinfo("clique-status", "octagon clique status errored: %@", fetchError);
         } else {
             octagonStatus = cliqueStatus;
         }
     }];
 
-    secnotice("clique-status", "cliqueStatus(%{public}scached)(context:%@, altDSID:%@) returning %@ (error: %@)",
-              configuration.useCachedAccountStatus ? "" : "non-",
-              self.ctx.context, self.ctx.altDSID,
-              OTCliqueStatusToString(octagonStatus), localError);
+    {
+        // This gets called quite a bit. Only log if if they requested a non-cached fetch,
+        // ifthe answer has changed since the last time this process called, or if there was an error
+        static NSMutableDictionary<NSString*, NSNumber*>* statusReturns;
+        static dispatch_queue_t statusReturnsQueue = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            statusReturnsQueue = dispatch_queue_create("status_returns", DISPATCH_QUEUE_SERIAL);
+            statusReturns = [NSMutableDictionary dictionary];
+        });
+
+        __block BOOL shouldLog = NO;
+        dispatch_sync(statusReturnsQueue, ^{
+            NSString* key = self.ctx.context;
+            if(key == nil) {
+                shouldLog = YES;
+                return;
+            }
+            NSNumber* lastResult = statusReturns[key];
+            if(lastResult == nil || [lastResult integerValue] != (NSInteger)octagonStatus) {
+                statusReturns[key] = @(octagonStatus);
+                shouldLog = YES;
+            }
+        });
+
+        if(localError != nil || !configuration.useCachedAccountStatus || shouldLog) {
+            secnotice("clique-status", "cliqueStatus(%{public}scached)(context:%@, altDSID:%@) returning %@ (error: %@)",
+                      configuration.useCachedAccountStatus ? "" : "non-",
+                      self.ctx.context, self.ctx.altDSID,
+                      OTCliqueStatusToString(octagonStatus), localError);
+        } else {
+            secinfo("clique-status", "cliqueStatus(%{public}scached)(context:%@, altDSID:%@) returning %@ (error: %@)",
+                    configuration.useCachedAccountStatus ? "" : "non-",
+                    self.ctx.context, self.ctx.altDSID,
+                    OTCliqueStatusToString(octagonStatus), localError);
+        }
+    }
     if (localError && error) {
         *error = localError;
         subTaskSuccess = false;
@@ -983,8 +1020,8 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 - (BOOL)fetchUserControllableViewsSyncingEnabled:(NSError* __autoreleasing *)error
 {
     __block BOOL octagonSyncing = NO;
-    __block NSError* localError = nil;
 #if OCTAGON
+    __block NSError* localError = nil;
     OTControl* control = [self makeOTControl:error];
     if(!control) {
         return NO;
@@ -1409,6 +1446,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         return nil;
     }
     [control fetchAllViableBottles:[[OTControlArguments alloc] initWithConfiguration:data]
+                            source:data.escrowFetchSource
                              reply:^(NSArray<NSString *> * _Nullable sortedBottleIDs,
                                      NSArray<NSString*> * _Nullable sortedPartialBottleIDs,
                                      NSError * _Nullable fetchError) {

@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmRSAES_PKCS1_v1_5.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyRSA.h"
 #include "OpenSSLUtilities.h"
 
@@ -37,21 +35,21 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmRSAES_PKCS1_v1_5::platformEncrypt(co
 {
     auto ctx = EvpPKeyCtxPtr(EVP_PKEY_CTX_new(key.platformKey(), nullptr));
     if (!ctx)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     if (EVP_PKEY_encrypt_init(ctx.get()) <= 0)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     if (EVP_PKEY_CTX_set_rsa_padding(ctx.get(), RSA_PKCS1_PADDING) <= 0)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     size_t cipherTextLen;
     if (EVP_PKEY_encrypt(ctx.get(), nullptr, &cipherTextLen, plainText.data(), plainText.size()) <= 0)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     Vector<uint8_t> cipherText(cipherTextLen);
     if (EVP_PKEY_encrypt(ctx.get(), cipherText.data(), &cipherTextLen, plainText.data(), plainText.size()) <= 0)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     cipherText.shrink(cipherTextLen);
 
     return cipherText;
@@ -61,26 +59,24 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmRSAES_PKCS1_v1_5::platformDecrypt(co
 {
     auto ctx = EvpPKeyCtxPtr(EVP_PKEY_CTX_new(key.platformKey(), nullptr));
     if (!ctx)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     if (EVP_PKEY_decrypt_init(ctx.get()) <= 0)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     if (EVP_PKEY_CTX_set_rsa_padding(ctx.get(), RSA_PKCS1_PADDING) <= 0)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     size_t plainTextLen;
     if (EVP_PKEY_decrypt(ctx.get(), nullptr, &plainTextLen, cipherText.data(), cipherText.size()) <= 0)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     Vector<uint8_t> plainText(plainTextLen);
     if (EVP_PKEY_decrypt(ctx.get(), plainText.data(), &plainTextLen, cipherText.data(), cipherText.size()) <= 0)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     plainText.shrink(plainTextLen);
 
     return plainText;
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

@@ -90,6 +90,10 @@ shutdown/shutdown.c	freebsd	sbin/shutdown/shutdown.c	7d3df1907a893a5195cfab753ca
 sync/sync.8	freebsd	bin/sync/sync.8	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 sync/sync.c	freebsd	bin/sync/sync.c	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 
+sysctl/sysctl.8	freebsd	sbin/sysctl/sysctl.8	f126d349810fdb512c0b01e101342d430b947488
+sysctl/sysctl.c	freebsd	sbin/sysctl/sysctl.c	f126d349810fdb512c0b01e101342d430b947488
+sysctl/tests/sysctl_test.sh	freebsd	sbin/sysctl/tests/sysctl_test.sh	0c428864495af9dc7d2af4d0a5ae21732af9c739
+
 vipw/pw_util.c	freebsd	lib/libutil/pw_util.c	830efe55395a27f0a72812b5a028e323ee3981a6
 vipw/vipw.8	freebsd	usr.sbin/vipw/vipw.8	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 vipw/vipw.c	freebsd	usr.sbin/vipw/vipw.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97

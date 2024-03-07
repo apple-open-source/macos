@@ -25,12 +25,12 @@
 #ifndef KIM_CCACHE_H
 #define KIM_CCACHE_H
 
+#include <Kerberos/kim_types.h>
+    
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <Kerberos/kim_types.h>
-    
 /*!
  * \page kim_ccache_overview KIM CCache Overview
  *

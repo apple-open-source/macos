@@ -150,7 +150,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         } else {
             // The zone does not exist! CloudKit will tell us that the deletion failed.
             if(!self.creationError) {
-                self.creationError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:@{
+                self.creationError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:@{
                                                                                                                                CKErrorRetryAfterKey: @(0.2),
                                                                                                                                }];
             }
@@ -158,11 +158,11 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
             // There really should be a better way to do this...
             NSMutableDictionary* newDictionary = [self.creationError.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
             NSMutableDictionary* newPartials = newDictionary[CKPartialErrorsByItemIDKey] ?: [NSMutableDictionary dictionary];
-            newPartials[zoneID] = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorZoneNotFound
+            newPartials[zoneID] = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorZoneNotFound
                                                                userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Mock CloudKit: zone '%@' not found", zoneID.zoneName]}];
             newDictionary[CKPartialErrorsByItemIDKey] = newPartials;
 
-            self.creationError = [[CKPrettyError alloc] initWithDomain:self.creationError.domain code:self.creationError.code userInfo:newDictionary];
+            self.creationError = [[NSError alloc] initWithDomain:self.creationError.domain code:self.creationError.code userInfo:newDictionary];
         }
     }
 }
@@ -235,12 +235,12 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         if(!fakezone) {
             // This is an error: the zone doesn't exist
             ckksnotice("fakeck", subscription.zoneID, "failing subscription for missing zone");
-            self.subscriptionError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+            self.subscriptionError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                                       code:CKErrorPartialFailure
                                                                   userInfo:@{
                                                                              CKErrorRetryAfterKey: @(0.2),
                                                                              CKPartialErrorsByItemIDKey:
-                                                                                 @{subscription.zoneID:[[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                                                 @{subscription.zoneID:[[NSError alloc] initWithDomain:CKErrorDomain
                                                                                                                                         code:CKErrorZoneNotFound
                                                                                                                                     userInfo:@{}]}
                                                                                                       }];
@@ -348,10 +348,10 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         if(!zone) {
             // Only really supports a single zone failure
             ckksnotice("fakeck", zoneID, "Fetched for a missing zone %@", zoneID);
-            NSError* zoneNotFoundError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+            NSError* zoneNotFoundError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                                           code:CKErrorZoneNotFound
                                                                       userInfo:@{}];
-            NSError* error = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+            NSError* error = [[NSError alloc] initWithDomain:CKErrorDomain
                                                               code:CKErrorPartialFailure
                                                           userInfo:@{CKPartialErrorsByItemIDKey: @{zoneID:zoneNotFoundError}}];
 
@@ -409,10 +409,10 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
         if(!lastDatabase && fetchToken) {
             ckksnotice("fakeck", zone.zoneID, "no database for this change token: failing fetch with 'CKErrorChangeTokenExpired'");
-            self.fetchRecordZoneChangesCompletionBlock([[CKPrettyError alloc]
+            self.fetchRecordZoneChangesCompletionBlock([[NSError alloc]
                                                         initWithDomain:CKErrorDomain
                                                         code:CKErrorPartialFailure userInfo:@{CKPartialErrorsByItemIDKey:
-                              @{zoneID:[[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorChangeTokenExpired userInfo:@{}]}
+                              @{zoneID:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorChangeTokenExpired userInfo:@{}]}
                             }]);
             return;
         }
@@ -497,10 +497,10 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
         if(!zone) {
             ckksnotice("fakeck", zoneID, "Fetched for a missing zone %@", zoneID);
-            NSError* zoneNotFoundError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+            NSError* zoneNotFoundError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                                           code:CKErrorZoneNotFound
                                                                       userInfo:@{}];
-            NSError* error = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+            NSError* error = [[NSError alloc] initWithDomain:CKErrorDomain
                                                               code:CKErrorPartialFailure
                                                           userInfo:@{CKPartialErrorsByItemIDKey: @{zoneID:zoneNotFoundError}}];
 
@@ -524,17 +524,17 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
             secerror("fakeck: Should be an error fetching %@", recordID);
 
             if(!operror) {
-                operror = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:nil];
+                operror = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:nil];
             }
 
             // There really should be a better way to do this...
             NSMutableDictionary* newDictionary = [operror.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
             NSMutableDictionary* newPartials = newDictionary[CKPartialErrorsByItemIDKey] ?: [NSMutableDictionary dictionary];
-            newPartials[recordID] = [[CKPrettyError alloc] initWithDomain:operror.domain code:CKErrorUnknownItem
+            newPartials[recordID] = [[NSError alloc] initWithDomain:operror.domain code:CKErrorUnknownItem
                                                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Mock CloudKit: no record of %@", recordID]}];
             newDictionary[CKPartialErrorsByItemIDKey] = newPartials;
 
-            operror = [[CKPrettyError alloc] initWithDomain:operror.domain code:operror.code userInfo:newDictionary];
+            operror = [[NSError alloc] initWithDomain:operror.domain code:operror.code userInfo:newDictionary];
 
             /// TODO: do this better
             if(self.perRecordCompletionBlock) {
@@ -581,7 +581,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         ckksnotice("fakeck", self.zoneID, "Queried a missing zone %@", self.zoneID);
 
         // I'm really not sure if this is right, but...
-        NSError* zoneNotFoundError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+        NSError* zoneNotFoundError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                                       code:CKErrorZoneNotFound
                                                                   userInfo:@{
                                                                              CKErrorRetryAfterKey: @(0.2),
@@ -778,14 +778,14 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         ckksnotice("fakeck", self.zoneID, "change tag mismatch! Fail the write: %@ %@", record, existingRecord);
 
         // TODO: doesn't yet support CKRecordChangedErrorAncestorRecordKey, since I don't understand it
-        return [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorServerRecordChanged
+        return [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorServerRecordChanged
                                             userInfo:@{CKRecordChangedErrorClientRecordKey:record,
                                                        CKRecordChangedErrorServerRecordKey:existingRecord}];
     }
 
     if(!existingRecord && record.etag != nil) {
         ckksnotice("fakeck", self.zoneID, "update to a record that doesn't exist! Fail the write: %@", record);
-        return [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorUnknownItem
+        return [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorUnknownItem
                                             userInfo:nil];
     }
     return nil;
@@ -842,19 +842,19 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 + (NSError*)internalPluginError:(NSString*)serverDomain code:(NSInteger)code description:(NSString*)desc
 {
     // Note: uses SecCKKSContainerName, but that's probably okay
-    NSError* extensionError = [[CKPrettyError alloc] initWithDomain:serverDomain
+    NSError* extensionError = [[NSError alloc] initWithDomain:serverDomain
                                                                code:code
                                                            userInfo:@{
                                                                       CKErrorServerDescriptionKey: desc,
                                                                       NSLocalizedDescriptionKey: desc,
                                                                       }];
-    NSError* internalError = [[CKPrettyError alloc] initWithDomain:CKInternalErrorDomain
-                                                              code:CKErrorInternalPluginError
+    NSError* internalError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain
+                                                              code:CKUnderlyingErrorPluginError
                                                           userInfo:@{CKErrorServerDescriptionKey: desc,
                                                                      NSLocalizedDescriptionKey: desc,
                                                                      NSUnderlyingErrorKey: extensionError,
                                                                      }];
-    NSError* error = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+    NSError* error = [[NSError alloc] initWithDomain:CKErrorDomain
                                                       code:CKErrorServerRejectedRequest
                                                   userInfo:@{NSUnderlyingErrorKey: internalError,
                                                              CKErrorServerDescriptionKey: desc,

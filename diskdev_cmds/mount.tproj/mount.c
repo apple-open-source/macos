@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -124,6 +124,7 @@ int verbose = 0;
 
 // Externs
 extern mountopt_t optnames[];
+extern mountopt_t extoptnames[];
 
 // Function declarations
 struct statfs *getmntpt(const char *name);
@@ -989,14 +990,21 @@ prmount(struct statfs *sfp)
 
 	printf("%s on %s (%s", sfp->f_mntfromname, sfp->f_mntonname, sfp->f_fstypename);
 
-	if (is_sealed(sfp->f_mntonname))
-		printf(", sealed");
-		flags = sfp->f_flags & MNT_VISFLAGMASK;
-		for (o = optnames; flags && o->o_opt; o++)
-			if (flags & o->o_opt) {
-				(void)printf(", %s", o->o_name);
-				flags &= ~o->o_opt;
-			}
+    if (is_sealed(sfp->f_mntonname)) {
+        printf(", sealed");
+    }
+    flags = sfp->f_flags & MNT_VISFLAGMASK;
+    for (o = optnames; flags && o->o_opt; o++)
+        if (flags & o->o_opt) {
+            (void)printf(", %s", o->o_name);
+            flags &= ~o->o_opt;
+        }
+    flags = sfp->f_flags_ext;
+    for (o = extoptnames; flags && o->o_opt; o++)
+        if (flags & o->o_opt) {
+            (void)printf(", %s", o->o_name);
+            flags &= ~o->o_opt;
+        }
 	if (sfp->f_owner) {
 		printf(", mounted by ");
 		if ((pw = getpwuid(sfp->f_owner)) != NULL)

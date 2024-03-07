@@ -1073,6 +1073,9 @@ main(int argc, char *const *argv)
 				if (options & F_MISSED)
 					(void)write(STDOUT_FILENO, &BBELL, 1);
 				if (!(options & F_QUIET)) {
+					if (options & F_PRTIME) {
+						pr_currenttime();
+					}
 					printf("Request timeout for icmp_seq %u\n",
 					       (uint16_t)(ntransmitted - 2));
 					if (!(options & F_FLOOD))

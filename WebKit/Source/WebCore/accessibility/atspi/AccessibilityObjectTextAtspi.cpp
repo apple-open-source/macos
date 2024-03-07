@@ -239,7 +239,7 @@ static Vector<unsigned, 128> offsetMapping(const String& text)
 
     Vector<unsigned, 128> offsets;
     SurrogatePairAwareTextIterator iterator(text.characters16(), 0, text.length(), text.length());
-    UChar32 character;
+    char32_t character;
     unsigned clusterLength = 0;
     unsigned i;
     for (i = 0; iterator.consume(character, clusterLength); iterator.advance(clusterLength), ++i) {
@@ -404,7 +404,7 @@ IntPoint AccessibilityObjectAtspi::boundaryOffset(unsigned utf16Offset, TextGran
         if (!utf16Offset && m_hasListMarkerAtStart)
             return { 0, 1 };
 
-        startPosition = isStartOfWord(offsetPosition) && deprecatedIsEditingWhitespace(offsetPosition.characterBefore()) ? offsetPosition : startOfWord(offsetPosition, LeftWordIfOnBoundary);
+        startPosition = isStartOfWord(offsetPosition) && deprecatedIsEditingWhitespace(offsetPosition.characterBefore()) ? offsetPosition : startOfWord(offsetPosition, WordSide::LeftWordIfOnBoundary);
         endPostion = nextWordPosition(startPosition);
         auto positionAfterSpacingAndFollowingWord = nextWordPosition(endPostion);
         if (positionAfterSpacingAndFollowingWord != endPostion) {
@@ -850,7 +850,7 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
     }
 
     VisiblePosition offsetPosition = m_coreObject->visiblePositionForIndex(adjustInputOffset(*utf16Offset, m_hasListMarkerAtStart));
-    auto* childNode = offsetPosition.deepEquivalent().deprecatedNode();
+    auto childNode = offsetPosition.deepEquivalent().protectedDeprecatedNode();
     if (!childNode)
         return { WTFMove(defaultAttributes), -1, -1 };
 

@@ -204,7 +204,7 @@
 		1ED44A0A25E5B3E30006AE96 /* prefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 1ED44A0725E5B3E30006AE96 /* prefs.h */; };
 		1ED44A0B25E5B3E30006AE96 /* prefs.m in Sources */ = {isa = PBXBuildFile; fileRef = 1ED44A0825E5B3E30006AE96 /* prefs.m */; };
 		1ED44A0C25E5B3E30006AE96 /* prefs.m in Sources */ = {isa = PBXBuildFile; fileRef = 1ED44A0825E5B3E30006AE96 /* prefs.m */; };
-		1EFA3945299D808D004CCC62 /* MediaExperience.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 198D742727E3F73600455E5C /* MediaExperience.framework */; platformFilters = (ios, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		1EFA3945299D808D004CCC62 /* MediaExperience.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 198D742727E3F73600455E5C /* MediaExperience.framework */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		22B9840916FBA91100BB59FC /* swd.c in Sources */ = {isa = PBXBuildFile; fileRef = 22B9840816FBA91100BB59FC /* swd.c */; };
 		22B9840A16FBABC800BB59FC /* com.apple.powerd.swd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 22B9840716FBA91100BB59FC /* com.apple.powerd.swd.plist */; };
 		24565E74261CD69C0026AE2F /* libMobileGestalt.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 24565E73261CD69C0026AE2F /* libMobileGestalt.dylib */; };
@@ -1338,7 +1338,6 @@
 		22B9840716FBA91100BB59FC /* com.apple.powerd.swd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.powerd.swd.plist; sourceTree = "<group>"; };
 		22B9840816FBA91100BB59FC /* swd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = swd.c; sourceTree = "<group>"; };
 		24565E73261CD69C0026AE2F /* libMobileGestalt.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libMobileGestalt.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/usr/lib/libMobileGestalt.dylib; sourceTree = DEVELOPER_DIR; };
-		2992446129F8813B005D4762 /* BatteryTimeRemaining_Private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryTimeRemaining_Private.h; sourceTree = "<group>"; };
 		40882BA6019747120ACA2928 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		40882BA7019747120ACA2928 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		40882BA8019747120ACA2928 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
@@ -2079,7 +2078,6 @@
 				72352E3D2824804800AAAFEC /* BatteryCapacityCalibration.h */,
 				40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.m */,
 				40BE9CF3031ECBBC0ACA28D7 /* BatteryTimeRemaining.h */,
-				2992446129F8813B005D4762 /* BatteryTimeRemaining_Private.h */,
 				727593FC125555EA00C59A8E /* ExternalMedia.c */,
 				48CE389E1E6375B2001563E6 /* adaptiveDisplay.h */,
 				727593FD125555EA00C59A8E /* ExternalMedia.h */,

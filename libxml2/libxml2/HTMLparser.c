@@ -3506,8 +3506,8 @@ htmlParseComment(htmlParserCtxtPtr ctxt) {
 
     state = ctxt->instate;
     ctxt->instate = XML_PARSER_COMMENT;
-    SHRINK;
     SKIP(4);
+    SHRINK;
     buf = (xmlChar *) xmlMallocAtomic(size * sizeof(xmlChar));
     if (buf == NULL) {
         htmlErrMemory(ctxt, "buffer allocation failed\n");

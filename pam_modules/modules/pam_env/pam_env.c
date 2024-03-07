@@ -56,6 +56,10 @@
 #include <unistd.h>
 #include "Logging.h"
 
+#ifdef __APPLE__
+#include <System/sys/codesign.h>
+#endif /* __APPLE__ */
+
 /*
  * here, we make a definition for the externally accessible function
  * in this file (this definition is required for static a module
@@ -785,6 +789,17 @@ int pam_sm_open_session(pam_handle_t *pamh,int flags,int argc
   /*
    * this module sets environment variables read in from a file
    */
+    
+#ifdef __APPLE__
+  int csflags = 0;
+  int rv = 0;
+  pid_t pid = getpid();
+  rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+  if (rv != 0 ||  (rv == 0 && (csflags & CS_INSTALLER) != 0)) {
+    _LOG_ERROR("Disallowed due to CS_INSTALLER, rv %d", rv);
+    return PAM_SERVICE_ERR;
+  }
+#endif // __APPLE__
   
   _LOG_DEBUG("Called.");
   ctrl = _pam_parse(pamh, flags, argc, argv, &conf_file, &env_file, &readenv);

@@ -32,6 +32,7 @@
 #include "ChromeClient.h"
 #include "DOMTimer.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "FullscreenManager.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLImageElement.h"
@@ -53,12 +54,18 @@ static bool isHiddenBehindFullscreenElement(const Node& descendantCandidate)
 {
     // Fullscreen status is propagated on the ancestor document chain all the way to the top document.
     auto& document = descendantCandidate.document();
-    auto* topMostFullScreenElement = document.topDocument().fullscreenManager().fullscreenElement();
+    CheckedPtr fullscreenManager = document.topDocument().fullscreenManagerIfExists();
+    if (!fullscreenManager)
+        return false;
+    auto* topMostFullScreenElement = fullscreenManager->fullscreenElement();
     if (!topMostFullScreenElement)
         return false;
 
     // If the document where the node lives does not have an active fullscreen element, it is a sibling/nephew document -> not a descendant.
-    auto* fullscreenElement = document.fullscreenManager().fullscreenElement();
+    fullscreenManager = document.fullscreenManagerIfExists();
+    if (!fullscreenManager)
+        return false;
+    auto* fullscreenElement = fullscreenManager->fullscreenElement();
     if (!fullscreenElement)
         return true;
     return !descendantCandidate.isDescendantOf(*fullscreenElement);
@@ -67,7 +74,7 @@ static bool isHiddenBehindFullscreenElement(const Node& descendantCandidate)
 
 bool ContentChangeObserver::isContentChangeObserverEnabled()
 {
-    return m_document.settings().contentChangeObserverEnabled() && !m_document.quirks().shouldDisableContentChangeObserver();
+    return m_document.settings().contentChangeObserverEnabled();
 }
 
 bool ContentChangeObserver::isVisuallyHidden(const Node& node)
@@ -226,7 +233,7 @@ void ContentChangeObserver::completeDurationBasedContentObservation()
     adjustObservedState(Event::EndedFixedObservationTimeWindow);
 }
 
-static bool isObservedPropertyForTransition(AnimatableProperty property)
+static bool isObservedPropertyForTransition(AnimatableCSSProperty property)
 {
     return WTF::switchOn(property,
         [] (CSSPropertyID propertyId) {

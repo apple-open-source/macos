@@ -235,8 +235,6 @@
 		4BA6E566202AC94800F38D3A /* stdlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6E565202AC94800F38D3A /* stdlib.c */; };
 		4BA6E569202ACDAA00F38D3A /* stdio.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6E568202ACDAA00F38D3A /* stdio.c */; };
 		4BA6E56C202AD02900F38D3A /* bsd.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6E56B202AD02900F38D3A /* bsd.c */; };
-		4BC8F8C92996C07E00E2A8BF /* strtofp.c in Sources */ = {isa = PBXBuildFile; fileRef = 9CD764A42655AEF3004C0214 /* strtofp.c */; };
-		4BC8F8CD2996C6F600E2A8BF /* atof.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C2C138D9E9A0028D27C /* atof.c */; };
 		4BCC350F20659AD500A4CBAA /* linker_set.h in Headers */ = {isa = PBXBuildFile; fileRef = 4BCC350E20659AD500A4CBAA /* linker_set.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4BE29A9929EA1F46001958F2 /* _libc_shims.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BE29A9829EA1F46001958F2 /* _libc_shims.c */; };
 		4BED1E2729E4D22900231AD1 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BED1E2629E4D22900231AD1 /* _libc_init.c */; };
@@ -740,7 +738,6 @@
 		C0E345401C582ECB00E749C2 /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C0E345411C582ECB00E749C2 /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C0E345421C582ECB00E749C2 /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C0E345431C582ECB00E749C2 /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS)"; }; };
 		C0E345441C582ECB00E749C2 /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
 		C0E345451C582ECB00E749C2 /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C0E345461C582ECB00E749C2 /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
@@ -1631,7 +1628,6 @@
 		C942122213900C8A004BA536 /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C942122313900C8A004BA536 /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C942122413900C8A004BA536 /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C942122513900C8A004BA536 /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS)"; }; };
 		C942122613900C8A004BA536 /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
 		C942122713900C8A004BA536 /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C942122813900C8A004BA536 /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
@@ -2139,7 +2135,6 @@
 		C95B80CD138F3C55004311DA /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C95B80CE138F3C55004311DA /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C95B80CF138F3C55004311DA /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C95B80D0138F3C55004311DA /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; };
 		C95B80D1138F3C55004311DA /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
 		C95B80D2138F3C55004311DA /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C95B80D3138F3C55004311DA /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; };
@@ -2643,7 +2638,6 @@
 		C95B8378138F52B0004311DA /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C95B8379138F52B0004311DA /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C95B837A138F52B0004311DA /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C95B837B138F52B0004311DA /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; };
 		C95B837C138F52B0004311DA /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
 		C95B837D138F52B0004311DA /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C95B837E138F52B0004311DA /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; };
@@ -3147,7 +3141,6 @@
 		C95B861E138F53DB004311DA /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C95B861F138F53DB004311DA /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C95B8620138F53DB004311DA /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C95B8621138F53DB004311DA /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; };
 		C95B8622138F53DB004311DA /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
 		C95B8623138F53DB004311DA /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C95B8624138F53DB004311DA /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; };
@@ -3651,7 +3644,6 @@
 		C97660A2138EC61A00741512 /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C97660A3138EC61A00741512 /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C97660A4138EC61A00741512 /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C97660A5138EC61A00741512 /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; };
 		C97660A6138EC61A00741512 /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; };
 		C97660A7138EC61A00741512 /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C97660A8138EC61A00741512 /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; };
@@ -4175,7 +4167,6 @@
 		C97A71601517AF53005E1998 /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C97A71611517AF53005E1998 /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C97A71621517AF53005E1998 /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C97A71631517AF53005E1998 /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS)"; }; };
 		C97A71641517AF53005E1998 /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
 		C97A71651517AF53005E1998 /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C97A71661517AF53005E1998 /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
@@ -4763,7 +4754,6 @@
 		C9EB31BD138F6D880075BB52 /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C9EB31BE138F6D880075BB52 /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C9EB31BF138F6D880075BB52 /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C9EB31C0138F6D880075BB52 /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; };
 		C9EB31C1138F6D880075BB52 /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
 		C9EB31C2138F6D880075BB52 /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C9EB31C3138F6D880075BB52 /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
@@ -5267,7 +5257,6 @@
 		C9EB3464138F75580075BB52 /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C9EB3465138F75580075BB52 /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C9EB3466138F75580075BB52 /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C9EB3467138F75580075BB52 /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; };
 		C9EB3468138F75580075BB52 /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
 		C9EB3469138F75580075BB52 /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C9EB346A138F75580075BB52 /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_REALPATH"; }; };
@@ -5440,7 +5429,6 @@
 		C9FA3332138E4D040089A94B /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C78138D9E9A0028D27C /* radixsort.c */; };
 		C9FA3333138E4D040089A94B /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7C138D9E9A0028D27C /* rand.c */; };
 		C9FA3334138E4D040089A94B /* random.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C7F138D9E9A0028D27C /* random.c */; };
-		C9FA3335138E4D040089A94B /* reallocf.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C81138D9E9A0028D27C /* reallocf.c */; };
 		C9FA3336138E4D040089A94B /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C84138D9E9A0028D27C /* realpath.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_REALPATH"; }; };
 		C9FA3337138E4D040089A94B /* remque.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C86138D9E9A0028D27C /* remque.c */; };
 		C9FA3338138E4D040089A94B /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C87138D9E9A0028D27C /* setenv.c */; };
@@ -5827,7 +5815,6 @@
 		4BA6E568202ACDAA00F38D3A /* stdio.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stdio.c; sourceTree = "<group>"; };
 		4BA6E56A202ACF7A00F38D3A /* bsd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bsd.h; sourceTree = "<group>"; };
 		4BA6E56B202AD02900F38D3A /* bsd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bsd.c; sourceTree = "<group>"; };
-		4BC8F8CC2996C33600E2A8BF /* xlocale.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xlocale.h; sourceTree = "<group>"; };
 		4BCC350E20659AD500A4CBAA /* linker_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = linker_set.h; path = ../../os/linker_set.h; sourceTree = "<group>"; };
 		4BD17A04292CA70600A0C3D9 /* _cdefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _cdefs.h; sourceTree = "<group>"; };
 		4BE29A9829EA1F46001958F2 /* _libc_shims.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = _libc_shims.c; sourceTree = "<group>"; };
@@ -6792,7 +6779,6 @@
 		C9B53C7C138D9E9A0028D27C /* rand.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = rand.c; sourceTree = "<group>"; };
 		C9B53C7D138D9E9A0028D27C /* random.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = random.3; sourceTree = "<group>"; };
 		C9B53C7F138D9E9A0028D27C /* random.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = random.c; sourceTree = "<group>"; };
-		C9B53C81138D9E9A0028D27C /* reallocf.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = reallocf.c; sourceTree = "<group>"; };
 		C9B53C82138D9E9A0028D27C /* realpath.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = realpath.3; sourceTree = "<group>"; };
 		C9B53C84138D9E9A0028D27C /* realpath.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = realpath.c; sourceTree = "<group>"; };
 		C9B53C86138D9E9A0028D27C /* remque.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = remque.c; sourceTree = "<group>"; };
@@ -7320,7 +7306,6 @@
 			isa = PBXGroup;
 			children = (
 				4B6493F3292B503F00880674 /* compat.h */,
-				4BC8F8CC2996C33600E2A8BF /* xlocale.h */,
 			);
 			path = private;
 			sourceTree = "<group>";
@@ -8868,7 +8853,6 @@
 				C9B53C7C138D9E9A0028D27C /* rand.c */,
 				C9B53C7D138D9E9A0028D27C /* random.3 */,
 				C9B53C7F138D9E9A0028D27C /* random.c */,
-				C9B53C81138D9E9A0028D27C /* reallocf.c */,
 				C9B53C82138D9E9A0028D27C /* realpath.3 */,
 				C9B53C84138D9E9A0028D27C /* realpath.c */,
 				C9B53C86138D9E9A0028D27C /* remque.c */,
@@ -10433,10 +10417,8 @@
 				4B67A6ED292371AC00D4E1A3 /* unparse.c in Sources */,
 				4B67A6EA2923719800D4E1A3 /* pack.c in Sources */,
 				4B6493C82927AEA300880674 /* bsearch.c in Sources */,
-				4BC8F8CD2996C6F600E2A8BF /* atof.c in Sources */,
 				4B6493C42927A6E700880674 /* qsort_r.c in Sources */,
 				4B67A6E92923719500D4E1A3 /* isnull.c in Sources */,
-				4BC8F8C92996C07E00E2A8BF /* strtofp.c in Sources */,
 				4B6493C22927A59E00880674 /* qsort_b.c in Sources */,
 				4B67A6EC292371A600D4E1A3 /* unpack.c in Sources */,
 				4B67A6EE2923760900D4E1A3 /* gen_uuid.c in Sources */,
@@ -10912,7 +10894,6 @@
 				C0E345401C582ECB00E749C2 /* radixsort.c in Sources */,
 				C0E345411C582ECB00E749C2 /* rand.c in Sources */,
 				C0E345421C582ECB00E749C2 /* random.c in Sources */,
-				C0E345431C582ECB00E749C2 /* reallocf.c in Sources */,
 				C0E345441C582ECB00E749C2 /* realpath.c in Sources */,
 				C0E345451C582ECB00E749C2 /* remque.c in Sources */,
 				C0E345461C582ECB00E749C2 /* setenv.c in Sources */,
@@ -11446,7 +11427,6 @@
 				C9FA3332138E4D040089A94B /* radixsort.c in Sources */,
 				C9FA3333138E4D040089A94B /* rand.c in Sources */,
 				C9FA3334138E4D040089A94B /* random.c in Sources */,
-				C9FA3335138E4D040089A94B /* reallocf.c in Sources */,
 				C9FA3336138E4D040089A94B /* realpath.c in Sources */,
 				C9FA3337138E4D040089A94B /* remque.c in Sources */,
 				C9FA3338138E4D040089A94B /* setenv.c in Sources */,
@@ -11904,7 +11884,6 @@
 				C942122213900C8A004BA536 /* radixsort.c in Sources */,
 				C942122313900C8A004BA536 /* rand.c in Sources */,
 				C942122413900C8A004BA536 /* random.c in Sources */,
-				C942122513900C8A004BA536 /* reallocf.c in Sources */,
 				C942122613900C8A004BA536 /* realpath.c in Sources */,
 				C942122713900C8A004BA536 /* remque.c in Sources */,
 				C942122813900C8A004BA536 /* setenv.c in Sources */,
@@ -12432,7 +12411,6 @@
 				C95B80CD138F3C55004311DA /* radixsort.c in Sources */,
 				C95B80CE138F3C55004311DA /* rand.c in Sources */,
 				C95B80CF138F3C55004311DA /* random.c in Sources */,
-				C95B80D0138F3C55004311DA /* reallocf.c in Sources */,
 				C95B80D1138F3C55004311DA /* realpath.c in Sources */,
 				C95B80D2138F3C55004311DA /* remque.c in Sources */,
 				C95B80D3138F3C55004311DA /* setenv.c in Sources */,
@@ -12955,7 +12933,6 @@
 				C95B8378138F52B0004311DA /* radixsort.c in Sources */,
 				C95B8379138F52B0004311DA /* rand.c in Sources */,
 				C95B837A138F52B0004311DA /* random.c in Sources */,
-				C95B837B138F52B0004311DA /* reallocf.c in Sources */,
 				C95B837C138F52B0004311DA /* realpath.c in Sources */,
 				C95B837D138F52B0004311DA /* remque.c in Sources */,
 				C95B837E138F52B0004311DA /* setenv.c in Sources */,
@@ -13478,7 +13455,6 @@
 				C95B861E138F53DB004311DA /* radixsort.c in Sources */,
 				C95B861F138F53DB004311DA /* rand.c in Sources */,
 				C95B8620138F53DB004311DA /* random.c in Sources */,
-				C95B8621138F53DB004311DA /* reallocf.c in Sources */,
 				C95B8622138F53DB004311DA /* realpath.c in Sources */,
 				C95B8623138F53DB004311DA /* remque.c in Sources */,
 				C95B8624138F53DB004311DA /* setenv.c in Sources */,
@@ -14028,7 +14004,6 @@
 				C97A71601517AF53005E1998 /* radixsort.c in Sources */,
 				C97A71611517AF53005E1998 /* rand.c in Sources */,
 				C97A71621517AF53005E1998 /* random.c in Sources */,
-				C97A71631517AF53005E1998 /* reallocf.c in Sources */,
 				C97A71641517AF53005E1998 /* realpath.c in Sources */,
 				C97A71651517AF53005E1998 /* remque.c in Sources */,
 				C97A71661517AF53005E1998 /* setenv.c in Sources */,
@@ -14684,7 +14659,6 @@
 				C97660A2138EC61A00741512 /* radixsort.c in Sources */,
 				C97660A3138EC61A00741512 /* rand.c in Sources */,
 				C97660A4138EC61A00741512 /* random.c in Sources */,
-				C97660A5138EC61A00741512 /* reallocf.c in Sources */,
 				C97660A6138EC61A00741512 /* realpath.c in Sources */,
 				C97660A7138EC61A00741512 /* remque.c in Sources */,
 				C97660A8138EC61A00741512 /* setenv.c in Sources */,
@@ -15207,7 +15181,6 @@
 				C9EB31BD138F6D880075BB52 /* radixsort.c in Sources */,
 				C9EB31BE138F6D880075BB52 /* rand.c in Sources */,
 				C9EB31BF138F6D880075BB52 /* random.c in Sources */,
-				C9EB31C0138F6D880075BB52 /* reallocf.c in Sources */,
 				C9EB31C1138F6D880075BB52 /* realpath.c in Sources */,
 				C9EB31C2138F6D880075BB52 /* remque.c in Sources */,
 				C9EB31C3138F6D880075BB52 /* setenv.c in Sources */,
@@ -15731,7 +15704,6 @@
 				C9EB3464138F75580075BB52 /* radixsort.c in Sources */,
 				C9EB3465138F75580075BB52 /* rand.c in Sources */,
 				C9EB3466138F75580075BB52 /* random.c in Sources */,
-				C9EB3467138F75580075BB52 /* reallocf.c in Sources */,
 				C9EB3468138F75580075BB52 /* realpath.c in Sources */,
 				C9EB3469138F75580075BB52 /* remque.c in Sources */,
 				C9EB346A138F75580075BB52 /* setenv.c in Sources */,

@@ -13,7 +13,7 @@
 #import "OTPairingConstants.h"
 
 void
-OTPairingInitiateWithCompletion(dispatch_queue_t queue, void (^completion)(bool success, NSError *))
+OTPairingInitiateWithCompletion(dispatch_queue_t queue, bool immediate, void (^completion)(bool success, NSError *))
 {
     xpc_connection_t connection;
     xpc_object_t message;
@@ -25,6 +25,7 @@ OTPairingInitiateWithCompletion(dispatch_queue_t queue, void (^completion)(bool 
 
     message = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_uint64(message, OTPairingXPCKeyOperation, OTPairingOperationInitiate);
+    xpc_dictionary_set_bool(message, OTPairingXPCKeyImmediate, immediate);
 
     xpc_connection_send_message_with_reply(connection, message, queue, ^(xpc_object_t reply) {
         if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY) {

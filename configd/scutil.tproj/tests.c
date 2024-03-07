@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -205,7 +205,10 @@ _setupReachability(int argc, char * const argv[], SCNetworkReachabilityContext *
 				options = _setupReachabilityOptions(argc, argv, interface);
 			}
 			if (options == NULL) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 				target = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&sin);
+#pragma GCC diagnostic pop
 				if (context != NULL) {
 					context->info = "by address";
 				}
@@ -248,9 +251,12 @@ _setupReachability(int argc, char * const argv[], SCNetworkReachabilityContext *
 
 			options = _setupReachabilityOptions(argc, argv, interface);
 			if (options == NULL) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 				target = SCNetworkReachabilityCreateWithAddressPair(NULL,
 										    (struct sockaddr *)&sin,
 										    (struct sockaddr *)&r_sin);
+#pragma GCC diagnostic pop
 				if (context != NULL) {
 					context->info = "by address pair";
 				}
@@ -302,7 +308,10 @@ _setupReachability(int argc, char * const argv[], SCNetworkReachabilityContext *
 				options = _setupReachabilityOptions(argc, argv, NULL);
 			}
 			if (options == NULL) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 				target = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&sin6);
+#pragma GCC diagnostic pop
 				if (context != NULL) {
 					context->info = "by (v6) address";
 				}
@@ -336,9 +345,12 @@ _setupReachability(int argc, char * const argv[], SCNetworkReachabilityContext *
 
 			options = _setupReachabilityOptions(argc, argv, NULL);
 			if (options == NULL) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 				target = SCNetworkReachabilityCreateWithAddressPair(NULL,
 										    (struct sockaddr *)&sin6,
 										    (struct sockaddr *)&r_sin6);
+#pragma GCC diagnostic pop
 				if (context != NULL) {
 					context->info = "by (v6) address pair";
 				}
@@ -359,14 +371,20 @@ _setupReachability(int argc, char * const argv[], SCNetworkReachabilityContext *
 		}
 	} else {
 		if (argc == 1) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 			target = SCNetworkReachabilityCreateWithName(NULL, argv[0]);
+#pragma GCC diagnostic pop
 			if (context != NULL) {
 				context->info = "by name";
 			}
 		} else {
 			options = _setupReachabilityOptions(argc - 1, argv + 1, NULL);
 			if (options == NULL) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 				target = SCNetworkReachabilityCreateWithName(NULL, argv[0]);
+#pragma GCC diagnostic pop
 				if (context != NULL) {
 					context->info = "by name";
 				}
@@ -437,7 +455,10 @@ _printReachability(SCNetworkReachabilityRef target)
 	char				flags_str[100];
 	Boolean				ok;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	ok = SCNetworkReachabilityGetFlags(target, &flags);
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	if (!ok) {
 		SCPrint(TRUE, stderr, CFSTR("    could not determine reachability, %s\n"), SCErrorString(SCError()));
 		return;
@@ -644,18 +665,27 @@ do_watchReachability(int argc, char * const argv[])
 //	_printReachability(target_async);
 	SCPrint(TRUE, stdout, CFSTR("\n"));
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	if (!SCNetworkReachabilitySetCallback(target_async, callout, &context)) {
+#pragma GCC diagnostic ignored "-Wdeprecated"
 		printf("SCNetworkReachabilitySetCallback() failed: %s\n", SCErrorString(SCError()));
 		exit(1);
 	}
 
 	if (doDispatch) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 		if (!SCNetworkReachabilitySetDispatchQueue(target_async, dispatch_get_main_queue())) {
+#pragma GCC diagnostic ignored "-Wdeprecated"
 			printf("SCNetworkReachabilitySetDispatchQueue() failed: %s\n", SCErrorString(SCError()));
 			exit(1);
 		}
 	} else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 		if (!SCNetworkReachabilityScheduleWithRunLoop(target_async, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
+#pragma GCC diagnostic ignored "-Wdeprecated"
 			printf("SCNetworkReachabilityScheduleWithRunLoop() failed: %s\n", SCErrorString(SCError()));
 			exit(1);
 		}
@@ -1051,13 +1081,13 @@ do_renew(char *if_name)
 	return;
 }
 
-
 static void
-waitKeyFound(void)
+waitKeyFound(SCDynamicStoreRef session, CFArrayRef changes,
+	     void * info)
 {
+#pragma unused(session, changes, info)
 	return;
 }
-
 
 static void __attribute__((noreturn))
 waitTimeout(int sigraised)
@@ -1065,7 +1095,6 @@ waitTimeout(int sigraised)
 #pragma unused(sigraised)
 	exit(1);
 }
-
 
 __private_extern__
 void

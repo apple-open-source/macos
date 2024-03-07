@@ -108,7 +108,7 @@ GST_DEBUG_CATEGORY_STATIC(webkit_media_gst_registry_scanner_debug);
 
 static bool singletonInitialized = false;
 
-bool GStreamerRegistryScanner::singletonNeedsInitialization()
+bool GStreamerRegistryScanner::singletonWasInitialized()
 {
     return singletonInitialized;
 }
@@ -118,6 +118,15 @@ GStreamerRegistryScanner& GStreamerRegistryScanner::singleton()
     static NeverDestroyed<GStreamerRegistryScanner> sharedInstance;
     singletonInitialized = true;
     return sharedInstance;
+}
+
+void teardownGStreamerRegistryScanner()
+{
+    if (!GStreamerRegistryScanner::singletonWasInitialized())
+        return;
+
+    auto& scanner = GStreamerRegistryScanner::singleton();
+    scanner.teardown();
 }
 
 void GStreamerRegistryScanner::getSupportedDecodingTypes(HashSet<String>& types)
@@ -306,10 +315,7 @@ GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::Element
     }
 
     gst_plugin_feature_list_free(candidates);
-    // Valid `selectedFactory` ends up stored in the scanner singleton.
-    if (isSupported)
-        GST_OBJECT_FLAG_SET(selectedFactory.get(), GST_OBJECT_FLAG_MAY_BE_LEAKED);
-    else
+    if (!isSupported)
         selectedFactory.clear();
 
     GST_LOG("Lookup result for %s matching caps %" GST_PTR_FORMAT " : isSupported=%s, isUsingHardware=%s", elementFactoryTypeToString(factoryType), caps.get(), boolForPrinting(isSupported), boolForPrinting(isUsingHardware));
@@ -354,6 +360,12 @@ void GStreamerRegistryScanner::refresh()
     for (auto& item : m_encoderCodecMap)
         GST_DEBUG("%s encoder codec pattern registered: %s", item.value ? "Hardware" : "Software", item.key.string().utf8().data());
 #endif
+}
+
+void GStreamerRegistryScanner::teardown()
+{
+    m_decoderCodecMap.clear();
+    m_encoderCodecMap.clear();
 }
 
 const HashSet<String>& GStreamerRegistryScanner::mimeTypeSet(Configuration configuration) const
@@ -602,6 +614,18 @@ void GStreamerRegistryScanner::initializeEncoders(const GStreamerRegistryScanner
         m_encoderCodecMap.add(AtomString("mp4a*"_s), result);
     }
 
+    if (auto alawSupported = factories.hasElementForMediaType(ElementFactories::Type::AudioEncoder, "audio/x-alaw"))
+        m_encoderCodecMap.add(AtomString("alaw"_s), alawSupported);
+
+    if (auto ulawSupported = factories.hasElementForMediaType(ElementFactories::Type::AudioEncoder, "audio/x-mulaw"))
+        m_encoderCodecMap.add(AtomString("ulaw"_s), ulawSupported);
+
+    if (auto flacSupported = factories.hasElementForMediaType(ElementFactories::Type::AudioEncoder, "audio/x-flac"))
+        m_encoderCodecMap.add(AtomString("flac"_s), flacSupported);
+
+    if (auto mp3Supported = factories.hasElementForMediaType(ElementFactories::Type::AudioEncoder, "audio/mpeg, mpegversion=(int)1, layer=(int)3"))
+        m_encoderCodecMap.add(AtomString("mp3"_s), mp3Supported);
+
     auto opusSupported = factories.hasElementForMediaType(ElementFactories::Type::AudioEncoder, "audio/x-opus");
     if (opusSupported) {
         m_encoderCodecMap.add(AtomString("opus"_s), opusSupported);
@@ -736,18 +760,21 @@ bool GStreamerRegistryScanner::supportsFeatures(const String& features) const
 
 MediaPlayerEnums::SupportsType GStreamerRegistryScanner::isContentTypeSupported(Configuration configuration, const ContentType& contentType, const Vector<ContentType>& contentTypesRequiringHardwareSupport) const
 {
-    static std::optional<VideoDecodingLimits> videoDecodingLimits;
+    VideoDecodingLimits* videoDecodingLimits = nullptr;
 #ifdef VIDEO_DECODING_LIMIT
+    static std::optional<VideoDecodingLimits> videoDecodingLimitsDefaults;
     static std::once_flag onceFlag;
     if (configuration == Configuration::Decoding) {
         std::call_once(onceFlag, [] {
-            videoDecodingLimits = videoDecoderLimitsDefaults();
-            if (!videoDecodingLimits) {
+            videoDecodingLimitsDefaults = videoDecoderLimitsDefaults();
+            if (!videoDecodingLimitsDefaults) {
                 GST_WARNING("Parsing VIDEO_DECODING_LIMIT failed");
                 ASSERT_NOT_REACHED();
                 return;
             }
         });
+        if (videoDecodingLimitsDefaults)
+            videoDecodingLimits = &*videoDecodingLimitsDefaults;
     }
 #endif
 

@@ -48,13 +48,13 @@ static const char tzUSPacific[] = "US/Pacific";
 static const char tzAsiaTokyo[] = "Asia/Tokyo";
 #if APPLE_ICU_CHANGES
 // rdar://
-static const char tzAmericaLosAngeles[] = "America/Los_Angeles";
+static const char tzAmericaLosAngeles[] = "America/Los_Angeles"; // rdar://99978866
 #define Date201103021030 1299090600000.0 /* 2011-Mar-02 Wed 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
 #define Date201009270800 1285599629000.0 /* 2010-Sep-27 Mon 0800 in US/Pacific */
 #define Date201712300900 1514653200000.0 /* 2017-Dec-30 Sat 0900 in US/Pacific */
 #define Date200101012200 1546322400000.0 /* 2001-Jan-01 2200 in US/Pacific */
-#define Date202208302200 1661922030000.0 /* 2022-Aug-30 2200 in America/Los_Angeles */
-#define Date202208312200 1662008430000.0 /* 2022-Aug-31 2200 in America/Los_Angeles */
+#define Date202208302200 1661922030000.0 /* 2022-Aug-30 2200 in America/Los_Angeles */ // rdar://99978866
+#define Date202208312200 1662008430000.0 /* 2022-Aug-31 2200 in America/Los_Angeles */ // rdar://99978866
 #else
 #define Date201103021030 1299090600000.0 /* 2011-Mar-02 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
 #define Date201009270800 1285599629000.0 /* 2010-Sep-27 0800 in US/Pacific */
@@ -170,8 +170,8 @@ static const DateIntervalFormatTestItem testItems[] = {
     // additional tests for rdar://26911014 (spot check only for now)
     { "fr_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"27 septembre \u00E0 8:00\u202FAM\u2009\u2013\u200928 septembre \u00E0 1:00\u202FAM" },
     { "fr_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27 septembre, 8:00\u202FPM\u2009\u2013\u20091:00\u202FAM" },
-    { "fr_AR", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"27 septembre \u00e0 08:00\u2009\u2013\u200928 septembre \u00e0 01:00" },
-    { "fr_AR", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27 septembre, 20:00\u2009\u2013\u200901:00" },
+    { "fr_AR", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"27 septembre \u00e0 8:00\u202FAM\u2009\u2013\u200928 septembre \u00e0 1:00\u202FAM" },
+    { "fr_AR", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27 septembre, 8:00\u202fPM\u2009\u2013\u20091:00\u202fAM" },
     { "fr_JP", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"27 septembre \u00e0 08:00\u2009\u2013\u200928 septembre \u00e0 01:00" },
     { "fr_JP", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, u"27 septembre, 20:00\u2009\u2013\u200901:00" },
     { "ja_US", "MMMMdjmm",  CAP_NONE,  MIN_DAYS,   tzUSPacific, Date201009270800,              Date201009270800 + 17.0*_HOUR, u"9\u670827\u65e5 \u5348\u524d8:00\uff5e9\u670828\u65e5 \u5348\u524d1:00" },
@@ -226,17 +226,17 @@ static const DateIntervalFormatTestItem testItems[] = {
     { "de", "Hm",       CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 12.0*_HOUR, u"08:00\u201320:00 Uhr" },
     { "de", "Hm",       CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 31.0*_DAY,  u"27.9.2010, 08:00\u2009\u2013\u200928.10.2010, 08:00" },
     { "ja", "MMMd",     CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"9月27日～28日" },
-    { "cs", "MMMEd",    CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"po 27. 9. \u2013 pá 26. 11." },
+    { "cs", "MMMEd",    CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"po 27. 9.\u2009\u2013\u2009pá 26. 11." },
     { "cs", "yMMMM",    CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"září\u2013listopad 2010" },
     { "cs", "yMMMM",    CAP_NONE,  tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"září 2010" },
 #if !UCONFIG_NO_BREAK_ITERATION
-    { "cs", "MMMEd",    CAP_BEGIN, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Po 27. 9. \u2013 pá 26. 11." },
+    { "cs", "MMMEd",    CAP_BEGIN, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Po 27. 9.\u2009\u2013\u2009pá 26. 11." },
     { "cs", "yMMMM",    CAP_BEGIN, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Září\u2013listopad 2010" },
     { "cs", "yMMMM",    CAP_BEGIN, tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"Září 2010" },
-    { "cs", "MMMEd",    CAP_LIST,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Po 27. 9. \u2013 pá 26. 11." },
+    { "cs", "MMMEd",    CAP_LIST,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Po 27. 9.\u2009\u2013\u2009pá 26. 11." },
     { "cs", "yMMMM",    CAP_LIST,  tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"Září\u2013listopad 2010" },
     { "cs", "yMMMM",    CAP_LIST,  tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"Září 2010" },
-    { "cs", "MMMEd",    CAP_ALONE, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"po 27. 9. \u2013 pá 26. 11." },
+    { "cs", "MMMEd",    CAP_ALONE, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"po 27. 9.\u2009\u2013\u2009pá 26. 11." },
 #endif
     { "cs", "yMMMM",    CAP_ALONE, tzUSPacific, Date201009270800, Date201009270800 + 60.0*_DAY,  u"září\u2013listopad 2010" },
     { "cs", "yMMMM",    CAP_ALONE, tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   u"září 2010" },

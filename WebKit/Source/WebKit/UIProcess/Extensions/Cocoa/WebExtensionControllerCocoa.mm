@@ -33,6 +33,7 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #import "CocoaHelpers.h"
+#import "ContextMenuContextData.h"
 #import "Logging.h"
 #import "SandboxUtilities.h"
 #import "WebExtensionContext.h"
@@ -44,17 +45,20 @@
 #import "WebExtensionEventListenerType.h"
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
+#import <WebCore/ContentRuleListResults.h>
 #import <wtf/FileSystem.h>
 #import <wtf/HashMap.h>
 #import <wtf/HashSet.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/text/WTFString.h>
 
+static constexpr Seconds purgeMatchedRulesInterval = 5_min;
+
 namespace WebKit {
 
 String WebExtensionController::storageDirectory(WebExtensionContext& extensionContext) const
 {
-    if (m_configuration->storageIsPersistent() && extensionContext.storageIsPersistent())
+    if (m_configuration->storageIsPersistent() && extensionContext.hasCustomUniqueIdentifier())
         return FileSystem::pathByAppendingComponent(m_configuration->storageDirectory(), extensionContext.uniqueIdentifier());
     return nullString();
 }
@@ -71,7 +75,7 @@ bool WebExtensionController::load(WebExtensionContext& extensionContext, NSError
         return false;
     }
 
-    if (!m_extensionContextBaseURLMap.add(extensionContext.baseURL(), extensionContext)) {
+    if (!m_extensionContextBaseURLMap.add(extensionContext.baseURL().protocolHostAndPort(), extensionContext)) {
         RELEASE_LOG_ERROR(Extensions, "Extension context already loaded with same base URL: %{private}@", (NSURL *)extensionContext.baseURL());
         m_extensionContexts.remove(extensionContext);
         if (outError)
@@ -98,7 +102,7 @@ bool WebExtensionController::load(WebExtensionContext& extensionContext, NSError
 
     if (!extensionContext.load(*this, extensionDirectory, outError)) {
         m_extensionContexts.remove(extensionContext);
-        m_extensionContextBaseURLMap.remove(extensionContext.baseURL());
+        m_extensionContextBaseURLMap.remove(extensionContext.baseURL().protocolHostAndPort());
 
         for (auto& processPool : m_processPools)
             processPool.removeMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), extensionContext.identifier());
@@ -125,8 +129,9 @@ bool WebExtensionController::unload(WebExtensionContext& extensionContext, NSErr
         return false;
     }
 
-    ASSERT(m_extensionContextBaseURLMap.contains(extensionContext.baseURL()));
-    m_extensionContextBaseURLMap.remove(extensionContext.baseURL());
+    bool result = m_extensionContextBaseURLMap.remove(extensionContext.baseURL().protocolHostAndPort());
+    UNUSED_VARIABLE(result);
+    ASSERT(result);
 
     sendToAllProcesses(Messages::WebExtensionControllerProxy::Unload(extensionContext.identifier()), m_identifier);
 
@@ -156,8 +161,9 @@ void WebExtensionController::addPage(WebPageProxy& page)
 
     Ref pool = page.process().processPool();
     addProcessPool(pool);
+
     Ref controller = page.userContentController();
-    addUserContentController(controller);
+    addUserContentController(controller, page.websiteDataStore().isPersistent() ? ForPrivateBrowsing::No : ForPrivateBrowsing::Yes);
 }
 
 void WebExtensionController::removePage(WebPageProxy& page)
@@ -167,6 +173,7 @@ void WebExtensionController::removePage(WebPageProxy& page)
 
     Ref pool = page.process().processPool();
     removeProcessPool(pool);
+
     Ref controller = page.userContentController();
     removeUserContentController(controller);
 }
@@ -198,13 +205,22 @@ void WebExtensionController::removeProcessPool(WebProcessPool& processPool)
     m_processPools.remove(processPool);
 }
 
-void WebExtensionController::addUserContentController(WebUserContentControllerProxy& userContentController)
+void WebExtensionController::addUserContentController(WebUserContentControllerProxy& userContentController, ForPrivateBrowsing forPrivateBrowsing)
 {
-    if (!m_userContentControllers.add(userContentController))
+    if (forPrivateBrowsing == ForPrivateBrowsing::No)
+        m_allNonPrivateUserContentControllers.add(userContentController);
+    else
+        m_allPrivateUserContentControllers.add(userContentController);
+
+    if (!m_allUserContentControllers.add(userContentController))
         return;
 
-    for (auto& context : m_extensionContexts)
+    for (auto& context : m_extensionContexts) {
+        if (!context->hasAccessInPrivateBrowsing() && forPrivateBrowsing == ForPrivateBrowsing::Yes)
+            continue;
+
         context->addInjectedContent(userContentController);
+    }
 }
 
 void WebExtensionController::removeUserContentController(WebUserContentControllerProxy& userContentController)
@@ -218,7 +234,9 @@ void WebExtensionController::removeUserContentController(WebUserContentControlle
     for (auto& context : m_extensionContexts)
         context->removeInjectedContent(userContentController);
 
-    m_userContentControllers.remove(userContentController);
+    m_allNonPrivateUserContentControllers.remove(userContentController);
+    m_allPrivateUserContentControllers.remove(userContentController);
+    m_allUserContentControllers.remove(userContentController);
 }
 
 RefPtr<WebExtensionContext> WebExtensionController::extensionContext(const WebExtension& extension) const
@@ -233,7 +251,7 @@ RefPtr<WebExtensionContext> WebExtensionController::extensionContext(const WebEx
 
 RefPtr<WebExtensionContext> WebExtensionController::extensionContext(const URL& url) const
 {
-    return m_extensionContextBaseURLMap.get(url.truncatedForUseAsBase());
+    return m_extensionContextBaseURLMap.get(url.protocolHostAndPort());
 }
 
 WebExtensionController::WebExtensionSet WebExtensionController::extensions() const
@@ -245,72 +263,77 @@ WebExtensionController::WebExtensionSet WebExtensionController::extensions() con
     return extensions;
 }
 
-// MARK: Web Navigation
-
-void WebExtensionController::didStartProvisionalLoadForFrame(WebPageProxyIdentifier pageID, WebCore::FrameIdentifier frameID, URL targetURL)
+#if PLATFORM(MAC)
+void WebExtensionController::addItemsToContextMenu(WebPageProxy& page, const ContextMenuContextData& contextData, NSMenu *menu)
 {
-    auto eventType = WebExtensionEventListenerType::WebNavigationOnBeforeNavigate;
-    auto listenerTypes = WebExtensionContext::EventListenerTypeSet { eventType };
+    [menu addItem:NSMenuItem.separatorItem];
 
-    for (auto& context : m_extensionContexts) {
-        // FIXME: We need to turn pageID into a _WKWebExtensionTab and pass that here.
-        if (!context->hasPermission(targetURL))
-            continue;
+    for (auto& context : m_extensionContexts)
+        context->addItemsToContextMenu(page, contextData, menu);
+}
+#endif
 
-        context->wakeUpBackgroundContentIfNecessaryToFireEvents(listenerTypes, [&] {
-            context->sendToProcessesForEvent(eventType, Messages::WebExtensionContextProxy::DispatchWebNavigationEvent(eventType, pageID, frameID, targetURL));
-        });
-    }
+void WebExtensionController::didStartProvisionalLoadForFrame(WebPageProxyIdentifier pageID, WebExtensionFrameIdentifier frameID, WebExtensionFrameIdentifier parentFrameID, const URL& targetURL, WallTime timestamp)
+{
+    for (auto& context : m_extensionContexts)
+        context->didStartProvisionalLoadForFrame(pageID, frameID, parentFrameID, targetURL, timestamp);
 }
 
-void WebExtensionController::didCommitLoadForFrame(WebPageProxyIdentifier pageID, WebCore::FrameIdentifier frameID, URL frameURL)
+void WebExtensionController::didCommitLoadForFrame(WebPageProxyIdentifier pageID, WebExtensionFrameIdentifier frameID, WebExtensionFrameIdentifier parentFrameID, const URL& frameURL, WallTime timestamp)
 {
-    auto completedEventType = WebExtensionEventListenerType::WebNavigationOnCompleted;
-    auto contentLoadedtype = WebExtensionEventListenerType::WebNavigationOnDOMContentLoaded;
-    auto listenerTypes = WebExtensionContext::EventListenerTypeSet { completedEventType, contentLoadedtype };
-
-    for (auto& context : m_extensionContexts) {
-        // FIXME: We need to turn pageID into a _WKWebExtensionTab and pass that here.
-        if (!context->hasPermission(frameURL))
-            continue;
-
-        context->wakeUpBackgroundContentIfNecessaryToFireEvents(listenerTypes, [&] {
-            context->sendToProcessesForEvent(completedEventType, Messages::WebExtensionContextProxy::DispatchWebNavigationEvent(completedEventType, pageID, frameID, frameURL));
-            context->sendToProcessesForEvent(contentLoadedtype, Messages::WebExtensionContextProxy::DispatchWebNavigationEvent(contentLoadedtype, pageID, frameID, frameURL));
-        });
-    }
+    for (auto& context : m_extensionContexts)
+        context->didCommitLoadForFrame(pageID, frameID, parentFrameID, frameURL, timestamp);
 }
 
-void WebExtensionController::didFinishLoadForFrame(WebPageProxyIdentifier pageID, WebCore::FrameIdentifier frameID, URL frameURL)
+void WebExtensionController::didFinishLoadForFrame(WebPageProxyIdentifier pageID, WebExtensionFrameIdentifier frameID, WebExtensionFrameIdentifier parentFrameID, const URL& frameURL, WallTime timestamp)
 {
-    auto eventType = WebExtensionEventListenerType::WebNavigationOnCompleted;
-    auto listenerTypes = WebExtensionContext::EventListenerTypeSet { eventType };
-
-    for (auto& context : m_extensionContexts) {
-        // FIXME: We need to turn pageID into a _WKWebExtensionTab and pass that here.
-        if (!context->hasPermission(frameURL))
-            continue;
-
-        context->wakeUpBackgroundContentIfNecessaryToFireEvents(listenerTypes, [&] {
-            context->sendToProcessesForEvent(eventType, Messages::WebExtensionContextProxy::DispatchWebNavigationEvent(eventType, pageID, frameID, frameURL));
-        });
-    }
+    for (auto& context : m_extensionContexts)
+        context->didFinishLoadForFrame(pageID, frameID, parentFrameID, frameURL, timestamp);
 }
 
-void WebExtensionController::didFailLoadForFrame(WebPageProxyIdentifier pageID, WebCore::FrameIdentifier frameID, URL frameURL)
+void WebExtensionController::didFailLoadForFrame(WebPageProxyIdentifier pageID, WebExtensionFrameIdentifier frameID, WebExtensionFrameIdentifier parentFrameID, const URL& frameURL, WallTime timestamp)
 {
-    auto eventType = WebExtensionEventListenerType::WebNavigationOnErrorOccurred;
-    auto listenerTypes = WebExtensionContext::EventListenerTypeSet { eventType };
+    for (auto& context : m_extensionContexts)
+        context->didFailLoadForFrame(pageID, frameID, parentFrameID, frameURL, timestamp);
+}
 
-    for (auto& context : m_extensionContexts) {
-        // FIXME: We need to turn pageID into a _WKWebExtensionTab and pass that here.
-        if (!context->hasPermission(frameURL))
-            continue;
+void WebExtensionController::handleContentRuleListNotification(WebPageProxyIdentifier pageID, URL& url, WebCore::ContentRuleListResults& results)
+{
+    bool savedMatchedRule = false;
 
-        context->wakeUpBackgroundContentIfNecessaryToFireEvents(listenerTypes, [&] {
-            context->sendToProcessesForEvent(eventType, Messages::WebExtensionContextProxy::DispatchWebNavigationEvent(eventType, pageID, frameID, frameURL));
-        });
+    for (const auto& result : results.results) {
+        auto contentRuleListIdentifier = result.first;
+        for (auto& context : m_extensionContexts) {
+            if (context->uniqueIdentifier() != contentRuleListIdentifier)
+                continue;
+
+            RefPtr tab = context->getTab(pageID);
+            if (!tab)
+                break;
+
+            savedMatchedRule |= context->handleContentRuleListNotificationForTab(*tab, url, result.second);
+
+            break;
+        }
     }
+
+    if (!savedMatchedRule || m_purgeOldMatchedRulesTimer)
+        return;
+
+    m_purgeOldMatchedRulesTimer = makeUnique<WebCore::Timer>(*this, &WebExtensionController::purgeOldMatchedRules);
+    m_purgeOldMatchedRulesTimer->start(purgeMatchedRulesInterval, purgeMatchedRulesInterval);
+}
+
+void WebExtensionController::purgeOldMatchedRules()
+{
+    WallTime earliestDateToKeep = WallTime::now() - purgeMatchedRulesInterval;
+
+    bool stillHaveRules = false;
+    for (auto& extensionContext : m_extensionContexts)
+        stillHaveRules |= extensionContext->purgeMatchedRulesFromBefore(earliestDateToKeep);
+
+    if (!stillHaveRules)
+        m_purgeOldMatchedRulesTimer = nullptr;
 }
 
 } // namespace WebKit

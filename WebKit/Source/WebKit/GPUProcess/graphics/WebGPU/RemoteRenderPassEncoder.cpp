@@ -125,7 +125,6 @@ void RemoteRenderPassEncoder::setBindGroup(WebCore::WebGPU::Index32 index, WebGP
     std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&& dynamicOffsets)
 {
     auto convertedBindGroup = m_objectHeap.convertBindGroupFromBacking(bindGroup);
-    ASSERT(convertedBindGroup);
     if (!convertedBindGroup)
         return;
 
@@ -194,7 +193,7 @@ void RemoteRenderPassEncoder::executeBundles(Vector<WebGPUIdentifier>&& renderBu
         ASSERT(convertedBundle);
         if (!convertedBundle)
             return;
-        convertedBundles.uncheckedAppend(*convertedBundle);
+        convertedBundles.append(*convertedBundle);
     }
     m_backing->executeBundles(WTFMove(convertedBundles));
 }

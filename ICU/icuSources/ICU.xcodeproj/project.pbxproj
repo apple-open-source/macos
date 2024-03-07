@@ -364,6 +364,27 @@
 		CC19BF542727430B00B636FA /* charstrmap.h in Headers */ = {isa = PBXBuildFile; fileRef = CC19BF4E2727430B00B636FA /* charstrmap.h */; };
 		CC19BF552727430B00B636FA /* emojiprops.h in Headers */ = {isa = PBXBuildFile; fileRef = CC19BF4F2727430B00B636FA /* emojiprops.h */; };
 		CC19BF5B27276C5F00B636FA /* lstmbetst.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC19BF5927276BD200B636FA /* lstmbetst.cpp */; };
+		CC1F7ADB2AEC5FF10076AF00 /* iso8601cal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AD72AEC5FF10076AF00 /* iso8601cal.cpp */; };
+		CC1F7ADC2AEC5FF20076AF00 /* iso8601cal.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7AD82AEC5FF10076AF00 /* iso8601cal.h */; };
+		CC1F7ADD2AEC5FF20076AF00 /* number_simple.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7ADA2AEC5FF10076AF00 /* number_simple.cpp */; };
+		CC1F7AE32AEC60390076AF00 /* formattednumber.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7ADE2AEC60380076AF00 /* formattednumber.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CC1F7AE42AEC60390076AF00 /* unumberoptions.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7ADF2AEC60380076AF00 /* unumberoptions.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CC1F7AE52AEC60390076AF00 /* simplenumberformatter.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7AE02AEC60390076AF00 /* simplenumberformatter.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CC1F7AE62AEC60390076AF00 /* usimplenumberformatter.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7AE12AEC60390076AF00 /* usimplenumberformatter.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CC1F7AE72AEC60390076AF00 /* uformattednumber.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7AE22AEC60390076AF00 /* uformattednumber.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CC1F7AE82AEC60650076AF00 /* iso8601cal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AD72AEC5FF10076AF00 /* iso8601cal.cpp */; };
+		CC1F7AE92AEC60840076AF00 /* number_simple.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7ADA2AEC5FF10076AF00 /* number_simple.cpp */; };
+		CC1F7AEE2AEC778B0076AF00 /* ulocaletst.c in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AEB2AEC77720076AF00 /* ulocaletst.c */; };
+		CC1F7AEF2AEC77920076AF00 /* ulocbuildertst.c in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AEA2AEC77720076AF00 /* ulocbuildertst.c */; };
+		CC1F7AF52AEC77F40076AF00 /* mlbe.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AF02AEC77F40076AF00 /* mlbe.cpp */; };
+		CC1F7AF62AEC77F40076AF00 /* ulocbuilder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AF12AEC77F40076AF00 /* ulocbuilder.cpp */; };
+		CC1F7AF72AEC77F40076AF00 /* mlbe.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7AF22AEC77F40076AF00 /* mlbe.h */; };
+		CC1F7AF82AEC77F40076AF00 /* localefallback_data.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7AF32AEC77F40076AF00 /* localefallback_data.h */; };
+		CC1F7AF92AEC77F40076AF00 /* ulocale.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AF42AEC77F40076AF00 /* ulocale.cpp */; };
+		CC1F7AFC2AEC782E0076AF00 /* ulocale.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7AFA2AEC782E0076AF00 /* ulocale.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CC1F7AFD2AEC782E0076AF00 /* ulocbuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1F7AFB2AEC782E0076AF00 /* ulocbuilder.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CC1F7B002AEC7A930076AF00 /* uchar_type_build_test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AFE2AEC7A920076AF00 /* uchar_type_build_test.cpp */; };
+		CC1F7B012AEC7A930076AF00 /* numbertest_simple.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC1F7AFF2AEC7A920076AF00 /* numbertest_simple.cpp */; };
 		CC3CA6602565D9A20088ADDF /* units_data_test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC3CA65D2565D9A10088ADDF /* units_data_test.cpp */; };
 		CC3CA6612565D9A20088ADDF /* units_test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC3CA65E2565D9A10088ADDF /* units_test.cpp */; };
 		CC3CA6622565D9A20088ADDF /* units_router_test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC3CA65F2565D9A10088ADDF /* units_router_test.cpp */; };
@@ -2210,6 +2231,26 @@
 		CC19BF582727478D00B636FA /* es_003.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = es_003.txt; sourceTree = "<group>"; };
 		CC19BF5927276BD200B636FA /* lstmbetst.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = lstmbetst.cpp; sourceTree = "<group>"; };
 		CC19BF5A27276BD200B636FA /* lstmbetst.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lstmbetst.h; sourceTree = "<group>"; };
+		CC1F7AD72AEC5FF10076AF00 /* iso8601cal.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = iso8601cal.cpp; sourceTree = "<group>"; };
+		CC1F7AD82AEC5FF10076AF00 /* iso8601cal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = iso8601cal.h; sourceTree = "<group>"; };
+		CC1F7AD92AEC5FF10076AF00 /* sources.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sources.txt; sourceTree = "<group>"; };
+		CC1F7ADA2AEC5FF10076AF00 /* number_simple.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = number_simple.cpp; sourceTree = "<group>"; };
+		CC1F7ADE2AEC60380076AF00 /* formattednumber.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = formattednumber.h; sourceTree = "<group>"; };
+		CC1F7ADF2AEC60380076AF00 /* unumberoptions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = unumberoptions.h; sourceTree = "<group>"; };
+		CC1F7AE02AEC60390076AF00 /* simplenumberformatter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = simplenumberformatter.h; sourceTree = "<group>"; };
+		CC1F7AE12AEC60390076AF00 /* usimplenumberformatter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = usimplenumberformatter.h; sourceTree = "<group>"; };
+		CC1F7AE22AEC60390076AF00 /* uformattednumber.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = uformattednumber.h; sourceTree = "<group>"; };
+		CC1F7AEA2AEC77720076AF00 /* ulocbuildertst.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ulocbuildertst.c; sourceTree = "<group>"; };
+		CC1F7AEB2AEC77720076AF00 /* ulocaletst.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ulocaletst.c; sourceTree = "<group>"; };
+		CC1F7AF02AEC77F40076AF00 /* mlbe.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = mlbe.cpp; sourceTree = "<group>"; };
+		CC1F7AF12AEC77F40076AF00 /* ulocbuilder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ulocbuilder.cpp; sourceTree = "<group>"; };
+		CC1F7AF22AEC77F40076AF00 /* mlbe.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mlbe.h; sourceTree = "<group>"; };
+		CC1F7AF32AEC77F40076AF00 /* localefallback_data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = localefallback_data.h; sourceTree = "<group>"; };
+		CC1F7AF42AEC77F40076AF00 /* ulocale.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ulocale.cpp; sourceTree = "<group>"; };
+		CC1F7AFA2AEC782E0076AF00 /* ulocale.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ulocale.h; sourceTree = "<group>"; };
+		CC1F7AFB2AEC782E0076AF00 /* ulocbuilder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ulocbuilder.h; sourceTree = "<group>"; };
+		CC1F7AFE2AEC7A920076AF00 /* uchar_type_build_test.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = uchar_type_build_test.cpp; sourceTree = "<group>"; };
+		CC1F7AFF2AEC7A920076AF00 /* numbertest_simple.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = numbertest_simple.cpp; sourceTree = "<group>"; };
 		CC3629FC267AD1BC00221527 /* doi.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = doi.txt; sourceTree = "<group>"; };
 		CC3629FD267AD1BC00221527 /* ff_Adlm_LR.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ff_Adlm_LR.txt; sourceTree = "<group>"; };
 		CC3629FE267AD1BD00221527 /* sd_Arab.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sd_Arab.txt; sourceTree = "<group>"; };
@@ -2517,6 +2558,7 @@
 		CC68BFCF29CE5EEE00105D34 /* yrl_VE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = yrl_VE.txt; sourceTree = "<group>"; };
 		CC68BFD029CE5EEF00105D34 /* cic.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cic.txt; sourceTree = "<group>"; };
 		CC68BFD129CE5EEF00105D34 /* hmn.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hmn.txt; sourceTree = "<group>"; };
+		CC68D3A72B059FAA00038123 /* gb18030-2022.ucm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "gb18030-2022.ucm"; sourceTree = "<group>"; };
 		CC68DFB326B20F2800062E4B /* zh_JP.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = zh_JP.txt; sourceTree = "<group>"; };
 		CC68DFB426B20F2900062E4B /* zh_Hans_JP.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = zh_Hans_JP.txt; sourceTree = "<group>"; };
 		CC6F036D243699AE00503646 /* ebu.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ebu.txt; sourceTree = "<group>"; };
@@ -5508,7 +5550,6 @@
 		CC6F0F7E243699BE00503646 /* ibm-737_P100-1997.ucm */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ibm-737_P100-1997.ucm"; sourceTree = "<group>"; };
 		CC6F0F7F243699BE00503646 /* ibm-9067_X100-2005.ucm */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ibm-9067_X100-2005.ucm"; sourceTree = "<group>"; };
 		CC6F0F80243699BE00503646 /* ibm-720_P100-1997.ucm */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ibm-720_P100-1997.ucm"; sourceTree = "<group>"; };
-		CC6F0F81243699BE00503646 /* gb18030.ucm */ = {isa = PBXFileReference; lastKnownFileType = text; path = gb18030.ucm; sourceTree = "<group>"; };
 		CC6F0F82243699BE00503646 /* ibm-1154_P100-1999.ucm */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ibm-1154_P100-1999.ucm"; sourceTree = "<group>"; };
 		CC6F0F83243699BE00503646 /* ibm-935_P110-1999.ucm */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ibm-935_P110-1999.ucm"; sourceTree = "<group>"; };
 		CC6F0F84243699BE00503646 /* iso-ir-165.ucm */ = {isa = PBXFileReference; lastKnownFileType = text; path = "iso-ir-165.ucm"; sourceTree = "<group>"; };
@@ -12754,7 +12795,7 @@
 				CC6F0F04243699BD00503646 /* ebcdic-xml-us.ucm */,
 				CC6F0F5A243699BE00503646 /* euc-jp-2007.ucm */,
 				CC6F0FA4243699BE00503646 /* euc-tw-2014.ucm */,
-				CC6F0F81243699BE00503646 /* gb18030.ucm */,
+				CC68D3A72B059FAA00038123 /* gb18030-2022.ucm */,
 				CC6F0F47243699BE00503646 /* gsm-03.38-2000.ucm */,
 				CC6F0F73243699BE00503646 /* gsm-03.38-2009.ucm */,
 				CC6F0EEB243699BD00503646 /* ibm-37_P100-1995.ucm */,
@@ -15099,6 +15140,7 @@
 				CC767788243BEF4900780598 /* numbertest_patternstring.cpp */,
 				CC76772D243BEF4900780598 /* numbertest_permutation.cpp */,
 				CC7676CA243BEF4900780598 /* numbertest_range.cpp */,
+				CC1F7AFF2AEC7A920076AF00 /* numbertest_simple.cpp */,
 				CC767768243BEF4900780598 /* numbertest_skeletons.cpp */,
 				CC7676D8243BEF4900780598 /* numbertest.h */,
 				CC7676F4243BEF4900780598 /* numfmtdatadriventest.cpp */,
@@ -15218,6 +15260,7 @@
 				CC767783243BEF4900780598 /* ucaconf.h */,
 				CC767761243BEF4900780598 /* ucdtest.cpp */,
 				CC767736243BEF4900780598 /* ucdtest.h */,
+				CC1F7AFE2AEC7A920076AF00 /* uchar_type_build_test.cpp */,
 				CC767699243BEF4900780598 /* ucharstrietest.cpp */,
 				CC76774B243BEF4900780598 /* unifiedcachetest.cpp */,
 				CC3CA65D2565D9A10088ADDF /* units_data_test.cpp */,
@@ -15469,6 +15512,8 @@
 				CC76780C243BEF4A00780598 /* uenumtst.c */,
 				CC76784F243BEF4A00780598 /* uformattedvaluetst.c */,
 				CC767819243BEF4A00780598 /* ulistfmttest.c */,
+				CC1F7AEB2AEC77720076AF00 /* ulocaletst.c */,
+				CC1F7AEA2AEC77720076AF00 /* ulocbuildertst.c */,
 				CC767873243BEF4A00780598 /* unumberformattertst.c */,
 				CC3CA6992565F1180088ADDF /* unumberrangeformattertst.c */,
 				CC767854243BEF4A00780598 /* uregiontest.c */,
@@ -16467,6 +16512,8 @@
 				CCF92D5E2432BADB00C185CD /* inputext.h */,
 				CCF92DD62432BADB00C185CD /* islamcal.cpp */,
 				CCF92DEE2432BADB00C185CD /* islamcal.h */,
+				CC1F7AD72AEC5FF10076AF00 /* iso8601cal.cpp */,
+				CC1F7AD82AEC5FF10076AF00 /* iso8601cal.h */,
 				CCF92C5F2432BADA00C185CD /* japancal.cpp */,
 				CCF92C662432BADA00C185CD /* japancal.h */,
 				CCF92CB12432BADA00C185CD /* libicuin.rc */,
@@ -16474,9 +16521,9 @@
 				CCF92E302432BADC00C185CD /* Makefile.in */,
 				CCF92C612432BADA00C185CD /* Makefile.local */,
 				CCF92DF32432BADB00C185CD /* measfmt.cpp */,
-				CCF92E272432BADC00C185CD /* measunit.cpp */,
 				CC5AEBA0255F5D4600C15818 /* measunit_extra.cpp */,
 				CC5AEB93255F5D4400C15818 /* measunit_impl.h */,
+				CCF92E272432BADC00C185CD /* measunit.cpp */,
 				CCF92C8B2432BADA00C185CD /* measure.cpp */,
 				CCF92E032432BADB00C185CD /* msgfmt_impl.h */,
 				CCF92CA92432BADA00C185CD /* msgfmt.cpp */,
@@ -16532,6 +16579,7 @@
 				CCF92D292432BADA00C185CD /* number_roundingutils.h */,
 				CCF92C8A2432BADA00C185CD /* number_scientific.cpp */,
 				CCF92DCF2432BADB00C185CD /* number_scientific.h */,
+				CC1F7ADA2AEC5FF10076AF00 /* number_simple.cpp */,
 				CCF92DDF2432BADB00C185CD /* number_skeletons.cpp */,
 				CCF92E392432BADC00C185CD /* number_skeletons.h */,
 				CC5AEB97255F5D4500C15818 /* number_symbolswrapper.cpp */,
@@ -16630,6 +16678,7 @@
 				CCF92C712432BADA00C185CD /* smpdtfst.cpp */,
 				CCF92D5D2432BADB00C185CD /* smpdtfst.h */,
 				CCF92CAE2432BADA00C185CD /* sortkey.cpp */,
+				CC1F7AD92AEC5FF10076AF00 /* sources.txt */,
 				CCF92D572432BADB00C185CD /* standardplural.cpp */,
 				CCF92D852432BADB00C185CD /* standardplural.h */,
 				CCF92E132432BADB00C185CD /* string_segment.cpp */,
@@ -16689,6 +16738,7 @@
 				CCF92D532432BADB00C185CD /* unesctrn.h */,
 				CCF92E572432BADC00C185CD /* uni2name.cpp */,
 				CCF92D282432BADA00C185CD /* uni2name.h */,
+				CCF92CC82432BADA00C185CD /* unicode */,
 				CC5AEB9F255F5D4600C15818 /* units_complexconverter.cpp */,
 				CC5AEB91255F5D4400C15818 /* units_complexconverter.h */,
 				CC5AEB92255F5D4400C15818 /* units_converter.cpp */,
@@ -16697,7 +16747,6 @@
 				CC5AEB95255F5D4400C15818 /* units_data.h */,
 				CC5AEB9C255F5D4600C15818 /* units_router.cpp */,
 				CC5AEB9E255F5D4600C15818 /* units_router.h */,
-				CCF92CC82432BADA00C185CD /* unicode */,
 				CCF92E532432BADC00C185CD /* unum.cpp */,
 				CCF92CB92432BADA00C185CD /* unumsys.cpp */,
 				CCF92C842432BADA00C185CD /* uplrule.cpp */,
@@ -16763,6 +16812,7 @@
 				CCF92CE12432BADA00C185CD /* fieldpos.h */,
 				CCF92CD02432BADA00C185CD /* fmtable.h */,
 				CCF92D182432BADA00C185CD /* format.h */,
+				CC1F7ADE2AEC60380076AF00 /* formattednumber.h */,
 				CCF92D1E2432BADA00C185CD /* formattedvalue.h */,
 				CCF92CD72432BADA00C185CD /* fpositer.h */,
 				CCF92CF12432BADA00C185CD /* gender.h */,
@@ -16787,6 +16837,7 @@
 				CCF92D192432BADA00C185CD /* scientificnumberformatter.h */,
 				CCF92D1B2432BADA00C185CD /* search.h */,
 				CCF92D0C2432BADA00C185CD /* selfmt.h */,
+				CC1F7AE02AEC60390076AF00 /* simplenumberformatter.h */,
 				CCF92CE22432BADA00C185CD /* simpletz.h */,
 				CCF92D0A2432BADA00C185CD /* smpdtfmt.h */,
 				CCF92CE52432BADA00C185CD /* sortkey.h */,
@@ -16815,6 +16866,7 @@
 				CC68BF4329CE4E3C00105D34 /* udisplayoptions.h */,
 				CCF92CCC2432BADA00C185CD /* ufieldpositer.h */,
 				CCF92D0D2432BADA00C185CD /* uformattable.h */,
+				CC1F7AE22AEC60390076AF00 /* uformattednumber.h */,
 				CCF92CFD2432BADA00C185CD /* uformattedvalue.h */,
 				CCF92D0B2432BADA00C185CD /* ugender.h */,
 				CCF92D212432BADA00C185CD /* ulistformatter.h */,
@@ -16822,6 +16874,7 @@
 				CCF92CCF2432BADA00C185CD /* unirepl.h */,
 				CCF92D002432BADA00C185CD /* unum.h */,
 				CCF92CE32432BADA00C185CD /* unumberformatter.h */,
+				CC1F7ADF2AEC60380076AF00 /* unumberoptions.h */,
 				CC5AEC53255F5E7800C15818 /* unumberrangeformatter.h */,
 				CCF92D1C2432BADA00C185CD /* unumsys.h */,
 				CCF92CE72432BADA00C185CD /* uplrule.h */,
@@ -16830,6 +16883,7 @@
 				CCF92CD52432BADA00C185CD /* uregion.h */,
 				CCF92D152432BADA00C185CD /* ureldatefmt.h */,
 				CCF92CDC2432BADA00C185CD /* usearch.h */,
+				CC1F7AE12AEC60390076AF00 /* usimplenumberformatter.h */,
 				CCF92D132432BADA00C185CD /* uspoof.h */,
 				CCF92D042432BADA00C185CD /* utmscale.h */,
 				CCF92D162432BADA00C185CD /* utrans.h */,
@@ -16895,6 +16949,7 @@
 				CCF92F1A2432BADC00C185CD /* libicuuc.rc */,
 				CCF92F9F2432BADD00C185CD /* loadednormalizer2impl.cpp */,
 				CCF92F582432BADD00C185CD /* localebuilder.cpp */,
+				CC1F7AF32AEC77F40076AF00 /* localefallback_data.h */,
 				CCF92FAC2432BADD00C185CD /* localematcher.cpp */,
 				CCF92E822432BADC00C185CD /* localeprioritylist.cpp */,
 				CCF92E612432BADC00C185CD /* localeprioritylist.h */,
@@ -16924,6 +16979,8 @@
 				CCF92E5B2432BADC00C185CD /* Makefile.local */,
 				CCF92FFE2432BADD00C185CD /* messageimpl.h */,
 				CCF92F812432BADD00C185CD /* messagepattern.cpp */,
+				CC1F7AF02AEC77F40076AF00 /* mlbe.cpp */,
+				CC1F7AF22AEC77F40076AF00 /* mlbe.h */,
 				CCF92F222432BADC00C185CD /* msvcres.h */,
 				CCF92FDB2432BADD00C185CD /* mutex.h */,
 				CCF92F8C2432BADD00C185CD /* norm2_nfc_data.h */,
@@ -17098,6 +17155,8 @@
 				CCF92F312432BADD00C185CD /* uloc_keytype.cpp */,
 				CCF92F212432BADC00C185CD /* uloc_tag.cpp */,
 				CCF92FEF2432BADD00C185CD /* uloc.cpp */,
+				CC1F7AF42AEC77F40076AF00 /* ulocale.cpp */,
+				CC1F7AF12AEC77F40076AF00 /* ulocbuilder.cpp */,
 				B3327295246F3AF200237813 /* ulocdata.cpp */,
 				CCF92F442432BADD00C185CD /* ulocimp.h */,
 				CCF92F802432BADD00C185CD /* umapfile.cpp */,
@@ -17264,6 +17323,8 @@
 				CCF92EC22432BADC00C185CD /* uiter.h */,
 				CCF92EC12432BADC00C185CD /* uldnames.h */,
 				CCF92EC92432BADC00C185CD /* uloc.h */,
+				CC1F7AFA2AEC782E0076AF00 /* ulocale.h */,
+				CC1F7AFB2AEC782E0076AF00 /* ulocbuilder.h */,
 				B3327297246F3B7400237813 /* ulocdata.h */,
 				CCF92EEB2432BADC00C185CD /* umachine.h */,
 				CCF92EC82432BADC00C185CD /* umisc.h */,
@@ -17372,6 +17433,7 @@
 				F1CFFC2827EA28470004C419 /* brktrans.h in Headers */,
 				F110A3AD27E3DC5700DEE027 /* uformattedvalue.h in Headers */,
 				F1CFFC4227EA43C00004C419 /* esctrn.h in Headers */,
+				CC1F7AE52AEC60390076AF00 /* simplenumberformatter.h in Headers */,
 				F1CFFC0727EA20790004C419 /* number_asformat.h in Headers */,
 				F1CFFC1927EA23FF0004C419 /* collation.h in Headers */,
 				F1CFFBF027E928610004C419 /* number_patternstring.h in Headers */,
@@ -17433,6 +17495,7 @@
 				F1CFFBDA27E91F3E0004C419 /* dangical.h in Headers */,
 				F1CFFBF627E92A800004C419 /* collationfastlatinbuilder.h in Headers */,
 				F1CFFBE727E927970004C419 /* utf16collationiterator.h in Headers */,
+				CC1F7AE32AEC60390076AF00 /* formattednumber.h in Headers */,
 				F110A3C927E3DC5700DEE027 /* udatintv.h in Headers */,
 				F110A3AE27E3DC5700DEE027 /* nounit.h in Headers */,
 				F110A39D27E3DBC400DEE027 /* decimfmt.h in Headers */,
@@ -17449,6 +17512,7 @@
 				F110A3BE27E3DC5700DEE027 /* tznames.h in Headers */,
 				F1CFFC1F27EA269F0004C419 /* sharedcalendar.h in Headers */,
 				F110A3A727E3DC5700DEE027 /* uameasureunit.h in Headers */,
+				CC1F7AE72AEC60390076AF00 /* uformattednumber.h in Headers */,
 				F110A3D427E3DC5700DEE027 /* udat.h in Headers */,
 				F1CFFC1627EA23B70004C419 /* numparse_scientific.h in Headers */,
 				F110A3B627E3DC5700DEE027 /* formattedvalue.h in Headers */,
@@ -17476,6 +17540,7 @@
 				F110A3D327E3DC5700DEE027 /* tmutamt.h in Headers */,
 				F1CFFC0B27EA212B0004C419 /* number_modifiers.h in Headers */,
 				F1CFFC3127EA28930004C419 /* nultrans.h in Headers */,
+				CC1F7AE62AEC60390076AF00 /* usimplenumberformatter.h in Headers */,
 				F1CFFC0227EA1F5A0004C419 /* tzgnames.h in Headers */,
 				F1CFFC2327EA26FC0004C419 /* ethpccal.h in Headers */,
 				F1CFFC0327EA1F840004C419 /* collationdatareader.h in Headers */,
@@ -17525,6 +17590,7 @@
 				F110A3C527E3DC5700DEE027 /* ureldatefmt.h in Headers */,
 				F1CFFC2927EA284B0004C419 /* anytrans.h in Headers */,
 				F1CFFBF127E928820004C419 /* units_converter.h in Headers */,
+				CC1F7AE42AEC60390076AF00 /* unumberoptions.h in Headers */,
 				F1CFFBF527E929BC0004C419 /* collationdatabuilder.h in Headers */,
 				F110A3E827E3DC5700DEE027 /* uatimeunitformat.h in Headers */,
 				F110A3EA27E3DC5700DEE027 /* reldatefmt.h in Headers */,
@@ -17532,6 +17598,7 @@
 				F1CFFC3927EA29070004C419 /* number_currencysymbols.h in Headers */,
 				F1CFFBF927E92B970004C419 /* collationfastlatin.h in Headers */,
 				F1CFFBF327E928FF0004C419 /* numparse_compositions.h in Headers */,
+				CC1F7ADC2AEC5FF20076AF00 /* iso8601cal.h in Headers */,
 				F110A3DC27E3DC5700DEE027 /* tzfmt.h in Headers */,
 				F1CFFC2427EA27150004C419 /* persncal.h in Headers */,
 				F110A39627E3DB5800DEE027 /* coll.h in Headers */,
@@ -17612,6 +17679,7 @@
 				F1140A2C27DAB4ED008CE449 /* ubidi.h in Headers */,
 				F110A36027E2B19700DEE027 /* umutex.h in Headers */,
 				F110A35927E2B0EA00DEE027 /* putilimp.h in Headers */,
+				CC1F7AF82AEC77F40076AF00 /* localefallback_data.h in Headers */,
 				F1140A4A27DAB9B4008CE449 /* utrace.h in Headers */,
 				F110A37827E396A300DEE027 /* rbbisetb57.h in Headers */,
 				F1140A5827DABAF8008CE449 /* ucasemap_imp.h in Headers */,
@@ -17630,6 +17698,7 @@
 				F1140A0B27DAB065008CE449 /* ustring.h in Headers */,
 				F1140A5127DAB9EA008CE449 /* ures.h in Headers */,
 				F1140A2F27DAB50C008CE449 /* ucasemap.h in Headers */,
+				CC1F7AFC2AEC782E0076AF00 /* ulocale.h in Headers */,
 				F1140A2727DAB4AC008CE449 /* strenum.h in Headers */,
 				F1140A1927DAB433008CE449 /* localematcher.h in Headers */,
 				F11409FE27DAAD77008CE449 /* utf.h in Headers */,
@@ -17731,6 +17800,7 @@
 				F110A36E27E2BB0100DEE027 /* rbbitblb.h in Headers */,
 				F110A37527E2BD7800DEE027 /* uvector.h in Headers */,
 				F1140A4527DAB5AA008CE449 /* unimatch.h in Headers */,
+				CC1F7AFD2AEC782E0076AF00 /* ulocbuilder.h in Headers */,
 				F110A34F27E2AE0C00DEE027 /* locutil.h in Headers */,
 				F1140A2527DAB4A1008CE449 /* simpleformatter.h in Headers */,
 				F110A34827E299DE00DEE027 /* bytesinkutil.h in Headers */,
@@ -17743,6 +17813,7 @@
 				F110A38827E39EBA00DEE027 /* ucol_swp.h in Headers */,
 				CC19BF512727430B00B636FA /* lstmbe.h in Headers */,
 				F1140A4B27DAB9BF008CE449 /* ustringtrie.h in Headers */,
+				CC1F7AF72AEC77F40076AF00 /* mlbe.h in Headers */,
 				F110A34727E2974400DEE027 /* messageimpl.h in Headers */,
 				F1CFFC4D27EE6BC20004C419 /* hash.h in Headers */,
 				F1140A2327DAB479008CE449 /* resbund.h in Headers */,
@@ -18418,7 +18489,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export DYLD_LIBRARY_PATH=$CONFIGURATION_BUILD_DIR\n$CONFIGURATION_BUILD_DIR/pkgdata -q -c -s $CONFIGURATION_BUILD_DIR/icuData/build/icudt72l -d $CONFIGURATION_BUILD_DIR -e icudt72 -T $CONFIGURATION_BUILD_DIR/icuData/tmp -p icudt72l -m common -r 72.0.1 $CONFIGURATION_BUILD_DIR/icuData/tmp/icudata.lst\n";
+			shellScript = "export DYLD_LIBRARY_PATH=$CONFIGURATION_BUILD_DIR\n$CONFIGURATION_BUILD_DIR/pkgdata -q -c -s $CONFIGURATION_BUILD_DIR/icuData/build/icudt74l -d $CONFIGURATION_BUILD_DIR -e icudt74 -T $CONFIGURATION_BUILD_DIR/icuData/tmp -p icudt74l -m common -r 74.0.1 $CONFIGURATION_BUILD_DIR/icuData/tmp/icudata.lst\n";
 		};
 		CC6FECDE243686F500503646 /* Run icutools.databuilder tool */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -18438,7 +18509,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/python\nexport DYLD_LIBRARY_PATH=$CONFIGURATION_BUILD_DIR\npython3 -m icutools.databuilder --mode unix-exec --seqmode parallel --src_dir \"../data\" --out_dir \"$CONFIGURATION_BUILD_DIR/icuData/build/icudt72l\" --tmp_dir \"$CONFIGURATION_BUILD_DIR/icuData/tmp\" --verbose --tool_dir \"$CONFIGURATION_BUILD_DIR\"\n\n";
+			shellScript = "cd $SRCROOT/python\nexport DYLD_LIBRARY_PATH=$CONFIGURATION_BUILD_DIR\npython3 -m icutools.databuilder --mode unix-exec --seqmode parallel --src_dir \"../data\" --out_dir \"$CONFIGURATION_BUILD_DIR/icuData/build/icudt74l\" --tmp_dir \"$CONFIGURATION_BUILD_DIR/icuData/tmp\" --verbose --tool_dir \"$CONFIGURATION_BUILD_DIR\"\n\n";
 		};
 		CC767933243BF27C00780598 /* Run icutools.databuilder tool */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -18488,6 +18559,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC060F9B243C0BAD00B7262F /* erarulestest.cpp in Sources */,
+				CC1F7B002AEC7A930076AF00 /* uchar_type_build_test.cpp in Sources */,
 				CC060F9C243C0BAD00B7262F /* formatted_string_builder_test.cpp in Sources */,
 				CC060F9D243C0BAD00B7262F /* formattedvaluetest.cpp in Sources */,
 				CC060F9E243C0BAD00B7262F /* numberformattesttuple.cpp in Sources */,
@@ -18536,6 +18608,7 @@
 				CC060F97243C0B4800B7262F /* unifiedcachetest.cpp in Sources */,
 				CC060F98243C0B4800B7262F /* windttst.cpp in Sources */,
 				CC060F99243C0B4800B7262F /* winnmtst.cpp in Sources */,
+				CC1F7B012AEC7A930076AF00 /* numbertest_simple.cpp in Sources */,
 				CC060F9A243C0B4800B7262F /* winutil.cpp in Sources */,
 				CC060F6B243C0A8C00B7262F /* calcasts.cpp in Sources */,
 				CC060F6C243C0A8C00B7262F /* icusvtst.cpp in Sources */,
@@ -18700,12 +18773,14 @@
 				CC06101E243D379E00B7262F /* tracetst.c in Sources */,
 				CC5E920B2730B9EF00C178B8 /* uadatadumper.c in Sources */,
 				CC06101F243D379E00B7262F /* trie2test.c in Sources */,
+				CC1F7AEF2AEC77920076AF00 /* ulocbuildertst.c in Sources */,
 				CC061020243D379E00B7262F /* trietest.c in Sources */,
 				CC061021243D379E00B7262F /* ucptrietest.c in Sources */,
 				CC061022243D379E00B7262F /* ucsdetst.c in Sources */,
 				CC061023243D379E00B7262F /* uenumtst.c in Sources */,
 				CC061024243D379E00B7262F /* uformattedvaluetst.c in Sources */,
 				CC061025243D379E00B7262F /* ulistfmttest.c in Sources */,
+				CC1F7AEE2AEC778B0076AF00 /* ulocaletst.c in Sources */,
 				CC061026243D379E00B7262F /* uregiontest.c in Sources */,
 				CC061027243D379E00B7262F /* usettest.c in Sources */,
 				CC061028243D379E00B7262F /* usrchtst.c in Sources */,
@@ -18798,6 +18873,7 @@
 				CC79817B2433F52B0086956E /* double-conversion-cached-powers.cpp in Sources */,
 				CC79817C2433F52B0086956E /* double-conversion-double-to-string.cpp in Sources */,
 				CC79817D2433F52B0086956E /* double-conversion-fast-dtoa.cpp in Sources */,
+				CC1F7ADB2AEC5FF10076AF00 /* iso8601cal.cpp in Sources */,
 				CC79817E2433F52B0086956E /* double-conversion-string-to-double.cpp in Sources */,
 				CC79817F2433F52B0086956E /* double-conversion-strtod.cpp in Sources */,
 				CC7981802433F52B0086956E /* number_affixutils.cpp in Sources */,
@@ -18950,6 +19026,7 @@
 				CC7980F82433F18B0086956E /* collationdatawriter.cpp in Sources */,
 				CC7980F92433F18B0086956E /* collationfastlatin.cpp in Sources */,
 				CC7980FA2433F18B0086956E /* collationfastlatinbuilder.cpp in Sources */,
+				CC1F7ADD2AEC5FF20076AF00 /* number_simple.cpp in Sources */,
 				CC7980FB2433F18B0086956E /* collationfcd.cpp in Sources */,
 				CC7980FC2433F18B0086956E /* collationiterator.cpp in Sources */,
 				CC7980FD2433F18B0086956E /* collationkeys.cpp in Sources */,
@@ -19303,6 +19380,7 @@
 				CCF930EC2432D70A00C185CD /* uniset.cpp in Sources */,
 				CCF930ED2432D70A00C185CD /* unisetspan.cpp in Sources */,
 				CCF930EE2432D70A00C185CD /* uset_props.cpp in Sources */,
+				CC1F7AF62AEC77F40076AF00 /* ulocbuilder.cpp in Sources */,
 				CCF930EF2432D70A00C185CD /* uset.cpp in Sources */,
 				CCF930F02432D70A00C185CD /* usetiter.cpp in Sources */,
 				CCF930F12432D70A00C185CD /* utrie.cpp in Sources */,
@@ -19332,6 +19410,7 @@
 				CCF930CA2432D5E600C185CD /* loadednormalizer2impl.cpp in Sources */,
 				CCF930CB2432D5E600C185CD /* normalizer2.cpp in Sources */,
 				CCF930CC2432D5E600C185CD /* normalizer2impl.cpp in Sources */,
+				CC1F7AF92AEC77F40076AF00 /* ulocale.cpp in Sources */,
 				CCF930CD2432D5E600C185CD /* normlzr.cpp in Sources */,
 				CCF930CE2432D5E600C185CD /* unorm.cpp in Sources */,
 				CCF930CF2432D5E600C185CD /* unormcmp.cpp in Sources */,
@@ -19363,6 +19442,7 @@
 				CCF930AC2432D51A00C185CD /* bytestriebuilder.cpp in Sources */,
 				CCF930AD2432D51A00C185CD /* bytestrieiterator.cpp in Sources */,
 				CCF930AE2432D51A00C185CD /* stringpiece.cpp in Sources */,
+				CC1F7AF52AEC77F40076AF00 /* mlbe.cpp in Sources */,
 				CCF930AF2432D51A00C185CD /* stringtriebuilder.cpp in Sources */,
 				CCF930B02432D51A00C185CD /* ucharstrie.cpp in Sources */,
 				CCF930B12432D51A00C185CD /* ucharstriebuilder.cpp in Sources */,
@@ -19477,6 +19557,7 @@
 				F18720F42821E89B007D5C4E /* double-conversion-cached-powers.cpp in Sources */,
 				F18720F52821E89B007D5C4E /* double-conversion-double-to-string.cpp in Sources */,
 				F18720F62821E89B007D5C4E /* double-conversion-fast-dtoa.cpp in Sources */,
+				CC1F7AE82AEC60650076AF00 /* iso8601cal.cpp in Sources */,
 				F18720F72821E89B007D5C4E /* double-conversion-string-to-double.cpp in Sources */,
 				F18720F82821E89B007D5C4E /* double-conversion-strtod.cpp in Sources */,
 				F18720F92821E89B007D5C4E /* number_affixutils.cpp in Sources */,
@@ -19629,6 +19710,7 @@
 				F187218B2821E89B007D5C4E /* collationdatawriter.cpp in Sources */,
 				F187218C2821E89B007D5C4E /* collationfastlatin.cpp in Sources */,
 				F187218D2821E89B007D5C4E /* collationfastlatinbuilder.cpp in Sources */,
+				CC1F7AE92AEC60840076AF00 /* number_simple.cpp in Sources */,
 				F187218E2821E89B007D5C4E /* collationfcd.cpp in Sources */,
 				F187218F2821E89B007D5C4E /* collationiterator.cpp in Sources */,
 				F18721902821E89B007D5C4E /* collationkeys.cpp in Sources */,
@@ -19909,7 +19991,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -19937,7 +20018,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -19964,7 +20044,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -19991,7 +20070,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20003,11 +20081,12 @@
 			buildSettings = {
 				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 74.1;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					"ICU_UNICODE_VERSION=\"\\\"14.0\\\"\"",
-					"ICU_VERSION=\"\\\"72.1\\\"\"",
-					"ICUDATA_NAME=\"\\\"icudt72l\\\"\"",
+					"ICU_UNICODE_VERSION=\"\\\"15.1\\\"\"",
+					"ICU_VERSION=\"\\\"74.1\\\"\"",
+					"ICUDATA_NAME=\"\\\"icudt74l\\\"\"",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
 					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
 					APPLE_XCODE_BUILD,
@@ -20020,7 +20099,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20032,11 +20110,12 @@
 			buildSettings = {
 				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 74.1;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					"ICU_UNICODE_VERSION=\"\\\"14.0\\\"\"",
-					"ICU_VERSION=\"\\\"72.1\\\"\"",
-					"ICUDATA_NAME=\"\\\"icudt72l\\\"\"",
+					"ICU_UNICODE_VERSION=\"\\\"15.1\\\"\"",
+					"ICU_VERSION=\"\\\"74.1\\\"\"",
+					"ICUDATA_NAME=\"\\\"icudt74l\\\"\"",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
 					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
 					APPLE_XCODE_BUILD,
@@ -20049,7 +20128,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20107,11 +20185,10 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icui8n;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
-				UNEXPORTED_SYMBOLS_FILE = "$(SRCROOT)/i18n_weakexterns.unexports";
+				UNEXPORTED_SYMBOLS_FILE = "";
 			};
 			name = Debug;
 		};
@@ -20134,11 +20211,10 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icui8n;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
-				UNEXPORTED_SYMBOLS_FILE = "$(SRCROOT)/i18n_weakexterns.unexports";
+				UNEXPORTED_SYMBOLS_FILE = "";
 			};
 			name = Release;
 		};
@@ -20162,7 +20238,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icuio;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = NO;
 				TAPI_VERIFY_MODE = Pedantic;
@@ -20189,7 +20264,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icuio;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
@@ -20221,7 +20295,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icutu;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
@@ -20251,7 +20324,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icutu;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
@@ -20276,7 +20348,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icutest;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
@@ -20301,7 +20372,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icutest;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
@@ -20322,7 +20392,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20341,7 +20410,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20366,7 +20434,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20387,7 +20454,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20412,7 +20478,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20433,7 +20498,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20455,7 +20519,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20473,7 +20536,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20495,7 +20557,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20513,7 +20574,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20535,7 +20595,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20553,7 +20612,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20576,7 +20634,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20595,7 +20652,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20617,7 +20673,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20635,7 +20690,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20657,7 +20711,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20675,7 +20728,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20697,7 +20749,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20715,7 +20766,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20737,7 +20787,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20755,7 +20804,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20779,7 +20827,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20799,7 +20846,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20821,7 +20867,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20839,7 +20884,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20862,7 +20906,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20881,7 +20924,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20903,7 +20945,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -20921,7 +20962,6 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -20977,7 +21017,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = NO;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 72.1;
+				CURRENT_PROJECT_VERSION = 74.1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = NO;
@@ -21064,7 +21104,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = NO;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 72.1;
+				CURRENT_PROJECT_VERSION = 74.1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -21150,7 +21190,6 @@
 				HEADER_SEARCH_PATHS = ./common;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icudata;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
@@ -21167,7 +21206,6 @@
 				HEADER_SEARCH_PATHS = ./common;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icudata;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
@@ -21196,9 +21234,9 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				OTHER_TAPI_FLAGS = "$(inherited)";
 				PRODUCT_NAME = icuuc;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited)";
 				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "";
 			};
@@ -21226,9 +21264,9 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				OTHER_TAPI_FLAGS = "$(inherited)";
 				PRODUCT_NAME = icuuc;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited)";
 				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "";
 			};
@@ -21255,7 +21293,6 @@
 				MACH_O_TYPE = staticlib;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icui18n;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
@@ -21283,7 +21320,6 @@
 				MACH_O_TYPE = staticlib;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = icui18n;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;

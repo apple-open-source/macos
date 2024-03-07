@@ -103,15 +103,15 @@ bool ml_did_interrupt_userspace(void);
 #if SCHED_HYGIENE_DEBUG
 void mt_cur_cpu_cycles_instrs_speculative(uint64_t *cycles, uint64_t *instrs);
 
-#if MONOTONIC
+#if CONFIG_CPU_COUNTERS
 #define INTERRUPT_MASKED_DEBUG_CAPTURE_PMC(thread)                                          \
 	    if (sched_hygiene_debug_pmc) {                                                      \
 	        mt_cur_cpu_cycles_instrs_speculative(&thread->machine.intmask_cycles,           \
 	                &thread->machine.intmask_instr);                                        \
 	    }
-#else
+#else /* CONFIG_CPU_COUNTERS */
 #define INTERRUPT_MASKED_DEBUG_CAPTURE_PMC(thread)
-#endif
+#endif /* !CONFIG_CPU_COUNTERS */
 
 #define INTERRUPT_MASKED_DEBUG_START(handler_addr, type)                                    \
 do {                                                                                        \
@@ -690,11 +690,6 @@ ml_static_protect(
 	vm_size_t size,
 	vm_prot_t new_prot);
 
-typedef int ml_page_protection_t;
-
-/* Return the type of page protection supported */
-ml_page_protection_t ml_page_protection_type(void);
-
 /* virtual to physical on wired pages */
 vm_offset_t ml_vtophys(
 	vm_offset_t vaddr);
@@ -704,6 +699,11 @@ void ml_cpu_get_info(ml_cpu_info_t *ml_cpu_info);
 void ml_cpu_get_info_type(ml_cpu_info_t * ml_cpu_info, cluster_type_t cluster_type);
 
 #endif /* __APPLE_API_UNSTABLE */
+
+typedef int ml_page_protection_t;
+
+/* Return the type of page protection supported */
+ml_page_protection_t ml_page_protection_type(void);
 
 #ifdef __APPLE_API_PRIVATE
 #ifdef  XNU_KERNEL_PRIVATE
@@ -1318,7 +1318,7 @@ extern void sched_perfcontrol_edge_matrix_set(sched_clutch_edge *edge_matrix, bo
  * per-cluster bitmasks. The preferred_bitmask is a bitmask of CPU cores where if a bit is set,
  * CLPC would prefer threads to be scheduled on that core if it is idle. The migration_bitmask
  * is a bitmask of CPU cores where if a bit is set, CLPC would prefer threads no longer continue
- * running on that core if there is an idle core from the preferred_bitmask that is available.
+ * running on that core if there is any other non-avoided idle core in the cluster that is available.
  */
 
 extern void sched_perfcontrol_edge_cpu_rotation_bitmasks_set(uint32_t cluster_id, uint64_t preferred_bitmask, uint64_t migration_bitmask);
@@ -1382,9 +1382,11 @@ uint32_t ml_update_cluster_wfe_recommendation(uint32_t wfe_cluster_id, uint64_t 
 
 uint64_t ml_default_rop_pid(void);
 uint64_t ml_default_jop_pid(void);
+uint64_t ml_non_arm64e_user_jop_pid(void);
 void ml_task_set_rop_pid(task_t task, task_t parent_task, boolean_t inherit);
-void ml_task_set_jop_pid(task_t task, task_t parent_task, boolean_t inherit);
-void ml_task_set_jop_pid_from_shared_region(task_t task);
+void ml_task_set_jop_pid(task_t task, task_t parent_task, boolean_t inherit, boolean_t disable_user_jop);
+void ml_task_set_jop_pid_from_shared_region(task_t task, boolean_t disable_user_jop);
+uint8_t ml_task_get_disable_user_jop(task_t task);
 void ml_task_set_disable_user_jop(task_t task, uint8_t disable_user_jop);
 void ml_thread_set_disable_user_jop(thread_t thread, uint8_t disable_user_jop);
 void ml_thread_set_jop_pid(thread_t thread, task_t task);
@@ -1466,6 +1468,21 @@ void ml_report_minor_badness(uint32_t badness_id);
  */
 uint64_t ml_get_backtrace_pc(struct arm_saved_state *state);
 #endif /* XNU_KERNEL_PRIVATE */
+
+#ifdef KERNEL_PRIVATE
+/**
+ * Given a physical address, return whether that address is owned by the secure
+ * world.
+ *
+ * @note This does not include memory shared between XNU and the secure world.
+ *
+ * @param paddr The physical address to check.
+ *
+ * @return True if the physical address is owned and being used exclusively by
+ *        the secure world, false otherwise.
+ */
+bool ml_paddr_is_exclaves_owned(vm_offset_t paddr);
+#endif /* KERNEL_PRIVATE */
 
 __END_DECLS
 

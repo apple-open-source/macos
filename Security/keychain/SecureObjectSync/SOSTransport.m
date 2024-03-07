@@ -286,25 +286,19 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
     }
 
     CFMutableArrayRef handledKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-    CFStringRef dsid = NULL;
-    
-    if(CFDictionaryGetValueIfPresent(updates, kSOSKVSAccountChangedKey, (const void**)&dsid)){
-        secnotice("accountChange", "SOSTransportDispatchMessages received kSOSKVSAccountChangedKey");
-        // While changing accounts we may modify the key params array. To avoid stepping on ourselves we
-        // copy the list for iteration.  Now modifying the transport outside of the list iteration.
-        CFMutableArrayRef transportsToUse = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-        
-        CFArrayForEach(SOSGetTransportKeyParameters(), ^(const void *value) {
-            CKKeyParameter* transport = (__bridge CKKeyParameter*) value;
 
-            if(CFEqualSafe((__bridge CFTypeRef)([transport SOSTransportKeyParameterGetAccount:transport]), (__bridge CFTypeRef)(account))){
-                CFArrayAppendValue(transportsToUse, (__bridge const void *)(transport));
+    CFTypeRef didChange = NULL;
+    if(CFDictionaryGetValueIfPresent(updates, kSOSKVSAccountChangedKey, &didChange)){
+        secnotice("accountChange", "SOSTransportDispatchMessages received kSOSKVSAccountChangedKey");
+        if (isBoolean(didChange)) {
+            CFBooleanRef accountDidChange = (CFBooleanRef)didChange;
+            BOOL changed = CFBooleanGetValue(accountDidChange) ? YES : NO;
+            if (changed) {
+                SOSAccountSetToNew(txn.account);
+                txn.account.accountIsChanging = true;
+                txn.account.key_interests_need_updating = true;
             }
-        });
-        
-        SOSAccountAssertDSID(account, dsid);
-        CFReleaseNull(transportsToUse);
-    
+        }
         CFArrayAppendValue(handledKeys, kSOSKVSAccountChangedKey);
     }
 

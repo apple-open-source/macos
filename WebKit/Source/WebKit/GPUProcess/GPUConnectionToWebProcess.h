@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -139,11 +139,16 @@ public:
     bool isWebGPUEnabled() const { return m_preferences.isWebGPUEnabled; }
     bool isWebGLEnabled() const { return m_preferences.isWebGLEnabled; }
 
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    bool isDynamicContentScalingEnabled() const { return m_preferences.isDynamicContentScalingEnabled; }
+#endif
+
     using WebCore::NowPlayingManager::Client::weakPtrFactory;
     using WebCore::NowPlayingManager::Client::WeakValueType;
     using WebCore::NowPlayingManager::Client::WeakPtrImplType;
 
     IPC::Connection& connection() { return m_connection.get(); }
+    Ref<IPC::Connection> protectedConnection() { return m_connection; }
     IPC::MessageReceiverMap& messageReceiverMap() { return m_messageReceiverMap; }
     GPUProcess& gpuProcess() { return m_gpuProcess.get(); }
     WebCore::ProcessIdentifier webProcessIdentifier() const { return m_webProcessIdentifier; }
@@ -244,6 +249,11 @@ public:
     void overridePresentingApplicationPIDIfNeeded();
 #endif
 
+#if ENABLE(EXTENSION_CAPABILITIES)
+    String mediaEnvironment(WebCore::PageIdentifier);
+    void setMediaEnvironment(WebCore::PageIdentifier, const String&);
+#endif
+
 private:
     GPUConnectionToWebProcess(GPUProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
 
@@ -272,10 +282,6 @@ private:
 
     void clearNowPlayingInfo();
     void setNowPlayingInfo(WebCore::NowPlayingInfo&&);
-
-#if ENABLE(VP9)
-    void enableVP9Decoders(bool shouldEnableVP8Decoder, bool shouldEnableVP9Decoder, bool shouldEnableVP9SWDecoder);
-#endif
 
 #if ENABLE(MEDIA_SOURCE)
     void enableMockMediaSource();
@@ -413,6 +419,10 @@ private:
     const bool m_isLockdownModeEnabled { false };
 #if ENABLE(MEDIA_SOURCE)
     bool m_mockMediaSourceEnabled { false };
+#endif
+
+#if ENABLE(EXTENSION_CAPABILITIES)
+    HashMap<WebCore::PageIdentifier, String> m_mediaEnvironments;
 #endif
 
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)

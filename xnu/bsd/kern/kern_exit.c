@@ -160,6 +160,11 @@ void dtrace_proc_exit(proc_t p);
 #include <sys/syscall.h>
 #endif /* CONFIG_MACF */
 
+#ifdef CONFIG_EXCLAVES
+void
+task_add_conclave_crash_info(task_t task, void *crash_info_ptr);
+#endif /* CONFIG_EXCLAVES */
+
 #if CONFIG_MEMORYSTATUS
 static void proc_memorystatus_remove(proc_t p);
 #endif /* CONFIG_MEMORYSTATUS */
@@ -235,6 +240,14 @@ int exit_with_port_space_exception(proc_t p, mach_exception_data_type_t code,
     mach_exception_data_type_t subcode);
 static int exit_with_mach_exception(proc_t p, os_reason_t reason, exception_type_t exception,
     mach_exception_code_t code, mach_exception_subcode_t subcode);
+
+#if CONFIG_EXCLAVES
+int
+exit_with_exclave_exception(proc_t p);
+#endif /* CONFIG_EXCLAVES */
+
+int
+exit_with_jit_exception(proc_t p);
 
 #if DEVELOPMENT || DEBUG
 static LCK_GRP_DECLARE(proc_exit_lpexit_spin_lock_grp, "proc_exit_lpexit_spin");
@@ -861,6 +874,10 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 			kcdata_memcpy(crash_info_ptr, uaddr, udata_buffer, sizeof(uint64_t) * num_udata);
 		}
 	}
+
+#if CONFIG_EXCLAVES
+	task_add_conclave_crash_info(corpse_task, crash_info_ptr);
+#endif /* CONFIG_EXCLAVES */
 }
 
 exception_type_t
@@ -3553,4 +3570,29 @@ exit_with_mach_exception(proc_t p, os_reason_t reason, exception_type_t exceptio
 	reason->osr_flags |= OS_REASON_FLAG_GENERATE_CRASH_REPORT;
 	return exit_with_reason(p, W_EXITCODE(0, SIGKILL), NULL,
 	           TRUE, FALSE, 0, reason);
+}
+
+#if CONFIG_EXCLAVES
+int
+exit_with_exclave_exception(proc_t p)
+{
+	/* Using OS_REASON_GUARD for now */
+	os_reason_t reason = os_reason_create(OS_REASON_GUARD, (uint64_t)GUARD_REASON_EXCLAVES);
+	assert(reason != OS_REASON_NULL);
+	reason->osr_flags |= OS_REASON_FLAG_GENERATE_CRASH_REPORT;
+
+	return exit_with_reason(p, W_EXITCODE(0, SIGKILL), (int *)NULL, TRUE, FALSE,
+	           0, reason);
+}
+#endif /* CONFIG_EXCLAVES */
+
+int
+exit_with_jit_exception(proc_t p)
+{
+	os_reason_t reason = os_reason_create(OS_REASON_GUARD, (uint64_t)GUARD_REASON_JIT);
+	assert(reason != OS_REASON_NULL);
+	reason->osr_flags |= OS_REASON_FLAG_GENERATE_CRASH_REPORT;
+
+	return exit_with_reason(p, W_EXITCODE(0, SIGKILL), (int *)NULL, TRUE, FALSE,
+	           0, reason);
 }

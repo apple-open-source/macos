@@ -223,7 +223,6 @@ void VideoPresentationModelVideoElement::setVideoSizeFenced(const FloatSize& siz
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, size);
     m_videoElement->setVideoLayerSizeFenced(size, WTFMove(fence));
     m_videoElement->setVideoFullscreenFrame({ { }, size });
-
 }
 
 void VideoPresentationModelVideoElement::setVideoLayerGravity(MediaPlayer::VideoGravity gravity)
@@ -249,7 +248,7 @@ void VideoPresentationModelVideoElement::fullscreenModeChanged(HTMLMediaElementE
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, videoFullscreenMode);
     if (m_videoElement) {
-        UserGestureIndicator gestureIndicator(ProcessingUserGesture, &m_videoElement->document());
+        UserGestureIndicator gestureIndicator(IsProcessingUserGesture::Yes, &m_videoElement->document());
         m_videoElement->setPresentationMode(HTMLVideoElement::toPresentationMode(videoFullscreenMode));
     }
 }
@@ -303,7 +302,7 @@ void VideoPresentationModelVideoElement::setPlayerIdentifier(std::optional<Media
 
     m_playerIdentifier = identifier;
 
-    for (auto* client : copyToVector(m_clients))
+    for (auto& client : copyToVector(m_clients))
         client->setPlayerIdentifier(identifier);
 }
 

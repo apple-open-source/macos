@@ -455,10 +455,11 @@ struct pthread_attr_s {
 	uint32_t
 		cpupercent:8,
 		refillms:24;
+	mach_port_t work_interval_port; // Carries +1 ref to a send right of this port
 #if defined(__LP64__)
-	uint32_t _reserved[4];
+	uint32_t _reserved[3];
 #else
-	uint32_t _reserved[2];
+	uint32_t _reserved[1];
 #endif
 };
 

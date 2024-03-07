@@ -25,6 +25,7 @@
 
 #pragma once
 
+#import "Color.h"
 #import <wtf/ObjectIdentifier.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/URL.h>
@@ -75,27 +76,38 @@ namespace WebCore {
 
 class Font;
 
+struct AttributedStringTextTableIDType;
+using AttributedStringTextTableID = ObjectIdentifier<AttributedStringTextTableIDType>;
+
+struct AttributedStringTextTableBlockIDType;
+using AttributedStringTextTableBlockID = ObjectIdentifier<AttributedStringTextTableBlockIDType>;
+
+struct AttributedStringTextListIDType;
+using AttributedStringTextListID = ObjectIdentifier<AttributedStringTextListIDType>;
+
 struct WEBCORE_EXPORT AttributedString {
     struct Range {
         size_t location { 0 };
         size_t length { 0 };
     };
 
-    struct TextTableIDType;
-    using TextTableID = ObjectIdentifier<TextTableIDType>;
-
-    struct TextTableBlockIDType;
-    using TextTableBlockID = ObjectIdentifier<TextTableBlockIDType>;
-
-    struct TextListIDType;
-    using TextListID = ObjectIdentifier<TextListIDType>;
-
+    using TextTableID = AttributedStringTextTableID;
+    using TextTableBlockID = AttributedStringTextTableBlockID;
+    using TextListID = AttributedStringTextListID;
     using TableBlockAndTableIDPair = std::pair<TextTableBlockID, TextTableID>;
 
     struct ParagraphStyleWithTableAndListIDs {
         RetainPtr<NSParagraphStyle> style;
         Vector<std::optional<TableBlockAndTableIDPair>> tableBlockAndTableIDs; // Same length as `-textBlocks`.
         Vector<TextListID> listIDs; // Same length as `-textLists`.
+    };
+
+    struct ColorFromCGColor {
+        Color color;
+    };
+
+    struct ColorFromPlatformColor {
+        Color color;
     };
 
     struct AttributeValue {
@@ -111,8 +123,8 @@ struct WEBCORE_EXPORT AttributedString {
             RetainPtr<NSTextAttachment>,
             RetainPtr<NSShadow>,
             RetainPtr<NSDate>,
-            RetainPtr<PlatformColor>,
-            RetainPtr<CGColorRef>
+            ColorFromCGColor,
+            ColorFromPlatformColor
         > value;
     };
 

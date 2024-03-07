@@ -613,3 +613,14 @@ U_CAPI UVoidFunction* U_EXPORT2 uprv_dlsym_func( void *lib, const char *symbolNa
 
 
 #endif
+
+#if APPLE_ICU_CHANGES
+// rdar://115264744 ([LocDisplay] Sub-TLF: China geopolitical location display via ICU)
+
+/**
+ * Returns true if ICU is running on a cellular-capable device with a SKU that indicates it was sold in China (i.e.,
+ * it has "CH" as the country code in its SKU.)
+ */
+U_CAPI bool U_EXPORT2 uaprv_onCalciumDevice();
+
+#endif // APPLE_ICU_CHANGES

@@ -85,9 +85,17 @@ extern int main_base64_decode(const char *, const char *);
 extern int main_base64_decode(const char *);
 #endif
 
+#ifdef __APPLE__
+#include <get_compat.h>
+#endif
+
 static const char *infile, *outfile;
 static FILE *infp, *outfp;
 static bool base64, cflag, iflag, oflag, pflag, rflag, sflag;
+#ifdef __APPLE__
+static bool unix2003compat;
+#endif
+
 
 static void	usage(void);
 static int	decode(void);
@@ -177,6 +185,10 @@ main_decode(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
+
+#ifdef __APPLE__
+	unix2003compat = COMPAT_MODE("bin/uudecode", "Unix2003");
+#endif
 
 	if (*argv != NULL) {
 		rval = 0;
@@ -275,8 +287,18 @@ decode2(void)
 		warnx("%s: unable to parse file mode", infile);
 		return (1);
 	}
-	mode = getmode(handle, 0) & 0666;
+	mode = getmode(handle, 0)
+#ifndef __APPLE__
+	    & 0666
+#endif
+	    ;
 	free(handle);
+
+#ifdef __APPLE__
+	/* POSIX says "/dev/stdout" is a 'magic cookie' not a special file. */
+	if (strcmp(q, "/dev/stdout") == 0)
+		outfp = stdout;
+#endif
 
 	if (sflag) {
 		/* don't strip, so try ~user/file expansion */
@@ -312,20 +334,45 @@ decode2(void)
 	if (!oflag)
 		outfile = q;
 
+#ifdef __APPLE__
+	if (!oflag && outfp != NULL) {
+	} else
+#endif
 	/* POSIX says "/dev/stdout" is a 'magic cookie' not a special file. */
 	if (pflag || strcmp(outfile, "/dev/stdout") == 0)
 		outfp = stdout;
 	else {
 		flags = O_WRONLY | O_CREAT | O_EXCL;
 		if (lstat(outfile, &st) == 0) {
-			if (iflag) {
+			if (iflag
+#ifdef __APPLE__
+			    && !S_ISFIFO(st.st_mode)
+#endif
+			    ) {
 				warnc(EEXIST, "%s: %s", infile, outfile);
 				return (0);
 			}
 			switch (st.st_mode & S_IFMT) {
 			case S_IFREG:
+#ifdef __APPLE__
+				flags |= O_NOFOLLOW | O_TRUNC;
+				flags &= ~O_EXCL;
+				break;
+#endif
 			case S_IFLNK:
 				/* avoid symlink attacks */
+#ifdef __APPLE__
+				/*
+				 * Section 2.9.1.4, P1003.3.2/D8 mandates
+				 * following symlink.
+				 */
+				if (unix2003compat) {
+					flags |= O_TRUNC;
+					flags &= ~O_EXCL;
+					break;
+				}
+#endif
+
 				if (unlink(outfile) == 0 || errno == ENOENT)
 					break;
 				warn("%s: unlink %s", infile, outfile);
@@ -333,6 +380,11 @@ decode2(void)
 			case S_IFDIR:
 				warnc(EISDIR, "%s: %s", infile, outfile);
 				return (1);
+#ifdef __APPLE__
+			case S_IFIFO:
+				flags &= ~O_EXCL;
+				break;
+#endif
 			default:
 				if (oflag) {
 					/* trust command-line names */
@@ -351,6 +403,13 @@ decode2(void)
 			warn("%s: %s", infile, outfile);
 			return (1);
 		}
+#ifdef __APPLE__
+		if (fchmod(fileno(outfp), mode) && EPERM != errno) {
+			warn("%s: %s", infile, outfile);
+			close(fd);
+			return 1;
+		}
+#endif
 	}
 
 	if (base64)
@@ -540,7 +599,10 @@ usage(void)
 	(void)fprintf(stderr,
 	    "usage: uudecode [-cimprs] [file ...]\n"
 	    "       uudecode [-i] -o output_file [file]\n"
+#ifndef __APPLE__
 	    "       b64decode [-cimprs] [file ...]\n"
-	    "       b64decode [-i] -o output_file [file]\n");
+	    "       b64decode [-i] -o output_file [file]\n"
+#endif
+	    );
 	exit(1);
 }

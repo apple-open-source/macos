@@ -42,9 +42,13 @@ T_DECL(pthread_jit_write_protect,
 
 	T_EXPECT_EQ(does_access_fault(ACCESS_WRITE, rwx_addr), expect_fault, "Write with RWX->RX");
 
-	pthread_jit_write_protect_np(FALSE);
-
-	T_EXPECT_EQ(does_access_fault(ACCESS_EXECUTE, rwx_addr), expect_fault, "Execute with RWX->RW");
+	// Only attempt to catch the ACCESS_EXECUTE fault when the code signing monitor is
+	// disabled. When the monitor is enabled, any execute faults which can't be resolved
+	// result in a SIGKILL to the target process.
+	if (code_signing_monitor_enabled() == false) {
+		pthread_jit_write_protect_np(FALSE);
+		T_EXPECT_EQ(does_access_fault(ACCESS_EXECUTE, rwx_addr), expect_fault, "Execute with RWX->RW");
+	}
 
 	pthread_jit_write_protect_np(FALSE);
 

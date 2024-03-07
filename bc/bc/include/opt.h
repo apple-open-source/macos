@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,38 +41,101 @@
 #define BC_OPT_H
 
 #include <stdbool.h>
+#include <stdlib.h>
 
-typedef struct BcOpt {
-	char **argv;
+/// The data required to parse command-line arguments.
+typedef struct BcOpt
+{
+	/// The array of arguments.
+	char** argv;
+
+	/// The index of the current argument.
 	size_t optind;
+
+	/// The actual parse option character.
 	int optopt;
+
+	/// Where in the option we are for multi-character single-character options.
 	int subopt;
-	char *optarg;
+
+	/// The option argument.
+	char* optarg;
+
 } BcOpt;
 
-typedef enum BcOptType {
+/// The types of arguments. This is specially adapted for bc.
+typedef enum BcOptType
+{
+	/// No argument required.
 	BC_OPT_NONE,
+
+	/// An argument required.
 	BC_OPT_REQUIRED,
+
+	/// An option that is bc-only.
 	BC_OPT_BC_ONLY,
+
+	/// An option that is bc-only that requires an argument.
+	BC_OPT_REQUIRED_BC_ONLY,
+
+	/// An option that is dc-only.
 	BC_OPT_DC_ONLY,
+
 } BcOptType;
 
-typedef struct BcOptLong {
-	const char *name;
+/// A struct to hold const data for long options.
+typedef struct BcOptLong
+{
+	/// The name of the option.
+	const char* name;
+
+	/// The type of the option.
 	BcOptType type;
+
+	/// The character to return if the long option was parsed.
 	int val;
+
 } BcOptLong;
 
-void bc_opt_init(BcOpt *o, char **argv);
+/**
+ * Initialize data for parsing options.
+ * @param o     The option data to initialize.
+ * @param argv  The array of arguments.
+ */
+void
+bc_opt_init(BcOpt* o, char** argv);
 
-int bc_opt_parse(BcOpt *o, const BcOptLong *longopts);
+/**
+ * Parse an option. This returns a value the same way getopt() and getopt_long()
+ * do, so it returns a character for the parsed option or -1 if done.
+ * @param o         The option data.
+ * @param longopts  The long options.
+ * @return          A character for the parsed option, or -1 if done.
+ */
+int
+bc_opt_parse(BcOpt* o, const BcOptLong* longopts);
 
+/**
+ * Returns true if the option is `--` and not a long option.
+ * @param a  The argument to parse.
+ * @return   True if @a a is the `--` option, false otherwise.
+ */
 #define BC_OPT_ISDASHDASH(a) \
 	((a) != NULL && (a)[0] == '-' && (a)[1] == '-' && (a)[2] == '\0')
 
+/**
+ * Returns true if the option is a short option.
+ * @param a  The argument to parse.
+ * @return   True if @a a is a short option, false otherwise.
+ */
 #define BC_OPT_ISSHORTOPT(a) \
 	((a) != NULL && (a)[0] == '-' && (a)[1] != '-' && (a)[1] != '\0')
 
+/**
+ * Returns true if the option has `--` at the beginning, i.e., is a long option.
+ * @param a  The argument to parse.
+ * @return   True if @a a is a long option, false otherwise.
+ */
 #define BC_OPT_ISLONGOPT(a) \
 	((a) != NULL && (a)[0] == '-' && (a)[1] == '-' && (a)[2] != '\0')
 

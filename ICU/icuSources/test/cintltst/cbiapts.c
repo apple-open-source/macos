@@ -63,6 +63,7 @@ static void TestBreakIteratorSuppressions(void);
 #if APPLE_ICU_CHANGES
 // rdar://31001006 Add some initial tests for urbtok_xxx interfaces
 static void TestRuleBasedTokenizer(void);
+static void TestTokenizerThaiHang(void); // rdar://120754236
 #endif // APPLE_ICU_CHANGES
 
 void addBrkIterAPITest(TestNode** root);
@@ -87,6 +88,7 @@ void addBrkIterAPITest(TestNode** root)
 #if APPLE_ICU_CHANGES
     // rdar://31001006 Add some initial tests for urbtok_xxx interfaces
     addTest(root, &TestRuleBasedTokenizer, "tstxtbd/cbiapts/TestRuleBasedTokenizer");
+    addTest(root, &TestTokenizerThaiHang, "tstxtbd/cbiapts/TestTokenizerThaiHang"); // rdar://120754236
 #endif // APPLE_ICU_CHANGES
 }
 
@@ -2920,6 +2922,62 @@ static void TestRuleBasedTokenizer(void) {
         ubrk_close(utok57BinFromSource);
         ubrk_close(utok57BinFromFile);
         uprv_free(ubrkBinRules);
+    }
+}
+
+// Test for rdar://120754236 ([Root][ICU]D64/21E178: Fail to find new keyboard by keyword searching):
+// Starting with the ICU 74 integration, the call to urbtok57_tokenize() below would hang in an endless
+// loop when asked to tokenize a string that contains Thai text with at least one non-Thai character
+// in the the middle of the Thai range.
+static void TestTokenizerThaiHang(void) {
+    // This is a VERY pared-down version of toktextrules.txt from the CoreNLP project.  We probably don't even
+    // need all this to reproduce the hang in rdar://120754236.  (I think the $dictionary line is the key one.)
+    // I just wanted to get it down to something that would fit on one page and reduce the chances of confusion.
+    static const UChar RULES[] =
+        u"$Ignore        = [[:Separator:][:Control:]];\n"
+        "$NotIgnore    = [[^$Ignore]];\n"
+        "$NonNorm    = [[[:^NFKC_QC=YES:][:^ccc=0:]] - $Ignore];\n"
+        "$NotNFKD    = [[:^NFKD_QC=YES:] - $Ignore];\n"
+        "$Caps        = [:Uppercase:];\n"
+        "$dictionary = [:LineBreak = Complex_Context:];\n"
+        "!!forward;\n"
+        "$Ignore+ {4294967295};\n"
+        "([$NotIgnore-$NonNorm]* $NonNorm)+ [$NotIgnore-$NonNorm]* {1};\n"
+        "$Caps $NotIgnore* {2};\n"
+        "[$NotIgnore]+ ([$NotIgnore-$Caps]* $Caps)+ [$NotIgnore]* {4};\n"
+        "$NotIgnore+;\n"
+        "!!reverse;\n"
+        "$NotIgnore+;\n"
+        "$Ignore+;\n"
+        "!!safe_reverse;\n"
+        "!!safe_forward;\n";
+
+    UErrorCode err = U_ZERO_ERROR;
+    UParseError parseErr;
+    UBreakIterator* tok = urbtok57_openRules(RULES, -1, &parseErr, &err);
+    if (assertSuccess("Failed to create tokenizer", &err)) {
+        ubrk_setText(tok, u"ไทย.ไทย", -1, &err);
+        
+        RuleBasedTokenRange ranges[20];
+        unsigned long flags[20];
+        
+        int32_t numTokens = urbtok57_tokenize(tok, 20, ranges, flags);
+        
+        // NOTE: I'd argue the results below are wrong.  The test string above should probably
+        // be giving us back two tokens, one for each Thai word, and I think the fact that it
+        // doesn't is a bug in the RBBI57 tokenizer code.  But I'm not messing with this because
+        // this is what we've always returned, I don't see it causing any obvious problems,
+        // and this is very old code.  The purpose of this test is really to make sure
+        // that the call to orbtok57_tokenize() above doesn't hang, which is what
+        // was happening in rdar://120754236
+        assertIntEquals("Wrong number of tokens returned", 1, numTokens);
+        if (numTokens >= 1) {
+            assertIntEquals("Wrong range start", 0, ranges[0].location);
+            assertIntEquals("Wrong range length", 7, ranges[0].length);
+            assertIntEquals("Wrong flag value", 0, flags[0]);
+        }
+        
+        ubrk_close(tok);
     }
 }
 

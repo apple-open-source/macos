@@ -1,4 +1,4 @@
-/* $OpenBSD: channels.h,v 1.151 2023/07/04 03:59:21 dlg Exp $ */
+/* $OpenBSD: channels.h,v 1.154 2023/12/18 14:47:20 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -170,6 +170,7 @@ struct Channel {
 	u_int	remote_window;
 	u_int	remote_maxpacket;
 	u_int	local_window;
+	u_int	local_window_exceeded;
 	u_int	local_window_max;
 	u_int	local_consumed;
 	u_int	local_maxpacket;
@@ -335,11 +336,12 @@ struct timespec;
 void	 channel_prepare_poll(struct ssh *, struct pollfd **,
 	    u_int *, u_int *, u_int, struct timespec *);
 void	 channel_after_poll(struct ssh *, struct pollfd *, u_int);
-void     channel_output_poll(struct ssh *);
+int	 channel_output_poll(struct ssh *);
 
 int      channel_not_very_much_buffered_data(struct ssh *);
 void     channel_close_all(struct ssh *);
 int      channel_still_open(struct ssh *);
+int	 channel_tty_open(struct ssh *);
 const char *channel_format_extended_usage(const Channel *);
 char	*channel_open_message(struct ssh *);
 int	 channel_find_open(struct ssh *);

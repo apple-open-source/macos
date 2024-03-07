@@ -45,7 +45,7 @@ DrawingAreaProxyWC::DrawingAreaProxyWC(WebPageProxy& webPageProxy, WebProcessPro
 {
 }
 
-void DrawingAreaProxyWC::paint(BackingStore::PlatformGraphicsContext context, const WebCore::IntRect& rect, WebCore::Region& unpaintedRegion)
+void DrawingAreaProxyWC::paint(cairo_t* context, const WebCore::IntRect& rect, WebCore::Region& unpaintedRegion)
 {
     unpaintedRegion = rect;
 
@@ -80,18 +80,18 @@ void DrawingAreaProxyWC::incorporateUpdate(UpdateInfo&& updateInfo)
         return;
 
     if (!m_backingStore)
-        m_backingStore.emplace(updateInfo.viewSize, updateInfo.deviceScaleFactor, m_webPageProxy);
+        m_backingStore.emplace(updateInfo.viewSize, updateInfo.deviceScaleFactor);
 
     WebCore::Region damageRegion;
     if (updateInfo.scrollRect.isEmpty()) {
         for (const auto& rect : updateInfo.updateRects)
             damageRegion.unite(rect);
     } else
-        damageRegion = WebCore::IntRect({ }, m_webPageProxy.viewSize());
+        damageRegion = WebCore::IntRect({ }, m_webPageProxy->viewSize());
 
     m_backingStore->incorporateUpdate(WTFMove(updateInfo));
 
-    m_webPageProxy.setViewNeedsDisplay(damageRegion);
+    protectedWebPageProxy()->setViewNeedsDisplay(damageRegion);
 }
 
 void DrawingAreaProxyWC::discardBackingStore()

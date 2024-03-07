@@ -18,6 +18,9 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <sys/code_signing.h>
 
 #include <mach/vm_param.h>
 #include <pthread.h>
@@ -28,8 +31,8 @@
 
 #include <TargetConditionals.h>
 
-#if !TARGET_OS_OSX
-#error "These tests are only expected to run on macOS"
+#if !(TARGET_OS_OSX || TARGET_OS_IOS)
+#error "These tests are only expected to run on macOS and iOS"
 #endif // TARGET_OS_OSX
 
 /* Enumerations */
@@ -249,6 +252,22 @@ done:
 	sigaction(SIGBUS, &old_action, NULL);
 
 	return faulted;
+}
+
+static inline bool
+code_signing_monitor_enabled(void)
+{
+	code_signing_config_t cs_config = 0;
+	size_t cs_config_size = sizeof(cs_config);
+
+	// Query the code signing configuration information
+	(void)sysctlbyname("security.codesigning.config",
+			&cs_config, &cs_config_size, NULL, 0);
+
+	if (cs_config & (code_signing_config_t)CS_CONFIG_CSM_ENABLED) {
+		return true;
+	}
+	return false;
 }
 
 #endif // __PTHREAD_JIT_WRITE_TEST_INLINE_H__

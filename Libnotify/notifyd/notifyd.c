@@ -85,6 +85,15 @@ static char *_jetsam_log_path;
 
 #define JETSAM_PANIC_PROB_THRESHOLD (RAND_MAX / 10) // 0.1 probability
 
+#define __write_status(file, ret, fmt, ...) \
+do { \
+if (fprintf(file, fmt, ##__VA_ARGS__) < 0) \
+	return ret; \
+} while(0)
+
+#define write_status(file, fmt, ...) __write_status(file, , fmt, ##__VA_ARGS__)
+#define write_status_bool(file, fmt, ...) __write_status(file, false, fmt, ##__VA_ARGS__)
+
 static char *status_file = NULL;
 
 struct global_s global;
@@ -133,36 +142,36 @@ fprint_client(FILE *f, client_t *c)
 {
 	if (c == NULL)
 	{
-		fprintf(f, "NULL client\n");
+		write_status(f, "NULL client\n");
 		return;
 	}
 
-	fprintf(f, "client_id: %llu\n", c->cid.hash_key);
-	fprintf(f, "pid: %d\n", c->cid.pid);
-	fprintf(f, "token: %d\n", c->cid.token);
-	fprintf(f, "lastval: %u\n", c->lastval);
-	fprintf(f, "suspend_count: %u\n", c->suspend_count);
-	fprintf(f, "type: %s\n", notify_type_name(notify_get_type(c->state_and_type)));
+	write_status(f, "client_id: %llu\n", c->cid.hash_key);
+	write_status(f, "pid: %d\n", c->cid.pid);
+	write_status(f, "token: %d\n", c->cid.token);
+	write_status(f, "lastval: %u\n", c->lastval);
+	write_status(f, "suspend_count: %u\n", c->suspend_count);
+	write_status(f, "type: %s\n", notify_type_name(notify_get_type(c->state_and_type)));
 	switch(notify_get_type(c->state_and_type))
 	{
 		case NOTIFY_TYPE_PORT:
-			fprintf(f, "mach port: 0x%08x\n", c->deliver.port);
+			write_status(f, "mach port: 0x%08x\n", c->deliver.port);
 			break;
 
 		case NOTIFY_TYPE_FILE:
-			fprintf(f, "fd: %d\n", c->deliver.fd);
+			write_status(f, "fd: %d\n", c->deliver.fd);
 			break;
 
 		case NOTIFY_TYPE_SIGNAL:
-			fprintf(f, "signal: %d\n", c->deliver.sig);
+			write_status(f, "signal: %d\n", c->deliver.sig);
 			break;
 
 		case NOTIFY_TYPE_XPC_EVENT:
-			fprintf(f, "xpc event: %llu\n", c->deliver.event_token);
+			write_status(f, "xpc event: %llu\n", c->deliver.event_token);
 			break;
 
 		case NOTIFY_TYPE_COMMON_PORT:
-			fprintf(f, "common port\n");
+			write_status(f, "common port\n");
 			break;
 
 		case NOTIFY_TYPE_NONE:
@@ -179,39 +188,39 @@ fprint_quick_client(FILE *f, client_t *c)
 	if (c == NULL) return;
 
 	//client_id,pid,token,lastval,suspend_count,0,type,type-info
-	fprintf(f, "%llu,%d,%d,%u,%u,%u,", c->cid.hash_key, c->cid.pid, c->cid.token,
+	write_status(f, "%llu,%d,%d,%u,%u,%u,", c->cid.hash_key, c->cid.pid, c->cid.token,
 			c->lastval, c->suspend_count, 0);
 
 	switch(notify_get_type(c->state_and_type))
 	{
 	case NOTIFY_TYPE_PORT:
-		fprintf(f, "port,0x%08x\n", c->deliver.port);
+		write_status(f, "port,0x%08x\n", c->deliver.port);
 		break;
 
 	case NOTIFY_TYPE_FILE:
-		fprintf(f, "fd,%d\n", c->deliver.fd);
+		write_status(f, "fd,%d\n", c->deliver.fd);
 		break;
 
 	case NOTIFY_TYPE_SIGNAL:
-		fprintf(f, "signal,%d\n", c->deliver.sig);
+		write_status(f, "signal,%d\n", c->deliver.sig);
 		break;
 
 	case NOTIFY_TYPE_MEMORY:
-		fprintf(f, "check,0\n");
+		write_status(f, "check,0\n");
 		break;
 
 	case NOTIFY_TYPE_XPC_EVENT:
-		fprintf(f, "event,%llu\n", c->deliver.event_token);
+		write_status(f, "event,%llu\n", c->deliver.event_token);
 		break;
 
 	case NOTIFY_TYPE_COMMON_PORT:
-		fprintf(f, "common-port\n");
+		write_status(f, "common-port\n");
 		break;
 
 	case NOTIFY_TYPE_NONE:
 	case NOTIFY_TYPE_PLAIN:
 	default:
-		fprintf(f, "other,0\n");
+		write_status(f, "other,0\n");
 		break;
 	}
 }
@@ -229,28 +238,28 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 	// <client info>
 	// <client info>
 	// ...
-	fprintf(f, "name:%s\n", n->name);
-	fprintf(f, "info:%llu,%u,%u,%03x,%u,%u,%u,", n->name_id, n->uid, n->gid, n->access, n->refcount, n->postcount,
+	write_status(f, "name:%s\n", n->name);
+	write_status(f, "info:%llu,%u,%u,%03x,%u,%u,%u,", n->name_id, n->uid, n->gid, n->access, n->refcount, n->postcount,
 		n->last_hour_postcount);
 	if (n->slot == SLOT_NONE)
 	{
-		fprintf(f, "-1,");
+		write_status(f, "-1,");
 	}
 	else
 	{
-		fprintf(f, "%u,", n->slot);
+		write_status(f, "%u,", n->slot);
 	}
 
-	fprintf(f, "%u,%llu\n", n->val, n->state);
+	write_status(f, "%u,%llu\n", n->val, n->state);
 
-	fprintf(f, "clients:\n");
+	write_status(f, "clients:\n");
 
 	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
 		fprint_quick_client(f, c);
 	}
 
-	fprintf(f, "\n");
+	write_status(f, "\n");
 
 }
 
@@ -262,28 +271,28 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, pid_t *max_pid)
 
 	if (n == NULL)
 	{
-		fprintf(f, "%s unknown\n", name);
+		write_status(f, "%s unknown\n", name);
 		return;
 	}
 
-	fprintf(f, "name: %s\n", n->name);
-	fprintf(f, "id: %llu\n", n->name_id);
-	fprintf(f, "uid: %u\n", n->uid);
-	fprintf(f, "gid: %u\n", n->gid);
-	fprintf(f, "access: %03x\n", n->access);
-	fprintf(f, "refcount: %u\n", n->refcount);
-	fprintf(f, "postcount: %u\n", n->postcount);
-	fprintf(f, "last hour postcount: %u\n", n->last_hour_postcount);
-	if (n->slot == SLOT_NONE) fprintf(f, "slot: -unassigned-");
+	write_status(f, "name: %s\n", n->name);
+	write_status(f, "id: %llu\n", n->name_id);
+	write_status(f, "uid: %u\n", n->uid);
+	write_status(f, "gid: %u\n", n->gid);
+	write_status(f, "access: %03x\n", n->access);
+	write_status(f, "refcount: %u\n", n->refcount);
+	write_status(f, "postcount: %u\n", n->postcount);
+	write_status(f, "last hour postcount: %u\n", n->last_hour_postcount);
+	if (n->slot == SLOT_NONE) write_status(f, "slot: -unassigned-");
 	else
 	{
-		fprintf(f, "slot: %u", n->slot);
+		write_status(f, "slot: %u", n->slot);
 		if (global.shared_memory_refcount[n->slot] != SLOT_NONE)
-			fprintf(f, " = %u (%u)", global.shared_memory_base[n->slot], global.shared_memory_refcount[n->slot]);
+			write_status(f, " = %u (%u)", global.shared_memory_base[n->slot], global.shared_memory_refcount[n->slot]);
 	}
-	fprintf(f, "\n");
-	fprintf(f, "val: %u\n", n->val);
-	fprintf(f, "state: %llu\n", n->state);
+	write_status(f, "\n");
+	write_status(f, "val: %u\n", n->val);
+	write_status(f, "state: %llu\n", n->state);
 
 	for (i = 0; i < N_NOTIFY_TYPES; i++) reg[i] = 0;
 
@@ -304,11 +313,11 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, pid_t *max_pid)
 		}
 	}
 
-	fprintf(f, "types: none %u   memory %u   plain %u   port %u   file %u   signal %u   event %u   common %u\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5], reg[6], reg[7]);
+	write_status(f, "types: none %u   memory %u   plain %u   port %u   file %u   signal %u   event %u   common %u\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5], reg[6], reg[7]);
 
 	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
-		fprintf(f, "\n");
+		write_status(f, "\n");
 		fprint_client(f, c);
 	}
 }
@@ -318,93 +327,93 @@ fprint_quick_status(FILE *f)
 {
 	uint32_t i;
 
-	fprintf(f, "--- GLOBALS ---\n");
-	fprintf(f, "%u slots (current id %u)\n", global.nslots, global.slot_id);
-	fprintf(f, "%u log_cutoff (default %u)\n", global.log_cutoff, global.log_default);
-	fprintf(f, "\n");
+	write_status(f, "--- GLOBALS ---\n");
+	write_status(f, "%u slots (current id %u)\n", global.nslots, global.slot_id);
+	write_status(f, "%u log_cutoff (default %u)\n", global.log_cutoff, global.log_default);
+	write_status(f, "\n");
 
-	fprintf(f, "--- STATISTICS ---\n");
-	fprintf(f, "post         %llu\n", call_statistics.post);
-	fprintf(f, "    id       %llu\n", call_statistics.post_by_id);
-	fprintf(f, "    name     %llu\n", call_statistics.post_by_name);
-	fprintf(f, "    fetch    %llu\n", call_statistics.post_by_name_and_fetch_id);
-	fprintf(f, "    no_op    %llu\n", call_statistics.post_no_op);
-	fprintf(f, "\n");
-	fprintf(f, "register     %llu\n", call_statistics.reg);
-	fprintf(f, "    plain    %llu\n", call_statistics.reg_plain);
-	fprintf(f, "    check    %llu\n", call_statistics.reg_check);
-	fprintf(f, "    signal   %llu\n", call_statistics.reg_signal);
-	fprintf(f, "    file     %llu\n", call_statistics.reg_file);
-	fprintf(f, "    port     %llu\n", call_statistics.reg_port);
-	fprintf(f, "    event    %llu\n", call_statistics.reg_xpc_event);
-	fprintf(f, "    common   %llu\n", call_statistics.reg_common);
-	fprintf(f, "\n");
-	fprintf(f, "check        %llu\n", call_statistics.check);
-	fprintf(f, "cancel       %llu\n", call_statistics.cancel);
-	fprintf(f, "cleanup      %llu\n", call_statistics.cleanup);
-	fprintf(f, "regenerate   %llu\n", call_statistics.regenerate);
-	fprintf(f, "checkin      %llu\n", call_statistics.checkin);
-	fprintf(f, "\n");
-	fprintf(f, "suspend      %llu\n", call_statistics.suspend);
-	fprintf(f, "resume       %llu\n", call_statistics.resume);
-	fprintf(f, "suspend_pid  %llu\n", call_statistics.suspend_pid);
-	fprintf(f, "resume_pid   %llu\n", call_statistics.resume_pid);
-	fprintf(f, "\n");
-	fprintf(f, "get_state    %llu\n", call_statistics.get_state);
-	fprintf(f, "    id       %llu\n", call_statistics.get_state_by_id);
-	fprintf(f, "    client   %llu\n", call_statistics.get_state_by_client);
-	fprintf(f, "    fetch    %llu\n", call_statistics.get_state_by_client_and_fetch_id);
-	fprintf(f, "\n");
-	fprintf(f, "set_state    %llu\n", call_statistics.set_state);
-	fprintf(f, "    id       %llu\n", call_statistics.set_state_by_id);
-	fprintf(f, "    client   %llu\n", call_statistics.set_state_by_client);
-	fprintf(f, "    fetch    %llu\n", call_statistics.set_state_by_client_and_fetch_id);
-	fprintf(f, "\n");
-	fprintf(f, "set_owner    %llu\n", call_statistics.set_owner);
-	fprintf(f, "\n");
-	fprintf(f, "set_access   %llu\n", call_statistics.set_access);
-	fprintf(f, "\n");
-	fprintf(f, "monitor      %llu\n", call_statistics.monitor_file);
-	fprintf(f, "svc_path     %llu\n", call_statistics.service_path);
+	write_status(f, "--- STATISTICS ---\n");
+	write_status(f, "post         %llu\n", call_statistics.post);
+	write_status(f, "    id       %llu\n", call_statistics.post_by_id);
+	write_status(f, "    name     %llu\n", call_statistics.post_by_name);
+	write_status(f, "    fetch    %llu\n", call_statistics.post_by_name_and_fetch_id);
+	write_status(f, "    no_op    %llu\n", call_statistics.post_no_op);
+	write_status(f, "\n");
+	write_status(f, "register     %llu\n", call_statistics.reg);
+	write_status(f, "    plain    %llu\n", call_statistics.reg_plain);
+	write_status(f, "    check    %llu\n", call_statistics.reg_check);
+	write_status(f, "    signal   %llu\n", call_statistics.reg_signal);
+	write_status(f, "    file     %llu\n", call_statistics.reg_file);
+	write_status(f, "    port     %llu\n", call_statistics.reg_port);
+	write_status(f, "    event    %llu\n", call_statistics.reg_xpc_event);
+	write_status(f, "    common   %llu\n", call_statistics.reg_common);
+	write_status(f, "\n");
+	write_status(f, "check        %llu\n", call_statistics.check);
+	write_status(f, "cancel       %llu\n", call_statistics.cancel);
+	write_status(f, "cleanup      %llu\n", call_statistics.cleanup);
+	write_status(f, "regenerate   %llu\n", call_statistics.regenerate);
+	write_status(f, "checkin      %llu\n", call_statistics.checkin);
+	write_status(f, "\n");
+	write_status(f, "suspend      %llu\n", call_statistics.suspend);
+	write_status(f, "resume       %llu\n", call_statistics.resume);
+	write_status(f, "suspend_pid  %llu\n", call_statistics.suspend_pid);
+	write_status(f, "resume_pid   %llu\n", call_statistics.resume_pid);
+	write_status(f, "\n");
+	write_status(f, "get_state    %llu\n", call_statistics.get_state);
+	write_status(f, "    id       %llu\n", call_statistics.get_state_by_id);
+	write_status(f, "    client   %llu\n", call_statistics.get_state_by_client);
+	write_status(f, "    fetch    %llu\n", call_statistics.get_state_by_client_and_fetch_id);
+	write_status(f, "\n");
+	write_status(f, "set_state    %llu\n", call_statistics.set_state);
+	write_status(f, "    id       %llu\n", call_statistics.set_state_by_id);
+	write_status(f, "    client   %llu\n", call_statistics.set_state_by_client);
+	write_status(f, "    fetch    %llu\n", call_statistics.set_state_by_client_and_fetch_id);
+	write_status(f, "\n");
+	write_status(f, "set_owner    %llu\n", call_statistics.set_owner);
+	write_status(f, "\n");
+	write_status(f, "set_access   %llu\n", call_statistics.set_access);
+	write_status(f, "\n");
+	write_status(f, "monitor      %llu\n", call_statistics.monitor_file);
+	write_status(f, "svc_path     %llu\n", call_statistics.service_path);
 
 	{
 		char buf[128];
 		strftime(buf, 128, "%a, %d %b %Y %T %z", localtime(&global.last_reset_time));
-		fprintf(f, "last reset time was %s\n", buf);
+		write_status(f, "last reset time was %s\n", buf);
 	}
 
-	fprintf(f, "\n");
-	fprintf(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_name_alloc , global.notify_state.stat_name_free, global.notify_state.stat_name_alloc - global.notify_state.stat_name_free);
-	fprintf(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_client_alloc , global.notify_state.stat_client_free, global.notify_state.stat_client_alloc - global.notify_state.stat_client_free);
-	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
-	fprintf(f, "\n");
+	write_status(f, "\n");
+	write_status(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_name_alloc , global.notify_state.stat_name_free, global.notify_state.stat_name_alloc - global.notify_state.stat_name_free);
+	write_status(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_client_alloc , global.notify_state.stat_client_free, global.notify_state.stat_client_alloc - global.notify_state.stat_client_free);
+	write_status(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
+	write_status(f, "\n");
 
-	fprintf(f, "port count   %u\n", os_set_count(&global.notify_state.port_table.set));
-	fprintf(f, "proc count   %u\n", os_set_count(&global.notify_state.proc_table.set));
-	fprintf(f, "\n");
+	write_status(f, "port count   %u\n", os_set_count(&global.notify_state.port_table.set));
+	write_status(f, "proc count   %u\n", os_set_count(&global.notify_state.proc_table.set));
+	write_status(f, "\n");
 
-	fprintf(f, "--- NAME TABLE ---\n");
-	fprintf(f, "Name Info: id, uid, gid, access, refcount, postcount, last hour postcount, slot, val, state\n");
-	fprintf(f, "Client Info: client_id, pid,token, lastval, suspend_count, 0, 0, type, type-info\n\n\n");
+	write_status(f, "--- NAME TABLE ---\n");
+	write_status(f, "Name Info: id, uid, gid, access, refcount, postcount, last hour postcount, slot, val, state\n");
+	write_status(f, "Client Info: client_id, pid,token, lastval, suspend_count, 0, 0, type, type-info\n\n\n");
 
 	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *n) {
 		fprint_quick_name_info(f, n);
-		fprintf(f, "\n");
+		write_status_bool(f, "\n");
 		return true;
 	});
 
-	fprintf(f, "--- NAME COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
-	fprintf(f, "\n");
+	write_status(f, "--- NAME COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
+	write_status(f, "\n");
 
-	fprintf(f, "--- CONTROLLED NAME ---\n");
+	write_status(f, "--- CONTROLLED NAME ---\n");
 	for (i = 0; i < global.notify_state.controlled_name_count; i++)
 	{
-		fprintf(f, "%s %u %u %03x\n", global.notify_state.controlled_name[i]->name, global.notify_state.controlled_name[i]->uid, global.notify_state.controlled_name[i]->gid, global.notify_state.controlled_name[i]->access);
+		write_status(f, "%s %u %u %03x\n", global.notify_state.controlled_name[i]->name, global.notify_state.controlled_name[i]->uid, global.notify_state.controlled_name[i]->gid, global.notify_state.controlled_name[i]->access);
 	}
-	fprintf(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state.controlled_name_count);
-	fprintf(f, "\n");
+	write_status(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state.controlled_name_count);
+	write_status(f, "\n");
 
-	fprintf(f, "--- PUBLIC SERVICE ---\n");
+	write_status(f, "--- PUBLIC SERVICE ---\n");
 	
 	_nc_table_foreach_64(&global.notify_state.client_table, ^bool(void *_c){
 		client_t *c = _c;
@@ -418,24 +427,24 @@ fprint_quick_status(FILE *f)
  
 		if (info->type == 0)
 		{
-			fprintf(f, "Null service: %s\n", n->name);
+			write_status_bool(f, "Null service: %s\n", n->name);
 		}
 		if (info->type == SERVICE_TYPE_PATH_PUBLIC)
 		{
 			node = (path_node_t *)info->private;
-			fprintf(f, "Path Service: %s <- %s\n", n->name, node->path);
+			write_status_bool(f, "Path Service: %s <- %s\n", n->name, node->path);
 		}
 		else
 		{
-			fprintf(f, "Unknown service: %s (%u)\n", n->name, info->type);
+			write_status_bool(f, "Unknown service: %s (%u)\n", n->name, info->type);
 		}
 		return true;
 	});
 
-	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
-	fprintf(f, "\n");
+	write_status(f, "--- PUBLIC SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
+	write_status(f, "\n");
 
-	fprintf(f, "--- PRIVATE SERVICE ---\n");
+	write_status(f, "--- PRIVATE SERVICE ---\n");
 	_nc_table_foreach_64(&global.notify_state.client_table, ^bool(void *_c) {
 		client_t *c = _c;
 		svc_info_t *info;
@@ -449,19 +458,19 @@ fprint_quick_status(FILE *f)
 
 		if (info->type == 0)
 		{
-			fprintf(f, "PID %u Null service: %s\n", c->cid.pid, n->name);
+			write_status_bool(f, "PID %u Null service: %s\n", c->cid.pid, n->name);
 		}
 		if (info->type == SERVICE_TYPE_PATH_PRIVATE)
 		{
 			node = (path_node_t *)info->private;
-			fprintf(f, "PID %u Path Service: %s <- %s\n", c->cid.pid, n->name, node->path);
+			write_status_bool(f, "PID %u Path Service: %s <- %s\n", c->cid.pid, n->name, node->path);
 		}
 		return true;
 	});
 
-	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
-	fprintf(f, "\n");
-
+	write_status(f, "--- PRIVATE SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
+	write_status(f, "\n");
+	write_status(f, "-- END --\n");
 }
 
 static void
@@ -472,104 +481,104 @@ fprint_status(FILE *f)
 
 	max_pid = 0;
 
-	fprintf(f, "--- GLOBALS ---\n");
-	fprintf(f, "%u slots (current id %u)\n", global.nslots, global.slot_id);
-	fprintf(f, "%u log_cutoff (default %u)\n", global.log_cutoff, global.log_default);
-	fprintf(f, "\n");
+	write_status(f, "--- GLOBALS ---\n");
+	write_status(f, "%u slots (current id %u)\n", global.nslots, global.slot_id);
+	write_status(f, "%u log_cutoff (default %u)\n", global.log_cutoff, global.log_default);
+	write_status(f, "\n");
 
-	fprintf(f, "--- STATISTICS ---\n");
-	fprintf(f, "post         %llu\n", call_statistics.post);
-	fprintf(f, "    id       %llu\n", call_statistics.post_by_id);
-	fprintf(f, "    name     %llu\n", call_statistics.post_by_name);
-	fprintf(f, "    fetch    %llu\n", call_statistics.post_by_name_and_fetch_id);
-	fprintf(f, "    no_op    %llu\n", call_statistics.post_no_op);
-	fprintf(f, "\n");
-	fprintf(f, "register     %llu\n", call_statistics.reg);
-	fprintf(f, "    plain    %llu\n", call_statistics.reg_plain);
-	fprintf(f, "    check    %llu\n", call_statistics.reg_check);
-	fprintf(f, "    signal   %llu\n", call_statistics.reg_signal);
-	fprintf(f, "    file     %llu\n", call_statistics.reg_file);
-	fprintf(f, "    port     %llu\n", call_statistics.reg_port);
-	fprintf(f, "    event    %llu\n", call_statistics.reg_xpc_event);
-	fprintf(f, "    common   %llu\n", call_statistics.reg_common);
-	fprintf(f, "\n");
-	fprintf(f, "check        %llu\n", call_statistics.check);
-	fprintf(f, "cancel       %llu\n", call_statistics.cancel);
-	fprintf(f, "cleanup      %llu\n", call_statistics.cleanup);
-	fprintf(f, "regenerate   %llu\n", call_statistics.regenerate);
-	fprintf(f, "checkin      %llu\n", call_statistics.checkin);
-	fprintf(f, "\n");
-	fprintf(f, "suspend      %llu\n", call_statistics.suspend);
-	fprintf(f, "resume       %llu\n", call_statistics.resume);
-	fprintf(f, "suspend_pid  %llu\n", call_statistics.suspend_pid);
-	fprintf(f, "resume_pid   %llu\n", call_statistics.resume_pid);
-	fprintf(f, "\n");
-	fprintf(f, "get_state    %llu\n", call_statistics.get_state);
-	fprintf(f, "    id       %llu\n", call_statistics.get_state_by_id);
-	fprintf(f, "    client   %llu\n", call_statistics.get_state_by_client);
-	fprintf(f, "    fetch    %llu\n", call_statistics.get_state_by_client_and_fetch_id);
-	fprintf(f, "\n");
-	fprintf(f, "set_state    %llu\n", call_statistics.set_state);
-	fprintf(f, "    id       %llu\n", call_statistics.set_state_by_id);
-	fprintf(f, "    client   %llu\n", call_statistics.set_state_by_client);
-	fprintf(f, "    fetch    %llu\n", call_statistics.set_state_by_client_and_fetch_id);
-	fprintf(f, "\n");
-	fprintf(f, "set_owner    %llu\n", call_statistics.set_owner);
-	fprintf(f, "\n");
-	fprintf(f, "set_access   %llu\n", call_statistics.set_access);
-	fprintf(f, "\n");
-	fprintf(f, "monitor      %llu\n", call_statistics.monitor_file);
-	fprintf(f, "svc_path     %llu\n", call_statistics.service_path);
+	write_status(f, "--- STATISTICS ---\n");
+	write_status(f, "post         %llu\n", call_statistics.post);
+	write_status(f, "    id       %llu\n", call_statistics.post_by_id);
+	write_status(f, "    name     %llu\n", call_statistics.post_by_name);
+	write_status(f, "    fetch    %llu\n", call_statistics.post_by_name_and_fetch_id);
+	write_status(f, "    no_op    %llu\n", call_statistics.post_no_op);
+	write_status(f, "\n");
+	write_status(f, "register     %llu\n", call_statistics.reg);
+	write_status(f, "    plain    %llu\n", call_statistics.reg_plain);
+	write_status(f, "    check    %llu\n", call_statistics.reg_check);
+	write_status(f, "    signal   %llu\n", call_statistics.reg_signal);
+	write_status(f, "    file     %llu\n", call_statistics.reg_file);
+	write_status(f, "    port     %llu\n", call_statistics.reg_port);
+	write_status(f, "    event    %llu\n", call_statistics.reg_xpc_event);
+	write_status(f, "    common   %llu\n", call_statistics.reg_common);
+	write_status(f, "\n");
+	write_status(f, "check        %llu\n", call_statistics.check);
+	write_status(f, "cancel       %llu\n", call_statistics.cancel);
+	write_status(f, "cleanup      %llu\n", call_statistics.cleanup);
+	write_status(f, "regenerate   %llu\n", call_statistics.regenerate);
+	write_status(f, "checkin      %llu\n", call_statistics.checkin);
+	write_status(f, "\n");
+	write_status(f, "suspend      %llu\n", call_statistics.suspend);
+	write_status(f, "resume       %llu\n", call_statistics.resume);
+	write_status(f, "suspend_pid  %llu\n", call_statistics.suspend_pid);
+	write_status(f, "resume_pid   %llu\n", call_statistics.resume_pid);
+	write_status(f, "\n");
+	write_status(f, "get_state    %llu\n", call_statistics.get_state);
+	write_status(f, "    id       %llu\n", call_statistics.get_state_by_id);
+	write_status(f, "    client   %llu\n", call_statistics.get_state_by_client);
+	write_status(f, "    fetch    %llu\n", call_statistics.get_state_by_client_and_fetch_id);
+	write_status(f, "\n");
+	write_status(f, "set_state    %llu\n", call_statistics.set_state);
+	write_status(f, "    id       %llu\n", call_statistics.set_state_by_id);
+	write_status(f, "    client   %llu\n", call_statistics.set_state_by_client);
+	write_status(f, "    fetch    %llu\n", call_statistics.set_state_by_client_and_fetch_id);
+	write_status(f, "\n");
+	write_status(f, "set_owner    %llu\n", call_statistics.set_owner);
+	write_status(f, "\n");
+	write_status(f, "set_access   %llu\n", call_statistics.set_access);
+	write_status(f, "\n");
+	write_status(f, "monitor      %llu\n", call_statistics.monitor_file);
+	write_status(f, "svc_path     %llu\n", call_statistics.service_path);
 
 
 	{
 		char buf[128];
 		strftime(buf, 128, "%a, %d %b %Y %T %z", localtime(&global.last_reset_time));
-		fprintf(f, "last reset time was %s\n", buf);
+		write_status(f, "last reset time was %s\n", buf);
 	}
 
-	fprintf(f, "\n");
-	fprintf(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_name_alloc , global.notify_state.stat_name_free, global.notify_state.stat_name_alloc - global.notify_state.stat_name_free);
-	fprintf(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_client_alloc , global.notify_state.stat_client_free, global.notify_state.stat_client_alloc - global.notify_state.stat_client_free);
-	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
-	fprintf(f, "\n");
+	write_status(f, "\n");
+	write_status(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_name_alloc , global.notify_state.stat_name_free, global.notify_state.stat_name_alloc - global.notify_state.stat_name_free);
+	write_status(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_client_alloc , global.notify_state.stat_client_free, global.notify_state.stat_client_alloc - global.notify_state.stat_client_free);
+	write_status(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
+	write_status(f, "\n");
 
-	fprintf(f, "port count   %u\n", os_set_count(&global.notify_state.port_table.set));
-	fprintf(f, "proc count   %u\n", os_set_count(&global.notify_state.proc_table.set));
-	fprintf(f, "\n");
+	write_status(f, "port count   %u\n", os_set_count(&global.notify_state.port_table.set));
+	write_status(f, "proc count   %u\n", os_set_count(&global.notify_state.proc_table.set));
+	write_status(f, "\n");
 
-	fprintf(f, "--- NAME TABLE ---\n");
+	write_status(f, "--- NAME TABLE ---\n");
 
 	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *_n) {
 		name_info_t *n = _n;
 		fprint_name_info(f, n->name, n, &max_pid);
-		fprintf(f, "\n");
+		write_status_bool(f, "\n");
 		return true;
 	});
 
-	fprintf(f, "--- NAME COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
-	fprintf(f, "\n");
+	write_status(f, "--- NAME COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
+	write_status(f, "\n");
 
-	fprintf(f, "--- SUBSCRIPTION TABLE ---\n");
+	write_status(f, "--- SUBSCRIPTION TABLE ---\n");
 
 	_nc_table_foreach_64(&global.notify_state.client_table, ^bool (void *_c) {
 		client_t *c = _c;
-		fprintf(f, "%d\n", c->cid.pid);
+		write_status_bool(f, "%d\n", c->cid.pid);
 		return true;
 	});
 
-	fprintf(f, "--- SUBSCRIPTION COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
-	fprintf(f, "\n");
+	write_status(f, "--- SUBSCRIPTION COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
+	write_status(f, "\n");
 
-	fprintf(f, "--- CONTROLLED NAME ---\n");
+	write_status(f, "--- CONTROLLED NAME ---\n");
 	for (i = 0; i < global.notify_state.controlled_name_count; i++)
 	{
-		fprintf(f, "%s %u %u %03x\n", global.notify_state.controlled_name[i]->name, global.notify_state.controlled_name[i]->uid, global.notify_state.controlled_name[i]->gid, global.notify_state.controlled_name[i]->access);
+		write_status(f, "%s %u %u %03x\n", global.notify_state.controlled_name[i]->name, global.notify_state.controlled_name[i]->uid, global.notify_state.controlled_name[i]->gid, global.notify_state.controlled_name[i]->access);
 	}
-	fprintf(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state.controlled_name_count);
-	fprintf(f, "\n");
+	write_status(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state.controlled_name_count);
+	write_status(f, "\n");
 
-	fprintf(f, "--- PUBLIC SERVICE ---\n");
+	write_status(f, "--- PUBLIC SERVICE ---\n");
 
 	_nc_table_foreach_64(&global.notify_state.client_table, ^bool(void *_c){
 		client_t *c = _c;
@@ -583,24 +592,24 @@ fprint_status(FILE *f)
 
 		if (info->type == 0)
 		{
-			fprintf(f, "Null service: %s\n", n->name);
+			write_status_bool(f, "Null service: %s\n", n->name);
 		}
 		if (info->type == SERVICE_TYPE_PATH_PUBLIC)
 		{
 			node = (path_node_t *)info->private;
-			fprintf(f, "Path Service: %s <- %s\n", n->name, node->path);
+			write_status_bool(f, "Path Service: %s <- %s\n", n->name, node->path);
 		}
 		else
 		{
-			fprintf(f, "Unknown service: %s (%u)\n", n->name, info->type);
+			write_status_bool(f, "Unknown service: %s (%u)\n", n->name, info->type);
 		}
 		return true;
 	});
 
-	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
-	fprintf(f, "\n");
+	write_status(f, "--- PUBLIC SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
+	write_status(f, "\n");
 
-	fprintf(f, "--- PRIVATE SERVICE ---\n");
+	write_status(f, "--- PRIVATE SERVICE ---\n");
 
 	_nc_table_foreach_64(&global.notify_state.client_table, ^bool (void *_c) {
 		client_t *c = _c;
@@ -615,20 +624,20 @@ fprint_status(FILE *f)
 
 		if (info->type == 0)
 		{
-			fprintf(f, "PID %u Null service: %s\n", c->cid.pid, n->name);
+			write_status_bool(f, "PID %u Null service: %s\n", c->cid.pid, n->name);
 		}
 		if (info->type == SERVICE_TYPE_PATH_PRIVATE)
 		{
 			node = (path_node_t *)info->private;
-			fprintf(f, "PID %u Path Service: %s <- %s\n", c->cid.pid, n->name, node->path);
+			write_status_bool(f, "PID %u Path Service: %s <- %s\n", c->cid.pid, n->name, node->path);
 		}
 		return true;
 	});
 
-	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
-	fprintf(f, "\n");
+	write_status(f, "--- PRIVATE SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
+	write_status(f, "\n");
 
-	fprintf(f, "--- PROCESSES ---\n");
+	write_status(f, "--- PROCESSES ---\n");
 	for (pid = 0; pid <= max_pid; pid++)
 	{
 		int mem_count, plain_count, file_count, port_count, sig_count, event_count, common_port_count;
@@ -684,17 +693,17 @@ fprint_status(FILE *f)
 			}
 		}
 
-		fprintf(f, "pid: %u   ", pid);
+		write_status(f, "pid: %u   ", pid);
 
-		fprintf(f, "memory %u   plain %u   port %u   file %u   signal %u   event %u   common %u\n",
+		write_status(f, "memory %u   plain %u   port %u   file %u   signal %u   event %u   common %u\n",
 				mem_count, plain_count, port_count, file_count, sig_count, event_count, common_port_count);
 		LIST_FOREACH(c, &pdata->clients, client_pid_entry) {
-			fprintf(f, "  %s: %s\n", notify_type_name(notify_get_type(c->state_and_type)), c->name_info->name);
+			write_status(f, "  %s: %s\n", notify_type_name(notify_get_type(c->state_and_type)), c->name_info->name);
 		}
 
-		fprintf(f, "\n");
+		write_status(f, "\n");
 	}
-	fprintf(f, "\n");
+	write_status(f, "-- END --\n");
 }
 
 static void
@@ -1157,9 +1166,9 @@ notifyd_dump_status_on_jetsam(void)
 		return;
 	}
 
-	fprintf(f, "-- JETSAM LOG BEGIN ---\n");
+	write_status(f, "-- JETSAM LOG BEGIN ---\n");
 	fprint_quick_status(f);
-	fprintf(f, "-- JETSAM LOG END ---\n");
+	write_status(f, "-- JETSAM LOG END ---\n");
 	fclose(f);
 }
 

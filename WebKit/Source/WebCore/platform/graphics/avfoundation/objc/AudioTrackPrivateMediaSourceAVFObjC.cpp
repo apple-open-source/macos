@@ -29,7 +29,6 @@
 #if ENABLE(MEDIA_SOURCE)
 
 #include "AVTrackPrivateAVFObjCImpl.h"
-#include "SourceBufferPrivateAVFObjC.h"
 
 namespace WebCore {
 
@@ -41,8 +40,6 @@ AudioTrackPrivateMediaSourceAVFObjC::AudioTrackPrivateMediaSourceAVFObjC(AVAsset
 
 void AudioTrackPrivateMediaSourceAVFObjC::resetPropertiesFromTrack()
 {
-    m_trackID = m_impl->trackID();
-
     setKind(m_impl->audioKind());
     setId(m_impl->id());
     setLabel(m_impl->label());

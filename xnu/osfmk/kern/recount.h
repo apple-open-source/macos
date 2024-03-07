@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Apple Inc.  All rights reserved.
+// Copyright (c) 2021-2023 Apple Inc.  All rights reserved.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_START@
 //
@@ -32,6 +32,20 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 #include <sys/_types/_size_t.h>
+
+#if CONFIG_SPTM
+// Track counters in secure execution contexts when the SPTM is available.
+#define RECOUNT_SECURE_METRICS 1
+#else // CONFIG_SPTM
+#define RECOUNT_SECURE_METRICS 0
+#endif // !CONFIG_SPTM
+
+#if __arm64__
+// Only ARM64 keeps precise track of user/system based on thread state.
+#define RECOUNT_THREAD_BASED_LEVEL 1
+#else // __arm64__
+#define RECOUNT_THREAD_BASED_LEVEL 0
+#endif // !__arm64__
 
 __BEGIN_DECLS;
 
@@ -86,6 +100,20 @@ typedef const struct recount_plan {
 	        .rpl_topo = _topo, \
 	}
 
+// Represents exception levels that Recount can track metrics during.
+__enum_closed_decl(recount_level_t, unsigned int, {
+	// Exception level is transitioning from the kernel.
+	// Must be first, as this is the initial state.
+	RCT_LVL_KERNEL,
+	// Exception level is transitioning from user space.
+	RCT_LVL_USER,
+#if RECOUNT_SECURE_METRICS
+	// Exception level is transitioning from secure execution.
+	RCT_LVL_SECURE,
+#endif // RECOUNT_SECURE_METRICS
+	RCT_LVL_COUNT,
+});
+
 // The current objects with resource accounting policies.
 RECOUNT_PLAN_DECLARE(recount_thread_plan);
 RECOUNT_PLAN_DECLARE(recount_task_plan);
@@ -99,22 +127,24 @@ RECOUNT_PLAN_DECLARE(recount_processor_plan);
 // single writer.
 struct recount_track {
 	// Used to synchronize updates so multiple values appear to be updated atomically.
-	uint32_t rt_sync;
 	uint32_t rt_pad;
+	uint32_t rt_sync;
 
 	// The CPU usage metrics currently supported by Recount.
 	struct recount_usage {
-		// Basic time tracking, in units of Mach time.
-		uint64_t ru_user_time_mach;
-		uint64_t ru_system_time_mach;
+		struct recount_metrics {
+			// Time tracking, in Mach timebase units.
+			uint64_t rm_time_mach;
 #if CONFIG_PERVASIVE_CPI
-		// CPU performance counter metrics, when available.
-		uint64_t ru_cycles;
-		uint64_t ru_instructions;
+			// CPU performance counter metrics, when available.
+			uint64_t rm_instructions;
+			uint64_t rm_cycles;
 #endif // CONFIG_PERVASIVE_CPI
+		} ru_metrics[RCT_LVL_COUNT];
+
 #if CONFIG_PERVASIVE_ENERGY
 		// CPU energy in nanojoules, when available.
-		// This metric is updated out-of-band from the others because it can only be sampled by ApplePMGR through CLPC.
+		// This is not a "metric" because it is sampled out-of-band by ApplePMGR through CLPC.
 		uint64_t ru_energy_nj;
 #endif // CONFIG_PERVASIVE_ENERGY
 	} rt_usage;
@@ -159,6 +189,12 @@ struct recount_times_mach {
 	uint64_t rtm_user;
 	uint64_t rtm_system;
 };
+
+struct recount_times_mach recount_usage_times_mach(struct recount_usage *usage);
+uint64_t recount_usage_system_time_mach(struct recount_usage *usage);
+uint64_t recount_usage_time_mach(struct recount_usage *usage);
+uint64_t recount_usage_cycles(struct recount_usage *usage);
+uint64_t recount_usage_instructions(struct recount_usage *usage);
 
 // Access another thread's usage data.
 void recount_thread_usage(struct thread *thread, struct recount_usage *usage);
@@ -232,6 +268,10 @@ struct recount_thread {
 	struct recount_track *rth_lifetime;
 	// Time spent by this thread running interrupt handlers.
 	uint64_t rth_interrupt_time_mach;
+#if RECOUNT_THREAD_BASED_LEVEL
+	// The current level this thread is executing in.
+	recount_level_t rth_current_level;
+#endif // RECOUNT_THREAD_BASED_LEVEL
 };
 void recount_thread_init(struct recount_thread *th);
 void recount_thread_copy(struct recount_thread *dst,
@@ -308,6 +348,9 @@ struct recount_processor {
 	struct recount_snap rpr_snap;
 	struct recount_track rpr_active;
 	struct recount_snap rpr_interrupt_snap;
+#if MACH_ASSERT
+	recount_level_t rpr_current_level;
+#endif // MACH_ASSERT
 	uint64_t rpr_interrupt_time_mach;
 	uint64_t rpr_idle_time_mach;
 	_Atomic uint64_t rpr_state_last_abs_time;
@@ -369,6 +412,20 @@ void recount_leave_interrupt(void);
 void recount_enter_intel_interrupt(x86_saved_state_t *state);
 void recount_leave_intel_interrupt(void);
 #endif // __x86_64__
+
+#endif // MACH_KERNEL_PRIVATE
+
+#if XNU_KERNEL_PRIVATE
+
+#if RECOUNT_SECURE_METRICS
+// Handle guarded mode updates.
+void recount_enter_secure(void);
+void recount_leave_secure(void);
+#endif // RECOUNT_SECURE_METRICS
+
+#endif // XNU_KERNEL_PRIVATE
+
+#if MACH_KERNEL_PRIVATE
 
 // Hooks for each processor idling, running, and onlining.
 void recount_processor_idle(struct recount_processor *pr,

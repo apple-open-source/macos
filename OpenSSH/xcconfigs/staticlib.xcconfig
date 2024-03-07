@@ -1,3 +1,0 @@
-//  Copyright © 2022 Apple Inc. All rights reserved.
-STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = static
-SKIP_INSTALL = YES

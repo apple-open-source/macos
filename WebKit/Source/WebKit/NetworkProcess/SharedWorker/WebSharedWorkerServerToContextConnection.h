@@ -33,6 +33,7 @@
 #include <WebCore/SharedWorkerObjectIdentifier.h>
 #include <WebCore/Timer.h>
 #include <WebCore/TransferredMessagePort.h>
+#include <wtf/CheckedRef.h>
 
 namespace WebCore {
 class RegistrableDomain;

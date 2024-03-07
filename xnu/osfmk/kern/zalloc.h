@@ -579,7 +579,7 @@ __kalloc_type_impl(
 	kalloc_type_view_t  kt_view,
 	zalloc_flags_t      flags)
 {
-	void *addr = (kalloc_type_impl)(kt_view, flags);
+	void *__unsafe_indexable addr = (kalloc_type_impl)(kt_view, flags);
 	if (flags & Z_NOFAIL) {
 		__builtin_assume(addr != NULL);
 	}
@@ -1603,6 +1603,7 @@ __enum_decl(zone_reserved_id_t, zone_id_t, {
 	ZONE_ID_VM_PAGES,
 	ZONE_ID_IPC_PORT,
 	ZONE_ID_IPC_PORT_SET,
+	ZONE_ID_IPC_KMSG,
 	ZONE_ID_IPC_VOUCHERS,
 	ZONE_ID_PROC_TASK,
 	ZONE_ID_THREAD,
@@ -1813,6 +1814,23 @@ extern zone_t   zone_create_ext(
 extern void     zone_id_require(
 	zone_id_t               zone_id,
 	vm_size_t               elem_size,
+	void                   *addr __unsafe_indexable);
+
+/*!
+ * @function zone_id_require_aligned
+ *
+ * @abstract
+ * Requires for a given pointer to belong to the specified zone, by ID and size.
+ *
+ * @discussion
+ * Similar to @c zone_id_require() but does more checks such as whether the
+ * element is properly aligned.
+ *
+ * @param zone_id       the zone ID the address needs to belong to.
+ * @param addr          the element address to check.
+ */
+extern void     zone_id_require_aligned(
+	zone_id_t               zone_id,
 	void                   *addr __unsafe_indexable);
 
 /* Make zone exhaustible, to be called from the zone_create_ext() setup hook */

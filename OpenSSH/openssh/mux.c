@@ -1,4 +1,4 @@
-/* $OpenBSD: mux.c,v 1.99 2023/08/04 06:32:40 dtucker Exp $ */
+/* $OpenBSD: mux.c,v 1.101 2023/11/23 03:37:05 dtucker Exp $ */
 /*
  * Copyright (c) 2002-2008 Damien Miller <djm@openbsd.org>
  *
@@ -1480,7 +1480,9 @@ mux_client_read(int fd, struct sshbuf *b, size_t need, int timeout_ms)
 			case EWOULDBLOCK:
 #endif
 			case EAGAIN:
-				if (waitrfd(fd, &timeout_ms) == -1)
+				if (waitrfd(fd, &timeout_ms,
+				    &muxclient_terminate) == -1 &&
+				    errno != EINTR)
 					return -1;	/* timeout */
 				/* FALLTHROUGH */
 			case EINTR:
@@ -2276,7 +2278,7 @@ muxclient(const char *path)
 	switch (options.control_master) {
 	case SSHCTL_MASTER_AUTO:
 	case SSHCTL_MASTER_AUTO_ASK:
-		debug("auto-mux: Trying existing master");
+		debug("auto-mux: Trying existing master at '%s'", path);
 		/* FALLTHROUGH */
 	case SSHCTL_MASTER_NO:
 		break;

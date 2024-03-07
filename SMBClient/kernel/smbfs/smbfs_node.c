@@ -915,6 +915,20 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
     SMB_MALLOC_TYPE(np, struct smbnode, Z_WAITOK_ZERO);
     
     hashval = smbfs_hash(share, (fap ? fap->fa_ino: 0), name, nmlen);
+    if ((SS_TO_SESSION(smp->sm_share)->session_misc_flags & SMBV_HAS_FILEIDS) &&
+        (dnp) &&
+        (dnp->n_ino == hashval)) {
+        /*
+         * rdar://110992237 Protect ourselves from panic when a parent
+         * and a child have the same File ID due to server bug
+         * File ID should be unique
+         * Parent node is already locked at this point
+         * and child will be locked when found in smb_hashget()
+         */
+        SMBERROR("Server returned the same ID for parent <%s> and child <%s> of <0x%llx>",
+                 dnp->n_name, name, hashval);
+        return EIO;
+    }
 
 	if ((*vpp = smb_hashget(smp, dnp, hashval, name, nmlen,
 							share->ss_maxfilenamelen, 0, NULL)) != NULL) {
@@ -1130,12 +1144,14 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
 		(np->n_reparse_tag != IO_REPARSE_TAG_DFS) && 
         (np->n_reparse_tag != IO_REPARSE_TAG_SYMLINK) &&
         (np->n_reparse_tag != IO_REPARSE_TAG_DEDUP) &&
-        (np->n_reparse_tag != IO_REPARSE_TAG_STORAGE_SYNC))  {
+        (np->n_reparse_tag != IO_REPARSE_TAG_STORAGE_SYNC) &&
+        (np->n_reparse_tag != IO_REPARSE_TAG_MOUNT_POINT))  {
         SMBWARNING_LOCK(np, "%s - unknown reparse point tag 0x%x\n", np->n_name, np->n_reparse_tag);
 	}
 	
 	if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) && 
-		(np->n_reparse_tag == IO_REPARSE_TAG_DFS)) {
+        ((np->n_reparse_tag == IO_REPARSE_TAG_DFS) ||
+        (np->n_reparse_tag == IO_REPARSE_TAG_MOUNT_POINT))) {
 		struct vnode_trigger_param vtp;
 
 		bcopy(&vfsp, &vtp.vnt_params, sizeof(vfsp));
@@ -5465,7 +5481,6 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
 	int need_close_files = 0, skip_lease_break = 0;
     int is_locked = 0;
     int break_pending = 0;
-	uint32_t ret_lease_state = 0;
     struct smb2_close_rq close_parms = {0};
     SMBFID fid = 0; 
 
@@ -5674,9 +5689,17 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
         }
 
         if ((np->n_lease.lease_state == SMB2_LEASE_NONE) || (need_close_files)) {
-            /* Remove the lease right away; Hash table is already locked! */
-            warning = smbfs_add_update_lease(share, vp, &np->n_lease, SMBFS_LEASE_REMOVE, 0,
+            /* Remove the lease */
+            /* rdar://108758378 unlock the hash table to prevent a deadlock
+            * with smbfs_add_update_lease() called from smbfs_close() which
+            * tries to lock the locks in the reverse order
+            * let smbfs_add_update_lease() handle the hash table lock
+            */
+            lck_mtx_unlock(&global_Lease_hash_lock);
+            warning = smbfs_add_update_lease(share, vp, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
                                              "LeaseBreakCloseFile");
+            /* smbfs_add_update_lease() unlocks the hash table if it locks it */
+            is_locked = 0;
             if (warning) {
                 /* Shouldnt ever happen */
                 SMBERROR_LOCK(np, "smbfs_add_update_lease remove failed <%d> on <%s>\n",
@@ -5901,16 +5924,22 @@ smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context)
         (lease_rqp->flags & SMB2_NOTIFY_BREAK_LEASE_FLAG_ACK_REQUIRED)) {
 		//lck_mtx_lock(&share->ss_shlock); /* this causes a deadlock... */
 		/*
-		 * Note that the Lease Break Ack request does need to be signed if
-		 * signing is being used.
+		 * Notes
+         * 1. Lease Break Ack request does need to be signed if signing is
+         *    being used.
+         * 2. clear_pending_break() is only used if the file is being closed
+         *    and we need to wait for the close request/reply to finish. A
+         *    close acts as an implicit lease break ack so we should never be
+         *    calling this code. Also means we should never need to call
+         *    clear_pending_break() in smb2_smb_lease_break_ack()
+         * 3. <111804707> Do the lease break ack request/reply using the rw
+         *    helper threads so we can continue processing other lease breaks
 		 */
-		error = smb2_smb_lease_break_ack(share,
-                                         lease_rqp->received_iod,
-										 lease_rqp->lease_key_hi,
-										 lease_rqp->lease_key_low,
-										 lease_rqp->new_lease_state,
-										 &ret_lease_state,
-										 context);
+		error = smb2_smb_lease_break_ack_queue(share, lease_rqp->received_iod,
+                                               lease_rqp->lease_key_hi,
+                                               lease_rqp->lease_key_low,
+                                               lease_rqp->new_lease_state,
+                                               context);
 		//lck_mtx_unlock(&share->ss_shlock);
 	}
 

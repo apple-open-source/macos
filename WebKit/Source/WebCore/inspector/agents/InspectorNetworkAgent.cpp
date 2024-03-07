@@ -1049,7 +1049,7 @@ Protocol::ErrorStringOr<String> InspectorNetworkAgent::getSerializedCertificate(
         return makeUnexpected("Missing certificate of resource for given requestId"_s);
 
     WTF::Persistence::Encoder encoder;
-    WTF::Persistence::Coder<WebCore::CertificateInfo>::encode(encoder, certificate.value());
+    WTF::Persistence::Coder<WebCore::CertificateInfo>::encodeForPersistence(encoder, certificate.value());
     return base64EncodeToString(encoder.buffer(), encoder.bufferSize());
 }
 
@@ -1158,10 +1158,8 @@ bool InspectorNetworkAgent::shouldInterceptRequest(const ResourceLoader& loader)
     if (!m_interceptionEnabled)
         return false;
 
-#if ENABLE(SERVICE_WORKER)
     if (loader.options().serviceWorkerRegistrationIdentifier)
         return false;
-#endif
 
     return shouldIntercept(loader.url(), Protocol::Network::NetworkStage::Request);
 }

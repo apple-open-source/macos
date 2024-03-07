@@ -1,6 +1,7 @@
 
 #if OCTAGON
 
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/OctagonStateMachine.h"
 #import "keychain/ot/OctagonStateMachineObservers.h"
 #import "keychain/ot/ObjCImprovements.h"
@@ -592,37 +593,76 @@ format,                                                                         
     [self.nextStateMachineCycleOperation waitUntilFinished];
 }
 
+- (NSError* _Nullable)timeoutErrorForState:(OctagonState*)state
+{
+    NSNumber* number = self.stateNumberMap[state];
+    if(number != nil) {
+        return [NSError errorWithDomain:self.unexpectedStateErrorDomain
+                                   code:[number integerValue]
+                            description:[NSString stringWithFormat:@"Current state: '%@'", state]];
+    }
+
+    return nil;
+}
+
 - (void)handleExternalRequest:(OctagonStateTransitionRequest<CKKSResultOperation<OctagonStateTransitionOperationProtocol>*>*)request
+                 startTimeout:(dispatch_time_t)timeout
 {
     dispatch_sync(self.queue, ^{
         [self.stateMachineRequests addObject:request];
         [self _onqueuePokeStateMachine];
+
+        if(timeout != 0 && timeout != DISPATCH_TIME_FOREVER) {
+            WEAKIFY(self);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.queue, ^{
+                STRONGIFY(self);
+                [request onqueueHandleStartTimeout:[self timeoutErrorForState:self.currentState]];
+            });
+        }
     });
 }
 
-
 - (void)registerStateTransitionWatcher:(OctagonStateTransitionWatcher*)watcher
+                          startTimeout:(dispatch_time_t)timeout
 {
     dispatch_sync(self.queue, ^{
         [self.stateMachineWatchers addObject: watcher];
         [self _onqueuePokeStateMachine];
+
+        if(timeout != 0 && timeout != DISPATCH_TIME_FOREVER) {
+            WEAKIFY(self);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.queue, ^{
+                STRONGIFY(self);
+                [watcher onqueueHandleStartTimeout:[self timeoutErrorForState:self.currentState]];
+            });
+        }
     });
 }
 
 - (void)registerMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher
+                            startTimeout:(dispatch_time_t)timeout
 {
     dispatch_sync(self.queue, ^{
-        [self _onqueueRegisterMultiStateArrivalWatcher:watcher];
+        [self _onqueueRegisterMultiStateArrivalWatcher:watcher startTimeout:timeout];
     });
 }
 
 - (void)_onqueueRegisterMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher
+                                    startTimeout:(dispatch_time_t)timeout
 {
     if([watcher.states containsObject:self.currentState]) {
         [watcher onqueueEnterState:self.currentState];
     } else {
         [self.stateMachineWatchers addObject:watcher];
         [self _onqueuePokeStateMachine];
+
+        if(timeout != 0 && timeout != DISPATCH_TIME_FOREVER) {
+            WEAKIFY(self);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.queue, ^{
+                STRONGIFY(self);
+                [watcher onqueueHandleStartTimeout:[self timeoutErrorForState:self.currentState]];
+            });
+        }
     }
 }
 
@@ -641,9 +681,9 @@ format,                                                                         
     OctagonStateTransitionRequest* request = [[OctagonStateTransitionRequest alloc] init:name
                                                                             sourceStates:sourceStates
                                                                              serialQueue:self.queue
-                                                                                 timeout:30*NSEC_PER_SEC
                                                                             transitionOp:op];
-    [self handleExternalRequest:request];
+    [self handleExternalRequest:request
+                   startTimeout:30*NSEC_PER_SEC];
 
     WEAKIFY(self);
     CKKSResultOperation* callback = [CKKSResultOperation named:[NSString stringWithFormat: @"%@-callback", name]
@@ -689,20 +729,18 @@ format,                                                                         
         [self.lockStateTracker recheck];
     }
 
-    // Note that this has an initial timeout of 30s, and isn't configurable.
     OctagonStateTransitionRequest* request = [[OctagonStateTransitionRequest alloc] init:name
                                                                             sourceStates:sourceStates
                                                                              serialQueue:self.queue
-                                                                                 timeout:30 * NSEC_PER_SEC
                                                                             transitionOp:initialTransitionOp];
 
     OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:[NSString stringWithFormat:@"watcher-%@", name]
                                                                                   stateMachine:self
                                                                                          path:path
                                                                                initialRequest:request];
-    [watcher timeout:self.timeout?:120*NSEC_PER_SEC];
 
-    [self registerStateTransitionWatcher:watcher];
+    [self registerStateTransitionWatcher:watcher
+                            startTimeout:self.timeout?:120*NSEC_PER_SEC];
 
     CKKSResultOperation* replyOp = [CKKSResultOperation named:[NSString stringWithFormat: @"%@-callback", name]
                                           withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
@@ -716,8 +754,8 @@ format,                                                                         
     [replyOp addDependency:watcher.result];
     [self.operationQueue addOperation:replyOp];
 
-
-    [self handleExternalRequest:request];
+    [self handleExternalRequest:request
+                   startTimeout:self.timeout?:120*NSEC_PER_SEC];
     return replyOp;
 }
 

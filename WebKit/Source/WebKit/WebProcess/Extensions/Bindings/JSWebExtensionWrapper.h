@@ -29,12 +29,29 @@
 
 #include "Logging.h"
 #include "WebFrame.h"
+#include "WebPage.h"
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <JavaScriptCore/JavaScriptCore.h>
 #include <wtf/WeakPtr.h>
 
 OBJC_CLASS JSValue;
 OBJC_CLASS NSString;
+
+#ifdef __OBJC__
+
+@interface JSValue (WebKitExtras)
+- (NSString *)_toJSONString;
+- (NSString *)_toSortedJSONString;
+
+@property (nonatomic, readonly, getter=_isFunction) BOOL _function;
+@property (nonatomic, readonly, getter=_isDictionary) BOOL _dictionary;
+@property (nonatomic, readonly, getter=_isRegularExpression) BOOL _regularExpression;
+@property (nonatomic, readonly, getter=_isThenable) BOOL _thenable;
+
+- (void)_awaitThenableResolutionWithCompletionHandler:(void (^)(JSValue *result, JSValue *error))completionHandler;
+@end
+
+#endif // __OBJC__
 
 namespace WebKit {
 
@@ -76,6 +93,7 @@ public:
 
 private:
 #if PLATFORM(COCOA)
+    WebExtensionCallbackHandler(JSValue *callbackFunction);
     WebExtensionCallbackHandler(JSContextRef, JSObjectRef resolveFunction, JSObjectRef rejectFunction);
     WebExtensionCallbackHandler(JSContextRef, JSObjectRef callbackFunction, WebExtensionAPIRuntimeBase&);
     WebExtensionCallbackHandler(JSContextRef, WebExtensionAPIRuntimeBase&);
@@ -87,27 +105,32 @@ private:
 #endif
 };
 
-enum class NullStringPolicy {
+enum class NullStringPolicy : uint8_t {
     NoNullString,
     NullAsNullString,
     NullAndUndefinedAsNullString
 };
 
-enum class NullOrEmptyString {
+enum class NullOrEmptyString : bool {
     NullStringAsNull,
     NullStringAsEmptyString
 };
 
-inline WebFrame* toWebFrame(JSContextRef context)
+enum class NullValuePolicy : bool {
+    NotAllowed,
+    Allowed,
+};
+
+inline RefPtr<WebFrame> toWebFrame(JSContextRef context)
 {
     ASSERT(context);
     return WebFrame::frameForContext(JSContextGetGlobalContext(context));
 }
 
-inline WebPage* toWebPage(JSContextRef context)
+inline RefPtr<WebPage> toWebPage(JSContextRef context)
 {
     ASSERT(context);
-    auto* frame = toWebFrame(context);
+    auto frame = toWebFrame(context);
     return frame ? frame->page() : nullptr;
 }
 
@@ -144,11 +167,40 @@ RefPtr<WebExtensionCallbackHandler> toJSCallbackHandler(JSContextRef, JSValueRef
 
 id toNSObject(JSContextRef, JSValueRef, Class containingObjectsOfClass = Nil);
 NSString *toNSString(JSContextRef, JSValueRef, NullStringPolicy = NullStringPolicy::NullAndUndefinedAsNullString);
-NSDictionary *toNSDictionary(JSContextRef, JSValueRef);
+NSDictionary *toNSDictionary(JSContextRef, JSValueRef, NullValuePolicy = NullValuePolicy::NotAllowed);
+
+inline NSArray *toNSArray(JSContextRef context, JSValueRef value, Class containingObjectsOfClass = NSObject.class)
+{
+    ASSERT(containingObjectsOfClass);
+    return toNSObject(context, value, containingObjectsOfClass);
+}
 
 inline JSValue *toJSValue(JSContextRef context, JSValueRef value)
 {
+    ASSERT(context);
+
+    if (!value)
+        return nil;
+
     return [JSValue valueWithJSValueRef:value inContext:[JSContext contextWithJSGlobalContextRef:JSContextGetGlobalContext(context)]];
+}
+
+inline JSValue *toWindowObject(JSContextRef context, WebFrame& frame)
+{
+    ASSERT(context);
+
+    auto frameContext = frame.jsContext();
+    if (!frameContext)
+        return nil;
+
+    return toJSValue(context, JSContextGetGlobalObject(frameContext));
+}
+
+inline JSValue *toWindowObject(JSContextRef context, WebPage& page)
+{
+    ASSERT(context);
+
+    return toWindowObject(context, page.mainWebFrame());
 }
 
 inline JSValueRef toJSValueRef(JSContextRef context, id object)
@@ -193,23 +245,10 @@ inline JSValueRef toJSValueRefOrJSNull(JSContextRef context, id object)
 JSValueRef deserializeJSONString(JSContextRef, NSString *jsonString);
 NSString *serializeJSObject(JSContextRef, JSValueRef, JSValueRef* exception);
 
+inline bool isDictionary(JSContextRef context, JSValueRef value) { return toJSValue(context, value)._isDictionary; }
+
 #endif // __OBJC__
 
 } // namespace WebKit
-
-#ifdef __OBJC__
-
-@interface JSValue (WebKitExtras)
-- (NSString *)_toJSONString;
-- (NSString *)_toSortedJSONString;
-
-@property (nonatomic, readonly, getter=_isFunction) BOOL _function;
-@property (nonatomic, readonly, getter=_isRegularExpression) BOOL _regularExpression;
-@property (nonatomic, readonly, getter=_isThenable) BOOL _thenable;
-
-- (void)_awaitThenableResolutionWithCompletionHandler:(void (^)(JSValue *result, JSValue *error))completionHandler;
-@end
-
-#endif // __OBJC__
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

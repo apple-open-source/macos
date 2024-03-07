@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,7 +31,7 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/wall/ttymsg.c,v 1.12 2006/01/27 08:52:14 ume Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 __attribute__((__used__))
@@ -64,10 +62,10 @@ static const char sccsid[] = "@(#)ttymsg.c	8.2 (Berkeley) 11/16/93";
 const char *
 ttymsg(struct iovec *iov, int iovcnt, const char *line, int tmout)
 {
-	struct iovec localiov[7];
+	struct iovec localiov[TTYMSG_IOV_MAX];
 	ssize_t left, wret;
 	int cnt, fd;
-	static char device[MAXNAMLEN] = _PATH_DEV;
+	char device[MAXNAMLEN] = _PATH_DEV;
 	static char errbuf[1024];
 	char *p;
 	int forked;
@@ -76,13 +74,8 @@ ttymsg(struct iovec *iov, int iovcnt, const char *line, int tmout)
 	if (iovcnt > (int)(sizeof(localiov) / sizeof(localiov[0])))
 		return ("too many iov's (change code in wall/ttymsg.c)");
 
+	strlcat(device, line, sizeof(device));
 	p = device + sizeof(_PATH_DEV) - 1;
-#ifdef __APPLE__
-	/* radar:13145432 */
-	strlcpy(p, line, sizeof(device) - (sizeof(_PATH_DEV) - 1));
-#else
-	strlcpy(p, line, sizeof(device));
-#endif
 	if (strncmp(p, "pts/", 4) == 0)
 		p += 4;
 	if (strchr(p, '/') != NULL) {

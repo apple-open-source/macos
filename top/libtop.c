@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <sys/types.h>
+#include <sys/kern_memorystatus.h>
 #include <mach/bootstrap.h>
 #include <mach/host_priv.h>
 #include <mach/mach_error.h>
@@ -1580,6 +1581,19 @@ libtop_pinfo_update_vm_info(task_read_t task, libtop_pinfo_t *pinfo)
 }
 
 static kern_return_t
+libtop_pinfo_update_jetsam_info(task_read_t task, libtop_pinfo_t *pinfo)
+{
+	memorystatus_priority_entry_t entry = { 0 };
+	ssize_t size = memorystatus_control(MEMORYSTATUS_CMD_GET_PRIORITY_LIST, pinfo->psamp.pid, 0, &entry, sizeof(entry));
+	if (size != sizeof(entry)) {
+		return KERN_FAILURE;
+	}
+	pinfo->psamp.jetsam_priority = entry.priority;
+
+	return KERN_SUCCESS;
+}
+
+static kern_return_t
 libtop_pinfo_update_cpu_usage(task_read_t task, libtop_pinfo_t* pinfo, int *state) {
 	kern_return_t kr;
 	thread_act_array_t threads;
@@ -1948,6 +1962,8 @@ libtop_p_task_update(task_read_t task, boolean_t reg)
 	pinfo->psamp.p_rshrd = pinfo->psamp.rshrd;
 	pinfo->psamp.p_empty = pinfo->psamp.empty;
 
+	pinfo->psamp.p_jetsam_priority = pinfo->psamp.jetsam_priority;
+
 	/* Clear sizes in preparation for determining their current values. */
 	//pinfo->psamp.rprvt = 0;
 	//pinfo->psamp.vprvt = 0;
@@ -2063,6 +2079,16 @@ libtop_p_task_update(task_read_t task, boolean_t reg)
 	 * Get VM info (anonymous, purgeable, and compressed memory).
 	 */
 	kr = libtop_pinfo_update_vm_info(task, pinfo);
+
+	/*
+	 * Get jetsam info (jetsam priority).
+	 */
+	(void)libtop_pinfo_update_jetsam_info(task, pinfo);
+
+	if (pinfo->psamp.p_seq == 0) {
+		/* Set initial values. */
+		pinfo->psamp.b_jetsam_priority = pinfo->psamp.jetsam_priority;
+	}
 
 	libtop_p_wq_update(pinfo);
 	

@@ -176,6 +176,7 @@ struct nfs_conf_client config =
 #define ALTF_NOOPAQUE_AUTH      0x02000000
 #define ALTF_CALLUMNT           0x08000000
 #define ALTF_LOCALHOST          0x10000000
+#define ALTF_SKIP_RENEW         0x20000000
 
 /* standard and value-setting options */
 struct mntopt mopts[] = {
@@ -187,6 +188,8 @@ struct mntopt mopts[] = {
 	{ "multilabel", 0, MNT_MULTILABEL, 0 },
 	{ "acdirmax", 0, ALTF_ATTRCACHE_VAL, 1 },
 	{ "acdirmin", 0, ALTF_ATTRCACHE_VAL, 1 },
+	{ "acrootdirmax", 0, ALTF_ATTRCACHE_VAL, 1 },
+	{ "acrootdirmin", 0, ALTF_ATTRCACHE_VAL, 1 },
 	{ "acregmax", 0, ALTF_ATTRCACHE_VAL, 1 },
 	{ "acregmin", 0, ALTF_ATTRCACHE_VAL, 1 },
 	{ "actimeo", 0, ALTF_ATTRCACHE_VAL, 1 },
@@ -253,6 +256,7 @@ struct mntopt mopts_switches[] = {
 	{ "udp", 0, ALTF_UDP, 1 },
 	{ "callumnt", 0, ALTF_CALLUMNT, 1 },
 	{ "localhost", 0, ALTF_LOCALHOST, 1 },
+	{ "skip_renew", 0, ALTF_SKIP_RENEW, 1 },
 	{ NULL }
 };
 /* inverse of mopts_switches (set up at runtime) */
@@ -1112,6 +1116,16 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		xb_add_32(error, &xb, options.readlink_nocache);
 	}
 
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN)) {
+		xb_add_32(error, &xb, options.acrootdirmin.tv_sec);
+		xb_add_32(error, &xb, options.acrootdirmin.tv_nsec);
+	}
+
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX)) {
+		xb_add_32(error, &xb, options.acrootdirmax.tv_sec);
+		xb_add_32(error, &xb, options.acrootdirmax.tv_nsec);
+	}
+
 	xb_build_done(error, &xb);
 
 	/* update opaque counts */
@@ -1444,14 +1458,20 @@ handle_mntopts(char *opts)
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MAX);
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN);
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX);
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN);
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX);
 				options.acregmin.tv_sec = num;
 				options.acregmax.tv_sec = num;
 				options.acdirmin.tv_sec = num;
 				options.acdirmax.tv_sec = num;
+				options.acrootdirmin.tv_sec = num;
+				options.acrootdirmax.tv_sec = num;
 				options.acregmin.tv_nsec = 0;
 				options.acregmax.tv_nsec = 0;
 				options.acdirmin.tv_nsec = 0;
 				options.acdirmax.tv_nsec = 0;
+				options.acrootdirmin.tv_nsec = 0;
+				options.acrootdirmax.tv_nsec = 0;
 			}
 		}
 		if ((p2 = getmntoptstr(mop, "acregmin"))) {
@@ -1492,6 +1512,26 @@ handle_mntopts(char *opts)
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX);
 				options.acdirmax.tv_sec = num;
 				options.acdirmax.tv_nsec = 0;
+			}
+		}
+		if ((p2 = getmntoptstr(mop, "acrootdirmin"))) {
+			num = getmntoptnum(mop, "acrootdirmin");
+			if (num < 0) {
+				warnx("illegal acrootdirmin value -- %s", p2);
+			} else {
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN);
+				options.acrootdirmin.tv_sec = num;
+				options.acrootdirmin.tv_nsec = 0;
+			}
+		}
+		if ((p2 = getmntoptstr(mop, "acrootdirmax"))) {
+			num = getmntoptnum(mop, "acrootdirmax");
+			if (num < 0) {
+				warnx("illegal acrootdirmax value -- %s", p2);
+			} else {
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX);
+				options.acrootdirmax.tv_sec = num;
+				options.acrootdirmax.tv_nsec = 0;
 			}
 		}
 	}
@@ -1921,6 +1961,9 @@ handle_mntopts(char *opts)
 	if (altflags & ALTF_LOCALHOST) {
 		options.force_localhost = 1;
 	}
+	if (altflags & ALTF_SKIP_RENEW) {
+		SETFLAG(NFS_MFLAG_SKIP_RENEW, 1);
+	}
 	freemntopts(mop);
 
 	/* finally do negative form of switch options */
@@ -1944,14 +1987,20 @@ handle_mntopts(char *opts)
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MAX);
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN);
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX);
+		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN);
+		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX);
 		options.acregmin.tv_sec = 0;
 		options.acregmax.tv_sec = 0;
 		options.acdirmin.tv_sec = 0;
 		options.acdirmax.tv_sec = 0;
+		options.acrootdirmin.tv_sec = 0;
+		options.acrootdirmax.tv_sec = 0;
 		options.acregmin.tv_nsec = 0;
 		options.acregmax.tv_nsec = 0;
 		options.acdirmin.tv_nsec = 0;
 		options.acdirmax.tv_nsec = 0;
+		options.acrootdirmin.tv_nsec = 0;
+		options.acrootdirmax.tv_nsec = 0;
 	}
 	if (altflags & ALTF_BG) {
 		opflags &= ~BGRND;
@@ -2023,6 +2072,9 @@ handle_mntopts(char *opts)
 	}
 	if (altflags & ALTF_CALLUMNT) {
 		SETFLAG(NFS_MFLAG_CALLUMNT, 0);
+	}
+	if (altflags & ALTF_SKIP_RENEW) {
+		SETFLAG(NFS_MFLAG_SKIP_RENEW, 0);
 	}
 	freemntopts(mop);
 
@@ -3078,6 +3130,12 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX) || (verbose > 1)) {
 		printf(",acdirmax=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX) ? options.acdirmax.tv_sec : NFS_MAXATTRTIMO);
 	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN) || (verbose > 1)) {
+		printf(",acrootdirmin=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN) ? options.acrootdirmin.tv_sec : NFS_MINATTRTIMO);
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX) || (verbose > 1)) {
+		printf(",acrootdirmax=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX) ? options.acrootdirmax.tv_sec : NFS_MAXATTRTIMO);
+	}
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_DEAD_TIMEOUT) || (verbose > 1)) {
 		printf(",deadtimeout=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_DEAD_TIMEOUT) ? options.dead_timeout.tv_sec : 0);
 	}
@@ -3116,6 +3174,9 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 	}
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOOPAQUE_AUTH) || (verbose > 1)) {
 		printf(",%sopaque_auth", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOOPAQUE_AUTH) ? "no" : "");
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_SKIP_RENEW) || (verbose > 1)) {
+		printf(",%sskip_renew", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_SKIP_RENEW) ? "" : "no");
 	}
 	printf("\n");
 }

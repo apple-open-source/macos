@@ -115,7 +115,7 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
 
 /*!
  @abstract The active errors for the extension.
- @discussion This property returns an array of NSError objects if there are any errors, or an empty array if there are no errors.
+ @discussion This property holds an array of error objects if there are any errors, or an empty array if there are no errors.
  */
 @property (nonatomic, readonly, copy) NSArray<NSError *> *errors;
 
@@ -150,7 +150,11 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
 /*! @abstract The localized extension description. Returns `nil` if there was no description specified. */
 @property (nonatomic, nullable, readonly, copy) NSString *displayDescription;
 
-/*! @abstract The localized extension action label. Returns `nil` if there was no action label specified. */
+/*!
+ @abstract The default localized extension action label. Returns `nil` if there was no default action label specified.
+ @discussion This label serves as a default and should be used to represent the extension in contexts like action sheets or toolbars prior to
+ the extension being loaded into an extension context. Once the extension is loaded, use the `actionForTab:` API to get the tab-specific label.
+ */
 @property (nonatomic, nullable, readonly, copy) NSString *displayActionLabel;
 
 /*! @abstract The extension version. Returns `nil` if there was no version specified. */
@@ -171,11 +175,13 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
 #endif
 
 /*!
- @abstract Returns the action icon for the specified size.
+ @abstract Returns the default action icon for the specified size.
  @param size The size to use when looking up the action icon.
  @result The action icon, or `nil` if the icon was unable to be loaded.
- @discussion This icon should represent the extension in action sheets or toolbars. The returned image will be the best match for the specified
- size that is available in the extension's action icon set. If no matching icon is available, the method will fall back to the extension's icon.
+ @discussion This icon serves as a default and should be used to represent the extension in contexts like action sheets or toolbars prior to
+ the extension being loaded into an extension context. Once the extension is loaded, use the `actionForTab:` API to get the tab-specific icon.
+ The returned image will be the best match for the specified size that is available in the extension's action icon set. If no matching icon is available,
+ the method will fall back to the extension's icon.
  @seealso iconForSize:
  */
 #if TARGET_OS_IPHONE
@@ -201,7 +207,7 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
 
 /*!
  @abstract A Boolean value indicating whether the extension has background content that can run when needed.
- @discussion If this property is `YES`, the extension can run in the background even when no web pages are open.
+ @discussion If this property is `YES`, the extension can run in the background even when no webpages are open.
  */
 @property (nonatomic, readonly) BOOL hasBackgroundContent;
 
@@ -211,6 +217,37 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
  error will be reported on iOS if an attempt is made to load a persistent extension.
  */
 @property (nonatomic, readonly) BOOL backgroundContentIsPersistent;
+
+/*!
+ @abstract A Boolean value indicating whether the extension has script or stylesheet content that can be injected into webpages.
+ @discussion If this property is `YES`, the extension has content that can be injected by matching against the extension's requested match patterns.
+ @note Once the extension is loaded, use the `hasInjectedContent` property on the extension context, as the injectable content can change after the extension is loaded.
+ */
+@property (nonatomic, readonly) BOOL hasInjectedContent;
+
+/*!
+ @abstract A Boolean value indicating whether the extension has an options page.
+ @discussion If this property is `YES`, the extension includes a dedicated options page where users can customize settings.
+ The app should provide access to this page through a user interface element, which can be accessed via `optionsPageURL` on an extension context.
+ */
+@property (nonatomic, readonly) BOOL hasOptionsPage;
+
+/*!
+ @abstract A Boolean value indicating whether the extension provides an alternative to the default new tab page.
+ @discussion If this property is `YES`, the extension can specify a custom page that can be displayed when a new tab is opened in the app, instead of the default new tab page.
+ The app should prompt the user for permission to use the extension's new tab page as the default, which can be accessed via `overrideNewTabPageURL` on an extension context.
+ */
+@property (nonatomic, readonly) BOOL hasOverrideNewTabPage;
+
+/*!
+ @abstract A Boolean value indicating whether the extension includes commands that users can invoke.
+ @discussion If this property is `YES`, the extension contains one or more commands that can be performed by the user. These commands should be accessible via keyboard shortcuts,
+ menu items, or other user interface elements provided by the app. The list of commands can be accessed via `commands` on an extension context, and invoked via `performCommand:`.
+ */
+@property (nonatomic, readonly) BOOL hasCommands;
+
+/*! @abstract A boolean value indicating whether the extension includes rules used for content modification or blocking. */
+@property (nonatomic, readonly) BOOL hasContentModificationRules;
 
 @end
 

@@ -34,7 +34,6 @@
 namespace WTF {
 
 class UnixFileDescriptor {
-    WTF_MAKE_NONCOPYABLE(UnixFileDescriptor);
 public:
     UnixFileDescriptor() = default;
 

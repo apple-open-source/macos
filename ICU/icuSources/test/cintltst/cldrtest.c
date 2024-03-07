@@ -957,7 +957,12 @@ static void VerifyTranslation(void) {
                         uset_close(exemplarSet);
                     }
                 } else {
+#if APPLE_ICU_CHANGES
+// rdar://107210134 (ICU unit test failures due to new locale data)
                     log_err("error ulocdata_getExemplarSet (main) for locale %s returned %s\n", currLoc, u_errorName(exemplarStatus));
+#else
+                    log_err("error ulocdata_getExemplarSet (main) for locale %s returned %s\n", currLoc, u_errorName(errorCode));
+#endif
                 }
                 ulocdata_close(uld);
             } else {
@@ -1410,6 +1415,14 @@ static void TestCoverage(void){
         }
     }
 
+    // ICU-22149: Cover this code path even if the lang bundle is not present
+    UErrorCode localStatus = U_ZERO_ERROR;
+    UChar pattern[20];
+    ulocdata_getLocaleDisplayPattern(uld, pattern, 20, &localStatus);
+    if (U_FAILURE(localStatus) && localStatus != U_MISSING_RESOURCE_ERROR) {
+        log_err("ulocdata_getLocaleDisplayPattern coverage error %s", u_errorName(localStatus));
+    }
+
     sub = ulocdata_getNoSubstitute(uld);
     ulocdata_setNoSubstitute(uld,sub);
     ulocdata_close(uld);
@@ -1430,7 +1443,7 @@ static const TestDelimitersItem testDelimsItems[] = {
 #if APPLE_ICU_CHANGES
 // rdar://
     { "en",    u"“", u"”", u"‘", u"’"},
-    { "es",    u"«", u"»", u"“", u"”"},
+    { "es",    u"“", u"”", u"‘", u"’"},
     { "fr_CA", u"«", u"»", u"”", u"“" },  // Apple data change
     { "de_CH", u"„", u"“", u"‚", u"‘" },  // inherited from de
     { "es_MX", u"“", u"”", u"‘", u"’"}, // inherited from es_419

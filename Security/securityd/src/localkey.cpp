@@ -170,6 +170,18 @@ const CssmData &LocalKey::canonicalDigest()
 	return mDigest.get();
 }
 
+void LocalKey::publicKey(const Context &context, CssmData &pubKeyData)
+{
+    CssmClient::PassThrough ctx(Server::csp());
+    ctx.key(keyValue());
+    CSSM_KEYBLOB_FORMAT format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+    context.getInt(CSSM_ATTRIBUTE_PUBLIC_KEY_FORMAT, format);
+    ctx.add(CSSM_ATTRIBUTE_PUBLIC_KEY_FORMAT, format);
+    CssmData *data = NULL;
+    ctx(CSSM_APPLECSP_PUBKEY, (const void *)NULL, &data);
+    pubKeyData = *data;
+    Server::csp().allocator().free(data);
+}
 
 //
 // Default getKey/getHeader calls - should never be called

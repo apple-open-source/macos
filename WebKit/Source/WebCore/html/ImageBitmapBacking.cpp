@@ -50,11 +50,6 @@ RefPtr<ImageBuffer> ImageBitmapBacking::takeImageBuffer()
     return WTFMove(m_bitmapData);
 }
 
-RefPtr<ImageBuffer> ImageBitmapBacking::takeImageBufferForDifferentThread()
-{
-    return ImageBuffer::sinkIntoBufferForDifferentThread(WTFMove(m_bitmapData));
-}
-
 unsigned ImageBitmapBacking::width() const
 {
     // FIXME: Is this the right width?
@@ -88,15 +83,7 @@ void ImageBitmapBacking::connect(ScriptExecutionContext& context)
     ASSERT(!m_bitmapData);
     if (!m_serializedBitmap)
         return;
-
-    if (is<WorkerGlobalScope>(context) && downcast<WorkerGlobalScope>(context).workerClient()) {
-        auto* client = downcast<WorkerGlobalScope>(context).workerClient();
-        m_bitmapData = client->sinkIntoImageBuffer(WTFMove(m_serializedBitmap));
-    } else if (is<Document>(context)) {
-        ASSERT(downcast<Document>(context).page());
-        m_bitmapData = downcast<Document>(context).page()->chrome().sinkIntoImageBuffer(WTFMove(m_serializedBitmap));
-    } else
-        m_bitmapData = SerializedImageBuffer::sinkIntoImageBuffer(WTFMove(m_serializedBitmap));
+    m_bitmapData = SerializedImageBuffer::sinkIntoImageBuffer(WTFMove(m_serializedBitmap), context.graphicsClient());
 }
 
 } // namespace WebCore

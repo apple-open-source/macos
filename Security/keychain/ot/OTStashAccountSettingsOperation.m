@@ -141,7 +141,15 @@
                                                   contextID:self.deps.contextID
                                                       reply:^(OTAccountSettings* _Nullable settings, NSError* _Nullable error) {
             STRONGIFY(self);
-            if (error != nil) {
+            NSError *stashError;
+            [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
+                    metadata.oldPeerID = metadata.peerID;
+                    return metadata;
+                } error:&stashError];
+            if (stashError != nil) {
+                self.error = stashError;
+                [self.accountSettings setAccountSettings:nil];
+            } else if (error != nil) {
                 self.error = error;
                 [self.accountSettings setAccountSettings:nil];
             } else {

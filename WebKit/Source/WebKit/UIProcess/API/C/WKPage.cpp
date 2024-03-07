@@ -93,6 +93,7 @@
 #include <WebCore/AutoplayEvent.h>
 #include <WebCore/ContentRuleListResults.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
+#include <WebCore/OrganizationStorageAccessPromptQuirk.h>
 #include <WebCore/Page.h>
 #include <WebCore/Permissions.h>
 #include <WebCore/RunJavaScriptParameters.h>
@@ -815,19 +816,19 @@ void WKPageSetPaginationMode(WKPageRef pageRef, WKPaginationMode paginationMode)
     WebCore::Pagination::Mode mode;
     switch (paginationMode) {
     case kWKPaginationModeUnpaginated:
-        mode = WebCore::Unpaginated;
+        mode = WebCore::Pagination::Mode::Unpaginated;
         break;
     case kWKPaginationModeLeftToRight:
-        mode = WebCore::LeftToRightPaginated;
+        mode = WebCore::Pagination::Mode::LeftToRightPaginated;
         break;
     case kWKPaginationModeRightToLeft:
-        mode = WebCore::RightToLeftPaginated;
+        mode = WebCore::Pagination::Mode::RightToLeftPaginated;
         break;
     case kWKPaginationModeTopToBottom:
-        mode = WebCore::TopToBottomPaginated;
+        mode = WebCore::Pagination::Mode::TopToBottomPaginated;
         break;
     case kWKPaginationModeBottomToTop:
-        mode = WebCore::BottomToTopPaginated;
+        mode = WebCore::Pagination::Mode::BottomToTopPaginated;
         break;
     default:
         return;
@@ -838,15 +839,15 @@ void WKPageSetPaginationMode(WKPageRef pageRef, WKPaginationMode paginationMode)
 WKPaginationMode WKPageGetPaginationMode(WKPageRef pageRef)
 {
     switch (toImpl(pageRef)->paginationMode()) {
-    case WebCore::Unpaginated:
+    case WebCore::Pagination::Mode::Unpaginated:
         return kWKPaginationModeUnpaginated;
-    case WebCore::LeftToRightPaginated:
+    case WebCore::Pagination::Mode::LeftToRightPaginated:
         return kWKPaginationModeLeftToRight;
-    case WebCore::RightToLeftPaginated:
+    case WebCore::Pagination::Mode::RightToLeftPaginated:
         return kWKPaginationModeRightToLeft;
-    case WebCore::TopToBottomPaginated:
+    case WebCore::Pagination::Mode::TopToBottomPaginated:
         return kWKPaginationModeTopToBottom;
-    case WebCore::BottomToTopPaginated:
+    case WebCore::Pagination::Mode::BottomToTopPaginated:
         return kWKPaginationModeBottomToTop;
     }
 
@@ -980,7 +981,7 @@ void WKPageSetPageContextMenuClient(WKPageRef pageRef, const WKPageContextMenuCl
         {
             if (m_client.base.version >= 4 && m_client.getContextMenuFromProposedMenuAsync) {
                 auto proposedMenuItems = toAPIObjectVector(proposedMenuVector);
-                auto webHitTestResult = API::HitTestResult::create(hitTestResultData);
+                Ref webHitTestResult = API::HitTestResult::create(hitTestResultData, &page);
                 m_client.getContextMenuFromProposedMenuAsync(toAPI(&page), toAPI(API::Array::create(WTFMove(proposedMenuItems)).ptr()), toAPI(&contextMenuListener), toAPI(webHitTestResult.ptr()), toAPI(userData), m_client.base.clientInfo);
                 return;
             }
@@ -999,7 +1000,7 @@ void WKPageSetPageContextMenuClient(WKPageRef pageRef, const WKPageContextMenuCl
 
             WKArrayRef newMenu = nullptr;
             if (m_client.base.version >= 2) {
-                auto webHitTestResult = API::HitTestResult::create(hitTestResultData);
+                Ref webHitTestResult = API::HitTestResult::create(hitTestResultData, &page);
                 m_client.getContextMenuFromProposedMenu(toAPI(&page), toAPI(API::Array::create(WTFMove(proposedMenuItems)).ptr()), &newMenu, toAPI(webHitTestResult.ptr()), toAPI(userData), m_client.base.clientInfo);
             } else
                 m_client.getContextMenuFromProposedMenu_deprecatedForUseWithV0(toAPI(&page), toAPI(API::Array::create(WTFMove(proposedMenuItems)).ptr()), &newMenu, toAPI(userData), m_client.base.clientInfo);
@@ -1016,7 +1017,7 @@ void WKPageSetPageContextMenuClient(WKPageRef pageRef, const WKPageContextMenuCl
                     continue;
                 }
 
-                customMenu.uncheckedAppend(*item);
+                customMenu.append(*item);
             }
 
             contextMenuListener.useContextMenuItems(WTFMove(customMenu));
@@ -1278,7 +1279,7 @@ void WKPageSetPageLoaderClient(WKPageRef pageRef, const WKPageLoaderClientBase* 
 
             RefPtr<API::Array> removedItemsArray;
             if (!removedItems.isEmpty()) {
-                auto removedItemsVector = WTF::map(WTFMove(removedItems), [](auto&& removedItem) -> RefPtr<API::Object> {
+                auto removedItemsVector = WTF::map(WTFMove(removedItems), [](Ref<WebBackForwardListItem>&& removedItem) -> RefPtr<API::Object> {
                     return WTFMove(removedItem);
                 });
                 removedItemsArray = API::Array::create(WTFMove(removedItemsVector));
@@ -1805,7 +1806,7 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClientBase* wkClient
                 return;
             }
 
-            auto apiHitTestResult = API::HitTestResult::create(data);
+            Ref apiHitTestResult = API::HitTestResult::create(data, &page);
             m_client.mouseDidMoveOverElement(toAPI(&page), toAPI(apiHitTestResult.ptr()), toAPI(modifiers), toAPI(userData), m_client.base.clientInfo);
         }
 
@@ -1974,7 +1975,7 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClientBase* wkClient
             m_client.decidePolicyForNotificationPermissionRequest(toAPI(&page), toAPI(&origin), toAPI(NotificationPermissionRequest::create(WTFMove(completionHandler)).ptr()), m_client.base.clientInfo);
         }
 
-        void requestStorageAccessConfirm(WebPageProxy& page, WebFrameProxy* frame, const WebCore::RegistrableDomain& requestingDomain, const WebCore::RegistrableDomain& currentDomain, CompletionHandler<void(bool)>&& completionHandler) final
+        void requestStorageAccessConfirm(WebPageProxy& page, WebFrameProxy* frame, const WebCore::RegistrableDomain& requestingDomain, const WebCore::RegistrableDomain& currentDomain, std::optional<WebCore::OrganizationStorageAccessPromptQuirk>&&, CompletionHandler<void(bool)>&& completionHandler) final
         {
             if (!m_client.requestStorageAccessConfirm) {
                 completionHandler(true);
@@ -2171,16 +2172,6 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClientBase* wkClient
             panel.setClient(WTF::makeUniqueRef<PanelClient>());
             completionHandler(WebKit::WebAuthenticationPanelResult::Presented);
         }
-
-        void requestWebAuthenticationNoGesture(API::SecurityOrigin&, CompletionHandler<void(bool)>&& completionHandler) final
-        {
-            if (!m_client.requestWebAuthenticationNoGesture) {
-                completionHandler(true);
-                return;
-            }
-
-            completionHandler(true);
-        }
 #endif
 
         void decidePolicyForMediaKeySystemPermissionRequest(WebPageProxy& page, API::SecurityOrigin& origin, const String& keySystem, CompletionHandler<void(bool)>&& completionHandler) final
@@ -2358,14 +2349,10 @@ void WKPageSetPageNavigationClient(WKPageRef pageRef, const WKPageNavigationClie
             if (m_client.copyWebCryptoMasterKey)
                 return adoptRef(toImpl(m_client.copyWebCryptoMasterKey(toAPI(&page), m_client.base.clientInfo)));
 
-#if ENABLE(WEB_CRYPTO)
             auto masterKey = defaultWebCryptoMasterKey();
             if (!masterKey)
                 return nullptr;
             return API::Data::create(WTFMove(*masterKey));
-#else
-            return API::Data::create(nullptr, 0);
-#endif
         }
 
         void navigationActionDidBecomeDownload(WebKit::WebPageProxy& page, API::NavigationAction& action, WebKit::DownloadProxy& download) override
@@ -2899,9 +2886,9 @@ WKArrayRef WKPageCopyRelatedPages(WKPageRef pageRef)
 {
     Vector<RefPtr<API::Object>> relatedPages;
 
-    for (auto& page : toImpl(pageRef)->process().pages()) {
-        if (page.get() != toImpl(pageRef))
-            relatedPages.append(page);
+    for (Ref page : toImpl(pageRef)->process().pages()) {
+        if (page.ptr() != toImpl(pageRef))
+            relatedPages.append(WTFMove(page));
     }
 
     return toAPI(&API::Array::create(WTFMove(relatedPages)).leakRef());
@@ -3213,27 +3200,18 @@ void WKPageTriggerMockCaptureConfigurationChange(WKPageRef pageRef, bool forMicr
 void WKPageLoadedSubresourceDomains(WKPageRef pageRef, WKPageLoadedSubresourceDomainsFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-#if ENABLE(TRACKING_PREVENTION)
     toImpl(pageRef)->getLoadedSubresourceDomains([callbackContext, callback](Vector<RegistrableDomain>&& domains) {
         Vector<RefPtr<API::Object>> apiDomains = WTF::map(domains, [](auto& domain) {
             return RefPtr<API::Object>(API::String::create(String(domain.string())));
         });
         callback(toAPI(API::Array::create(WTFMove(apiDomains)).ptr()), callbackContext);
     });
-#else
-    UNUSED_PARAM(pageRef);
-    callback(nullptr, callbackContext);
-#endif
 }
 
 void WKPageClearLoadedSubresourceDomains(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
-#if ENABLE(TRACKING_PREVENTION)
     toImpl(pageRef)->clearLoadedSubresourceDomains();
-#else
-    UNUSED_PARAM(pageRef);
-#endif
 }
 
 void WKPageSetMediaCaptureReportingDelayForTesting(WKPageRef pageRef, double delay)

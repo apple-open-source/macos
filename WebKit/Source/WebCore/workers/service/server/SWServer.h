@@ -25,12 +25,11 @@
 
 #pragma once
 
-#if ENABLE(SERVICE_WORKER)
-
 #include "BackgroundFetchRecordIdentifier.h"
 #include "BackgroundFetchStore.h"
 #include "ClientOrigin.h"
 #include "ExceptionOr.h"
+#include "NotificationPayload.h"
 #include "PageIdentifier.h"
 #include "SWServerDelegate.h"
 #include "SWServerWorker.h"
@@ -184,7 +183,7 @@ public:
     void fireInstallEvent(SWServerWorker&);
     void runServiceWorkerAndFireActivateEvent(SWServerWorker&);
 
-    WEBCORE_EXPORT SWServerWorker* workerByID(ServiceWorkerIdentifier) const;
+    WEBCORE_EXPORT RefPtr<SWServerWorker> workerByID(ServiceWorkerIdentifier) const;
     WEBCORE_EXPORT std::optional<ServiceWorkerClientData> serviceWorkerClientWithOriginByID(const ClientOrigin&, const ScriptExecutionContextIdentifier&) const;
     WEBCORE_EXPORT std::optional<ServiceWorkerClientData> topLevelServiceWorkerClientFromPageIdentifier(const ClientOrigin&, PageIdentifier) const;
     String serviceWorkerClientUserAgent(const ClientOrigin&) const;
@@ -210,8 +209,6 @@ public:
     void matchAll(SWServerWorker&, const ServiceWorkerClientQueryOptions&, ServiceWorkerClientsMatchAllCallback&&);
     std::optional<ExceptionData> claim(SWServerWorker&);
     WEBCORE_EXPORT void terminateContextConnectionWhenPossible(const RegistrableDomain&, ProcessIdentifier);
-
-    WEBCORE_EXPORT static HashSet<SWServer*>& allServers();
 
     enum class IsBeingCreatedClient : bool { No, Yes };
     WEBCORE_EXPORT void registerServiceWorkerClient(ClientOrigin&&, ServiceWorkerClientData&&, const std::optional<ServiceWorkerRegistrationIdentifier>&, String&& userAgent, IsBeingCreatedClient);
@@ -254,7 +251,7 @@ public:
     LastNavigationWasAppInitiated clientIsAppInitiatedForRegistrableDomain(const RegistrableDomain&);
     bool shouldRunServiceWorkersOnMainThreadForTesting() const { return m_shouldRunServiceWorkersOnMainThreadForTesting; }
 
-    WEBCORE_EXPORT void processPushMessage(std::optional<Vector<uint8_t>>&&, URL&&, CompletionHandler<void(bool)>&&);
+    WEBCORE_EXPORT void processPushMessage(std::optional<Vector<uint8_t>>&&, std::optional<NotificationPayload>&&, URL&&, CompletionHandler<void(bool, std::optional<NotificationPayload>&&)>&&);
     WEBCORE_EXPORT void processNotificationEvent(NotificationData&&, NotificationEventType, CompletionHandler<void(bool)>&&);
 
     enum class ShouldSkipEvent : bool { No, Yes };
@@ -375,5 +372,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(SERVICE_WORKER)

@@ -156,7 +156,7 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
 
 - (UIKeyModifierFlags)modifierFlags
 {
-    return WebIOSEventFactory::toUIKeyModifierFlags(_navigationAction->modifiers());
+    return WebKit::WebIOSEventFactory::toUIKeyModifierFlags(_navigationAction->modifiers());
 }
 
 #endif
@@ -246,8 +246,14 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
     auto& webHitTestResultData = _navigationAction->webHitTestResultData();
     if (!webHitTestResultData)
         return nil;
+    RefPtr sourceFrame = _navigationAction->sourceFrame();
+    if (!sourceFrame)
+        return nil;
+    RefPtr page = sourceFrame->page();
+    if (!page)
+        return nil;
 
-    auto apiHitTestResult = API::HitTestResult::create(webHitTestResultData.value());
+    auto apiHitTestResult = API::HitTestResult::create(webHitTestResultData.value(), page.get());
     return retainPtr(wrapper(apiHitTestResult)).autorelease();
 #else
     return nil;

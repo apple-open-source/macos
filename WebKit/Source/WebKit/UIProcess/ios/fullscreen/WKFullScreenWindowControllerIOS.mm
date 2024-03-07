@@ -34,6 +34,7 @@
 #import "WKFullscreenStackView.h"
 #import "WKScrollView.h"
 #import "WKWebView.h"
+#import "WKWebViewIOS.h"
 #import "WKWebViewInternal.h"
 #import "WKWebViewPrivateForTesting.h"
 #import "WebFullScreenManagerProxy.h"
@@ -146,6 +147,7 @@ struct WKWebViewState {
     UIEdgeInsets _savedEdgeInset = UIEdgeInsetsZero;
     BOOL _savedHaveSetObscuredInsets = NO;
     UIEdgeInsets _savedObscuredInsets = UIEdgeInsetsZero;
+    UIRectEdge _savedObscuredInsetEdgesAffectedBySafeArea = UIRectEdgeAll;
     UIEdgeInsets _savedScrollIndicatorInsets = UIEdgeInsetsZero;
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     BOOL _savedContentInsetAdjustmentBehaviorWasExternallyOverridden = NO;
@@ -160,9 +162,8 @@ struct WKWebViewState {
     BOOL _savedHaveSetUnobscuredSafeAreaInsets = NO;
     UIEdgeInsets _savedUnobscuredSafeAreaInsets = UIEdgeInsetsZero;
     BOOL _savedHasOverriddenLayoutParameters = NO;
-    std::optional<CGSize> _savedMinimumUnobscuredSizeOverride;
-    std::optional<CGSize> _savedMaximumUnobscuredSizeOverride;
-
+    CGSize _savedMinimumUnobscuredSizeOverride = CGSizeZero;
+    CGSize _savedMaximumUnobscuredSizeOverride = CGSizeZero;
 
     void applyTo(WKWebView* webView)
     {
@@ -171,6 +172,8 @@ struct WKWebViewState {
             webView._obscuredInsets = _savedObscuredInsets;
         else
             [webView _resetObscuredInsets];
+
+        webView._obscuredInsetEdgesAffectedBySafeArea = _savedObscuredInsetEdgesAffectedBySafeArea;
 
         auto* scrollView = (WKScrollView *)[webView scrollView];
         if (_savedContentInsetWasExternallyOverridden)
@@ -193,8 +196,8 @@ struct WKWebViewState {
         else
             [webView _resetUnobscuredSafeAreaInsets];
 
-        if (_savedHasOverriddenLayoutParameters && _savedMinimumUnobscuredSizeOverride && _savedMaximumUnobscuredSizeOverride)
-            [webView _overrideLayoutParametersWithMinimumLayoutSize:*_savedMinimumUnobscuredSizeOverride maximumUnobscuredSizeOverride:*_savedMaximumUnobscuredSizeOverride];
+        if (_savedHasOverriddenLayoutParameters)
+            [webView _overrideLayoutParametersWithMinimumLayoutSize:_savedMinimumUnobscuredSizeOverride minimumUnobscuredSizeOverride:_savedMinimumUnobscuredSizeOverride maximumUnobscuredSizeOverride:_savedMaximumUnobscuredSizeOverride];
         else
             [webView _clearOverrideLayoutParameters];
 
@@ -216,6 +219,7 @@ struct WKWebViewState {
         _savedPageScale = webView._pageScale;
         _savedHaveSetObscuredInsets = webView._haveSetObscuredInsets;
         _savedObscuredInsets = webView._obscuredInsets;
+        _savedObscuredInsetEdgesAffectedBySafeArea = webView._obscuredInsetEdgesAffectedBySafeArea;
         _savedContentInsetWasExternallyOverridden = scrollView._contentInsetWasExternallyOverridden;
         _savedEdgeInset = scrollView.contentInset;
         _savedContentOffset = scrollView.contentOffset;
@@ -660,7 +664,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 {
     NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
     if (!signature)
-        signature = [(NSObject *)_originalDelegate methodSignatureForSelector:aSelector];
+        signature = [(NSObject *)_originalDelegate.get() methodSignatureForSelector:aSelector];
     return signature;
 }
 
@@ -949,6 +953,10 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         WebKit::replaceViewWithView(webView.get(), _webViewPlaceholder.get());
 
         [webView setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        // FIXME (267139): Changing the web view's frame should ideally only be done by the fullscreen view controller.
+        // However, this adjustment is currently necessary to ensure that the layout parameters exposed to the web
+        // during the "fullscreenchange" event reflect the fullscreen size.
+        [webView setFrame:[_window bounds]];
         [webView _setMinimumEffectiveDeviceWidth:0];
         [webView _setViewScale:1.f];
         WebKit::WKWebViewState().applyTo(webView.get());
@@ -1149,6 +1157,9 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         _exitRequested = YES;
         return;
     }
+
+    [self._webView _beginAnimatedFullScreenExit];
+
     _fullScreenState = WebKit::WaitingToExitFullScreen;
     _exitingFullScreen = YES;
 
@@ -1220,6 +1231,8 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 
     [webView setNeedsLayout];
     [webView layoutIfNeeded];
+
+    [webView _endAnimatedFullScreenExit];
 
     [CATransaction commit];
 }

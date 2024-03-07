@@ -40,7 +40,7 @@
 .Sh SYNOPSIS
 .Nm
 .Bk -words
-.Op Fl adEIlnNrTUv
+.Op Fl adeEIlnNrTUv
 .Ek
 .Bk -words
 .Op Fl f Ar firsthop
@@ -93,6 +93,10 @@ Turn on AS# lookups for each hop encountered.
 Turn on AS# lookups and use the given server instead of the default.
 .It Fl d
 Debug mode.
+.It Fl e
+Firewall evasion mode.
+Use fixed destination ports for UDP and TCP probes.
+The destination port does NOT increment with each packet sent.
 .It Fl E
 Detect ECN bleaching.
 Set the

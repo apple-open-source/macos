@@ -488,6 +488,10 @@ CFStringRef SecCertificateCopySubjectAttributeValue(SecCertificateRef cert, DERI
 CFArrayRef SecCertificateCopyAppleExternalRoots(void)
     API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0));
 
+/* Return the Apple Corporate Roots (for use with SecTrustSetAnchorCertificates or SecTrustStore/SecTrustSettings) */
+CFArrayRef SecCertificateCopyAppleCorporateRoots(void)
+    API_AVAILABLE(macos(14.4), ios(17.4), watchos(10.4), tvos(17.4));
+
 /* Convert between SecCertificateRefs and MFiv4's compressed form */
 CFDataRef SecCertificateCopyCompressedMFiCert(SecCertificateRef certificate)
     API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));

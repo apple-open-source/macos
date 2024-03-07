@@ -1,7 +1,3 @@
-from __future__ import absolute_import, print_function
-
-from builtins import range
-
 from core import xnu_format
 from xnu import *
 import sys, shlex
@@ -42,6 +38,10 @@ def GetTurnstileSummary(turnstile):
         turnstile_type = "knote  "
     elif ts_type == GetEnumValue('turnstile_type_t', 'TURNSTILE_SLEEP_INHERITOR'):
         turnstile_type = "slp_inh"
+    elif ts_type == GetEnumValue('turnstile_type_t', 'TURNSTILE_EPOCH_KERNEL'):
+        turnstile_type = "epoch_k"
+    elif ts_type == GetEnumValue('turnstile_type_t', 'TURNSTILE_EPOCH_USER'):
+        turnstile_type = "epoch_u"
     else:
         turnstile_type = "       "
 

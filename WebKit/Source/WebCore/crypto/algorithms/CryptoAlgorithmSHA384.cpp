@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmSHA384.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "ScriptExecutionContext.h"
 #include <pal/crypto/CryptoDigest.h>
 
@@ -47,7 +45,7 @@ void CryptoAlgorithmSHA384::digest(Vector<uint8_t>&& message, VectorCallback&& c
 {
     auto digest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_384);
     if (!digest) {
-        exceptionCallback(OperationError);
+        exceptionCallback(ExceptionCode::OperationError);
         return;
     }
 
@@ -60,6 +58,4 @@ void CryptoAlgorithmSHA384::digest(Vector<uint8_t>&& message, VectorCallback&& c
     });
 }
 
-}
-
-#endif // ENABLE(WEB_CRYPTO)
+} // namespace WebCore

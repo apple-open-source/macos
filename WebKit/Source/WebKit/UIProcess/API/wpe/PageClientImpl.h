@@ -30,6 +30,7 @@
 
 struct wpe_view_backend;
 typedef struct _AtkObject AtkObject;
+typedef struct _WPEView WPEView;
 
 namespace WKWPE {
 class View;
@@ -57,6 +58,9 @@ public:
     virtual ~PageClientImpl();
 
     struct wpe_view_backend* viewBackend();
+#if ENABLE(WPE_PLATFORM)
+    WPEView* wpeView() const;
+#endif
 
 #if ENABLE(ACCESSIBILITY)
     AtkObject* accessible();

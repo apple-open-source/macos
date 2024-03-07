@@ -30,6 +30,7 @@
 #include "config.h"
 #include "StyleResolver.h"
 
+#include "BlendingKeyframes.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSFontSelector.h"
 #include "CSSKeyframeRule.h"
@@ -43,10 +44,10 @@
 #include "CachedResourceLoader.h"
 #include "CompositeOperation.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "ElementRuleCollector.h"
 #include "FrameSelection.h"
 #include "InspectorInstrumentation.h"
-#include "KeyframeList.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "Logging.h"
@@ -255,7 +256,7 @@ ResolvedStyle Resolver::styleForElement(const Element& element, const Resolution
         style.setIsLink(true);
         InsideLink linkState = document().visitedLinkState().determineLinkState(element);
         if (linkState != InsideLink::NotInside) {
-            bool forceVisited = InspectorInstrumentation::forcePseudoState(element, CSSSelector::PseudoClassType::Visited);
+            bool forceVisited = InspectorInstrumentation::forcePseudoState(element, CSSSelector::PseudoClass::Visited);
             if (forceVisited)
                 linkState = InsideLink::InsideVisited;
         }
@@ -292,7 +293,7 @@ ResolvedStyle Resolver::styleForElement(const Element& element, const Resolution
     return { state.takeStyle(), WTFMove(elementStyleRelations), collector.releaseMatchResult() };
 }
 
-std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(const Element& element, const RenderStyle& elementStyle, const ResolutionContext& context, const StyleRuleKeyframe& keyframe, KeyframeValue& keyframeValue)
+std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(const Element& element, const RenderStyle& elementStyle, const ResolutionContext& context, const StyleRuleKeyframe& keyframe, BlendingKeyframe& blendingKeyframe)
 {
     // Add all the animating properties to the keyframe.
     bool hasRevert = false;
@@ -302,14 +303,14 @@ std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(const Element& element, 
         // because they are not animated; they just describe the composite operation and timing
         // function between this keyframe and the next.
         if (CSSProperty::isDirectionAwareProperty(unresolvedProperty))
-            keyframeValue.setContainsDirectionAwareProperty(true);
+            blendingKeyframe.setContainsDirectionAwareProperty(true);
         if (auto* value = propertyReference.value()) {
             auto resolvedProperty = CSSProperty::resolveDirectionAwareProperty(unresolvedProperty, elementStyle.direction(), elementStyle.writingMode());
             if (resolvedProperty != CSSPropertyAnimationTimingFunction && resolvedProperty != CSSPropertyAnimationComposition) {
-                if (value->isCustomPropertyValue())
-                    keyframeValue.addProperty(downcast<CSSCustomPropertyValue>(*value).name());
+                if (auto customValue = dynamicDowncast<CSSCustomPropertyValue>(*value))
+                    blendingKeyframe.addProperty(customValue->name());
                 else
-                    keyframeValue.addProperty(resolvedProperty);
+                    blendingKeyframe.addProperty(resolvedProperty);
             }
             if (isValueID(*value, CSSValueRevert))
                 hasRevert = true;
@@ -429,7 +430,7 @@ Vector<Ref<StyleRuleKeyframe>> Resolver::keyframeRulesForName(const AtomString& 
     return deduplicatedKeyframes;
 }
 
-void Resolver::keyframeStylesForAnimation(const Element& element, const RenderStyle& elementStyle, const ResolutionContext& context, KeyframeList& list)
+void Resolver::keyframeStylesForAnimation(const Element& element, const RenderStyle& elementStyle, const ResolutionContext& context, BlendingKeyframes& list)
 {
     list.clear();
 
@@ -441,16 +442,16 @@ void Resolver::keyframeStylesForAnimation(const Element& element, const RenderSt
     for (auto& keyframeRule : keyframeRules) {
         // Add this keyframe style to all the indicated key times
         for (auto key : keyframeRule->keys()) {
-            KeyframeValue keyframeValue(0, nullptr);
-            keyframeValue.setStyle(styleForKeyframe(element, elementStyle, context, keyframeRule.get(), keyframeValue));
-            keyframeValue.setKey(key);
+            BlendingKeyframe blendingKeyframe(0, nullptr);
+            blendingKeyframe.setStyle(styleForKeyframe(element, elementStyle, context, keyframeRule.get(), blendingKeyframe));
+            blendingKeyframe.setOffset(key);
             if (auto timingFunctionCSSValue = keyframeRule->properties().getPropertyCSSValue(CSSPropertyAnimationTimingFunction))
-                keyframeValue.setTimingFunction(TimingFunction::createFromCSSValue(*timingFunctionCSSValue.get()));
+                blendingKeyframe.setTimingFunction(TimingFunction::createFromCSSValue(*timingFunctionCSSValue.get()));
             if (auto compositeOperationCSSValue = keyframeRule->properties().getPropertyCSSValue(CSSPropertyAnimationComposition)) {
                 if (auto compositeOperation = toCompositeOperation(*compositeOperationCSSValue))
-                    keyframeValue.setCompositeOperation(*compositeOperation);
+                    blendingKeyframe.setCompositeOperation(*compositeOperation);
             }
-            list.insert(WTFMove(keyframeValue));
+            list.insert(WTFMove(blendingKeyframe));
             list.updatePropertiesMetadata(keyframeRule->properties());
         }
     }
@@ -597,15 +598,17 @@ void Resolver::clearCachedDeclarationsAffectedByViewportUnits()
 
 void Resolver::applyMatchedProperties(State& state, const MatchResult& matchResult)
 {
-    unsigned cacheHash = MatchedDeclarationsCache::computeHash(matchResult);
-    auto includedProperties = PropertyCascade::allProperties();
-
     auto& style = *state.style();
     auto& parentStyle = *state.parentStyle();
     auto& element = *state.element();
 
-    auto* cacheEntry = m_matchedDeclarationsCache.find(cacheHash, matchResult);
-    if (cacheEntry && MatchedDeclarationsCache::isCacheable(element, style, parentStyle)) {
+    unsigned cacheHash = MatchedDeclarationsCache::computeHash(matchResult, parentStyle.inheritedCustomProperties());
+    auto includedProperties = PropertyCascade::allProperties();
+
+    auto* cacheEntry = m_matchedDeclarationsCache.find(cacheHash, matchResult, parentStyle.inheritedCustomProperties());
+
+    auto hasUsableEntry = cacheEntry && MatchedDeclarationsCache::isCacheable(element, style, parentStyle);
+    if (hasUsableEntry) {
         // We can build up the style by copying non-inherited properties from an earlier style object built using the same exact
         // style declarations. We then only need to apply the inherited properties, if any, as their values can depend on the 
         // element context. This is fast and saves memory by reusing the style data structures.
@@ -633,8 +636,6 @@ void Resolver::applyMatchedProperties(State& state, const MatchResult& matchResu
             includedProperties.add(PropertyCascade::PropertyType::Inherited);
         if (hasExplicitlyInherited)
             includedProperties.add(PropertyCascade::PropertyType::ExplicitlyInherited);
-        if (!inheritedStyleEqual && !parentStyle.inheritedCustomPropertiesEqual(*cacheEntry->parentRenderStyle))
-            includedProperties.add(PropertyCascade::PropertyType::VariableReference);
     }
 
     if (elementTypeHasAppearanceFromUAStyle(element)) {

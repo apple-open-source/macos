@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(TRACKING_PREVENTION)
-
 #include "ArgumentCoders.h"
 #include "Decoder.h"
 #include "Encoder.h"
@@ -65,9 +63,13 @@ class NetworkSession;
 class ResourceLoadStatisticsStore;
 class WebFrameProxy;
 class WebProcessProxy;
+enum class CanRequestStorageAccessWithoutUserInteraction : bool;
 enum class ShouldGrandfatherStatistics : bool;
+
 enum class ShouldIncludeLocalhost : bool { No, Yes };
 enum class EnableResourceLoadStatisticsDebugMode : bool { No, Yes };
+
+struct ITPThirdPartyData;
 
 using TopFrameDomain = WebCore::RegistrableDomain;
 using SubResourceDomain = WebCore::RegistrableDomain;
@@ -112,31 +114,6 @@ public:
     static Ref<WebResourceLoadStatisticsStore> create(NetworkSession&, const String& resourceLoadStatisticsDirectory, ShouldIncludeLocalhost, ResourceLoadStatistics::IsEphemeral);
 
     ~WebResourceLoadStatisticsStore();
-
-    struct ThirdPartyDataForSpecificFirstParty {
-        WebCore::RegistrableDomain firstPartyDomain;
-        bool storageAccessGranted;
-        Seconds timeLastUpdated;
-
-        String toString() const;
-        void encode(IPC::Encoder&) const;
-        static std::optional<ThirdPartyDataForSpecificFirstParty> decode(IPC::Decoder&);
-
-        // FIXME: Since this ignores differences in decodedTimeLastUpdated it probably should be a named function, not operator==.
-        bool operator==(const ThirdPartyDataForSpecificFirstParty&) const;
-    };
-
-    struct ThirdPartyData {
-        WebCore::RegistrableDomain thirdPartyDomain;
-        Vector<ThirdPartyDataForSpecificFirstParty> underFirstParties;
-
-        String toString() const;
-        void encode(IPC::Encoder&) const;
-        static std::optional<ThirdPartyData> decode(IPC::Decoder&);
-
-        // FIXME: This sorts by number of underFirstParties, so it probably should be a named function, not operator<.
-        bool operator<(const ThirdPartyData&) const;
-    };
 
     void didDestroyNetworkSession(CompletionHandler<void()>&&);
 
@@ -239,7 +216,7 @@ public:
 
     void resourceLoadStatisticsUpdated(Vector<WebCore::ResourceLoadStatistics>&&, CompletionHandler<void()>&&);
     void requestStorageAccessUnderOpener(DomainInNeedOfStorageAccess&&, WebCore::PageIdentifier openerID, OpenerDomain&&);
-    void aggregatedThirdPartyData(CompletionHandler<void(Vector<WebResourceLoadStatisticsStore::ThirdPartyData>&&)>&&);
+    void aggregatedThirdPartyData(CompletionHandler<void(Vector<ITPThirdPartyData>&&)>&&);
     static void suspend(CompletionHandler<void()>&&);
     static void resume();
     
@@ -255,7 +232,7 @@ private:
     void performDailyTasks();
 
     void hasStorageAccessEphemeral(const SubFrameDomain&, const TopFrameDomain&, std::optional<WebCore::FrameIdentifier>, WebCore::PageIdentifier, CompletionHandler<void(bool)>&&);
-    void requestStorageAccessEphemeral(const SubFrameDomain&, const TopFrameDomain&, WebCore::FrameIdentifier, WebCore::PageIdentifier, WebPageProxyIdentifier, StorageAccessScope, CompletionHandler<void(RequestStorageAccessResult)>&&);
+    void requestStorageAccessEphemeral(const SubFrameDomain&, const TopFrameDomain&, WebCore::FrameIdentifier, WebCore::PageIdentifier, WebPageProxyIdentifier, StorageAccessScope, CanRequestStorageAccessWithoutUserInteraction, std::optional<WebCore::OrganizationStorageAccessPromptQuirk>&&, CompletionHandler<void(RequestStorageAccessResult)>&&);
     void requestStorageAccessUnderOpenerEphemeral(DomainInNeedOfStorageAccess&&, WebCore::PageIdentifier openerID, OpenerDomain&&);
     void grantStorageAccessEphemeral(const SubFrameDomain&, const TopFrameDomain&, WebCore::FrameIdentifier, WebCore::PageIdentifier, StorageAccessPromptWasShown, StorageAccessScope, CompletionHandler<void(RequestStorageAccessResult)>&&);
 
@@ -285,5 +262,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif

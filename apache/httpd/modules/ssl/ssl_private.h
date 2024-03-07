@@ -374,7 +374,6 @@ APLOG_USE_MODULE(ssl);
 #define SSL_OPT_STRICTREQUIRE  (1<<5)
 #define SSL_OPT_OPTRENEGOTIATE (1<<6)
 #define SSL_OPT_LEGACYDNFORMAT (1<<7)
-#define SSL_OPT_LEGACYCHAINVERIFY (1<<8)
 typedef int ssl_opt_t;
 
 /**

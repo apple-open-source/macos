@@ -251,6 +251,7 @@ NSString* ESRPendingSince = @"ERSPending";
     if(error) {
         secerror("escrowrequest: failed to load requests: %@", error);
         reply(nil, error);
+        return;
     }
 
     secnotice("escrowrequest", "found requests: %@", records);

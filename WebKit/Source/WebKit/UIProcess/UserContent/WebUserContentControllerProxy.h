@@ -33,6 +33,7 @@
 #include "WebPageProxyIdentifier.h"
 #include "WebUserContentControllerProxyMessages.h"
 #include <WebCore/PageIdentifier.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>

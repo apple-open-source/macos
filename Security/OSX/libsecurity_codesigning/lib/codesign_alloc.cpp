@@ -349,6 +349,8 @@ bool code_sign_allocate(const char* existingFilePath,
         return false;
     }
 
+// rdar://33355401
+#ifndef __clang_analyzer__
     // check if fat file
     const mach_header* mh = (mach_header*)mappedInputFile;
     
@@ -474,6 +476,7 @@ bool code_sign_allocate(const char* existingFilePath,
             success = false;
         }
     }
+#endif // __clang_analyzer__
 
     // write buffer to output file
     if (success) {

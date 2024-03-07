@@ -130,8 +130,9 @@
 #define FAST_HAS_DEFAULT_RR     (1UL<<2)
 // data pointer
 #if TARGET_OS_EXCLAVEKIT
-#define FAST_DATA_MASK          0x0000001ffffffff8UL
-#define DEBUG_DATA_MASK         0x0000001ffffffff8UL
+// The mask has to be computed at startup, so defer to the global variable.
+#define FAST_DATA_MASK          objc_debug_isa_class_mask
+#define DEBUG_DATA_MASK         objc_debug_isa_class_mask
 #elif TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #define FAST_DATA_MASK          0x0f00007ffffffff8UL
 #define DEBUG_DATA_MASK         0x0000007ffffffff8UL
@@ -140,9 +141,11 @@
 #define DEBUG_DATA_MASK         0x00007ffffffffff8UL
 #endif
 
+#if !TARGET_OS_EXCLAVEKIT
 static_assert((OBJC_VM_MAX_ADDRESS & FAST_DATA_MASK)
               == (OBJC_VM_MAX_ADDRESS & ~7UL),
               "FAST_DATA_MASK must not mask off pointer bits");
+#endif
 
 // just the flags
 #define FAST_FLAGS_MASK         0x0000000000000007UL
@@ -476,6 +479,7 @@ private:
     void collect_free(bucket_t *oldBuckets, mask_t oldCapacity);
 
     static bucket_t *emptyBuckets();
+    static bucket_t *mallocBuckets(mask_t newCapacity);
     static bucket_t *allocateBuckets(mask_t newCapacity);
     static bucket_t *emptyBucketsForCapacity(mask_t capacity, bool allocate = true);
     static struct bucket_t * endMarker(struct bucket_t *b, uint32_t cap);
@@ -2191,6 +2195,9 @@ public:
                 newArray->lists[i] = addedLists[i];
             }
             for (; i < newCount; i++) {
+                if (slowpath(logKind)) {
+                    _objc_inform("PREOPTIMIZATION: copying preoptimized %s list %p", logKind, *listListBegin);
+                }
                 newArray->lists[i] = *listListBegin;
                 ++listListBegin;
             }

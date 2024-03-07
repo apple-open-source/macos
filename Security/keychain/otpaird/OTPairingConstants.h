@@ -14,6 +14,7 @@ enum OTPairingIDSMessageType {
 };
 
 #define OTPairingXPCKeyOperation    "operation"
+#define OTPairingXPCKeyImmediate    "immediate"
 #define OTPairingXPCKeyError        "error"
 #define OTPairingXPCKeySuccess      "success"
 
@@ -28,6 +29,7 @@ enum OTPairingErrorType {
     OTPairingErrorTypeBusy = 6,
     OTPairingErrorTypeKCPairing = 7,
     OTPairingErrorTypeSessionTimeout = 8,
+    OTPairingErrorTypeRetryScheduled = 9,
 };
 
 enum {

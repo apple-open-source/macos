@@ -45,7 +45,7 @@ ca{
         AO{"Angola"}
         AQ{"Antàrtida"}
         AR{"Argentina"}
-        AS{"Samoa Nord-americana"}
+        AS{"Samoa Americana"}
         AT{"Àustria"}
         AU{"Austràlia"}
         AW{"Aruba"}
@@ -68,12 +68,12 @@ ca{
         BR{"Brasil"}
         BS{"Bahames"}
         BT{"Bhutan"}
-        BV{"Bouvet"}
+        BV{"Illa Bouvet"}
         BW{"Botswana"}
         BY{"Belarús"}
         BZ{"Belize"}
         CA{"Canadà"}
-        CC{"Illes Cocos"}
+        CC{"Illes Cocos (Keeling)"}
         CD{"Congo - Kinshasa"}
         CF{"República Centreafricana"}
         CG{"Congo - Brazzaville"}
@@ -234,7 +234,7 @@ ca{
         RS{"Sèrbia"}
         RU{"Rússia"}
         RW{"Ruanda"}
-        SA{"Aràbia Saudita"}
+        SA{"Aràbia Saudí"}
         SB{"Illes Salomó"}
         SC{"Seychelles"}
         SD{"Sudan"}

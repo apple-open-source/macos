@@ -286,9 +286,9 @@ _voucher_retain_inline(struct voucher_s *voucher)
 	// not using _os_object_refcnt* because we don't need barriers:
 	// vouchers are immutable and are in a hash table with a lock
 	int xref_cnt = os_atomic_inc(&voucher->os_obj_xref_cnt, relaxed);
-	_voucher_trace(RETAIN, (voucher_t)voucher, xref_cnt + 1);
-	_dispatch_voucher_debug("retain  -> %d", voucher, xref_cnt + 1);
-	if (unlikely(xref_cnt <= 0)) {
+	_voucher_trace(RETAIN, (voucher_t)voucher, xref_cnt);
+	_dispatch_voucher_debug("retain  -> %d", voucher, xref_cnt);
+	if (unlikely(xref_cnt <= 1)) {
 		_OS_OBJECT_CLIENT_CRASH("Voucher resurrection");
 	}
 	return voucher;
@@ -301,12 +301,12 @@ _voucher_release_inline(struct voucher_s *voucher)
 	// not using _os_object_refcnt* because we don't need barriers:
 	// vouchers are immutable and are in a hash table with a lock
 	int xref_cnt = os_atomic_dec(&voucher->os_obj_xref_cnt, relaxed);
-	_voucher_trace(RELEASE, (voucher_t)voucher, xref_cnt + 1);
-	_dispatch_voucher_debug("release -> %d", voucher, xref_cnt + 1);
-	if (likely(xref_cnt >= 0)) {
+	_voucher_trace(RELEASE, (voucher_t)voucher, xref_cnt);
+	_dispatch_voucher_debug("release -> %d", voucher, xref_cnt);
+	if (likely(xref_cnt >= 1)) {
 		return;
 	}
-	if (unlikely(xref_cnt < -1)) {
+	if (unlikely(xref_cnt < 0)) {
 		_OS_OBJECT_CLIENT_CRASH("Voucher over-release");
 	}
 	return _voucher_xref_dispose((voucher_t)voucher);
@@ -345,9 +345,9 @@ _voucher_release_no_dispose(voucher_t voucher)
 	// not using _os_object_refcnt* because we don't need barriers:
 	// vouchers are immutable and are in a hash table with a lock
 	int xref_cnt = os_atomic_dec(&voucher->os_obj_xref_cnt, relaxed);
-	_voucher_trace(RELEASE, voucher, xref_cnt + 1);
-	_dispatch_voucher_debug("release -> %d", voucher, xref_cnt + 1);
-	if (likely(xref_cnt >= 0)) {
+	_voucher_trace(RELEASE, voucher, xref_cnt);
+	_dispatch_voucher_debug("release -> %d", voucher, xref_cnt);
+	if (likely(xref_cnt >= 1)) {
 		return;
 	}
 	_OS_OBJECT_CLIENT_CRASH("Voucher over-release");

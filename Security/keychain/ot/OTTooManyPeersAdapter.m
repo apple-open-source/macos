@@ -30,7 +30,7 @@
 
 - (unsigned long)getLimit
 {
-    return 50;
+    return 170;
 }
 
 - (void)popDialogWithCount:(unsigned long)count limit:(unsigned long)limit

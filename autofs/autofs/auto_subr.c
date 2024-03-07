@@ -113,6 +113,94 @@ static int auto_mount_request(struct autofs_callargs *, char *, char *,
     char *, int, char *, char *, boolean_t, boolean_t, boolean_t *);
 
 /*
+ * caller must hold fnip->fi_busy_mtx
+ */
+int
+autofs_mount_is_busy(fninfo_t *fnip, int mount_busy_state) {
+	int is_busy = 0;
+	if (mount_busy_state == MOUNT_BUSY_EXCLUSIVE) {
+		is_busy = fnip->fi_busy_shared || fnip->fi_busy_exclusive;
+	} else {
+		/* MOUNT_BUSY_SHARED */
+		is_busy = fnip->fi_busy_exclusive;
+	}
+	return is_busy;
+}
+
+#define MAX_BUSY_RETRY	10
+
+int
+autofs_mount_set_busy(fninfo_t *fnip, int mount_busy_state)
+{
+	struct timespec ts = { .tv_sec = 1, .tv_nsec = 0 };
+	int error = 0;
+	int is_busy = 0;
+	int retry_cnt = 0;
+	int call_wakeup = 0;
+
+	lck_mtx_lock(fnip->fi_busy_mtx);
+
+	while ((is_busy = autofs_mount_is_busy(fnip, mount_busy_state))) {
+		error = msleep(fnip->fi_busy_mtx, fnip->fi_busy_mtx, PZERO - 1, "autofsbusywant", &ts);
+		if (error == EWOULDBLOCK) {
+			retry_cnt++;
+			if (retry_cnt > MAX_BUSY_RETRY) {
+				AUTOFS_DPRINT((4, "autofs_mount_set_busy timed out waiting for %s busy. fi_busy_exclusive: %d, fi_busy_shared: %d",
+					   (mount_busy_state == MOUNT_BUSY_EXCLUSIVE) ? "exclusive": "shared",
+					   fnip->fi_busy_exclusive, fnip->fi_busy_shared));
+				error = EBUSY;
+				goto fail;
+			}
+			error = 0;
+		}
+	}
+	/*
+	 * Managed to hold the lock while mount is not busy
+	 */
+	if (mount_busy_state == MOUNT_BUSY_EXCLUSIVE) {
+		fnip->fi_busy_exclusive = 1;
+	} else {
+		/* MOUNT_BUSY_SHARED */
+		fnip->fi_busy_shared++;
+		/*
+		 * allow other shared threads to wakeup
+		 */
+		call_wakeup = 1;
+	}
+fail:
+	lck_mtx_unlock(fnip->fi_busy_mtx);
+	if (call_wakeup) {
+		wakeup(fnip->fi_busy_mtx);
+	}
+	return error;
+}
+
+void
+autofs_mount_clear_busy(fninfo_t *fnip, int mount_busy_state) {
+	int need_wakeup = 0;;
+	lck_mtx_lock(fnip->fi_busy_mtx);
+	if (mount_busy_state == MOUNT_BUSY_EXCLUSIVE) {
+		if (fnip->fi_busy_exclusive != 1) {
+			panic("invalid exclusive busy state, clearing busy with value %d", fnip->fi_busy_exclusive);
+		}
+		fnip->fi_busy_exclusive = 0;
+		need_wakeup = 1;
+	} else { /* MOUNT_BUSY_SHARED */
+		if (fnip->fi_busy_shared <= 0) {
+			panic("invalid shared busy state, clearing busy with value %d", fnip->fi_busy_shared);
+		}
+		fnip->fi_busy_shared--;
+		if (fnip->fi_busy_shared == 0) {
+			need_wakeup = 1;
+		}
+	}
+	lck_mtx_unlock(fnip->fi_busy_mtx);
+	if (need_wakeup) {
+		wakeup(fnip->fi_busy_mtx);
+	}
+}
+
+/*
  * Unless we're an automounter (in which case, the process that caused
  * us to be asked to do something already has a reader lock on the fninfo_t,
  * and some other process might be asking for a writer lock, which would
@@ -121,14 +209,27 @@ static int auto_mount_request(struct autofs_callargs *, char *, char *,
  * to be asked to mount the file system from releasing the reader lock,
  * so everybody's deadlocked), get a reader lock on the fninfo_t.
  */
-boolean_t
-auto_fninfo_lock_shared(fninfo_t *fnip, int pid)
+int
+auto_fninfo_lock_shared(fninfo_t *fnip, int pid, int set_busy, int *lock_mode)
 {
+	int error = 0;
+	if (lock_mode == NULL) {
+		return EINVAL;
+	}
+	*lock_mode = 0;
 	if (!auto_is_automounter(pid)) {
+		if (set_busy) {
+			error = autofs_mount_set_busy(fnip, MOUNT_BUSY_SHARED);
+			if (error) {
+				goto out;
+			}
+			*lock_mode |= MOUNT_LOCK_MODE_BUSY;
+		}
 		lck_rw_lock_shared(fnip->fi_rwlock);
-                return 1;
-        }
-        return 0;
+		*lock_mode |= MOUNT_LOCK_MODE_LOCK;
+	}
+out:
+	return error;
 }
 
 /*
@@ -136,10 +237,14 @@ auto_fninfo_lock_shared(fninfo_t *fnip, int pid)
  * we don't have one.
  */
 void
-auto_fninfo_unlock_shared(fninfo_t *fnip, boolean_t have_lock)
+auto_fninfo_unlock_shared(fninfo_t *fnip, int lock_mode)
 {
-	if (have_lock)
+	if (lock_mode & MOUNT_LOCK_MODE_LOCK) {
 		lck_rw_unlock_shared(fnip->fi_rwlock);
+		if (lock_mode & MOUNT_LOCK_MODE_BUSY) {
+			autofs_mount_clear_busy(fnip, MOUNT_BUSY_SHARED);
+		}
+	}
 }
 
 /*
@@ -532,7 +637,7 @@ auto_do_mount(void *arg)
 	char pathbuf[MAXPATHLEN];
 	char *subdir;
 	struct autofs_globals *fngp;
-        boolean_t have_lock = 0;
+	int lock_mode = 0;
 
 	vp = argsp->fnc_vp;
 	fnp = vntofn(vp);
@@ -541,7 +646,10 @@ auto_do_mount(void *arg)
 	/*
 	 * This is in a kernel thread, so the PID is 0.
 	 */
-	have_lock = auto_fninfo_lock_shared(fnip, 0);
+	error = auto_fninfo_lock_shared(fnip, 0, 1, &lock_mode);
+	if (error) {
+		return error;
+	}
 
 	/*
 	 * Is this in the process of being unmounted?  If so, give
@@ -549,7 +657,7 @@ auto_do_mount(void *arg)
 	 * the vnode, and the unmount can finish.
 	 */
 	if (fnip->fi_flags & MF_UNMOUNTING) {
-		auto_fninfo_unlock_shared(fnip, have_lock);
+		auto_fninfo_unlock_shared(fnip, lock_mode);
 		return (ENOENT);
 	}
 
@@ -561,7 +669,7 @@ auto_do_mount(void *arg)
 	    fnp->fn_namelen, fnp->fn_parent, &key, &keylen,
 	    &subdir, pathbuf, sizeof(pathbuf));
 	if (error != 0) {
-		auto_fninfo_unlock_shared(fnip, have_lock);
+		auto_fninfo_unlock_shared(fnip, lock_mode);
 		return (error);
 	}
 
@@ -606,7 +714,7 @@ auto_do_mount(void *arg)
         /* <13595777> Keep from racing with homedirmounter */
 	lck_mtx_unlock(fnp->fn_mnt_lock);
         
-	auto_fninfo_unlock_shared(fnip, have_lock);
+	auto_fninfo_unlock_shared(fnip, lock_mode);
 
 	return (error);
 }

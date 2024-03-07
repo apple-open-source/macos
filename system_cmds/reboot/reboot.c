@@ -91,9 +91,7 @@ main(int argc, char *argv[])
 	struct utmpx utx;
 	const struct passwd *pw;
 	int ch, howto, lflag, nflag, qflag, Nflag;
-#ifdef __APPLE__
-	int uflag;
-#else
+#ifndef __APPLE__
 	int i, fd, sverrno;
 	u_int pageins;
 	const char *kernel = NULL;
@@ -149,8 +147,8 @@ main(int argc, char *argv[])
 #endif
 #ifdef __APPLE__
 		case 'u':
-			uflag = 1;
-			howto |= RB_UPSDELAY;
+			/* ignored for compatibility */
+			warnx("-%c has no effect", ch);
 			break;
 #endif
 		case 'q':
@@ -183,6 +181,7 @@ main(int argc, char *argv[])
 		errno = EPERM;
 		err(1, NULL);
 	}
+
 
 #if defined(__APPLE__) && !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (!qflag && !lflag) {	// shutdown(8) has already checked w/kextd
@@ -339,8 +338,8 @@ usage(void)
 	    "usage: halt [-clNnpq] [-k kernel]\n" :
 	    "usage: reboot [-cdlNnpqr] [-k kernel]\n"
 #else
-	    "usage: halt [-lNnqu]\n" :
-	    "usage: reboot [-lNnqu]\n"
+	    "usage: halt [-lNnq]\n" :
+	    "usage: reboot [-lNnq]\n"
 #endif
 	    );
 	exit(1);

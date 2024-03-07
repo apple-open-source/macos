@@ -1,3 +1,0 @@
-//  Copyright © 2023 Apple Inc. All rights reserved.
-INSTALL_PATH = /usr/local/libexec/openssh/regression-tests
-CommonLdflags = -lbsm -lz -Wl,-pie

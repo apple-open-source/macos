@@ -9,4 +9,3 @@ cd openssh
  --with-default-path="/usr/bin:/bin:/usr/sbin:/sbin" \
  --with-cppflags="-I`xcodebuild -version -sdk macosx.internal Path`/usr/local/libressl/include" \
  --with-ldflags="-L`xcodebuild -version -sdk macosx.internal Path`/usr/local/libressl/lib"
-mv config.h ../generated-config.h

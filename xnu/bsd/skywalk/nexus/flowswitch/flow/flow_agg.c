@@ -259,9 +259,9 @@ _mbuf_agg_log(struct mbuf *m, struct proc *p, bool is_mbuf)
 	    (uint32_t)m->m_pkthdr.csum_rx_val);
 
 	/* Dump the first mbuf */
-	ASSERT(m->m_data != NULL);
+	ASSERT(m_mtod_current(m) != NULL);
 	SK_DF(logflags | SK_VERB_DUMP, "%s", sk_dump("buf",
-	    (uint8_t *)m->m_data, m->m_len, 128, NULL, 0));
+	    (uint8_t *)m_mtod_current(m), m->m_len, 128, NULL, 0));
 }
 
 #define mbuf_agg_log(_m, _p, _is_mbuf) do {                             \
@@ -2334,7 +2334,7 @@ non_agg:
 				MD_BUFLET_ADDR_ABS(pkt, baddr);
 				ASSERT(baddr != NULL);
 				baddr += llhoff;
-				pkt_copy(baddr, m->m_data, l2len);
+				pkt_copy(baddr, m_mtod_current(m), l2len);
 			}
 			/* adjust mbuf by l2 hdr */
 			m_adj(m, l2len);
@@ -2389,7 +2389,7 @@ non_agg:
 			 */
 			if (pkt->pkt_flow_ip_ver == IPV6_VERSION) {
 				if (__improbable(smbuf->m_len <
-				    ((smbuf->m_data -
+				    ((m_mtod_current(smbuf) -
 				    (caddr_t)(smbuf->m_pkthdr.pkt_hdr)) +
 				    MASK_SIZE))) {
 					fa.fa_sobj_is_short = true;

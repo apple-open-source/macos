@@ -8,31 +8,31 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef enum {
-    kAllocationFailure,
-    kDERUnknownEncoding,
-    kDERStringEncodingFailed,
-    kDEREncodingFailed,
-    kDERSpaceExhausted,
-    kKCTagMismatch,
-    kUnexpectedMessage,
-    kInternalError,
-    kDERUnknownVersion,
-    kProcessApplicationFailure,
-    kUnsupportedTrustPlatform,
-    kMissingAcceptorEpoch,
-    kTimedoutWaitingForPrepareRPC,
-    kFailedToEncryptPeerInfo,
-    kSOSNotSupportedAndPiggyV2NotSupported,
-    kMissingVoucher,
-    kTimedoutWaitingForJoinRPC,
-    kFailureToDecryptCircleBlob,
-    kFailureToProcessCircleBlob,
-    kStartMessageEmpty,
-    kUnableToPiggyBackDueToTrustSystemSupport,
-    kTimedoutWaitingForEpochRPC,
-    kTimedOutWaitingForVoucher,
-} KCJoiningError;
+typedef NS_ENUM(int64_t, KCJoiningError) {
+    kAllocationFailure = 0,
+    kDERUnknownEncoding = 1,
+    kDERStringEncodingFailed = 2,
+    kDEREncodingFailed = 3,
+    kDERSpaceExhausted = 4,
+    kKCTagMismatch = 5,
+    kUnexpectedMessage = 6,
+    kInternalError = 7,
+    kDERUnknownVersion = 8,
+    kProcessApplicationFailure = 9,
+    kUnsupportedTrustPlatform = 10,
+    kMissingAcceptorEpoch = 11,
+    /* unused kTimedoutWaitingForPrepareRPC = 12 */
+    kFailedToEncryptPeerInfo = 13,
+    kSOSNotSupportedAndPiggyV2NotSupported = 14,
+    kMissingVoucher = 15,
+    /* unused kTimedoutWaitingForJoinRPC = 16 */
+    kFailureToDecryptCircleBlob = 17,
+    kFailureToProcessCircleBlob = 18,
+    kStartMessageEmpty = 19,
+    kUnableToPiggyBackDueToTrustSystemSupport = 20,
+    /* unused kTimedoutWaitingForEpochRPC = 21 */
+    /* unused kTimedOutWaitingForVoucher = 22 */
+};
 
 @interface NSError(KCJoiningError)
 + (instancetype) errorWithJoiningError:(KCJoiningError) code

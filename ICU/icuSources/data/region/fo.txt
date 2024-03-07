@@ -298,6 +298,9 @@ fo{
         ZW{"Simbabvi"}
         ZZ{"ókent øki"}
     }
+    Countries%chagos{
+        IO{"Khagosoyggjar"}
+    }
     Countries%short{
         GB{"UK"}
         PS{"Palestina"}
@@ -305,6 +308,7 @@ fo{
     }
     Countries%variant{
         FK{"Falklandsoyggjar (Islas Malvinas)"}
+        NZ{"Aotearoa Nýsæland"}
         SZ{"Svasiland"}
     }
 }

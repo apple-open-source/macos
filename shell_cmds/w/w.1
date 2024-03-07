@@ -9,7 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -26,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)w.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/w/w.1,v 1.20 2005/02/13 22:25:25 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd June 6, 1993
+.Dd August 24, 2020
 .Dt W 1
 .Os
 .Sh NAME
@@ -36,6 +36,7 @@
 .Nd "display who is logged in and what they are doing"
 .Sh SYNOPSIS
 .Nm
+.Op Fl -libxo
 .Op Fl hin
 .Op Ar user ...
 .Sh DESCRIPTION
@@ -55,11 +56,26 @@ logged on, the time since the user last typed anything,
 and the name and arguments of the current process.
 .Pp
 The options are as follows:
-.Bl -tag -width Ds
+.Bl -tag -width indent
+.It Fl -libxo
+Generate output via
+.Xr libxo 3
+in a selection of different human and machine readable formats.
+See
+.Xr xo_parse_args 3
+for details on command line arguments.
 .It Fl h
 Suppress the heading.
 .It Fl i
 Output is sorted by idle time.
+.It Fl n
+Do not attempt to resolve network addresses (normally
+.Nm
+interprets addresses and attempts to display them as names).
+When
+.Fl n
+is specified more than once, hostnames stored in utmp are attempted to
+resolve to display them as network addresses.
 .El
 .Pp
 If one or more
@@ -72,7 +88,6 @@ The
 .Fl d ,
 .Fl f ,
 .Fl l ,
-.Fl n ,
 .Fl s ,
 and
 .Fl w
@@ -81,7 +96,9 @@ flags are no longer supported.
 .Xr finger 1 ,
 .Xr ps 1 ,
 .Xr uptime 1 ,
-.Xr who 1
+.Xr who 1 ,
+.Xr libxo 3 ,
+.Xr xo_parse_args 3
 .Sh HISTORY
 The
 .Nm
@@ -91,20 +108,21 @@ command appeared in
 The notion of the
 .Dq current process
 is muddy.
-The current algorithm is ``the highest numbered process on the terminal
+The current algorithm is
+.Do
+the highest numbered process on the terminal
 that is not ignoring interrupts, or, if there is none, the highest numbered
-process on the terminal''.
+process on the terminal
+.Dc .
 This fails, for example, in critical sections of programs like the shell
 and editor, or when faulty programs running in the background fork and fail
 to ignore interrupts.
 (In cases where no process can be found,
 .Nm
 prints
-.Dq \- . )
+.Ql \- . )
 .Pp
-The
-.Tn CPU
-time is only an estimate, in particular, if someone leaves a background
+The CPU time is only an estimate, in particular, if someone leaves a background
 process running after logging out, the person currently on that terminal is
 .Dq charged
 with the time.
@@ -122,6 +140,4 @@ utility does not know about the new conventions for detection of background
 jobs.
 It will sometimes find a background job instead of the right one.
 .Pp
-Long hostnames and IPv6 addresses may be truncated; however, the
-.Xr who 1
-utility will display full hostnames.
+Long hostnames and IPv6 addresses may be truncated.

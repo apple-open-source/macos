@@ -22,6 +22,9 @@ static void TestUListFmtToValue(void);
 static void TestUListOpenStyled(void);
 static void TestUList21871_A(void);
 static void TestUList21871_B(void);
+#if APPLE_ICU_CHANGES // rdar://122117160
+static void Test_en_GB_ListFormat(void);
+#endif  // APPLE_ICU_CHANGES
 
 void addUListFmtTest(TestNode** root);
 
@@ -34,6 +37,9 @@ void addUListFmtTest(TestNode** root)
     TESTCASE(TestUListOpenStyled);
     TESTCASE(TestUList21871_A);
     TESTCASE(TestUList21871_B);
+#if APPLE_ICU_CHANGES // rdar://122117160
+    TESTCASE(Test_en_GB_ListFormat);
+#endif  // APPLE_ICU_CHANGES
 }
 
 static const UChar str0[] = { 0x41,0 }; /* "A" */
@@ -360,6 +366,66 @@ static void TestUList21871_B() {
     ulistfmt_closeResult(fl);
     ulistfmt_close(fmt);
 }
+
+#if APPLE_ICU_CHANGES // rdar://122117160
+static void Test_en_GB_ListFormat() {
+    UListFormatterWidth widths[3] = {
+        ULISTFMT_WIDTH_NARROW,
+        ULISTFMT_WIDTH_SHORT,
+        ULISTFMT_WIDTH_WIDE,
+    };
+    char *messages[3] = {
+        "en-GB list format: narrow",
+        "en-GB list format: short",
+        "en-GB list format: wide"
+    };
+    UListFormatterWidth width;
+    UErrorCode ec = U_ZERO_ERROR;
+    UListFormatter* fmt;
+    UFormattedList* fl;
+    const char* message;
+    const UChar* expectedString = u"Motorcycle, Bus or Car";
+    const UChar* inputs[] = {
+        u"Motorcycle",
+        u"Bus",
+        u"Car",
+    };
+    static const UFieldPositionWithCategory expectedFieldPositions[] = {
+        // field, begin index, end index
+        {UFIELD_CATEGORY_LIST_SPAN, 0, 0, 10},
+        {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 0,  10},
+        {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 10, 12},
+        {UFIELD_CATEGORY_LIST_SPAN, 1, 12, 15},
+        {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 12, 15},
+        {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 15, 19},
+        {UFIELD_CATEGORY_LIST_SPAN, 2, 19, 22},
+        {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 19, 22}};
+
+    for (int i=0; i < 3; i++) {
+        width = widths[i];
+        message = messages[i];
+        
+        ec = U_ZERO_ERROR;
+        fmt = ulistfmt_openForType("en-GB", ULISTFMT_TYPE_OR, width, &ec);
+
+        fl = ulistfmt_openResult(&ec);
+        assertSuccess("Opening", &ec);
+
+        ulistfmt_formatStringsToResult(fmt, inputs, NULL, UPRV_LENGTHOF(inputs), fl, &ec);
+        assertSuccess("Formatting", &ec);
+
+        checkMixedFormattedValue(
+            message,
+            ulistfmt_resultAsValue(fl, &ec),
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+
+    ulistfmt_close(fmt);
+    ulistfmt_closeResult(fl);
+}
+#endif  // APPLE_ICU_CHANGES
 
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

@@ -290,8 +290,8 @@ class Heap {
 public:
     friend class JIT;
     friend class DFG::SpeculativeJIT;
-    static Heap* heap(const JSValue); // 0 for immediate values
-    static Heap* heap(const HeapCell*);
+    static JSC::Heap* heap(const JSValue); // 0 for immediate values
+    static JSC::Heap* heap(const HeapCell*);
 
     // This constant determines how many blocks we iterate between checks of our 
     // deadline when calling Heap::isPagedOut. Decreasing it will cause us to detect 
@@ -396,8 +396,8 @@ public:
     // 2. Use this API may trigger JSRopeString::resolveRope. If this API need
     // to be used when resolving a rope string, then make sure to call this API
     // after the rope string is completely resolved.
-    void reportExtraMemoryAllocated(size_t);
-    void reportExtraMemoryAllocated(GCDeferralContext*, size_t);
+    void reportExtraMemoryAllocated(const JSCell*, size_t);
+    void reportExtraMemoryAllocated(GCDeferralContext*, const JSCell*, size_t);
     JS_EXPORT_PRIVATE void reportExtraMemoryVisited(size_t);
 
 #if ENABLE(RESOURCE_USAGE)
@@ -576,6 +576,8 @@ public:
         m_possiblyAccessedStringsFromConcurrentThreads.append(WTFMove(string));
     }
 
+    bool isInPhase(CollectorPhase phase) const { return m_currentPhase == phase; }
+
 private:
     friend class AllocatingScope;
     friend class CodeBlock;
@@ -622,7 +624,8 @@ private:
 
     Lock& lock() { return m_lock; }
 
-    JS_EXPORT_PRIVATE void reportExtraMemoryAllocatedSlowCase(GCDeferralContext*, size_t);
+    void reportExtraMemoryAllocatedPossiblyFromAlreadyMarkedCell(const JSCell*, size_t);
+    JS_EXPORT_PRIVATE void reportExtraMemoryAllocatedSlowCase(GCDeferralContext*, const JSCell*, size_t);
     JS_EXPORT_PRIVATE void deprecatedReportExtraMemorySlowCase(size_t);
     
     bool shouldCollectInCollectorThread(const AbstractLocker&);

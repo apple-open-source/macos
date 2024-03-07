@@ -181,3 +181,5 @@ _blake2sp_update
 _archive_allow_entitlement_format
 _archive_allow_entitlement_filter
 _archive_entitlement_cleanup
+_archive_write_disk_set_quarantine
+_archive_read_get_quarantine_from_fd

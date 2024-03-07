@@ -58,12 +58,9 @@ fi
 # build the version we want from source
 if test -v TEST_MOD_TLS; then
   RUSTLS_HOME="$HOME/build/rustls-ffi"
-  RUSTLS_VERSION="v0.9.0"
-  git clone https://github.com/rustls/rustls-ffi.git "$RUSTLS_HOME"
+  RUSTLS_VERSION="v0.10.0"
+  git clone -b "$RUSTLS_VERSION" https://github.com/rustls/rustls-ffi.git "$RUSTLS_HOME"
   pushd "$RUSTLS_HOME"
-    # since v0.9.0, there is no longer a dependency on cbindgen
-    git fetch origin
-    git checkout tags/$RUSTLS_VERSION
     make install DESTDIR="$PREFIX"
   popd
   CONFIG="$CONFIG --with-tls --with-rustls=$PREFIX"
@@ -122,8 +119,23 @@ if ! test -v SKIP_TESTING; then
         test -v TEST_INSTALL || make install
         pushd test/perl-framework
             perl Makefile.PL -apxs $PREFIX/bin/apxs
-            make test APACHE_TEST_EXTRA_ARGS="${TEST_ARGS} ${TESTS}"
-            RV=$?
+            make test APACHE_TEST_EXTRA_ARGS="${TEST_ARGS} ${TESTS}" | tee test.log
+            RV=${PIPESTATUS[0]}
+            # re-run failing tests with -v, avoiding set -e
+            if [ $RV -ne 0 ]; then
+                #mv t/logs/error_log t/logs/error_log_save
+                FAILERS=""
+                while read FAILER; do
+                    FAILERS="$FAILERS $FAILER"
+                done < <(awk '/Failed:/{print $1}' test.log)
+                if [ -n "$FAILERS" ]; then
+                    t/TEST -v $FAILERS || true
+                fi
+                # set -e would have killed us after the original t/TEST
+                rm -f test.log
+                #mv t/logs/error_log_save t/logs/error_log
+                false
+            fi
         popd
     fi
 
@@ -181,6 +193,8 @@ if ! test -v SKIP_TESTING; then
     fi
 
     if test -v TEST_H2 -a $RV -eq 0; then
+        # Build the test clients
+        (cd test/clients && make)
         # Run HTTP/2 tests.
         MPM=event py.test-3 test/modules/http2
         RV=$?

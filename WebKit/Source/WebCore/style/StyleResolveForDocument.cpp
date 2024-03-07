@@ -31,6 +31,7 @@
 
 #include "CSSFontSelector.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "FontCascade.h"
 #include "HTMLIFrameElement.h"
 #include "LocalFrame.h"
@@ -73,7 +74,7 @@ RenderStyle resolveForDocument(const Document& document)
     Adjuster::adjustEventListenerRegionTypesForRootStyle(documentStyle, document);
     
     const Pagination& pagination = renderView.frameView().pagination();
-    if (pagination.mode != Unpaginated) {
+    if (pagination.mode != Pagination::Mode::Unpaginated) {
         documentStyle.setColumnStylesFromPaginationMode(pagination.mode);
         documentStyle.setColumnGap(GapLength(Length((int) pagination.gap, LengthType::Fixed)));
         if (renderView.multiColumnFlow())

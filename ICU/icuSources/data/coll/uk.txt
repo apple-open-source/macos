@@ -8,7 +8,7 @@ uk{
                 "[import und-u-co-search]"
                 "&’=ʼ"
             }
-            Version{"42"}
+            Version{"44"}
         }
         standard{
             Sequence{
@@ -16,7 +16,7 @@ uk{
                 "&Г<ґ<<<Ґ"
                 "&ꙇ<ї<<<\uA676<<<Ї"
             }
-            Version{"42"}
+            Version{"44"}
         }
     }
 }

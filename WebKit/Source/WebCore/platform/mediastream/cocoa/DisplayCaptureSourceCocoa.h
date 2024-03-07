@@ -136,9 +136,10 @@ private:
     const RealtimeMediaSourceCapabilities& capabilities() final;
     const RealtimeMediaSourceSettings& settings() final;
     CaptureDevice::DeviceType deviceType() const { return m_capturer->deviceType(); }
-    void commitConfiguration() final { m_capturer->commitConfiguration(settings()); }
+    void endApplyingConstraints() final { commitConfiguration(); }
     IntSize computeResizedVideoFrameSize(IntSize desiredSize, IntSize actualSize) final;
     void setSizeFrameRateAndZoom(std::optional<int> width, std::optional<int> height, std::optional<double>, std::optional<double>) final;
+    double observedFrameRate() const final;
 
     const char* logClassName() const final { return "DisplayCaptureSourceCocoa"; }
     void setLogger(const Logger&, const void*) final;
@@ -148,6 +149,7 @@ private:
     void capturerFailed() final { captureFailed(); }
     void capturerConfigurationChanged() final;
 
+    void commitConfiguration() { m_capturer->commitConfiguration(settings()); }
     void emitFrame();
 
     UniqueRef<Capturer> m_capturer;

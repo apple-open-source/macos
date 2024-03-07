@@ -147,14 +147,15 @@ uint64_t _IOHIDGetTimestampDelta(uint64_t timestampA, uint64_t timestampB, uint3
     static mach_timebase_info_data_t timebaseInfo;
     uint64_t delta = 0;
     
-    if (timebaseInfo.denom == 0)
+    if (timebaseInfo.denom == 0) {
         mach_timebase_info(&timebaseInfo);
-    
+    }
+
     delta = timestampA - timestampB;
-    
+
     delta *= timebaseInfo.numer;
     delta /= timebaseInfo.denom;
-    
+
     return delta / scaleFactor;
 }
 

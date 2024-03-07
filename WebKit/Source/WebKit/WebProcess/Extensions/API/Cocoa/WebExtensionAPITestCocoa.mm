@@ -30,6 +30,7 @@
 #import "config.h"
 #import "WebExtensionAPITest.h"
 
+#import "CocoaHelpers.h"
 #import "MessageSenderInlines.h"
 #import "WebExtensionAPINamespace.h"
 #import "WebExtensionContextMessages.h"
@@ -74,10 +75,17 @@ void WebExtensionAPITest::yield(JSContextRef context, NSString *message)
     WebProcess::singleton().send(Messages::WebExtensionContext::TestYielded(message, location.first, location.second), extensionContext().identifier());
 }
 
-void WebExtensionAPITest::log(JSContextRef context, NSString *message)
+inline NSString *debugString(JSValue *value)
+{
+    if (value._isRegularExpression || value._isFunction)
+        return value.toString;
+    return value._toSortedJSONString ?: @"undefined";
+}
+
+void WebExtensionAPITest::log(JSContextRef context, JSValue *value)
 {
     auto location = scriptLocation(context);
-    WebProcess::singleton().send(Messages::WebExtensionContext::TestMessage(message, location.first, location.second), extensionContext().identifier());
+    WebProcess::singleton().send(Messages::WebExtensionContext::TestMessage(debugString(value), location.first, location.second), extensionContext().identifier());
 }
 
 void WebExtensionAPITest::fail(JSContextRef context, NSString *message)
@@ -101,14 +109,7 @@ void WebExtensionAPITest::assertFalse(JSContextRef context, bool actualValue, NS
     assertTrue(context, !actualValue, message);
 }
 
-inline NSString *debugString(JSValue *value)
-{
-    if (value._regularExpression)
-        return value.toString;
-    return value._toSortedJSONString ?: @"undefined";
-}
-
-void WebExtensionAPITest::assertDeepEq(JSContextRef context, JSValue *expectedValue, JSValue *actualValue, NSString *message)
+void WebExtensionAPITest::assertDeepEq(JSContextRef context, JSValue *actualValue, JSValue *expectedValue, NSString *message)
 {
     NSString *expectedJSONValue = debugString(expectedValue);
     NSString *actualJSONValue = debugString(actualValue);
@@ -122,7 +123,22 @@ void WebExtensionAPITest::assertDeepEq(JSContextRef context, JSValue *expectedVa
     WebProcess::singleton().send(Messages::WebExtensionContext::TestEqual(deepEqual, expectedJSONValue, actualJSONValue, message, location.first, location.second), extensionContext().identifier());
 }
 
-void WebExtensionAPITest::assertEq(JSContextRef context, JSValue *expectedValue, JSValue *actualValue, NSString *message)
+static NSString *combineMessages(NSString *messageOne, NSString *messageTwo)
+{
+    if (messageOne.length && messageTwo.length)
+        return [[messageOne stringByAppendingString:@"\n"] stringByAppendingString:messageTwo];
+    if (messageOne.length && !messageTwo.length)
+        return messageOne;
+    return messageTwo;
+}
+
+static void assertEquals(WebExtensionContextProxy& extensionContext, JSContextRef context, bool result, NSString *expectedString, NSString *actualString, NSString *message)
+{
+    auto location = scriptLocation(context);
+    WebProcess::singleton().send(Messages::WebExtensionContext::TestEqual(result, expectedString, actualString, message, location.first, location.second), extensionContext.identifier());
+}
+
+void WebExtensionAPITest::assertEq(JSContextRef context, JSValue *actualValue, JSValue *expectedValue, NSString *message)
 {
     NSString *expectedJSONValue = debugString(expectedValue);
     NSString *actualJSONValue = debugString(actualValue);
@@ -131,8 +147,7 @@ void WebExtensionAPITest::assertEq(JSContextRef context, JSValue *expectedValue,
     if (!strictEqual && [expectedJSONValue isEqualToString:actualJSONValue])
         actualJSONValue = [actualJSONValue stringByAppendingString:@" (different)"];
 
-    auto location = scriptLocation(context);
-    WebProcess::singleton().send(Messages::WebExtensionContext::TestEqual(strictEqual, expectedJSONValue, actualJSONValue, message, location.first, location.second), extensionContext().identifier());
+    assertEquals(extensionContext(), context, strictEqual, expectedJSONValue, actualJSONValue, message);
 }
 
 JSValue *WebExtensionAPITest::assertRejects(JSContextRef context, JSValue *promise, JSValue *expectedError, NSString *message)
@@ -147,7 +162,7 @@ JSValue *WebExtensionAPITest::assertRejects(JSContextRef context, JSValue *promi
 
     [promise _awaitThenableResolutionWithCompletionHandler:^(JSValue *result, JSValue *error) {
         if (result || !error) {
-            assertTrue(context, false, [NSString stringWithFormat:@"Promise resolved with a result (%@); expected an error (%@).", debugString(result), debugString(expectedError)]);
+            assertEquals(extensionContext(), context, false, expectedError ? debugString(expectedError) : @"(any error)", result ? debugString(result) : @"(no error)", combineMessages(message, @"Promise did not reject with an error"));
             [resolveCallback callWithArguments:nil];
             return;
         }
@@ -155,19 +170,45 @@ JSValue *WebExtensionAPITest::assertRejects(JSContextRef context, JSValue *promi
         JSValue *errorMessageValue = error.isObject && [error hasProperty:@"message"] ? error[@"message"] : error;
 
         if (!expectedError) {
-            assertTrue(context, true, [NSString stringWithFormat:@"Promise rejected with an error (%@).", debugString(errorMessageValue)]);
+            assertEquals(extensionContext(), context, true, @"(any error)", debugString(errorMessageValue), combineMessages(message, @"Promise rejected with an error"));
             [resolveCallback callWithArguments:nil];
             return;
         }
 
-        if (expectedError._regularExpression) {
+        if (expectedError._isRegularExpression) {
             JSValue *testResult = [expectedError invokeMethod:@"test" withArguments:@[ errorMessageValue ]];
-            assertTrue(context, testResult.toBool, [NSString stringWithFormat:@"Promise rejected with an error (%@) that didn't match %@.", debugString(errorMessageValue), debugString(expectedError)]);
+            assertEquals(extensionContext(), context, testResult.toBool, debugString(expectedError), debugString(errorMessageValue), combineMessages(message, @"Promise rejected with an error that didn't match the regular expression"));
             [resolveCallback callWithArguments:nil];
             return;
         }
 
-        assertTrue(context, [expectedError isEqualWithTypeCoercionToObject:errorMessageValue], [NSString stringWithFormat:@"Promise rejected with an error (%@) that didn't equal %@.", debugString(errorMessageValue), debugString(expectedError)]);
+        assertEquals(extensionContext(), context, [expectedError isEqualWithTypeCoercionToObject:errorMessageValue], debugString(expectedError), debugString(errorMessageValue), combineMessages(message, @"Promise rejected with an error that didn't equal"));
+        [resolveCallback callWithArguments:nil];
+    }];
+
+    return resultPromise;
+}
+
+JSValue *WebExtensionAPITest::assertResolves(JSContextRef context, JSValue *promise, NSString *message)
+{
+    __block JSValue *resolveCallback;
+    JSValue *resultPromise = [JSValue valueWithNewPromiseInContext:promise.context fromExecutor:^(JSValue *resolve, JSValue *reject) {
+        resolveCallback = resolve;
+    }];
+
+    // Wrap in a native promise for consistency.
+    promise = [JSValue valueWithNewPromiseResolvedWithResult:promise inContext:promise.context];
+
+    [promise _awaitThenableResolutionWithCompletionHandler:^(JSValue *result, JSValue *error) {
+        if (!error) {
+            succeed(context, @"Promise resolved without an error");
+            [resolveCallback callWithArguments:@[ result ]];
+            return;
+        }
+
+        JSValue *errorMessageValue = error.isObject && [error hasProperty:@"message"] ? error[@"message"] : error;
+        notifyFail(context, combineMessages(message, [NSString stringWithFormat:@"Promise rejected with an error: %@", debugString(errorMessageValue)]));
+
         [resolveCallback callWithArguments:nil];
     }];
 
@@ -180,7 +221,7 @@ void WebExtensionAPITest::assertThrows(JSContextRef context, JSValue *function, 
 
     JSValue *exceptionValue = function.context.exception;
     if (!exceptionValue) {
-        assertTrue(context, false, [NSString stringWithFormat:@"Function did not throw an exception; expected an error (%@).", debugString(expectedError)]);
+        assertEquals(extensionContext(), context, false, expectedError ? debugString(expectedError) : @"(any exception)", @"(no exception)", combineMessages(message, @"Function did not throw an exception"));
         return;
     }
 
@@ -190,33 +231,45 @@ void WebExtensionAPITest::assertThrows(JSContextRef context, JSValue *function, 
     function.context.exception = nil;
 
     if (!expectedError) {
-        assertTrue(context, true, [NSString stringWithFormat:@"Function threw an exception (%@).", debugString(exceptionMessageValue)]);
+        assertEquals(extensionContext(), context, true, @"(any exception)", debugString(exceptionMessageValue), combineMessages(message, @"Function threw an exception"));
         return;
     }
 
-    if (expectedError._regularExpression) {
+    if (expectedError._isRegularExpression) {
         JSValue *testResult = [expectedError invokeMethod:@"test" withArguments:@[ exceptionMessageValue ]];
-        assertTrue(context, testResult.toBool, [NSString stringWithFormat:@"Function threw an exception (%@) that didn't match %@.", debugString(exceptionMessageValue), debugString(expectedError)]);
+        assertEquals(extensionContext(), context, testResult.toBool, debugString(expectedError), debugString(exceptionMessageValue), combineMessages(message, @"Function threw an exception that didn't match the regular expression"));
         return;
     }
 
-    assertTrue(context, [expectedError isEqualWithTypeCoercionToObject:exceptionMessageValue], [NSString stringWithFormat:@"Function threw an exception (%@) that didn't equal %@.", debugString(exceptionMessageValue), debugString(expectedError)]);
+    assertEquals(extensionContext(), context, [expectedError isEqualWithTypeCoercionToObject:exceptionMessageValue], debugString(expectedError), debugString(exceptionMessageValue), combineMessages(message, @"Function threw an exception that didn't equal"));
 }
 
-WebExtensionAPIWebNavigationEvent& WebExtensionAPITest::testWebNavigationEvent()
+JSValue *WebExtensionAPITest::assertSafe(JSContextRef context, JSValue *function, NSString *message)
 {
-    if (!m_webNavigationEvent)
-        m_webNavigationEvent = WebExtensionAPIWebNavigationEvent::create(forMainWorld(), runtime(), extensionContext(), WebExtensionEventListenerType::WebNavigationOnCompleted);
+    JSValue *result = [function callWithArguments:@[ ]];
 
-    return *m_webNavigationEvent;
+    JSValue *exceptionValue = function.context.exception;
+    if (!exceptionValue) {
+        succeed(context, @"Function did not throw an exception");
+        return result;
+    }
+
+    // Clear the exception since it was caught.
+    function.context.exception = nil;
+
+    JSValue *exceptionMessageValue = exceptionValue.isObject && [exceptionValue hasProperty:@"message"] ? exceptionValue[@"message"] : exceptionValue;
+    notifyFail(context, combineMessages(message, [NSString stringWithFormat:@"Function threw an exception: %@", debugString(exceptionMessageValue)]));
+
+    return [JSValue valueWithUndefinedInContext:function.context];
 }
 
-void WebExtensionAPITest::fireTestWebNavigationEvent(NSString *urlString)
+JSValue *WebExtensionAPITest::assertSafeResolve(JSContextRef context, JSValue *function, NSString *message)
 {
-    NSURL *targetURL = [NSURL URLWithString:urlString];
+    JSValue *result = assertSafe(context, function, message);
+    if (!result._isThenable)
+        return result;
 
-    WebExtensionAPIWebNavigationEvent& testEvent = testWebNavigationEvent();
-    testEvent.invokeListenersWithArgument(@{ @"url": urlString }, targetURL);
+    return assertResolves(context, result, message);
 }
 
 WebExtensionAPIEvent& WebExtensionAPITest::testEvent()

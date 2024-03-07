@@ -85,6 +85,7 @@
         self->_client.applicationIdentifier                  = CFRetainSafe(existingClient->applicationIdentifier);
         self->_client.isAppClip                              = existingClient->isAppClip;
 
+        self->_client.allowKeychainSharing                   = existingClient->allowKeychainSharing;
     }
     return self;
 }

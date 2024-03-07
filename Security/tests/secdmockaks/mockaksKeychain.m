@@ -622,6 +622,207 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkIncremental];
 }
 
+- (void)testUpgradeRemovingSharingClasses
+{
+    int oldSchemaIndex = indexOfSchemaPassingTest(^bool (const SecDbSchema *schema) {
+        return schema->majorVersion == 12 && schema->minorVersion == 5;
+    });
+    int newSchemaIndex = indexOfSchemaPassingTest(^bool (const SecDbSchema *schema) {
+        return schema->majorVersion == 12 && schema->minorVersion == 6;
+    });
+    XCTAssertNotEqual(oldSchemaIndex, -1);
+    XCTAssertNotEqual(newSchemaIndex, -1);
+
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to schema version 12.5, in fresh location");
+        set_current_schema_index(oldSchemaIndex);
+        // We need a fresh directory for the older version DB
+        SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"subdir"]);
+    });
+
+    // Insert some fake entries into the sharing tables. It doesn't need to be
+    // valid, just enough to test that it's removed on upgrade.
+    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+        CFErrorRef error = NULL;
+
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("INSERT INTO sharingIncomingQueue(uuid, agrp, persistref) VALUES('abc', 'com.apple.security.securityd', x'cafed00d');"), &error), "Should add row to incoming queue");
+        XCTAssertNil(CFBridgingRelease(error));
+
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("INSERT INTO sharingMirror(uuid, agrp, persistref, lwsv) VALUES('abc', 'com.apple.security.securityd', x'cafed00d', 1);"), &error), "Should add row to mirror");
+        XCTAssertNil(CFBridgingRelease(error));
+
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("INSERT INTO sharingOutgoingQueue(uuid, agrp, persistref) VALUES('abc', 'com.apple.security.securityd', x'cafed00d');"), &error), "Should add row to outgoingQueue");
+        XCTAssertNil(CFBridgingRelease(error));
+
+        return true;
+    });
+
+    SecKeychainDbForceClose();
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to schema version 12.6");
+        set_current_schema_index(newSchemaIndex);
+    });
+
+    // Forcing a write operation upgrades the schema as a side effect.
+    kc_with_dbt(true, NULL, ^bool(SecDbConnectionRef dbt) {
+        CFErrorRef incomingQueueCFError = NULL;
+        XCTAssertFalse(SecDbExec(dbt, CFSTR("SELECT 1 FROM sharingOutgoingQueue;"), &incomingQueueCFError), "Should not have incoming queue table");
+        NSError *incomingQueueError = CFBridgingRelease(incomingQueueCFError);
+        XCTAssertNotNil(incomingQueueError);
+
+        CFErrorRef incomingQueueOldCFError = NULL;
+        XCTAssertFalse(SecDbExec(dbt, CFSTR("SELECT 1 FROM sharingIncomingQueue_old;"), &incomingQueueOldCFError), "Should not have old incoming queue table");
+        NSError *incomingQueueOldError = CFBridgingRelease(incomingQueueOldCFError);
+        XCTAssertNotNil(incomingQueueOldError);
+
+        return true;
+    });
+}
+
+- (void)testUpgradeFromVersion12_5
+{
+    // The group sharing tables existed in 12.5, removed in 12.6, and restored
+    // in 12.7, so we should be able to upgrade from 12.5 to 12.7+.
+
+    int oldSchemaIndex = indexOfSchemaPassingTest(^bool (const SecDbSchema *schema) {
+        return schema->majorVersion == 12 && schema->minorVersion == 5;
+    });
+    XCTAssertNotEqual(oldSchemaIndex, -1);
+
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to schema version 12.5, in fresh location");
+        set_current_schema_index(oldSchemaIndex);
+        // We need a fresh directory for the older version DB
+        SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"subdir"]);
+    });
+
+    // Insert some passwords to migrate.
+    [self createManyItems];
+
+    // Insert some fake entries into the sharing tables. It doesn't need to be
+    // valid, just enough to test that it's migrated.
+    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+        CFErrorRef error = NULL;
+
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("INSERT INTO sharingIncomingQueue(uuid, agrp, persistref) VALUES('abc', 'com.apple.security.securityd', x'cafed00d');"), &error), "Should add row to incoming queue");
+        XCTAssertNil(CFBridgingRelease(error));
+
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("INSERT INTO sharingMirror(uuid, agrp, persistref, lwsv) VALUES('abc', 'com.apple.security.securityd', x'cafed00d', 1);"), &error), "Should add row to mirror");
+        XCTAssertNil(CFBridgingRelease(error));
+
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("INSERT INTO sharingOutgoingQueue(uuid, agrp, persistref) VALUES('abc', 'com.apple.security.securityd', x'cafed00d');"), &error), "Should add row to outgoingQueue");
+        XCTAssertNil(CFBridgingRelease(error));
+
+        return true;
+    });
+
+    SecKeychainDbForceClose();
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to current schema version");
+        reset_current_schema_index();
+    });
+
+    // Forcing a write operation upgrades the schema as a side effect.
+    kc_with_dbt(true, NULL, ^bool(SecDbConnectionRef dbt) {
+        // Ensure that the sharing tables were migrated correctly.
+        CFErrorRef incomingQueueCFError = NULL;
+        XCTAssertTrue(SecDbPrepare(dbt, CFSTR("SELECT count(*) FROM sharingIncomingQueue"), &incomingQueueCFError, ^(sqlite3_stmt *statement) {
+            CFErrorRef stepCFError = NULL;
+            XCTAssertTrue(SecDbStep(dbt, statement, &stepCFError, ^(bool *stop) {
+                XCTAssertEqual(sqlite3_column_int64(statement, 0), 1, "Should have migrated incoming queue entry");
+            }));
+            NSError *stepError = CFBridgingRelease(stepCFError);
+            XCTAssertNil(stepError);
+        }));
+        NSError *incomingQueueError = CFBridgingRelease(incomingQueueCFError);
+        XCTAssertNil(incomingQueueError);
+
+        CFErrorRef mirrorCFError = NULL;
+        XCTAssertTrue(SecDbPrepare(dbt, CFSTR("SELECT count(*) FROM sharingMirror"), &mirrorCFError, ^(sqlite3_stmt *statement) {
+            CFErrorRef stepCFError = NULL;
+            XCTAssertTrue(SecDbStep(dbt, statement, &stepCFError, ^(bool *stop) {
+                XCTAssertEqual(sqlite3_column_int64(statement, 0), 1, "Should have migrated mirror entry");
+            }));
+            NSError *stepError = CFBridgingRelease(stepCFError);
+            XCTAssertNil(stepError);
+        }));
+        NSError *mirrorError = CFBridgingRelease(mirrorCFError);
+        XCTAssertNil(mirrorError);
+
+        CFErrorRef outgoingQueueCFError = NULL;
+        XCTAssertTrue(SecDbPrepare(dbt, CFSTR("SELECT count(*) FROM sharingOutgoingQueue"), &outgoingQueueCFError, ^(sqlite3_stmt *statement) {
+            CFErrorRef stepCFError = NULL;
+            XCTAssertTrue(SecDbStep(dbt, statement, &stepCFError, ^(bool *stop) {
+                XCTAssertEqual(sqlite3_column_int64(statement, 0), 1, "Should have migrated outgoing queue entry");
+            }));
+            NSError *stepError = CFBridgingRelease(stepCFError);
+            XCTAssertNil(stepError);
+        }));
+        NSError *outgoingQueueError = CFBridgingRelease(outgoingQueueCFError);
+        XCTAssertNil(outgoingQueueError);
+
+        CFErrorRef incomingQueueOldCFError = NULL;
+        XCTAssertFalse(SecDbExec(dbt, CFSTR("SELECT 1 FROM sharingIncomingQueue_old;"), &incomingQueueOldCFError), "Should not have old incoming queue table");
+        NSError *incomingQueueOldError = CFBridgingRelease(incomingQueueOldCFError);
+        XCTAssertNotNil(incomingQueueOldError);
+
+        return true;
+    });
+
+    // ...And make sure the passwords were migrated.
+    [self findManyItems:50];
+}
+
+- (void)testUpgradeFromVersion12_6
+{
+    // Upgrading from 12.6 to 12.7+ should also work, and create the group
+    // sharing tables.
+
+    int oldSchemaIndex = indexOfSchemaPassingTest(^bool (const SecDbSchema *schema) {
+        return schema->majorVersion == 12 && schema->minorVersion == 6;
+    });
+    XCTAssertNotEqual(oldSchemaIndex, -1);
+
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to schema version 12.6, in fresh location");
+        set_current_schema_index(oldSchemaIndex);
+        // We need a fresh directory for the older version DB
+        SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"subdir"]);
+    });
+
+    // Insert some passwords to migrate.
+    [self createManyItems];
+
+    SecKeychainDbForceClose();
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to current schema version");
+        reset_current_schema_index();
+    });
+
+    // Forcing a write operation upgrades the schema as a side effect.
+    kc_with_dbt(true, NULL, ^bool(SecDbConnectionRef dbt) {
+        // Ensure that the sharing tables exist.
+        CFErrorRef incomingQueueCFError = NULL;
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("SELECT 1 FROM sharingIncomingQueue;"), &incomingQueueCFError), "Should have incoming queue table");
+        NSError *incomingQueueError = CFBridgingRelease(incomingQueueCFError);
+        XCTAssertNil(incomingQueueError);
+
+        CFErrorRef mirrorCFError = NULL;
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("SELECT 1 FROM sharingMirror;"), &mirrorCFError), "Should have sharing mirror table");
+        NSError *mirrorError = CFBridgingRelease(mirrorCFError);
+        XCTAssertNil(mirrorError);
+
+        CFErrorRef outgoingQueueCFError = NULL;
+        XCTAssertTrue(SecDbExec(dbt, CFSTR("SELECT 1 FROM sharingOutgoingQueue;"), &outgoingQueueCFError), "Should have sharing outgoing queue table");
+        NSError *outgoingQueueError = CFBridgingRelease(outgoingQueueCFError);
+        XCTAssertNil(outgoingQueueError);
+
+        return true;
+    });
+
+    // ...And make sure the passwords were migrated.
+    [self findManyItems:50];
+}
 
 - (void)testUpgradeFromPreviousVersion
 {

@@ -162,6 +162,7 @@ __attribute__((visibility("hidden")))
     OTAccountMetadataClassC_AttemptedAJoinState _attemptedJoin;
     OTAccountMetadataClassC_CDPState _cdpState;
     OTAccountMetadataClassC_AccountState _icloudAccountState;
+    NSString *_oldPeerID;
     NSString *_peerID;
     NSData *_secureElementIdentity;
     OTAccountMetadataClassC_MetricsState _sendingMetricsPermitted;
@@ -269,6 +270,9 @@ __attribute__((visibility("hidden")))
 @property (nonatomic) OTAccountMetadataClassC_MetricsState sendingMetricsPermitted;
 - (NSString *)sendingMetricsPermittedAsString:(OTAccountMetadataClassC_MetricsState)value;
 - (OTAccountMetadataClassC_MetricsState)StringAsSendingMetricsPermitted:(NSString *)str;
+
+@property (nonatomic, readonly) BOOL hasOldPeerID;
+@property (nonatomic, retain) NSString *oldPeerID;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

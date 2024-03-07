@@ -4500,7 +4500,7 @@ static const char* get_managed_cups_conf_dir(char mcf[static MAXPATHLEN])
   // the final API exists:
   // rdar://102065821 (Need C-based API to return managed location for service configuration files)
   {
-    const char* checkPath = "/private/etc/ManagedConfigurationFiles/org.cups.cupsd";
+    const char* checkPath = "/private/etc/ManagedConfigurationFiles/com.apple.cups";
     int fdDir = open(checkPath, O_RDONLY);
     if (fdDir != -1) {
       int fd = openat(fdDir, "cupsd.conf", O_RDONLY);
@@ -4517,10 +4517,7 @@ static const char* get_managed_cups_conf_dir(char mcf[static MAXPATHLEN])
   }
 #endif
 
-  // from looking at other bugs and rdar://102065821
-  // the API has changed slightly, but I don't know how yet.
-
-  size_t r = mcf_service_path_for_service_type("org.cups.cupsd", mcf, MAXPATHLEN);
+  size_t r = mcf_service_path_for_service_type("com.apple.cups", mcf, MAXPATHLEN);
   if (r > 0) {
     return mcf;
   } else {

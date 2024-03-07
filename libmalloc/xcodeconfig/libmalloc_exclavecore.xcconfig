@@ -1,0 +1,33 @@
+#include "libmalloc_common.xcconfig"
+
+SDKROOT = exclavecore.iphoneos.internal
+SUPPORTED_PLATFORMS = exclavecore.iphoneos exclavecore.macosx exclavecore.appletvos exclavecore.watchos exclavecore.xros
+BUILD_VARIANTS = normal asan debug
+
+PRODUCT_NAME = libmalloc
+INSTALL_PATH = $(SYSTEM_PREFIX)/usr/lib
+
+PUBLIC_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/include/malloc
+PRIVATE_HEADERS_FOLDER_PATH = $(SYSTEM_PREFIX)/usr/local/include
+USE_HEADERMAP = NO
+
+USER_HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT)/private
+SYSTEM_HEADER_SEARCH_PATHS = $(inherited) $(SDKROOT)/System/ExclaveCore/usr/local/standalone/cL4-future/include $(SRCROOT)/include
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) L4_CONFIG_PLAT_EXCLAVE_GENERIC
+
+CLANG_ENABLE_MODULES = YES
+// Force modulemap to be copied in installhdrs phase
+DEFINES_MODULE = YES
+MODULEMAP_FILE = $(SRCROOT)/include/malloc/allocator.modulemap
+INSTALLHDRS_COPY_PHASE = YES
+
+// ASan builds need to produce a different file with different build settings
+OTHER_LDFLAGS_asan = $(inherited) -Wl,-image_suffix,_asan
+
+OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_INSTRUMENTATION=1 -D__LIBLIBC_F_UBSAN_INSTRUMENTATION=1
+OTHER_CFLAGS_asan = $(inherited) -D__LIBLIBC_F_ASAN_RUNTIME=1 -D__LIBLIBC_F_UBSAN_RUNTIME=1
+// Don't instrument actual libmalloc code with ASan instrumentation
+OTHER_CFLAGS_asan = $(inherited) -fno-sanitize=address -fsanitize=undefined
+
+// Set on files that can build with bounds attributes in the xcodeproj
+MALLOC_BOUNDS_ATTRIBUTES_SUPPORT = -fbounds-attributes

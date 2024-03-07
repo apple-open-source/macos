@@ -114,6 +114,104 @@ init_encoding_state(struct _citrus_iconv_std_encoding *se)
 		_stdenc_init_state(se->se_handle, se->se_ps);
 }
 
+#ifdef __APPLE__
+static __inline int
+iconv_std_wctomb(struct _citrus_iconv * __restrict cv, unsigned short *delta,
+    int cnt, char **s, size_t n, size_t *wcbufsz)
+{
+	wchar_t *win;
+	struct _citrus_iconv_std_context *sc = cv->cv_closure;
+	mbstate_t mbstate;
+	size_t mbsz, szrin;
+	int ret, tmpcnt;
+
+	/*
+	 * For conversions from WCHAR_T, we need to convert to
+	 * the anticipated multibyte sequence before we can
+	 * proceed.  The upper layer set our actual src encoding
+	 * to UCS-4-INTERNAL so that everything just works.
+	 */
+	ret = tmpcnt = 0;
+	*wcbufsz = szrin = 0;
+	win = (wchar_t *)*s;
+	mbstate = sc->sc_mbstate;
+	while (n >= sizeof(*win) &&
+	    szrin <= sizeof(sc->sc_wcbuf) - MB_CUR_MAX &&
+	    tmpcnt < cnt) {
+		mbsz = wcrtomb(&sc->sc_wcbuf[szrin], *win, &mbstate);
+		if (mbsz == (size_t)-1) {
+			if (cv->cv_shared->ci_discard_ilseq) {
+				/* Drop it, try again, reset state. */
+				memset(&mbstate, 0, sizeof(mbstate));
+				goto nextwc;
+			} else if (szrin > 0) {
+				/*
+				 * If we completed anything, go ahead and run
+				 * those through the conversion machinery.
+				 */
+				ret = EILSEQ;
+				goto out;
+			}
+
+			/* XXX Fallback */
+			return (EILSEQ);
+		}
+
+		szrin += mbsz;
+		sc->sc_mbstate = mbstate;
+nextwc:
+		/*
+		 * delta after a successful iconv_std_wctomb is a reverse lookup
+		 * table to get us back to the original input string if we need
+		 * it.
+		 */
+		delta[tmpcnt++] = szrin;
+
+		win++;
+		n -= sizeof(*win);
+		*s += sizeof(*win);
+	}
+
+out:
+	*wcbufsz = szrin;
+	return (ret);
+}
+
+static void
+iconv_std_delta_remap(int cnt, int sz, const unsigned short *wcdelta,
+    unsigned short *delta)
+{
+	size_t curmb;
+	int i, j;
+
+	for (i = 0; i < cnt; i++) {
+		/*
+		 * delta[i] describes how many multibyte characters we consumed
+		 * for the widechar at position i.
+		 *
+		 * wcdelta[j] describes how many multibyte characters were
+		 * produced by the wchar_t at position j.
+		 *
+		 * delta and wcdelta should be a roughly 1:1 match, but the
+		 * original wchar_t array may have actually had some holes in
+		 * it. wcdelta will account for the holes, so we just need to
+		 * fast forward past those and map delta[i] back to
+		 * (idx + 1) * sizeof(wchar_t).
+		 */
+		curmb = delta[i];
+
+		assert(wcdelta[i] <= curmb);
+		for (j = i; j < sz - 1; j++) {
+			if (wcdelta[j + 1] > curmb)
+				break;
+		}
+
+		assert(wcdelta[j] <= curmb);
+		delta[i] = (j + 1) * sizeof(wchar_t);
+	}
+}
+#endif /* __APPLE__ */
+
 static __inline int
 #ifdef __APPLE__
 mbtocsx(struct _citrus_iconv_std_encoding *se,
@@ -224,6 +322,101 @@ cstombx(struct _citrus_iconv_std_encoding *se,
 			      nresult, hooks));
 #endif
 }
+
+#ifdef __APPLE__
+static __inline int
+iconv_std_mbtowc(struct _citrus_iconv * __restrict cv,
+    char *s, size_t n, _csid_t *csid, _index_t *idx, int *cnt, size_t *nresult)
+{
+	const struct _citrus_iconv_std_shared *is = cv->cv_shared->ci_closure;
+	struct _citrus_iconv_std_context *sc = cv->cv_closure;
+	mbstate_t mbstate;
+	wchar_t *wcbuf, wc;
+	size_t cur_min, tmpoff, tmpsz, wcsz;
+	int cntoff, out, ret, tmpcnt, total;
+
+	/*
+	 * We don't need a persistent state because the only state tracked in
+	 * mbrtowc() will be for things that we've already accounted for --
+	 * unless something bad has happened, cstombx() shouldn't be giving us
+	 * incomplete sequences -- we don't use NULL, though, because we don't
+	 * want to clobber global state.
+	 */
+	memset(&mbstate, 0, sizeof(mbstate));
+	cur_min = _stdenc_get_mb_cur_min(is->is_dst_encoding);
+	assert(cur_min < MB_LEN_MAX);
+
+	ret = 0;
+	wcbuf = (wchar_t *)s;
+	cntoff = out = 0;
+	total = *cnt;
+	tmpsz = 0;
+	while (cntoff < total) {
+		tmpcnt = total - cntoff;
+		ret = cstombx(&sc->sc_dst_encoding,
+		    &sc->sc_wcbuf[0], sizeof(sc->sc_wcbuf),
+		    &csid[cntoff], &idx[cntoff], &tmpcnt,
+		    &tmpsz, cv->cv_shared->ci_hooks);
+
+		/* Return with what we've done so far. */
+		if (ret != 0 && tmpcnt == 0)
+			break;
+
+		/*
+		 * Otherwise, wcbuf has tmpsz bytes encoded into it that we need
+		 * to convert.  We should be able to get all of them cleanly
+		 * out.
+		 */
+		tmpoff = 0;
+		while (tmpsz != 0 && n != 0) {
+			size_t consume;
+
+			if (n < sizeof(wchar_t))
+				break;
+
+			wcsz = mbrtowc(&wc,
+			    &sc->sc_wcbuf[tmpoff], tmpsz, &mbstate);
+
+			assert(wcsz != (size_t)-2);
+
+			if (wcsz == (size_t)-1) {
+				ret = EILSEQ;
+				goto out;
+			}
+
+			assert(wcsz <= tmpsz);
+
+			/*
+			 * csmapper sometimes does map some input to NUL bytes,
+			 * so we should handle that here.
+			 */
+			consume = MIN(MAX(wcsz, cur_min), tmpsz);
+			tmpsz -= consume;
+			tmpoff += consume;
+
+			if (wcsz == 0)
+				continue;
+
+			wcbuf[out++] = wc;
+			n -= sizeof(wchar_t);
+		}
+
+		cntoff += tmpcnt;
+	}
+
+out:
+	/*
+	 * cntoff is how many we actually processed, out is how many wchar_t we
+	 * actually sent out (could be different due to, e.g., NUL bytes).
+	 */
+	*cnt = cntoff;
+	if (cntoff > 0)
+		*nresult = out * sizeof(wchar_t);
+
+	return (ret);
+}
+#endif /* __APPLE__ */
+
 
 static __inline int
 wctombx(struct _citrus_iconv_std_encoding *se,
@@ -593,11 +786,13 @@ next:
 		for (int i = off; i < off + tmpcnt; i++) {
 			if (csid[i] == checkid)
 				len++;
+			else
+				break;
 		}
 
 		tentative = false;
 		TAILQ_FOREACH(ss, &is->is_srcs, ss_entry) {
-			if (ss->ss_csid == *csid) {
+			if (ss->ss_csid == csid[off]) {
 				TAILQ_FOREACH(sd, &ss->ss_dsts, sd_entry) {
 					elen = len;
 					ret = do_conv_map_one(sd, &csid[off],
@@ -838,6 +1033,10 @@ _citrus_iconv_std_iconv_init_context(struct _citrus_iconv *cv)
 	if (sc == NULL)
 		return (errno);
 
+#ifdef __APPLE__
+	memset(&sc->sc_mbstate, 0, sizeof(sc->sc_mbstate));
+#endif
+
 	ptr = (char *)&sc[1];
 	if (szpssrc > 0)
 		init_encoding(&sc->sc_src_encoding, is->is_src_encoding,
@@ -945,9 +1144,53 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 
 #ifdef __APPLE__
 		tmpcnt = cnt = nitems(csid);
-		ret = mbtocsx(&sc->sc_src_encoding, &csid[0], &idx[0],
-		    &delta[0], &tmpcnt, &tmpin, *inbytes, &szrin,
-		    cv->cv_shared->ci_hooks);
+		if ((cv->cv_wchar_dir & MDIR_UCS_SRC) != 0) {
+			char *tmpwin;
+			size_t szwin;
+
+			memset(&sc->sc_wcdelta, 0, sizeof(sc->sc_wcdelta));
+			ret = iconv_std_wctomb(cv, &sc->sc_wcdelta[0], tmpcnt,
+			    &tmpin, *inbytes, &szwin);
+
+			/*
+			 * We can thus anticipate an error on the next run of
+			 * iconv_std_wctomb(), but we don't actually do anything
+			 * with that fact just yet.
+			 */
+			if (ret != 0 && szwin != 0)
+				ret = 0;
+			if (ret != 0)
+				goto err;
+
+			/*
+			 * When wctomb is feeding mbtocsx, we just need to
+			 * carefully divert to our contexts' wcbuf.
+			 */
+			tmpwin = &sc->sc_wcbuf[0];
+			ret = mbtocsx(&sc->sc_src_encoding, &csid[0], &idx[0],
+			    &delta[0], &tmpcnt, &tmpwin, szwin, &szrin,
+			    cv->cv_shared->ci_hooks);
+			if (tmpcnt > 0) {
+				/*
+				 * Before we go any further, map delta back to
+				 * actual offsets into the original buffer.  At
+				 * the moment, it maps to offsets into our
+				 * intermediate buffer.
+				 */
+				iconv_std_delta_remap(tmpcnt, cnt,
+				    &sc->sc_wcdelta[0], &delta[0]);
+			}
+		} else {
+			ret = mbtocsx(&sc->sc_src_encoding, &csid[0], &idx[0],
+			    &delta[0], &tmpcnt, &tmpin, *inbytes, &szrin,
+			    cv->cv_shared->ci_hooks);
+		}
+
+		/*
+		 * Record how many characters we started out with, so we can
+		 * figure out near the end if we lost something.
+		 */
+		cnt = tmpcnt;
 
 		if (szrin == (size_t)-2 && tmpcnt > 0) {
 			/*
@@ -967,6 +1210,7 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 			init_encoding_state(&sc->sc_src_encoding);
 
 			szrin = delta[tmpcnt - 1];
+			tmpin = *in + szrin;
 		}
 
 		if (ret == EILSEQ && cv->cv_shared->ci_discard_ilseq) {
@@ -974,8 +1218,7 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 			 * If //IGNORE was specified, we'll just keep crunching
 			 * through invalid characters.
 			 */
-			*in += in_mb_cur_min;
-			*inbytes -= in_mb_cur_min;
+			tmpin += in_mb_cur_min;
 
 			/* Discard the src shift state, we're starting over. */
 			init_encoding_state(&sc->sc_src_encoding);
@@ -984,14 +1227,13 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 			 * If there weren't any previous characters, we need to
 			 * re-mbtocsx() it now that we've potentially advanced
 			 * past the invalid sequence.  If there were previous
-			 * characters, we'll still process those and need
-			 * nothing further since we already did the above
-			 * update.
+			 * characters, we'll still process those.
 			 */
-			if (tmpcnt == 0)
+			if (tmpcnt == 0) {
+				*inbytes -= tmpin - *in;
+				*in = tmpin;
 				continue;
-
-			ret = 0;
+			}
 		}
 
 		/*
@@ -1118,9 +1360,20 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 
 		/* csid/index -> mb */
 #ifdef __APPLE__
-		ret = cstombx(&sc->sc_dst_encoding,
-		    *out, *outbytes, &csid[0], &idx[0], &tmpcnt,
-		    &szrout, cv->cv_shared->ci_hooks);
+		if ((cv->cv_wchar_dir & MDIR_UCS_DST) != 0) {
+
+			/*
+			 * For conversions -to- wchar_t, we just to convert back
+			 * out into the buffer in our context instead of
+			 * directly into *out, then we'll mbrtowc() into *out.
+			 */
+			ret = iconv_std_mbtowc(cv, *out, *outbytes, &csid[0],
+			    &idx[0], &tmpcnt, &szrout);
+		} else {
+			ret = cstombx(&sc->sc_dst_encoding,
+			    *out, *outbytes, &csid[0], &idx[0], &tmpcnt,
+			    &szrout, cv->cv_shared->ci_hooks);
+		}
 
 		/*
 		 * If we got an EILSEQ, replace that one character with the
@@ -1182,10 +1435,9 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 			 * excess that doesn't fit in the buffer.
 			 */
 			tmpin = *in + delta[tmpcnt - 1];
-			assert(tmpin > *in);
-		} else {
-			assert(tmpin > *in);
 		}
+
+		assert(tmpin > *in);
 #else
 		ret = cstombx(&sc->sc_dst_encoding,
 		    *out, *outbytes, csid, idx, &szrout,

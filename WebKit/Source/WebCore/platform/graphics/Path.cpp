@@ -67,23 +67,6 @@ Path::Path(PathSegment&& segment)
     m_data = WTFMove(segment);
 }
 
-bool Path::operator==(const Path& other) const
-{
-    if (auto segment = asSingle()) {
-        if (auto otherSegment = other.asSingle())
-            return *segment == *otherSegment;
-        return false;
-    }
-
-    if (auto impl = asImpl()) {
-        if (auto otherImpl = other.asImpl())
-            return impl == otherImpl;
-        return false;
-    }
-
-    return true;
-}
-
 PathImpl& Path::setImpl(Ref<PathImpl>&& impl)
 {
     auto& platformPathImpl = impl.get();
@@ -130,11 +113,6 @@ const PathImpl* Path::asImpl() const
     return nullptr;
 }
 
-Path Path::polygonPathFromPoints(const Vector<FloatPoint>& points)
-{
-    return Path(points);
-}
-
 void Path::moveTo(const FloatPoint& point)
 {
     if (isEmpty())
@@ -147,6 +125,13 @@ const PathMoveTo* Path::asSingleMoveTo() const
 {
     if (auto segment = asSingle())
         return std::get_if<PathMoveTo>(&segment->data());
+    return nullptr;
+}
+
+const PathArc* Path::asSingleArc() const
+{
+    if (auto segment = asSingle())
+        return std::get_if<PathArc>(&segment->data());
     return nullptr;
 }
 
@@ -291,7 +276,10 @@ void Path::closeSubpath()
     if (isEmpty() || isClosed())
         return;
 
-    ensureImpl().add(PathCloseSubpath { });
+    if (auto arc = asSingleArc())
+        m_data = PathSegment(PathClosedArc { *arc });
+    else
+        ensureImpl().add(PathCloseSubpath { });
 }
 
 void Path::addPath(const Path& path, const AffineTransform& transform)
@@ -389,6 +377,19 @@ std::optional<PathArc> Path::singleArc() const
     return std::nullopt;
 }
 
+std::optional<PathClosedArc> Path::singleClosedArc() const
+{
+    if (auto segment = asSingle()) {
+        if (auto data = std::get_if<PathClosedArc>(&segment->data()))
+            return *data;
+    }
+
+    if (auto impl = asImpl())
+        return impl->singleClosedArc();
+
+    return std::nullopt;
+}
+
 std::optional<PathDataQuadCurve> Path::singleQuadCurve() const
 {
     if (auto segment = asSingle()) {
@@ -424,6 +425,11 @@ bool Path::isEmpty() const
         return impl->isEmpty();
 
     return false;
+}
+
+bool Path::definitelySingleLine() const
+{
+    return !!singleDataLine();
 }
 
 PlatformPathPtr Path::platformPath() const
@@ -467,6 +473,9 @@ float Path::length() const
 
 bool Path::isClosed() const
 {
+    if (auto segment = asSingle())
+        return segment->closesSubpath();
+
     if (auto impl = asImpl())
         return impl->isClosed();
 
@@ -518,6 +527,17 @@ bool Path::strokeContains(const FloatPoint& point, const Function<void(GraphicsC
         return false;
 
     return const_cast<Path&>(*this).ensurePlatformPathImpl().strokeContains(point, strokeStyleApplier);
+}
+
+bool Path::hasSubpaths() const
+{
+    if (auto segment = asSingle())
+        return PathStream::computeHasSubpaths({ segment, 1 });
+
+    if (auto impl = asImpl())
+        return impl->hasSubpaths();
+
+    return false;
 }
 
 FloatRect Path::fastBoundingRect() const

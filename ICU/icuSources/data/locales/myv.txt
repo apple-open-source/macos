@@ -2,10 +2,10 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 myv{
-    AuxExemplarCharacters{"[ӓ ә є җ ѕ і ҥ ў ѡ џ ѣ ѳ ѵ ѷ]"}
-    ExemplarCharacters{"[а б в г д е ё ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я]"}
-    ExemplarCharactersIndex{"[А Б В Г Д Е Ё Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – , ; \\: ! ? . … ’ ” » ( ) \\[ \\] § @ * / \\& #]"}
+    AuxExemplarCharacters{"[ӓ ә є җ ѕ і ҥ ў ѡ џ ѣ ѳ ѵѷ]"}
+    ExemplarCharacters{"[а б в г д её ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я]"}
+    ExemplarCharactersIndex{"[А Б В Г Д ЕЁ Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я]"}
+    ExemplarCharactersPunctuation{"[\\- ‐‑ – , ; \\: ! ? . … ’ ” » ( ) \\[ \\] § @ * / \\& #]"}
     NumberElements{
         default{"latn"}
         native{"latn"}
@@ -194,9 +194,5 @@ myv{
         year-short{
             dn{"ие"}
         }
-    }
-    layout{
-        characters{"left-to-right"}
-        lines{"top-to-bottom"}
     }
 }

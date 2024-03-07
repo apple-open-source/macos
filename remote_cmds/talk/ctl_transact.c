@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -32,12 +30,9 @@
  */
 
 #include <sys/cdefs.h>
-#ifdef __APPLE__
-#include <sys/time.h>
-#endif
 
 #ifndef __APPLE__
-__FBSDID("$FreeBSD: src/usr.bin/talk/ctl_transact.c,v 1.7 2002/02/18 20:35:26 mike Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)ctl_transact.c	8.1 (Berkeley) 6/6/93";
@@ -47,7 +42,7 @@ static const char sccsid[] = "@(#)ctl_transact.c	8.1 (Berkeley) 6/6/93";
 #include <arpa/inet.h>
 
 #include <errno.h>
-#include <string.h>
+#include <poll.h>
 
 #include "talk.h"
 #include "talk_ctl.h"
@@ -56,33 +51,26 @@ static const char sccsid[] = "@(#)ctl_transact.c	8.1 (Berkeley) 6/6/93";
 
 /*
  * SOCKDGRAM is unreliable, so we must repeat messages if we have
- * not recieved an acknowledgement within a reasonable amount
+ * not received an acknowledgement within a reasonable amount
  * of time
  */
 void
-ctl_transact(target, lmsg, type, rp)
-	struct in_addr target;
-	CTL_MSG lmsg;
-	int type;
-	CTL_RESPONSE *rp;
+ctl_transact(struct in_addr target, CTL_MSG lmsg, int type, CTL_RESPONSE *rp)
 {
-	fd_set read_mask, ctl_mask;
+	struct pollfd pfd[1];
 	int nready = 0, cc;
-	struct timeval wait;
 
 	lmsg.type = type;
 	daemon_addr.sin_addr = target;
 	daemon_addr.sin_port = daemon_port;
-	FD_ZERO(&ctl_mask);
-	FD_SET(ctl_sockt, &ctl_mask);
+	pfd[0].fd = ctl_sockt;
+	pfd[0].events = POLLIN;
 
 	/*
 	 * Keep sending the message until a response of
 	 * the proper type is obtained.
 	 */
 	do {
-		wait.tv_sec = CTL_WAIT;
-		wait.tv_usec = 0;
 		/* resend message until a response is obtained */
 		do {
 			cc = sendto(ctl_sockt, (char *)&lmsg, sizeof (lmsg), 0,
@@ -93,8 +81,7 @@ ctl_transact(target, lmsg, type, rp)
 					continue;
 				p_error("Error on write to talk daemon");
 			}
-			read_mask = ctl_mask;
-			nready = select(ctl_sockt + 1, &read_mask, 0, 0, &wait);
+			nready = poll(pfd, 1, CTL_WAIT * 1000);
 			if (nready < 0) {
 				if (errno == EINTR)
 					continue;
@@ -113,10 +100,7 @@ ctl_transact(target, lmsg, type, rp)
 					continue;
 				p_error("Error on read from talk daemon");
 			}
-			read_mask = ctl_mask;
-			/* an immediate poll */
-			timerclear(&wait);
-			nready = select(ctl_sockt + 1, &read_mask, 0, 0, &wait);
+			nready = poll(pfd, 1, 0);
 		} while (nready > 0 && (rp->vers != TALK_VERSION ||
 		    rp->type != type));
 	} while (rp->vers != TALK_VERSION || rp->type != type);

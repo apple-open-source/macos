@@ -183,6 +183,16 @@ typedef struct {
 #define NECP_POLICY_CONDITION_REAL_UID                  40      // uid_t
 #define NECP_POLICY_CONDITION_APPLICATION_ID            41      // necp_application_id_t
 #define NECP_POLICY_CONDITION_URL                       42      // String, URL
+#define NECP_POLICY_CONDITION_BOUND_INTERFACE_FLAGS     43      // Interface flags: u_int32_t flags, u_int32_t eflags, u_int32_t xflags
+
+
+/*
+ * Policy Condition Bound Interface Flags Order
+ */
+#define NECP_POLICY_CONDITION_BOUND_INTERFACE_FLAGS_IDX_FLAGS      0
+#define NECP_POLICY_CONDITION_BOUND_INTERFACE_FLAGS_IDX_EFLAGS     1
+#define NECP_POLICY_CONDITION_BOUND_INTERFACE_FLAGS_IDX_XFLAGS     2
+#define NECP_POLICY_CONDITION_BOUND_INTERFACE_FLAGS_IDX_MAX        3
 
 /*
  * Policy Packet tags
@@ -224,6 +234,7 @@ typedef struct {
  * DROP Result Flags
  */
 #define NECP_POLICY_DROP_FLAG_LOCAL_NETWORK             0x01
+#define NECP_POLICY_DROP_FLAG_SUPPRESS_ALERTS           0x02
 
 /*
  * Route Rules
@@ -595,6 +606,8 @@ typedef struct necp_cache_buffer {
 #define NECP_CLIENT_ACTION_GET_INTERFACE_ADDRESS                       21 // Get the best interface local address for given remote address. Input: ifindex, remote sockaddr; Output: matching local sockaddr
 #define NECP_CLIENT_ACTION_ACQUIRE_AGENT_TOKEN                         22 // Get a one-time use token from an agent. Input: agent UUID; Output: token buffer
 #define NECP_CLIENT_ACTION_VALIDATE                                    23 // Validate a query answer. Input: struct necp_client_validatable; Output: None
+#define NECP_CLIENT_ACTION_GET_SIGNED_CLIENT_ID                        24 // Get a client ID for the appliction along with a signature.
+#define NECP_CLIENT_ACTION_SET_SIGNED_CLIENT_ID                        25 // Set a client ID for the appliction along with a signature.
 
 #define NECP_CLIENT_PARAMETER_APPLICATION                               NECP_POLICY_CONDITION_APPLICATION               // Requires entitlement
 #define NECP_CLIENT_PARAMETER_REAL_APPLICATION                  NECP_POLICY_CONDITION_REAL_APPLICATION  // Requires entitlement
@@ -1006,6 +1019,15 @@ struct necp_client_validatable {
 
 #define NECP_FILTER_UNIT_NO_FILTER              UINT32_MAX // Reserved filter unit value that prohibits all filters and socket filters
 
+// Type of signed client ID requests.
+#define NECP_CLIENT_SIGNED_CLIENT_ID_TYPE_UUID                   1       // struct necp_client_signed_client_id_uuid
+
+struct necp_client_signed_client_id_uuid {
+	uuid_t client_id;
+	u_int32_t signature_length;
+	u_int8_t signature_data[NECP_CLIENT_ACTION_SIGN_TAG_LENGTH];
+} __attribute__((__packed__));
+
 /*
  * The sysctl "net.necp.necp_drop_dest_level" controls the global drop rule policy for
  * a set of destinations addresses at the given level -- the drop rule is the last one
@@ -1202,6 +1224,7 @@ typedef u_int32_t necp_app_id;
 #define NECP_KERNEL_POLICY_PASS_PF_TAG                          NECP_POLICY_PASS_PF_TAG
 
 #define NECP_KERNEL_POLICY_DROP_FLAG_LOCAL_NETWORK              NECP_POLICY_DROP_FLAG_LOCAL_NETWORK
+#define NECP_KERNEL_POLICY_DROP_FLAG_SUPPRESS_ALERTS            NECP_POLICY_DROP_FLAG_SUPPRESS_ALERTS
 
 typedef struct {
 	u_int32_t identifier;
@@ -1264,6 +1287,9 @@ struct necp_kernel_socket_policy {
 	u_int16_t                                       cond_packet_filter_tags;
 	u_int16_t                                       cond_scheme_port;
 	int32_t                                         cond_pid_version;
+	u_int32_t                                       cond_bound_interface_flags;
+	u_int32_t                                       cond_bound_interface_eflags;
+	u_int32_t                                       cond_bound_interface_xflags;
 
 	necp_kernel_policy_result       result;
 	necp_kernel_policy_result_parameter     result_parameter;
@@ -1291,6 +1317,9 @@ struct necp_kernel_ip_output_policy {
 	u_int32_t                                       cond_last_interface_index;
 	u_int16_t                       cond_packet_filter_tags;
 	u_int16_t                       cond_scheme_port;
+	u_int32_t                                       cond_bound_interface_flags;
+	u_int32_t                                       cond_bound_interface_eflags;
+	u_int32_t                                       cond_bound_interface_xflags;
 
 	necp_kernel_policy_result       result;
 	necp_kernel_policy_result_parameter     result_parameter;
@@ -1424,6 +1453,12 @@ extern int necp_sign_resolver_answer(uuid_t client_id, u_int32_t sign_type,
 
 extern bool necp_validate_resolver_answer(uuid_t client_id, u_int32_t sign_type,
     u_int8_t *data, size_t data_length,
+    u_int8_t *tag, size_t tag_length);
+
+extern int necp_sign_application_id(uuid_t client_id, u_int32_t sign_type,
+    u_int8_t *tag, size_t *out_tag_length);
+
+extern bool necp_validate_application_id(uuid_t client_id, u_int32_t sign_type,
     u_int8_t *tag, size_t tag_length);
 
 extern void necp_update_all_clients(void); // Handle general re-evaluate event

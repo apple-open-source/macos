@@ -1834,5 +1834,114 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         self.verifyDatabaseMocks()
     }
+
+    func testExcludedCustodianRecoveryKeyNotTrusted() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
+
+        let secondJoiningContext = self.makeInitiatorContext(contextID: "joiner2", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
+
+        let (otcrk, _) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
+
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.sendContainerChangeWaitForFetch(context: joiningContext)
+        self.sendContainerChangeWaitForFetch(context: secondJoiningContext)
+
+        let checkCustodianRecoveryKeyExpectation = self.expectation(description: "checkCustodianRecoveryKey returns")
+        self.manager.checkCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { exists, error in
+            XCTAssertTrue(exists, "exists mismatch")
+            XCTAssertNil(error, "error should be nil")
+            checkCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [checkCustodianRecoveryKeyExpectation], timeout: 20)
+
+        let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeCustodianRecoveryKeyExpectation], timeout: 20)
+
+        self.sendContainerChangeWaitForFetch(context: joiningContext)
+        self.sendContainerChangeWaitForFetch(context: secondJoiningContext)
+
+        let check2Expectation = self.expectation(description: "check CRK on joiner")
+        joiningContext.rpcCheckCustodianRecoveryKey(with: otcrk.uuid) { exists, error in
+            XCTAssertFalse(exists, "exists mismatch")
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
+            check2Expectation.fulfill()
+        }
+
+        let check3Expectation = self.expectation(description: "check CRK on joiner2")
+        secondJoiningContext.rpcCheckCustodianRecoveryKey(with: otcrk.uuid) { exists, error in
+            XCTAssertFalse(exists, "exists mismatch")
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
+            check3Expectation.fulfill()
+        }
+        self.wait(for: [check2Expectation, check3Expectation], timeout: 10)
+    }
+
+    func testExcludedCustodianRecoveryKeyPreflight() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
+
+        let secondJoiningContext = self.makeInitiatorContext(contextID: "joiner2", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
+
+        let (otcrk, _) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
+
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.sendContainerChangeWaitForFetch(context: joiningContext)
+        self.sendContainerChangeWaitForFetch(context: secondJoiningContext)
+
+        let preflightExpectation = self.expectation(description: "preflight returns")
+        self.cuttlefishContext.preflightJoin(with: otcrk) { error in
+            XCTAssertNil(error, "error should be nil")
+            preflightExpectation.fulfill()
+        }
+        self.wait(for: [preflightExpectation], timeout: 20)
+
+        let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeCustodianRecoveryKeyExpectation], timeout: 20)
+
+        self.sendContainerChangeWaitForFetch(context: joiningContext)
+        self.sendContainerChangeWaitForFetch(context: secondJoiningContext)
+
+        let preflight2Expectation = self.expectation(description: "preflight CKR on joiner")
+        joiningContext.preflightJoin(with: otcrk) { error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
+            preflight2Expectation.fulfill()
+        }
+
+        let preflight3Expectation = self.expectation(description: "preflight CRK on joiner2")
+        secondJoiningContext.preflightJoin(with: otcrk) { error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual("com.apple.security.trustedpeers.container", (error! as NSError).domain, "error domain mismatch")
+            XCTAssertEqual((error! as NSError).code, ContainerError.untrustedRecoveryKeys.errorCode, "error code mismatch")
+            preflight3Expectation.fulfill()
+        }
+        self.wait(for: [preflight2Expectation, preflight3Expectation], timeout: 10)
+    }
 }
 #endif

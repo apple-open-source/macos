@@ -92,7 +92,7 @@
     libexecdir:    ${exec_prefix}/libexec+
     mandir:        ${prefix}/share/man
     datadir:       /Library/WebServer
-    sysconfdir:    /private/etc+
+    sysconfdir:    /etc+
     installbuilddir: ${prefix}/share/httpd/build
     errordir:      ${prefix}/share/httpd/error
     iconsdir:      ${prefix}/share/httpd/icons
@@ -100,7 +100,7 @@
     manualdir:     ${datadir}/share/httpd/manual
     cgidir:        ${datadir}/CGI-Executables
     includedir:    ${prefix}/include+
-    localstatedir: /private/var
+    localstatedir: /var
     runtimedir:    ${localstatedir}/run
     logfiledir:    ${localstatedir}/log+
     proxycachedir: ${runtimedir}/proxy

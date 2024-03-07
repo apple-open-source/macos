@@ -47,7 +47,12 @@
 #import <GameKit/GameKit.h>
 #include <UserNotifications/UserNotifications.h>
 
+#ifdef CHESS_TUNER
+#import "Chess_Tuner-Swift.h"
+#else
 #import "Chess-Swift.h"
+#endif
+
 #import "MBCBoard.h"
 
 @class MBCBoard;

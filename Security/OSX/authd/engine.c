@@ -702,12 +702,14 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 					enum Reason reason = worldChanged;
 					auth_items_set_data(hints, AGENT_HINT_RETRY_REASON, &reason, sizeof(reason));
 					result = kAuthorizationResultAllow;
+                    CFRetain(engine);
                     dispatch_sync(dispatch_get_main_queue(), ^{
                         _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
                             agent_t tempagent = (agent_t)value;
                             agent_clear_interrupt(tempagent);
                             return true;
                         });
+                        CFRelease(engine);
                     });
 				}
 			}
@@ -1277,12 +1279,12 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
 #if DEBUG
     os_log_debug(AUTHD_LOG, "engine %llu: Dumping Environment: %@", engine->engine_index, environment);
 #endif
+    const char *ahp = auth_items_get_string(environment, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
 
     // Check if a credential was passed into the environment and we were asked to extend the rights
     if (engine->flags & kAuthorizationFlagExtendRights && !(engine->flags & kAuthorizationFlagSheet)) {
         const char * user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
         const char * pass = auth_items_get_string(environment, kAuthorizationEnvironmentPassword);
-        const char *ahp = auth_items_get_string(environment, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
 		const bool password_was_used = (ahp == nil || strlen(ahp) == 0); // AGENT_CONTEXT_AP_PAM_SERVICE_NAME in the context means alternative PAM was used
         if (!password_was_used) {
             os_log_debug(AUTHD_LOG, "engine %llu: AHP used in environment: %{public}s", engine->engine_index, ahp);
@@ -1296,7 +1298,7 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
         require_action(user != NULL, done, os_log_debug(AUTHD_LOG, "engine %llu: user not used password", engine->engine_index));
 
         struct passwd *pw = getpwnam(user);
-        require_action(pw != NULL, done, os_log_error(AUTHD_LOG, "User not found %{public}s (engine %llu)", user, engine->engine_index));
+        require_action((pw != NULL) || (engine->flags & kAuthorizationFlagSkipInternalAuth), done, os_log_error(AUTHD_LOG, "User not found %{public}s (engine %llu)", user, engine->engine_index));
         
         auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
         auth_items_set_string(engine->context, kAuthorizationEnvironmentPassword, pass ? pass : "");
@@ -1490,11 +1492,8 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     };
     
     ccaudit = ccaudit_create(engine->proc, engine->auth, AUE_ssauthorize);
-    if (auth_rights_get_count(rights) > 0) {
-        ccaudit_log(ccaudit, "begin evaluation", NULL, 0);
-    }
-    
     if (rights_count) {
+        ccaudit_log(ccaudit, "begin evaluation", NULL, 0);
         __block CFMutableArrayRef rights_list = NULL;
         rights_list = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
         auth_rights_iterate(rights, ^bool(const char *key) {
@@ -1507,7 +1506,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
             if ((strcmp(key, "system.privilege.admin") == 0) || (strcmp(key, "com.apple.ServiceManagement.blesshelper") == 0)) {
                 forbiddenElevationRightFound = true;
             }
-            if (strcmp(key, "system.login.screensaver") == 0) {
+            if ((strcmp(key, "system.login.screensaver") == 0) || (strcmp(key, "system.login.screensaver.unlock") == 0)) {
                 localFlags |= kAuthorizationFlagSkipInternalAuth;
             }
             
@@ -1952,8 +1951,10 @@ done:
     auth_items_clear(engine->context);
     auth_items_clear(engine->sticky_context);
     CFReleaseSafe(ccaudit);
+    CFRetain(engine);
     dispatch_sync(dispatch_get_main_queue(), ^{
         CFDictionaryRemoveAllValues(engine->mechanism_agents);
+        CFRelease(engine);
     });
     return status;
 }
@@ -2076,7 +2077,7 @@ CFAbsoluteTime engine_get_time(engine_t engine)
 void engine_destroy_agents(engine_t engine)
 {
     engine->dismissed = true;
-    
+    CFRetain(engine);
     dispatch_sync(dispatch_get_main_queue(), ^{
         _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
             os_log_debug(AUTHD_LOG, "engine %llu: destroying %{public}s", engine->engine_index, mechanism_get_string((mechanism_t)key));
@@ -2085,17 +2086,20 @@ void engine_destroy_agents(engine_t engine)
             
             return true;
         });
+        CFRelease(engine);
     });
 }
 
 void engine_interrupt_agent(engine_t engine)
 {
+    CFRetain(engine);
     dispatch_sync(dispatch_get_main_queue(), ^{
         _cf_dictionary_iterate(engine->mechanism_agents, ^bool(CFTypeRef key __attribute__((__unused__)), CFTypeRef value) {
             agent_t agent = (agent_t)value;
             agent_notify_interrupt(agent);
             return true;
         });
+        CFRelease(engine);
     });
 }
 

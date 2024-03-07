@@ -84,7 +84,6 @@ public:
     CanvasRenderingContext2D* getContext2d(const String&, CanvasRenderingContext2DSettings&&);
 
 #if ENABLE(WEBGL)
-    using WebGLVersion = GraphicsContextGLWebGLVersion;
     static bool isWebGLType(const String&);
     static WebGLVersion toWebGLVersion(const String&);
     WebGLRenderingContextBase* createContextWebGL(WebGLVersion type, WebGLContextAttributes&& = { });
@@ -112,6 +111,7 @@ public:
     void paint(GraphicsContext&, const LayoutRect&);
 
 #if ENABLE(MEDIA_STREAM) || ENABLE(WEB_CODECS)
+    // Returns the context drawing buffer as a VideoFrame.
     RefPtr<VideoFrame> toVideoFrame();
 #endif
 #if ENABLE(MEDIA_STREAM)
@@ -135,8 +135,6 @@ public:
     bool isSnapshotting() const { return m_isSnapshotting; }
 
     bool isControlledByOffscreen() const;
-
-    WEBCORE_EXPORT void setAvoidIOSurfaceSizeCheckInWebProcessForTesting();
 
     void queueTaskKeepingObjectAlive(TaskSource, Function<void()>&&) final;
     void dispatchEvent(Event&) final;
@@ -191,7 +189,6 @@ private:
     std::unique_ptr<CanvasRenderingContext> m_context;
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).
     std::unique_ptr<CSSParserContext> m_cssParserContext;
-    bool m_avoidBackendSizeCheckForTesting { false };
     bool m_ignoreReset { false };
     // m_hasCreatedImageBuffer means we tried to malloc the buffer. We didn't necessarily get it.
     mutable bool m_hasCreatedImageBuffer { false };
@@ -221,6 +218,10 @@ private:
     static bool checkTagName(const WebCore::CanvasBase& base) { return base.isHTMLCanvasElement(); }
     static bool checkTagName(const WebCore::HTMLElement& element) { return element.hasTagName(WebCore::HTMLNames::canvasTag); }
     static bool checkTagName(const WebCore::Node& node) { return node.hasTagName(WebCore::HTMLNames::canvasTag); }
-    static bool checkTagName(const WebCore::EventTarget& target) { return is<WebCore::Node>(target) && checkTagName(downcast<WebCore::Node>(target)); }
+    static bool checkTagName(const WebCore::EventTarget& target)
+    {
+        auto* node = dynamicDowncast<WebCore::Node>(target);
+        return node && checkTagName(*node);
+    }
 };
 }

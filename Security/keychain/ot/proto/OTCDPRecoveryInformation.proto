@@ -13,6 +13,7 @@ message CDPRecoveryInformation {
     optional bool silent_recovery_attempt = 5;
     optional bool contains_icdp_data = 6;
     optional bool uses_multiple_icsc = 7;
+    optional bool non_viable_repair = 8;
 }
 
 message EscrowAuthenticationInformation {

@@ -28,7 +28,6 @@ OBJC_CLASS WebCoreRenderThemeNotificationObserver;
 
 namespace WebCore {
 
-class RenderProgress;
 class RenderStyle;
 
 struct AttachmentLayout;
@@ -43,7 +42,8 @@ public:
     // A general method asking if any control tinting is supported at all.
     bool supportsControlTints() const final { return true; }
 
-    void adjustRepaintRect(const RenderObject&, FloatRect&) final;
+    void inflateRectForControlRenderer(const RenderObject&, FloatRect&) final;
+    void adjustRepaintRect(const RenderBox&, FloatRect&) final;
 
     bool isControlStyled(const RenderStyle&, const RenderStyle& userAgentStyle) const final;
 
@@ -75,22 +75,18 @@ public:
     int sliderTickOffsetFromTrackCenter() const final;
 #endif
 
-    LengthBox popupInternalPaddingBox(const RenderStyle&, const Settings&) const final;
-    PopupMenuStyle::PopupMenuSize popupMenuSize(const RenderStyle&, IntRect&) const final;
+    LengthBox popupInternalPaddingBox(const RenderStyle&) const final;
+    PopupMenuStyle::Size popupMenuSize(const RenderStyle&, IntRect&) const final;
 
     bool popsMenuByArrowKeys() const final { return true; }
 
     FloatSize meterSizeForBounds(const RenderMeter&, const FloatRect&) const final;
-    bool supportsMeter(StyleAppearance, const HTMLMeterElement&) const final;
+    bool supportsMeter(StyleAppearance) const final;
 
-    // Returns the repeat interval of the animation for the progress bar.
-    Seconds animationRepeatIntervalForProgressBar(const RenderProgress&) const final;
     IntRect progressBarRectForBounds(const RenderProgress&, const IntRect&) const final;
 
     // Controls color values returned from platformFocusRingColor(). systemColor() will be used when false.
     bool usesTestModeFocusRingColor() const;
-    // A view associated to the contained document.
-    NSView* documentViewFor(const RenderObject&) const;
 
     WEBCORE_EXPORT static RetainPtr<NSImage> iconForAttachment(const String& fileName, const String& attachmentType, const String& title);
 
@@ -102,18 +98,13 @@ private:
     bool canCreateControlPartForBorderOnly(const RenderObject&) const final;
     bool canCreateControlPartForDecorations(const RenderObject&) const final;
 
-    bool useFormSemanticContext() const final;
+    int baselinePosition(const RenderBox&) const final;
+
     bool supportsLargeFormControls() const final;
-
-    void adjustTextFieldStyle(RenderStyle&, const Element*) const final;
-
-    void adjustTextAreaStyle(RenderStyle&, const Element*) const final;
 
     void adjustMenuListStyle(RenderStyle&, const Element*) const final;
 
     void adjustMenuListButtonStyle(RenderStyle&, const Element*) const final;
-
-    void adjustProgressBarStyle(RenderStyle&, const Element*) const final;
 
     void adjustSliderTrackStyle(RenderStyle&, const Element*) const final;
 
@@ -128,6 +119,8 @@ private:
     void adjustSearchFieldResultsDecorationPartStyle(RenderStyle&, const Element*) const final;
 
     void adjustSearchFieldResultsButtonStyle(RenderStyle&, const Element*) const final;
+
+    Seconds switchAnimationVisuallyOnDuration() const final { return 300_ms; }
 
 #if ENABLE(DATALIST_ELEMENT)
     void adjustListButtonStyle(RenderStyle&, const Element*) const final;
@@ -147,27 +140,8 @@ private:
 
     Color systemColor(CSSValueID, OptionSet<StyleColorOptions>) const final;
 
-    // Get the control size based off the font. Used by some of the controls (like buttons).
-    NSControlSize controlSizeForFont(const RenderStyle&) const;
-    NSControlSize controlSizeForSystemFont(const RenderStyle&) const;
-    NSControlSize controlSizeForCell(NSCell*, const IntSize* sizes, const IntSize& minSize, float zoomLevel = 1.0f) const;
-    void setControlSize(NSCell*, const IntSize* sizes, const IntSize& minSize, float zoomLevel = 1.0f);
-    void setSizeFromFont(RenderStyle&, const IntSize* sizes) const;
-    IntSize sizeForFont(const RenderStyle&, const IntSize* sizes) const;
-    IntSize sizeForSystemFont(const RenderStyle&, const IntSize* sizes) const;
-    void setFontFromControlSize(RenderStyle&, NSControlSize) const;
+    bool searchFieldShouldAppearAsTextField(const RenderStyle&) const final;
 
-    void updateCheckedState(NSCell*, const RenderObject&);
-    void updateEnabledState(NSCell*, const RenderObject&);
-    void updateFocusedState(NSCell *, const RenderObject*);
-    void updatePressedState(NSCell*, const RenderObject&);
-
-    // Helpers for adjusting appearance and for painting
-
-    void setPopupButtonCellState(const RenderObject&, const IntSize&);
-    const IntSize* popupButtonSizes() const;
-    const int* popupButtonMargins() const;
-    const int* popupButtonPadding(NSControlSize, bool isRTL) const;
     const IntSize* menuListSizes() const;
 
     const IntSize* searchFieldSizes() const;
@@ -175,17 +149,12 @@ private:
     const IntSize* resultsButtonSizes() const;
     void setSearchFieldSize(RenderStyle&) const;
 
-    NSPopUpButtonCell *popupButton() const;
-
 #if ENABLE(SERVICE_CONTROLS)
     IntSize imageControlsButtonSize() const final;
     bool isImageControlsButton(const Element&) const final;
 #endif
 
     mutable RetainPtr<NSPopUpButtonCell> m_popupButton;
-
-    bool m_isSliderThumbHorizontalPressed { false };
-    bool m_isSliderThumbVerticalPressed { false };
 
     RetainPtr<WebCoreRenderThemeNotificationObserver> m_notificationObserver;
 };

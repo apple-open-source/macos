@@ -998,12 +998,6 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
 
 finish:
 
-#if HAVE_DANGERZONE
-    if (osKext) {
-        dzRecordKextLoadKernel(osKext, allowed);
-    }
-#endif // HAVE_DANGERZONE
-
     os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_RESULT, "%d", osLoadResult);
     os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_KERNEL_LOAD);
 
@@ -2095,11 +2089,6 @@ kextdProcessUserLoadRequest(
     }
 
 finish:
-#if HAVE_DANGERZONE
-    if (theKext) {
-        dzRecordKextLoadUser(theKext, allowed);
-    }
-#endif // HAVE_DANGERZONE
 
     os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_RESULT, "%d", result);
     os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_USER_LOAD);

@@ -455,11 +455,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
                                        gl::SamplerFormat format,
                                        gl::Texture **textureOut);
     void updateColorMasks();
-    void updateMissingOutputsMask();
     void updateBlendFuncsAndEquations();
-    void updateSampleMaskWithRasterizationSamples(const uint32_t rasterizationSamples);
-    void updateAlphaToCoverageWithRasterizationSamples(const uint32_t rasterizationSamples);
-    void updateFrameBufferFetchSamples(const uint32_t prevSamples, const uint32_t curSamples);
 
     void handleError(VkResult errorCode,
                      const char *file,
@@ -1024,7 +1020,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     using GraphicsDirtyBitHandler = angle::Result (
         ContextVk::*)(DirtyBits::Iterator *dirtyBitsIterator, DirtyBits dirtyBitMask);
-    using ComputeDirtyBitHandler = angle::Result (ContextVk::*)();
+    using ComputeDirtyBitHandler =
+        angle::Result (ContextVk::*)(DirtyBits::Iterator *dirtyBitsIterator);
 
     // The GpuEventQuery struct holds together a timestamp query and enough data to create a
     // trace event based on that. Use traceGpuEvent to insert such queries.  They will be readback
@@ -1114,6 +1111,10 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
                         float farPlane);
     void updateFrontFace();
     void updateDepthRange(float nearPlane, float farPlane);
+    void updateMissingOutputsMask();
+    void updateSampleMaskWithRasterizationSamples(const uint32_t rasterizationSamples);
+    void updateAlphaToCoverageWithRasterizationSamples(const uint32_t rasterizationSamples);
+    void updateFrameBufferFetchSamples(const uint32_t prevSamples, const uint32_t curSamples);
     void updateFlipViewportDrawFramebuffer(const gl::State &glState);
     void updateFlipViewportReadFramebuffer(const gl::State &glState);
     void updateSurfaceRotationDrawFramebuffer(const gl::State &glState,
@@ -1245,16 +1246,16 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
         DirtyBits dirtyBitMask);
 
     // Handlers for compute pipeline dirty bits.
-    angle::Result handleDirtyComputeMemoryBarrier();
-    angle::Result handleDirtyComputeEventLog();
-    angle::Result handleDirtyComputePipelineDesc();
-    angle::Result handleDirtyComputePipelineBinding();
-    angle::Result handleDirtyComputeTextures();
-    angle::Result handleDirtyComputeDriverUniforms();
-    angle::Result handleDirtyComputeShaderResources();
-    angle::Result handleDirtyComputeUniformBuffers();
-    angle::Result handleDirtyComputeDescriptorSets();
-    angle::Result handleDirtyComputeUniforms();
+    angle::Result handleDirtyComputeMemoryBarrier(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputeEventLog(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputePipelineDesc(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputePipelineBinding(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputeTextures(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputeDriverUniforms(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputeShaderResources(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputeUniformBuffers(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputeDescriptorSets(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyComputeUniforms(DirtyBits::Iterator *dirtyBitsIterator);
 
     // Common parts of the common dirty bit handlers.
     angle::Result handleDirtyUniformsImpl(vk::CommandBufferHelperCommon *commandBufferHelper);
@@ -1267,7 +1268,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
                                           PipelineType pipelineType);
     template <typename CommandBufferHelperT>
     angle::Result handleDirtyShaderResourcesImpl(CommandBufferHelperT *commandBufferHelper,
-                                                 PipelineType pipelineType);
+                                                 PipelineType pipelineType,
+                                                 DirtyBits::Iterator *dirtyBitsIterator);
     template <typename CommandBufferHelperT>
     angle::Result handleDirtyUniformBuffersImpl(CommandBufferHelperT *commandBufferHelper);
     template <typename CommandBufferHelperT>
@@ -1478,6 +1480,14 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
                                                                   DIRTY_BIT_DESCRIPTOR_SETS};
     static constexpr DirtyBits kXfbBuffersAndDescSetDirtyBits{DIRTY_BIT_TRANSFORM_FEEDBACK_BUFFERS,
                                                               DIRTY_BIT_DESCRIPTOR_SETS};
+    static constexpr DirtyBits kDepthDynamicStateDirtyBits =
+        DirtyBits{DIRTY_BIT_DYNAMIC_DEPTH_BIAS, DIRTY_BIT_DYNAMIC_DEPTH_TEST_ENABLE,
+                  DIRTY_BIT_DYNAMIC_DEPTH_WRITE_ENABLE, DIRTY_BIT_DYNAMIC_DEPTH_COMPARE_OP,
+                  DIRTY_BIT_DYNAMIC_DEPTH_BIAS_ENABLE};
+    static constexpr DirtyBits kStencilDynamicStateDirtyBits =
+        DirtyBits{DIRTY_BIT_DYNAMIC_STENCIL_COMPARE_MASK, DIRTY_BIT_DYNAMIC_STENCIL_WRITE_MASK,
+                  DIRTY_BIT_DYNAMIC_STENCIL_REFERENCE, DIRTY_BIT_DYNAMIC_STENCIL_TEST_ENABLE,
+                  DIRTY_BIT_DYNAMIC_STENCIL_OP};
 
     // The offset we had the last time we bound the index buffer.
     const GLvoid *mLastIndexBufferOffset;
@@ -1551,8 +1561,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     // The garbage list for single context use objects. The list will be GPU tracked by next
     // submission queueSerial. Note: Resource based shared object should always be added to
-    // renderer's mSharedGarbage.
-    vk::GarbageList mCurrentGarbage;
+    // renderer's mSharedGarbageList.
+    vk::GarbageObjects mCurrentGarbage;
 
     RenderPassCache mRenderPassCache;
 

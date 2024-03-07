@@ -60,6 +60,7 @@
 #import <WebCore/Pagination.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/CheckedPtr.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cf/CFURLExtras.h>
@@ -86,9 +87,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-static HashMap<WebKit::WebPageProxy*, __unsafe_unretained WKBrowsingContextController *>& browsingContextControllerMap()
+static HashMap<WeakRef<WebKit::WebPageProxy>, __unsafe_unretained WKBrowsingContextController *>& browsingContextControllerMap()
 {
-    static NeverDestroyed<HashMap<WebKit::WebPageProxy*, __unsafe_unretained WKBrowsingContextController *>> browsingContextControllerMap;
+    static NeverDestroyed<HashMap<WeakRef<WebKit::WebPageProxy>, __unsafe_unretained WKBrowsingContextController *>> browsingContextControllerMap;
     return browsingContextControllerMap;
 }
 ALLOW_DEPRECATED_DECLARATIONS_END
@@ -98,8 +99,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKBrowsingContextController.class, self))
         return;
 
-    ASSERT(browsingContextControllerMap().get(_page.get()) == self);
-    browsingContextControllerMap().remove(_page.get());
+    ASSERT(browsingContextControllerMap().get(*_page) == self);
+    browsingContextControllerMap().remove(*_page);
 
     _page->pageLoadState().removeObserver(*_pageLoadStateObserver);
 
@@ -625,8 +626,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _pageLoadStateObserver = makeUnique<WebKit::PageLoadStateObserver>(self);
     _page->pageLoadState().addObserver(*_pageLoadStateObserver);
 
-    ASSERT(!browsingContextControllerMap().contains(_page.get()));
-    browsingContextControllerMap().set(_page.get(), self);
+    ASSERT(!browsingContextControllerMap().contains(*_page));
+    browsingContextControllerMap().set(*_page, self);
 
     return self;
 }
@@ -653,19 +654,19 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     WebCore::Pagination::Mode mode;
     switch (paginationMode) {
     case WKPaginationModeUnpaginated:
-        mode = WebCore::Unpaginated;
+        mode = WebCore::PaginationMode::Unpaginated;
         break;
     case WKPaginationModeLeftToRight:
-        mode = WebCore::LeftToRightPaginated;
+        mode = WebCore::PaginationMode::LeftToRightPaginated;
         break;
     case WKPaginationModeRightToLeft:
-        mode = WebCore::RightToLeftPaginated;
+        mode = WebCore::PaginationMode::RightToLeftPaginated;
         break;
     case WKPaginationModeTopToBottom:
-        mode = WebCore::TopToBottomPaginated;
+        mode = WebCore::PaginationMode::TopToBottomPaginated;
         break;
     case WKPaginationModeBottomToTop:
-        mode = WebCore::BottomToTopPaginated;
+        mode = WebCore::PaginationMode::BottomToTopPaginated;
         break;
     default:
         return;
@@ -677,15 +678,15 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (WKBrowsingContextPaginationMode)paginationMode
 {
     switch (_page->paginationMode()) {
-    case WebCore::Unpaginated:
+    case WebCore::PaginationMode::Unpaginated:
         return WKPaginationModeUnpaginated;
-    case WebCore::LeftToRightPaginated:
+    case WebCore::PaginationMode::LeftToRightPaginated:
         return WKPaginationModeLeftToRight;
-    case WebCore::RightToLeftPaginated:
+    case WebCore::PaginationMode::RightToLeftPaginated:
         return WKPaginationModeRightToLeft;
-    case WebCore::TopToBottomPaginated:
+    case WebCore::PaginationMode::TopToBottomPaginated:
         return WKPaginationModeTopToBottom;
-    case WebCore::BottomToTopPaginated:
+    case WebCore::PaginationMode::BottomToTopPaginated:
         return WKPaginationModeBottomToTop;
     }
 

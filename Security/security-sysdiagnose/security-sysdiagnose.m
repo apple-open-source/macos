@@ -260,7 +260,7 @@ notes_sysdiagnose(void)
             NSMutableDictionary* mutableItem = [item mutableCopy];
 
             NSString* labl = mutableItem[(id)kSecAttrLabel];
-            if(!SecIsInternalRelease() && labl != nil && ![labl isEqualToString:@"local"]) {
+            if(!SecIsInternalRelease() && labl != nil && ![labl isEqual:@"local"]) {
                 // redact!
                 NSString* existing = dsids[labl];
                 if(!existing) {

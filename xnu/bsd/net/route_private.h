@@ -82,6 +82,8 @@ struct route_old {
 #include <net/if_dl.h>
 #include <netinet/in_private.h>
 
+#include <sys/constrained_ctypes.h>
+
 extern boolean_t trigger_v6_defrtr_select;
 /*
  * Kernel resident routing tables.
@@ -110,11 +112,7 @@ struct route {
 	struct rtentry        *ro_rt;
 	struct ifaddr         *ro_srcia;
 	uint32_t              ro_flags;       /* route flags (see below) */
-#if __has_ptrcheck
-	struct sockaddr_in    ro_dst;
-#else
 	struct sockaddr       ro_dst;
-#endif
 };
 
 #define ROF_SRCIF_SELECTED      0x0001  /* source interface was selected */
@@ -134,7 +132,7 @@ struct route {
 	        (_ro)->ro_rt = NULL;                                    \
 	}                                                               \
 	if ((_ro)->ro_srcia != NULL) {                                  \
-	        IFA_REMREF((_ro)->ro_srcia);                            \
+	        ifa_remref((_ro)->ro_srcia);                            \
 	        (_ro)->ro_srcia = NULL;                                 \
 	        (_ro)->ro_flags &= ~ROF_SRCIF_SELECTED;                 \
 	}                                                               \
@@ -158,8 +156,8 @@ struct route {
  */
 struct rtentry {
 	struct  radix_node rt_nodes[2]; /* tree glue, and other values */
-#define rt_key(r)       (SA((r)->rt_nodes->rn_key))
-#define rt_mask(r)      (SA((r)->rt_nodes->rn_mask))
+#define rt_key(r)       (SA(rn_get_key(&((r)->rt_nodes[0]))))
+#define rt_mask(r)      (SA(rn_get_mask(&((r)->rt_nodes[0]))))
 	/*
 	 * See bsd/net/route.c for synchronization notes.
 	 */
@@ -198,9 +196,11 @@ struct rtentry {
 	struct eventhandler_lists_ctxt rt_evhdlr_ctxt;
 };
 
-#define rt_key_free(r) ({ \
-	void *__r = rt_key(r); \
-	kheap_free_addr(KHEAP_DATA_BUFFERS, __r); \
+__CCT_DECLARE_CONSTRAINED_PTR_TYPES(struct rtentry, rtentry);
+
+#define rt_key_free(r) ({                                               \
+	void *__r __single = rt_key(r);                         \
+	kheap_free_addr(KHEAP_DATA_BUFFERS, __r);       \
 })
 
 enum {
@@ -442,7 +442,7 @@ extern unsigned int sin6_get_ifscope(struct sockaddr *);
 extern void rt_lock(struct rtentry *, boolean_t);
 extern void rt_unlock(struct rtentry *);
 extern struct sockaddr *rtm_scrub(int, int, struct sockaddr *,
-    struct sockaddr *, void *, uint32_t, kauth_cred_t *);
+    struct sockaddr *, void *buf __sized_by(buflen), uint32_t buflen, kauth_cred_t *);
 extern boolean_t rt_validate(struct rtentry *);
 extern void rt_set_proxy(struct rtentry *, boolean_t);
 extern void rt_set_gwroute(struct rtentry *, struct sockaddr *,

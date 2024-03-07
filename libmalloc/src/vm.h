@@ -25,32 +25,79 @@
 #ifndef __VM_H
 #define __VM_H
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
+#if MALLOC_TARGET_EXCLAVES
+typedef struct _liblibc_plat_mem_map_t plat_map_t;
+
+#define mvm_plat_map(x) (&(x))
+#else
+#define mvm_plat_map(x) NULL
+#endif // MALLOC_TARGET_EXCLAVES
+
+extern uint64_t malloc_entropy[2];
+
+#if !MALLOC_TARGET_EXCLAVES
 static inline bool
 mvm_aslr_enabled(void)
 {
 	extern struct mach_header __dso_handle;
 	return _dyld_get_image_slide(&__dso_handle);
 }
+#endif // !MALLOC_TARGET_EXCLAVES
 
 MALLOC_NOEXPORT
 void
 mvm_aslr_init(void);
 
 MALLOC_NOEXPORT
-void *
-mvm_allocate_pages(size_t size, unsigned char align, uint32_t debug_flags, int vm_page_label);
+void * __alloc_size(2)
+mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int debug_flags, int label, plat_map_t *map_out);
+
+MALLOC_NOEXPORT
+void * __alloc_size(1)
+mvm_allocate_pages(size_t size, uint8_t align, uint32_t debug_flags, int vm_page_label);
+
+MALLOC_NOEXPORT
+void * __alloc_size(1)
+mvm_allocate_pages_plat(size_t size, uint8_t align, uint32_t debug_flags, int vm_page_label, plat_map_t *map_out);
 
 MALLOC_NOEXPORT
 void
-mvm_deallocate_pages(void *addr, size_t size, unsigned debug_flags);
+mvm_deallocate_plat(void * __sized_by(size) addr, size_t size, int debug_flags, plat_map_t *map);
+
+MALLOC_NOEXPORT
+void
+mvm_deallocate_pages(void * __sized_by(size) addr, size_t size, unsigned debug_flags);
+
+MALLOC_NOEXPORT
+void
+mvm_deallocate_pages_plat(void * __sized_by(size) addr, size_t size, unsigned debug_flags, plat_map_t *map);
+
+MALLOC_NOEXPORT
+int
+mvm_madvise(void * __sized_by(size) addr, size_t size, int advice, unsigned debug_flags);
+
+MALLOC_NOEXPORT
+int
+mvm_madvise_plat(void * __sized_by(size) addr, size_t size, int advice, unsigned debug_flags, plat_map_t *map);
 
 MALLOC_NOEXPORT
 int
 mvm_madvise_free(void *szone, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last, boolean_t scribble);
 
 MALLOC_NOEXPORT
+int
+mvm_madvise_free_plat(void *szone, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last, boolean_t scribble, plat_map_t *map);
+
+MALLOC_NOEXPORT
 void
-mvm_protect(void *address, size_t size, unsigned protection, unsigned debug_flags);
+mvm_protect(void * __sized_by(size) address, size_t size, unsigned protection, unsigned debug_flags);
+
+MALLOC_NOEXPORT
+void
+mvm_protect_plat(void * __sized_by(size) address, size_t size, unsigned protection, unsigned debug_flags, plat_map_t *map);
 
 #if CONFIG_DEFERRED_RECLAIM
 MALLOC_NOEXPORT

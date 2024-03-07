@@ -174,7 +174,10 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         self.wait(for: [dumpCallback], timeout: 10)
 
         let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
-        XCTAssertTrue(container.model.allPeerIDs().contains(clique.cliqueMemberIdentifier!), "model should still contain the untrusted peer")
+        let hasPeer = container.moc.performAndWait {
+            container.model.hasPeer(withID: clique.cliqueMemberIdentifier!)
+        }
+        XCTAssertTrue(hasPeer, "model should still contain the untrusted peer")
 
         let dropExpectation = self.expectation(description: "dropPeerIDs callback occurs")
 

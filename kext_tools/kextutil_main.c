@@ -1405,11 +1405,7 @@ processKext(
     }
 
 finish:
-#if HAVE_DANGERZONE
-    if (aKext) {
-        dzRecordKextLoadBypass(aKext, allowed);
-    }
-#endif // HAVE_DANGERZONE
+
     SAFE_RELEASE(ownedKext);
     return result;
 }

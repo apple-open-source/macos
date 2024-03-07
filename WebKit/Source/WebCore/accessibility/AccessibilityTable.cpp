@@ -46,6 +46,7 @@
 #include "RenderTable.h"
 #include "RenderTableCell.h"
 #include <wtf/Scope.h>
+#include <wtf/WeakRef.h>
 
 #include <queue>
 
@@ -334,8 +335,8 @@ bool AccessibilityTable::isDataTable() const
             elementsToVisit.push(currentElement);
         }
 
-        // If the first row is comprised of all <th> tags, assume it is a data table.
-        if (firstRow && currentParent == firstRow && rowIsAllTableHeaderCells && cellCountForEachRow.get(currentParent.get()) >= 1)
+        // If the first row of a multi-row table is comprised of all <th> tags, assume it is a data table.
+        if (firstRow && currentParent == firstRow && rowIsAllTableHeaderCells && cellCountForEachRow.get(currentParent.get()) >= 1 && rowCount >= 2)
             return true;
     }
 
@@ -483,7 +484,7 @@ void AccessibilityTable::addChildren()
     RefPtr<HTMLTableCaptionElement> captionElement;
 
     struct DownwardGrowingCell {
-        CheckedRef<AccessibilityTableCell> axObject;
+        WeakRef<AccessibilityTableCell> axObject;
         // The column the cell starts in.
         unsigned x;
         // The number of columns the cell spans (called "width" in the spec).
@@ -854,7 +855,7 @@ unsigned AccessibilityTable::rowCount()
     return m_rows.size();
 }
 
-AXCoreObject* AccessibilityTable::cellForColumnAndRow(unsigned column, unsigned row)
+AccessibilityObject* AccessibilityTable::cellForColumnAndRow(unsigned column, unsigned row)
 {
     updateChildrenIfNecessary();
     if (row >= m_cellSlots.size() || column >= m_cellSlots[row].size())

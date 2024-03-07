@@ -919,9 +919,7 @@ szone_ptr_in_use_enumerator(task_t task,
 	szone_t *szone;
 	kern_return_t err;
 
-	if (!reader) {
-		reader = _malloc_default_reader;
-	}
+	reader = reader_or_in_memory_fallback(reader, task);
 
 	err = reader(task, zone_address, sizeof(szone_t), (void **)&szone);
 	if (err) {
@@ -1571,7 +1569,7 @@ static kern_return_t
 szone_statistics_task(task_t task, vm_address_t zone_address,
 					  memory_reader_t reader, malloc_statistics_t *stats)
 {
-	reader = !reader && task == mach_task_self() ? _malloc_default_reader : reader;
+	reader = reader_or_in_memory_fallback(reader, task);
 
 	szone_t *szone;
 	kern_return_t err;

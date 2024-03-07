@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2021, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -80,7 +80,7 @@
 #include <arm/machine_cpu.h>
 #include <arm/misc_protos.h>
 #include <arm/pmap/pmap_internal.h>
-#include <arm/trap.h>
+#include <arm/trap_internal.h>
 
 #include <arm64/proc_reg.h>
 #include <pexpert/arm64/boot.h>
@@ -1191,6 +1191,12 @@ PMAP_SUPPORT_PROTOTYPES(
 	const uint8_t cdhash[kTCEntryHashSize],
 	TrustCacheQueryToken_t * query_token), PMAP_QUERY_TRUST_CACHE_INDEX);
 
+PMAP_SUPPORT_PROTOTYPES(
+	errno_t,
+	pmap_image4_monitor_trap, (image4_cs_trap_t selector,
+	const void *input_data,
+	size_t input_size), PMAP_IMAGE4_MONITOR_TRAP_INDEX);
+
 #if PMAP_CS_INCLUDE_CODE_SIGNING
 
 PMAP_SUPPORT_PROTOTYPES(
@@ -1363,6 +1369,7 @@ const void * __ptrauth_ppl_handler const ppl_handler_table[PMAP_COUNT] = {
 	[PMAP_LOAD_TRUST_CACHE_WITH_TYPE_INDEX] = pmap_load_trust_cache_with_type_internal,
 	[PMAP_QUERY_TRUST_CACHE_INDEX] = pmap_query_trust_cache_internal,
 	[PMAP_TOGGLE_DEVELOPER_MODE_INDEX] = pmap_toggle_developer_mode_internal,
+	[PMAP_IMAGE4_MONITOR_TRAP_INDEX] = pmap_image4_monitor_trap_internal,
 #if PMAP_CS_INCLUDE_CODE_SIGNING
 	[PMAP_SET_COMPILATION_SERVICE_CDHASH_INDEX] = pmap_set_compilation_service_cdhash_internal,
 	[PMAP_MATCH_COMPILATION_SERVICE_CDHASH_INDEX] = pmap_match_compilation_service_cdhash_internal,
@@ -4094,6 +4101,10 @@ pmap_remove_range_options(
 		panic("%s: attempt to remove mappings from commpage pmap %p", __func__, pmap);
 	}
 
+	if (__improbable((pmap == kernel_pmap) && (va >= physmap_base) && (va < physmap_end))) {
+		panic("%s: attempt to remove mappings from the physical aperture for va: %p", __func__, (const void *) va);
+	}
+
 	num_removed = 0;
 	num_unwired = 0;
 	num_pte_changed = 0;
@@ -4500,6 +4511,15 @@ pmap_switch_internal(
 	pmap_cpu_data_t *cpu_data_ptr = pmap_get_cpu_data();
 #if XNU_MONITOR
 	os_atomic_store(&cpu_data_ptr->active_pmap, pmap, relaxed);
+
+	/**
+	 * Make sure a pmap is never active-and-nested. For more details,
+	 * see pmap_set_nested_internal().
+	 */
+	os_atomic_thread_fence(seq_cst);
+	if (__improbable(os_atomic_load(&pmap->type, relaxed) == PMAP_TYPE_NESTED)) {
+		panic("%s: attempt to activate nested pmap %p", __func__, pmap);
+	}
 #endif
 	validate_pmap_mutable(pmap);
 	__unused const pt_attr_t * const pt_attr = pmap_get_pt_attr(pmap);
@@ -8867,6 +8887,32 @@ pmap_set_nested_internal(
 		    __func__, pmap, pmap->type);
 	}
 
+#if XNU_MONITOR
+	/**
+	 * The "seq_cst" ordering of the atomic load here guarantees
+	 * the check below is performed after the type update above
+	 * is observed. Together with similar order guarantee at
+	 * pmap_switch_internal(), it makes sure a pmap is never
+	 * active-and-nested:
+	 *
+	 * pmap_set_nested() | pmap_switch()
+	 * --------------------------------------
+	 * set nested        | set active
+	 * store-load barrier| store-load barrier
+	 * assert !active    | assert !nested
+	 */
+	const int max_cpu = ml_get_max_cpu_number();
+	for (unsigned int i = 0; i <= max_cpu; ++i) {
+		const pmap_cpu_data_t *cpu_data = pmap_get_remote_cpu_data(i);
+		if (cpu_data == NULL) {
+			continue;
+		}
+		if (__improbable(os_atomic_load(&cpu_data->active_pmap, seq_cst) == pmap)) {
+			panic("pmap %p: attempting to set nested while active on cpu %llu", pmap, (uint64_t)i);
+		}
+	}
+#endif /* XNU_MONITOR */
+
 	/**
 	 * Ensure that a (potentially concurrent) call to pmap_nest() hasn't tried to give
 	 * this pmap its own nested pmap.
@@ -9634,7 +9680,7 @@ pmap_nest_internal(
 
 		if (subord->nested_region_size < new_size) {
 			bcopy(subord->nested_region_unnested_table_bitmap,
-			    new_nested_region_unnested_table_bitmap, subord->nested_region_unnested_table_bitmap_size);
+			    new_nested_region_unnested_table_bitmap, subord->nested_region_unnested_table_bitmap_size * sizeof(unsigned int));
 			nested_region_unnested_table_bitmap_size  = subord->nested_region_unnested_table_bitmap_size;
 			nested_region_unnested_table_bitmap = subord->nested_region_unnested_table_bitmap;
 			subord->nested_region_unnested_table_bitmap = new_nested_region_unnested_table_bitmap;
@@ -9768,10 +9814,6 @@ nest_grand:
 		goto done;
 	}
 	while (vaddr < true_end) {
-		stte_p = pmap_tte(subord, vaddr);
-		if (__improbable(stte_p == PT_ENTRY_NULL)) {
-			panic("%s: subord pmap %p not expanded at va 0x%llx", __func__, subord, (unsigned long long)vaddr);
-		}
 		gtte_p = pmap_tte(grand, vaddr);
 		if (gtte_p == PT_ENTRY_NULL) {
 			pmap_unlock(grand, PMAP_LOCK_EXCLUSIVE);
@@ -9793,7 +9835,25 @@ nest_grand:
 			panic("%s: attempting to overwrite non-empty TTE %p in pmap %p",
 			    __func__, gtte_p, grand);
 		}
-		*gtte_p = *stte_p;
+		/**
+		 * It's possible that grand was trimmed by pmap_trim_internal() while the
+		 * lock was dropped, in which case the previously stored "true" start/end
+		 * will no longer be accurate.  In that case, we need to avoid nesting
+		 * tables outside the trimmed range, as those tables may be immediately freed
+		 * which would lead to a dangling page table pointer in grand.
+		 * Note that pmap_trim() may concurrently update grand's bounds as we are
+		 * making these checks, but in that case pmap_trim_range() has not yet
+		 * been called on grand and will wait for us to drop grand's lock, so it
+		 * should see any TTEs we've nested here and clear them appropriately.
+		 */
+		if (__probable((vaddr >= grand->nested_region_true_start) &&
+		    (vaddr < grand->nested_region_true_end))) {
+			stte_p = pmap_tte(subord, vaddr);
+			if (__improbable(stte_p == PT_ENTRY_NULL)) {
+				panic("%s: subord pmap %p not expanded at va 0x%llx", __func__, subord, (unsigned long long)vaddr);
+			}
+			*gtte_p = *stte_p;
+		}
 
 		vaddr += pt_attr_twig_size(pt_attr);
 		vrestart = vaddr | PMAP_NEST_GRAND;
@@ -9987,6 +10047,10 @@ pmap_unnest_options_internal(
 
 	validate_pmap_mutable(grand);
 
+	if ((vaddr < grand->nested_region_addr) || (vend > (grand->nested_region_addr + grand->nested_region_size))) {
+		panic("%s: %p: unnest request to not-fully-nested region [%p, %p)", __func__, grand, (void*)vaddr, (void*)vend);
+	}
+
 	__unused const pt_attr_t * const pt_attr = pmap_get_pt_attr(grand);
 
 	if (__improbable(((size | vaddr) & pt_attr_twig_offmask(pt_attr)) != 0x0ULL)) {
@@ -10004,10 +10068,6 @@ pmap_unnest_options_internal(
 	}
 
 	if (((option & PMAP_UNNEST_CLEAN) == 0) && !(vrestart & PMAP_NEST_GRAND)) {
-		if ((vaddr < grand->nested_region_addr) || (vend > (grand->nested_region_addr + grand->nested_region_size))) {
-			panic("%s: %p: unnest request to not-fully-nested region [%p, %p)", __func__, grand, (void*)vaddr, (void*)vend);
-		}
-
 		if (!pmap_lock_preempt(grand->nested_pmap, PMAP_LOCK_EXCLUSIVE)) {
 			return vrestart;
 		}
@@ -13028,6 +13088,232 @@ pmap_toggle_developer_mode(
 	pmap_toggle_developer_mode_ppl(state);
 }
 
+SECURITY_READ_ONLY_LATE(bool) ppl_lockdown_mode_enabled = false;
+SECURITY_READ_ONLY_LATE(bool) ppl_lockdown_mode_enforce_jit = true;
+
+#pragma mark Image4 - New
+
+typedef struct _pmap_image4_dispatch {
+	image4_cs_trap_t selector;
+	image4_cs_trap_handler_t handler;
+} pmap_image4_dispatch_t;
+
+MARK_AS_PMAP_TEXT static errno_t
+_pmap_image4_monitor_trap_set_release_type(
+	const pmap_image4_dispatch_t *dispatch,
+	const void *input_data)
+{
+	/*
+	 * csmx_release_type --> __cs_copy
+	 */
+	image4_cs_trap_argv_kmod_set_release_type_t input = {0};
+
+	/* Copy the input data to prevent ToCToU */
+	memcpy(&input, input_data, sizeof(input));
+
+	/* Dispatch to AppleImage4 */
+	return dispatch->handler(
+		dispatch->selector,
+		&input, sizeof(input),
+		NULL, NULL);
+}
+
+
+
+MARK_AS_PMAP_TEXT static errno_t
+_pmap_image4_monitor_trap_nonce_set(
+	const pmap_image4_dispatch_t *dispatch,
+	const void *input_data)
+{
+	/*
+	 * csmx_clear --> __cs_copy
+	 * csmx_cipher --> __cs_copy
+	 */
+	image4_cs_trap_argv_nonce_set_t input = {0};
+
+	/* Copy the input data to prevent ToCToU */
+	memcpy(&input, input_data, sizeof(input));
+
+	/* Dispatch to AppleImage4 */
+	return dispatch->handler(
+		dispatch->selector,
+		&input, sizeof(input),
+		NULL, NULL);
+}
+
+MARK_AS_PMAP_TEXT static errno_t
+_pmap_image4_monitor_trap_nonce_roll(
+	const pmap_image4_dispatch_t *dispatch,
+	const void *input_data)
+{
+	image4_cs_trap_argv_nonce_roll_t input = {0};
+
+	/* Copy the input data to prevent ToCToU */
+	memcpy(&input, input_data, sizeof(input));
+
+	/* Dispatch to AppleImage4 */
+	return dispatch->handler(
+		dispatch->selector,
+		&input, sizeof(input),
+		NULL, NULL);
+}
+
+MARK_AS_PMAP_TEXT static errno_t
+_pmap_image4_monitor_trap_image_activate(
+	const pmap_image4_dispatch_t *dispatch,
+	const void *input_data)
+{
+	/*
+	 * csmx_payload (csmx_payload_len) --> __cs_xfer
+	 * csmx_manifest (csmx_manifest_len) --> __cs_borrow
+	 */
+	image4_cs_trap_argv_image_activate_t input = {0};
+
+	/* Copy the input data to prevent ToCToU */
+	memcpy(&input, input_data, sizeof(input));
+
+	/* Validate the payload region */
+	pmap_cs_assert_addr(
+		input.csmx_payload, round_page(input.csmx_payload_len),
+		false, false);
+
+	/* Validate the manifest region */
+	pmap_cs_assert_addr(
+		input.csmx_manifest, round_page(input.csmx_manifest_len),
+		false, false);
+
+	/* Lockdown the payload region */
+	pmap_cs_lockdown_pages(
+		input.csmx_payload, round_page(input.csmx_payload_len), false);
+
+	/* Lockdown the manifest region */
+	pmap_cs_lockdown_pages(
+		input.csmx_manifest, round_page(input.csmx_manifest_len), false);
+
+	/* Dispatch the handler */
+	errno_t err = dispatch->handler(
+		dispatch->selector,
+		&input, sizeof(input),
+		NULL, NULL);
+
+	/*
+	 * Image activation always returns the manifest back to the kernel since it isn't
+	 * needed once the evaluation of the image has been completed. The payload must
+	 * remain owned by the monitor if the activation was successful.
+	 */
+	if (err != 0) {
+		/* Unlock the payload region */
+		pmap_cs_unlockdown_pages(
+			input.csmx_payload, round_page(input.csmx_payload_len), false);
+	}
+
+	/* Unlock the manifest region */
+	pmap_cs_unlockdown_pages(
+		input.csmx_manifest, round_page(input.csmx_manifest_len), false);
+
+	return err;
+}
+
+MARK_AS_PMAP_TEXT static errno_t
+_pmap_image4_monitor_trap_passthrough(
+	__unused const pmap_image4_dispatch_t *dispatch,
+	__unused const void *input_data,
+	__unused size_t input_size)
+{
+#if DEVELOPMENT || DEBUG || KASAN
+	return dispatch->handler(dispatch->selector, input_data, input_size, NULL, NULL);
+#else
+	pmap_cs_log_error("%llu: image4 dispatch: pass-through not supported", selector);
+	return ENOSYS;
+#endif
+}
+
+MARK_AS_PMAP_TEXT errno_t
+pmap_image4_monitor_trap_internal(
+	image4_cs_trap_t selector,
+	const void *input_data,
+	size_t input_size)
+{
+	kern_return_t ret = KERN_DENIED;
+	errno_t err = EPERM;
+
+	/* Acquire the handler for this selector */
+	image4_cs_trap_handler_t handler = image4_cs_trap_resolve_handler(selector);
+	if (handler == NULL) {
+		pmap_cs_log_error("%llu: image4 dispatch: invalid selector", selector);
+		return EINVAL;
+	}
+
+	/* Verify input size for the handler */
+	if (input_size != image4_cs_trap_vector_size(selector)) {
+		pmap_cs_log_error("%llu: image4 dispatch: invalid input: %lu ", selector, input_size);
+		return EINVAL;
+	}
+
+	/* AppleImage4 validation uses CoreCrypto -- requires a spare page */
+	ret = pmap_reserve_ppl_page();
+	if (ret != KERN_SUCCESS) {
+		if (ret == KERN_RESOURCE_SHORTAGE) {
+			return ENOMEM;
+		}
+		pmap_cs_log_error("image4 dispatch: unable to reserve page: %d", ret);
+		return EPERM;
+	}
+
+	/* Setup dispatch parameters */
+	pmap_image4_dispatch_t dispatch = {
+		.selector = selector,
+		.handler = handler
+	};
+
+	switch (selector) {
+	case IMAGE4_CS_TRAP_KMOD_SET_RELEASE_TYPE:
+		err = _pmap_image4_monitor_trap_set_release_type(&dispatch, input_data);
+		break;
+
+	case IMAGE4_CS_TRAP_NONCE_SET:
+		err = _pmap_image4_monitor_trap_nonce_set(&dispatch, input_data);
+		break;
+
+	case IMAGE4_CS_TRAP_NONCE_ROLL:
+		err = _pmap_image4_monitor_trap_nonce_roll(&dispatch, input_data);
+		break;
+
+	case IMAGE4_CS_TRAP_IMAGE_ACTIVATE:
+		err = _pmap_image4_monitor_trap_image_activate(&dispatch, input_data);
+		break;
+
+	default:
+		err = _pmap_image4_monitor_trap_passthrough(&dispatch, input_data, input_size);
+		break;
+	}
+
+	/* Return the CoreCrypto reserved page back to the free list */
+	pmap_release_reserved_ppl_page();
+
+	return err;
+}
+
+errno_t
+pmap_image4_monitor_trap(
+	image4_cs_trap_t selector,
+	const void *input_data,
+	size_t input_size)
+{
+	errno_t err = EPERM;
+
+	err = pmap_image4_monitor_trap_ppl(selector, input_data, input_size);
+	while (err == ENOMEM) {
+		/* Allocate a page from the free list */
+		pmap_alloc_page_for_ppl(0);
+
+		/* Call the monitor dispatch again */
+		err = pmap_image4_monitor_trap_ppl(selector, input_data, input_size);
+	}
+
+	return err;
+}
+
 #endif /* PMAP_CS_PPL_MONITOR */
 
 #if PMAP_CS_INCLUDE_CODE_SIGNING
@@ -13855,6 +14141,11 @@ MARK_AS_PMAP_TEXT bool
 pmap_match_compilation_service_cdhash_internal(const uint8_t cdhash[CS_CDHASH_LEN])
 {
 	bool match = false;
+
+	/* Lockdown mode disallows compilation service */
+	if (ppl_lockdown_mode_enabled == true) {
+		return false;
+	}
 
 	pmap_simple_lock(&pmap_compilation_service_cdhash_lock);
 	if (bcmp(pmap_compilation_service_cdhash, cdhash, CS_CDHASH_LEN) == 0) {

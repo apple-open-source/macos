@@ -955,6 +955,23 @@ kern_packet_copy_bytes(kern_packet_t pkt, size_t off, size_t len, void* out_data
 	return 0;
 }
 
+errno_t
+kern_packet_set_fpd_sequence_number(__unused const kern_packet_t ph, __unused uint32_t seq_num)
+{
+	return 0;
+}
+
+errno_t
+kern_packet_set_fpd_context_id(__unused const kern_packet_t ph, __unused uint16_t ctx_id)
+{
+	return 0;
+}
+
+errno_t
+kern_packet_set_fpd_command(__unused const kern_packet_t ph, __unused uint8_t cmd)
+{
+	return 0;
+}
 
 errno_t
 kern_packet_get_flowid(const kern_packet_t ph, packet_flowid_t *pflowid)

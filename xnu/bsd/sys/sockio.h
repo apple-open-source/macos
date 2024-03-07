@@ -377,6 +377,10 @@
 
 #define SIOCGIFGENERATIONID _IOWR('i', 217, struct ifreq) /* value of generation count at interface creation */
 
+#define SIOCSIFDIRECTLINK _IOWR('i', 218, struct ifreq) /* set DIRECTLINK */
+
 #endif /* PRIVATE */
+
+#define SIOCGIFDIRECTLINK _IOWR('i', 219, struct ifreq) /* get DIRECTLINK */
 
 #endif /* !_SYS_SOCKIO_H_ */

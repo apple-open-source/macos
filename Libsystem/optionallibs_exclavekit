@@ -2,5 +2,4 @@ compiler_rt
 corecrypto
 system_darwin
 system_kernel
-system_platform
 system_pthread

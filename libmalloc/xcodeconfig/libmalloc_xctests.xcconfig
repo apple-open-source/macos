@@ -1,3 +1,5 @@
+#include "libmalloc_common.xcconfig"
+
 SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
 
 SDKROOT = macosx.internal
@@ -5,18 +7,18 @@ INFOPLIST_EXPAND_BUILD_SETTINGS = YES
 INFOPLIST_FILE = tests/xctests/Info.plist
 PRODUCT_BUNDLE_IDENTIFIER = com.apple.libmalloc-xctests
 
-OTHER_CFLAGS = -fno-builtin -fno-typed-memory-operations
-OTHER_LDFLAGS = -framework Foundation -lCrashReporterClient
+OTHER_CFLAGS = $(inherited) -fno-builtin -fno-typed-memory-operations
+OTHER_LDFLAGS = $(inherited) -framework Foundation -lCrashReporterClient
 
 CLANG_ENABLE_OBJC_ARC = YES
 
 INSTALL_PATH = /AppleInternal/Tests/libmalloc/
 DEPLOYMENT_LOCATION = NO
 
-HEADER_SEARCH_PATHS = $(DERIVED_FILES_DIR)/dtrace $(SRCROOT)/include $(SRCROOT)/private $(SRCROOT)/resolver $(inherited)
-SYSTEM_HEADER_SEARCH_PATHS = $(SDKROOT)/usr/local/include $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+HEADER_SEARCH_PATHS = $(inherited) $(DERIVED_FILES_DIR)/dtrace $(SRCROOT)/include $(SRCROOT)/private $(SRCROOT)/resolver
+SYSTEM_HEADER_SEARCH_PATHS = $(inherited) $(SDKROOT)/usr/local/include $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 
 XCODE_SIGN_IDENTITY = -
 CODE_SIGN_IDENTITY = -
 
-GCC_PREPROCESSOR_DEFINITIONS = MALLOC_BUILDING_XCTESTS
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) MALLOC_BUILDING_XCTESTS

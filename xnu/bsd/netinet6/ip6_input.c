@@ -1123,7 +1123,7 @@ check_with_pf:
 			if (ia6 != NULL) {
 				(void) ip6_setdstifaddr_info(m, 0, ia6);
 				(void) ip6_setsrcifaddr_info(m, ia6->ia_ifp->if_index, NULL);
-				IFA_REMREF(&ia6->ia_ifa);
+				ifa_remref(&ia6->ia_ifa);
 			} else {
 				(void) ip6_setdstifaddr_info(m, inifp->if_index, NULL);
 				(void) ip6_setsrcifaddr_info(m, inifp->if_index, NULL);
@@ -2091,15 +2091,7 @@ ip6_notify_pmtu(struct inpcb *in6p, struct sockaddr_in6 *dst, u_int32_t *mtu)
 		return;
 	}
 
-#ifdef DIAGNOSTIC
-	if (so == NULL) {               /* I believe this is impossible */
-		panic("ip6_notify_pmtu: socket is NULL");
-		/* NOTREACHED */
-	}
-#endif
-
-	if (IN6_IS_ADDR_UNSPECIFIED(&in6p->in6p_faddr) &&
-	    (so->so_proto == NULL || so->so_proto->pr_protocol == IPPROTO_TCP)) {
+	if (IN6_IS_ADDR_UNSPECIFIED(&in6p->in6p_faddr) && SOCK_CHECK_PROTO(so, IPPROTO_TCP)) {
 		return;
 	}
 

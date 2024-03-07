@@ -65,7 +65,7 @@ IMLangFontLinkType* FontCache::getFontLinkInterface()
     return langFontLink;
 }
 
-static int CALLBACK metaFileEnumProc(HDC hdc, HANDLETABLE* table, CONST ENHMETARECORD* record, int tableEntries, LPARAM logFont)
+static int CALLBACK metaFileEnumProc(HDC, HANDLETABLE*, CONST ENHMETARECORD* record, int, LPARAM logFont)
 {
     if (record->iType == EMR_EXTCREATEFONTINDIRECTW) {
         const EMREXTCREATEFONTINDIRECTW* createFontRecord = reinterpret_cast<const EMREXTCREATEFONTINDIRECTW*>(record);
@@ -74,7 +74,7 @@ static int CALLBACK metaFileEnumProc(HDC hdc, HANDLETABLE* table, CONST ENHMETAR
     return true;
 }
 
-static int CALLBACK linkedFontEnumProc(CONST LOGFONT* logFont, CONST TEXTMETRIC* metrics, DWORD fontType, LPARAM hfont)
+static int CALLBACK linkedFontEnumProc(CONST LOGFONT* logFont, CONST TEXTMETRIC*, DWORD, LPARAM hfont)
 {
     *reinterpret_cast<HFONT*>(hfont) = CreateFontIndirect(logFont);
     return false;
@@ -189,7 +189,7 @@ static bool currentFontContainsCharacterNonBMP(HDC hdc, StringView stringView)
 
 static bool currentFontContainsCharacter(HDC hdc, StringView stringView)
 {
-    UChar32 utf32Character = *stringView.codePoints().begin();
+    char32_t utf32Character = *stringView.codePoints().begin();
     if (U_IS_SUPPLEMENTARY(utf32Character))
         return currentFontContainsCharacterNonBMP(hdc, stringView);
     UChar character = utf32Character;
@@ -463,7 +463,7 @@ struct MatchImprovingProcData {
     LOGFONT m_chosen;
 };
 
-static int CALLBACK matchImprovingEnumProc(CONST LOGFONT* candidate, CONST TEXTMETRIC* metrics, DWORD fontType, LPARAM lParam)
+static int CALLBACK matchImprovingEnumProc(CONST LOGFONT* candidate, CONST TEXTMETRIC*, DWORD, LPARAM lParam)
 {
     MatchImprovingProcData* matchData = reinterpret_cast<MatchImprovingProcData*>(lParam);
 
@@ -554,7 +554,7 @@ struct TraitsInFamilyProcData {
     Vector<FontSelectionCapabilities> m_capabilities;
 };
 
-static int CALLBACK traitsInFamilyEnumProc(CONST LOGFONT* logFont, CONST TEXTMETRIC* metrics, DWORD fontType, LPARAM lParam)
+static int CALLBACK traitsInFamilyEnumProc(CONST LOGFONT* logFont, CONST TEXTMETRIC*, DWORD, LPARAM lParam)
 {
     TraitsInFamilyProcData* procData = reinterpret_cast<TraitsInFamilyProcData*>(lParam);
 
@@ -614,11 +614,9 @@ Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamil
 
     TraitsInFamilyProcData procData(familyName);
     EnumFontFamiliesEx(hdc, &logFont, traitsInFamilyEnumProc, reinterpret_cast<LPARAM>(&procData), 0);
-    Vector<FontSelectionCapabilities> result;
-    result.reserveInitialCapacity(procData.m_capabilities.size());
-    for (auto capabilities : procData.m_capabilities)
-        result.uncheckedAppend(capabilities);
-    return result;
+    return WTF::map(procData.m_capabilities, [](auto& capabilities) -> FontSelectionCapabilities {
+        return capabilities;
+    });
 }
 
 std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontCreationContext&)

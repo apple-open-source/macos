@@ -27,7 +27,10 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#include "CocoaImage.h"
+#include "WebExtensionEventListenerType.h"
 #include "WebExtensionTabIdentifier.h"
+#include "WebPageProxyIdentifier.h"
 #include <wtf/Forward.h>
 #include <wtf/WeakObjCPtr.h>
 
@@ -39,10 +42,18 @@ OBJC_PROTOCOL(_WKWebExtensionTab);
 namespace WebKit {
 
 class WebExtensionContext;
+class WebExtensionMatchPattern;
 class WebExtensionWindow;
+class WebProcessProxy;
 struct WebExtensionTabParameters;
+struct WebExtensionTabQueryParameters;
 
-class WebExtensionTab : public RefCounted<WebExtensionTab> {
+enum class WebExtensionTabImageFormat : uint8_t {
+    PNG,
+    JPEG,
+};
+
+class WebExtensionTab : public RefCounted<WebExtensionTab>, public CanMakeWeakPtr<WebExtensionTab> {
     WTF_MAKE_NONCOPYABLE(WebExtensionTab);
     WTF_MAKE_FAST_ALLOCATED;
 
@@ -56,7 +67,6 @@ public:
     explicit WebExtensionTab(const WebExtensionContext&, _WKWebExtensionTab *);
 
     enum class ChangedProperties : uint16_t {
-        None       = 0,
         Audible    = 1 << 1,
         Loading    = 1 << 2,
         Muted      = 1 << 3,
@@ -66,33 +76,74 @@ public:
         Title      = 1 << 7,
         URL        = 1 << 8,
         ZoomFactor = 1 << 9,
-        All        = Audible | Loading | Muted | Pinned | ReaderMode | Size | Title | URL | ZoomFactor,
     };
 
-    enum class ExtendSelection : bool { No, Yes };
+    static constexpr OptionSet<ChangedProperties> allChangedProperties()
+    {
+        return {
+            ChangedProperties::Audible,
+            ChangedProperties::Loading,
+            ChangedProperties::Muted,
+            ChangedProperties::Pinned,
+            ChangedProperties::ReaderMode,
+            ChangedProperties::Size,
+            ChangedProperties::Title,
+            ChangedProperties::URL,
+            ChangedProperties::ZoomFactor,
+        };
+    }
+
+    using ImageFormat = WebExtensionTabImageFormat;
+
+    enum class AssumeWindowMatches : bool { No, Yes };
+    enum class SkipContainsCheck : bool { No, Yes };
+    enum class MainWebViewOnly : bool { No, Yes };
 
     using Error = std::optional<String>;
+    using WebProcessProxySet = HashSet<Ref<WebProcessProxy>>;
 
     WebExtensionTabIdentifier identifier() const { return m_identifier; }
     WebExtensionTabParameters parameters() const;
+    WebExtensionTabParameters changedParameters(OptionSet<ChangedProperties> = { }) const;
 
     WebExtensionContext* extensionContext() const;
 
     bool operator==(const WebExtensionTab&) const;
 
-    RefPtr<WebExtensionWindow> window() const;
+    bool matches(const WebExtensionTabQueryParameters&, AssumeWindowMatches = AssumeWindowMatches::No, std::optional<WebPageProxyIdentifier> = std::nullopt) const;
+
+    bool extensionHasAccess() const;
+    bool extensionHasPermission() const;
+
+    bool hasActiveUserGesture() { return m_activeUserGesture; }
+    void setActiveUserGesture(bool activeUserGesture) { m_activeUserGesture = activeUserGesture; }
+
+    RefPtr<WebExtensionMatchPattern> temporaryPermissionMatchPattern() { return m_temporaryPermissionMatchPattern; }
+    void setTemporaryPermissionMatchPattern(RefPtr<WebExtensionMatchPattern>&& matchPattern) { m_temporaryPermissionMatchPattern = WTFMove(matchPattern); }
+
+    OptionSet<ChangedProperties> changedProperties() const { return m_changedProperties; }
+    void addChangedProperties(OptionSet<ChangedProperties> properties) { m_changedProperties.add(properties); }
+    void clearChangedProperties() { m_changedProperties = { }; }
+
+    RefPtr<WebExtensionWindow> window(SkipContainsCheck = SkipContainsCheck::No) const;
     size_t index() const;
 
     RefPtr<WebExtensionTab> parentTab() const;
+    void setParentTab(RefPtr<WebExtensionTab>, CompletionHandler<void(Error)>&&);
 
     WKWebView *mainWebView() const;
     NSArray *webViews() const;
 
     String title() const;
 
+    bool isActive() const;
     bool isSelected() const;
-    bool isPinned() const;
     bool isPrivate() const;
+
+    void pin(CompletionHandler<void(Error)>&&);
+    void unpin(CompletionHandler<void(Error)>&&);
+
+    bool isPinned() const;
 
     void toggleReaderMode(CompletionHandler<void(Error)>&&);
 
@@ -116,6 +167,7 @@ public:
     bool isLoadingComplete() const;
 
     void detectWebpageLocale(CompletionHandler<void(NSLocale *, Error)>&&);
+    void captureVisibleWebpage(CompletionHandler<void(CocoaImage *, Error)>&&);
 
     void loadURL(URL, CompletionHandler<void(Error)>&&);
 
@@ -126,11 +178,14 @@ public:
     void goForward(CompletionHandler<void(Error)>&&);
 
     void activate(CompletionHandler<void(Error)>&&);
-    void select(ExtendSelection, CompletionHandler<void(Error)>&&);
+    void select(CompletionHandler<void(Error)>&&);
+    void deselect(CompletionHandler<void(Error)>&&);
 
-    void duplicate(CompletionHandler<void(RefPtr<WebExtensionTab>, Error)>&&);
+    void duplicate(const WebExtensionTabParameters&, CompletionHandler<void(RefPtr<WebExtensionTab>, Error)>&&);
 
     void close(CompletionHandler<void(Error)>&&);
+
+    WebProcessProxySet processes(WebExtensionEventListenerType, WebExtensionContentWorldType, MainWebViewOnly = MainWebViewOnly::Yes) const;
 
 #ifdef __OBJC__
     _WKWebExtensionTab *delegate() const { return m_delegate.getAutoreleased(); }
@@ -142,13 +197,21 @@ private:
     WebExtensionTabIdentifier m_identifier;
     WeakPtr<WebExtensionContext> m_extensionContext;
     WeakObjCPtr<_WKWebExtensionTab> m_delegate;
+    RefPtr<WebExtensionMatchPattern> m_temporaryPermissionMatchPattern;
+    OptionSet<ChangedProperties> m_changedProperties;
+    bool m_activeUserGesture : 1 { false };
+    mutable bool m_private : 1 { false };
+    mutable bool m_cachedPrivate : 1 { false };
     bool m_respondsToWindow : 1 { false };
     bool m_respondsToParentTab : 1 { false };
+    bool m_respondsToSetParentTab : 1 { false };
     bool m_respondsToMainWebView : 1 { false };
     bool m_respondsToWebViews : 1 { false };
     bool m_respondsToTabTitle : 1 { false };
     bool m_respondsToIsSelected : 1 { false };
     bool m_respondsToIsPinned : 1 { false };
+    bool m_respondsToPin : 1 { false };
+    bool m_respondsToUnpin : 1 { false };
     bool m_respondsToIsReaderModeAvailable : 1 { false };
     bool m_respondsToIsShowingReaderMode : 1 { false };
     bool m_respondsToToggleReaderMode : 1 { false };
@@ -163,6 +226,7 @@ private:
     bool m_respondsToPendingURL : 1 { false };
     bool m_respondsToIsLoadingComplete : 1 { false };
     bool m_respondsToDetectWebpageLocale : 1 { false };
+    bool m_respondsToCaptureVisibleWebpage : 1 { false };
     bool m_respondsToLoadURL : 1 { false };
     bool m_respondsToReload : 1 { false };
     bool m_respondsToReloadFromOrigin : 1 { false };
@@ -170,10 +234,30 @@ private:
     bool m_respondsToGoForward : 1 { false };
     bool m_respondsToActivate : 1 { false };
     bool m_respondsToSelect : 1 { false };
+    bool m_respondsToDeselect : 1 { false };
     bool m_respondsToDuplicate : 1 { false };
     bool m_respondsToClose : 1 { false };
 };
 
 } // namespace WebKit
+
+namespace WTF {
+
+template<> struct EnumTraits<WebKit::WebExtensionTab::ChangedProperties> {
+    using values = EnumValues<
+        WebKit::WebExtensionTab::ChangedProperties,
+        WebKit::WebExtensionTab::ChangedProperties::Audible,
+        WebKit::WebExtensionTab::ChangedProperties::Loading,
+        WebKit::WebExtensionTab::ChangedProperties::Muted,
+        WebKit::WebExtensionTab::ChangedProperties::Pinned,
+        WebKit::WebExtensionTab::ChangedProperties::ReaderMode,
+        WebKit::WebExtensionTab::ChangedProperties::Size,
+        WebKit::WebExtensionTab::ChangedProperties::Title,
+        WebKit::WebExtensionTab::ChangedProperties::URL,
+        WebKit::WebExtensionTab::ChangedProperties::ZoomFactor
+    >;
+};
+
+} // namespace WTF
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

@@ -426,7 +426,7 @@ static void inspect_link(link_ctx *ctx, const char *s, size_t slen)
 
 static int head_iter(void *ctx, const char *key, const char *value) 
 {
-    if (!apr_strnatcasecmp("link", key)) {
+    if (!ap_cstr_casecmp("link", key)) {
         inspect_link(ctx, value, strlen(value));
     }
     return 1;
@@ -502,6 +502,7 @@ static void calc_sha256_hash(h2_push_diary *diary, apr_uint64_t *phash, h2_push 
     sha256_update(md, push->req->authority);
     sha256_update(md, push->req->path);
     EVP_DigestFinal(md, hash, &len);
+    EVP_MD_CTX_destroy(md);
 
     val = 0;
     for (i = 0; i != len; ++i)

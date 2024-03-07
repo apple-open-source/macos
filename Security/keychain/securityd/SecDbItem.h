@@ -195,6 +195,7 @@ bool SecDbItemSetPersistentRef(SecDbItemRef item, CFDataRef uuid, CFErrorRef *er
 
 bool SecDbItemIsSyncableOrCorrupted(SecDbItemRef item);
 bool SecDbItemIsSyncable(SecDbItemRef item);
+bool SecDbItemIsShared(SecDbItemRef item);
 
 bool SecDbItemSetSyncable(SecDbItemRef item, bool sync, CFErrorRef *error);
 

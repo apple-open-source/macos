@@ -105,7 +105,7 @@ installhdrs install clean:
 
 installsrc:
 	$(_v)$(MKDIR) $(SRCROOT)
-	$(_v)$(FIND) -x . \! \( \( -name BUILD -o -name .svn -o -name .git -o -name cscope.\* -o -name \*~ \) -prune \) -print0 | $(PAX) -rw -p a -d0 $(SRCROOT)
+	$(_v)$(FIND) -x . \! \( \( -name BUILD -o -name .svn -o -name .git -o -name cscope.\* -o -name compile_commands.json -o -name \*~ \) -prune \) -print0 | $(PAX) -rw -p a -d0 $(SRCROOT)
 	$(_v)$(CHMOD) -R go+rX $(SRCROOT)
 
 else ifneq ($(findstring libkxld,$(RC_ProjectName)),)
@@ -119,7 +119,7 @@ installhdrs install clean:
 
 installsrc:
 	$(_v)$(MKDIR) $(SRCROOT)
-	$(_v)$(FIND) -x . \! \( \( -name BUILD -o -name .svn -o -name .git -o -name cscope.\* -o -name \*~ \) -prune \) -print0 | $(PAX) -rw -p a -d0 $(SRCROOT)
+	$(_v)$(FIND) -x . \! \( \( -name BUILD -o -name .svn -o -name .git -o -name cscope.\* -name compile_commands.json -o -name \*~ \) -prune \) -print0 | $(PAX) -rw -p a -d0 $(SRCROOT)
 	$(_v)$(CHMOD) -R go+rX $(SRCROOT)
 
 else ifneq ($(findstring libkmod,$(RC_ProjectName)),)

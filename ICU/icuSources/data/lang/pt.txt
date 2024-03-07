@@ -74,6 +74,7 @@ pt{
         bez{"bena"}
         bfd{"bafut"}
         bg{"búlgaro"}
+        bgc{"hariani"}
         bgn{"balúchi ocidental"}
         bho{"bhojpuri"}
         bi{"bislamá"}
@@ -313,6 +314,7 @@ pt{
         li{"limburguês"}
         lil{"lillooet"}
         lkt{"lacota"}
+        lmo{"lombardo"}
         ln{"lingala"}
         lo{"laosiano"}
         lol{"mongo"}
@@ -949,10 +951,11 @@ pt{
     }
     characterLabelPattern{
         all{"{0} — todos"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} — compatibilidade"}
         enclosed{"{0} — fechado"}
         extended{"{0} — estendido"}
+        facing-left{"{0} de frente para a esquerda"}
+        facing-right{"{0} de frente para a direita"}
         historic{"{0} — histórico"}
         miscellaneous{"{0} — diversos"}
         other{"{0} — outro"}
@@ -968,10 +971,5 @@ pt{
         language{"Idioma: {0}"}
         script{"Alfabeto: {0}"}
         territory{"Região: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

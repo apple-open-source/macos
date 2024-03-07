@@ -38,18 +38,26 @@
 
 __BEGIN_DECLS
 
-typedef struct mach_vm_reclaim_entry_v1_s {
-	mach_vm_address_t address;
-	uint32_t size;
-	uint16_t opcode;
-	uint16_t flags;
-} mach_vm_reclaim_entry_v1_t;
-
 typedef struct mach_vm_reclaim_indices_v1_s {
 	_Atomic uint64_t head;
 	_Atomic uint64_t tail;
 	_Atomic uint64_t busy;
 } mach_vm_reclaim_indices_v1_t;
+
+// The action to be performed by the kernel on reclamation of an entry
+__enum_decl(mach_vm_reclaim_behavior_v1_t, uint16_t, {
+	// Deallocate (unmap) the entry
+	MACH_VM_RECLAIM_DEALLOCATE = 0,
+	// Mark the entry as clean and leave mapped (VM_BEHAVIOR_REUSABLE)
+	MACH_VM_RECLAIM_REUSABLE = 1,
+});
+
+typedef struct mach_vm_reclaim_entry_v1_s {
+	mach_vm_address_t address;
+	uint32_t size;
+	mach_vm_reclaim_behavior_v1_t behavior;
+	uint16_t flags;
+} mach_vm_reclaim_entry_v1_t;
 
 /*
  * Contains the data used for synchronization with the kernel. This structure
@@ -99,6 +107,7 @@ uint64_t mach_vm_reclaim_mark_free(
 	mach_vm_reclaim_ringbuffer_v1_t buffer,
 	mach_vm_address_t start_addr,
 	uint32_t size,
+	mach_vm_reclaim_behavior_v1_t behavior,
 	bool *should_update_kernel_accounting);
 
 /*
@@ -113,11 +122,19 @@ bool mach_vm_reclaim_mark_used(
 	uint32_t size);
 
 /*
- * Check if the range has been reclaimed.
+ * Check if the range is available for re-use.
  * Returns true if the range is still available. Note that this doesn't claim the range, so it may be reclaimed in parallel.
  * Note that a return value of false does not guarantee that the kernel has reclaimed the range already (it may just be considering it).
  */
 bool mach_vm_reclaim_is_available(
+	const mach_vm_reclaim_ringbuffer_v1_t buffer,
+	uint64_t id);
+
+/*
+ * Check if the range has been reclaimed.
+ * Returns true if the range is no longer available for re-use.
+ */
+bool mach_vm_reclaim_is_reclaimed(
 	const mach_vm_reclaim_ringbuffer_v1_t buffer,
 	uint64_t id);
 

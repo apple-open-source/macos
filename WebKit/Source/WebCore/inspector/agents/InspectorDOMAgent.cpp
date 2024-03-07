@@ -276,7 +276,7 @@ private:
 
 String InspectorDOMAgent::toErrorString(ExceptionCode ec)
 {
-    return ec ? String(DOMException::name(ec)) : emptyString();
+    return static_cast<bool>(ec) ? String(DOMException::name(ec)) : emptyString();
 }
 
 String InspectorDOMAgent::toErrorString(Exception&& exception)
@@ -963,13 +963,12 @@ Protocol::ErrorStringOr<void> InspectorDOMAgent::setNodeValue(Protocol::DOM::Nod
 
 Protocol::ErrorStringOr<Ref<JSON::ArrayOf<String>>> InspectorDOMAgent::getSupportedEventNames()
 {
-    auto eventNames = JSON::ArrayOf<String>::create();
+    auto list = JSON::ArrayOf<String>::create();
 
-#define DOM_EVENT_NAMES_ADD(name) eventNames->addItem(#name""_s);
-    DOM_EVENT_NAMES_FOR_EACH(DOM_EVENT_NAMES_ADD)
-#undef DOM_EVENT_NAMES_ADD
+    for (auto& event : eventNames().allEventNames())
+        list->addItem(event);
 
-    return eventNames;
+    return list;
 }
 
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
@@ -1457,7 +1456,7 @@ Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightSelector(const String&
         return makeUnexpected("Missing document of frame for given frameId"_s);
 
     CSSParser parser(*document);
-    auto selectorList = parser.parseSelector(selectorString);
+    auto selectorList = parser.parseSelectorList(selectorString);
     if (!selectorList)
         return { };
 
@@ -1935,7 +1934,7 @@ Ref<Protocol::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* node, int d
 
     auto value = Protocol::DOM::Node::create()
         .setNodeId(id)
-        .setNodeType(static_cast<int>(node->nodeType()))
+        .setNodeType(enumToUnderlyingType(node->nodeType()))
         .setNodeName(nodeName)
         .setLocalName(localName)
         .setNodeValue(nodeValue)
@@ -2253,8 +2252,8 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
             auto controlledElements = axObject->elementsFromAttribute(aria_controlsAttr);
             if (controlledElements.size()) {
                 controlledNodeIds = JSON::ArrayOf<Protocol::DOM::NodeId>::create();
-                for (Element* controlledElement : controlledElements) {
-                    if (auto controlledElementId = pushNodePathToFrontend(controlledElement))
+                for (auto& controlledElement : controlledElements) {
+                    if (auto controlledElementId = pushNodePathToFrontend(controlledElement.ptr()))
                         controlledNodeIds->addItem(controlledElementId);
                 }
             }
@@ -2293,8 +2292,8 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
             auto flowedElements = axObject->elementsFromAttribute(aria_flowtoAttr);
             if (flowedElements.size()) {
                 flowedNodeIds = JSON::ArrayOf<Protocol::DOM::NodeId>::create();
-                for (Element* flowedElement : flowedElements) {
-                    if (auto flowedElementId = pushNodePathToFrontend(flowedElement))
+                for (auto& flowedElement : flowedElements) {
+                    if (auto flowedElementId = pushNodePathToFrontend(flowedElement.ptr()))
                         flowedNodeIds->addItem(flowedElementId);
                 }
             }
@@ -2365,8 +2364,8 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
                 auto ownedElements = axObject->elementsFromAttribute(aria_ownsAttr);
                 if (ownedElements.size()) {
                     ownedNodeIds = JSON::ArrayOf<Protocol::DOM::NodeId>::create();
-                    for (Element* ownedElement : ownedElements) {
-                        if (auto ownedElementId = pushNodePathToFrontend(ownedElement))
+                    for (auto& ownedElement : ownedElements) {
+                        if (auto ownedElementId = pushNodePathToFrontend(ownedElement.ptr()))
                             ownedNodeIds->addItem(ownedElementId);
                     }
                 }
@@ -2491,7 +2490,7 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
 static bool containsOnlyASCIIWhitespace(Node* node)
 {
     // FIXME: Respect ignoreWhitespace setting from inspector front end?
-    return is<Text>(node) && downcast<Text>(*node).data().containsOnly<isASCIIWhitespace>();
+    return is<Text>(node) && downcast<Text>(*node).containsOnlyASCIIWhitespace();
 }
 
 Node* InspectorDOMAgent::innerFirstChild(Node* node)

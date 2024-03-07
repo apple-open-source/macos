@@ -122,6 +122,9 @@ static const uint8_t signingKey_384[] = {
     return results;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 + (BOOL)testSecKey:(CKKSSelves*)octagonSelf error:(NSError**)error
 {
     id<CKKSSelfPeer> currentSelfPeer = octagonSelf.currentSelf;
@@ -211,6 +214,8 @@ static const uint8_t signingKey_384[] = {
 
     return YES;
 }
+
+#pragma clang diagnostic pop
 
 + (BOOL)addNRandomKeychainItemsWithoutUpgradedPersistentRefs:(int64_t)number
 {

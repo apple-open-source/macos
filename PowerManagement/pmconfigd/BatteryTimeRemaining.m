@@ -250,7 +250,7 @@ typedef enum: unsigned long {
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
 uint64_t batteryHealthUPOAware = 0;
 uint32_t battReadTimeDelta = kMinTimeDeltaForBattRead; // Time delta between reading battery data for battery health evaluation
-#endif
+#endif // TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
 bool smcBasedDevice = false;
 bool nccp_cc_filtering = true;  // Support for NCCP filtering using CycleCount
@@ -260,7 +260,7 @@ void removeKeyFromBatteryHealthDataPrefs(CFStringRef key);
 void saveBatteryHealthDataToPrefs(CFDictionaryRef bhData);
 CFDictionaryRef copyBatteryHealthDataFromPrefs(void);
 CFDictionaryRef copyPowerlogBatteryHealthData(void);
-#endif
+#endif // TARGET_OS_IPHONE || POWERD_IOS_XCTEST
 
 // forward declarations
 STATIC PSStruct         *iops_newps(int pid, int psid);
@@ -277,13 +277,14 @@ static void BatteryTimeRemaining_finishSync(void);
 static void btr_recordFDREvent(int eventType, bool checkStandbyStatus);
 #if TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH || TARGET_OS_OSX
 STATIC CFMutableDictionaryRef copyBatteryHealthData(void);
-#endif
+#endif // TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH || TARGET_OS_OSX
+
 
 #if TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH
 static void updateCalibration0Flags(CFMutableDictionaryRef bhData, CFDictionaryRef batteryProps,
                              IOPSBatteryHealthServiceState prevSvcState, IOPSBatteryHealthServiceFlags prevSvcFlags,
                              IOPSBatteryHealthServiceState currentSvcState, IOPSBatteryHealthServiceFlags currentSvcFlags);
-#endif
+#endif // TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH
 
 #if TARGET_OS_OSX
 #define NVRAM_BATTERY_HEALTH_VER_MAJOR  1
@@ -973,6 +974,7 @@ static IOPMBattery *_newBatteryFound(io_registry_entry_t where)
     return new_battery;
 }
 
+
 static void ioregBatteryMatch(
     void *refcon,
     io_iterator_t b_iter)
@@ -1010,6 +1012,7 @@ static void ioregBatteryMatch(
     dispatch_async(batteryTimeRemainingQ, ^() {
         startBatteryPoll(kImmediateFullPoll);
     });
+
 }
 
 static void initNotifictions(void)
@@ -1056,6 +1059,7 @@ __private_extern__ void BatteryTimeRemaining_prime(void)
                           &control.psTimeRemainingNotifyToken);
     notify_register_check(kIOPSNotifyPercentChange,
                           &control.psPercentChangeNotifyToken);
+
 
      // Initialize tracing battery events to FDR
      btr_recordFDREvent(kFDRInit, false);
@@ -2219,9 +2223,61 @@ STATIC CFMutableDictionaryRef copyBatteryHealthData(void)
     IOPSBatteryHealthServiceState oldSvcState = 0;
     CFNumberRef oldMaxCapacity = NULL;
 
+    // auth check state/data
+    bool authOk = false;
+
+    /**
+     * If auth is not set, populate bhData with serviceFlags, keys showing no auth condition and bail early
+     * This in effect, disallows "read" access to the persistent storage if the battery is non-genuine or, if the auth process hasn't completed yet.
+     */
+    batteryAuthState authState = getBatteryAuthState();
+    switch (authState) {
+        case kBatteryAuthStateTrusted:
+        // treat auth not supported and trusted as same, retaining legacy behavior on non-auth devices
+        case kBatteryAuthStateNotSupported:
+            authOk = true;
+            break;
+        case kBatteryAuthStateUnTrusted:
+            oldSvcFlags |= kBHSvcFlagAuthFailure;
+            oldSvcState = kBHSvcStateAuthFailure;
+            break;
+        case kBatteryAuthStateUnknown:
+        default:
+            oldSvcFlags |= kBHSvcFlagAuthNotDet;
+            oldSvcState = kBHSvcStateUnknown;
+            break;
+    }
+
+    DEBUG_LOG("battery auth state: %d flags: 0x%x", authState, oldSvcFlags);
+    if (!authOk) {
+        CFMutableDictionaryRef authBhData = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (authBhData == NULL) {
+            ERROR_LOG("Failed to create dictionary to hold battery data\n");
+            return NULL;
+        }
+
+        oldSvcFlags |= kBatteryHealthCurrentVersion;
+        NSMutableDictionary *authBhDataNs = (__bridge NSMutableDictionary *) authBhData;
+        authBhDataNs[@kIOPSBatteryHealthServiceFlagsKey] = @(oldSvcFlags);
+        authBhDataNs[@kIOPSBatteryHealthServiceStateKey] = @(oldSvcState);
+        authBhDataNs[@kIOPSBatteryHealthMaxCapacityPercent] = @(-1);
+        return authBhData;
+    }
+
     dict = copyBatteryHealthDataFromPrefs();
     if (dict && (CFDictionaryGetCount(dict) != 0)) {
         bhData = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dict);
+        NSMutableDictionary *bhDataNs = (__bridge NSMutableDictionary *) bhData;
+        IOPSBatteryHealthServiceFlags flags = [bhDataNs[@kIOPSBatteryHealthServiceFlagsKey] intValue];
+        /**
+         * workaround fix for rdar://118407371. whie the RCA is still unknown, this is a band-aid fix to recover from the stuck state even on passing auth.
+        */
+        if (authOk && (flags & (kBHSvcFlagAuthNotDet | kBHSvcFlagAuthFailure))) {
+            ERROR_LOG("Invalid auth flags detected: authOk:%d flags:0x%x", authOk, flags);
+            flags &= ~(kBHSvcFlagAuthNotDet | kBHSvcFlagAuthFailure);
+            bhDataNs[@kIOPSBatteryHealthServiceFlagsKey] = @(flags);
+            INFO_LOG("Invalid auth condition: recoveredflags:0x%x", [bhDataNs[@kIOPSBatteryHealthServiceFlagsKey] intValue]);
+        }
         CFRelease(dict);
         return bhData;
     }
@@ -2367,7 +2423,6 @@ STATIC void initBatteryHealthData(void)
 static bool calib0RelevantDevice(void)
 {
     bool relevant = false;
-#if HAS_MOBILE_GESTALT
     // Only run on D4x/N104, N14[0,1,2,4,6][b,s]
     relevant = MGIsDeviceOneOfType(MGPROD_D421,
                                    MGPROD_D431,
@@ -2385,7 +2440,6 @@ static bool calib0RelevantDevice(void)
                                    MGPROD_N157B,
                                    MGPROD_N158B,
                                    nil);
-#endif /* HAS_MOBILE_GESTALT */
     return relevant;
 }
 
@@ -2878,19 +2932,6 @@ TARGET_OS_XR_UNUSED STATIC void checkCellDisconnectCount(CFDictionaryRef battery
     }
 }
 
-TARGET_OS_XR_UNUSED STATIC void checkBatteryAuthState(IOPSBatteryHealthServiceFlags *svcFlags)
-{
-    batteryAuthState authState = getBatteryAuthState();
-    *svcFlags &= ~(kBHSvcFlagAuthFailure | kBHSvcFlagAuthNotDet); // re-evaluate auth flags everytime, in case the state transitions from unknown->UnTrusted|Trusted.
-    if (authState == kBatteryAuthStateUnTrusted) {
-        *svcFlags |= kBHSvcFlagAuthFailure;
-    }
-    if (authState == kBatteryAuthStateUnknown) {
-        *svcFlags |= kBHSvcFlagAuthNotDet;
-    }
-    DEBUG_LOG("battery auth state: %d flags: 0x%x", authState, *svcFlags);
-}
-
 STATIC void _setBatteryHealthData(
     CFMutableDictionaryRef  outDict,
     IOPMBattery  *b)
@@ -2916,6 +2957,20 @@ STATIC void _setBatteryHealthData(
         ERROR_LOG("Unable to get previous battery health state. Service Flags:0x%x Service State:%d\n",
                 svcFlags, svcState);
 
+        return;
+    }
+
+    /**
+     * Check for Auth related flags. If set, bail early. This should be typically done right after copyBatteryHealthData()
+     */
+    NSDictionary *bhDict = (__bridge NSDictionary *) bhData;
+    if ([bhDict[@kIOPSBatteryHealthServiceFlagsKey] intValue] & (kBHSvcFlagAuthNotDet | kBHSvcFlagAuthFailure)) {
+        NSMutableDictionary *outDataNs = (__bridge NSMutableDictionary *) outDict;
+        outDataNs[@kIOPSBatteryHealthServiceStateKey] = bhDict[@kIOPSBatteryHealthServiceStateKey];
+        outDataNs[@kIOPSBatteryHealthServiceFlagsKey] = bhDict[@kIOPSBatteryHealthServiceFlagsKey];
+        outDataNs[@kIOPSBatteryHealthMaxCapacityPercent] = bhDict[@kIOPSBatteryHealthMaxCapacityPercent];
+        DEBUG_LOG("Skipping battery health loop due to missing auth [0x%x]", svcFlags);
+        CFRelease(bhData);
         return;
     }
 
@@ -2985,7 +3040,6 @@ STATIC void _setBatteryHealthData(
     checkUPOCount(&svcFlags);
     checkWeightedRa(batteryProps, &svcFlags);
     checkCellDisconnectCount(batteryProps, &svcFlags);
-    checkBatteryAuthState(&svcFlags);
 
     updateBatteryServiceState(batteryProps, bhData, svcFlags);
     saveBatteryHealthDataToPrefs(bhData);
@@ -4816,6 +4870,8 @@ static void envelopeBatteryInformation(NSMutableDictionary *batteryData)
 
     capacity = [refCapacity intValue];
     capacity = ROUND_TO_MULTIPLE_OF_5(capacity);
+    capacity = MAX(1, capacity);
+    capacity = MIN(100, capacity);
     batteryData[@kIOPSCurrentCapacityKey] = [NSNumber numberWithInt:capacity];
 }
 #endif

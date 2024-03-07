@@ -1,8 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
-from builtins import hex
-from builtins import range
-
 from xnu import *
 import xnudefines
 from kdp import *
@@ -927,6 +922,13 @@ def PVWalkARM(pai, verbose_level = vHUMAN):
                 pvh_flags.append("LOCKDOWN_CS")
             if pvh_raw & (1 << 56):
                 pvh_flags.append("LOCKDOWN_RO")
+            if pvh_raw & (1 << 55):
+                pvh_flags.append("RETIRED")
+            if pvh_raw & (1 << 54):
+                if kern.globals.page_protection_type <= kern.PAGE_PROTECTION_TYPE_PPL:
+                    pvh_flags.append("SECURE_FLUSH_NEEDED")
+                else:
+                    pvh_flags.append("SLEEPABLE_LOCK")
             if kern.arch.startswith('arm64') and pvh_raw & (1 << 61):
                 pvh_flags.append("LOCK")
 
@@ -1030,6 +1032,11 @@ def KVToPhysARM(addr):
             if (addr >= int(unsigned(ptov_table[i].va))) and (addr < (int(unsigned(ptov_table[i].va)) + int(unsigned(ptov_table[i].len)))):
                 return (addr - int(unsigned(ptov_table[i].va)) + int(unsigned(ptov_table[i].pa)))
     else:
+        papt_table = kern.globals.libsptm_papt_ranges
+        page_size = kern.globals.page_size
+        for i in range(0, kern.globals.libsptm_n_papt_ranges):
+            if (addr >= int(unsigned(papt_table[i].papt_start))) and (addr < (int(unsigned(papt_table[i].papt_start)) + int(unsigned(papt_table[i].num_mappings) * page_size))):
+                return (addr - int(unsigned(papt_table[i].papt_start)) + int(unsigned(papt_table[i].paddr_start)))
         raise ValueError("VA {:#x} not found in physical region lookup table".format(addr))
     return (addr - unsigned(kern.globals.gVirtBase) + unsigned(kern.globals.gPhysBase))
 
@@ -1047,6 +1054,34 @@ def GetPtDesc(paddr):
     ptd = kern.GetValueFromAddress(pvh & ~0x3, 'pt_desc_t *')
     return ptd
 
+def PhysToFrameTableEntry(paddr):
+    if paddr >= int(unsigned(kern.globals.sptm_first_phys)) or paddr < int(unsigned(kern.globals.sptm_last_phys)):
+        return kern.globals.frame_table[(paddr - int(unsigned(kern.globals.sptm_first_phys))) // kern.globals.page_size]
+    page_idx = paddr / kern.globals.page_size
+    for i in range(0, kern.globals.sptm_n_io_ranges):
+        base = kern.globals.io_frame_table[i].io_range.phys_page_idx
+        end = base + kern.globals.io_frame_table[i].io_range.num_pages
+        if page_idx >= base and page_idx < end:
+            return kern.globals.io_frame_table[i]
+    return kern.globals.xnu_io_fte
+
+@lldb_command('phystofte')
+def PhysToFTE(cmd_args=None):
+    """ Translate a physical address to the corresponding SPTM frame table entry pointer
+        Syntax: (lldb) phystofte <physical address>
+    """
+    if cmd_args is None or len(cmd_args) < 1:
+        raise ArgumentError("Too few arguments to phystofte.")
+
+    fte = PhysToFrameTableEntry(int(unsigned(kern.GetValueFromAddress(cmd_args[0], 'unsigned long'))))
+    print(repr(fte))
+
+XNU_IOMMU = 22
+XNU_PAGE_TABLE = 18
+XNU_PAGE_TABLE_SHARED = 19
+XNU_PAGE_TABLE_ROZONE = 20
+XNU_PAGE_TABLE_COMMPAGE = 21
+SPTM_PAGE_TABLE = 9
 
 def ShowPTEARM(pte, page_size, level):
     """ Display vital information about an ARM page table entry
@@ -1089,6 +1124,21 @@ def ShowPTEARM(pte, page_size, level):
                 info_str = None
             return (int(unsigned(refcnt)), level, info_str)
         else:
+            fte = PhysToFrameTableEntry(paddr)
+            if fte.type == XNU_IOMMU:
+                if page_size is None:
+                    page_size = kern.globals.native_pt_attr.pta_page_size
+                info_str = "PTD iommu token: {:#x} (ID {:#x} TSD {:#x})".format(ptd.iommu, fte.iommu_page.iommu_id, fte.iommu_page.iommu_tsd)
+                return (int(unsigned(fte.iommu_page.iommu_refcnt._value)), 0, info_str)
+            elif fte.type in [XNU_PAGE_TABLE, XNU_PAGE_TABLE_SHARED, XNU_PAGE_TABLE_ROZONE, XNU_PAGE_TABLE_COMMPAGE, SPTM_PAGE_TABLE]:
+                if page_size is None:
+                    if hasattr(ptd.pmap, 'pmap_pt_attr'):
+                        page_size = ptd.pmap.pmap_pt_attr.pta_page_size
+                    else:
+                        page_size = kern.globals.native_pt_attr.pta_page_size;
+                return (int(unsigned(fte.cpu_page_table.mapping_refcnt._value)), int(unsigned(fte.cpu_page_table.level)), None)
+            else:
+                raise ValueError("Unrecognized FTE type {:#x}".format(fte.type))
             raise ValueError("Unable to retrieve PTD refcnt")
     pte_paddr = KVToPhysARM(pte)
     ptd = GetPtDesc(pte_paddr)

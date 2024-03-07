@@ -1,5 +1,7 @@
 %{
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -14,11 +16,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -42,7 +40,7 @@ static char sccsid[] = "@(#)yacc.y	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/mklocale/yacc.y,v 1.28 2008/01/22 00:04:50 ache Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <arpa/inet.h>
 
@@ -58,8 +56,10 @@ __FBSDID("$FreeBSD: src/usr.bin/mklocale/yacc.y,v 1.28 2008/01/22 00:04:50 ache 
 #include "extern.h"
 #include "runefile.h"
 
+#ifdef __APPLE__
 #define	MAX_CHARCLASS	4
 #define	CHARCLASSBIT	4
+#endif
 
 static void *xmalloc(unsigned int sz);
 static uint32_t *xlalloc(unsigned int sz);
@@ -74,11 +74,18 @@ rune_map	maplower = { { 0 }, NULL };
 rune_map	mapupper = { { 0 }, NULL };
 rune_map	types = { { 0 }, NULL };
 
-_FileRuneLocale	new_locale = { "", "", 0, 0, 0, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#ifdef __APPLE__
+_FileRuneLocale	new_locale = { "", "", 0, 0, 0, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0 };
+#else
+_FileRuneLocale	new_locale = { "", "", {}, {}, {}, 0, 0, 0, 0 };
+#endif
 char		*variable = NULL;
 
+#ifdef __APPLE__
 rune_charclass	charclasses[MAX_CHARCLASS];
 int		charclass_index = 0;
+#endif
 
 void set_map(rune_map *, rune_list *, uint32_t);
 void set_digitmap(rune_map *, rune_list *);
@@ -132,10 +139,12 @@ entry	:	ENCODING STRING
 		      strcmp($2, "GB18030") &&
 		      strcmp($2, "GB2312") &&
 		      strcmp($2, "BIG5") &&
-		      strcmp($2, "MSKanji") &&
-		      strcmp($2, "UTF2"))
+#ifdef __APPLE__
+		      strcmp($2, "UTF2") &&
+#endif
+		      strcmp($2, "MSKanji"))
 			warnx("ENCODING %s is not supported by libc", $2);
-		strncpy(new_locale.encoding, $2,
+		strlcpy(new_locale.encoding, $2,
 		    sizeof(new_locale.encoding)); }
 	|	VARIABLE
 		{ new_locale.variable_len = strlen($1) + 1;
@@ -152,9 +161,11 @@ entry	:	ENCODING STRING
 		{ set_map(&mapupper, $2, 0); }
 	|	DIGITMAP map
 		{
-			if (($2->map >= 0) && ($2->map <= 255)) { /* Data corruption otherwise */
-				set_digitmap(&types, $2);
-			}
+#ifdef __APPLE__
+		/* Data corruption otherwise */
+		if (($2->map >= 0) && ($2->map <= 255))
+#endif
+		set_digitmap(&types, $2);
 		}
 	|	CHARCLASS STRING list
 		{
@@ -173,6 +184,7 @@ entry	:	ENCODING STRING
 		  }
 		  set_map(&types, $3, charclasses[i].mask);
 		}
+/* ENDIF */
 	;
 
 list	:	RUNE
@@ -265,7 +277,11 @@ main(int ac, char *av[])
 	case 'o':
 	    locale_file = optarg;
 	    if ((fp = fopen(locale_file, "w")) == NULL)
+#ifdef __APPLE__
 		err(1, "%s: fopen", locale_file);
+#else
+		err(1, "%s", locale_file);
+#endif
 	    atexit(cleanout);
 	    break;
 	default:
@@ -278,7 +294,11 @@ main(int ac, char *av[])
 	break;
     case 1:
 	if (freopen(av[optind], "r", stdin) == 0)
+#ifdef __APPLE__
 	    err(1, "%s: freopen", av[optind]);
+#else
+	    err(1, "%s", av[optind]);
+#endif
 	break;
     default:
 	usage();
@@ -287,7 +307,11 @@ main(int ac, char *av[])
 	mapupper.map[x] = x;
 	maplower.map[x] = x;
     }
+#ifdef __APPLE__
     memcpy(new_locale.magic, _RUNE_MAGIC_A, sizeof(new_locale.magic));
+#else
+    memcpy(new_locale.magic, _FILE_RUNE_MAGIC_1, sizeof(new_locale.magic));
+#endif
 
     yyparse();
 
@@ -295,22 +319,20 @@ main(int ac, char *av[])
 }
 
 static void
-usage()
+usage(void)
 {
     fprintf(stderr, "usage: mklocale [-d] [-o output] [source]\n");
     exit(1);
 }
 
 void
-yyerror(s)
-	const char *s;
+yyerror(const char *s)
 {
     fprintf(stderr, "%s\n", s);
 }
 
 static void *
-xmalloc(sz)
-	unsigned int sz;
+xmalloc(unsigned int sz)
 {
     void *r = malloc(sz);
     if (!r)
@@ -319,8 +341,7 @@ xmalloc(sz)
 }
 
 static uint32_t *
-xlalloc(sz)
-	unsigned int sz;
+xlalloc(unsigned int sz)
 {
     uint32_t *r = (uint32_t *)malloc(sz * sizeof(uint32_t));
     if (!r)
@@ -329,9 +350,7 @@ xlalloc(sz)
 }
 
 static uint32_t *
-xrelalloc(old, sz)
-	uint32_t *old;
-	unsigned int sz;
+xrelalloc(uint32_t *old, unsigned int sz)
 {
     uint32_t *r = (uint32_t *)realloc((char *)old,
 						sz * sizeof(uint32_t));
@@ -341,10 +360,7 @@ xrelalloc(old, sz)
 }
 
 void
-set_map(map, list, flag)
-	rune_map *map;
-	rune_list *list;
-	uint32_t flag;
+set_map(rune_map *map, rune_list *list, uint32_t flag)
 {
     while (list) {
 	rune_list *nlist = list->next;
@@ -354,9 +370,7 @@ set_map(map, list, flag)
 }
 
 void
-set_digitmap(map, list)
-	rune_map *map;
-	rune_list *list;
+set_digitmap(rune_map *map, rune_list *list)
 {
     int32_t i;
 
@@ -376,10 +390,7 @@ set_digitmap(map, list)
 }
 
 void
-add_map(map, list, flag)
-	rune_map *map;
-	rune_list *list;
-	uint32_t flag;
+add_map(rune_map *map, rune_list *list, uint32_t flag)
 {
     int32_t i;
     rune_list *lr = 0;
@@ -584,7 +595,7 @@ add_map(map, list, flag)
 }
 
 static void
-dump_tables()
+dump_tables(void)
 {
     int x, first_d, curr_d;
     rune_list *list;
@@ -625,7 +636,9 @@ dump_tables()
     else if (curr_d - first_d < 9)
 	errx(1, "error: DIGIT range is too small in the single byte area");
 
+#ifdef __APPLE__
     new_locale.ncharclasses = htonl(charclass_index);
+#endif
 
     /*
      * Fill in our tables.  Do this in network order so that
@@ -679,7 +692,12 @@ dump_tables()
      * PART 1: The _FileRuneLocale structure
      */
     if (fwrite((char *)&new_locale, sizeof(new_locale), 1, fp) != 1) {
+#ifdef __APPLE___
 	err(1, "%s: _FileRuneLocale structure", locale_file);
+#else
+	perror(locale_file);
+	exit(1);
+#endif
     }
     /*
      * PART 2: The runetype_ext structures (not the actual tables)
@@ -697,7 +715,12 @@ dump_tables()
 #endif
 
 	if (fwrite((char *)&re, sizeof(re), 1, fp) != 1) {
+#ifdef __APPLE__
 	    err(1, "%s: runetype_ext structures", locale_file);
+#else
+	    perror(locale_file);
+	    exit(1);
+#endif
 	}
 
         list = list->next;
@@ -718,7 +741,12 @@ dump_tables()
 #endif
 
 	if (fwrite((char *)&re, sizeof(re), 1, fp) != 1) {
+#ifdef __APPLE__
 	    err(1, "%s: maplower_ext structures", locale_file);
+#else
+	    perror(locale_file);
+	    exit(1);
+#endif
 	}
 
         list = list->next;
@@ -739,7 +767,12 @@ dump_tables()
 #endif
 
 	if (fwrite((char *)&re, sizeof(re), 1, fp) != 1) {
+#ifdef __APPLE__
 	    err(1, "%s: mapupper_ext structures", locale_file);
+#else
+	    perror(locale_file);
+	    exit(1);
+#endif
 	}
 
         list = list->next;
@@ -762,6 +795,7 @@ dump_tables()
 	}
         list = list->next;
     }
+#ifdef __APPLE__
     /*
      * PART 6: The charclass names table
      */
@@ -771,16 +805,34 @@ dump_tables()
 	    err(1, "%s: charclass names tables", locale_file);
 	}
     }
+#endif
     /*
+#ifdef __APPLE__
      * PART 7: And finally the variable data
      * SUSv3 says fwrite returns zero when either size or nitems is zero.
+#else
+     * PART 6: And finally the variable data
+#endif
      */
+#ifdef __APPLE__
     if (ntohl(new_locale.variable_len) > 0 && fwrite(variable,
 	       ntohl(new_locale.variable_len), 1, fp) != 1) {
 	err(1, "%s: variable data", locale_file);
     }
+#else
+    if (new_locale.variable_len != 0 &&
+	fwrite(variable, ntohl(new_locale.variable_len), 1, fp) != 1) {
+	perror(locale_file);
+	exit(1);
+    }
+#endif
     if (fclose(fp) != 0) {
+#ifdef __APPLE__
 	err(1, "%s: fclose", locale_file);
+#else
+	perror(locale_file);
+	exit(1);
+#endif
     }
     fp = NULL;
 

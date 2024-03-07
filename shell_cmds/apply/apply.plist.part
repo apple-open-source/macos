@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>apply</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-08-08</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/apply?id=441202c00bdf6edbf6b6bc1b1923bebd8e2d8e45</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-08-08</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Use fork() instead of vfork()</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

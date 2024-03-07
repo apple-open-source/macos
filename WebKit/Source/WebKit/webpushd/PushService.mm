@@ -38,10 +38,9 @@
 #import <wtf/spi/darwin/XPCSPI.h>
 #import <wtf/text/Base64.h>
 
+namespace WebPushD {
 using namespace WebKit;
 using namespace WebCore;
-
-namespace WebPushD {
 
 static void updateTopicLists(PushServiceConnection& connection, PushDatabase& database, CompletionHandler<void()> completionHandler)
 {
@@ -179,7 +178,7 @@ public:
     void start() final
     {
         if (m_identifier.bundleIdentifier.isEmpty() || m_scope.isEmpty()) {
-            reject(WebCore::ExceptionData { WebCore::AbortError, "Invalid sender"_s });
+            reject(WebCore::ExceptionData { WebCore::ExceptionCode::AbortError, "Invalid sender"_s });
             return;
         }
         
@@ -285,7 +284,7 @@ void SubscribeRequest::startImpl(IsRetry isRetry)
     m_database.getRecordBySubscriptionSetAndScope(m_identifier, m_scope, [this, isRetry](auto&& result) mutable {
         if (result) {
             if (m_vapidPublicKey != result->serverVAPIDPublicKey)
-                reject(WebCore::ExceptionData { WebCore::InvalidStateError, "Provided applicationServerKey does not match the key in the existing subscription."_s });
+                reject(WebCore::ExceptionData { WebCore::ExceptionCode::InvalidStateError, "Provided applicationServerKey does not match the key in the existing subscription."_s });
             else
                 fulfill(makePushSubscriptionFromRecord(WTFMove(*result)));
             return;
@@ -305,7 +304,7 @@ void SubscribeRequest::startImpl(IsRetry isRetry)
 #endif
 
                 RELEASE_LOG_ERROR(Push, "PushManager.subscribe(%{public}s, scope: %{sensitive}s) failed with domain: %{public}s code: %lld)", m_identifier.debugDescription().utf8().data(), m_scope.utf8().data(), error.domain.UTF8String, static_cast<int64_t>(error.code));
-                reject(WebCore::ExceptionData { WebCore::AbortError, "Failed due to internal service error"_s });
+                reject(WebCore::ExceptionData { WebCore::ExceptionCode::AbortError, "Failed due to internal service error"_s });
                 return;
             }
 
@@ -325,7 +324,7 @@ void SubscribeRequest::startImpl(IsRetry isRetry)
             m_database.insertRecord(record, [this](auto&& result) mutable {
                 if (!result) {
                     RELEASE_LOG_ERROR(Push, "PushManager.subscribe(%{public}s, scope: %{sensitive}s) failed with database error", m_identifier.debugDescription().utf8().data(), m_scope.utf8().data());
-                    reject(WebCore::ExceptionData { WebCore::AbortError, "Failed due to internal database error"_s });
+                    reject(WebCore::ExceptionData { WebCore::ExceptionCode::AbortError, "Failed due to internal database error"_s });
                     return;
                 }
 
@@ -453,7 +452,7 @@ void PushService::getSubscription(const PushSubscriptionSetIdentifier& identifie
 {
     if (identifier.bundleIdentifier.isEmpty() || scope.isEmpty()) {
         RELEASE_LOG_ERROR(Push, "Ignoring getSubscription request with bundleIdentifier (empty = %d) and scope (empty = %d)", identifier.bundleIdentifier.isEmpty(), scope.isEmpty());
-        completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::AbortError, "Invalid sender"_s }));
+        completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::AbortError, "Invalid sender"_s }));
         return;
     }
 
@@ -469,7 +468,7 @@ void PushService::subscribe(const PushSubscriptionSetIdentifier& identifier, con
 {
     if (identifier.bundleIdentifier.isEmpty() || scope.isEmpty()) {
         RELEASE_LOG_ERROR(Push, "Ignoring subscribe request with bundleIdentifier (empty = %d) and scope (empty = %d)", identifier.bundleIdentifier.isEmpty(), scope.isEmpty());
-        completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::AbortError, "Invalid sender"_s }));
+        completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::AbortError, "Invalid sender"_s }));
         return;
     }
 
@@ -485,7 +484,7 @@ void PushService::unsubscribe(const PushSubscriptionSetIdentifier& identifier, c
 {
     if (identifier.bundleIdentifier.isEmpty() || scope.isEmpty()) {
         RELEASE_LOG_ERROR(Push, "Ignoring unsubscribe request with bundleIdentifier (empty = %d) and scope (empty = %d)", identifier.bundleIdentifier.isEmpty(), scope.isEmpty());
-        completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::AbortError, "Invalid sender"_s }));
+        completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::AbortError, "Invalid sender"_s }));
         return;
     }
 
@@ -687,8 +686,7 @@ void PushService::didReceivePushMessage(NSString* topic, NSDictionary* userInfo,
         auto record = WTFMove(*recordResult);
 
         if (message.encoding == ContentEncoding::Empty) {
-            m_incomingPushMessageHandler(record.subscriptionSetIdentifier, WebKit::WebPushMessage { { }, record.subscriptionSetIdentifier.pushPartition, URL { record.scope } });
-
+            m_incomingPushMessageHandler(record.subscriptionSetIdentifier, WebKit::WebPushMessage { { }, record.subscriptionSetIdentifier.pushPartition, URL { record.scope }, { } });
             completionHandler();
             return;
         }
@@ -712,8 +710,7 @@ void PushService::didReceivePushMessage(NSString* topic, NSDictionary* userInfo,
 
         RELEASE_LOG(Push, "Decoded incoming push message for %{public}s %{sensitive}s", record.subscriptionSetIdentifier.debugDescription().utf8().data(), record.scope.utf8().data());
 
-        m_incomingPushMessageHandler(record.subscriptionSetIdentifier, WebKit::WebPushMessage { WTFMove(*decryptedPayload), record.subscriptionSetIdentifier.pushPartition, URL { record.scope } });
-
+        m_incomingPushMessageHandler(record.subscriptionSetIdentifier, WebKit::WebPushMessage { WTFMove(*decryptedPayload), record.subscriptionSetIdentifier.pushPartition, URL { record.scope }, { } });
         completionHandler();
     });
 }

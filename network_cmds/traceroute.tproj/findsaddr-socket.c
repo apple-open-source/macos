@@ -125,16 +125,17 @@ static int salen(struct sockaddr *);
  * Return the source address for the given destination address
  */
 const char *
-findsaddr(register const struct sockaddr_in *to,
-    register struct sockaddr_in *from)
+findsaddr(const struct sockaddr_in *to,
+	struct sockaddr_in *from,
+    u_short *ifindex)
 {
-	register struct rt_msghdr *rp;
-	register u_char *cp;
+	struct rt_msghdr *rp;
+	u_char *cp;
 
-	register struct sockaddr_in *sp, *ifa;
-	register struct sockaddr *sa;
-	register int s, size, cc, seq, i;
-	register pid_t pid;
+	struct sockaddr_in *sp, *ifa;
+	struct sockaddr *sa;
+	int s, size, cc, seq, i;
+	pid_t pid;
 	static char errbuf[512];
 
 	s = socket(PF_ROUTE, SOCK_RAW, AF_UNSPEC);
@@ -208,6 +209,7 @@ findsaddr(register const struct sockaddr_in *to,
 					ifa = (struct sockaddr_in *)cp;
 					if (ifa->sin_addr.s_addr != 0) {
 						*from = *ifa;
+						*ifindex  = rp->rtm_index;
 						return (NULL);
 					}
 				}

@@ -36,6 +36,7 @@
 #include "ScrollAlignment.h"
 #include "ScrollBehavior.h"
 #include "VisibleSelection.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
@@ -111,7 +112,7 @@ private:
     VisiblePosition m_position;
 };
 
-class FrameSelection final : private CaretBase, public CaretAnimationClient {
+class FrameSelection final : private CaretBase, public CaretAnimationClient, public CanMakeCheckedPtr {
     WTF_MAKE_NONCOPYABLE(FrameSelection);
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -131,6 +132,7 @@ public:
         DelegateMainFrameScroll = 1 << 10,
         RevealSelectionBounds = 1 << 11,
         ForceCenterScroll = 1 << 12,
+        ForBindings = 1 << 13,
     };
     static constexpr OptionSet<SetSelectionOption> defaultSetSelectionOptions(UserTriggered = UserTriggered::No);
 
@@ -144,7 +146,7 @@ public:
     WEBCORE_EXPORT void moveTo(const VisiblePosition&, const VisiblePosition&, UserTriggered = UserTriggered::No);
     void moveTo(const Position&, Affinity, UserTriggered = UserTriggered::No);
     void moveTo(const Position&, const Position&, Affinity, UserTriggered = UserTriggered::No);
-    void moveWithoutValidationTo(const Position&, const Position&, bool selectionHasDirection, bool shouldSetFocus, SelectionRevealMode, const AXTextStateChangeIntent& = AXTextStateChangeIntent());
+    void moveWithoutValidationTo(const Position&, const Position&, bool selectionHasDirection, OptionSet<SetSelectionOption> = defaultSetSelectionOptions(), const AXTextStateChangeIntent& = AXTextStateChangeIntent());
 
     const VisibleSelection& selection() const { return m_selection; }
     WEBCORE_EXPORT void setSelection(const VisibleSelection&, OptionSet<SetSelectionOption> = defaultSetSelectionOptions(), AXTextStateChangeIntent = AXTextStateChangeIntent(), CursorAlignOnScroll = CursorAlignOnScroll::IfNeeded, TextGranularity = TextGranularity::CharacterGranularity);
@@ -251,7 +253,7 @@ public:
     enum class TextRectangleHeight : bool { TextHeight, SelectionHeight };
     WEBCORE_EXPORT void getClippedVisibleTextRectangles(Vector<FloatRect>&, TextRectangleHeight = TextRectangleHeight::SelectionHeight) const;
 
-    WEBCORE_EXPORT HTMLFormElement* currentForm() const;
+    WEBCORE_EXPORT RefPtr<HTMLFormElement> currentForm() const;
 
     WEBCORE_EXPORT void revealSelection(SelectionRevealMode = SelectionRevealMode::Reveal, const ScrollAlignment& = ScrollAlignment::alignCenterIfNeeded, RevealExtentOption = RevealExtentOption::DoNotRevealExtent, ScrollBehavior = ScrollBehavior::Instant);
     WEBCORE_EXPORT void setSelectionFromNone();
@@ -308,7 +310,7 @@ private:
 
     void selectFrameElementInParentIfFullySelected();
 
-    void setFocusedElementIfNeeded();
+    void setFocusedElementIfNeeded(OptionSet<SetSelectionOption>);
     void focusedOrActiveStateChanged();
 
     enum class ShouldUpdateAppearance : bool { No, Yes };
@@ -320,6 +322,7 @@ private:
     void caretAnimationDidUpdate(CaretAnimator&) final;
 
     Document* document() final;
+    RefPtr<Document> protectedDocument() const { return m_document.get(); }
 
     Node* caretNode() final;
 
@@ -332,7 +335,7 @@ private:
     void updateAssociatedLiveRange();
     LayoutRect localCaretRect() const final { return localCaretRectWithoutUpdate(); }
 
-    WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
+    CheckedPtr<Document> m_document;
     RefPtr<Range> m_associatedLiveRange;
     std::optional<LayoutUnit> m_xPosForVerticalArrowNavigation;
     VisibleSelection m_selection;

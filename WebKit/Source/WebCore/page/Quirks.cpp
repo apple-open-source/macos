@@ -31,6 +31,7 @@
 #include "DOMTokenList.h"
 #include "DeprecatedGlobalSettings.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "DocumentStorageAccess.h"
 #include "ElementInlines.h"
@@ -47,6 +48,7 @@
 #include "LocalDOMWindow.h"
 #include "NamedNodeMap.h"
 #include "NetworkStorageSession.h"
+#include "OrganizationStorageAccessPromptQuirk.h"
 #include "PlatformMouseEvent.h"
 #include "RegistrableDomain.h"
 #include "ResourceLoadObserver.h"
@@ -63,10 +65,12 @@
 #include "UserScript.h"
 #include "UserScriptTypes.h"
 #include <JavaScriptCore/CodeBlock.h>
+#include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/ScriptExecutable.h>
 #include <JavaScriptCore/SourceCode.h>
 #include <JavaScriptCore/SourceProvider.h>
 #include <JavaScriptCore/StackVisitor.h>
+
 #if PLATFORM(COCOA)
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
@@ -80,6 +84,13 @@ static inline OptionSet<AutoplayQuirk> allowedAutoplayQuirks(Document& document)
         return { };
 
     return loader->allowedAutoplayQuirks();
+}
+
+static HashMap<RegistrableDomain, String>& updatableStorageAccessUserAgentStringQuirks()
+{
+    // FIXME: Make this a member of Quirks.
+    static MainThreadNeverDestroyed<HashMap<RegistrableDomain, String>> map;
+    return map.get();
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -117,6 +128,22 @@ bool Quirks::isDomain(const String& domainString) const
     return RegistrableDomain(m_document->topDocument().url()).string() == domainString;
 }
 
+bool Quirks::isEmbedDomain(const String& domainString) const
+{
+    if (m_document->isTopDocument())
+        return false;
+    return RegistrableDomain(m_document->url()).string() == domainString;
+}
+
+// vote.gov https://bugs.webkit.org/show_bug.cgi?id=267779
+bool Quirks::needsAnchorElementsToBeMouseFocusable() const
+{
+    if (!needsQuirks())
+        return false;
+
+    return isDomain("vote.gov"_s);
+}
+
 // ceac.state.gov https://bugs.webkit.org/show_bug.cgi?id=193478
 bool Quirks::needsFormControlToBeMouseFocusable() const
 {
@@ -124,7 +151,7 @@ bool Quirks::needsFormControlToBeMouseFocusable() const
     if (!needsQuirks())
         return false;
 
-    return isDomain("ceac.state.gov"_s);
+    return m_document->topDocument().url().host() == "ceac.state.gov"_s;
 #else
     return false;
 #endif
@@ -197,16 +224,6 @@ bool Quirks::hasBrokenEncryptedMediaAPISupportQuirk() const
 #endif
 }
 
-// youtube.com https://bugs.webkit.org/show_bug.cgi?id=263789
-// and https://bugs.webkit.org/show_bug.cgi?id=249740
-bool Quirks::shouldDisableContentChangeObserver() const
-{
-    if (!needsQuirks())
-        return false;
-
-    return isDomain("youtube.com"_s);
-}
-
 // youtube.com https://bugs.webkit.org/show_bug.cgi?id=200609
 bool Quirks::shouldDisableContentChangeObserverTouchEventAdjustment() const
 {
@@ -236,7 +253,7 @@ bool Quirks::shouldTooltipPreventFromProceedingWithClick(const Element& element)
 // FIXME: Remove after the site is fixed, <rdar://problem/75792913>
 bool Quirks::shouldHideSearchFieldResultsButton() const
 {
-#if ENABLE(IOS_FORM_CONTROL_REFRESH)
+#if PLATFORM(IOS_FAMILY)
     if (!needsQuirks())
         return false;
 
@@ -372,6 +389,27 @@ bool Quirks::shouldAvoidUsingIOS17UserAgentForFacebook() const
 #endif
 }
 
+void Quirks::updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&& userAgentStringQuirks)
+{
+    auto& quirks = updatableStorageAccessUserAgentStringQuirks();
+    quirks.clear();
+    for (auto&& [domain, userAgent] : userAgentStringQuirks)
+        quirks.add(WTFMove(domain), WTFMove(userAgent));
+}
+
+String Quirks::storageAccessUserAgentStringQuirkForDomain(const URL& url)
+{
+    if (!needsQuirks())
+        return { };
+
+    const auto& quirks = updatableStorageAccessUserAgentStringQuirks();
+    RegistrableDomain domain { url };
+    auto iterator = quirks.find(domain);
+    if (iterator == quirks.end())
+        return { };
+    return iterator->value;
+}
+
 bool Quirks::shouldDisableElementFullscreenQuirk() const
 {
 #if PLATFORM(IOS_FAMILY)
@@ -381,8 +419,17 @@ bool Quirks::shouldDisableElementFullscreenQuirk() const
     // Vimeo.com has incorrect layout on iOS on certain videos with wider
     // aspect ratios than the device's screen in landscape mode.
     // (Ref: rdar://116531089)
-    if (!m_shouldDisableElementFullscreen)
-        m_shouldDisableElementFullscreen = isDomain("vimeo.com"_s);
+    // Instagram.com stories flow under the notch and status bar
+    // (Ref: rdar://121014613)
+    // Twitter.com video embeds have controls that are too tiny and
+    // show page behind fullscreen.
+    // (Ref: rdar://121473410)
+    if (!m_shouldDisableElementFullscreen) {
+        m_shouldDisableElementFullscreen = isDomain("vimeo.com"_s)
+            || isDomain("instagram.com"_s)
+            || isEmbedDomain("twitter.com"_s);
+    }
+
     return m_shouldDisableElementFullscreen.value();
 #else
     return false;
@@ -516,7 +563,6 @@ bool Quirks::shouldDispatchedSimulatedMouseEventsAssumeDefaultPrevented(EventTar
 
 // maps.google.com https://bugs.webkit.org/show_bug.cgi?id=199904
 // desmos.com rdar://50925173
-// airtable.com rdar://51557377
 std::optional<Event::IsCancelable> Quirks::simulatedMouseEventTypeForTarget(EventTarget* target) const
 {
     if (!shouldDispatchSimulatedMouseEvents(target))
@@ -531,18 +577,6 @@ std::optional<Event::IsCancelable> Quirks::simulatedMouseEventTypeForTarget(Even
 
     if (isDomain("desmos.com"_s))
         return Event::IsCancelable::No;
-
-    if (isDomain("airtable.com"_s)) {
-        // We want to limit simulated mouse events to elements under <div id="paneContainer"> to allow for column re-ordering and multiple cell selection.
-        if (is<Node>(target)) {
-            auto* node = downcast<Node>(target);
-            if (auto* paneContainer = node->treeScope().getElementById(AtomString("paneContainer"_s))) {
-                if (paneContainer->contains(node))
-                    return Event::IsCancelable::Yes;
-            }
-        }
-        return { };
-    }
 
     return Event::IsCancelable::Yes;
 }
@@ -713,6 +747,22 @@ bool Quirks::needsFullscreenDisplayNoneQuirk() const
 #endif
 }
 
+// cnn.com rdar://119640248
+bool Quirks::needsFullscreenObjectFitQuirk() const
+{
+#if PLATFORM(IOS_FAMILY)
+    if (!needsQuirks())
+        return false;
+
+    if (!m_needsFullscreenObjectFitQuirk)
+        m_needsFullscreenObjectFitQuirk = isDomain("cnn.com"_s);
+
+    return *m_needsFullscreenObjectFitQuirk;
+#else
+    return false;
+#endif
+}
+
 // FIXME: weChat <rdar://problem/74377902>
 bool Quirks::needsWeChatScrollingQuirk() const
 {
@@ -767,7 +817,7 @@ bool Quirks::shouldSilenceWindowResizeEvents() const
     if (!page || !page->isTakingSnapshotsForApplicationSuspension())
         return false;
 
-    return isDomain("nytimes.com"_s) || isDomain("twitter.com"_s) || isDomain("zillow.com"_s);
+    return isDomain("nytimes.com"_s) || isDomain("twitter.com"_s) || isDomain("zillow.com"_s) || isDomain("365scores.com"_s);
 #else
     return false;
 #endif
@@ -932,7 +982,8 @@ bool Quirks::shouldBypassBackForwardCache() const
     return false;
 }
 
-// bungalow.com rdar://61658940
+// bungalow.com: rdar://61658940
+// sfusd.edu: rdar://116292738
 bool Quirks::shouldBypassAsyncScriptDeferring() const
 {
     if (!needsQuirks())
@@ -941,13 +992,14 @@ bool Quirks::shouldBypassAsyncScriptDeferring() const
     if (!m_shouldBypassAsyncScriptDeferring) {
         auto domain = RegistrableDomain { m_document->topDocument().url() };
         // Deferring 'mapbox-gl.js' script on bungalow.com causes the script to get in a bad state (rdar://problem/61658940).
-        m_shouldBypassAsyncScriptDeferring = (domain == "bungalow.com"_s);
+        // Deferring the google maps script on sfusd.edu may get the page in a bad state (rdar://116292738).
+        m_shouldBypassAsyncScriptDeferring = domain == "bungalow.com"_s || domain == "sfusd.edu"_s;
     }
     return *m_shouldBypassAsyncScriptDeferring;
 }
 
 // smoothscroll JS library rdar://52712513
-bool Quirks::shouldMakeEventListenerPassive(const EventTarget& eventTarget, const AtomString& eventType, const EventListener& eventListener)
+bool Quirks::shouldMakeEventListenerPassive(const EventTarget& eventTarget, const EventTypeInfo& eventType)
 {
     auto eventTargetIsRoot = [](const EventTarget& eventTarget) {
         if (is<LocalDOMWindow>(eventTarget))
@@ -964,7 +1016,7 @@ bool Quirks::shouldMakeEventListenerPassive(const EventTarget& eventTarget, cons
         return downcast<Document>(eventTarget.scriptExecutionContext());
     };
 
-    if (eventNames().isTouchScrollBlockingEventType(eventType)) {
+    if (eventType.isInCategory(EventCategory::TouchScrollBlocking)) {
         if (eventTargetIsRoot(eventTarget)) {
             if (auto* document = documentFromEventTarget(eventTarget))
                 return document->settings().passiveTouchListenersAsDefaultOnDocument();
@@ -972,30 +1024,11 @@ bool Quirks::shouldMakeEventListenerPassive(const EventTarget& eventTarget, cons
         return false;
     }
 
-    if (eventNames().isWheelEventType(eventType)) {
+    if (eventType.isInCategory(EventCategory::Wheel)) {
         if (eventTargetIsRoot(eventTarget)) {
             if (auto* document = documentFromEventTarget(eventTarget))
                 return document->settings().passiveWheelListenersAsDefaultOnDocument();
         }
-        return false;
-    }
-
-    if (eventType == eventNames().mousewheelEvent) {
-        if (!is<JSEventListener>(eventListener))
-            return false;
-
-        // For SmoothScroll.js
-        // Matches Blink intervention in https://chromium.googlesource.com/chromium/src/+/b6b13c9cfe64d52a4168d9d8d1ad9bb8f0b46a2a%5E%21/
-        if (is<LocalDOMWindow>(eventTarget)) {
-            auto* document = downcast<LocalDOMWindow>(eventTarget).document();
-            if (!document || !document->quirks().needsQuirks())
-                return false;
-
-            auto& jsEventListener = downcast<JSEventListener>(eventListener);
-            if (jsEventListener.functionName() == "ssc_wheel"_s)
-                return true;
-        }
-
         return false;
     }
 
@@ -1015,6 +1048,18 @@ bool Quirks::shouldEnableLegacyGetUserMediaQuirk() const
         m_shouldEnableLegacyGetUserMediaQuirk = host == "www.baidu.com"_s || host == "www.warbyparker.com"_s;
     }
     return m_shouldEnableLegacyGetUserMediaQuirk.value();
+}
+
+// zoom.us rdar://118185086
+bool Quirks::shouldDisableImageCaptureQuirk() const
+{
+    if (!needsQuirks())
+        return false;
+
+    if (!m_shouldDisableImageCaptureQuirk)
+        m_shouldDisableImageCaptureQuirk = isDomain("zoom.us"_s);
+
+    return m_shouldDisableImageCaptureQuirk.value();
 }
 #endif
 
@@ -1060,7 +1105,6 @@ bool Quirks::shouldAvoidPastingImagesAsWebContent() const
 #endif
 }
 
-#if ENABLE(TRACKING_PREVENTION)
 // kinja.com and related sites rdar://60601895
 static bool isKinjaLoginAvatarElement(const Element& element)
 {
@@ -1096,7 +1140,23 @@ bool Quirks::isMicrosoftTeamsRedirectURL(const URL& url)
     return url.host() == "teams.microsoft.com"_s && url.query().toString().contains("Retried+3+times+without+success"_s);
 }
 
-// microsoft.com rdar://72453487
+static bool elementHasClassInClosestAncestors(const Element& element, const AtomString& className, unsigned distance)
+{
+    if (element.hasClass() && element.classNames().contains(className))
+        return true;
+
+    unsigned currentDistance = 0;
+    RefPtr ancestor = dynamicDowncast<Element>(element.parentNode());
+    while (ancestor && currentDistance < distance) {
+        ++currentDistance;
+        if (ancestor->hasClass() && ancestor->classNames().contains(className))
+            return true;
+
+        ancestor = dynamicDowncast<Element>(ancestor->parentNode());
+    }
+    return false;
+}
+
 static bool isStorageAccessQuirkDomainAndElement(const URL& url, const Element& element)
 {
     // Microsoft Teams login case.
@@ -1116,6 +1176,10 @@ static bool isStorageAccessQuirkDomainAndElement(const URL& url, const Element& 
         || element.classNames().contains("sb-signin-button"_s));
     }
 
+    // Gizmodo login case: rdar://106782128.
+    if (url.host() == "gizmodo.com"_s)
+        return elementHasClassInClosestAncestors(element, "js_user-button"_s, 6);
+
     return false;
 }
 
@@ -1127,12 +1191,6 @@ bool Quirks::hasStorageAccessForAllLoginDomains(const HashSet<RegistrableDomain>
             return false;
     }
     return true;
-}
-
-const String& Quirks::staticRadioPlayerURLString()
-{
-    static NeverDestroyed<String> staticRadioPlayerURLString = "https://static.radioplayer.co.uk/"_s;
-    return staticRadioPlayerURLString;
 }
 
 Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(CompletionHandler<void(ShouldDispatchClick)>&& completionHandler) const
@@ -1156,6 +1214,7 @@ Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(Completio
         return Quirks::StorageAccessResult::ShouldNotCancelEvent;
     }
 
+    m_document->addConsoleMessage(MessageSource::Other, MessageLevel::Info, makeString("requestStorageAccess is invoked on behalf of domain \"", domainInNeedOfStorageAccess.string(), "\""));
     DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*m_document, WTFMove(domainInNeedOfStorageAccess), [firstPartyDomain, domainInNeedOfStorageAccess, completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted storageAccessGranted) mutable {
         if (storageAccessGranted == StorageAccessWasGranted::No) {
             completionHandler(ShouldDispatchClick::Yes);
@@ -1168,7 +1227,25 @@ Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(Completio
     });
     return Quirks::StorageAccessResult::ShouldCancelEvent;
 }
-#endif
+
+void Quirks::triggerOptionalStorageAccessIframeQuirk(const URL& frameURL, CompletionHandler<void()>&& completionHandler) const
+{
+    if (m_document) {
+        if (m_document->frame() && !m_document->frame()->isMainFrame()) {
+            auto& mainFrame = m_document->frame()->mainFrame();
+            if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame); localMainFrame && localMainFrame->document()) {
+                localMainFrame->document()->quirks().triggerOptionalStorageAccessIframeQuirk(frameURL, WTFMove(completionHandler));
+                return;
+            }
+        }
+        if (subFrameDomainsForStorageAccessQuirk().contains(RegistrableDomain { frameURL })) {
+            return DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*m_document, RegistrableDomain { frameURL }, [completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted) mutable {
+                completionHandler();
+            });
+        }
+    }
+    completionHandler();
+}
 
 // rdar://64549429
 Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& element, const PlatformMouseEvent& platformEvent, const AtomString& eventType, int detail, Element* relatedTarget, bool isParentProcessAFullWebBrowser, IsSyntheticClick isSyntheticClick) const
@@ -1176,7 +1253,6 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
     if (!DeprecatedGlobalSettings::trackingPreventionEnabled() || !isParentProcessAFullWebBrowser)
         return Quirks::StorageAccessResult::ShouldNotCancelEvent;
 
-#if ENABLE(TRACKING_PREVENTION)
     if (!needsQuirks())
         return Quirks::StorageAccessResult::ShouldNotCancelEvent;
 
@@ -1185,7 +1261,6 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
     static NeverDestroyed<HashSet<RegistrableDomain>> kinjaQuirks = [] {
         HashSet<RegistrableDomain> set;
         set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("avclub.com"_s));
-        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("gizmodo.com"_s));
         set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("deadspin.com"_s));
         set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("jalopnik.com"_s));
         set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("jezebel.com"_s));
@@ -1259,13 +1334,6 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
             });
         }
     }
-#else
-    UNUSED_PARAM(element);
-    UNUSED_PARAM(platformEvent);
-    UNUSED_PARAM(eventType);
-    UNUSED_PARAM(detail);
-    UNUSED_PARAM(relatedTarget);
-#endif
     return Quirks::StorageAccessResult::ShouldNotCancelEvent;
 }
 
@@ -1642,10 +1710,25 @@ bool Quirks::needsDisableDOMPasteAccessQuirk() const
         auto* globalObject = m_document->globalObject();
         if (!globalObject)
             return false;
+
+        JSC::JSLockHolder lock(globalObject->vm());
         auto tableauPrepProperty = JSC::Identifier::fromString(globalObject->vm(), "tableauPrep"_s);
         return globalObject->hasProperty(globalObject, tableauPrepProperty);
     }();
     return *m_needsDisableDOMPasteAccessQuirk;
+}
+
+// oracle.com rdar://117673533
+bool Quirks::shouldDisableNavigatorStandaloneQuirk() const
+{
+#if PLATFORM(MAC)
+    if (!needsQuirks())
+        return false;
+
+    if (isDomain("oracle.com"_s))
+        return true;
+#endif
+    return false;
 }
 
 }

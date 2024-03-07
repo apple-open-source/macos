@@ -312,14 +312,14 @@ _testMountArg(char *mountArg)
 - (void)testMountACTimeo5
 {
 	char *inArgs[] = { "actimeo=5", NULL };
-	char *outArgs[] = { "acregmin=5", "acregmax=5", "acdirmin=5", "acdirmax=5", NULL };
+	char *outArgs[] = { "acregmin=5", "acregmax=5", "acdirmin=5", "acdirmax=5", "acrootdirmin=5", "acrootdirmax=5", NULL };
 	_testArgs(DST_MOUNT_PATH, nfsParameterVerifier, inArgs, outArgs);
 }
 
 - (void)testMountNoAC
 {
 	char *inArgs[] = { "noac", NULL };
-	char *outArgs[] = { "acregmin=0", "acregmax=0", "acdirmin=0", "acdirmax=0", NULL };
+	char *outArgs[] = { "acregmin=0", "acregmax=0", "acdirmin=0", "acdirmax=0", "acrootdirmin=0", "acrootdirmax=0", NULL };
 	_testArgs(DST_MOUNT_PATH, nfsParameterVerifier, inArgs, outArgs);
 }
 
@@ -351,6 +351,11 @@ _testMountArg(char *mountArg)
 - (void)testMountNoNFC
 {
 	_testNFSArg("nonfc");
+}
+
+- (void)testMountSkipRenew
+{
+	_testNFSArg("skip_renew");
 }
 
 /* FPnfs is deprecated: mount_nfs is expcted to fail with EX_UNAVAILABLE */
@@ -513,6 +518,8 @@ struct nfs_options_client expected_options;
 	struct timespec regmax = { .tv_sec = 22, .tv_nsec = 0 };
 	struct timespec dirmin = { .tv_sec = 33, .tv_nsec = 0 };
 	struct timespec dirmax = { .tv_sec = 44, .tv_nsec = 0 };
+	struct timespec rootdirmin = { .tv_sec = 55, .tv_nsec = 0 };
+	struct timespec rootdirmax = { .tv_sec = 66, .tv_nsec = 0 };
 	struct timespec reqtimeo = { .tv_sec = 2, .tv_nsec = 100000000 }; /* 2.1 sec */
 	struct timespec deadtime = { .tv_sec = 31, .tv_nsec = 0 };
 	const char *fhstr = "fd168a14440000002b02184e02000000ffffffff000000002b02184e02000000";
@@ -533,6 +540,8 @@ struct nfs_options_client expected_options;
 	writeArgToOptions(NFSTESTS_OPTIONS_AC_REG_MAX, "22", (void *) &regmax);
 	writeArgToOptions(NFSTESTS_OPTIONS_AC_DIR_MIN, "33", (void *) &dirmin);
 	writeArgToOptions(NFSTESTS_OPTIONS_AC_DIR_MAX, "44", (void *) &dirmax);
+	writeArgToOptions(NFSTESTS_OPTIONS_AC_ROOTDIR_MIN, "55", (void *) &rootdirmin);
+	writeArgToOptions(NFSTESTS_OPTIONS_AC_ROOTDIR_MAX, "66", (void *) &rootdirmax);
 	writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_LOCAL, "locallocks", (void *) NFS_LOCK_MODE_LOCAL);
 	writeArgToOptions(NFSTESTS_OPTIONS_SECURITY, "sys:krb5p:krb5i", (void *) &sec);
 	writeArgToOptions(NFSTESTS_OPTIONS_ETYPE, "aes128-cts-hmac-sha1:aes256-cts-hmac-sha1-96:des3-cbc-sha1", (void *) &etype);

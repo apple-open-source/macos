@@ -1207,12 +1207,13 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
                     LocaleIDInfo* availLocInfo = &availLocInfos[availLocIndex];
                     if (uprv_strcmp(prefLangInfo->base, availLocInfo->base) == 0 || uprv_strcmp(prefLangInfo->normalized, availLocInfo->normalized) == 0) {
                         result = &availLocInfos[availLocIndex];
-                        break;
+                        goto afterSecondLoop;
                     }
                 }
             }
         }
     }
+    afterSecondLoop:
         
     // Write out our results.
     int32_t locsToUseCount = 0;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,7 +62,7 @@ is_expensive(SCNetworkInterfaceRef _Nonnull interface)
 	}
 	// by default, don't set/clear expensive
 	expensive = NULL;
-	if (_SCNetworkInterfaceIsTethered(interface)) {
+	if (_SCNetworkInterfaceIsTetheredHotspot(interface)) {
 		// if tethered (to iOS) interface
 		expensive = kCFBooleanTrue;
 		goto done;

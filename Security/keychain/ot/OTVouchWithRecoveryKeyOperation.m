@@ -118,7 +118,8 @@
 
     [self.deps.cuttlefishXPCWrapper fetchRecoverableTLKSharesWithSpecificUser:self.deps.activeAccount
                                                                        peerID:recoveryKeyID
-                                                                        reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords, NSError * _Nullable error) {
+                                                                        reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords,
+                                                                                NSError * _Nullable error) {
         STRONGIFY(self);
 
         if(error) {

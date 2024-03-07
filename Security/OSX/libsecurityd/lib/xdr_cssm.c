@@ -234,8 +234,11 @@ bool_t xdr_CSSM_CERTGROUP(XDR *xdrs, CSSM_CERTGROUP *objp)
         break;
     case CSSM_CERTGROUP_PARSED_CERT: // unimplemented -> there are no walkers for it
     case CSSM_CERTGROUP_CERT_PAIR:   // unimplemented -> there are no walkers for it
+#ifndef NDEBUG
         assert(FALSE);
+#else
         [[fallthrough]];
+#endif
     default:
         return (FALSE);
     }

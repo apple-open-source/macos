@@ -120,8 +120,8 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
 - (BOOL)isCDSAKey:(id)key {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    const CSSM_KEY *cssmKey;
-    return SecKeyGetCSSMKey((SecKeyRef)key, &cssmKey) == errSecSuccess;
+    XCTAssertNotNil(key);
+    return [[key description] hasPrefix:@"<SecCDSAKeyRef"];
 #pragma clang diagnostic pop
 }
 
@@ -230,6 +230,143 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
         XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
     }
 }
+
+- (void)testCDSAKeyExportImportFormats {
+    @autoreleasepool {
+        NSError *error;
+        id keyType = (id)kSecAttrKeyTypeECSECPrimeRandom;
+        NSDictionary *params = @{ (id)kSecAttrKeyType: keyType, (id)kSecAttrKeySizeInBits: @256,
+                                  (id)kSecUseDataProtectionKeychain: @NO,
+                                  (id)kSecAttrIsPermanent: @NO,
+        };
+        id privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(privKey, @"gen EC key: %@", error);
+        XCTAssert([self isCDSAKey:privKey]);
+        id pubKeyTemp = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+        XCTAssertNotNil(pubKeyTemp);
+        NSData *pubKeyTempData = CFBridgingRelease(SecKeyCopyExternalRepresentation((SecKeyRef)pubKeyTemp, (void *)&error));
+        XCTAssertNotNil(pubKeyTempData, @"Export pubkey: %@", error);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        id pubKey = CFBridgingRelease(SecKeyCreateFromData((CFDictionaryRef)@{ (id)kSecAttrKeyType: keyType, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPublic, (id)kSecAttrKeySizeInBits: @256}, (CFDataRef)pubKeyTempData, (void *)&error));
+#pragma clang diagnostic pop
+        XCTAssertNotNil(pubKey, @"Import pubKey as CDSA: %@", error);
+        XCTAssert([self isCDSAKey:pubKey]);
+
+        NSData *privKeyData = CFBridgingRelease(SecKeyCopyExternalRepresentation((SecKeyRef)privKey, (void *)&error));
+        XCTAssertNotNil(privKeyData, @"EC privKey export: %@", error);
+        id privKey2 = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)privKeyData, (CFDictionaryRef)@{ (id)kSecAttrKeyType: keyType, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate }, (void *)&error));
+        XCTAssertNotNil(privKey2, @"EC privKey import: %@", error);
+
+        NSData *pubKeyData = CFBridgingRelease(SecKeyCopyExternalRepresentation((SecKeyRef)pubKey, (void *)&error));
+        XCTAssertNotNil(pubKeyData, @"EC pubKey export: %@", error);
+        id pubKeyImport = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)pubKeyData, (CFDictionaryRef)@{ (id)kSecAttrKeyType: keyType, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPublic }, (void *)&error));
+        XCTAssert(![self isCDSAKey:pubKeyImport]);
+        XCTAssertNotNil(pubKeyImport, @"EC pubKey import: %@", error);
+        id pubKey2 = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+        XCTAssert([self isCDSAKey:pubKey2]);
+        NSDictionary *pubKeyImportAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)pubKeyImport));
+        NSDictionary *pubKey2Attrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)pubKey2));
+        XCTAssertEqualObjects(pubKey2Attrs[(id)kSecAttrApplicationLabel], pubKeyImportAttrs[(id)kSecAttrApplicationLabel], @"Imported and copyPublicKey are not the same");
+
+        SecKeyAlgorithm algorithm = kSecKeyAlgorithmECDSASignatureMessageX962SHA256;
+        NSData *message = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
+        
+        NSData *sig1 = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey, algorithm, (CFDataRef)message, (void *)&error));
+        XCTAssertNotNil(sig1, "EC privKey sign: %@", error);
+        XCTAssert(SecKeyVerifySignature((SecKeyRef)pubKey2, algorithm, (CFDataRef)message, (CFDataRef)sig1, (void *)&error), @"EC pubKey2 verify: %@", error);
+
+        NSData *sig2 = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey2, algorithm, (CFDataRef)message, (void *)&error));
+        XCTAssertNotNil(sig1, "EC privKey2 sign: %@", error);
+        XCTAssert(SecKeyVerifySignature((SecKeyRef)pubKey, algorithm, (CFDataRef)message, (CFDataRef)sig2, (void *)&error), @"EC pubKey verify: %@", error);
+    }
+
+    @autoreleasepool {
+        NSError *error;
+        id keyType = (id)kSecAttrKeyTypeRSA;
+        NSDictionary *params = @{ (id)kSecAttrKeyType: keyType, (id)kSecAttrKeySizeInBits: @2048,
+                                  (id)kSecUseDataProtectionKeychain: @NO,
+                                  (id)kSecAttrIsPermanent: @NO,
+        };
+        id privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(privKey, @"gen RSA key: %@", error);
+        XCTAssert([self isCDSAKey:privKey]);
+        id pubKeyTemp = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+        XCTAssertNotNil(pubKeyTemp);
+        NSData *pubKeyTempData = CFBridgingRelease(SecKeyCopyExternalRepresentation((SecKeyRef)pubKeyTemp, (void *)&error));
+        XCTAssertNotNil(pubKeyTempData, @"Export pubkey: %@", error);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        id pubKey = CFBridgingRelease(SecKeyCreateFromData((CFDictionaryRef)@{ (id)kSecAttrKeyType: keyType, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPublic, (id)kSecAttrKeySizeInBits: @2048}, (CFDataRef)pubKeyTempData, (void *)&error));
+#pragma clang diagnostic pop
+        XCTAssertNotNil(pubKey, @"Import pubKey as CDSA: %@", error);
+        XCTAssert([self isCDSAKey:pubKey]);
+
+        NSData *privKeyData = CFBridgingRelease(SecKeyCopyExternalRepresentation((SecKeyRef)privKey, (void *)&error));
+        XCTAssertNotNil(privKeyData, @"RSA privKey export: %@", error);
+        id privKey2 = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)privKeyData, (CFDictionaryRef)@{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate }, (void *)&error));
+        XCTAssertNotNil(privKey2, @"RSA privKey import: %@", error);
+
+        NSData *pubKeyData = CFBridgingRelease(SecKeyCopyExternalRepresentation((SecKeyRef)pubKey, (void *)&error));
+        XCTAssertNotNil(pubKeyData, @"RSA pubKey export: %@", error);
+        id pubKeyImport = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)pubKeyData, (CFDictionaryRef)@{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPublic }, (void *)&error));
+        XCTAssert(![self isCDSAKey:pubKeyImport]);
+        XCTAssertNotNil(pubKeyImport, @"EC pubKey import: %@", error);
+        id pubKey2 = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+        XCTAssert([self isCDSAKey:pubKey2]);
+        NSDictionary *pubKeyImportAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)pubKeyImport));
+        NSDictionary *pubKey2Attrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)pubKey2));
+        XCTAssertEqualObjects(pubKey2Attrs[(id)kSecAttrApplicationLabel], pubKeyImportAttrs[(id)kSecAttrApplicationLabel], @"Imported and copyPublicKey are not the same");
+
+        SecKeyAlgorithm algorithm = kSecKeyAlgorithmRSASignatureMessagePSSSHA256;
+        NSData *message = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
+
+        NSData *sig1 = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey, algorithm, (CFDataRef)message, (void *)&error));
+        XCTAssertNotNil(sig1, "RSA privKey sign: %@", error);
+        XCTAssert(SecKeyVerifySignature((SecKeyRef)pubKey2, algorithm, (CFDataRef)message, (CFDataRef)sig1, (void *)&error), @"RSA pubKey2 verify: %@", error);
+
+        NSData *sig2 = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey2, algorithm, (CFDataRef)message, (void *)&error));
+        XCTAssertNotNil(sig1, "RSA privKey2 sign: %@", error);
+        XCTAssert(SecKeyVerifySignature((SecKeyRef)pubKey, algorithm, (CFDataRef)message, (CFDataRef)sig2, (void *)&error), @"RSA pubKey verify: %@", error);
+    }
+}
+
+- (void)testExportCDSAKey {
+    @autoreleasepool {
+        NSDictionary *params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
+                                  (id)kSecUseDataProtectionKeychain: @NO,
+                                  (id)kSecAttrIsPermanent: @NO,
+        };
+        NSError *error;
+        id privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNotNil(privKey, @"failed to create CDSA key: %@", error);
+        id pubKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+        XCTAssertNotNil(pubKey, @"failed to get pubkey from gen key");
+
+        NSData *data;
+        OSStatus status = SecItemExport((SecKeyRef)privKey, kSecFormatPEMSequence, kSecItemPemArmour, NULL, (void *)&data);
+        XCTAssertEqual(status, errSecSuccess, @"Failed to export gen privkey");
+
+        // Import the key back
+        NSArray *importedItems;
+        SecExternalFormat externalFormat = kSecFormatUnknown;
+        SecExternalItemType externalType = kSecItemTypeUnknown;
+        status = SecItemImport((CFDataRef)data, NULL, &externalFormat, &externalType, 0, NULL, NULL, (void *)&importedItems);
+        XCTAssertEqual(status, errSecSuccess, @"Failed to import gen privkey");
+        XCTAssertEqual(importedItems.count, 1);
+        id impPrivKey = importedItems.firstObject;
+        NSDictionary *privKeyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)privKey));
+        NSDictionary *impPrivKeyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)impPrivKey));
+        XCTAssertEqualObjects(impPrivKeyAttrs[(id)kSecAttrApplicationLabel], privKeyAttrs[(id)kSecAttrApplicationLabel], @"Imported key is not equal to exported one");
+
+        id impPubKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)impPrivKey));
+        XCTAssertNotNil(impPubKey, @"getting pubkey from re-imported priv key");
+        NSDictionary *pubKeyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)pubKey));
+        NSDictionary *impPubKeyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)impPubKey));
+        XCTAssertEqualObjects(impPubKeyAttrs[(id)kSecAttrApplicationLabel], pubKeyAttrs[(id)kSecAttrApplicationLabel], @"Imported pubkey is not equal to pubkey of exported one");
+    }
+}
+
 #endif
 
 - (void)testSecKeyECDSAAlgorithmAdaptors {

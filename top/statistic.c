@@ -94,6 +94,7 @@ struct statistic_name_map statistic_name_map[] = {
     SNAME(STATISTIC_PAGEINS, top_pageins_create, "PAGEINS"),
     SNAME(STATISTIC_KPRVT, top_kprvt_create, "KPRVT"),
     SNAME(STATISTIC_KSHRD, top_kshrd_create, "KSHRD"),
+    SNAME(STATISTIC_JETSAM_PRI, top_jetsam_priority_create, "JETPRI"),
     SNAME(STATISTIC_IDLEWAKE, top_idlewake_create, "IDLEW"),
     SNAME(STATISTIC_POWERSCORE, top_powerscore_create, "POWER"),
     SNAME(STATISTIC_USER, top_user_create, "USER"),

@@ -427,6 +427,8 @@ extern const vm_object_t retired_pages_object;   /* pages retired due to ECC, sh
 
 #define is_kernel_object(object) ((object) == kernel_object_default)
 
+extern const vm_object_t exclaves_object;        /* holds VM pages owned by exclaves */
+
 # define        VM_MSYNC_INITIALIZED                    0
 # define        VM_MSYNC_SYNCHRONIZING                  1
 # define        VM_MSYNC_DONE                           2
@@ -577,6 +579,187 @@ extern boolean_t        vm_object_lock_upgrade(vm_object_t);
 	LCK_RW_ASSERT(&(object)->Lock, LCK_RW_ASSERT_NOTHELD)
 
 
+static inline void
+VM_OBJECT_SET_PAGER_CREATED(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->pager_created = value;
+}
+static inline void
+VM_OBJECT_SET_PAGER_INITIALIZED(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->pager_initialized = value;
+}
+static inline void
+VM_OBJECT_SET_PAGER_READY(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->pager_ready = value;
+}
+static inline void
+VM_OBJECT_SET_PAGER_TRUSTED(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->pager_trusted = value;
+}
+static inline void
+VM_OBJECT_SET_CAN_PERSIST(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->can_persist = value;
+}
+static inline void
+VM_OBJECT_SET_INTERNAL(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->internal = value;
+}
+static inline void
+VM_OBJECT_SET_PRIVATE(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->private = value;
+}
+static inline void
+VM_OBJECT_SET_PAGEOUT(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->pageout = value;
+}
+static inline void
+VM_OBJECT_SET_ALIVE(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->alive = value;
+}
+static inline void
+VM_OBJECT_SET_PURGABLE(
+	vm_object_t object,
+	int value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->purgable = value;
+	assertf(object->purgable == value, "0x%x != 0x%x", value, object->purgable);
+}
+static inline void
+VM_OBJECT_SET_PURGEABLE_ONLY_BY_KERNEL(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->purgeable_only_by_kernel = value;
+}
+static inline void
+VM_OBJECT_SET_PURGEABLE_WHEN_RIPE(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->purgeable_when_ripe = value;
+}
+static inline void
+VM_OBJECT_SET_SHADOWED(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->shadowed = value;
+}
+static inline void
+VM_OBJECT_SET_TRUE_SHARE(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->true_share = value;
+}
+static inline void
+VM_OBJECT_SET_TERMINATING(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->terminating = value;
+}
+static inline void
+VM_OBJECT_SET_NAMED(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->named = value;
+}
+static inline void
+VM_OBJECT_SET_SHADOW_SEVERED(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->shadow_severed = value;
+}
+static inline void
+VM_OBJECT_SET_PHYS_CONTIGUOUS(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->phys_contiguous = value;
+}
+static inline void
+VM_OBJECT_SET_NOPHYSCACHE(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->nophyscache = value;
+}
+static inline void
+VM_OBJECT_SET_FOR_REALTIME(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->for_realtime = value;
+}
+static inline void
+VM_OBJECT_SET_NO_PAGER_REASON(
+	vm_object_t object,
+	int value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->no_pager_reason = value;
+	assertf(object->no_pager_reason == value, "0x%x != 0x%x", value, object->no_pager_reason);
+}
+#if FBDP_DEBUG_OBJECT_NO_PAGER
+static inline void
+VM_OBJECT_SET_FBDP_TRACKED(
+	vm_object_t object,
+	bool value)
+{
+	vm_object_lock_assert_exclusive(object);
+	object->fbdp_tracked = value;
+}
+#endif /* FBDP_DEBUG_OBJECT_NO_PAGER */
+
 /*
  *	Declare procedures that operate on VM objects.
  */
@@ -675,6 +858,11 @@ __private_extern__ void vm_object_reuse_pages(
 	vm_object_offset_t      start_offset,
 	vm_object_offset_t      end_offset,
 	boolean_t               allow_partial_reuse);
+
+__private_extern__ kern_return_t vm_object_zero(
+	vm_object_t             object,
+	vm_object_offset_t      cur_offset,
+	vm_object_offset_t      end_offset);
 
 __private_extern__ uint64_t     vm_object_purge(
 	vm_object_t              object,

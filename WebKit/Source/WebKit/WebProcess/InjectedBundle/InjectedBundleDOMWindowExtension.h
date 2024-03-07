@@ -28,6 +28,7 @@
 
 #include "APIObject.h"
 #include <wtf/RefPtr.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -40,20 +41,20 @@ namespace WebKit {
 class InjectedBundleScriptWorld;
 class WebFrame;
 
-class InjectedBundleDOMWindowExtension : public API::ObjectImpl<API::Object::Type::BundleDOMWindowExtension> {
+class InjectedBundleDOMWindowExtension : public API::ObjectImpl<API::Object::Type::BundleDOMWindowExtension>, public CanMakeWeakPtr<InjectedBundleDOMWindowExtension> {
 public:
     static Ref<InjectedBundleDOMWindowExtension> create(WebFrame*, InjectedBundleScriptWorld*);
     static InjectedBundleDOMWindowExtension* get(WebCore::DOMWindowExtension*);
 
     virtual ~InjectedBundleDOMWindowExtension();
     
-    WebFrame* frame() const;
+    RefPtr<WebFrame> frame() const;
     InjectedBundleScriptWorld* world() const;
 
 private:
     InjectedBundleDOMWindowExtension(WebFrame*, InjectedBundleScriptWorld*);
 
-    RefPtr<WebCore::DOMWindowExtension> m_coreExtension;
+    Ref<WebCore::DOMWindowExtension> m_coreExtension;
     mutable RefPtr<InjectedBundleScriptWorld> m_world;
 };
 

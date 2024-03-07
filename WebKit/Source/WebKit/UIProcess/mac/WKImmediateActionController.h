@@ -31,6 +31,7 @@
 #import "WKImmediateActionTypes.h"
 #import "WebHitTestResultData.h"
 #import <pal/spi/mac/NSImmediateActionGestureRecognizerSPI.h>
+#import <wtf/CheckedPtr.h>
 #import <wtf/NakedPtr.h>
 #import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
@@ -56,9 +57,9 @@ enum class ImmediateActionState {
 
 @interface WKImmediateActionController : NSObject <NSImmediateActionGestureRecognizerDelegate> {
 @private
-    CheckedPtr<WebKit::WebPageProxy> _page;
+    WeakPtr<WebKit::WebPageProxy> _page;
     NSView *_view;
-    CheckedPtr<WebKit::WebViewImpl> _viewImpl;
+    WeakPtr<WebKit::WebViewImpl> _viewImpl;
 
     WebKit::ImmediateActionState _state;
     WebKit::WebHitTestResultData _hitTestResultData;

@@ -38,11 +38,10 @@ class MediaStreamTrackPrivate;
 class WEBCORE_EXPORT MediaRecorderPrivateMock final
     : public MediaRecorderPrivate {
 public:
-    static Ref<MediaRecorderPrivateMock> create(MediaStreamPrivate&);
+    explicit MediaRecorderPrivateMock(MediaStreamPrivate&);
     ~MediaRecorderPrivateMock();
 
 private:
-    explicit MediaRecorderPrivateMock(MediaStreamPrivate&);
     // MediaRecorderPrivate
     void videoFrameAvailable(VideoFrame&, VideoFrameTimeMetadata) final;
     void fetchData(FetchDataCallback&&) final;

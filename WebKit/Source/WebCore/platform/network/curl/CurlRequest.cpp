@@ -41,10 +41,9 @@
 
 namespace WebCore {
 
-CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, EnableMultipart enableMultipart, CaptureNetworkLoadMetrics captureExtraMetrics)
+CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, CaptureNetworkLoadMetrics captureExtraMetrics)
     : m_client(client)
     , m_request(request.isolatedCopy())
-    , m_enableMultipart(enableMultipart == EnableMultipart::Yes)
     , m_formDataStream(m_request.httpBody())
     , m_captureExtraMetrics(captureExtraMetrics == CaptureNetworkLoadMetrics::Extended)
 {
@@ -279,7 +278,11 @@ size_t CurlRequest::didReceiveHeader(String&& header)
     static constexpr auto emptyLineLF = "\n"_s;
 
     if (isCompletedOrCancelled())
+#if LIBCURL_VERSION_NUM >= 0x075700
         return CURL_WRITEFUNC_ERROR;
+#else
+        return 0;
+#endif
 
     // libcurl sends all headers that libcurl received to application.
     // So, in digest authentication, a block of response headers are received twice consecutively from libcurl.
@@ -337,8 +340,7 @@ size_t CurlRequest::didReceiveHeader(String&& header)
 
     m_response.networkLoadMetrics = networkLoadMetrics();
 
-    if (m_enableMultipart)
-        m_multipartHandle = CurlMultipartHandle::createIfNeeded(*this, m_response);
+    m_multipartHandle = CurlMultipartHandle::createIfNeeded(*this, m_response);
 
     // Response will send at didReceiveData() or didCompleteTransfer()
     // to receive continueDidRceiveResponse() for asynchronously.
@@ -348,10 +350,14 @@ size_t CurlRequest::didReceiveHeader(String&& header)
 
 // called with data after all headers have been processed via headerCallback
 
-size_t CurlRequest::didReceiveData(const SharedBuffer& buffer)
+size_t CurlRequest::didReceiveData(std::span<const uint8_t> receivedData)
 {
     if (isCompletedOrCancelled())
+#if LIBCURL_VERSION_NUM >= 0x075700
         return CURL_WRITEFUNC_ERROR;
+#else
+        return 0;
+#endif
 
     if (needToInvokeDidReceiveResponse()) {
         // Pause until completeDidReceiveResponse() is called.
@@ -368,23 +374,28 @@ size_t CurlRequest::didReceiveData(const SharedBuffer& buffer)
         return CURL_WRITEFUNC_PAUSE;
     }
 
-    auto receiveBytes = buffer.size();
-    m_totalReceivedSize += receiveBytes;
+    m_totalReceivedSize += receivedData.size();
 
-    if (receiveBytes) {
-        if (m_multipartHandle)
-            m_multipartHandle->didReceiveData(buffer);
-        else {
-            callClient([buffer = Ref { buffer }](CurlRequest& request, CurlRequestClient& client) {
-                client.curlDidReceiveData(request, buffer);
+    if (receivedData.size()) {
+        if (m_multipartHandle) {
+            m_multipartHandle->didReceiveMessage(receivedData);
+            if (m_multipartHandle->hasError())
+#if LIBCURL_VERSION_NUM >= 0x075700
+                return CURL_WRITEFUNC_ERROR;
+#else
+                return 0;
+#endif
+        } else {
+            callClient([buffer = SharedBuffer::create(receivedData)](CurlRequest& request, CurlRequestClient& client) mutable {
+                client.curlDidReceiveData(request, WTFMove(buffer));
             });
         }
     }
 
-    return receiveBytes;
+    return receivedData.size();
 }
 
-void CurlRequest::didReceiveHeaderFromMultipart(const Vector<String>& headers)
+void CurlRequest::didReceiveHeaderFromMultipart(Vector<String>&& headers)
 {
     if (isCompletedOrCancelled())
         return;
@@ -393,24 +404,38 @@ void CurlRequest::didReceiveHeaderFromMultipart(const Vector<String>& headers)
     response.expectedContentLength = 0;
     response.headers.clear();
 
-    for (auto header : headers)
-        response.headers.append(header);
+    for (auto& header : headers)
+        response.headers.append(WTFMove(header));
 
-    invokeDidReceiveResponse(response);
+    invokeDidReceiveResponse(response, [this] {
+        runOnWorkerThreadIfRequired([this, protectedThis = Ref { *this }]() {
+            if (isCompletedOrCancelled() || !m_multipartHandle)
+                return;
+
+            m_multipartHandle->completeHeaderProcessing();
+        });
+    });
 }
 
-void CurlRequest::didReceiveDataFromMultipart(const SharedBuffer& buffer)
+void CurlRequest::didReceiveDataFromMultipart(std::span<const uint8_t> receivedData)
 {
     if (isCompletedOrCancelled())
         return;
 
-    auto receiveBytes = buffer.size();
-
-    if (receiveBytes) {
-        callClient([buffer = Ref { buffer }](CurlRequest& request, CurlRequestClient& client) {
-            client.curlDidReceiveData(request, buffer);
+    if (receivedData.size()) {
+        callClient([buffer = SharedBuffer::create(receivedData)](CurlRequest& request, CurlRequestClient& client) mutable {
+            client.curlDidReceiveData(request, WTFMove(buffer));
         });
     }
+}
+
+void CurlRequest::didCompleteFromMultipart()
+{
+    ASSERT(m_multipartHandle && m_multipartHandle->completed());
+
+    runOnWorkerThreadIfRequired([this, protectedThis = Ref { *this }]() {
+        didCompleteTransfer(CURLE_OK);
+    });
 }
 
 void CurlRequest::didCompleteTransfer(CURLcode result)
@@ -434,8 +459,10 @@ void CurlRequest::didCompleteTransfer(CURLcode result)
     }
 
     if (result == CURLE_OK) {
-        if (m_multipartHandle)
-            m_multipartHandle->didComplete();
+        if (m_multipartHandle && !m_multipartHandle->completed()) {
+            m_multipartHandle->didCompleteMessage();
+            return;
+        }
 
         auto metrics = networkLoadMetrics();
 
@@ -621,7 +648,7 @@ size_t CurlRequest::didReceiveHeaderCallback(char* ptr, size_t blockSize, size_t
 
 size_t CurlRequest::didReceiveDataCallback(char* ptr, size_t blockSize, size_t numberOfBlocks, void* userData)
 {
-    return static_cast<CurlRequest*>(userData)->didReceiveData(SharedBuffer::create(ptr, blockSize * numberOfBlocks));
+    return static_cast<CurlRequest*>(userData)->didReceiveData({ reinterpret_cast<const uint8_t*>(ptr), blockSize * numberOfBlocks });
 }
 
 int CurlRequest::didReceiveDebugInfoCallback(CURL*, curl_infotype type, char* data, size_t size, void* userData)

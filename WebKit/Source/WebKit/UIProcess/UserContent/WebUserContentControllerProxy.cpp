@@ -42,6 +42,7 @@
 #include "WebUserContentControllerMessages.h"
 #include "WebUserContentControllerProxyMessages.h"
 #include <WebCore/SerializedScriptValue.h>
+#include <wtf/CheckedPtr.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)
 #include "APIContentRuleList.h"
@@ -52,12 +53,11 @@ namespace WebKit {
 
 using namespace WebCore;
 
-static HashMap<UserContentControllerIdentifier, WebUserContentControllerProxy*>& webUserContentControllerProxies()
+static HashMap<UserContentControllerIdentifier, WeakRef<WebUserContentControllerProxy>>& webUserContentControllerProxies()
 {
-    static NeverDestroyed<HashMap<UserContentControllerIdentifier, WebUserContentControllerProxy*>> proxies;
+    static NeverDestroyed<HashMap<UserContentControllerIdentifier, WeakRef<WebUserContentControllerProxy>>> proxies;
     return proxies;
 }
-
 
 WebUserContentControllerProxy* WebUserContentControllerProxy::get(UserContentControllerIdentifier identifier)
 {
@@ -69,7 +69,7 @@ WebUserContentControllerProxy::WebUserContentControllerProxy()
     , m_userScripts(API::Array::create())
     , m_userStyleSheets(API::Array::create())
 {
-    webUserContentControllerProxies().add(m_identifier, this);
+    webUserContentControllerProxies().add(m_identifier, *this);
 }
 
 WebUserContentControllerProxy::~WebUserContentControllerProxy()

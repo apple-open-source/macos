@@ -32,7 +32,6 @@
 #include "PasteboardAccessIntent.h"
 #include "SameDocumentNavigationType.h"
 #include "ShareableBitmap.h"
-#include "VisibleContentRectUpdateInfo.h"
 #include "WebColorPicker.h"
 #include "WebDateTimePicker.h"
 #include "WebPopupMenuProxy.h"
@@ -58,6 +57,7 @@
 
 #if PLATFORM(COCOA)
 #include "WKFoundation.h"
+#include "WKSEDefinitions.h"
 
 #if PLATFORM(IOS_FAMILY)
 #include <WebCore/InspectorOverlay.h>
@@ -65,6 +65,10 @@
 
 #if ENABLE(IMAGE_ANALYSIS)
 #include <WebCore/TextRecognitionResult.h>
+#endif
+
+#if USE(DICTATION_ALTERNATIVES)
+#include <WebCore/PlatformTextAlternatives.h>
 #endif
 
 OBJC_CLASS AVPlayerViewController;
@@ -75,8 +79,10 @@ OBJC_CLASS NSObject;
 OBJC_CLASS NSSet;
 OBJC_CLASS NSTextAlternatives;
 OBJC_CLASS UIGestureRecognizer;
-OBJC_CLASS UIScrollEvent;
 OBJC_CLASS UIScrollView;
+OBJC_CLASS UIView;
+OBJC_CLASS WKBaseScrollView;
+OBJC_CLASS WKSEScrollViewScrollUpdate;
 OBJC_CLASS _WKRemoteObjectRegistry;
 
 #if USE(APPKIT)
@@ -270,7 +276,7 @@ public:
     virtual void didFailProvisionalLoadForMainFrame() { };
     virtual void didCommitLoadForMainFrame(const String& mimeType, bool useCustomContentProvider) = 0;
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_HUD)
     virtual void createPDFHUD(PDFPluginIdentifier, const WebCore::IntRect&) = 0;
     virtual void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&) = 0;
     virtual void removePDFHUD(PDFPluginIdentifier) = 0;
@@ -347,6 +353,9 @@ public:
     virtual WebCore::IntRect rootViewToScreen(const WebCore::IntRect&) = 0;
     virtual WebCore::IntPoint accessibilityScreenToRootView(const WebCore::IntPoint&) = 0;
     virtual WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) = 0;
+#if PLATFORM(IOS_FAMILY)
+    virtual void relayAccessibilityNotification(const String&, const RetainPtr<NSData>&) = 0;
+#endif
 #if PLATFORM(MAC)
     virtual WebCore::IntRect rootViewToWindow(const WebCore::IntRect&) = 0;
 #endif
@@ -363,7 +372,10 @@ public:
 #if ENABLE(GPU_PROCESS)
     virtual void didCreateContextInGPUProcessForVisibilityPropagation(LayerHostingContextID) { }
 #endif
+#if USE(EXTENSIONKIT)
+    virtual UIView *createVisibilityPropagationView() { return nullptr; }
 #endif
+#endif // HAVE(VISIBILITY_PROPAGATION_VIEW)
 
 #if ENABLE(GPU_PROCESS)
     virtual void gpuProcessDidFinishLaunching() { }
@@ -428,13 +440,15 @@ public:
 
     virtual void takeFocus(WebCore::FocusDirection) { }
 
+    virtual void performSwitchHapticFeedback() { }
+
 #if USE(DICTATION_ALTERNATIVES)
-    virtual WebCore::DictationContext addDictationAlternatives(NSTextAlternatives *) = 0;
-    virtual void replaceDictationAlternatives(NSTextAlternatives *, WebCore::DictationContext) = 0;
+    virtual WebCore::DictationContext addDictationAlternatives(PlatformTextAlternatives *) = 0;
+    virtual void replaceDictationAlternatives(PlatformTextAlternatives *, WebCore::DictationContext) = 0;
     virtual void removeDictationAlternatives(WebCore::DictationContext) = 0;
     virtual void showDictationAlternativeUI(const WebCore::FloatRect& boundingBoxOfDictatedText, WebCore::DictationContext) = 0;
     virtual Vector<String> dictationAlternatives(WebCore::DictationContext) = 0;
-    virtual NSTextAlternatives *platformDictationAlternatives(WebCore::DictationContext) = 0;
+    virtual PlatformTextAlternatives *platformDictationAlternatives(WebCore::DictationContext) = 0;
 #endif
 
 #if PLATFORM(MAC)
@@ -484,6 +498,7 @@ public:
 
     virtual void elementDidFocus(const FocusedElementInformation&, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, API::Object* userData) = 0;
     virtual void updateInputContextAfterBlurringAndRefocusingElement() = 0;
+    virtual void updateFocusedElementInformation(const FocusedElementInformation&) = 0;
     virtual void elementDidBlur() = 0;
     virtual void focusedElementDidChangeInputMode(WebCore::InputMode) = 0;
     virtual void didUpdateEditorState() = 0;
@@ -515,7 +530,7 @@ public:
     virtual void handleAutocorrectionContext(const WebAutocorrectionContext&) = 0;
 
 #if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
-    virtual void handleAsynchronousCancelableScrollEvent(UIScrollView *, UIScrollEvent *, void (^completion)(BOOL handled)) = 0;
+    virtual void handleAsynchronousCancelableScrollEvent(WKBaseScrollView *, WKSEScrollViewScrollUpdate *, void (^completion)(BOOL handled)) = 0;
 #endif
 
     virtual WebCore::Color contentViewBackgroundColor() = 0;
@@ -681,10 +696,6 @@ public:
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     virtual void didEnterFullscreen() = 0;
     virtual void didExitFullscreen() = 0;
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-    virtual std::optional<WebKit::VisibleContentRectUpdateInfo> createVisibleContentRectUpdateInfo() = 0;
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)

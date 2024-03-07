@@ -148,9 +148,10 @@ class TranslatorMetalReflection
     }
     void reset()
     {
-        hasUBOs       = false;
-        hasFlatInput  = false;
-        hasInvariance = false;
+        hasUBOs              = false;
+        hasFlatInput         = false;
+        hasInvariance        = false;
+        hasAttributeAliasing = false;
         originalNames.clear();
         samplerBindings.clear();
         textureBindings.clear();
@@ -159,9 +160,10 @@ class TranslatorMetalReflection
         uniformBufferBindings.clear();
     }
 
-    bool hasUBOs       = false;
-    bool hasFlatInput  = false;
-    bool hasInvariance = false;
+    bool hasUBOs              = false;
+    bool hasFlatInput         = false;
+    bool hasInvariance        = false;
+    bool hasAttributeAliasing = false;
 
   private:
     originalNamesMap originalNames;
@@ -187,10 +189,6 @@ class TranslatorMSL : public TCompiler
     bool translate(TIntermBlock *root,
                    const ShCompileOptions &compileOptions,
                    PerformanceDiagnostics *perfDiagnostics) override;
-
-    // The sample mask can't be in our fragment output struct if we read the framebuffer. Luckily,
-    // pixel local storage bans gl_SampleMask, so we can just not use it when PLS is active.
-    bool isSampleMaskAllowed() const { return !hasPixelLocalStorageUniforms(); }
 
     [[nodiscard]] bool translateImpl(TInfoSinkBase &sink,
                                      TIntermBlock *root,

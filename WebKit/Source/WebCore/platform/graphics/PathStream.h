@@ -48,6 +48,7 @@ public:
     void add(PathBezierCurveTo) final;
     void add(PathArcTo) final;
     void add(PathArc) final;
+    void add(PathClosedArc) final;
     void add(PathEllipse) final;
     void add(PathEllipseInRect) final;
     void add(PathRect) final;
@@ -64,8 +65,11 @@ public:
     FloatRect fastBoundingRect() const final;
     FloatRect boundingRect() const final;
 
+    bool hasSubpaths() const final;
+
     static FloatRect computeFastBoundingRect(std::span<const PathSegment>);
     static FloatRect computeBoundingRect(std::span<const PathSegment>);
+    static bool computeHasSubpaths(std::span<const PathSegment>);
 
 private:
     PathStream() = default;
@@ -85,6 +89,7 @@ private:
     std::optional<PathSegment> singleSegment() const final;
     std::optional<PathDataLine> singleDataLine() const final;
     std::optional<PathArc> singleArc() const final;
+    std::optional<PathClosedArc> singleClosedArc() const final;
     std::optional<PathDataQuadCurve> singleQuadCurve() const final;
     std::optional<PathDataBezierCurve> singleBezierCurve() const final;
 

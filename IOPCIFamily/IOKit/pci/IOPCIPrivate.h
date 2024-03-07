@@ -94,6 +94,9 @@ struct IOPCIDeviceExpansionData
 
     uint16_t aerCapability;
 
+    uint16_t ariCapability;
+
+
     uint16_t            msiCapability;
     uint16_t            msiControl;
 	uint16_t            msiPhysVectorCount;
@@ -160,7 +163,8 @@ struct IOPCIDeviceExpansionData
 	IONotifier*             _matchedNotifier;
 
 	uint32_t probeTimeMS;
-	bool deadMapper;
+
+    bool isMFD;
 };
 
 enum

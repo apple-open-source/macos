@@ -110,7 +110,7 @@ extern const char *kSecXPCKeyNormalizedIssuer;
 extern const char *kSecXPCKeySerialNumber;
 extern const char *kSecXPCKeyBackupKeybagIdentifier;
 extern const char *kSecXPCKeyBackupKeybagPath;
-
+extern const char *kSecXPCKeySharingGroup;
 
 //
 // MARK: Dispatch macros
@@ -306,6 +306,7 @@ enum SecXPCOperation {
     sec_trust_settings_copy_data_id,
     sec_truststore_remove_all_id,
     sec_trust_reset_settings_id,
+    sec_item_share_with_group_id,
     sec_delete_items_on_sign_out_id,
     sec_trust_store_migrate_plist_id,
 };
@@ -342,6 +343,7 @@ typedef struct SecurityClient {
     bool isAppClip;
     CFStringRef applicationIdentifier;
     bool isMusrOverridden;
+    bool allowKeychainSharing;
 } SecurityClient;
 
 
@@ -367,6 +369,7 @@ struct securityd {
     bool (*sec_roll_keys)(bool force, CFErrorRef* error);
     bool (*sec_item_update_token_items_for_access_groups)(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItems, SecurityClient *client, CFErrorRef* error);
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
+    CFTypeRef (*sec_item_share_with_group)(CFDictionaryRef query, CFStringRef sharingGroup, SecurityClient *client, CFErrorRef *error);
     bool (*sec_delete_items_on_sign_out)(SecurityClient *client, CFErrorRef *error);
     /* SHAREDWEBCREDENTIALS */
     bool (*sec_add_shared_web_credential)(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);

@@ -346,10 +346,20 @@ times delay product. Default value is rdirplus.
 .It Cm acregmax Ns = Ns Aq Ar seconds
 .It Cm acdirmin Ns = Ns Aq Ar seconds
 .It Cm acdirmax Ns = Ns Aq Ar seconds
+.It Cm acrootdirmin Ns = Ns Aq Ar seconds
+.It Cm acrootdirmax Ns = Ns Aq Ar seconds
 These options set the minimum and maximum attribute cache timeouts for
-directories and "regular" (non-directory) files.  The default minimum
-is 5 seconds and the default maximum is 60 seconds.  Setting both the
-minimum and maximum to zero will disable attribute caching.  The algorithm
+directories, the root directory and "regular" (non-directory) files.  The default minimum
+is 5 seconds and the default maximum is 60 seconds. If not specified, the values of
+.Cm acrootdirmin
+and
+.Cm acrootdirmax
+will be assigned to those of
+.Cm acdirmin
+and
+.Cm acdirmax
+respectively, to maintain backward compatibility.
+Setting all the minimum and maximum to zero will disable attribute caching.  The algorithm
 to calculate the timeout is based on the age of the file or directory.
 The older it is, the longer the attribute cache is considered valid,
 subject to the limits above.  Note that the effectiveness of this

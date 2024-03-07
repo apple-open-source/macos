@@ -50,6 +50,9 @@
 #include <corecrypto/ccmode.h>
 #include <corecrypto/ccwrap.h>
 
+#if KCSHARING
+#include "keychain/Sharing/KCSharingSupport.h"
+#endif  // KCSHARING
 
 void* testlist = NULL;
 
@@ -93,10 +96,14 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
 {
     [super setUp];
     SecCKKSDisable();
+    KCSharingSetChangeTrackingEnabled(false);
 
     self.testFailureLogger = [[KeychainXCTestFailureLogger alloc] init];
     [[XCTestObservationCenter sharedTestObservationCenter] addTestObserver:self.testFailureLogger];
 
+#if KCSHARING
+    KCSharingRegisterErrorUserInfoValueProvider();
+#endif  // KCSHARING
 
     // Do not want test code to be allowed to init real keychain!
     secd_test_setup_temp_keychain("keychaintestthrowaway", NULL);
@@ -165,6 +172,8 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
     secd_test_teardown_delete_temp_keychain("keychaintestthrowaway");
     SecResetLocalSecuritydXPCFakeEntitlements();
 
+    KCSharingClearChangeTrackingEnabledOverride();
+    [super tearDown];
 
     [[XCTestObservationCenter sharedTestObservationCenter] removeTestObserver:self.testFailureLogger];
 }

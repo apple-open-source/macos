@@ -87,7 +87,7 @@ OTHER_LDFLAGS_no_asan = $(NOASAN_LDFLAGS_YES)
 // whitelist of libraries in DriverKit SDK allowed to link directly against libSystem.dylib (outside of the umbrella)
 // "clang" is the allowable client string for the sanitizer runtimes, like
 // "libclang_rt.asan_osx_dynamic.dylib"
-PLATFORM_LDFLAGS[sdk=driverkit*] = -Wl,-allowable_client,c++ -Wl,-allowable_client,c++abi -Wl,-allowable_client,DriverKit -Wl,-allowable_client,clang
+PLATFORM_LDFLAGS[sdk=driverkit*] = -Wl,-allowable_client,c++ -Wl,-allowable_client,c++abi -Wl,-allowable_client,DriverKit -Wl,-allowable_client,clang -Wl,-allowable_client,swiftCore -Wl,-allowable_client,swiftSwiftOnoneSupport
 PLATFORM_LDFLAGS[sdk=exclavekit*] = -Wl,-upward-lobjc
 
 LD_GENERATE_MAP_FILE = YES

@@ -593,7 +593,7 @@ name_node_delete_locked(notify_globals_t globals, name_node_t *n)
 	if (_libnotify_debug & DEBUG_NODES) _notify_client_log(ASL_LEVEL_NOTICE, "name_node_release name %s refcount %d %p FREE", n->name, n->refcount, n);
 #endif
 
-	_nc_table_delete(&globals->name_node_table, n->name);
+	_nc_table_delete(&globals->name_node_table, n->name, &n->name);
 	if (n->needs_free) {
 		free(n->name);
 	}
@@ -788,7 +788,7 @@ registration_node_delete_locked(notify_globals_t globals, registration_node_t *r
 	if (_libnotify_debug & DEBUG_NODES) _notify_client_log(ASL_LEVEL_NOTICE, "%s token %u refcount %d flags 0x%08x %p FREE", __func__, r->token, r->refcount, r->flags, r);
 #endif
 
-	_nc_table_delete_n(&globals->registration_table, r->token);
+	_nc_table_delete_n(&globals->registration_table, r->token, &r->token);
 
 	uint32_t reg_token = r->token;
 	uint32_t reg_flags = r->flags;

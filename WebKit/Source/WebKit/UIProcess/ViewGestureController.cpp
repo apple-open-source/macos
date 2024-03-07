@@ -36,6 +36,7 @@
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
 #include <WebCore/UserInterfaceLayoutDirection.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
@@ -65,10 +66,10 @@ static const float minimumScrollEventRatioForSwipe = 0.5;
 static const float swipeSnapshotRemovalRenderTreeSizeTargetFraction = 0.5;
 #endif
 
-static HashMap<WebPageProxyIdentifier, ViewGestureController*>& viewGestureControllersForAllPages()
+static HashMap<WebPageProxyIdentifier, WeakRef<ViewGestureController>>& viewGestureControllersForAllPages()
 {
     // The key in this map is the associated page ID.
-    static NeverDestroyed<HashMap<WebPageProxyIdentifier, ViewGestureController*>> viewGestureControllers;
+    static NeverDestroyed<HashMap<WebPageProxyIdentifier, WeakRef<ViewGestureController>>> viewGestureControllers;
     return viewGestureControllers.get();
 }
 
@@ -85,7 +86,7 @@ ViewGestureController::ViewGestureController(WebPageProxy& webPageProxy)
     if (webPageProxy.hasRunningProcess())
         connectToProcess();
 
-    viewGestureControllersForAllPages().add(webPageProxy.identifier(), this);
+    viewGestureControllersForAllPages().add(webPageProxy.identifier(), *this);
 }
 
 ViewGestureController::~ViewGestureController()
@@ -122,7 +123,7 @@ ViewGestureController* ViewGestureController::controllerForGesture(WebPageProxyI
         return nullptr;
     if (gestureControllerIter->value->m_currentGestureID != gestureID)
         return nullptr;
-    return gestureControllerIter->value;
+    return gestureControllerIter->value.ptr();
 }
 
 ViewGestureController::GestureID ViewGestureController::takeNextGestureID()
@@ -678,6 +679,10 @@ void ViewGestureController::didCollectGeometryForMagnificationGesture(FloatRect 
     m_visibleContentRect = visibleContentRect;
     m_visibleContentRectIsValid = true;
     m_frameHandlesMagnificationGesture = frameHandlesMagnificationGesture;
+
+#if PLATFORM(MAC)
+    m_webPageProxy.didBeginMagnificationGesture();
+#endif
 }
 
 void ViewGestureController::prepareMagnificationGesture(FloatPoint origin)

@@ -36,7 +36,7 @@ extern "C" {
 	@header SecureDownload
 	@abstract Used by clients to implement Apple's Verified Download System.
 
-	          Please note that a succesful check does not guarantee anything about
+	          Please note that a successful check does not guarantee anything about
 			  the safety of the file being downloaded. Rather, it simply checks to make sure
 			  that the contents of the file being downloaded exactly matches the contents
 			  of the file when the ticket was originally generated.

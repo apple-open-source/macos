@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -157,9 +157,7 @@ __attribute__((visibility("hidden")))
 	 * EAPBoringSSLSessionHandshake() call in EAP-TLS protocol.
 	 */
 	nw_framer_set_output_handler(framer, ^(nw_framer_t writer, nw_framer_message_t message, size_t message_length,  bool is_complete) {
-
-	    EAPLOG_FL(LOG_DEBUG, "output handler for custom protocol called");
-	    EAPLOG_FL(LOG_DEBUG, "output handler received message_length: [%zu], is_complete:[%s]",
+	    EAPLOG_FL(LOG_NOTICE, "output handler received message_length: [%zu], is_complete:[%s]",
 		      message_length, is_complete ? "true" : "false");
 
 	    if (message_length == 0) {
@@ -208,11 +206,11 @@ __attribute__((visibility("hidden")))
 		    break;
 		}
 	    }
-	    if (do_write_output == true) {
+	    if (do_write_output && sent_length > 0) {
 		/* update the handshake status only when data is written to MemIO write buffer */
 		status = (status == errSecSuccess) ? errSSLWouldBlock : status;
 		[strongSelf updateHandshakeStatus:status];
-		EAPLOG_FL(LOG_DEBUG, "[output_handler]: updated handshake status to [%s]:[%d]",
+		EAPLOG_FL(LOG_NOTICE, "[output_handler]: updated handshake status to [%s]:[%d]",
 			  EAPSecurityErrorString(status), (int)status);
 	    }
 	});
@@ -510,9 +508,6 @@ __attribute__((visibility("hidden")))
 
 - (NSData *)getEAPKeyMaterial
 {
-    if (self.state != EAPBoringSSLSessionStateConnected) {
-	return nil;
-    }
     sec_protocol_options_eap_method_t secEAPType = [self getEAPMethodInUse];
     if (secEAPType == sec_protocol_options_eap_method_none ||
 	secEAPType > sec_protocol_options_eap_method_max) {
@@ -786,12 +781,8 @@ EAPBoringSSLSessionGetCurrentState(EAPBoringSSLSessionContextRef sessionContext,
     if (sessionContext == NULL) {
 	return (errSecBadReq);
     }
-    __block EAPBoringSSLSessionState retState;
     EAPBoringSSLSession *session = (__bridge EAPBoringSSLSession *)sessionContext;
-    dispatch_sync(session.queue, ^{
-	retState = session.state;
-    });
-    *state = retState;
+    *state = session.state;
     return (errSecSuccess);
 }
 
@@ -917,14 +908,14 @@ EAPBoringSSLSessionComputeKeyData(EAPBoringSSLSessionContextRef sessionContext, 
     EAPBoringSSLSession *session = (__bridge EAPBoringSSLSession *)sessionContext;
     NSData *keyData = [session getEAPKeyMaterial];
     if (keyData == nil) {
-	EAPLOG_FL(LOG_INFO, "key computation failed");
+	EAPLOG_FL(LOG_ERR, "key computation failed");
 	return errSecInternalError;
     }
     if (key_length > keyData.length) {
 	return errSecParam;
     }
     bcopy(keyData.bytes, key, key_length);
-    EAPLOG_FL(LOG_INFO, "key computation is successful");
+    EAPLOG_FL(LOG_NOTICE, "key computation is successful");
     return errSecSuccess;
 }
 

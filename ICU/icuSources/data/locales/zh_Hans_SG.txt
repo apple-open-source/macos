@@ -29,6 +29,12 @@ zh_Hans_SG{
                 "GyMd",
                 "GyyMd",
             }
+            intervalFormats{
+                Hv{
+                    H{"vHH–HH"}
+                }
+                fallback{"{0}至{1}"}
+            }
         }
         generic{
             DateTimePatterns{
@@ -178,7 +184,7 @@ zh_Hans_SG{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "Gd/M/yy",
@@ -257,9 +263,7 @@ zh_Hans_SG{
                 "GyyMd",
             }
             availableFormats{
-                MEd{"M-dE"}
                 MMM{"M月"}
-                Md{"M-d"}
             }
         }
     }

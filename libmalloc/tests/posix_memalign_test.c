@@ -7,15 +7,83 @@
 
 #include <darwintest.h>
 #include <errno.h>
-#include <malloc/malloc.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <mach/mach.h>
+
+#include <malloc/malloc.h>
+#include <malloc_private.h>
+
+
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
 
-static inline void*
-t_posix_memalign(size_t alignment, size_t size, bool scribble)
+struct t_recorder_ctx {
+	void *ptr;
+	size_t size;
+	bool found;
+};
+
+static void
+pointer_recorder(task_t task, void *context, unsigned type, vm_range_t *ranges,
+		unsigned count)
+{
+	if (!(type & MALLOC_PTR_IN_USE_RANGE_TYPE)) {
+		return;
+	}
+
+	struct t_recorder_ctx *ctx = context;
+	vm_address_t ptr_addr = (vm_address_t)(ctx->ptr);
+	vm_size_t ptr_size = (vm_size_t)(ctx->size);
+	for (unsigned i = 0; i < count; i++) {
+		vm_range_t *range = &ranges[i];
+		if (range->address <= ptr_addr &&
+				range->address + range->size > ptr_addr) {
+			T_QUIET; T_EXPECT_FALSE(ctx->found, "first time");
+
+			vm_size_t offset = ptr_addr - range->address;
+			T_QUIET; T_EXPECT_GE(range->size - offset, ctx->size,
+					"allocation must be large enough");
+
+			ctx->found = true;
+		}
+	}
+}
+
+static void
+check_pointer_is_enumerated(void *ptr, size_t size)
+{
+
+	vm_address_t *zones;
+	unsigned zone_count;
+	kern_return_t kr;
+
+	kr = malloc_get_all_zones(mach_task_self(), /*reader=*/NULL, &zones,
+			&zone_count);
+	T_QUIET; T_ASSERT_EQ(kr, KERN_SUCCESS,
+			"malloc_get_all_zones(mach_task_self(), ...)");
+
+	struct t_recorder_ctx ctx = {
+		.ptr = ptr,
+		.size = size,
+		.found = false,
+	};
+
+	for (unsigned i = 0; i < zone_count; i++) {
+		malloc_zone_t *zone = (malloc_zone_t *)zones[i];
+		zone->introspect->enumerator(mach_task_self(), &ctx,
+				MALLOC_PTR_IN_USE_RANGE_TYPE, (vm_address_t)zone, NULL,
+				pointer_recorder);
+		if (ctx.found) {
+			return;
+		}
+	}
+	T_QUIET; T_FAIL("pointer %p not enumerated in any zone", ptr);
+}
+
+static inline void *
+t_posix_memalign(size_t alignment, size_t size, bool scribble, bool enumerate)
 {
 	void *ptr = NULL;
 	int result = posix_memalign(&ptr, alignment, size);
@@ -24,6 +92,11 @@ t_posix_memalign(size_t alignment, size_t size, bool scribble)
 	T_QUIET; T_ASSERT_NOTNULL(ptr, "allocation");
 	T_QUIET; T_ASSERT_EQ((intptr_t)ptr % alignment, 0ul, "pointer should be properly aligned");
 	T_QUIET; T_EXPECT_LE(size, allocated_size, "allocation size");
+
+	T_QUIET; T_EXPECT_TRUE(malloc_claimed_address(ptr), "should be claimed");
+	if (enumerate) {
+		check_pointer_is_enumerated(ptr, size);
+	}
 
 	if (scribble) {
 		// Scribble memory pointed to by `ptr` to make sure we're not using that
@@ -38,10 +111,12 @@ t_posix_memalign(size_t alignment, size_t size, bool scribble)
 T_DECL(posix_memalign_free, "posix_memalign all power of two alignments <= 4096")
 {
 	for (size_t alignment = sizeof(void*); alignment < 4096; alignment *= 2) {
+		bool enumerate = true;
 		// test several sizes
 		for (size_t size = alignment; size <= 256*alignment; size += 8) {
-			void* ptr = t_posix_memalign(alignment, size, true);
+			void* ptr = t_posix_memalign(alignment, size, true, enumerate);
 			free(ptr);
+			enumerate = false;
 		}
 	}
 }
@@ -80,19 +155,17 @@ T_DECL(posix_memalign_allocate_size_0, "posix_memalign should return something t
 	free(ptr);
 }
 
-#if defined(__LP64__) && TARGET_OS_OSX
-T_DECL(posix_memalign_large, "posix_memalign all power of two alignments up to 64GB")
+#if defined(__LP64__)
+T_DECL(posix_memalign_large, "posix_memalign large power of two alignments")
 {
-	uint64_t max_alignment = UINT64_C(68719476736);
-	if (getenv("MallocSecureAllocator")) {
-		max_alignment = 1024 * 1024; // TODO: support for larger alignments
-	}
+	// 64GB on macOS, 64MB on embedded
+	uint64_t max_alignment = TARGET_OS_OSX ? UINT64_C(68719476736) : UINT64_C(67108864);
 	for (size_t alignment = sizeof(void*); alignment <= max_alignment; alignment *= 2) {
 		// don't scribble - we don't want to actually touch that many pages, we just
 		// verify that the allocated pointer looks reasonable
-		void* ptr = t_posix_memalign(alignment, alignment, false);
+		void* ptr = t_posix_memalign(alignment, alignment, false, true);
 		free(ptr);
 	}
 	T_END;
 }
-#endif // __LP64__ && TARGET_OS_OSX
+#endif // __LP64__

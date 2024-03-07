@@ -112,11 +112,13 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_PRESSURE_MEGAPASCAL      = (8 << 8) + 7,     // (CLDR 35, ICU-641)
     UAMEASUNIT_PRESSURE_PASCAL          = (8 << 8) + 8,     // (CLDR 36, ICU-661)
     UAMEASUNIT_PRESSURE_BAR             = (8 << 8) + 9,     // (CLDR 36, ICU-661)
+    UAMEASUNIT_PRESSURE_GASOLINE_ENERGY_DENSITY = (8 << 8) + 10, // (CLDR 44, ICU-741)
     //
     UAMEASUNIT_SPEED_METER_PER_SECOND   = (9 << 8) + 0,
     UAMEASUNIT_SPEED_KILOMETER_PER_HOUR = (9 << 8) + 1,
     UAMEASUNIT_SPEED_MILE_PER_HOUR      = (9 << 8) + 2,
     UAMEASUNIT_SPEED_KNOT               = (9 << 8) + 3,     // (CLDR 28, ICU-561.3)
+    UAMEASUNIT_SPEED_BEAUFORT           = (9 << 8) + 4,     // (CLDR 44, ICU 741)
     //
     UAMEASUNIT_TEMPERATURE_CELSIUS      = (10 << 8) + 0,
     UAMEASUNIT_TEMPERATURE_FAHRENHEIT   = (10 << 8) + 1,

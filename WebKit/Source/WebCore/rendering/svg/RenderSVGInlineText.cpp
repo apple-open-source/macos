@@ -25,6 +25,7 @@
 #include "RenderSVGInlineText.h"
 
 #include "CSSFontSelector.h"
+#include "DocumentInlines.h"
 #include "FloatConversion.h"
 #include "FloatQuad.h"
 #include "InlineRunAndOffset.h"
@@ -72,10 +73,11 @@ static String applySVGWhitespaceRules(const String& string, bool preserveWhiteSp
 }
 
 RenderSVGInlineText::RenderSVGInlineText(Text& textNode, const String& string)
-    : RenderText(textNode, applySVGWhitespaceRules(string, false))
+    : RenderText(Type::SVGInlineText, textNode, applySVGWhitespaceRules(string, false))
     , m_scalingFactor(1)
     , m_layoutAttributes(*this)
 {
+    ASSERT(isRenderSVGInlineText());
 }
 
 String RenderSVGInlineText::originalText() const
@@ -142,7 +144,7 @@ bool RenderSVGInlineText::characterStartsNewTextChunk(int position) const
     ASSERT(position < static_cast<int>(text().length()));
 
     // Each <textPath> element starts a new text chunk, regardless of any x/y values.
-    if (!position && parent()->isSVGTextPath() && !previousSibling())
+    if (!position && parent()->isRenderSVGTextPath() && !previousSibling())
         return true;
 
     const SVGCharacterDataMap::const_iterator it = m_layoutAttributes.characterDataMap().find(static_cast<unsigned>(position + 1));
@@ -238,7 +240,7 @@ void RenderSVGInlineText::computeNewScaledFontForStyle(const RenderObject& rende
     if (fontDescription.orientation() != FontOrientation::Horizontal)
         fontDescription.setOrientation(FontOrientation::Horizontal);
 
-    scaledFont = FontCascade(WTFMove(fontDescription), 0, 0);
+    scaledFont = FontCascade(WTFMove(fontDescription));
     scaledFont.update(&renderer.document().fontSelector());
 }
 

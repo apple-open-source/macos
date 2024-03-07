@@ -15,7 +15,7 @@
     return self;
 }
 
-- (void)postHomePodLostTrustTTR {
+- (void)postHomePodLostTrustTTR:(NSString*)identifiers {
     if([TapToRadarService class] == nil) {
         secnotice("octagon-ttr", "Trust lost, but TTR service not available");
         return;
@@ -41,7 +41,7 @@
     draft.remoteDeviceSelections = RemoteDeviceSelectionsHomeKitHome;
     draft.title = @"Lost CDP trust";
 
-    draft.problemDescription = @"HomePod unexpectedly lost CDP trust (please do not file this radar if you performed Reset Protected Data on another device, or otherwise intended to cause CDP trust loss on this HomePod). To disable this prompt for testing, turn off the Security/TTRTrustLossOnHomePod feature flag on the HomePod.";
+    draft.problemDescription = [NSString stringWithFormat:@"HomePod unexpectedly lost CDP trust (please do not file this radar if you performed Reset Protected Data on another device, or otherwise intended to cause CDP trust loss on this HomePod). To disable this prompt for testing, turn off the Security/TTRTrustLossOnHomePod feature flag on the HomePod.\n\n%@", identifiers];
     draft.classification = ClassificationOtherBug;
 
     TapToRadarService* s = [TapToRadarService shared];

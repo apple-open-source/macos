@@ -32,6 +32,7 @@
 #include <security_utilities/logging.h>
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/hashing.h>
+#include "LWCRHelper.h"
 
 #ifdef DEBUGDUMP
 #include "reqdumper.h"
@@ -75,6 +76,22 @@ bool Requirement::validates(const Requirement::Context &ctx, OSStatus failure /*
 			CODESIGN_EVAL_REQINT_END(this, failure);
 			return false;
 		}
+#if !TARGET_OS_SIMULATOR
+	case lwcrForm: {
+		Requirement::Reader reader(this);
+		const UInt8* data = NULL;
+		size_t length = 0;
+		reader.getData(data, length);
+		CFRef<CFDataRef> lwcr = CFDataCreate(NULL, data, length);
+		if (evaluateLightweightCodeRequirement(ctx, lwcr)) {
+			CODESIGN_EVAL_REQINT_END(this, 0);
+			return true;
+		} else {
+			CODESIGN_EVAL_REQINT_END(this, failure);
+			return false;
+		}
+	}
+#endif
 	default:
 		CODESIGN_EVAL_REQINT_END(this, errSecCSReqUnsupported);
 		MacOSError::throwMe(errSecCSReqUnsupported);

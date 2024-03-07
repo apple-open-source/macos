@@ -114,7 +114,6 @@ private:
 
 class WebTouchEvent : public WebEvent {
 public:
-    WebTouchEvent() = default;
     WebTouchEvent(WebEvent&& event, const Vector<WebPlatformTouchPoint>& touchPoints, WebCore::IntPoint position, bool isPotentialTap, bool isGesture, float gestureScale, float gestureRotation, bool canPreventNativeGestures = true)
         : WebEvent(WTFMove(event))
         , m_touchPoints(touchPoints)
@@ -131,6 +130,7 @@ public:
     const Vector<WebPlatformTouchPoint>& touchPoints() const { return m_touchPoints; }
 
     WebCore::IntPoint position() const { return m_position; }
+    void setPosition(WebCore::IntPoint position) { m_position = position; }
 
     bool isPotentialTap() const { return m_isPotentialTap; }
 
@@ -142,9 +142,6 @@ public:
     void setCanPreventNativeGestures(bool canPreventNativeGestures) { m_canPreventNativeGestures = canPreventNativeGestures; }
 
     bool allTouchPointsAreReleased() const;
-
-    void encode(IPC::Encoder&) const;
-    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, WebTouchEvent&);
     
 private:
     Vector<WebPlatformTouchPoint> m_touchPoints;
@@ -187,9 +184,6 @@ public:
 
     void setState(State state) { m_state = state; }
 
-    void encode(IPC::Encoder&) const;
-    static std::optional<WebPlatformTouchPoint> decode(IPC::Decoder&);
-
 private:
     uint32_t m_id;
     State m_state;
@@ -202,7 +196,6 @@ private:
 
 class WebTouchEvent : public WebEvent {
 public:
-    WebTouchEvent() { }
     WebTouchEvent(WebEvent&&, Vector<WebPlatformTouchPoint>&&);
 
     const Vector<WebPlatformTouchPoint>& touchPoints() const { return m_touchPoints; }

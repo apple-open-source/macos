@@ -9,6 +9,7 @@
 
 @interface sanitizer_tests : XCTestCase {
 @private
+	malloc_zone_t *wrapped_zone;
 	malloc_zone_t *szone;
 }
 @end
@@ -16,13 +17,13 @@
 @implementation sanitizer_tests
 
 static bool did_allocate = false, did_deallocate = false, did_internal = false;
-static void heap_allocate(void *ptr, size_t leftrz, size_t alloc, size_t rightrz) {
+static void heap_allocate(uintptr_t ptr, size_t leftrz, size_t alloc, size_t rightrz) {
 	did_allocate = true;
 }
-static void heap_deallocate(void *ptr, size_t sz) {
+static void heap_deallocate(uintptr_t ptr, size_t sz) {
 	did_deallocate = true;
 }
-static void heap_internal(void *ptr, size_t sz) {
+static void heap_internal(uintptr_t ptr, size_t sz) {
 	did_internal = true;
 }
 
@@ -39,15 +40,15 @@ static void heap_internal(void *ptr, size_t sz) {
 
 	setenv("MallocSanitizerRedzoneSize", STR(REDZONE_SIZE), 1);
 	malloc_sanitizer_set_functions(&sanitizer_funcs);
-	malloc_zone_t *szone = create_scalable_zone(0, 0);
-	self->szone = sanitizer_create_zone(szone);
+	self->wrapped_zone = create_scalable_zone(0, 0);
+	self->szone = sanitizer_create_zone(wrapped_zone);
 }
 
 static void *
 memory_reader(task_t task, vm_address_t address, size_t size)
 {
 	void *p = malloc(size);
-	memcpy(p, address, size);
+	memcpy(p, (const void *)address, size);
 	return p;
 }
 
@@ -67,13 +68,27 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 	return;
 }
 
+- (void)testZoneSetup {
+	XCTAssertEqual(szone->introspect->zone_type, MALLOC_ZONE_TYPE_SANITIZER);
+
+	vm_address_t wrapped_zone_address;
+	kern_return_t kr = malloc_get_wrapped_zone(mach_task_self(),
+			/*memory_reader=*/NULL, (vm_address_t)szone, &wrapped_zone_address);
+	XCTAssertEqual(kr, KERN_SUCCESS);
+	XCTAssertEqual(wrapped_zone_address, (vm_address_t)wrapped_zone);
+
+	malloc_set_zone_name(szone, "MyZone");
+	XCTAssertEqualObjects(@(malloc_get_zone_name(szone)), @("MyZone"));
+	XCTAssertEqualObjects(@(malloc_get_zone_name(wrapped_zone)), @"MyZone-Sanitizer-Wrapped");
+}
+
 - (void)testStacktraces {
 	void *p = _sanitizer_test_allocationFunction(szone, 32);
 	XCTAssertNotNull(p);
 	_sanitizer_test_deallocationFunction(szone, p);
 
 	sanitizer_report_t report = {};
-	kern_return_t ret = sanitizer_diagnose_fault_from_crash_reporter(p, &report, mach_task_self(), szone, memory_reader);
+	kern_return_t ret = sanitizer_diagnose_fault_from_crash_reporter((vm_address_t)p, &report, mach_task_self(), (vm_address_t)szone, memory_reader);
 	XCTAssertEqual(ret, KERN_SUCCESS);
 
 	XCTAssertEqual(report.fault_address, (uintptr_t)p);
@@ -83,7 +98,7 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 	bool allocSiteFrameFound = false;
 	for (int i = 0; i < report.alloc_trace.num_frames; i++) {
 		Dl_info info = {};
-		dladdr(report.alloc_trace.frames[i], &info);
+		dladdr((const void *)report.alloc_trace.frames[i], &info);
 		NSLog(@"frame[%d] = %s", i, info.dli_sname);
 		if ([@(info.dli_sname) isEqualTo:@"_sanitizer_test_allocationFunction"]) {
 			allocSiteFrameFound = true;
@@ -95,7 +110,7 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 	bool deallocSiteFrameFound = false;
 	for (int i = 0; i < report.dealloc_trace.num_frames; i++) {
 		Dl_info info = {};
-		dladdr(report.dealloc_trace.frames[i], &info);
+		dladdr((const void *)report.dealloc_trace.frames[i], &info);
 		NSLog(@"frame[%d] = %s", i, info.dli_sname);
 		if ([@(info.dli_sname) isEqualTo:@"_sanitizer_test_deallocationFunction"]) {
 			deallocSiteFrameFound = true;
@@ -106,6 +121,9 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 }
 
 - (void)testPoisonAllocation {
+	did_allocate = false;
+	did_deallocate = false;
+	
 	XCTAssertFalse(did_allocate);
 	XCTAssertFalse(did_deallocate);
 
@@ -127,6 +145,40 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 	XCTAssertEqual(p, NULL);
 }
 
+- (void)testAllocationRedzoneSize {
+	did_allocate = false;
+	did_deallocate = false;
+
+	XCTAssertFalse(did_allocate);
+	XCTAssertFalse(did_deallocate);
+
+	const unsigned ASAN_GRANULARITY = 8;
+	const unsigned ALLOCATION_GRANULARITY = 16;
+	size_t szs[] = {4, 8, 12, 16, 20, 24};
+	for (size_t i = 0; i < sizeof(szs) / sizeof(*szs); ++i) {
+		void *p = _sanitizer_test_allocationFunction(szone, szs[i]);
+		XCTAssertNotNull(p);
+
+		size_t alloc_sz = wrapped_zone->size(wrapped_zone, p);
+		size_t usr_sz = szone->size(szone, p);
+		// User size should remain unchanged
+		XCTAssertEqual(usr_sz, szs[i]);
+		// Actual size should be padded to shadow granularity
+		XCTAssertEqual(alloc_sz % ASAN_GRANULARITY, 0);
+		// Actual size should include padded redzone
+		if (!(usr_sz % ALLOCATION_GRANULARITY)) {
+			XCTAssertEqual(alloc_sz, usr_sz + REDZONE_SIZE);
+		} else {
+			XCTAssertEqual(alloc_sz, usr_sz + REDZONE_SIZE + (ALLOCATION_GRANULARITY - (usr_sz & (ALLOCATION_GRANULARITY - 1))));
+		}
+
+		_sanitizer_test_deallocationFunction(szone, p);
+	}
+
+	XCTAssertTrue(did_allocate);
+	XCTAssertTrue(did_deallocate);
+}
+
 - (void)testInternalPoison {
 	char dummy[16];
 
@@ -134,7 +186,7 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 	const struct malloc_sanitizer_poison *funcs = malloc_sanitizer_get_functions();
 	XCTAssertNotNull(funcs);
 	XCTAssertNotNull(funcs->heap_internal_poison);
-	funcs->heap_internal_poison(dummy, sizeof(dummy));
+	funcs->heap_internal_poison((uintptr_t)dummy, sizeof(dummy));
 	XCTAssertTrue(did_internal);
 }
 

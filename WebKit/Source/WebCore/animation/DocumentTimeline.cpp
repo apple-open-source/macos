@@ -228,12 +228,11 @@ bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
         return false;
 
     // - has an associated animation effect whose target element is a descendant of doc, and
-    auto* effect = animation.effect();
-    if (!is<KeyframeEffect>(effect))
+    auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(animation.effect());
+    if (!keyframeEffect)
         return false;
 
-    auto& keyframeEffect = downcast<KeyframeEffect>(*effect);
-    auto target = keyframeEffect.targetStyleable();
+    auto target = keyframeEffect->targetStyleable();
     if (!target || !target->element.isDescendantOf(*m_document))
         return false;
 
@@ -245,14 +244,14 @@ IGNORE_GCC_WARNINGS_BEGIN("dangling-reference")
     }();
 IGNORE_GCC_WARNINGS_END
 
-    auto resolvedProperty = [&] (AnimatableProperty property) -> AnimatableProperty {
+    auto resolvedProperty = [&] (AnimatableCSSProperty property) -> AnimatableCSSProperty {
         if (std::holds_alternative<CSSPropertyID>(property))
             return CSSProperty::resolveDirectionAwareProperty(std::get<CSSPropertyID>(property), style.direction(), style.writingMode());
         return property;
     };
 
-    HashSet<AnimatableProperty> propertiesToMatch;
-    for (auto property : keyframeEffect.animatedProperties())
+    HashSet<AnimatableCSSProperty> propertiesToMatch;
+    for (auto property : keyframeEffect->animatedProperties())
         propertiesToMatch.add(resolvedProperty(property));
 
     auto protectedAnimations = [&]() -> Vector<RefPtr<WebAnimation>> {
@@ -480,7 +479,7 @@ unsigned DocumentTimeline::numberOfAnimationTimelineInvalidationsForTesting() co
 ExceptionOr<Ref<WebAnimation>> DocumentTimeline::animate(Ref<CustomEffectCallback>&& callback, std::optional<std::variant<double, CustomAnimationOptions>>&& options)
 {
     if (!m_document)
-        return Exception { InvalidStateError };
+        return Exception { ExceptionCode::InvalidStateError };
 
     String id = emptyString();
     std::variant<FramesPerSecond, AnimationFrameRatePreset> frameRate = AnimationFrameRatePreset::Auto;

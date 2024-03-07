@@ -26,6 +26,7 @@
 #import "config.h"
 #import "RemoteLayerTreeHost.h"
 
+#import "LayerProperties.h"
 #import "Logging.h"
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreePropertyApplier.h"
@@ -87,9 +88,9 @@ RemoteLayerBackingStoreProperties::LayerContentsType RemoteLayerTreeHost::layerC
 #endif
 }
 
-bool RemoteLayerTreeHost::replayCGDisplayListsIntoBackingStore() const
+bool RemoteLayerTreeHost::replayDynamicContentScalingDisplayListsIntoBackingStore() const
 {
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     return m_drawingArea->page().preferences().replayCGDisplayListsIntoBackingStore();
 #else
     return false;
@@ -99,6 +100,11 @@ bool RemoteLayerTreeHost::replayCGDisplayListsIntoBackingStore() const
 bool RemoteLayerTreeHost::css3DTransformInteroperabilityEnabled() const
 {
     return m_drawingArea->page().preferences().css3DTransformInteroperabilityEnabled();
+}
+
+bool RemoteLayerTreeHost::threadedAnimationResolutionEnabled() const
+{
+    return m_drawingArea->page().preferences().threadedAnimationResolutionEnabled();
 }
 
 #if PLATFORM(MAC)
@@ -372,38 +378,33 @@ std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteL
     };
 
     switch (properties.type) {
-    case PlatformCALayer::LayerTypeLayer:
-    case PlatformCALayer::LayerTypeWebLayer:
-    case PlatformCALayer::LayerTypeRootLayer:
-    case PlatformCALayer::LayerTypeSimpleLayer:
-    case PlatformCALayer::LayerTypeTiledBackingLayer:
-    case PlatformCALayer::LayerTypePageTiledBackingLayer:
-    case PlatformCALayer::LayerTypeTiledBackingTileLayer:
-    case PlatformCALayer::LayerTypeScrollContainerLayer:
+    case PlatformCALayer::LayerType::LayerTypeLayer:
+    case PlatformCALayer::LayerType::LayerTypeWebLayer:
+    case PlatformCALayer::LayerType::LayerTypeRootLayer:
+    case PlatformCALayer::LayerType::LayerTypeSimpleLayer:
+    case PlatformCALayer::LayerType::LayerTypeTiledBackingLayer:
+    case PlatformCALayer::LayerType::LayerTypePageTiledBackingLayer:
+    case PlatformCALayer::LayerType::LayerTypeTiledBackingTileLayer:
+    case PlatformCALayer::LayerType::LayerTypeScrollContainerLayer:
 #if ENABLE(MODEL_ELEMENT)
-    case PlatformCALayer::LayerTypeModelLayer:
+    case PlatformCALayer::LayerType::LayerTypeModelLayer:
 #endif
-    case PlatformCALayer::LayerTypeHost:
-    case PlatformCALayer::LayerTypeContentsProvidedLayer: {
+    case PlatformCALayer::LayerType::LayerTypeHost:
+    case PlatformCALayer::LayerType::LayerTypeContentsProvidedLayer: {
         auto layer = RemoteLayerTreeNode::createWithPlainLayer(properties.layerID);
         // So that the scrolling thread's performance logging code can find all the tiles, mark this as being a tile.
-        if (properties.type == PlatformCALayer::LayerTypeTiledBackingTileLayer)
+        if (properties.type == PlatformCALayer::LayerType::LayerTypeTiledBackingTileLayer)
             [layer->layer() setValue:@YES forKey:@"isTile"];
         return layer;
     }
 
-    case PlatformCALayer::LayerTypeTransformLayer:
+    case PlatformCALayer::LayerType::LayerTypeTransformLayer:
         return makeWithLayer(adoptNS([[CATransformLayer alloc] init]));
 
-    case PlatformCALayer::LayerTypeBackdropLayer:
-#if ENABLE(FILTERS_LEVEL_2)
+    case PlatformCALayer::LayerType::LayerTypeBackdropLayer:
         return makeWithLayer(adoptNS([[CABackdropLayer alloc] init]));
-#else
-        ASSERT_NOT_REACHED();
-        return RemoteLayerTreeNode::createWithPlainLayer(properties.layerID);
-#endif
-    case PlatformCALayer::LayerTypeCustom:
-    case PlatformCALayer::LayerTypeAVPlayerLayer:
+    case PlatformCALayer::LayerType::LayerTypeCustom:
+    case PlatformCALayer::LayerType::LayerTypeAVPlayerLayer:
         if (m_isDebugLayerTreeHost)
             return RemoteLayerTreeNode::createWithPlainLayer(properties.layerID);
 
@@ -418,7 +419,7 @@ std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteL
 
         return makeWithLayer([CALayer _web_renderLayerWithContextID:properties.hostingContextID() shouldPreserveFlip:properties.preservesFlip()]);
 
-    case PlatformCALayer::LayerTypeShapeLayer:
+    case PlatformCALayer::LayerType::LayerTypeShapeLayer:
         return makeWithLayer(adoptNS([[CAShapeLayer alloc] init]));
     }
     ASSERT_NOT_REACHED();
@@ -450,6 +451,23 @@ void RemoteLayerTreeHost::mapAllIOSurfaceBackingStore()
 {
     recursivelyMapIOSurfaceBackingStore(rootLayer());
 }
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+void RemoteLayerTreeHost::animationsWereAddedToNode(RemoteLayerTreeNode& node)
+{
+    m_drawingArea->animationsWereAddedToNode(node);
+}
+
+void RemoteLayerTreeHost::animationsWereRemovedFromNode(RemoteLayerTreeNode& node)
+{
+    m_drawingArea->animationsWereRemovedFromNode(node);
+}
+
+Seconds RemoteLayerTreeHost::acceleratedTimelineTimeOrigin() const
+{
+    return m_drawingArea->acceleratedTimelineTimeOrigin();
+}
+#endif
 
 } // namespace WebKit
 

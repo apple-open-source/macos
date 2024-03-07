@@ -5,9 +5,6 @@ en_IN{
     %%Parent{"en_001"}
     NumberElements{
         latn{
-            miscPatterns{
-                range{"{0}–{1}"}
-            }
             patterns{
                 currencyFormat{"¤ #,##,##0.00"}
                 decimalFormat{"#,##,##0.###"}
@@ -187,6 +184,8 @@ en_IN{
                 Ehms{"E, h:mm:ss a"}
                 GyMMM{"MMM, y G"}
                 MEd{"E, d/M"}
+                MMMEEEEd{"EEEE d MMM"}
+                MMMMEEEEd{"EEEE d MMMM"}
                 Md{"d/M"}
                 yyyyM{"M/y GGGGG"}
                 yyyyMEd{"E, d/M/y GGGGG"}
@@ -199,6 +198,12 @@ en_IN{
                     d{"E, d/M/y – E, d/M/y GGGGG"}
                     y{"E, d/M/y – E, d/M/y GGGGG"}
                 }
+                GyMMMEEEEd{
+                    G{"EEEE d MMM y G – EEEE d MMM, y G"}
+                    M{"EEEE d MMM – EEEE d MMM, y G"}
+                    d{"EEEE d MMM – EEEE d MMM, y G"}
+                    y{"EEEE d MMM y – EEEE d MMM, y G"}
+                }
                 GyMd{
                     G{"d/M/y GGGGG – d/M/y GGGGG"}
                     M{"d/M/y – d/M/y GGGGG"}
@@ -208,6 +213,10 @@ en_IN{
                 MEd{
                     M{"E, dd/MM – E, dd/MM"}
                     d{"E, dd/MM – E, dd/MM"}
+                }
+                MMMEEEEd{
+                    M{"EEEE d MMM – EEEE d MMM"}
+                    d{"EEEE d – EEEE d MMM"}
                 }
                 MMMEd{
                     M{"E, d MMM – E, d MMM"}
@@ -246,7 +255,7 @@ en_IN{
                 "h:mm a",
                 "EEEE, d MMMM y",
                 "d MMMM y",
-                "dd-MMM-y",
+                "d MMM y",
                 "dd/MM/yy",
                 "{1}, {0}",
                 "{1}, {0}",
@@ -271,24 +280,50 @@ en_IN{
                 EHms{"E, HH:mm:ss"}
                 Ehm{"E, h:mm a"}
                 Ehms{"E, h:mm:ss a"}
+                GyMMMEEEEd{"EEEE d MMM, y G"}
+                MMMMEEEEd{"EEEE d MMMM"}
                 yMEd{"E, d/M/y"}
+                yMMMMEEEEd{"EEEE d MMMM, y"}
                 yMd{"d/M/y"}
             }
+            dayPeriod{
+                stand-alone{
+                    narrow{
+                        am{"am"}
+                        pm{"pm"}
+                    }
+                }
+            }
             intervalFormats{
+                GyMMMEEEEd{
+                    G{"EEEE d MMM y G – EEEE d MMM y G"}
+                    M{"EEEE d MMM – EEEE d MMM y G"}
+                    d{"EEEE d MMM – EEEE d MMM y G"}
+                    y{"EEEE d MMM y – EEEE d MMM y G"}
+                }
                 MEd{
                     M{"E, dd/MM – E, dd/MM"}
                     d{"E, dd/MM – E, dd/MM"}
+                }
+                MMMEEEEd{
+                    M{"EEEE d MMM – EEEE d MMM"}
+                    d{"EEEE d – EEEE d MMM"}
                 }
                 MMMEd{
                     M{"E, d MMM – E, d MMM"}
                     d{"E, d – E, d MMM"}
                 }
+                yMMMEEEEd{
+                    M{"EEEE d MMM – EEEE d MMM y"}
+                    d{"EEEE d – EEEE d MMM y"}
+                    y{"EEEE d MMM y – EEEE d MMM y"}
+                }
+                yMMMMEEEEd{
+                    M{"EEEE d MMMM – EEEE d MMMM y"}
+                    d{"EEEE d – EEEE d MMMM y"}
+                    y{"EEEE d MMMM y – EEEE d MMMM y"}
+                }
             }
-        }
-    }
-    fields{
-        dayperiod{
-            dn{"AM/PM"}
         }
     }
     listPattern{

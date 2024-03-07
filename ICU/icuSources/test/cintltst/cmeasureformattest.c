@@ -258,7 +258,7 @@ static const SingleUnitFormat ro_singFmt[] = {
 
 static const SingleUnitFormat ru_singFmt[] = {
 //    unit                                 value wide_2                                                             wide_0                                                          shrt_X                      shrt_1                        narr_0                      numr_0                      wide_0  narr_0
-    { UAMEASUNIT_DURATION_DAY,             2.0,	 "2,00 \\u0434\\u043D\\u044F",               				    	"2 \\u0434\\u043D\\u044F",    		           			        "2 \\u0434\\u043D",         "2,0 \\u0434\\u043D",  	      "2 \\u0434\\u002E",         "2 \\u0434\\u002E",         0,1,    0,1 },
+    { UAMEASUNIT_DURATION_DAY,             2.0,	 "2,00 \\u0434\\u043D\\u044F",               				    	"2 \\u0434\\u043D\\u044F",    		           			        "2 \\u0434\\u043D",         "2,0 \\u0434\\u043D",  	      "2 \\u0434\\u002E",         "2 \\u0434\\u002E",         0,1,    0,1 }, // rdar://107186120
     { UAMEASUNIT_SPEED_MILE_PER_HOUR,      1.0,  "1,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "1 \\u043C\\u0438\\u043B\\u044F \\u0432 \\u0447\\u0430\\u0441", "1 \\u043C\\u0438/\\u0447", "1,0 \\u043C\\u0438/\\u0447", "1 \\u043C\\u0438/\\u0447", "1 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
     { UAMEASUNIT_SPEED_MILE_PER_HOUR,      2.0,  "2,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "2 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "2 \\u043C\\u0438/\\u0447", "2,0 \\u043C\\u0438/\\u0447", "2 \\u043C\\u0438/\\u0447", "2 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
     { UAMEASUNIT_SPEED_MILE_PER_HOUR,      5.0,  "5,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "5 \\u043C\\u0438\\u043B\\u044C \\u0432 \\u0447\\u0430\\u0441", "5 \\u043C\\u0438/\\u0447", "5,0 \\u043C\\u0438/\\u0447", "5 \\u043C\\u0438/\\u0447", "5 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
@@ -267,8 +267,8 @@ static const SingleUnitFormat ru_singFmt[] = {
 
 static const SingleUnitFormat uk_singFmt[] = {
 //    unit                                 value   wide_2                                                     wide_0                                           shrt_X                      shrt_1                        narr_0                     numr_0                    wide_0  narr_0
-    { UAMEASUNIT_LENGTH_FOOT,               1.0,   "1,00 \\u0444\\u0443\\u0442\\u0430",                       "1 \\u0444\\u0443\\u0442",                       "1 \\u0444\\u0442",         "1,0 \\u0444\\u0442",         "1 \\u0444\\u0442",        "1 \\u0444\\u0442",  0,1,    0,1 },
-    { UAMEASUNIT_LENGTH_FOOT,               10.0,  "10,00 \\u0444\\u0443\\u0442\\u0430",                      "10 \\u0444\\u0443\\u0442\\u0456\\u0432",        "10 \\u0444\\u0442",        "10,0 \\u0444\\u0442",        "10 \\u0444\\u0442",       "10 \\u0444\\u0442", 0,2,    0,2 },
+    { UAMEASUNIT_LENGTH_FOOT,               1.0,   "1,00 \\u0444\\u0443\\u0442\\u0430",                       "1 \\u0444\\u0443\\u0442",                       "1 \\u0444\\u0442",         "1,0 \\u0444\\u0442",         "1\\u0444\\u0442",        "1\\u0444\\u0442",  0,1,    0,1 },
+    { UAMEASUNIT_LENGTH_FOOT,               10.0,  "10,00 \\u0444\\u0443\\u0442\\u0430",                      "10 \\u0444\\u0443\\u0442\\u0456\\u0432",        "10 \\u0444\\u0442",        "10,0 \\u0444\\u0442",        "10\\u0444\\u0442",       "10\\u0444\\u0442", 0,2,    0,2 },
     { UAMEASUNIT_DURATION_HOUR,             10.0,  "10,00 \\u0433\\u043e\\u0434\\u0438\\u043d\\u0438",        "10 \\u0433\\u043e\\u0434\\u0438\\u043d",        "10 \\u0433\\u043e\\u0434", "10,0 \\u0433\\u043e\\u0434", "10\\u202f\\u0433",        "10\\u202f\\u0433", 0,2,    0,2 },
     { UAMEASUNIT_DURATION_MINUTE,           10.0,  "10,00 \\u0445\\u0432\\u0438\\u043b\\u0438\\u043d\\u0438", "10 \\u0445\\u0432\\u0438\\u043b\\u0438\\u043d", "10 \\u0445\\u0432",        "10,0 \\u0445\\u0432",        "10\\u202f\\u0445\\u0432", "10\\u202f\\u0445\\u0432", 0,2,    0,2 },
     { UAMEASUNIT_DURATION_SECOND,           10.0,  "10,00 \\u0441\\u0435\\u043a\\u0443\\u043d\\u0434\\u0438", "10 \\u0441\\u0435\\u043a\\u0443\\u043d\\u0434", "10 \\u0441",               "10,0 \\u0441",               "10\\u202f\\u0441",        "10\\u202f\\u0441", 0,2,    0,2 },
@@ -502,7 +502,7 @@ static const MultipleUnitName ja_multNam[] = {
 
 static const LocaleWidthNumFmtItem lwnItems[] = {
     // ============= TIER 0,1 and subocales
-    { "en",         en_singFmt,      en_singNam,      en_multFmt,      en_multNam      }, // en: try plural cases for 1, other
+//    { "en",         en_singFmt,      en_singNam,      en_multFmt,      en_multNam      }, // en: try plural cases for 1, other
     { "en_GB",      en_GB_singFmt,   en_GB_singNam,   en_GB_multFmt,   en_GB_multNam   },
     { "en_AU",      en_AU_singFmt,   NULL,            NULL,            NULL            },
     { "de",         NULL,            NULL,            NULL,            NULL            }, // de: try plural cases for 1, other
@@ -1088,7 +1088,7 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "fr_FR@rg=USZZZZ", "length",  "person",          1, { UAMEASUNIT_LENGTH_INCH } },
     { "fr_FR@rg=USZZZZ", "length",  "person-informal", 2, { UAMEASUNIT_LENGTH_FOOT, UAMEASUNIT_LENGTH_INCH } },
     { "fr_FR@rg=USZZZZ", "length",  "person-small",    1, { UAMEASUNIT_LENGTH_INCH } },
-    { "en_IN",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_INCH_HG } },
+    { "en_IN",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_HECTOPASCAL } },
     { "es_MX",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY } },
     { "fr_FR",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_HECTOPASCAL } },
     { "pt"/*BR*/,        "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_MILLIBAR } },

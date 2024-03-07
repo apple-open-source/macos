@@ -23,18 +23,19 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PDFPluginAnnotation_h
-#define PDFPluginAnnotation_h
+#pragma once
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(LEGACY_PDFKIT_PLUGIN)
 
 #include <WebCore/EventListener.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 class Document;
 class Element;
+class WeakPtrImplWithEventTargetData;
 }
 
 OBJC_CLASS PDFAnnotation;
@@ -60,15 +61,14 @@ public:
 
 protected:
     PDFPluginAnnotation(PDFAnnotation *annotation, PDFLayerController *pdfLayerController, PDFPlugin* plugin)
-        : m_parent(0)
-        , m_annotation(annotation)
+        : m_annotation(annotation)
         , m_eventListener(PDFPluginAnnotationEventListener::create(this))
         , m_pdfLayerController(pdfLayerController)
         , m_plugin(plugin)
     {
     }
 
-    WebCore::Element* parent() const { return m_parent; }
+    WebCore::Element* parent() const { return m_parent.get(); }
     PDFLayerController *pdfLayerController() const { return m_pdfLayerController; }
     WebCore::EventListener* eventListener() const { return m_eventListener.get(); }
 
@@ -99,7 +99,7 @@ private:
         PDFPluginAnnotation* m_annotation;
     };
 
-    WebCore::Element* m_parent;
+    WeakPtr<WebCore::Element, WebCore::WeakPtrImplWithEventTargetData> m_parent;
 
     RefPtr<WebCore::Element> m_element;
     RetainPtr<PDFAnnotation> m_annotation;
@@ -112,6 +112,4 @@ private:
 
 } // namespace WebKit
 
-#endif // ENABLE(PDFKIT_PLUGIN)
-
-#endif // PDFPluginAnnotation_h
+#endif // ENABLE(LEGACY_PDFKIT_PLUGIN)

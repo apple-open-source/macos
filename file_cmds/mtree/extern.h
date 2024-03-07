@@ -59,6 +59,7 @@ void	 read_excludes_file(const char *);
 const char * ftype(u_int type);
 
 extern int ftsoptions;
+extern int xattr_options;
 extern u_int keys;
 extern int lineno;
 extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag, mflag, tflag, xflag;

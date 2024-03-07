@@ -48,7 +48,12 @@
 #import <AppKit/AppKit.h>
 
 #import "MBCBoard.h"
+
+#ifdef CHESS_TUNER
+#import "Chess_Tuner-Swift.h"
+#else
 #import "Chess-Swift.h"
+#endif
 
 @class MBCBoard;
 @class MBCBoardView;

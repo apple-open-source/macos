@@ -1479,7 +1479,7 @@ nfs4_vnop_getattr(
 	struct nfs_vattr *nva;
 	int error, acls, ngaflags;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_GETATTR, nmp, vp, np, vap);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_GETATTR, NFSNODE_FILEID(np), vp, np, vap);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -1499,8 +1499,7 @@ nfs4_vnop_getattr(
 
 	/* copy what we have in nva to *a_vap */
 	if (VATTR_IS_ACTIVE(vap, va_rdev) && NFS_BITMAP_ISSET(nva->nva_bitmap, NFS_FATTR_RAWDEV)) {
-		dev_t rdev = makedev(nva->nva_rawdev.specdata1, nva->nva_rawdev.specdata2);
-		VATTR_RETURN(vap, va_rdev, rdev);
+		VATTR_RETURN(vap, va_rdev, nva->nva_rawdev);
 	}
 	if (VATTR_IS_ACTIVE(vap, va_nlink) && NFS_BITMAP_ISSET(nva->nva_bitmap, NFS_FATTR_NUMLINKS)) {
 		VATTR_RETURN(vap, va_nlink, nva->nva_nlink);
@@ -1595,7 +1594,7 @@ out:
 	zfree(get_zone(NFS_VATTR), nva);
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_GETATTR, nmp, vp, np, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_GETATTR, NFSNODE_FILEID(np), vp, np, error);
 	return NFS_MAPERR(error);
 }
 
@@ -2154,12 +2153,12 @@ nfs_owner_seqid_increment(struct nfs_open_owner *noop, struct nfs_lock_owner *nl
 	switch (error) {
 	case NFSERR_STALE_CLIENTID:
 	case NFSERR_STALE_STATEID:
-	case NFSERR_OLD_STATEID:
 	case NFSERR_BAD_STATEID:
 	case NFSERR_BAD_SEQID:
 	case NFSERR_BADXDR:
 	case NFSERR_RESOURCE:
 	case NFSERR_NOFILEHANDLE:
+	case NFSERR_MOVED:
 		/* do not increment the open seqid on these errors */
 		return;
 	}
@@ -2285,7 +2284,7 @@ nfs_open_file_destroy(struct nfs_open_file *nofp)
  * acquire a reference count on an open file.
  * nofp->nof_lock mutex must be held.
  */
-void
+static void
 nfs_open_file_busy_ref(struct nfs_open_file *nofp)
 {
 	nofp->nof_flags |= NFS_OPEN_FILE_BUSY;
@@ -2677,6 +2676,41 @@ nfs_open_file_remove_open(struct nfs_open_file *nofp, uint32_t accessMode, uint3
 	lck_mtx_unlock(&nofp->nof_lock);
 }
 
+static void
+nfs_open_file_merge_helper(struct nfs_open_file *nofp, struct nfs_open_file *newnofp, uint32_t accessMode, uint32_t denyMode)
+{
+	if ((newnofp->nof_flags & NFS_OPEN_FILE_MERGED) == 0) {
+		nfs_open_file_add_open(nofp, accessMode, denyMode, 0);
+		lck_mtx_lock(&nofp->nof_lock);
+		if ((int32_t)(nofp->nof_stateid.seqid - newnofp->nof_stateid.seqid) < 0) {
+			nofp->nof_stateid = newnofp->nof_stateid;
+		}
+		nofp->nof_flags |= newnofp->nof_flags & NFS_OPEN_FILE_POSIXLOCK;
+		newnofp->nof_flags |= NFS_OPEN_FILE_MERGED;
+		lck_mtx_unlock(&nofp->nof_lock);
+	}
+}
+
+/*
+ * An open file struct already exists.
+ * Mark the existing one busy and merge our open into it.
+ * Then destroy the one we created.
+ * Note: there's no chance of an open confict because the
+ * open has already been granted.
+ */
+int
+nfs_open_file_merge(struct nfs_open_file *nofp, struct nfs_open_file *newnofp, uint32_t accessMode, uint32_t denyMode)
+{
+	int busyerror;
+
+	busyerror = nfs_open_file_set_busy(nofp, NULL);
+	nfs_open_file_merge_helper(nofp, newnofp, accessMode, denyMode);
+	nfs_open_file_clear_busy(newnofp);
+	nfs_open_file_destroy(newnofp);
+
+	return busyerror;
+}
+
 #if CONFIG_NFS4
 /*
  * Get the current (delegation, lock, open, default) stateid for this node.
@@ -2938,7 +2972,7 @@ tryagain:
 	error = nfs4_open_rpc(nofp, ctx, &cn, NULL, dvp, &vp, NFS_OPEN_NOCREATE, accessMode, denyMode);
 	if (error) {
 		if (!nfs_mount_state_error_should_restart(error) &&
-		    (error != EINTR) && (error != ERESTART) && readtoo) {
+		    (error != EINTR) && (error != ERESTART) && (error != ESTALE) && readtoo) {
 			/* try again without the extra read access */
 			accessMode &= ~NFS_OPEN_SHARE_ACCESS_READ;
 			readtoo = 0;
@@ -2979,7 +3013,7 @@ nfs_vnop_mmap(
 	struct nfs_open_owner *noop = NULL;
 	struct nfs_open_file *nofp = NULL;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN_MMAP, nmp, vp, np, ap->a_fflags);
+	NFS_KDBG_ENTRY(NFSDBG_VN_MMAP, NFSNODE_FILEID(np), vp, np, ap->a_fflags);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -3233,7 +3267,7 @@ out:
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN_MMAP, vp, np, ap->a_fflags, error);
+	NFS_KDBG_EXIT(NFSDBG_VN_MMAP, NFSNODE_FILEID(np), vp, ap->a_fflags, error);
 	return NFS_MAPERR(error);
 }
 
@@ -3252,7 +3286,7 @@ nfs_vnop_mmap_check(
 	struct vnop_access_args naa;
 	int error = 0;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN_MMAP_CHECK, nmp, vp, ap->a_flags);
+	NFS_KDBG_ENTRY(NFSDBG_VN_MMAP_CHECK, NFSNODE_FILEID(VTONFS(vp)), nmp, vp, ap->a_flags);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -3275,7 +3309,7 @@ nfs_vnop_mmap_check(
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN_MMAP_CHECK, nmp, vp, ap->a_flags, error);
+	NFS_KDBG_EXIT(NFSDBG_VN_MMAP_CHECK, NFSNODE_FILEID(VTONFS(vp)), vp, ap->a_flags, error);
 	return NFS_MAPERR(error);
 }
 
@@ -3296,7 +3330,7 @@ nfs_vnop_mnomap(
 	int error, skip_inuse_end = 0;
 	int is_mapped_flag = 0;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN_MNOMAP, nmp, vp, np);
+	NFS_KDBG_ENTRY(NFSDBG_VN_MNOMAP, NFSNODE_FILEID(np), nmp, vp, np);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -3377,7 +3411,7 @@ loop:
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN_MNOMAP, nmp, vp, np, error);
+	NFS_KDBG_EXIT(NFSDBG_VN_MNOMAP, NFSNODE_FILEID(np), vp, np, error);
 	return NFS_MAPERR(error);
 }
 
@@ -3676,64 +3710,6 @@ nfs_file_lock_conflict(struct nfs_file_lock *nflp1, struct nfs_file_lock *nflp2,
 	return 1;
 }
 
-/*
- * A potential for deadlock occurs if a process controlling a locked region
- * is put to sleep by attempting to lock another process' locked region.
- * If the system detects that sleeping until a locked region is unlocked would
- * cause a deadlock, fcntl() shall fail with an [EDEADLK] error.
- *
- * Assume np->n_openlock lock is held.
- */
-int
-nfs_file_lock_deadlock(struct nfs_open_owner *noop, nfsnode_t np, pid_t newnfl_pid, pid_t nflp_pid)
-{
-	int error = 0;
-	struct nfs_open_file *nofp = NULL;
-	struct nfs_file_lock *nflp1 = NULL, *nflp2 = NULL;
-
-	/* First, release np->n_openlock to avoid deadlocks */
-	lck_mtx_unlock(&np->n_openlock);
-
-	/* Get the open owner, and iterate over it's open files */
-	lck_mtx_lock(&noop->noo_lock);
-	TAILQ_FOREACH(nofp, &noop->noo_opens, nof_oolink) {
-		if (nofp->nof_np == np) {
-			/* We dont need to check the lock of the current file */
-			continue;
-		}
-		/* For each file, iterate over it's locks */
-		lck_mtx_lock(&nofp->nof_np->n_openlock);
-		TAILQ_FOREACH(nflp1, &nofp->nof_np->n_locks, nfl_link) {
-			/* Find the lock of the current process, make sure it is not blocked or dead, and at least single process is blocked on it */
-			if (nflp1->nfl_owner->nlo_pid == newnfl_pid && !ISSET(nflp1->nfl_flags, NFS_FILE_LOCK_BLOCKED | NFS_FILE_LOCK_DEAD) && nflp1->nfl_blockcnt) {
-				/* Find a lock of the other process, make sure it is blocked, but not dead */
-				TAILQ_FOREACH(nflp2, &nofp->nof_np->n_locks, nfl_link) {
-					if (nflp2->nfl_owner->nlo_pid == nflp_pid && ISSET(nflp2->nfl_flags, NFS_FILE_LOCK_BLOCKED) && !ISSET(nflp2->nfl_flags, NFS_FILE_LOCK_DEAD)) {
-						/* Check for conflict for the two locks */
-						if (nfs_file_lock_conflict(nflp1, nflp2, NULL)) {
-							error = EDEADLK;
-							break;
-						}
-					}
-				}
-				if (error) {
-					break;
-				}
-			}
-		}
-		lck_mtx_unlock(&nofp->nof_np->n_openlock);
-		if (error) {
-			break;
-		}
-	}
-	lck_mtx_unlock(&noop->noo_lock);
-
-	/* Acquire np->n_openlock before return  */
-	lck_mtx_lock(&np->n_openlock);
-
-	return error;
-}
-
 #if CONFIG_NFS4
 /*
  * Send an NFSv4 LOCK RPC to the server.
@@ -3834,15 +3810,13 @@ nfs4_setlock_rpc(
 	error = nfs_request2(np, NULL, &nmreq, NFSPROC4_COMPOUND,
 	    thd, cred, &si, flags | R_NOINTR | R_NOUMOUNTINTR, &nmrep, &xid, &status);
 
-	if ((lockerror = nfs_node_lock(np))) {
-		error = lockerror;
-	}
+	lockerror = nfs_node_lock(np);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
 	nfsmout_if(error);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
-	nfsm_chain_loadattr(error, &nmrep, np, NFS_VER4, &xid);
+	nfsm_chain_loadattr(error, &nmrep, (lockerror == 0) ? np : NULL, NFS_VER4, &xid);
 	nfsmout_if(error);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_LOCK);
 	nfs_owner_seqid_increment(newlocker ? nofp->nof_owner : NULL, nlop, error);
@@ -3928,15 +3902,13 @@ nfs4_unlock_rpc(
 	error = nfs_request2(np, NULL, &nmreq, NFSPROC4_COMPOUND,
 	    thd, cred, &si, flags | R_NOINTR | R_NOUMOUNTINTR, &nmrep, &xid, &status);
 
-	if ((lockerror = nfs_node_lock(np))) {
-		error = lockerror;
-	}
+	lockerror = nfs_node_lock(np);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
 	nfsmout_if(error);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
-	nfsm_chain_loadattr(error, &nmrep, np, NFS_VER4, &xid);
+	nfsm_chain_loadattr(error, &nmrep, (lockerror == 0) ? np : NULL, NFS_VER4, &xid);
 	nfsmout_if(error);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_LOCKU);
 	nfs_owner_seqid_increment(NULL, nlop, error);
@@ -4226,11 +4198,6 @@ restart:
 		/* Block until this lock is no longer held. */
 		if (nflp->nfl_blockcnt == UINT_MAX) {
 			error = ENOLCK;
-			break;
-		}
-		/* Check for potential deadlock */
-		error = nfs_file_lock_deadlock(nofp->nof_owner, np, newnflp->nfl_owner->nlo_pid, nflp->nfl_owner->nlo_pid);
-		if (error) {
 			break;
 		}
 		nflp->nfl_blockcnt++;
@@ -4901,7 +4868,7 @@ nfs_vnop_advlock(
 	enum vtype vtype;
 #define OFF_MAX QUAD_MAX
 
-	NFS_KDBG_ENTRY(NFSDBG_VN_ADVLOCK, vp, lockid, op, flags);
+	NFS_KDBG_ENTRY(NFSDBG_VN_ADVLOCK, NFSNODE_FILEID(np), vp, lockid, op);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -5066,7 +5033,7 @@ out:
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN_ADVLOCK, vp, op, flags, error);
+	NFS_KDBG_EXIT(NFSDBG_VN_ADVLOCK, NFSNODE_FILEID(np), vp, op, error);
 	return NFS_MAPERR(error);
 }
 
@@ -5483,9 +5450,6 @@ again:
 		savedxid = xid;
 	}
 
-	if ((lockerror = nfs_node_lock(dnp))) {
-		error = lockerror;
-	}
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
@@ -5494,6 +5458,10 @@ again:
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_OPEN);
 	nfs_owner_seqid_increment(noop, NULL, error);
 	nfsm_chain_get_stateid(error, &nmrep, sid);
+	if ((lockerror = nfs_node_lock(dnp))) {
+		error = lockerror;
+	}
+	nfsmout_if(error);
 	nfsm_chain_check_change_info_open(error, &nmrep, dnp, ciflag);
 	nfsm_chain_get_32(error, &nmrep, rflags);
 	bmlen = NFS_ATTR_BITMAP_LEN;
@@ -5569,7 +5537,10 @@ again:
 		// XXX for the open case, what if fh doesn't match the vnode we think we're opening?
 		// Solaris Named Attributes may do this due to a bug.... so don't warn for named attributes.
 		if (!(np->n_vattr.nva_flags & NFS_FFLAG_IS_ATTR)) {
-			NP(np, "nfs4_open_rpc: warning: file handle mismatch");
+			error = nfs4_open_handle_fh_mismatch(dnp, nofp, cnp->cn_nameptr, cnp->cn_namelen, fh, nvattr, &xid, req->r_auth, thd, cred);
+			NP(np, "nfs4_open_rpc_internal: file handle mismatch detected %d", error);
+			error = ESTALE;
+			goto nfsmout;
 		}
 	}
 	/* directory attributes: if we don't get them, make sure to invalidate */
@@ -5622,6 +5593,21 @@ nfsmout:
 		error = nfs_nget(NFSTOMP(dnp), dnp, cnp, fh->fh_data, fh->fh_len, nvattr, &xid, req->r_auth, NG_MAKEENTRY, &newnp);
 		if (!error) {
 			newvp = NFSTOV(newnp);
+
+			/*
+			 * We were called with an unassigned open file, indicating that we are currently in the process of creating new file.
+			 * Before releasing the busy lock of the open-owner, we need to verify whether the recently created file already has
+			 * an open-file entry and update it's stateid.
+			 *
+			 * For more info see rdar://112815382
+			 */
+			if (!nofp->nof_np) {
+				struct nfs_open_file *newnp_nofp = nofp;
+				int find_error = nfs_open_file_find_internal(newnp, noop, &newnp_nofp, 0, 0, 0);
+				if (!find_error && newnp_nofp != nofp) {
+					nfs_open_file_merge_helper(newnp_nofp, nofp, share_access, share_deny);
+				}
+			}
 		}
 	}
 	NVATTR_CLEANUP(nvattr);
@@ -5710,6 +5696,55 @@ nfsmout:
 	return error;
 }
 
+/*
+ * The opened fh doesn't match the vnode we think we're opening
+ * We should close the file that has been opened, using both the
+ * file handle and state ID that has been obtained.
+ *
+ * MUST be called while open-owner is "busy" state is acquired.
+ */
+int
+nfs4_open_handle_fh_mismatch(nfsnode_t dnp,
+    struct nfs_open_file *nofp,
+    char *name,
+    int namelen,
+    fhandle_t *fh,
+    struct nfs_vattr *nvattr,
+    u_int64_t *xid,
+    uint32_t auth,
+    thread_t thd,
+    kauth_cred_t cred)
+{
+	int error;
+	nfsnode_t tmpnp = NULL;
+	struct componentname cn = {};
+	struct nfs_open_file *tmpnofp = NULL;
+
+	cn.cn_nameptr = name;
+	cn.cn_namelen = namelen;
+	cn.cn_nameiop = LOOKUP;
+	cn.cn_flags = MAKEENTRY;
+
+	error = nfs_nget(NFSTOMP(dnp), dnp, &cn, fh->fh_data, fh->fh_len, nvattr, xid, auth, NG_MAKEENTRY, &tmpnp);
+	if (!error && tmpnp) {
+		nfs_node_unlock(tmpnp);
+		error = nfs_open_file_find(tmpnp, nofp->nof_owner, &tmpnofp, nofp->nof_access, nofp->nof_deny, 0);
+		if (error) {
+			/* open-file was not found, we should close the current one */
+			error = nfs4_close_rpc(tmpnp, nofp, thd, cred, 0, 1);
+		} else {
+			/* open-file was found, we should update it's stateid with the one we just opened */
+			lck_mtx_lock(&tmpnofp->nof_lock);
+			tmpnofp->nof_stateid = nofp->nof_stateid;
+			lck_mtx_unlock(&tmpnofp->nof_lock);
+			memset(&nofp->nof_stateid, 0, sizeof(nofp->nof_stateid));
+			nofp->nof_flags |= NFS_OPEN_FILE_REOPEN;
+		}
+		vnode_put(NFSTOV(tmpnp));
+	}
+
+	return error;
+}
 
 /*
  * Send an OPEN RPC to claim a delegated open for a file
@@ -5743,6 +5778,7 @@ nfs4_claim_delegated_open_rpc(
 	char smallname[128];
 	char *filename = NULL;
 	struct nfsreq_secinfo_args si;
+	struct nfsreq *req;
 
 	nmp = NFSTONMP(np);
 	if (nfs_mount_gone(nmp)) {
@@ -5844,12 +5880,12 @@ nfs4_claim_delegated_open_rpc(
 	nfsm_assert(error, (numops == 0), EPROTO);
 	nfsmout_if(error);
 
-	error = nfs_request2(np, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, current_thread(),
-	    noop->noo_cred, &si, flags | R_NOINTR, &nmrep, &xid, &status);
-
-	if ((lockerror = nfs_node_lock(np))) {
-		error = lockerror;
+	error = nfs_request_async(np, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, current_thread(),
+	    noop->noo_cred, &si, flags | R_NOINTR, NULL, &req);
+	if (!error) {
+		error = nfs_request_async_finish(req, &nmrep, &xid, &status);
 	}
+
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
@@ -5857,6 +5893,10 @@ nfs4_claim_delegated_open_rpc(
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_OPEN);
 	nfs_owner_seqid_increment(noop, NULL, error);
 	nfsm_chain_get_stateid(error, &nmrep, &nofp->nof_stateid);
+	if ((lockerror = nfs_node_lock(np))) {
+		error = lockerror;
+	}
+	nfsmout_if(error);
 	nfsm_chain_check_change_info_open(error, &nmrep, VTONFS(dvp), 0);
 	nfsm_chain_get_32(error, &nmrep, rflags);
 	bmlen = NFS_ATTR_BITMAP_LEN;
@@ -5952,7 +5992,10 @@ nfs4_claim_delegated_open_rpc(
 		// XXX what if fh doesn't match the vnode we think we're re-opening?
 		// Solaris Named Attributes may do this due to a bug.... so don't warn for named attributes.
 		if (!(np->n_vattr.nva_flags & NFS_FFLAG_IS_ATTR)) {
-			printf("nfs4_claim_delegated_open_rpc: warning: file handle mismatch %s\n", filename ? filename : "???");
+			error = nfs4_open_handle_fh_mismatch(VTONFS(dvp), nofp, filename, namelen, fh, nvattr, &xid, req->r_auth, current_thread(), noop->noo_cred);
+			printf("nfs4_claim_delegated_open_rpc: file handle mismatch of %s detected %d", filename ? filename : "???", error);
+			error = ESTALE;
+			goto nfsmout;
 		}
 	}
 	error = nfs_loadattrcache(np, nvattr, &xid, 1);
@@ -6076,9 +6119,6 @@ nfs4_open_reclaim_rpc(
 	error = nfs_request2(np, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, current_thread(),
 	    noop->noo_cred, &si, R_RECOVER | R_NOINTR, &nmrep, &xid, &status);
 
-	if ((lockerror = nfs_node_lock(np))) {
-		error = lockerror;
-	}
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
@@ -6086,7 +6126,20 @@ nfs4_open_reclaim_rpc(
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_OPEN);
 	nfs_owner_seqid_increment(noop, NULL, error);
 	nfsm_chain_get_stateid(error, &nmrep, &nofp->nof_stateid);
-	nfsm_chain_check_change_info_open(error, &nmrep, np, 0);
+	if ((lockerror = nfs_node_lock(np))) {
+		error = lockerror;
+	}
+	nfsmout_if(error);
+
+	/*
+	 * OPEN operation using CLAIM_PREVIOUS is called with the FH of the file being reclaim.
+	 * It is unclear from the RFC what should be the content of the change info if the type of
+	 * FH is not a directory.
+	 *
+	 * For more info see rdar://113492594
+	 */
+	nfsm_chain_check_change_info_open(error, &nmrep, (nfsnode_t)NULL, 0);
+
 	nfsm_chain_get_32(error, &nmrep, rflags);
 	bmlen = NFS_ATTR_BITMAP_LEN;
 	nfsm_chain_get_bitmap(error, &nmrep, bitmap, bmlen);
@@ -6185,6 +6238,7 @@ nfs4_open_reclaim_rpc(
 		// Solaris Named Attributes may do this due to a bug.... so don't warn for named attributes.
 		if (!(np->n_vattr.nva_flags & NFS_FFLAG_IS_ATTR)) {
 			NP(np, "nfs4_open_reclaim_rpc: warning: file handle mismatch");
+			// error = nfs4_open_handle_fh_mismatch(dnp, nofp, name, namelen, fh, nvattr, &xid, req->r_auth, current_thread(), noop->noo_cred);
 		}
 	}
 	error = nfs_loadattrcache(np, nvattr, &xid, 1);
@@ -6220,7 +6274,7 @@ nfs4_open_downgrade_rpc(
 {
 	struct nfs_open_owner *noop = nofp->nof_owner;
 	struct nfsmount *nmp;
-	int error, lockerror = ENOENT, status, nfsvers, numops;
+	int error, lockerror = ENOENT, status, numops;
 	struct nfsm_chain nmreq, nmrep;
 	u_int64_t xid;
 	struct nfsreq_secinfo_args si;
@@ -6229,7 +6283,6 @@ nfs4_open_downgrade_rpc(
 	if (nfs_mount_gone(nmp)) {
 		return ENXIO;
 	}
-	nfsvers = nmp->nm_vers;
 
 	if ((error = nfs_open_owner_set_busy(noop, NULL))) {
 		return error;
@@ -6245,7 +6298,7 @@ nfs4_open_downgrade_rpc(
 	nfsm_chain_add_compound_header(error, &nmreq, "open_downgrd", nmp->nm_minor_vers, numops);
 	numops--;
 	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
-	nfsm_chain_add_fh(error, &nmreq, nfsvers, np->n_fhp, np->n_fhsize);
+	nfsm_chain_add_fh(error, &nmreq, NFS_VER4, np->n_fhp, np->n_fhsize);
 	numops--;
 	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_OPEN_DOWNGRADE);
 	nfsm_chain_add_stateid(error, &nmreq, &nofp->nof_stateid);
@@ -6262,9 +6315,7 @@ nfs4_open_downgrade_rpc(
 	    vfs_context_thread(ctx), vfs_context_ucred(ctx),
 	    &si, R_NOINTR, &nmrep, &xid, &status);
 
-	if ((lockerror = nfs_node_lock(np))) {
-		error = lockerror;
-	}
+	lockerror = nfs_node_lock(np);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
@@ -6273,7 +6324,7 @@ nfs4_open_downgrade_rpc(
 	nfs_owner_seqid_increment(noop, NULL, error);
 	nfsm_chain_get_stateid(error, &nmrep, &nofp->nof_stateid);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
-	nfsm_chain_loadattr(error, &nmrep, np, nfsvers, &xid);
+	nfsm_chain_loadattr(error, &nmrep, (lockerror == 0) ? np : NULL, NFS_VER4, &xid);
 nfsmout:
 	if (!lockerror) {
 		nfs_node_unlock(np);
@@ -6290,23 +6341,30 @@ nfs4_close_rpc(
 	struct nfs_open_file *nofp,
 	thread_t thd,
 	kauth_cred_t cred,
-	int flags)
+	int flags,
+	int open_owner_busy)
 {
 	struct nfs_open_owner *noop = nofp->nof_owner;
 	struct nfsmount *nmp;
-	int error, lockerror = ENOENT, status, nfsvers, numops;
+	int error = 0, lockerror = ENOENT, status, numops;
 	struct nfsm_chain nmreq, nmrep;
 	u_int64_t xid;
 	nfs_stateid stateid;
 	struct nfsreq_secinfo_args si;
+	static nfs_stateid zstateid = {};
 
 	nmp = NFSTONMP(np);
 	if (nfs_mount_gone(nmp)) {
 		return ENXIO;
 	}
-	nfsvers = nmp->nm_vers;
 
-	if ((error = nfs_open_owner_set_busy(noop, NULL))) {
+	// Sanity check - don't send CLOSE operation with zero state id
+	if (!memcmp(&zstateid, &nofp->nof_stateid, sizeof(nofp->nof_stateid))) {
+		NP(np, "nfs4_close_rpc was called with zero stateid: np %p, nofp %p", np, nofp);
+		return 0;
+	}
+
+	if (!open_owner_busy && ((error = nfs_open_owner_set_busy(noop, NULL)))) {
 		return error;
 	}
 
@@ -6320,7 +6378,7 @@ nfs4_close_rpc(
 	nfsm_chain_add_compound_header(error, &nmreq, "close", nmp->nm_minor_vers, numops);
 	numops--;
 	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
-	nfsm_chain_add_fh(error, &nmreq, nfsvers, np->n_fhp, np->n_fhsize);
+	nfsm_chain_add_fh(error, &nmreq, NFS_VER4, np->n_fhp, np->n_fhsize);
 	numops--;
 	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_CLOSE);
 	nfsm_chain_add_32(error, &nmreq, noop->noo_seqid);
@@ -6333,9 +6391,7 @@ nfs4_close_rpc(
 	nfsmout_if(error);
 	error = nfs_request2(np, NULL, &nmreq, NFSPROC4_COMPOUND, thd, cred, &si, flags | R_NOINTR, &nmrep, &xid, &status);
 
-	if ((lockerror = nfs_node_lock(np))) {
-		error = lockerror;
-	}
+	lockerror = nfs_node_lock(np);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
@@ -6344,13 +6400,18 @@ nfs4_close_rpc(
 	nfs_owner_seqid_increment(noop, NULL, error);
 	// RFC 7530 Section 16.2.5 - The stateid returned by CLOSE is not useful for the operations that follow
 	nfsm_chain_get_stateid(error, &nmrep, &stateid);
+	nfsmout_if(error);
+	// Erase the stateid to prevent it from being resubmitted
+	memset(&nofp->nof_stateid, 0, sizeof(nofp->nof_stateid));
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
-	nfsm_chain_loadattr(error, &nmrep, np, nfsvers, &xid);
+	nfsm_chain_loadattr(error, &nmrep, (lockerror == 0) ? np : NULL, NFS_VER4, &xid);
 nfsmout:
 	if (!lockerror) {
 		nfs_node_unlock(np);
 	}
-	nfs_open_owner_clear_busy(noop);
+	if (!open_owner_busy) {
+		nfs_open_owner_clear_busy(noop);
+	}
 	nfsm_chain_cleanup(&nmreq);
 	nfsm_chain_cleanup(&nmrep);
 	return error;
@@ -6664,7 +6725,7 @@ nfs_release_open_state_for_node(nfsnode_t np, int force)
 		lck_mtx_unlock(&nofp->nof_lock);
 #if CONFIG_NFS4
 		if (!force && nmp && (nmp->nm_vers >= NFS_VER4)) {
-			nfs4_close_rpc(np, nofp, NULL, nofp->nof_owner->noo_cred, R_RECOVER);
+			nfs4_close_rpc(np, nofp, NULL, nofp->nof_owner->noo_cred, R_RECOVER, 0);
 		}
 #endif
 	}
@@ -6913,7 +6974,7 @@ nfs_vnop_read(
 	struct nfs_open_file *nofp;
 	int error = 0;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN_READ, vp, uio_offset(ap->a_uio), uio_resid(ap->a_uio), ap->a_ioflag);
+	NFS_KDBG_ENTRY(NFSDBG_VN_READ, NFSNODE_FILEID(np), vp, uio_offset(ap->a_uio), uio_resid(ap->a_uio));
 
 	if (vnode_vtype(ap->a_vp) != VREG) {
 		error = (vnode_vtype(vp) == VDIR) ? EISDIR : EPERM;
@@ -7032,7 +7093,7 @@ restart:
 do_read:
 	error = nfs_bioread(VTONFS(ap->a_vp), ap->a_uio, ap->a_ioflag, ap->a_context);
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN_READ, vp, uio_offset(ap->a_uio), uio_resid(ap->a_uio), error);
+	NFS_KDBG_EXIT(NFSDBG_VN_READ, NFSNODE_FILEID(np), uio_offset(ap->a_uio), uio_resid(ap->a_uio), error);
 	return NFS_MAPERR(error);
 }
 
@@ -7064,7 +7125,7 @@ nfs4_vnop_create(
 	struct nfs_open_owner *noop = NULL;
 	struct nfs_open_file *newnofp = NULL, *nofp = NULL;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_CREATE, nmp, dvp, cnp, vap);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_CREATE, NFSNODE_FILEID(VTONFS(dvp)), dvp, cnp, vap);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -7185,21 +7246,7 @@ restart:
 		printf("nfs_open_file_find_internal failed! %d\n", error);
 		goto out;
 	} else if (nofp != newnofp) {
-		/*
-		 * Hmm... an open file struct already exists.
-		 * Mark the existing one busy and merge our open into it.
-		 * Then destroy the one we created.
-		 * Note: there's no chance of an open confict because the
-		 * open has already been granted.
-		 */
-		busyerror = nfs_open_file_set_busy(nofp, NULL);
-		nfs_open_file_add_open(nofp, accessMode, denyMode, 0);
-		nofp->nof_stateid = newnofp->nof_stateid;
-		if (newnofp->nof_flags & NFS_OPEN_FILE_POSIXLOCK) {
-			nofp->nof_flags |= NFS_OPEN_FILE_POSIXLOCK;
-		}
-		nfs_open_file_clear_busy(newnofp);
-		nfs_open_file_destroy(newnofp);
+		busyerror = nfs_open_file_merge(nofp, newnofp, accessMode, denyMode);
 	}
 	newnofp = NULL;
 	/* mark the node as holding a create-initiated open */
@@ -7220,7 +7267,7 @@ out:
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_CREATE, nmp, *vpp, np, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_CREATE, NFSNODE_FILEID(VTONFS(dvp)), dvp, *vpp, error);
 	return NFS_MAPERR(error);
 }
 
@@ -7462,7 +7509,7 @@ nfs4_vnop_mknod(
 	struct nfsmount *nmp = VTONMP(dvp);
 	int error;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_MKNOD, nmp, dvp, vap, vap->va_type);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_MKNOD, NFSNODE_FILEID(VTONFS(dvp)), dvp, vap, vap->va_type);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -7491,7 +7538,7 @@ nfs4_vnop_mknod(
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_MKNOD, dvp, vap->va_type, newvp, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_MKNOD, NFSNODE_FILEID(VTONFS(dvp)), vap->va_type, newvp, error);
 	return NFS_MAPERR(error);
 }
 
@@ -7514,14 +7561,14 @@ nfs4_vnop_mkdir(
 	struct componentname *cnp = ap->a_cnp;
 	int error;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_MKDIR, dvp, dnp, cnp, vap);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_MKDIR, NFSNODE_FILEID(dnp), dvp, cnp, vap);
 
 	error = nfs4_create_rpc(ap->a_context, dnp, cnp, vap, NFDIR, NULL, &np);
 	if (!error) {
 		*ap->a_vpp = newvp = NFSTOV(np);
 	}
 
-	NFS_KDBG_EXIT(NFSDBG_VN4_MKDIR, dvp, dnp, newvp, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_MKDIR, NFSNODE_FILEID(dnp), dvp, newvp, error);
 	return NFS_MAPERR(error);
 }
 
@@ -7545,14 +7592,14 @@ nfs4_vnop_symlink(
 	struct componentname *cnp = ap->a_cnp;
 	int error;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_SYMLINK, dvp, dnp, cnp, vap);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_SYMLINK, NFSNODE_FILEID(dnp), dvp, cnp, vap);
 
 	error = nfs4_create_rpc(ap->a_context, dnp, cnp, vap, NFLNK, ap->a_target, &np);
 	if (!error) {
 		*ap->a_vpp = newvp = NFSTOV(np);
 	}
 
-	NFS_KDBG_EXIT(NFSDBG_VN4_SYMLINK, dvp, dnp, newvp, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_SYMLINK, NFSNODE_FILEID(dnp), dvp, newvp, error);
 
 	return NFS_MAPERR(error);
 }
@@ -7580,7 +7627,7 @@ nfs4_vnop_link(
 	struct nfsm_chain nmreq, nmrep;
 	struct nfsreq_secinfo_args si;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_LINK, nmp, vp, np, tdvp);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_LINK, NFSNODE_FILEID(np), vp, np, tdvp);
 
 	if (vnode_mount(vp) != vnode_mount(tdvp)) {
 		error = EXDEV;
@@ -7692,7 +7739,7 @@ nfsmout:
 	nfs_node_clear_busy2(tdnp, np);
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_LINK, nmp, vp, tdvp, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_LINK, NFSNODE_FILEID(np), vp, tdvp, error);
 	return NFS_MAPERR(error);
 }
 
@@ -7716,7 +7763,7 @@ nfs4_vnop_rmdir(
 	struct nfsmount *nmp = NFSTONMP(dnp);
 	struct nfs_dulookup *dul;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_RMDIR, nmp, dvp, vp, cnp);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_RMDIR, NFSNODE_FILEID(dnp), dvp, vp, cnp);
 
 	if (vnode_vtype(vp) != VDIR) {
 		error = EINVAL;
@@ -7773,7 +7820,7 @@ nfs4_vnop_rmdir(
 	kfree_type(struct nfs_dulookup, dul);
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_RMDIR, nmp, dvp, vp, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_RMDIR, NFSNODE_FILEID(dnp), dvp, vp, error);
 	return NFS_MAPERR(error);
 }
 
@@ -8494,21 +8541,7 @@ nfsmout:
 				printf("nfs_open_file_find_internal failed! %d\n", error);
 				nofp = NULL;
 			} else if (nofp != newnofp) {
-				/*
-				 * Hmm... an open file struct already exists.
-				 * Mark the existing one busy and merge our open into it.
-				 * Then destroy the one we created.
-				 * Note: there's no chance of an open confict because the
-				 * open has already been granted.
-				 */
-				nofpbusyerror = nfs_open_file_set_busy(nofp, NULL);
-				nfs_open_file_add_open(nofp, accessMode, denyMode, 0);
-				nofp->nof_stateid = newnofp->nof_stateid;
-				if (newnofp->nof_flags & NFS_OPEN_FILE_POSIXLOCK) {
-					nofp->nof_flags |= NFS_OPEN_FILE_POSIXLOCK;
-				}
-				nfs_open_file_clear_busy(newnofp);
-				nfs_open_file_destroy(newnofp);
+				nofpbusyerror = nfs_open_file_merge(nofp, newnofp, accessMode, denyMode);
 				newnofp = NULL;
 			}
 			if (!error) {
@@ -8819,7 +8852,7 @@ nfs4_vnop_getxattr(
 	nfsnode_t anp;
 	int error = 0, isrsrcfork;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_GETXATTR, vp, uio, uio ? uio_offset(uio) : 0, uio ? uio_resid(uio) : 0);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_GETXATTR, NFSNODE_FILEID(np), vp, uio ? uio_offset(uio) : 0, uio ? uio_resid(uio) : 0);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -8870,7 +8903,7 @@ out:
 	zfree(get_zone(NFS_VATTR), nvattr);
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_GETXATTR, vp, uio, *ap->a_size, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_GETXATTR, NFSNODE_FILEID(np), vp, *ap->a_size, error);
 	return NFS_MAPERR(error);
 }
 
@@ -8902,7 +8935,7 @@ nfs4_vnop_setxattr(
 	uio_t auio = NULL;
 	struct vnop_write_args vwa;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_SETXATTR, vp, np, options, uio_resid(uio));
+	NFS_KDBG_ENTRY(NFSDBG_VN4_SETXATTR, NFSNODE_FILEID(np), vp, options, uio_resid(uio));
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -9057,7 +9090,7 @@ out:
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_SETXATTR, vp, np, options, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_SETXATTR, NFSNODE_FILEID(np), vp, options, error);
 	return NFS_MAPERR(error);
 }
 
@@ -9077,7 +9110,7 @@ nfs4_vnop_removexattr(
 	struct nfsmount *nmp = VTONMP(vp);
 	int error;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_REMOVEXATTR, nmp, vp, np, name);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_REMOVEXATTR, NFSNODE_FILEID(np), vp, np, name);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -9094,7 +9127,7 @@ nfs4_vnop_removexattr(
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_REMOVEXATTR, nmp, vp, np, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_REMOVEXATTR, NFSNODE_FILEID(np), vp, np, error);
 	return NFS_MAPERR(error);
 }
 
@@ -9122,7 +9155,7 @@ nfs4_vnop_listxattr(
 	struct nfs_dir_buf_header *ndbhp;
 	struct direntry *dp;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_LISTXATTR, vp, np, ap->a_options, uio_resid(uio));
+	NFS_KDBG_ENTRY(NFSDBG_VN4_LISTXATTR, NFSNODE_FILEID(np), vp, ap->a_options, uio_resid(uio));
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -9274,7 +9307,7 @@ out_free:
 	zfree(get_zone(NFS_VATTR), nvattr);
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_LISTXATTR, vp, np, *ap->a_size, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_LISTXATTR, NFSNODE_FILEID(np), vp, *ap->a_size, error);
 	return NFS_MAPERR(error);
 }
 
@@ -9302,7 +9335,7 @@ nfs4_vnop_getnamedstream(
 	nfsnode_t anp;
 	int error = 0;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_GETNAMEDSTREAM, nmp, vp, np, name);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_GETNAMEDSTREAM, NFSNODE_FILEID(np), vp, np, name);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -9345,7 +9378,7 @@ out:
 	zfree(get_zone(NFS_VATTR), nvattr);
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_GETNAMEDSTREAM, vp, np, newsvp, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_GETNAMEDSTREAM, NFSNODE_FILEID(np), vp, newsvp, error);
 	return NFS_MAPERR(error);
 }
 
@@ -9370,7 +9403,7 @@ nfs4_vnop_makenamedstream(
 	nfsnode_t anp;
 	int error = 0;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_MAKENAMEDSTREAM, nmp, vp, np, name);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_MAKENAMEDSTREAM, NFSNODE_FILEID(np), vp, np, name);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -9400,7 +9433,7 @@ nfs4_vnop_makenamedstream(
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_MAKENAMEDSTREAM, vp, np, newsvp, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_MAKENAMEDSTREAM, NFSNODE_FILEID(np), vp, newsvp, error);
 	return NFS_MAPERR(error);
 }
 
@@ -9423,7 +9456,7 @@ nfs4_vnop_removenamedstream(
 	nfsnode_t np = vp ? VTONFS(vp) : NULL;
 	nfsnode_t anp = svp ? VTONFS(svp) : NULL;
 
-	NFS_KDBG_ENTRY(NFSDBG_VN4_REMOVENAMEDSTREAM, nmp, vp, svp, name);
+	NFS_KDBG_ENTRY(NFSDBG_VN4_REMOVENAMEDSTREAM, NFSNODE_FILEID(np), vp, svp, name);
 
 	if (nfs_mount_gone(nmp)) {
 		error = ENXIO;
@@ -9442,7 +9475,7 @@ nfs4_vnop_removenamedstream(
 	error = nfs4_named_attr_remove(np, anp, name, ap->a_context);
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_VN4_REMOVENAMEDSTREAM, vp, svp, name, error);
+	NFS_KDBG_EXIT(NFSDBG_VN4_REMOVENAMEDSTREAM, NFSNODE_FILEID(np), vp, svp, error);
 	return NFS_MAPERR(error);
 }
 

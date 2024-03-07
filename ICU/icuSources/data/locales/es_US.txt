@@ -6,9 +6,6 @@ es_US{
     MoreInformation{"[...]"}
     NumberElements{
         latn{
-            patterns{
-                percentFormat{"#,##0%"}
-            }
             patternsShort{
                 currencyFormat{
                     10000000000{
@@ -88,11 +85,11 @@ es_US{
                 "d 'de' MMMM 'de' y G",
                 "MMM d, y G",
                 "M/d/yy GGGGG",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
             DateTimeSkeletons{
                 "ahmmsszzzz",
@@ -178,16 +175,6 @@ es_US{
                 "{1}, {0}",
                 "{1}, {0}",
             }
-            DateTimeSkeletons{
-                "ahmmsszzzz",
-                "ahmmssz",
-                "ahmmss",
-                "ahmm",
-                "yMMMMEEEEd",
-                "yMMMMd",
-                "yMMMd",
-                "yyMd",
-            }
             availableFormats{
                 EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
@@ -207,26 +194,18 @@ es_US{
                 yMd{"M/d/y"}
                 yQQQ{"QQQ y"}
             }
-            dayNames{
+            dayPeriod{
                 format{
                     narrow{
-                        "D",
-                        "L",
-                        "M",
-                        "M",
-                        "J",
-                        "V",
-                        "S",
+                        afternoon1{"de la tarde"}
+                        morning1{"de la madrugada"}
+                        morning2{"de la mañana"}
+                        night1{"de la noche"}
+                        noon{"del mediodía"}
                     }
                 }
-            }
-            dayPeriod{
                 stand-alone{
                     abbreviated{
-                        am{"a.m."}
-                        pm{"p.m."}
-                    }
-                    wide{
                         am{"a.m."}
                         pm{"p.m."}
                     }
@@ -325,11 +304,11 @@ es_US{
                 "d 'de' MMMM 'de' G y",
                 "MMM d, G y",
                 "M/d/GGGGGyy",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
             DateTimeSkeletons{
                 "ahmmsszzzz",
@@ -439,48 +418,12 @@ es_US{
                 "0"{"este lunes"}
                 "1"{"el lunes próximo"}
             }
-            relativeTime{
-                future{
-                    one{"dentro de {0} lunes"}
-                    other{"dentro de {0} lunes"}
-                }
-            }
-        }
-        mon-narrow{
-            relativeTime{
-                future{
-                    one{"dentro de {0} LU"}
-                    other{"dentro de {0} LU"}
-                }
-            }
-        }
-        mon-short{
-            relativeTime{
-                future{
-                    one{"dentro de {0} lun."}
-                    other{"dentro de {0} lun."}
-                }
-            }
         }
         sat{
             relative{
                 "-1"{"el sábado pasado"}
                 "0"{"este sábado"}
                 "1"{"el sábado próximo"}
-            }
-            relativeTime{
-                future{
-                    one{"dentro de {0} sábado"}
-                    other{"dentro de {0} sábados"}
-                }
-            }
-        }
-        sat-narrow{
-            relativeTime{
-                future{
-                    one{"dentro de {0} SA"}
-                    other{"en {0} SA"}
-                }
             }
         }
         sun{
@@ -496,33 +439,11 @@ es_US{
                 }
             }
         }
-        sun-narrow{
-            relativeTime{
-                future{
-                    one{"dentro de {0} DO"}
-                    other{"dentro de {0} DO"}
-                }
-            }
-        }
         thu{
             relative{
                 "-1"{"el jueves pasado"}
                 "0"{"este jueves"}
                 "1"{"el jueves próximo"}
-            }
-            relativeTime{
-                future{
-                    one{"dentro de {0} jueves"}
-                    other{"dentro de {0} jueves"}
-                }
-            }
-        }
-        thu-narrow{
-            relativeTime{
-                future{
-                    one{"dentro de {0} JU"}
-                    other{"dentro de {0} JU"}
-                }
             }
         }
         tue{
@@ -531,24 +452,12 @@ es_US{
                 "0"{"este martes"}
                 "1"{"el martes próximo"}
             }
-            relativeTime{
-                future{
-                    one{"dentro de {0} martes"}
-                    other{"dentro de {0} martes"}
-                }
-            }
         }
         wed{
             relative{
                 "-1"{"el miércoles pasado"}
                 "0"{"este miércoles"}
                 "1"{"el miércoles próximo"}
-            }
-            relativeTime{
-                future{
-                    one{"dentro de {0} miércoles"}
-                    other{"dentro de {0} miércoles"}
-                }
             }
         }
         wed-short{
@@ -594,7 +503,7 @@ es_US{
     personNames{
         namePattern{
             sorting-long-referring-formal{
-                "{surname}, {prefix} {given} {given2}",
+                "{surname}, {title} {given} {given2}",
                 "{surname} {surname2}, {given} {given2}",
             }
             sorting-long-referring-informal{
@@ -602,7 +511,7 @@ es_US{
                 "{surname} {surname2}, {given} {given2}",
             }
             sorting-medium-referring-formal{
-                "{surname}, {prefix} {given} {given2-initial}",
+                "{surname}, {title} {given} {given2-initial}",
                 "{surname} {surname2}, {given} {given2}",
             }
             sorting-medium-referring-informal{
@@ -610,7 +519,7 @@ es_US{
                 "{surname} {surname2}, {given} {given2}",
             }
             sorting-short-referring-formal{
-                "{surname}, {prefix} {given-initial} {given2-initial} {suffix}",
+                "{surname}, {title} {given} {given2}",
                 "{surname} {surname2}, {given} {given2}",
             }
             sorting-short-referring-informal{

@@ -1,14 +1,13 @@
-set -e -x
+#!/bin/sh
 
-OSV="$DSTROOT"/usr/local/OpenSourceVersions
-OSL="$DSTROOT"/usr/local/OpenSourceLicenses
+set -eu
 
-install -d -o root -g wheel -m 0755 "$OSV"
-install -c -o root -g wheel -m 0644 \
-	"$SRCROOT"/bc.plist \
-	"$OSV"
+plutil -lint "$SRCROOT"/bc.plist
 
-install -d -o root -g wheel -m 0755 "$OSL"
-install -c -o root -g wheel -m 0644 \
-	"$SRCROOT"/bc/LICENSE.md \
-	"$OSL"/bc.txt
+install -m 0755 -d "${DSTROOT}"/usr/local/OpenSourceVersions
+install -m 0644 "${SRCROOT}"/bc.plist \
+    "${DSTROOT}"/usr/local/OpenSourceVersions
+
+install -m 0755 -d "${DSTROOT}"/usr/local/OpenSourceLicenses
+install -m 0644 "${SRCROOT}"/bc/LICENSE.md \
+    "${DSTROOT}"/usr/local/OpenSourceLicenses/bc.txt

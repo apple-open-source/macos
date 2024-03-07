@@ -28,6 +28,7 @@
 #include "WKBundlePagePrivate.h"
 
 #include "APIArray.h"
+#include "APICaptionUserPreferencesTestingModeToken.h"
 #include "APIDictionary.h"
 #include "APIFrameHandle.h"
 #include "APIInjectedBundlePageContextMenuClient.h"
@@ -63,10 +64,12 @@
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/CSSParser.h>
+#include <WebCore/CaptionUserPreferences.h>
 #include <WebCore/CompositionHighlight.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageGroup.h>
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PageOverlayController.h>
 #include <WebCore/RenderLayerCompositor.h>
@@ -217,11 +220,7 @@ WKArrayRef WKBundlePageCopyContextMenuAtPointInWindow(WKBundlePageRef pageRef, W
     if (!page)
         return nullptr;
 
-    auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(page->mainFrame());
-    if (!localMainFrame)
-        return nullptr;
-
-    WebKit::WebContextMenu* contextMenu = WebKit::toImpl(pageRef)->contextMenuAtPointInWindow(localMainFrame->frameID(), WebKit::toIntPoint(point));
+    WebKit::WebContextMenu* contextMenu = WebKit::toImpl(pageRef)->contextMenuAtPointInWindow(page->mainFrame().frameID(), WebKit::toIntPoint(point));
     if (!contextMenu)
         return nullptr;
 
@@ -245,6 +244,13 @@ void WKAccessibilityTestingInjectPreference(WKBundlePageRef pageRef, WKStringRef
     
 #if ENABLE(CFPREFS_DIRECT_MODE)
     WebKit::WebProcess::singleton().notifyPreferencesChanged(WebKit::toWTFString(domain), WebKit::toWTFString(key), WebKit::toWTFString(encodedValue));
+#endif
+}
+
+void WKAccessibilityEnable()
+{
+#if ENABLE(ACCESSIBILITY)
+    WebCore::AXObjectCache::enableAccessibility();
 #endif
 }
 
@@ -313,6 +319,32 @@ void* WKAccessibilityFocusedUIElement()
     return WebKit::WebProcess::accessibilityFocusedUIElement();
 #else
     return 0;
+#endif
+}
+
+void WKAccessibilityAnnounce(WKBundlePageRef pageRef, WKStringRef message)
+{
+#if ENABLE(ACCESSIBILITY)
+    if (!pageRef)
+        return;
+
+    auto* page = WebKit::toImpl(pageRef)->corePage();
+    if (!page)
+        return;
+
+    auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(page->mainFrame());
+    if (!localMainFrame)
+        return;
+
+    auto& core = *localMainFrame;
+    if (!core.document())
+        return;
+
+    if (auto* cache = core.document()->axObjectCache())
+        cache->announce(WebKit::toWTFString(message));
+#else // ENABLE(ACCESSIBILITY)
+    UNUSED_PARAM(pageRef);
+    UNUSED_PARAM(message);
 #endif
 }
 
@@ -501,7 +533,7 @@ void WKBundlePageReplaceStringMatches(WKBundlePageRef pageRef, WKArrayRef matchI
     auto numberOfMatchIndices = matchIndices->size();
     for (size_t i = 0; i < numberOfMatchIndices; ++i) {
         if (auto* indexAsObject = matchIndices->at<API::UInt64>(i))
-            indices.uncheckedAppend(indexAsObject->value());
+            indices.append(indexAsObject->value());
     }
     WebKit::toImpl(pageRef)->replaceStringMatchesFromInjectedBundle(indices, WebKit::toWTFString(replacementText), selectionOnly);
 }
@@ -628,7 +660,7 @@ void WKBundlePageSetComposition(WKBundlePageRef pageRef, WKStringRef text, int f
             if (auto foregroundColor = dictionary->get("foregroundColor"_s))
                 foregroundHighlightColor = WebCore::CSSParser::parseColorWithoutContext(static_cast<API::String*>(foregroundColor)->string());
 
-            highlights.uncheckedAppend({
+            highlights.append({
                 static_cast<unsigned>(startOffset),
                 static_cast<unsigned>(startOffset + static_cast<API::UInt64*>(dictionary->get("length"_s))->value()),
                 backgroundHighlightColor,
@@ -845,6 +877,30 @@ WKStringRef WKBundlePageCopyGroupIdentifier(WKBundlePageRef pageRef)
 void WKBundlePageClearApplicationCache(WKBundlePageRef page)
 {
     WebKit::toImpl(page)->corePage()->applicationCacheStorage().deleteAllEntries();
+}
+
+void WKBundlePageSetCaptionDisplayMode(WKBundlePageRef page, WKStringRef mode)
+{
+#if ENABLE(VIDEO)
+    auto& captionPreferences = WebKit::toImpl(page)->corePage()->group().ensureCaptionPreferences();
+    auto displayMode = WTF::EnumTraits<WebCore::CaptionUserPreferences::CaptionDisplayMode>::fromString(WebKit::toWTFString(mode));
+    if (displayMode.has_value())
+        captionPreferences.setCaptionDisplayMode(displayMode.value());
+#else
+    UNUSED_PARAM(page);
+    UNUSED_PARAM(mode);
+#endif
+}
+
+WKCaptionUserPreferencesTestingModeTokenRef WKBundlePageCreateCaptionUserPreferencesTestingModeToken(WKBundlePageRef page)
+{
+#if ENABLE(VIDEO)
+    auto& captionPreferences = WebKit::toImpl(page)->corePage()->group().ensureCaptionPreferences();
+    return WebKit::toAPI(&API::CaptionUserPreferencesTestingModeToken::create(captionPreferences).leakRef());
+#else
+    UNUSED_PARAM(page);
+    return { };
+#endif
 }
 
 void WKBundlePageClearApplicationCacheForOrigin(WKBundlePageRef page, WKStringRef origin)

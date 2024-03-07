@@ -26,8 +26,7 @@
 #include "config.h"
 #include "ResourceLoadStatisticsStore.h"
 
-#if ENABLE(TRACKING_PREVENTION)
-
+#include "ITPThirdPartyData.h"
 #include "Logging.h"
 #include "NetworkProcess.h"
 #include "NetworkSession.h"
@@ -41,6 +40,7 @@
 #include <WebCore/DocumentStorageAccess.h>
 #include <WebCore/KeyedCoding.h>
 #include <WebCore/NetworkStorageSession.h>
+#include <WebCore/OrganizationStorageAccessPromptQuirk.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/SQLiteDatabase.h>
 #include <WebCore/SQLiteStatement.h>
@@ -54,6 +54,7 @@
 #include <wtf/Scope.h>
 #include <wtf/StdSet.h>
 #include <wtf/SuspendableWorkQueue.h>
+#include <wtf/WeakHashSet.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
@@ -263,6 +264,11 @@ static bool needsNewCreateTableSchema(const String& schema)
     return schema.contains("REFERENCES TopLevelDomains"_s);
 }
 
+static WallTime nowTime(Seconds timeAdvanceForTesting)
+{
+    return WallTime::now() + timeAdvanceForTesting;
+}
+
 OperatingDate OperatingDate::fromWallTime(WallTime time)
 {
     double ms = time.secondsSinceEpoch().milliseconds();
@@ -275,7 +281,7 @@ OperatingDate OperatingDate::fromWallTime(WallTime time)
 
 OperatingDate OperatingDate::today(Seconds timeAdvanceForTesting)
 {
-    return OperatingDate::fromWallTime(WallTime::now() + timeAdvanceForTesting);
+    return OperatingDate::fromWallTime(nowTime(timeAdvanceForTesting));
 }
 
 Seconds OperatingDate::secondsSinceEpoch() const
@@ -306,11 +312,11 @@ static String buildList(const ContainerType& values)
     return builder.toString();
 }
 
-static HashSet<ResourceLoadStatisticsStore*>& allStores()
+static WeakHashSet<ResourceLoadStatisticsStore>& allStores()
 {
     ASSERT(!RunLoop::isMain());
 
-    static NeverDestroyed<HashSet<ResourceLoadStatisticsStore*>> map;
+    static NeverDestroyed<WeakHashSet<ResourceLoadStatisticsStore>> map;
     return map;
 }
 
@@ -330,14 +336,14 @@ ResourceLoadStatisticsStore::ResourceLoadStatisticsStore(WebResourceLoadStatisti
         RELEASE_LOG_ERROR(Network, "%p - ResourceLoadStatisticsStore::turnOnIncrementalAutoVacuum failed, error message: %" PUBLIC_LOG_STRING, this, m_database.lastErrorMsg());
 
     includeTodayAsOperatingDateIfNecessary();
-    allStores().add(this);
+    allStores().add(*this);
 }
 
 ResourceLoadStatisticsStore::~ResourceLoadStatisticsStore()
 {
     ASSERT(!RunLoop::isMain());
     close();
-    allStores().remove(this);
+    allStores().remove(*this);
 }
 
 void ResourceLoadStatisticsStore::openITPDatabase()
@@ -459,7 +465,7 @@ void ResourceLoadStatisticsStore::grandfatherExistingWebsiteData(CompletionHandl
                 }
 
                 weakThis->grandfatherDataForDomains(domainsWithWebsiteData);
-                weakThis->m_endOfGrandfatheringTimestamp = WallTime::now() + weakThis->m_parameters.grandfatheringTime;
+                weakThis->m_endOfGrandfatheringTimestamp = nowTime(weakThis->m_timeAdvanceForTesting) + weakThis->m_parameters.grandfatheringTime;
                 callback();
                 weakThis->logTestingEvent("Grandfathered"_s);
             });
@@ -582,8 +588,6 @@ void ResourceLoadStatisticsStore::updateClientSideCookiesAgeCap()
 {
     ASSERT(!RunLoop::isMain());
 
-#if ENABLE(TRACKING_PREVENTION)
-    
     Seconds capTime;
 #if ENABLE(JS_COOKIE_CHECKING)
     capTime = m_parameters.clientSideCookiesForLinkDecorationTargetPageAgeCapTime;
@@ -597,7 +601,6 @@ void ResourceLoadStatisticsStore::updateClientSideCookiesAgeCap()
                 storageSession->setAgeCapForClientSideCookies(seconds);
         }
     });
-#endif
 }
 
 bool ResourceLoadStatisticsStore::shouldRemoveDataRecords() const
@@ -659,6 +662,7 @@ void ResourceLoadStatisticsStore::resetParametersToDefaultValues()
 
     m_parameters = { };
     m_appBoundDomains.clear();
+    m_timeAdvanceForTesting = { };
 }
 
 void ResourceLoadStatisticsStore::logTestingEvent(String&& event)
@@ -1018,8 +1022,8 @@ void ResourceLoadStatisticsStore::openAndUpdateSchemaIfNecessary()
 void ResourceLoadStatisticsStore::interruptAllDatabases()
 {
     ASSERT(!RunLoop::isMain());
-    for (auto store : allStores())
-        store->interrupt();
+    for (auto& store : allStores())
+        store.interrupt();
 }
 
 bool ResourceLoadStatisticsStore::isEmpty() const
@@ -1263,7 +1267,7 @@ void ResourceLoadStatisticsStore::insertDomainRelationshipList(const String& sta
     }
 
     if (statement.contains("REPLACE"_s)) {
-        if (insertRelationshipStatement->bindDouble(2, (WallTime::now() + m_timeAdvanceForTesting).secondsSinceEpoch().value()) != SQLITE_OK) {
+        if (insertRelationshipStatement->bindDouble(2, nowTime(m_timeAdvanceForTesting).secondsSinceEpoch().value()) != SQLITE_OK) {
             ITP_RELEASE_LOG_ERROR(m_sessionID, "%p - ResourceLoadStatisticsStore::insertDomainRelationshipList failed, error message: %" PRIVATE_LOG_STRING, this, m_database.lastErrorMsg());
             return;
         }
@@ -1398,7 +1402,7 @@ static ASCIILiteral joinSubStatisticsForSorting()
         "GROUP BY domainID) ORDER BY sum DESC;"_s;
 }
 
-Vector<WebResourceLoadStatisticsStore::ThirdPartyDataForSpecificFirstParty> ResourceLoadStatisticsStore::getThirdPartyDataForSpecificFirstPartyDomains(unsigned thirdPartyDomainID, const RegistrableDomain& thirdPartyDomain) const
+Vector<ITPThirdPartyDataForSpecificFirstParty> ResourceLoadStatisticsStore::getThirdPartyDataForSpecificFirstPartyDomains(unsigned thirdPartyDomainID, const RegistrableDomain& thirdPartyDomain) const
 {
     auto scopedStatement = this->scopedStatement(m_getAllSubStatisticsStatement, getAllSubStatisticsUnderDomainQuery, "getThirdPartyDataForSpecificFirstPartyDomains"_s);
     if (!scopedStatement
@@ -1408,10 +1412,10 @@ Vector<WebResourceLoadStatisticsStore::ThirdPartyDataForSpecificFirstParty> Reso
         RELEASE_LOG_ERROR(Network, "ResourceLoadStatisticsStore::getThirdPartyDataForSpecificFirstPartyDomain, error message: %" PUBLIC_LOG_STRING, m_database.lastErrorMsg());
         return { };
     }
-    Vector<WebResourceLoadStatisticsStore::ThirdPartyDataForSpecificFirstParty> thirdPartyDataForSpecificFirstPartyDomains;
+    Vector<ITPThirdPartyDataForSpecificFirstParty> thirdPartyDataForSpecificFirstPartyDomains;
     while (scopedStatement->step() == SQLITE_ROW) {
         RegistrableDomain firstPartyDomain = RegistrableDomain::uncheckedCreateFromRegistrableDomainString(getDomainStringFromDomainID(m_getAllSubStatisticsStatement->columnInt(0)));
-        thirdPartyDataForSpecificFirstPartyDomains.appendIfNotContains(WebResourceLoadStatisticsStore::ThirdPartyDataForSpecificFirstParty { firstPartyDomain, hasStorageAccess(firstPartyDomain, thirdPartyDomain), getMostRecentlyUpdatedTimestamp(thirdPartyDomain, firstPartyDomain) });
+        thirdPartyDataForSpecificFirstPartyDomains.appendIfNotContains(ITPThirdPartyDataForSpecificFirstParty { firstPartyDomain, hasStorageAccess(firstPartyDomain, thirdPartyDomain), getMostRecentlyUpdatedTimestamp(thirdPartyDomain, firstPartyDomain) });
     }
     return thirdPartyDataForSpecificFirstPartyDomains;
 }
@@ -1421,11 +1425,11 @@ static bool hasBeenThirdParty(unsigned timesUnderFirstParty)
     return timesUnderFirstParty > 0;
 }
 
-Vector<WebResourceLoadStatisticsStore::ThirdPartyData> ResourceLoadStatisticsStore::aggregatedThirdPartyData() const
+Vector<ITPThirdPartyData> ResourceLoadStatisticsStore::aggregatedThirdPartyData() const
 {
     ASSERT(!RunLoop::isMain());
 
-    Vector<WebResourceLoadStatisticsStore::ThirdPartyData> thirdPartyDataList;
+    Vector<ITPThirdPartyData> thirdPartyDataList;
     const auto prevalentDomainsBindParameter = thirdPartyCookieBlockingMode() == ThirdPartyCookieBlockingMode::All ? "%"_s : "1"_s;
     auto sortedStatistics = m_database.prepareStatement(joinSubStatisticsForSorting());
     if (!sortedStatistics
@@ -1438,7 +1442,7 @@ Vector<WebResourceLoadStatisticsStore::ThirdPartyData> ResourceLoadStatisticsSto
         if (hasBeenThirdParty(sortedStatistics->columnInt(1))) {
             auto thirdPartyDomainID = sortedStatistics->columnInt(0);
             auto thirdPartyDomain = RegistrableDomain::uncheckedCreateFromRegistrableDomainString(getDomainStringFromDomainID(thirdPartyDomainID));
-            thirdPartyDataList.append(WebResourceLoadStatisticsStore::ThirdPartyData { thirdPartyDomain, getThirdPartyDataForSpecificFirstPartyDomains(thirdPartyDomainID, thirdPartyDomain) });
+            thirdPartyDataList.append(ITPThirdPartyData { thirdPartyDomain, getThirdPartyDataForSpecificFirstPartyDomains(thirdPartyDomainID, thirdPartyDomain) });
         }
     }
     return thirdPartyDataList;
@@ -1640,7 +1644,7 @@ bool ResourceLoadStatisticsStore::hasStorageAccess(const TopFrameDomain& topFram
     return relationshipExists(scopedStatement, domainID(subFrameDomain), topFrameDomain);
 }
 
-void ResourceLoadStatisticsStore::hasStorageAccess(SubFrameDomain&& subFrameDomain, TopFrameDomain&& topFrameDomain, std::optional<FrameIdentifier> frameID, PageIdentifier pageID, CompletionHandler<void(bool)>&& completionHandler)
+void ResourceLoadStatisticsStore::hasStorageAccess(SubFrameDomain&& subFrameDomain, TopFrameDomain&& topFrameDomain, std::optional<FrameIdentifier> frameID, PageIdentifier pageID, CanRequestStorageAccessWithoutUserInteraction canRequestStorageAccessWithoutUserInteraction, CompletionHandler<void(bool)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -1650,7 +1654,7 @@ void ResourceLoadStatisticsStore::hasStorageAccess(SubFrameDomain&& subFrameDoma
         return;
     }
 
-    switch (cookieAccess(subFrameDomain, topFrameDomain)) {
+    switch (cookieAccess(subFrameDomain, topFrameDomain, canRequestStorageAccessWithoutUserInteraction)) {
     case CookieAccess::CannotRequest:
         completionHandler(false);
         return;
@@ -1677,7 +1681,7 @@ void ResourceLoadStatisticsStore::hasStorageAccess(SubFrameDomain&& subFrameDoma
     });
 }
 
-void ResourceLoadStatisticsStore::requestStorageAccess(SubFrameDomain&& subFrameDomain, TopFrameDomain&& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, StorageAccessScope scope, CompletionHandler<void(StorageAccessStatus)>&& completionHandler)
+void ResourceLoadStatisticsStore::requestStorageAccess(SubFrameDomain&& subFrameDomain, TopFrameDomain&& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, StorageAccessScope scope, CanRequestStorageAccessWithoutUserInteraction canRequestStorageAccessWithoutUserInteraction, CompletionHandler<void(StorageAccessStatus)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -1687,7 +1691,7 @@ void ResourceLoadStatisticsStore::requestStorageAccess(SubFrameDomain&& subFrame
         return completionHandler(StorageAccessStatus::CannotRequestAccess);
     }
 
-    switch (cookieAccess(subFrameDomain, topFrameDomain)) {
+    switch (cookieAccess(subFrameDomain, topFrameDomain, canRequestStorageAccessWithoutUserInteraction)) {
     case CookieAccess::CannotRequest:
         if (UNLIKELY(debugLoggingEnabled())) {
             RELEASE_LOG_INFO(ITPDebug, "Cannot grant storage access to %" PRIVATE_LOG_STRING " since its cookies are blocked in third-party contexts and it has not received user interaction as first-party.", subFrameDomain.string().utf8().data());
@@ -1734,12 +1738,12 @@ void ResourceLoadStatisticsStore::requestStorageAccess(SubFrameDomain&& subFrame
         return completionHandler(StorageAccessStatus::CannotRequestAccess);
     }
 
-    grantStorageAccessInternal(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, userWasPromptedEarlier, scope, [completionHandler = WTFMove(completionHandler)] (StorageAccessWasGranted wasGranted) mutable {
+    grantStorageAccessInternal(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, userWasPromptedEarlier, scope, canRequestStorageAccessWithoutUserInteraction, [completionHandler = WTFMove(completionHandler)] (StorageAccessWasGranted wasGranted) mutable {
         completionHandler(wasGranted == StorageAccessWasGranted::Yes ? StorageAccessStatus::HasAccess : StorageAccessStatus::CannotRequestAccess);
     });
 }
 
-void ResourceLoadStatisticsStore::requestStorageAccessUnderOpener(DomainInNeedOfStorageAccess&& domainInNeedOfStorageAccess, PageIdentifier openerPageID, OpenerDomain&& openerDomain)
+void ResourceLoadStatisticsStore::requestStorageAccessUnderOpener(DomainInNeedOfStorageAccess&& domainInNeedOfStorageAccess, PageIdentifier openerPageID, OpenerDomain&& openerDomain, CanRequestStorageAccessWithoutUserInteraction canRequestStorageAccessWithoutUserInteraction)
 {
     ASSERT(domainInNeedOfStorageAccess != openerDomain);
     ASSERT(!RunLoop::isMain());
@@ -1752,7 +1756,7 @@ void ResourceLoadStatisticsStore::requestStorageAccessUnderOpener(DomainInNeedOf
         debugBroadcastConsoleMessage(MessageSource::ITPDebug, MessageLevel::Info, makeString("[ITP] Storage access was granted for '"_s, domainInNeedOfStorageAccess.string(), "' under opener page from '"_s, openerDomain.string(), "', with user interaction in the opened window."_s));
     }
 
-    grantStorageAccessInternal(WTFMove(domainInNeedOfStorageAccess), WTFMove(openerDomain), std::nullopt, openerPageID, StorageAccessPromptWasShown::No, StorageAccessScope::PerPage, [](StorageAccessWasGranted) { });
+    grantStorageAccessInternal(WTFMove(domainInNeedOfStorageAccess), WTFMove(openerDomain), std::nullopt, openerPageID, StorageAccessPromptWasShown::No, StorageAccessScope::PerPage, canRequestStorageAccessWithoutUserInteraction, [](StorageAccessWasGranted) { });
 }
 
 void ResourceLoadStatisticsStore::grantStorageAccess(SubFrameDomain&& subFrameDomain, TopFrameDomain&& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, StorageAccessPromptWasShown promptWasShown, StorageAccessScope scope, CompletionHandler<void(StorageAccessWasGranted)>&& completionHandler)
@@ -1761,24 +1765,62 @@ void ResourceLoadStatisticsStore::grantStorageAccess(SubFrameDomain&& subFrameDo
 
     auto transactionScope = beginTransactionIfNecessary();
 
-    if (promptWasShown == StorageAccessPromptWasShown::Yes) {
-        auto subFrameStatus = ensureResourceStatisticsForRegistrableDomain(subFrameDomain);
-        if (!subFrameStatus.second) {
-            ITP_RELEASE_LOG_ERROR(m_sessionID, "%p - ResourceLoadStatisticsStore::grantStorageAccess was not completed due to failed insert attempt", this);
-            return completionHandler(StorageAccessWasGranted::No);
-        }
-        ASSERT(subFrameStatus.first == AddedRecord::No);
+    auto addGrant = [&, frameID, pageID, promptWasShown, scope] (SubFrameDomain&& subFrameDomain, TopFrameDomain&& topFrameDomain, CanRequestStorageAccessWithoutUserInteraction canRequestStorageAccessWithoutUserInteraction, CompletionHandler<void(StorageAccessWasGranted)>&& completionHandler) mutable {
+        if (promptWasShown == StorageAccessPromptWasShown::Yes) {
+            auto subFrameStatus = ensureResourceStatisticsForRegistrableDomain(subFrameDomain);
+            if (!subFrameStatus.second) {
+                ITP_RELEASE_LOG_ERROR(m_sessionID, "%p - ResourceLoadStatisticsStore::grantStorageAccess was not completed due to failed insert attempt", this);
+                return completionHandler(StorageAccessWasGranted::No);
+            }
+            ASSERT(subFrameStatus.first == AddedRecord::No);
 #if ASSERT_ENABLED
-        if (!NetworkStorageSession::canRequestStorageAccessForLoginOrCompatibilityPurposesWithoutPriorUserInteraction(subFrameDomain, topFrameDomain))
-            ASSERT(hasHadUserInteraction(subFrameDomain, OperatingDatesWindow::Long));
+            if (canRequestStorageAccessWithoutUserInteraction == CanRequestStorageAccessWithoutUserInteraction::No)
+                ASSERT(hasHadUserInteraction(subFrameDomain, OperatingDatesWindow::Long));
 #endif
-        insertDomainRelationshipList(storageAccessUnderTopFrameDomainsQuery, HashSet<RegistrableDomain>({ topFrameDomain }), *subFrameStatus.second);
-    }
+            insertDomainRelationshipList(storageAccessUnderTopFrameDomainsQuery, HashSet<RegistrableDomain>({ topFrameDomain }), *subFrameStatus.second);
+        }
 
-    grantStorageAccessInternal(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, promptWasShown, scope, WTFMove(completionHandler));
+        grantStorageAccessInternal(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, promptWasShown, scope, canRequestStorageAccessWithoutUserInteraction, WTFMove(completionHandler));
+    };
+
+    RunLoop::main().dispatch([weakThis = WeakPtr { *this }, subFrameDomain = WTFMove(subFrameDomain).isolatedCopy(), topFrameDomain = WTFMove(topFrameDomain).isolatedCopy(), workQueue = m_workQueue, store = Ref { store() }, addGrant = WTFMove(addGrant), completionHandler = WTFMove(completionHandler)]() mutable {
+
+        std::optional<OrganizationStorageAccessPromptQuirk> additionalDomainGrants;
+        CanRequestStorageAccessWithoutUserInteraction canRequestStorageAccessWithoutUserInteraction { CanRequestStorageAccessWithoutUserInteraction::No };
+
+        if (auto* networkSession = store->networkSession()) {
+            if (auto* storageSession = networkSession->networkStorageSession()) {
+                additionalDomainGrants = storageSession->storageAccessQuirkForDomainPair(subFrameDomain, topFrameDomain);
+                canRequestStorageAccessWithoutUserInteraction = storageSession->canRequestStorageAccessForLoginOrCompatibilityPurposesWithoutPriorUserInteraction(subFrameDomain, topFrameDomain) ? CanRequestStorageAccessWithoutUserInteraction::Yes : CanRequestStorageAccessWithoutUserInteraction::No;
+            }
+        }
+        workQueue->dispatch([weakThis = WTFMove(weakThis), additionalDomainGrants = crossThreadCopy(WTFMove(additionalDomainGrants)), subFrameDomain = crossThreadCopy(WTFMove(subFrameDomain)), topFrameDomain = crossThreadCopy(WTFMove(topFrameDomain)), addGrant = WTFMove(addGrant), canRequestStorageAccessWithoutUserInteraction, completionHandler = WTFMove(completionHandler)] () mutable {
+            if (!weakThis) {
+                completionHandler(StorageAccessWasGranted::No);
+                return;
+            }
+            if (additionalDomainGrants) {
+                for (auto&& [quirkTopFrameDomain, subFrameDomains] : additionalDomainGrants->domainPairings) {
+                    for (auto&& quirkSubFrameDomain : subFrameDomains) {
+                        if (quirkTopFrameDomain == topFrameDomain && quirkSubFrameDomain == subFrameDomain)
+                            continue;
+                        StorageAccessWasGranted wasAccessGranted { StorageAccessWasGranted::No };
+                        addGrant(SubFrameDomain { quirkSubFrameDomain }, TopFrameDomain { quirkTopFrameDomain }, canRequestStorageAccessWithoutUserInteraction, [&wasAccessGranted] (StorageAccessWasGranted wasGranted) {
+                            wasAccessGranted = wasGranted;
+                        });
+                        if (wasAccessGranted == StorageAccessWasGranted::No) {
+                            completionHandler(wasAccessGranted);
+                            return;
+                        }
+                    }
+                }
+            }
+            addGrant(WTFMove(subFrameDomain), WTFMove(topFrameDomain), canRequestStorageAccessWithoutUserInteraction, WTFMove(completionHandler));
+        });
+    });
 }
 
-void ResourceLoadStatisticsStore::grantStorageAccessInternal(SubFrameDomain&& subFrameDomain, TopFrameDomain&& topFrameDomain, std::optional<FrameIdentifier> frameID, PageIdentifier pageID, StorageAccessPromptWasShown promptWasShownNowOrEarlier, StorageAccessScope scope, CompletionHandler<void(StorageAccessWasGranted)>&& completionHandler)
+void ResourceLoadStatisticsStore::grantStorageAccessInternal(SubFrameDomain&& subFrameDomain, TopFrameDomain&& topFrameDomain, std::optional<FrameIdentifier> frameID, PageIdentifier pageID, StorageAccessPromptWasShown promptWasShownNowOrEarlier, StorageAccessScope scope, CanRequestStorageAccessWithoutUserInteraction canRequestStorageAccessWithoutUserInteraction, CompletionHandler<void(StorageAccessWasGranted)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -1797,12 +1839,12 @@ void ResourceLoadStatisticsStore::grantStorageAccessInternal(SubFrameDomain&& su
         }
         ASSERT(subFrameStatus.first == AddedRecord::No);
 #if ASSERT_ENABLED
-        if (!NetworkStorageSession::canRequestStorageAccessForLoginOrCompatibilityPurposesWithoutPriorUserInteraction(subFrameDomain, topFrameDomain))
+        if (canRequestStorageAccessWithoutUserInteraction == CanRequestStorageAccessWithoutUserInteraction::No)
             ASSERT(hasHadUserInteraction(subFrameDomain, OperatingDatesWindow::Long));
 #endif
         ASSERT(hasUserGrantedStorageAccessThroughPrompt(*subFrameStatus.second, topFrameDomain) == StorageAccessPromptWasShown::Yes);
 #endif
-        setUserInteraction(subFrameDomain, true, WallTime::now() + m_timeAdvanceForTesting);
+        setUserInteraction(subFrameDomain, true, nowTime(m_timeAdvanceForTesting));
     }
 
     RunLoop::main().dispatch([subFrameDomain = WTFMove(subFrameDomain).isolatedCopy(), topFrameDomain = WTFMove(topFrameDomain).isolatedCopy(), frameID, pageID, store = Ref { store() }, scope, completionHandler = WTFMove(completionHandler)]() mutable {
@@ -1853,7 +1895,7 @@ Vector<RegistrableDomain> ResourceLoadStatisticsStore::ensurePrevalentResourcesF
     }
 
     setPrevalentResource(debugStaticPrevalentResource(), ResourceLoadPrevalence::High);
-    primaryDomainsToBlock.uncheckedAppend(debugStaticPrevalentResource());
+    primaryDomainsToBlock.append(debugStaticPrevalentResource());
 
     if (!debugManualPrevalentResource().isEmpty()) {
         auto result = ensureResourceStatisticsForRegistrableDomain(debugManualPrevalentResource());
@@ -1862,7 +1904,7 @@ Vector<RegistrableDomain> ResourceLoadStatisticsStore::ensurePrevalentResourcesF
             return { };
         }
         setPrevalentResource(debugManualPrevalentResource(), ResourceLoadPrevalence::High);
-        primaryDomainsToBlock.uncheckedAppend(debugManualPrevalentResource());
+        primaryDomainsToBlock.append(debugManualPrevalentResource());
 
         if (debugLoggingEnabled()) {
             RELEASE_LOG_INFO(ITPDebug, "Did set %" PRIVATE_LOG_STRING " as prevalent resource for the purposes of ITP Debug Mode.", debugManualPrevalentResource().string().utf8().data());
@@ -1889,7 +1931,7 @@ void ResourceLoadStatisticsStore::logFrameNavigation(const RegistrableDomain& ta
             ITP_RELEASE_LOG_ERROR(m_sessionID, "%p - ResourceLoadStatisticsStore::logFrameNavigation was not completed due to failed insert attempt of target domain", this);
             return;
         }
-        updateLastSeen(targetDomain, ResourceLoadStatistics::reduceTimeResolution(WallTime::now() + m_timeAdvanceForTesting));
+        updateLastSeen(targetDomain, ResourceLoadStatistics::reduceTimeResolution(nowTime(m_timeAdvanceForTesting)));
         insertDomainRelationshipList(subframeUnderTopFrameDomainsQuery, HashSet<RegistrableDomain>({ topFrameDomain }), *targetResult.second);
         statisticsWereUpdated = true;
     }
@@ -2001,7 +2043,7 @@ void ResourceLoadStatisticsStore::logUserInteraction(const TopFrameDomain& domai
         return completionHandler();
     }
     bool didHavePreviousUserInteraction = hasHadUserInteraction(domain, OperatingDatesWindow::Long);
-    setUserInteraction(domain, true, WallTime::now() + m_timeAdvanceForTesting);
+    setUserInteraction(domain, true, nowTime(m_timeAdvanceForTesting));
 
     if (didHavePreviousUserInteraction) {
         completionHandler();
@@ -2287,7 +2329,7 @@ void ResourceLoadStatisticsStore::setMostRecentWebPushInteractionTime(const Regi
 {
     ASSERT(!RunLoop::isMain());
 
-    auto time = WallTime::now() + m_timeAdvanceForTesting;
+    auto time = nowTime(m_timeAdvanceForTesting);
 
     auto transactionScope = beginTransactionIfNecessary();
 
@@ -2540,7 +2582,7 @@ bool ResourceLoadStatisticsStore::areAllThirdPartyCookiesBlockedUnder(const TopF
     return false;
 }
 
-CookieAccess ResourceLoadStatisticsStore::cookieAccess(const SubResourceDomain& subresourceDomain, const TopFrameDomain& topFrameDomain)
+CookieAccess ResourceLoadStatisticsStore::cookieAccess(const SubResourceDomain& subresourceDomain, const TopFrameDomain& topFrameDomain, CanRequestStorageAccessWithoutUserInteraction canRequestStorageAccessWithoutUserInteraction)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -2557,7 +2599,7 @@ CookieAccess ResourceLoadStatisticsStore::cookieAccess(const SubResourceDomain& 
     if (!areAllThirdPartyCookiesBlockedUnder(topFrameDomain) && !isPrevalent)
         return CookieAccess::BasedOnCookiePolicy;
 
-    if (!NetworkStorageSession::canRequestStorageAccessForLoginOrCompatibilityPurposesWithoutPriorUserInteraction(subresourceDomain, topFrameDomain) && !hadUserInteraction)
+    if (canRequestStorageAccessWithoutUserInteraction == CanRequestStorageAccessWithoutUserInteraction::No && !hadUserInteraction)
         return CookieAccess::CannotRequest;
 
     return CookieAccess::OnlyIfGranted;
@@ -2794,13 +2836,13 @@ RegistrableDomainsToDeleteOrRestrictWebsiteDataFor ResourceLoadStatisticsStore::
 {
     ASSERT(!RunLoop::isMain());
 
-    bool shouldCheckForGrandfathering = endOfGrandfatheringTimestamp() > WallTime::now() + m_timeAdvanceForTesting;
+    auto now = nowTime(m_timeAdvanceForTesting);
+    bool shouldCheckForGrandfathering = endOfGrandfatheringTimestamp() > now;
     bool shouldClearGrandfathering = !shouldCheckForGrandfathering && endOfGrandfatheringTimestamp();
 
     if (shouldClearGrandfathering)
         clearEndOfGrandfatheringTimeStamp();
 
-    auto now = WallTime::now() + m_timeAdvanceForTesting;
     auto oldestUserInteraction = now;
     RegistrableDomainsToDeleteOrRestrictWebsiteDataFor toDeleteOrRestrictFor;
 
@@ -3076,9 +3118,9 @@ void ResourceLoadStatisticsStore::appendSubStatisticList(StringBuilder& builder,
     }
 }
 
-static bool hasHadRecentUserInteraction(WTF::Seconds interactionTimeSeconds)
+static bool hasHadRecentUserInteraction(WTF::Seconds interactionTimeSeconds, WallTime now)
 {
-    return interactionTimeSeconds > Seconds(0) && WallTime::now().secondsSinceEpoch() - interactionTimeSeconds < 24_h;
+    return interactionTimeSeconds > Seconds(0) && now.secondsSinceEpoch() - interactionTimeSeconds < 24_h;
 }
 
 void ResourceLoadStatisticsStore::resourceToString(StringBuilder& builder, const String& domain) const
@@ -3097,7 +3139,7 @@ void ResourceLoadStatisticsStore::resourceToString(StringBuilder& builder, const
     appendBoolean(builder, "hadUserInteraction"_s, m_getResourceDataByDomainNameStatement->columnInt(HadUserInteractionIndex));
     builder.append('\n');
     builder.append("    mostRecentUserInteraction: ");
-    if (hasHadRecentUserInteraction(Seconds(m_getResourceDataByDomainNameStatement->columnDouble(MostRecentUserInteractionTimeIndex))))
+    if (hasHadRecentUserInteraction(Seconds(m_getResourceDataByDomainNameStatement->columnDouble(MostRecentUserInteractionTimeIndex)), nowTime(m_timeAdvanceForTesting)))
         builder.append("within 24 hours");
     else
         builder.append("-1");
@@ -3270,14 +3312,14 @@ bool ResourceLoadStatisticsStore::hasStatisticsExpired(WallTime mostRecentUserIn
             return true;
         break;
     case OperatingDatesWindow::ForLiveOnTesting:
-        return WallTime::now() + m_timeAdvanceForTesting > mostRecentUserInteractionTime + operatingTimeWindowForLiveOnTesting;
+        return nowTime(m_timeAdvanceForTesting) > mostRecentUserInteractionTime + operatingTimeWindowForLiveOnTesting;
     case OperatingDatesWindow::ForReproTesting:
         return true;
     }
 
     // If we don't meet the real criteria for an expired statistic, check the user setting for a tighter restriction (mainly for testing).
     if (this->parameters().timeToLiveUserInteraction) {
-        if (WallTime::now() + m_timeAdvanceForTesting > mostRecentUserInteractionTime + this->parameters().timeToLiveUserInteraction.value())
+        if (nowTime(m_timeAdvanceForTesting) > mostRecentUserInteractionTime + this->parameters().timeToLiveUserInteraction.value())
             return true;
     }
     return false;
@@ -3292,7 +3334,7 @@ void ResourceLoadStatisticsStore::insertExpiredStatisticForTesting(const Registr
 
     for (unsigned i = 1; i <= numberOfOperatingDaysPassed; i++) {
         double daysToSubtract = Seconds::fromHours(24 * i).value();
-        daysAgoInSeconds = WallTime::now().secondsSinceEpoch().value() - daysToSubtract;
+        daysAgoInSeconds = nowTime(m_timeAdvanceForTesting).secondsSinceEpoch().value() - daysToSubtract;
         auto dateToInsert = OperatingDate::fromWallTime(WallTime::fromRawSeconds(daysAgoInSeconds));
 
         auto insertOperatingDateStatement = m_database.prepareStatement("INSERT OR IGNORE INTO OperatingDates (year, month, monthDay) SELECT ?, ?, ?;"_s);
@@ -3337,5 +3379,3 @@ void ResourceLoadStatisticsStore::insertExpiredStatisticForTesting(const Registr
 
 #undef ITP_RELEASE_LOG
 #undef ITP_RELEASE_LOG_ERROR
-
-#endif

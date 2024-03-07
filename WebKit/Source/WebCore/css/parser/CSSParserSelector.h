@@ -25,6 +25,8 @@
 
 namespace WebCore {
 
+struct CSSSelectorParserContext;
+
 enum class CSSParserSelectorCombinator {
     Child,
     DescendantSpace,
@@ -36,7 +38,7 @@ class CSSParserSelector {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static std::unique_ptr<CSSParserSelector> parsePseudoClassSelector(StringView);
-    static std::unique_ptr<CSSParserSelector> parsePseudoElementSelector(StringView);
+    static std::unique_ptr<CSSParserSelector> parsePseudoElementSelector(StringView, const CSSSelectorParserContext&);
     static std::unique_ptr<CSSParserSelector> parsePagePseudoSelector(StringView);
 
     CSSParserSelector();
@@ -59,22 +61,21 @@ public:
     void setArgument(const AtomString& value) { m_selector->setArgument(value); }
     void setNth(int a, int b) { m_selector->setNth(a, b); }
     void setMatch(CSSSelector::Match value) { m_selector->setMatch(value); }
-    void setRelation(CSSSelector::RelationType value) { m_selector->setRelation(value); }
+    void setRelation(CSSSelector::Relation value) { m_selector->setRelation(value); }
     void setForPage() { m_selector->setForPage(); }
 
     CSSSelector::Match match() const { return m_selector->match(); }
-    CSSSelector::PseudoElementType pseudoElementType() const { return m_selector->pseudoElementType(); }
+    CSSSelector::PseudoElement pseudoElement() const { return m_selector->pseudoElement(); }
     const CSSSelectorList* selectorList() const { return m_selector->selectorList(); }
     
-    void setPseudoElementType(CSSSelector::PseudoElementType type) { m_selector->setPseudoElementType(type); }
-    void setPseudoClassType(CSSSelector::PseudoClassType type) { m_selector->setPseudoClassType(type); }
+    void setPseudoElement(CSSSelector::PseudoElement type) { m_selector->setPseudoElement(type); }
+    void setPseudoClass(CSSSelector::PseudoClass type) { m_selector->setPseudoClass(type); }
 
     void adoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>&&);
     void setArgumentList(FixedVector<PossiblyQuotedIdentifier>);
     void setSelectorList(std::unique_ptr<CSSSelectorList>);
 
-    CSSSelector::PseudoClassType pseudoClassType() const { return m_selector->pseudoClassType(); }
-    bool isCustomPseudoElement() const { return m_selector->isCustomPseudoElement(); }
+    CSSSelector::PseudoClass pseudoClass() const { return m_selector->pseudoClass(); }
 
     bool isPseudoElementCueFunction() const;
 
@@ -83,6 +84,7 @@ public:
     bool isHostPseudoSelector() const;
 
     bool hasExplicitNestingParent() const;
+    bool hasExplicitPseudoClassScope() const;
 
     // FIXME-NEWPARSER: "slotted" was removed here for now, since it leads to a combinator
     // connection of ShadowDescendant, and the current shadow DOM code doesn't expect this. When
@@ -92,11 +94,14 @@ public:
 
     CSSParserSelector* tagHistory() const { return m_tagHistory.get(); }
     CSSParserSelector* leftmostSimpleSelector();
+    const CSSParserSelector* leftmostSimpleSelector() const;
+    bool startsWithExplicitCombinator() const;
     void setTagHistory(std::unique_ptr<CSSParserSelector> selector) { m_tagHistory = WTFMove(selector); }
     void clearTagHistory() { m_tagHistory.reset(); }
-    void insertTagHistory(CSSSelector::RelationType before, std::unique_ptr<CSSParserSelector>, CSSSelector::RelationType after);
-    void appendTagHistory(CSSSelector::RelationType, std::unique_ptr<CSSParserSelector>);
+    void insertTagHistory(CSSSelector::Relation before, std::unique_ptr<CSSParserSelector>, CSSSelector::Relation after);
+    void appendTagHistory(CSSSelector::Relation, std::unique_ptr<CSSParserSelector>);
     void appendTagHistory(CSSParserSelectorCombinator, std::unique_ptr<CSSParserSelector>);
+    void appendTagHistoryAsRelative(std::unique_ptr<CSSParserSelector>);
     void prependTagSelector(const QualifiedName&, bool tagIsForNamespaceRule = false);
     std::unique_ptr<CSSParserSelector> releaseTagHistory();
 
@@ -108,19 +113,19 @@ private:
 inline bool CSSParserSelector::needsImplicitShadowCombinatorForMatching() const
 {
     return match() == CSSSelector::Match::PseudoElement
-        && (pseudoElementType() == CSSSelector::PseudoElementWebKitCustom
+        && (pseudoElement() == CSSSelector::PseudoElement::WebKitCustom
 #if ENABLE(VIDEO)
-            || pseudoElementType() == CSSSelector::PseudoElementCue
+            || pseudoElement() == CSSSelector::PseudoElement::Cue
 #endif
-            || pseudoElementType() == CSSSelector::PseudoElementPart
-            || pseudoElementType() == CSSSelector::PseudoElementSlotted
-            || pseudoElementType() == CSSSelector::PseudoElementWebKitCustomLegacyPrefixed);
+            || pseudoElement() == CSSSelector::PseudoElement::Part
+            || pseudoElement() == CSSSelector::PseudoElement::Slotted
+            || pseudoElement() == CSSSelector::PseudoElement::WebKitCustomLegacyPrefixed);
 }
 
 inline bool CSSParserSelector::isPseudoElementCueFunction() const
 {
 #if ENABLE(VIDEO)
-    return m_selector->match() == CSSSelector::Match::PseudoElement && m_selector->pseudoElementType() == CSSSelector::PseudoElementCue;
+    return m_selector->match() == CSSSelector::Match::PseudoElement && m_selector->pseudoElement() == CSSSelector::PseudoElement::Cue;
 #else
     return false;
 #endif

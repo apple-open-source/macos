@@ -92,6 +92,10 @@ dispatch_workloop_set_qos_class_floor(dispatch_workloop_t workloop,
  * dispatch_set_qos_class_floor() or dispatch_workloop_set_qos_class_floor()
  * is undefined and will cause the process to be terminated.
  *
+ * Using both dispatch_workloop_set_scheduler_priority() and
+ * dispatch_workloop_set_os_workgroup() will prefer scheduling policies
+ * from the workgroup, if they exist.
+ *
  * @param workloop
  * The dispatch workloop to modify.
  *

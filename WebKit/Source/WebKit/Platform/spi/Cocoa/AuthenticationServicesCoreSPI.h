@@ -29,8 +29,9 @@
 
 @interface ASCWebKitSPISupport : NSObject
 @property (class, nonatomic) BOOL shouldUseAlternateCredentialStore;
-+ (BOOL)arePasskeysDisallowedForRelyingParty:(nonnull NSString *)relyingParty;
-+ (BOOL)canCurrentProcessAccessPasskeysForRelyingParty:(nonnull NSString *)relyingParty;
++ (void)getArePasskeysDisallowedForRelyingParty:(nonnull NSString *)relyingParty withCompletionHandler:(void (^ _Nonnull)(BOOL))completionHandler NS_REFINED_FOR_SWIFT;
++ (void)getCanCurrentProcessAccessPasskeysForRelyingParty:(nonnull NSString *)relyingParty withCompletionHandler:(void (^ _Nonnull)(BOOL))completionHandler;
++ (void)getClientCapabilitiesForRelyingParty:(nonnull NSString *)relyingParty withCompletionHandler:(void (^ _Nonnull)(NSDictionary<NSString *, NSNumber *> * _Nonnull))completionHandler;
 @end
 
 // FIXME: Most of the forward declarations below should be behind a non-Apple-internal SDK compile-time flag.
@@ -243,6 +244,7 @@ typedef NS_ENUM(NSInteger, ASPublicKeyCredentialResidentKeyPreference) {
 typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
     ASCredentialRequestStyleModal,
     ASCredentialRequestStyleAutoFill,
+    ASCredentialRequestStyleSilent,
 };
 
 @class ASGlobalFrameIdentifier;
@@ -367,6 +369,8 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 
 - (void)performAutoFillAuthorizationRequestsForContext:(ASCCredentialRequestContext *)context withCompletionHandler:(void (^)(id <ASCCredentialProtocol> _Nullable credential, NSError * _Nullable error))completionHandler;
 #endif
+
+- (void)performSilentAuthorizationRequestsForContext:(ASCCredentialRequestContext *)context withCompletionHandler:(void (^)(id <ASCCredentialProtocol> _Nullable credential, NSError * _Nullable error))completionHandler;
 
 - (void)cancelCurrentRequest;
 

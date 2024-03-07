@@ -113,8 +113,8 @@ typedef struct {
 	uint64_t last_log_time;
 } pgm_zone_t;
 
-MALLOC_STATIC_ASSERT(__offsetof(pgm_zone_t, malloc_zone) == 0,
-		"pgm_zone_t instances must be usable as regular zones");
+ASSERT_WRAPPER_ZONE(pgm_zone_t);
+
 MALLOC_STATIC_ASSERT(__offsetof(pgm_zone_t, padding) < PAGE_MAX_SIZE,
 		"First page is mapped read-only");
 MALLOC_STATIC_ASSERT(__offsetof(pgm_zone_t, lock) >= PAGE_MAX_SIZE,
@@ -631,57 +631,6 @@ pgm_destroy(pgm_zone_t *zone)
 	my_vm_deallocate((vm_address_t)zone, sizeof(pgm_zone_t));
 }
 
-static unsigned
-pgm_batch_malloc(pgm_zone_t *zone, size_t size, void **results, unsigned count)
-{
-	if (os_unlikely(count == 0)) {
-		return 0;
-	}
-	DELEGATE_UNSAMPLED(size, batch_malloc, size, results, count);
-
-	uint32_t sample_count = 1; // Sample at least one allocation.
-	for (uint32_t i = 1; i < count; i++) {
-		if (should_sample_counter(zone->sample_counter_range)) {
-			sample_count++;
-		}
-	}
-	// TODO(yln): Express the above with only one call to rand_uniform(). "n choose k"?
-
-	for (uint32_t i = 0; i < sample_count; i++) {
-		lock(zone);
-		void *ptr = (void *)allocate(zone, size, zone->min_alignment);
-		unlock(zone);
-		if (!ptr) {
-			sample_count = i;
-			break; // Zone full.
-		}
-		results[i] = ptr;
-	}
-
-	void **remaining_results = results + sample_count;
-	uint32_t remaining_count = count - sample_count;
-	remaining_count = DELEGATE(batch_malloc, size, remaining_results, remaining_count) ;
-
-	// TODO(yln): sampled allocations will always be in the beginning of the results
-	// array.  We could shuffle it: https://en.wikipedia.org/wiki/Fisher–Yates_shuffle
-	return sample_count + remaining_count;
-}
-
-static void
-pgm_batch_free(pgm_zone_t *zone, void **to_be_freed, unsigned count)
-{
-	for (uint32_t i = 0; i < count; i++) {
-		vm_address_t addr = (vm_address_t)to_be_freed[i];
-		if (os_unlikely(is_guarded(zone, addr))) {
-			lock(zone);
-			deallocate(zone, addr);
-			unlock(zone);
-			to_be_freed[i] = NULL;
-		}
-	}
-	return DELEGATE(batch_free, to_be_freed, count);
-}
-
 static void *
 pgm_memalign(pgm_zone_t *zone, size_t alignment, size_t size)
 {
@@ -706,6 +655,38 @@ pgm_claimed_address(pgm_zone_t *zone, void *ptr)
 	return is_guarded(zone, (vm_address_t)ptr);
 }
 
+static void *
+pgm_malloc_with_options(pgm_zone_t *zone, size_t align, size_t size,
+		uint64_t options)
+{
+	if (os_unlikely(should_sample(zone, size))) {
+		size_t adj_alignment = MAX(align, zone->min_alignment);
+		lock(zone);
+		void *ptr = (void *)allocate(zone, size, adj_alignment);
+		unlock(zone);
+		if (ptr) {
+			if (options & MALLOC_NP_OPTION_CLEAR) {
+				bzero(ptr, size);
+			}
+			return ptr;
+		}
+		// If the allocaiton fails, fall back to the wrapped zone
+	}
+
+	if (zone->wrapped_zone->version >= 15) {
+		return DELEGATE(malloc_with_options, align, size, options);
+	} else if (align) {
+		void *ptr = DELEGATE(memalign, align, size);
+		if (ptr && (options & MALLOC_NP_OPTION_CLEAR)) {
+			bzero(ptr, size);
+		}
+		return ptr;
+	} else if (options & MALLOC_NP_OPTION_CLEAR) {
+		return DELEGATE(calloc, 1, size);
+	} else {
+		return DELEGATE(malloc, size);
+	}
+}
 
 #pragma mark -
 #pragma mark Integrity Checks
@@ -746,12 +727,6 @@ check_zone(const pgm_zone_t *zone)
 			(zone->slots && zone->metadata) &&
 			// Statistics
 			(zone->size_in_use <= zone->max_size_in_use);
-}
-
-static bool
-check_introspection(const pgm_zone_t *zone)
-{
-	return true;
 }
 
 static bool
@@ -816,10 +791,9 @@ check_metadata(const pgm_zone_t *zone)
 #pragma mark Introspection Functions
 
 typedef enum {
-	rt_zone_only     = 1 << 0,
-	rt_introspection = 1 << 1,
-	rt_slots         = 1 << 2,
-	rt_metadata      = 1 << 3,
+	rt_zone_only = 1 << 0,
+	rt_slots     = 1 << 1,
+	rt_metadata  = 1 << 2,
 } read_type_t;
 
 #define READ(remote_address, size, local_memory, checker, check_data) \
@@ -829,30 +803,15 @@ typedef enum {
 	if (!checker(check_data)) return KERN_FAILURE; \
 }
 
-// Avoid ptrauth: ptr loaded from corpse can't be authenticated in ReportCrash proccess.
-static const malloc_introspection_t *
-get_introspection_ptr(const pgm_zone_t *zone)
-{
-		// return zone->malloc_zone.introspect;
-		vm_address_t ptr_addr = (vm_address_t)zone + offsetof(malloc_zone_t, introspect);
-		vm_address_t ptr = *(vm_address_t *)ptr_addr;
-		return ptrauth_strip((malloc_introspection_t *)ptr, ptrauth_key_process_independent_data);
-}
-
 static kern_return_t
 read_zone(task_t task, vm_address_t zone_address, memory_reader_t reader, pgm_zone_t *zone, read_type_t read_type)
 {
-	if (!reader && task == mach_task_self()) {
-		reader = _malloc_default_reader;
-	}
+	reader = reader_or_in_memory_fallback(reader, task);
 
 	pgm_zone_t *zone_ptr;
 	READ(zone_address, sizeof(pgm_zone_t), &zone_ptr, check_zone, zone_ptr);
 	*zone = *zone_ptr;  // Copy to writable memory
 
-	if (read_type & rt_introspection) {
-		READ(get_introspection_ptr(zone), sizeof(malloc_introspection_t), &zone->malloc_zone.introspect, check_introspection, zone);
-	}
 	if (read_type & rt_slots) {
 		READ(zone->slots, zone->num_slots * sizeof(slot_t), &zone->slots, check_slots, zone);
 	}
@@ -1022,6 +981,8 @@ pgm_zone_locked(pgm_zone_t *zone)
 #pragma mark -
 #pragma mark Zone Templates
 
+#define PGM_ZONE_VERSION 15
+
 // Suppress warning: incompatible function pointer types
 #define FN_PTR(fn) (void *)(&fn)
 
@@ -1077,12 +1038,12 @@ static const malloc_zone_t malloc_zone_template = {
 	.destroy = FN_PTR(pgm_destroy),
 
 	// Batch operations
-	.batch_malloc = FN_PTR(pgm_batch_malloc),
-	.batch_free = FN_PTR(pgm_batch_free),
+	.batch_malloc = malloc_zone_batch_malloc_fallback,
+	.batch_free = malloc_zone_batch_free_fallback,
 
 	// Introspection
 	.zone_name = "ProbGuardMallocZone",
-	.version = 14,
+	.version = PGM_ZONE_VERSION,
 	.introspect = (malloc_introspection_t *)&introspection_template, // Effectively const.
 
 	// Specialized operations
@@ -1091,6 +1052,7 @@ static const malloc_zone_t malloc_zone_template = {
 	.pressure_relief = NULL,
 	.claimed_address = FN_PTR(pgm_claimed_address),
 	.try_free_default = NULL,
+	.malloc_with_options = FN_PTR(pgm_malloc_with_options),
 };
 
 
@@ -1298,11 +1260,20 @@ static void my_vm_deallocate(vm_address_t addr, size_t size);
 static void my_vm_protect(vm_address_t addr, size_t size, vm_prot_t protection);
 
 static void
+disable_unsupported_apis(malloc_zone_t *pgm_zone, const malloc_zone_t *wrapped_zone)
+{
+	#define DISABLE_UNSUPPORTED(api) if (!wrapped_zone->api) pgm_zone->api = NULL;
+	DISABLE_UNSUPPORTED(memalign)
+	DISABLE_UNSUPPORTED(free_definite_size)
+}
+
+static void
 setup_zone(pgm_zone_t *zone, malloc_zone_t *wrapped_zone)
 {
 	// Malloc zone
 	zone->malloc_zone = malloc_zone_template;
 	zone->wrapped_zone = wrapped_zone;
+	disable_unsupported_apis(&zone->malloc_zone, wrapped_zone);
 
 	// Configuration
 	configure_zone(zone);
@@ -1327,10 +1298,12 @@ setup_zone(pgm_zone_t *zone, malloc_zone_t *wrapped_zone)
 malloc_zone_t *
 pgm_create_zone(malloc_zone_t *wrapped_zone)
 {
-	// rdar://74948496 ([PGM] Drop all requirements for wrapped_zone)
-	MALLOC_ASSERT(wrapped_zone->version >= 6);
-	MALLOC_ASSERT(wrapped_zone->batch_malloc && wrapped_zone->batch_free &&
-			wrapped_zone->memalign && wrapped_zone->free_definite_size);
+	// The PGM zone includes the `malloc_introspection_t::zone_type` field
+	// (version 14) so we need to support the "malloc()/calloc() set errno to
+	// ENOMEM on failure" behavior (version 13).  Require wrapped zone to be at
+	// least version 13.
+	MALLOC_STATIC_ASSERT(PGM_ZONE_VERSION == 15, "PGM zone version");
+	MALLOC_ASSERT(wrapped_zone->version >= 13);
 
 	pgm_zone_t *zone = (pgm_zone_t *)my_vm_map(sizeof(pgm_zone_t), VM_PROT_READ_WRITE, VM_MEMORY_MALLOC);
 	setup_zone(zone, wrapped_zone);
@@ -1492,7 +1465,7 @@ diagnose_page_fault(const pgm_zone_t *zone, vm_address_t fault_address, pgm_repo
 MALLOC_STATIC_ASSERT(KR_NO_PGM > KERN_RETURN_MAX, "KR_NO_PGM");
 
 static crash_reporter_memory_reader_t g_crm_reader;
-static const uint32_t k_max_read_memory = 4;  // See read_zone() and read_type_t
+static const uint32_t k_max_read_memory = 3;  // See read_zone() and read_type_t
 static void *read_memory[k_max_read_memory];
 static uint32_t num_read_memory;
 static kern_return_t
@@ -1519,7 +1492,7 @@ static void
 free_read_memory()
 {
 	for (uint32_t i = 0; i < num_read_memory; i++) {
-		free(read_memory[i]);
+		_free(read_memory[i]);
 	}
 	num_read_memory = 0;
 }
@@ -1527,10 +1500,12 @@ free_read_memory()
 static kern_return_t
 is_pgm_zone(vm_address_t zone_address, task_t task, memory_reader_t reader)
 {
-	READ_ZONE(zone, rt_introspection);
-	if (zone->malloc_zone.version < 14)
-		return KR_NO_PGM;
-	unsigned zone_type = get_introspection_ptr(zone)->zone_type;
+	unsigned zone_type;
+	kern_return_t kr = get_zone_type(task, reader, zone_address, &zone_type);
+	if (kr != KERN_SUCCESS) {
+		return kr;
+	}
+
 	return (zone_type == MALLOC_ZONE_TYPE_PGM) ? KERN_SUCCESS : KR_NO_PGM;
 }
 
@@ -1569,19 +1544,6 @@ pgm_extract_report_from_corpse(vm_address_t fault_address, pgm_report_t *report,
 
 	memory_reader_t *reader = setup_memory_reader(crm_reader);
 	kern_return_t kr = extract_report_select_zone(fault_address, report, task, zone_addresses, zone_count, reader);
-
-	_malloc_lock_unlock(&crash_reporter_lock);
-	return kr;
-}
-
-kern_return_t
-pgm_diagnose_fault_from_crash_reporter(vm_address_t fault_address, pgm_report_t *report,
-		task_t task, vm_address_t zone_address, crash_reporter_memory_reader_t crm_reader)
-{
-	_malloc_lock_lock(&crash_reporter_lock);
-
-	memory_reader_t *reader = setup_memory_reader(crm_reader);
-	kern_return_t kr = diagnose_fault_from_external_process(fault_address, report, task, zone_address, reader);
 
 	_malloc_lock_unlock(&crash_reporter_lock);
 	return kr;

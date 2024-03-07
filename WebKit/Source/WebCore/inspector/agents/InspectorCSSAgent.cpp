@@ -379,7 +379,7 @@ void InspectorCSSAgent::setActiveStyleSheetsForDocument(Document& document, Vect
     }
 }
 
-bool InspectorCSSAgent::forcePseudoState(const Element& element, CSSSelector::PseudoClassType pseudoClassType)
+bool InspectorCSSAgent::forcePseudoState(const Element& element, CSSSelector::PseudoClass pseudoClass)
 {
     if (m_nodeIdToForcedPseudoState.isEmpty())
         return false;
@@ -392,7 +392,7 @@ bool InspectorCSSAgent::forcePseudoState(const Element& element, CSSSelector::Ps
     if (!nodeId)
         return false;
 
-    return m_nodeIdToForcedPseudoState.get(nodeId).contains(pseudoClassType);
+    return m_nodeIdToForcedPseudoState.get(nodeId).contains(pseudoClass);
 }
 
 std::optional<Protocol::CSS::PseudoId> InspectorCSSAgent::protocolValueForPseudoId(PseudoId pseudoId)
@@ -402,6 +402,8 @@ std::optional<Protocol::CSS::PseudoId> InspectorCSSAgent::protocolValueForPseudo
         return Protocol::CSS::PseudoId::FirstLine;
     case PseudoId::FirstLetter:
         return Protocol::CSS::PseudoId::FirstLetter;
+    case PseudoId::GrammarError:
+        return Protocol::CSS::PseudoId::GrammarError;
     case PseudoId::Marker:
         return Protocol::CSS::PseudoId::Marker;
     case PseudoId::Backdrop:
@@ -426,8 +428,20 @@ std::optional<Protocol::CSS::PseudoId> InspectorCSSAgent::protocolValueForPseudo
         return Protocol::CSS::PseudoId::ScrollbarTrackPiece;
     case PseudoId::ScrollbarCorner:
         return Protocol::CSS::PseudoId::ScrollbarCorner;
+    case PseudoId::SpellingError:
+        return Protocol::CSS::PseudoId::SpellingError;
     case PseudoId::Resizer:
         return Protocol::CSS::PseudoId::Resizer;
+    case PseudoId::ViewTransition:
+        return Protocol::CSS::PseudoId::ViewTransition;
+    case PseudoId::ViewTransitionGroup:
+        return Protocol::CSS::PseudoId::ViewTransitionGroup;
+    case PseudoId::ViewTransitionImagePair:
+        return Protocol::CSS::PseudoId::ViewTransitionImagePair;
+    case PseudoId::ViewTransitionOld:
+        return Protocol::CSS::PseudoId::ViewTransitionOld;
+    case PseudoId::ViewTransitionNew:
+        return Protocol::CSS::PseudoId::ViewTransitionNew;
 
     default:
         ASSERT_NOT_REACHED();
@@ -924,31 +938,31 @@ Protocol::ErrorStringOr<void> InspectorCSSAgent::forcePseudoState(Protocol::DOM:
 
         switch (*pseudoClass) {
         case Protocol::CSS::ForceablePseudoClass::Active:
-            forcedPseudoClassesToSet.add(CSSSelector::PseudoClassType::Active);
+            forcedPseudoClassesToSet.add(CSSSelector::PseudoClass::Active);
             break;
 
         case Protocol::CSS::ForceablePseudoClass::Hover:
-            forcedPseudoClassesToSet.add(CSSSelector::PseudoClassType::Hover);
+            forcedPseudoClassesToSet.add(CSSSelector::PseudoClass::Hover);
             break;
 
         case Protocol::CSS::ForceablePseudoClass::Focus:
-            forcedPseudoClassesToSet.add(CSSSelector::PseudoClassType::Focus);
+            forcedPseudoClassesToSet.add(CSSSelector::PseudoClass::Focus);
             break;
 
         case Protocol::CSS::ForceablePseudoClass::FocusVisible:
-            forcedPseudoClassesToSet.add(CSSSelector::PseudoClassType::FocusVisible);
+            forcedPseudoClassesToSet.add(CSSSelector::PseudoClass::FocusVisible);
             break;
 
         case Protocol::CSS::ForceablePseudoClass::FocusWithin:
-            forcedPseudoClassesToSet.add(CSSSelector::PseudoClassType::FocusWithin);
+            forcedPseudoClassesToSet.add(CSSSelector::PseudoClass::FocusWithin);
             break;
 
         case Protocol::CSS::ForceablePseudoClass::Target:
-            forcedPseudoClassesToSet.add(CSSSelector::PseudoClassType::Target);
+            forcedPseudoClassesToSet.add(CSSSelector::PseudoClass::Target);
             break;
 
         case Protocol::CSS::ForceablePseudoClass::Visited:
-            forcedPseudoClassesToSet.add(CSSSelector::PseudoClassType::Visited);
+            forcedPseudoClassesToSet.add(CSSSelector::PseudoClass::Visited);
             break;
         }
     }
@@ -1240,7 +1254,8 @@ RefPtr<Protocol::CSS::CSSRule> InspectorCSSAgent::buildObjectForRule(const Style
 
     // StyleRules returned by Style::Resolver::styleRulesForElement lack parent pointers since that infomation is not cheaply available.
     // Since the inspector wants to walk the parent chain, we construct the full wrappers here.
-    styleResolver.inspectorCSSOMWrappers().collectDocumentWrappers(styleResolver.document().extensionStyleSheets());
+    if (auto* extensionStyleSheets = styleResolver.document().extensionStyleSheetsIfExists())
+        styleResolver.inspectorCSSOMWrappers().collectDocumentWrappers(*extensionStyleSheets);
     styleResolver.inspectorCSSOMWrappers().collectScopeWrappers(Style::Scope::forNode(element));
 
     // Possiblity of :host styles if this element has a shadow root.

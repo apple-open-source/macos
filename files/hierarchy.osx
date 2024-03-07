@@ -8,6 +8,7 @@
 0775	root	admin	Library/Logs
 0770	root	250	Library/Logs/DiagnosticReports
 0755	88	88	Library/Logs/hidfw-crashlogs
+0755	88	88	Library/Logs/WindowServer
 0755	root	wheel	Library/PreferencePanes
 0755	root	wheel	Library/Preferences
 0775	root	202	Library/Preferences/Audio

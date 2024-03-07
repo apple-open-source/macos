@@ -211,7 +211,6 @@
         return nil;
     }
 
-    
 #if TARGET_OS_TV
     // musr needs to not be forwarded from local keychain
     objd[(id)kSecAttrMultiUser] = nil;
@@ -381,6 +380,19 @@
         return nil;
     }
 
+    // CloudKit records cannot be over 1 MB - CloudKit server will send an error for that particular record and CKKS will delete the OQE associated with it
+    // However, if a record is absurdly large, CloudKit server will send an ambiguous error causing CKKS to repeatedly re-upload the problematic record
+    unsigned long objectSize = [encryptedItem.encitem length];
+    if (objectSize >= 1 << 20) {
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorNotSupported description:@"Object size too large"];
+        ckkserror("ckksitem", zoneID, "Object Size (%lu bytes) too large: %@ " SECDBITEM_FMT, objectSize, localerror, item);
+        if(error) {
+            *error = localerror;
+        }
+        
+        return nil;
+    }
+    
     return [[CKKSOutgoingQueueEntry alloc] initWithCKKSItem:encryptedItem
                                                      action:actualAction
                                                       state:SecCKKSStateNew
@@ -446,10 +458,12 @@
                                     zoneID:(CKRecordZoneID*)zoneID
                                      error:(NSError * __autoreleasing *)error
 {
+    NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
     return [self fetch:n where: @{
         @"contextID": CKKSNilToNSNull(contextID),
         @"state":CKKSNilToNSNull(state),
-        @"ckzone":CKKSNilToNSNull(zoneID.zoneName)
+        @"ckzone":CKKSNilToNSNull(zoneID.zoneName),
+        @"waituntil":[[CKKSSQLWhereNullOrValue alloc] initWithOperation:CKKSSQLWhereComparatorLessThan value:[dateFormat stringFromDate:[NSDate date]]]
     } error:error];
 }
 

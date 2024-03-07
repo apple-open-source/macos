@@ -888,6 +888,7 @@ extern int32_t inp_get_sndbytes_allunsent(struct socket *, u_int32_t);
 extern void inp_decr_sndbytes_allunsent(struct socket *, u_int32_t);
 extern void inp_set_activity_bitmap(struct inpcb *inp);
 extern void inp_get_activity_bitmap(struct inpcb *inp, activity_bitmap_t *b);
+extern void inp_clear_activity_bitmap(struct inpcb *inpb);
 extern void inp_update_last_owner(struct socket *so, struct proc *p, struct proc *ep);
 extern void inp_copy_last_owner(struct socket *so, struct socket *head);
 #if SKYWALK

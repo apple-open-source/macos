@@ -106,8 +106,8 @@ void StorageAreaMap::setItem(LocalFrame& sourceFrame, StorageAreaImpl* sourceAre
         if (weakThis)
             weakThis->didSetItem(seed, key, hasError, WTFMove(allItems));
     };
-    auto& connection = WebProcess::singleton().ensureNetworkProcessConnection().connection();
-    connection.sendWithAsyncReply(Messages::NetworkStorageManager::SetItem(*m_remoteAreaIdentifier, sourceArea->identifier(), key, value, sourceFrame.document()->url().string()), WTFMove(callback));
+    auto connection = WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection();
+    connection->sendWithAsyncReply(Messages::NetworkStorageManager::SetItem(*m_remoteAreaIdentifier, sourceArea->identifier(), key, value, sourceFrame.document()->url().string()), WTFMove(callback));
 }
 
 void StorageAreaMap::removeItem(WebCore::LocalFrame& sourceFrame, StorageAreaImpl* sourceArea, const String& key)
@@ -128,7 +128,7 @@ void StorageAreaMap::removeItem(WebCore::LocalFrame& sourceFrame, StorageAreaImp
         return;
     }
 
-    auto callback = [weakThis = WeakPtr { *this }, seed = m_currentSeed, key](bool hasError, auto&& allItems) mutable {
+    auto callback = [weakThis = WeakPtr { *this }, seed = m_currentSeed, key](bool hasError, HashMap<String, String>&& allItems) mutable {
         if (weakThis)
             weakThis->didRemoveItem(seed, key, hasError, WTFMove(allItems));
     };
@@ -339,15 +339,15 @@ void StorageAreaMap::didConnect(StorageAreaIdentifier remoteAreaIdentifier, Hash
 void StorageAreaMap::disconnect()
 {
     if (!m_remoteAreaIdentifier) {
-        auto* networkProcessConnection = WebProcess::singleton().existingNetworkProcessConnection();
+        RefPtr networkProcessConnection = WebProcess::singleton().existingNetworkProcessConnection();
         if (m_isWaitingForConnectReply && networkProcessConnection)
-            networkProcessConnection->connection().send(Messages::NetworkStorageManager::CancelConnectToStorageArea(computeStorageType(), m_namespace.storageNamespaceID(), clientOrigin()), 0);
+            networkProcessConnection->protectedConnection()->send(Messages::NetworkStorageManager::CancelConnectToStorageArea(computeStorageType(), m_namespace.storageNamespaceID(), clientOrigin()), 0);
 
         return;
     }
 
-    if (auto* networkProcessConnection = WebProcess::singleton().existingNetworkProcessConnection())
-        networkProcessConnection->connection().send(Messages::NetworkStorageManager::DisconnectFromStorageArea(*m_remoteAreaIdentifier), 0);
+    if (RefPtr networkProcessConnection = WebProcess::singleton().existingNetworkProcessConnection())
+        networkProcessConnection->protectedConnection()->send(Messages::NetworkStorageManager::DisconnectFromStorageArea(*m_remoteAreaIdentifier), 0);
 
     m_remoteAreaIdentifier = { };
     m_lastHandledMessageIdentifier = 0;

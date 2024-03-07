@@ -29,8 +29,22 @@ extension MachineMO {
     }
 }
 
-// You get two days of grace before you're removed
-let cutoffHours = 48
+/* 
+ Devices that are on the allowed TDL list and trusted in Octagon, become distrusted in Octagon once
+ a device's MID becomes disallowed.
+ */
+
+// If a MID is allowed but then falls off the TDL entirely, 48 hours grace to get back on the TDL before being disallowed
+let ghostedCutoffHours = 48
+
+// If on the evicted list and not on the allowed list - 48 hours grace to get back on the TDL before being disallowed
+let evictedCutoffHours = 48
+
+// If on the unknown reason list and not on the allowed list - 48 hours grace to get back on the TDL before being disallowed
+let unknownReasonCutoffHours = 48
+
+// If on the unknown list - 48 hours grace to get back on the TDL before being disallowed
+let unknownCutoffHours = 48
 
 extension Container {
     // CoreData suggests not using heavyweight migrations, so we have two locations to store the machine ID list.
@@ -86,7 +100,34 @@ extension Container {
         }
     }
 
+    // return whether or not there are list differences
+    func handleEvicted(machine: MachineMO, listDifferences: inout Bool) {
+        if machine.modifiedInPast(hours: evictedCutoffHours) {
+            logger.info("Evicted machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving evicted: \(String(describing: machine.machineID), privacy: .public)")
+        } else {
+            logger.notice("Evicted machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); distrusting: \(String(describing: machine.machineID), privacy: .public)")
+            machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
+            machine.modified = Date()
+            listDifferences = true
+        }
+    }
+
+    // return whether or not there are list differences
+    func handleUnknownReasons(machine: MachineMO, listDifferences: inout Bool) {
+        if machine.modifiedInPast(hours: unknownReasonCutoffHours) {
+            logger.info("Unknown reason machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving unknown reason: \(String(describing: machine.machineID), privacy: .public)")
+        } else {
+            logger.notice("Unknown reason machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); distrusting: \(String(describing: machine.machineID), privacy: .public)")
+            machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
+            machine.modified = Date()
+            listDifferences = true
+        }
+    }
+
     func setAllowedMachineIDs(_ allowedMachineIDs: Set<String>,
+                              userInitiatedRemovals: Set<String>? = nil,
+                              evictedRemovals: Set<String>? = nil,
+                              unknownReasonRemovals: Set<String>? = nil,
                               honorIDMSListChanges: Bool,
                               version: String?,
                               reply: @escaping (Bool, Error?) -> Void) {
@@ -108,13 +149,14 @@ extension Container {
                 self.containerMO.honorIDMSListChanges = honorIDMSListChanges ? "YES" : "NO"
 
                 var knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
-                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
+                var knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
 
                 knownMachines.forEach { machine in
                     guard let mid = machine.machineID else {
                         logger.info("Machine has no ID: \(String(describing: machine), privacy: .public)")
                         return
                     }
+
                     if allowedMachineIDs.contains(mid) {
                         if machine.status == TPMachineIDStatus.allowed.rawValue {
                             logger.info("Machine ID still trusted: \(String(describing: machine.machineID), privacy: .public)")
@@ -125,37 +167,87 @@ extension Container {
                         machine.status = Int64(TPMachineIDStatus.allowed.rawValue)
                         machine.seenOnFullList = true
                         machine.modified = Date()
-                    } else {
-                        // This machine ID is not on the list. What, if anything, should be done?
-                        if machine.status == TPMachineIDStatus.allowed.rawValue {
-                            // IDMS sometimes has list consistency issues. So, if we see a device 'disappear' from the list, it may or may not
-                            // actually have disappered: we may have received an 'add' push and then fetched the list too quickly.
-                            // To hack around this, we track whether we've seen the machine on the full list yet. If we haven't, this was likely
-                            // the result of an 'add' push, and will be given 48 hours of grace before being removed.
+                        return
+                    }
+
+                    if let removeNow = userInitiatedRemovals {
+                        if removeNow.contains(mid) {
+                            logger.notice("User initiated removal! machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); distrusting: \(String(describing: machine.machineID), privacy: .public)")
+                            if machine.status != TPMachineIDStatus.disallowed.rawValue {
+                                machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
+                                machine.modified = Date()
+                                differences = true
+                            }
+                            return
+                        }
+                    }
+
+                    if let evicted = evictedRemovals {
+                        if evicted.contains(mid) {
+                            logger.notice("Evicted removal! machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); tagging as evicted: \(String(describing: machine.machineID), privacy: .public)")
+                            if machine.status == TPMachineIDStatus.evicted.rawValue {
+                                self.handleEvicted(machine: machine, listDifferences: &differences)
+                            } else {
+                                machine.status = Int64(TPMachineIDStatus.evicted.rawValue)
+                                machine.modified = Date()
+                                differences = true
+                            }
+                            return
+                        }
+                    }
+
+                    if let unknowns = unknownReasonRemovals {
+                        if unknowns.contains(mid) {
+                            logger.notice("Unknown reason removal! machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); tagging as unknown reason: \(String(describing: machine.machineID), privacy: .public)")
+                            if machine.status == TPMachineIDStatus.unknownReason.rawValue {
+                                self.handleUnknownReasons(machine: machine, listDifferences: &differences)
+                            } else {
+                                machine.status = Int64(TPMachineIDStatus.unknownReason.rawValue)
+                                machine.modified = Date()
+                                differences = true
+                            }
+                            return
+                        }
+                    }
+
+                    // This machine ID is not on the allow list, user initiated list, evicted list, or unknown reason list. What, if anything, should be done?
+                    if machine.status == TPMachineIDStatus.evicted.rawValue {
+                        self.handleEvicted(machine: machine, listDifferences: &differences)
+                    } else if machine.status == TPMachineIDStatus.unknownReason.rawValue {
+                        self.handleUnknownReasons(machine: machine, listDifferences: &differences)
+                    } else if machine.status == TPMachineIDStatus.ghostedFromTDL.rawValue {
+                        if machine.modifiedInPast(hours: ghostedCutoffHours) {
                             if machine.seenOnFullList {
-                                machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
-                                machine.modified = Date()
-                                logger.notice("Newly distrusted machine ID: \(String(describing: machine.machineID), privacy: .public)")
-                                differences = true
+                                logger.info("Seen on full list machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), ignoring: \(String(describing: machine.machineID), privacy: .public)")
                             } else {
-                                if machine.modifiedInPast(hours: cutoffHours) {
-                                    logger.info("Allowed-but-unseen machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), ignoring: \(String(describing: machine.machineID), privacy: .public)")
-                                } else {
-                                    logger.notice("Allowed-but-unseen machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), distrusting: \(String(describing: machine.machineID), privacy: .public)")
-                                    machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
-                                    machine.modified = Date()
-                                    differences = true
-                                }
+                                logger.info("Allowed-but-unseen machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), ignoring: \(String(describing: machine.machineID), privacy: .public)")
                             }
-                        } else if machine.status == TPMachineIDStatus.unknown.rawValue {
-                            if machine.modifiedInPast(hours: cutoffHours) {
-                                logger.info("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving unknown: \(String(describing: machine.machineID), privacy: .public)")
+                        } else {
+                            if machine.seenOnFullList {
+                                logger.notice("Seen on full list machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), distrusting: \(String(describing: machine.machineID), privacy: .public)")
                             } else {
-                                logger.notice("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); distrusting: \(String(describing: machine.machineID), privacy: .public)")
-                                machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
-                                machine.modified = Date()
-                                differences = true
+                                logger.notice("Allowed-but-unseen machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), distrusting: \(String(describing: machine.machineID), privacy: .public)")
                             }
+                            machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
+                            machine.modified = Date()
+                            differences = true
+                        }
+                    } else if machine.status == TPMachineIDStatus.allowed.rawValue {
+                        // IDMS sometimes has list consistency issues. So, if we see a device 'disappear' from the list, it may or may not
+                        // actually have disappered.  Devices that were allowed get a 48 hour grace period.
+                        logger.info("MachineID was allowed but no longer on the TDL, last modified \(String(describing: machine.modifiedDate()), privacy: .public), tagging as ghosted fromt TDL: \(String(describing: machine.machineID), privacy: .public)")
+
+                        machine.status = Int64(TPMachineIDStatus.ghostedFromTDL.rawValue)
+                        machine.modified = Date()
+                        differences = true
+                } else if machine.status == TPMachineIDStatus.unknown.rawValue {
+                    if machine.modifiedInPast(hours: unknownCutoffHours) {
+                            logger.info("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving unknown: \(String(describing: machine.machineID), privacy: .public)")
+                        } else {
+                            logger.notice("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); distrusting: \(String(describing: machine.machineID), privacy: .public)")
+                            machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
+                            machine.modified = Date()
+                            differences = true
                         }
                     }
                 }
@@ -175,6 +267,72 @@ extension Container {
 
                         self.containerMO.addToMachines(machine)
                         knownMachines.insert(machine)
+                    }
+                }
+
+                // reload knownMachineIDs in case peerIDs end up in multiple sets
+                knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
+
+                if let removeNow = userInitiatedRemovals {
+                    removeNow.forEach { machineID in
+                        if !knownMachineIDs.contains(machineID) {
+                            // We didn't know about this machine before; it's newly untrusted!
+                            let machine = MachineMO(context: self.moc)
+                            machine.machineID = machineID
+                            machine.container = containerMO
+                            machine.seenOnFullList = true
+                            machine.modified = Date()
+                            machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
+                            logger.notice("Newly distrusted machine ID: \(String(describing: machine.machineID), privacy: .public)")
+                            differences = true
+
+                            self.containerMO.addToMachines(machine)
+                            knownMachines.insert(machine)
+                        }
+                    }
+                }
+
+                // reload knownMachineIDs in case peerIDs end up in multiple sets
+                knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
+
+                if let evicted = evictedRemovals {
+                    evicted.forEach { machineID in
+                        if !knownMachineIDs.contains(machineID) {
+                            // We didn't know about this machine before; it's newly evicted!
+                            let machine = MachineMO(context: self.moc)
+                            machine.machineID = machineID
+                            machine.container = containerMO
+                            machine.seenOnFullList = true
+                            machine.modified = Date()
+                            machine.status = Int64(TPMachineIDStatus.evicted.rawValue)
+                            logger.notice("Newly evicted machine ID: \(String(describing: machine.machineID), privacy: .public)")
+                            differences = true
+
+                            self.containerMO.addToMachines(machine)
+                            knownMachines.insert(machine)
+                        }
+                    }
+                }
+
+                // reload knownMachineIDs in case peerIDs end up in multiple sets
+                knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
+
+                if let unknowns = unknownReasonRemovals {
+                    unknowns.forEach { machineID in
+                        if !knownMachineIDs.contains(machineID) {
+                            // We didn't know about this machine before; it's newly removed with an unknown reason!
+                            let machine = MachineMO(context: self.moc)
+                            machine.machineID = machineID
+                            machine.container = containerMO
+                            machine.seenOnFullList = true
+                            machine.modified = Date()
+                            machine.status = Int64(TPMachineIDStatus.unknownReason.rawValue)
+                            logger.notice("Newly removed with unknown reason machine ID: \(String(describing: machine.machineID), privacy: .public)")
+                            differences = true
+
+                            self.containerMO.addToMachines(machine)
+                            knownMachines.insert(machine)
+                        }
                     }
                 }
 
@@ -200,6 +358,7 @@ extension Container {
                 }
 
                 self.containerMO.idmsTrustedDevicesVersion = version
+                self.containerMO.idmsTrustedDeviceListFetchDate = Date()
 
                 // We no longer use allowed machine IDs.
                 self.containerMO.allowedMachineIDs = NSSet()
@@ -210,104 +369,6 @@ extension Container {
             } catch {
                 logger.error("Error setting machine ID list: \(String(describing: error), privacy: .public)")
                 reply(false, error)
-            }
-        }
-    }
-
-    func addAllow(_ machineIDs: [String], reply: @escaping (Error?) -> Void) {
-        let sem = self.grabSemaphore()
-        let reply: (Error?) -> Void = {
-            logger.info("addAllow complete: \(traceError($0), privacy: .public)")
-            sem.release()
-            reply($0)
-        }
-
-        logger.notice("Adding allowed machine IDs: \(String(describing: machineIDs), privacy: .public)")
-
-        self.moc.performAndWait {
-            do {
-                var knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
-                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
-
-                // We treat an add push as authoritative (even though we should really confirm it with a full list fetch).
-                // We can get away with this as we're using this list as a deny-list, and if we accidentally don't deny someone fast enough, that's okay.
-                machineIDs.forEach { machineID in
-                    if knownMachineIDs.contains(machineID) {
-                        knownMachines.forEach { machine in
-                            if machine.machineID == machineID {
-                                machine.status = Int64(TPMachineIDStatus.allowed.rawValue)
-                                machine.modified = Date()
-                                logger.info("Continue to trust machine ID: \(String(describing: machine.machineID), privacy: .public)")
-                            }
-                        }
-                    } else {
-                        let machine = MachineMO(context: self.moc)
-                        machine.machineID = machineID
-                        machine.container = containerMO
-                        machine.seenOnFullList = false
-                        machine.modified = Date()
-                        machine.status = Int64(TPMachineIDStatus.allowed.rawValue)
-                        logger.notice("Newly trusted machine ID: \(String(describing: machine.machineID), privacy: .public)")
-                        self.containerMO.addToMachines(machine)
-
-                        knownMachines.insert(machine)
-                    }
-                }
-
-                try self.moc.save()
-                reply(nil)
-            } catch {
-                logger.error("Error adding to machine ID list: \(String(describing: error), privacy: .public)")
-                reply(error)
-            }
-        }
-    }
-
-    func removeAllow(_ machineIDs: [String], reply: @escaping (Error?) -> Void) {
-        let sem = self.grabSemaphore()
-        let reply: (Error?) -> Void = {
-            logger.info("removeAllow complete: \(traceError($0), privacy: .public)")
-            sem.release()
-            reply($0)
-        }
-
-        logger.notice("Removing allowed machine IDs: \(String(describing: machineIDs), privacy: .public)")
-
-        self.moc.performAndWait {
-            do {
-                var knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
-                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
-
-                // This is an odd approach: we'd like to confirm that this MID was actually removed (and not just a delayed push).
-                // So, let's set the status to "unknown", and its modification date to the distant past.
-                // The next time we fetch the full list, we'll confirm the removal (or, if the removal push was spurious, re-add the MID as trusted).
-                machineIDs.forEach { machineID in
-                    if knownMachineIDs.contains(machineID) {
-                        knownMachines.forEach { machine in
-                            if machine.machineID == machineID {
-                                machine.status = Int64(TPMachineIDStatus.unknown.rawValue)
-                                machine.modified = Date.distantPast
-                                logger.info("Now suspicious of machine ID: \(String(describing: machine.machineID), privacy: .public)")
-                            }
-                        }
-                    } else {
-                        let machine = MachineMO(context: self.moc)
-                        machine.machineID = machineID
-                        machine.container = containerMO
-                        machine.status = Int64(TPMachineIDStatus.unknown.rawValue)
-                        machine.modified = Date.distantPast
-                        logger.info("Suspicious of new machine ID: \(String(describing: machine.machineID), privacy: .public)")
-                        self.containerMO.addToMachines(machine)
-
-                        knownMachines.insert(machine)
-                    }
-                }
-
-                try self.moc.save()
-                reply(nil)
-            } catch {
-                logger.error("Error removing from machine ID list: \(String(describing: error), privacy: .public)")
-                reply(error)
             }
         }
     }
@@ -401,7 +462,7 @@ extension Container {
     }
 
     // Computes if a full list fetch would be 'useful'
-    // Useful means that there's an unknown MID whose modification date is before the cutoff
+    // Useful means that there's an unknown MID or evicted MID or unknownReasonRemoval whose modification date is before the cutoff
     // A full list fetch would either confirm it as 'untrusted' or make it trusted again
     func onqueueFullIDMSListWouldBeHelpful() -> Bool {
 
@@ -409,18 +470,19 @@ extension Container {
             return true
         }
 
-        let unknownMOs = (containerMO.machines as? Set<MachineMO> ?? Set()).filter { $0.status == TPMachineIDStatus.unknown.rawValue }
-        let outdatedMOs = unknownMOs.filter { !$0.modifiedInPast(hours: cutoffHours) }
+        let outdatedGracePeriodMachineIDMOs = (containerMO.machines as? Set<MachineMO> ?? Set()).filter {
+            $0.status == TPMachineIDStatus.unknown.rawValue && !$0.modifiedInPast(hours: unknownCutoffHours) ||
+            $0.status == TPMachineIDStatus.evicted.rawValue && !$0.modifiedInPast(hours: evictedCutoffHours) ||
+            $0.status == TPMachineIDStatus.unknownReason.rawValue && !$0.modifiedInPast(hours: unknownReasonCutoffHours) ||
+            $0.status == TPMachineIDStatus.ghostedFromTDL.rawValue && !$0.modifiedInPast(hours: ghostedCutoffHours)
+        }
 
-        return !outdatedMOs.isEmpty
+        return !outdatedGracePeriodMachineIDMOs.isEmpty
     }
 
     func fullIDMSListWouldBeHelpful() -> Bool {
-        var ret: Bool = false
         self.moc.performAndWait {
-            ret = self.onqueueFullIDMSListWouldBeHelpful()
+            self.onqueueFullIDMSListWouldBeHelpful()
         }
-
-        return ret
     }
 }

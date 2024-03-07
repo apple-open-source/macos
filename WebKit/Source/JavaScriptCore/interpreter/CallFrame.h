@@ -66,7 +66,7 @@ using JSInstruction = BaseInstruction<JSOpcodeTraits>;
         { }
 
         explicit operator bool() const { return !!m_bits; }
-        friend bool operator==(CallSiteIndex, CallSiteIndex) = default;
+        friend bool operator==(const CallSiteIndex&, const CallSiteIndex&) = default;
 
         unsigned hash() const { return intHash(m_bits); }
         static CallSiteIndex deletedValue() { return fromBits(s_invalidIndex - 1); }
@@ -218,6 +218,7 @@ using JSInstruction = BaseInstruction<JSOpcodeTraits>;
         unsigned unsafeCallSiteAsRawBits() const;
         CallSiteIndex callSiteIndex() const;
         CallSiteIndex unsafeCallSiteIndex() const;
+        void setCallSiteIndex(CallSiteIndex);
 
 #if ENABLE(WEBASSEMBLY)
         Wasm::Instance* wasmInstance() const;
@@ -308,7 +309,7 @@ using JSInstruction = BaseInstruction<JSOpcodeTraits>;
 
         static int offsetFor(size_t argumentCountIncludingThis) { return CallFrameSlot::thisArgument + argumentCountIncludingThis - 1; }
 
-        static CallFrame* noCaller() { return nullptr; }
+        static constexpr CallFrame* noCaller() { return nullptr; }
 
         bool isEmptyTopLevelCallFrameForDebugger() const
         {
@@ -316,7 +317,7 @@ using JSInstruction = BaseInstruction<JSOpcodeTraits>;
         }
 
         void convertToStackOverflowFrame(VM&, CodeBlock* codeBlockToKeepAliveUntilFrameIsUnwound);
-        bool isStackOverflowFrame() const;
+        bool isPartiallyInitializedFrame() const;
         bool isNativeCalleeFrame() const;
 
         void setArgumentCountIncludingThis(int count) { static_cast<Register*>(this)[static_cast<int>(CallFrameSlot::argumentCountIncludingThis)].payload() = count; }

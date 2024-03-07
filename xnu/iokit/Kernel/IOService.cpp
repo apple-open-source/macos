@@ -615,6 +615,12 @@ IOService::initialize( void )
 
 	gAKSGetKey                   = OSSymbol::withCStringNoCopy(AKS_PLATFORM_FUNCTION_GETKEY);
 
+#if CONFIG_EXCLAVES
+	gExclaveProxyStates          = OSDictionary::withCapacity( 1 );
+
+	gExclaveProxyStateLock           = IORecursiveLockAlloc();
+	assert( gExclaveProxyStates && gExclaveProxyStateLock);
+#endif /* CONFIG_EXCLAVES */
 
 	assert( gIOServicePlane && gIODeviceMemoryKey
 	    && gIOInterruptControllersKey && gIOInterruptSpecifiersKey
@@ -675,6 +681,9 @@ IOService::initialize( void )
 	gDriverKitLaunches = OSSet::withCapacity(0);
 	gDriverKitLaunchLock = IORecursiveLockAlloc();
 	gIOAssociatedServicesKey = OSSymbol::withCStringNoCopy( "IOAssociatedServices" );
+#if CONFIG_EXCLAVES
+	gDARTMapperFunctionSetActive = OSSymbol::withCStringNoCopy("setActive");
+#endif /* CONFIG_EXCLAVES */
 
 	// worker thread that is responsible for terminating / cleaning up threads
 	kernel_thread_start(&terminateThread, NULL, &gIOTerminateWorkerThread);
@@ -5285,8 +5294,8 @@ IOService::canTerminateForReplacement(IOService * client)
 	if (!gIOServiceRootMediaParent) {
 		return false;
 	}
-	parent = client;
-	while (parent && (parent != gIOServiceRootMediaParent)) {
+	parent = gIOServiceRootMediaParent;
+	while (parent && (parent != client)) {
 		parent = parent->getProvider();
 	}
 	if (parent) {
@@ -7575,8 +7584,10 @@ IOService::matchInternal(OSDictionary * table, uint32_t options, uint32_t * did)
 		count = table->getCount();
 		done = 0;
 		matchProps = NULL;
+		bool isUser;
 
-		if (table->getObject(gIOServiceNotificationUserKey)) {
+		isUser = (NULL != table->getObject(gIOServiceNotificationUserKey));
+		if (isUser) {
 			done++;
 			match = (0 == (kIOServiceUserInvisibleMatchState & __state[0]));
 			if ((!match) || (done == count)) {
@@ -7585,7 +7596,7 @@ IOService::matchInternal(OSDictionary * table, uint32_t options, uint32_t * did)
 		}
 
 		if (propertyExists(gIOExclaveAssignedKey)) {
-			if (!table->getObject(gIOExclaveProxyKey)) {
+			if (!table->getObject(gIOExclaveProxyKey) && !isUser) {
 				match = false;
 				break;
 			}

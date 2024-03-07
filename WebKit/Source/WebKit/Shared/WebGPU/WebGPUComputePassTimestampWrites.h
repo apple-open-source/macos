@@ -28,7 +28,6 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "WebGPUIdentifier.h"
-#include <WebCore/WebGPUComputePassTimestampLocation.h>
 #include <WebCore/WebGPUIntegralTypes.h>
 #include <optional>
 #include <wtf/Ref.h>
@@ -36,13 +35,11 @@
 
 namespace WebKit::WebGPU {
 
-struct ComputePassTimestampWrite {
+struct ComputePassTimestampWrites {
     WebGPUIdentifier querySet;
-    WebCore::WebGPU::Size32 queryIndex { 0 };
-    WebCore::WebGPU::ComputePassTimestampLocation location { WebCore::WebGPU::ComputePassTimestampLocation::Beginning };
+    WebCore::WebGPU::Size32 beginningOfPassWriteIndex { 0 };
+    WebCore::WebGPU::Size32 endOfPassWriteIndex { 0 };
 };
-
-using ComputePassTimestampWrites = Vector<ComputePassTimestampWrite>;
 
 } // namespace WebKit::WebGPU
 

@@ -885,11 +885,11 @@ again:
 			}
 		}
 		if (ia != NULL) {
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 		}
 
 		if (ia6 != NULL) {
-			IFA_REMREF(&ia6->ia_ifa);
+			ifa_remref(&ia6->ia_ifa);
 		}
 
 		/*
@@ -1263,8 +1263,7 @@ after_sack_rexmit:
 	 *	   larger than sent but unacknowledged data in send buffer.
 	 */
 	if (!INP_WAIT_FOR_IF_FEEDBACK(inp) && !IN_FASTRECOVERY(tp) &&
-	    (so->so_snd.sb_flags & (SB_AUTOSIZE | SB_TRIM)) == SB_AUTOSIZE &&
-	    tcp_cansbgrow(&so->so_snd)) {
+	    (so->so_snd.sb_flags & (SB_AUTOSIZE | SB_TRIM)) == SB_AUTOSIZE) {
 		if ((tp->snd_wnd / 4 * 5) >= so->so_snd.sb_hiwat &&
 		    so->so_snd.sb_cc >= (so->so_snd.sb_hiwat / 8 * 7) &&
 		    sendwin >= (so->so_snd.sb_cc - (tp->snd_nxt - tp->snd_una))) {

@@ -1,5 +1,6 @@
 //
-//  Copyright (c) 2020 Apple Inc. All rights reserved.
+//  readonly_fd_test.c
+//  copyfile_test
 //
 
 #include <err.h>
@@ -16,13 +17,12 @@
 #include <sys/time.h>
 #include <sys/xattr.h>
 #include <unistd.h>
-#include "readonly_fd_test.h"
+
 #include "test_utils.h"
 
+REGISTER_TEST(readonly_fd, false, 30);
 
-static
-bool test_readonly_fd_metadata(const char *basedir)
-{
+static bool test_readonly_fd_metadata(const char *basedir) {
 	char filename[] = ".readonly-ops-XXXXXX";
 	bool created = false;
 	bool success = true;
@@ -30,9 +30,6 @@ bool test_readonly_fd_metadata(const char *basedir)
 	int tmpfd = -1;
 	int fd = -1;
 	acl_t acl = NULL;
-
-	static const char test_name[] = "readonly_fd_metadata";
-	printf("START [%s]\n", test_name);
 
 	assert_with_errno((dirfd = open(basedir, O_RDONLY | O_DIRECTORY)) != -1);
 	assert_with_errno((tmpfd = mkstempsat_np(dirfd, filename, 0)) != -1);
@@ -85,13 +82,6 @@ bool test_readonly_fd_metadata(const char *basedir)
 	assert_with_errno((acl = acl_init(1)) != NULL);
 	assert_no_err(acl_set_fd(fd, acl));
 
-	// log pass/fail before cleanup
-	if (success) {
-		printf("PASS  [%s]\n", test_name);
-	} else {
-		printf("FAIL  [%s]\n", test_name);
-	}
-
 	// clean up resources
 	if (acl) {
 		acl_free(acl);
@@ -113,8 +103,7 @@ bool test_readonly_fd_metadata(const char *basedir)
 }
 
 
-bool do_readonly_fd_test(const char *apfs_test_directory, size_t block_size __unused)
-{
+bool do_readonly_fd_test(const char *apfs_test_directory, size_t block_size __unused) {
 	// These tests verify the underlying calls needed for COPYFILE_METADATA
 	// operations are safe with O_RDONLY file descriptors. If this fails,
 	// expect <rdar://60074298> to cause many other copyfile() failures.

@@ -413,6 +413,18 @@ void MachORep::flush()
 	SingleDiskRep::flush();
 	mExecutable = new Universal(fd(), offset, length);
 }
+uint32_t MachORep::platformType(const Architecture *arch)
+{
+	unique_ptr<MachO> macho(arch ? mExecutable->architecture(*arch) : mExecutable->architecture());
+	uint32_t platform = 0;
+	uint32_t minVersion = 0;
+	uint32_t sdkVersion = 0;
+	
+	if (macho->version(&platform, &minVersion, &sdkVersion)) {
+		return platform;
+	}
+	return 0;
+}
 
 CFDictionaryRef MachORep::copyDiskRepInformation()
 {

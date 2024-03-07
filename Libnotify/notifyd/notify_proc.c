@@ -95,7 +95,7 @@ port_free(void *_pp)
 		NOTIFY_INTERNAL_CRASH(0, "port_proc still had clients");
 	}
 
-	_nc_table_delete_n(&ns->port_table, pdata->port);
+	_nc_table_delete_n(&ns->port_table, pdata->port, &pdata->port);
 	mach_port_deallocate(mach_task_self(), pdata->port);
 
 	ns->stat_portproc_free++;
@@ -130,7 +130,7 @@ proc_free(void *_pp)
 		NOTIFY_INTERNAL_CRASH(0, "port_proc still had clients");
 	}
 
-	_nc_table_delete_n(&ns->proc_table, pdata->pid);
+	_nc_table_delete_n(&ns->proc_table, pdata->pid, &pdata->pid);
 
 	ns->stat_portproc_free++;
 

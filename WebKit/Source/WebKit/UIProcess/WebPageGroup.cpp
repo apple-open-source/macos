@@ -34,13 +34,14 @@
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
 #include "WebUserContentControllerProxy.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringConcatenate.h>
 
 namespace WebKit {
 
-typedef HashMap<PageGroupIdentifier, WebPageGroup*> WebPageGroupMap;
+using WebPageGroupMap = HashMap<PageGroupIdentifier, WeakRef<WebPageGroup>>;
 
 static WebPageGroupMap& webPageGroupMap()
 {
@@ -60,11 +61,11 @@ WebPageGroup* WebPageGroup::get(PageGroupIdentifier pageGroupID)
 
 void WebPageGroup::forEach(Function<void(WebPageGroup&)>&& function)
 {
-    auto allGroups = copyToVectorOf<RefPtr<WebPageGroup>>(webPageGroupMap().values());
-    for (auto& group : allGroups) {
-        if (group)
-            function(*group);
-    }
+    auto allGroups = WTF::map(webPageGroupMap().values(), [](auto&& group) -> Ref<WebPageGroup> {
+        return group.get();
+    });
+    for (auto& group : allGroups)
+        function(group);
 }
 
 static WebPageGroupData pageGroupData(const String& identifier)
@@ -94,7 +95,7 @@ WebPageGroup::WebPageGroup(const String& identifier)
     , m_preferences(WebPreferences::createWithLegacyDefaults(m_data.identifier, ".WebKit2"_s, "WebKit2."_s))
     , m_userContentController(WebUserContentControllerProxy::create())
 {
-    webPageGroupMap().set(m_data.pageGroupID, this);
+    webPageGroupMap().set(m_data.pageGroupID, *this);
 }
 
 WebPageGroup::~WebPageGroup()
@@ -128,7 +129,17 @@ WebPreferences& WebPageGroup::preferences() const
     return *m_preferences;
 }
 
+Ref<WebPreferences> WebPageGroup::protectedPreferences() const
+{
+    return preferences();
+}
+
 WebUserContentControllerProxy& WebPageGroup::userContentController()
+{
+    return m_userContentController;
+}
+
+Ref<WebUserContentControllerProxy> WebPageGroup::protectedUserContentController()
 {
     return m_userContentController;
 }

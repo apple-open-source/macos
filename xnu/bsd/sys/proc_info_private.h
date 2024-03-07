@@ -279,6 +279,7 @@ struct kevent_extinfo {
 #define PROC_INFO_CALL_SET_DYLD_IMAGES       0xf
 #define PROC_INFO_CALL_TERMINATE_RSR         0x10
 #define PROC_INFO_CALL_SIGNAL_AUDITTOKEN     0x11
+#define PROC_INFO_CALL_TERMINATE_AUDITTOKEN  0x12
 
 /* __proc_info_extended_id() flags */
 #define PIF_COMPARE_IDVERSION           0x01

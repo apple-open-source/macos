@@ -351,8 +351,8 @@ SEC_EXP_CLASS(OTBottleIDs)
 SEC_EXP_CLASS(OTOperationConfiguration)
 _kSecEntitlementPrivateOctagonEscrow
 _kSecEntitlementPrivateOctagonSecureElement
+_kSecEntitlementPrivateOctagonWalrus
 #endif /* __OBJC2__ */
-
 
 __OctagonSignpostCreate
 __OctagonSignpostGetNanoseconds
@@ -458,6 +458,9 @@ _SecTaskCreateWithXPCMessage
 _SecTaskGetCodeSignStatus
 _SecTaskGetTypeID
 _SecTaskEntitlementsValidated
+#if !TARGET_OS_SIMULATOR
+_SecTaskValidateForLightweightCodeRequirementData
+#endif
 
 _kSecRandomDefault
 
@@ -1631,6 +1634,7 @@ _SecRequirementCreateWithData
 _SecRequirementCreateWithResource
 _SecRequirementCreateWithString
 _SecRequirementCreateWithStringAndErrors
+_SecRequirementCreateWithLightweightCodeRequirementData
 _SecRequirementCreateGroup
 _SecRequirementCopyData
 _SecRequirementCopyString
@@ -1771,6 +1775,7 @@ _SecAssessmentLegacyCheck
 _SecAssessmentRegisterPackageTicket
 _SecAssessmentTicketLookup
 _SecAssessmentTicketRegister
+_SecAssessmentRegisterFunctions
 _kSecAssessmentContextKeyOperation
 _kSecAssessmentOperationTypeExecute
 _kSecAssessmentOperationTypeInstall
@@ -1847,6 +1852,7 @@ _SecRequirementCopyData
 _SecRequirementCopyString
 _SecRequirementCreateWithData
 _SecRequirementCreateWithString
+_SecRequirementCreateWithLightweightCodeRequirementData
 _SecRequirementCreateWithStringAndErrors
 _SecRequirementGetTypeID
 _SecStaticCodeCheckValidity
@@ -2211,4 +2217,25 @@ _SecSetCustomHomeURL
 _SecSetCustomHomeURLString
 
 SEC_EXP_CLASS(SecLaunchSequence)
+
+//
+// KCSharing Groups
+//
+
+SEC_EXP_CLASS(KCSharingGroupManager)
+SEC_EXP_CLASS(KCSharingDaemonConnection)
+SEC_EXP_CLASS(KCSharingMessagingdConnection)
+_KCSharingLogObject
+_KCSharingSetupServerProtocol
+_KCSharingSetupInvitationNotificationProtocol
+_KCSharingSetupMessagingdServerProtocol
+SEC_EXP_CLASS(KCSharingGroup)
+SEC_EXP_CLASS(KCSharingParticipant)
+SEC_EXP_CLASS(KCSharingGroupInvite)
+SEC_EXP_CLASS(KCSharingGroupCreateRequest)
+SEC_EXP_CLASS(KCSharingGroupUpdateRequest)
+SEC_EXP_CLASS(KCSharingGroupLeaveRequest)
+SEC_EXP_CLASS(KCSharingGroupDeleteRequest)
+SEC_EXP_CLASS(KCSharingGroupFetchRequest)
+SEC_EXP_CLASS(KCSharingGroupUpdateInfo)
 

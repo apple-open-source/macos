@@ -904,7 +904,7 @@ zone "eng.example.com" {
 	      <term xml:id="dig"><command>dig</command></term>
 	      <listitem>
 		<para>
-		  The domain information groper (<command>dig</command>)
+		  (<command>dig</command>)
 		  is the most versatile and complete of these lookup tools.
 		  It has two modes: simple interactive
 		  mode for a single query, and batch mode which executes a

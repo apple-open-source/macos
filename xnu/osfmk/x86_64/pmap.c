@@ -354,12 +354,12 @@ pmap_cpu_init(void)
 		}
 	}
 
-#if !MONOTONIC
+#if !CONFIG_CPU_COUNTERS
 	if (cdp->cpu_fixed_pmcs_enabled) {
 		boolean_t enable = TRUE;
 		cpu_pmc_control(&enable);
 	}
-#endif /* !MONOTONIC */
+#endif /* !CONFIG_CPU_COUNTERS */
 }
 
 static void

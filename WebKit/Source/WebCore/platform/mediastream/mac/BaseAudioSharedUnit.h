@@ -29,6 +29,7 @@
 
 #include "RealtimeMediaSourceCapabilities.h"
 #include "RealtimeMediaSourceCenter.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
@@ -54,6 +55,7 @@ public:
     virtual bool isProducingData() const = 0;
 
     virtual void delaySamples(Seconds) { }
+    virtual void prewarmAudioUnitCreation(CompletionHandler<void()>&& callback) { callback(); };
 
     void prepareForNewCapture();
 
@@ -77,12 +79,12 @@ public:
     virtual bool hasAudioUnit() const = 0;
     void setCaptureDevice(String&&, uint32_t);
 
-    virtual CapabilityValueOrRange sampleRateCapacities() const = 0;
+    virtual CapabilityRange sampleRateCapacities() const = 0;
     virtual int actualSampleRate() const { return sampleRate(); }
 
     void whenAudioCaptureUnitIsNotRunning(Function<void()>&&);
     bool isRenderingAudio() const { return m_isRenderingAudio; }
-    bool hasClients() const { return !m_clients.isEmpty(); }
+    bool hasClients() const { return !m_clients.isEmptyIgnoringNullReferences(); }
 
     const String& persistentIDForTesting() const { return m_capturingDevice ? m_capturingDevice->first : emptyString(); }
 
@@ -115,6 +117,7 @@ protected:
 
     virtual void isProducingMicrophoneSamplesChanged() { }
     virtual void validateOutputDevice(uint32_t /* currentOutputDeviceID */) { }
+    virtual bool migrateToNewDefaultDevice(const CaptureDevice&) { return false; }
 
 private:
     OSStatus startUnit();
@@ -135,10 +138,11 @@ private:
     uint32_t m_outputDeviceID { 0 };
     std::optional<std::pair<String, uint32_t>> m_capturingDevice;
 
-    HashSet<CoreAudioCaptureSource*> m_clients;
-    Vector<CoreAudioCaptureSource*> m_audioThreadClients WTF_GUARDED_BY_LOCK(m_audioThreadClientsLock);
+    ThreadSafeWeakHashSet<CoreAudioCaptureSource> m_clients;
+    Vector<ThreadSafeWeakPtr<CoreAudioCaptureSource>> m_audioThreadClients WTF_GUARDED_BY_LOCK(m_audioThreadClientsLock);
     Lock m_audioThreadClientsLock;
 
+    bool m_isCapturingWithDefaultMicrophone { false };
     bool m_isProducingMicrophoneSamples { true };
     Vector<Function<void()>> m_whenNotRunningCallbacks;
 };

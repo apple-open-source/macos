@@ -1091,7 +1091,7 @@ _dispatch_operation_create(dispatch_op_direction_t direction,
 			sizeof(struct dispatch_operation_s));
 	_dispatch_io_channel_debug("operation create: %p", channel, op);
 	op->do_next = DISPATCH_OBJECT_LISTLESS;
-	op->do_xref_cnt = -1; // operation object is not exposed externally
+	op->do_xref_cnt = 0; // operation object is not exposed externally
 	op->op_q = dispatch_queue_create_with_target("com.apple.libdispatch-io.opq",
 			NULL, queue);
 	op->active = false;
@@ -1769,7 +1769,7 @@ _dispatch_disk_init(dispatch_fd_entry_t fd_entry, dev_t dev)
 			sizeof(struct dispatch_disk_s) +
 			(pending_reqs_depth * sizeof(dispatch_operation_t)));
 	disk->do_next = DISPATCH_OBJECT_LISTLESS;
-	disk->do_xref_cnt = -1;
+	disk->do_xref_cnt = 0;
 	disk->advise_list_depth = pending_reqs_depth;
 	disk->do_targetq = _dispatch_get_default_queue(false);
 	disk->dev = dev;
@@ -2159,7 +2159,7 @@ _dispatch_disk_handler(void *ctx)
 				continue;
 			}
 			_dispatch_retain(op);
-			_dispatch_op_debug("retain -> %d", op, op->do_ref_cnt + 1);
+			_dispatch_op_debug("retain -> %d", op, op->do_ref_cnt);
 			disk->advise_list[i%disk->advise_list_depth] = op;
 			op->active = true;
 			_dispatch_op_debug("activate: disk %p", op, disk);

@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "ContentWorldShared.h"
 #include <wtf/WeakHashSet.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -36,7 +37,7 @@ class WebUserContentControllerProxy;
 
 namespace API {
 
-class ContentWorld final : public API::ObjectImpl<API::Object::Type::ContentWorld> {
+class ContentWorld final : public API::ObjectImpl<API::Object::Type::ContentWorld>, public CanMakeWeakPtr<ContentWorld> {
 public:
     static ContentWorld* worldForIdentifier(WebKit::ContentWorldIdentifier);
     static Ref<ContentWorld> sharedWorldWithName(const WTF::String&);

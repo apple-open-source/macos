@@ -1,2 +1,0 @@
-install-MALLOC_BENCH MALLOC_BENCH:
-	@echo Not building MallocBench for this platform.

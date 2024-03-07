@@ -516,6 +516,8 @@ void WriteGLFloatValue(std::ostream &out, GLfloat value)
     }
     else
     {
+        // Write a decimal point to preserve the zero sign on replay
+        out << (value == 0.0 ? std::showpoint : std::noshowpoint);
         out << std::setprecision(16);
         out << value;
     }
@@ -1640,14 +1642,59 @@ void MaybeResetContextState(ReplayWriter &replayWriter,
             stateResetHelper.setDefaultResetCalls(context, entryPoint);
         }
 
-        // Emit the calls
-        for (const auto &call : resetCalls->at(entryPoint))
+        // Emit the calls, if we added any
+        if (resetCalls->find(entryPoint) != resetCalls->end())
         {
+            for (const auto &call : resetCalls->at(entryPoint))
+            {
+                out << "    ";
+                WriteCppReplayForCall(call, replayWriter, out, header, binaryData,
+                                      maxResourceIDBufferSize);
+                out << ";\n";
+            }
+        }
+    }
+
+    // Restore texture bindings to initial state
+    size_t activeTexture                 = context->getState().getActiveSampler();
+    const TextureResetMap &resetBindings = stateResetHelper.getResetTextureBindings();
+    for (const auto &textureBinding : stateResetHelper.getDirtyTextureBindings())
+    {
+        TextureResetMap::const_iterator id = resetBindings.find(textureBinding);
+        if (id != resetBindings.end())
+        {
+            const auto &[unit, target] = textureBinding;
+
+            // Set active texture unit if necessary
+            if (unit != activeTexture)
+            {
+                out << "    ";
+                WriteCppReplayForCall(CaptureActiveTexture(context->getState(), true,
+                                                           GL_TEXTURE0 + static_cast<GLenum>(unit)),
+                                      replayWriter, out, header, binaryData,
+                                      maxResourceIDBufferSize);
+                out << ";\n";
+                activeTexture = unit;
+            }
+
+            // Bind texture for this target
             out << "    ";
-            WriteCppReplayForCall(call, replayWriter, out, header, binaryData,
-                                  maxResourceIDBufferSize);
+            WriteCppReplayForCall(CaptureBindTexture(context->getState(), true, target, id->second),
+                                  replayWriter, out, header, binaryData, maxResourceIDBufferSize);
             out << ";\n";
         }
+    }
+
+    // Restore active texture unit to initial state if necessary
+    if (activeTexture != stateResetHelper.getResetActiveTexture())
+    {
+        out << "    ";
+        WriteCppReplayForCall(
+            CaptureActiveTexture(
+                context->getState(), true,
+                GL_TEXTURE0 + static_cast<GLenum>(stateResetHelper.getResetActiveTexture())),
+            replayWriter, out, header, binaryData, maxResourceIDBufferSize);
+        out << ";\n";
     }
 }
 
@@ -4591,11 +4638,11 @@ void CaptureShareGroupMidExecutionSetup(
     }
 
     // Capture EGL Sync Objects
-    const egl::SyncMap eglSyncMap = context->getDisplay()->getSyncsForCapture();
+    const egl::SyncMap &eglSyncMap = context->getDisplay()->getSyncsForCapture();
     for (const auto &eglSyncIter : eglSyncMap)
     {
         egl::SyncID eglSyncID    = {eglSyncIter.first};
-        const egl::Sync *eglSync = eglSyncIter.second;
+        const egl::Sync *eglSync = eglSyncIter.second.get();
         EGLSync eglSyncObject    = gl::unsafe_int_to_pointer_cast<EGLSync>(eglSyncID.value);
 
         if (!eglSync)
@@ -4623,7 +4670,7 @@ void CaptureShareGroupMidExecutionSetup(
 
 void CaptureMidExecutionSetup(const gl::Context *context,
                               std::vector<CallCapture> *setupCalls,
-                              CallResetMap &resetCalls,
+                              StateResetHelper &resetHelper,
                               std::vector<CallCapture> *shareGroupSetupCalls,
                               ResourceIDToSetupCallsMap *resourceIDToSetupCalls,
                               ResourceTracker *resourceTracker,
@@ -4707,6 +4754,7 @@ void CaptureMidExecutionSetup(const gl::Context *context,
     }
 
     // Track the calls necessary to bind the vertex array back to initial state
+    CallResetMap &resetCalls = resetHelper.getResetCalls();
     Capture(&resetCalls[angle::EntryPoint::GLBindVertexArray],
             vertexArrayFuncs.bindVertexArray(replayState, true, currentVertexArray->id()));
 
@@ -4760,6 +4808,7 @@ void CaptureMidExecutionSetup(const gl::Context *context,
 
     // Capture Texture setup and data.
     const gl::TextureBindingMap &apiBoundTextures = apiState.getBoundTexturesForCapture();
+    resetHelper.setResetActiveTexture(apiState.getActiveSampler());
 
     // Set Texture bindings.
     for (gl::TextureType textureType : angle::AllEnums<gl::TextureType>())
@@ -4788,11 +4837,14 @@ void CaptureMidExecutionSetup(const gl::Context *context,
                                               apiBindings[bindingIndex].get());
             }
 
-            // Set this texture as active so it will be generated in Setup
             if (apiTextureID.value)
             {
+                // Set this texture as active so it will be generated in Setup
                 MarkResourceIDActive(ResourceIDType::Texture, apiTextureID.value,
                                      shareGroupSetupCalls, resourceIDToSetupCalls);
+                // Save currently bound textures for reset
+                resetHelper.getResetTextureBindings().emplace(
+                    std::make_pair(bindingIndex, textureType), apiTextureID);
             }
         }
     }
@@ -5698,8 +5750,10 @@ bool SkipCall(EntryPoint entryPoint)
         case EntryPoint::EGLGetConfigs:
         case EntryPoint::EGLGetSyncAttrib:
         case EntryPoint::EGLGetSyncAttribKHR:
+        case EntryPoint::EGLQueryContext:
         case EntryPoint::EGLQuerySurface:
             // Skip these calls because:
+            // - We don't use the return values.
             // - Some EGL types and pointer parameters aren't yet implemented in EGL capture.
             return true;
 
@@ -7224,6 +7278,14 @@ void FrameCaptureShared::maybeCapturePreCallUpdates(
 
         case EntryPoint::GLBindTexture:
             maybeGenResourceOnBind<gl::TextureID>(context, call);
+            if (isCaptureActive())
+            {
+                gl::TextureType target =
+                    call.params.getParam("targetPacked", ParamType::TTextureType, 0)
+                        .value.TextureTypeVal;
+                context->getFrameCapture()->getStateResetHelper().setTextureBindingDirty(
+                    context->getState().getActiveSampler(), target);
+            }
             break;
 
         case EntryPoint::GLDeleteBuffers:
@@ -8362,10 +8424,9 @@ void FrameCaptureShared::runMidExecutionCapture(gl::Context *mainContext)
         if (shareContext.second->id() == mainContext->id())
         {
             CaptureMidExecutionSetup(shareContext.second, &frameCapture->getSetupCalls(),
-                                     frameCapture->getStateResetHelper().getResetCalls(),
-                                     &mShareGroupSetupCalls, &mResourceIDToSetupCalls,
-                                     &mResourceTracker, mainContextReplayState,
-                                     mValidateSerializedState);
+                                     frameCapture->getStateResetHelper(), &mShareGroupSetupCalls,
+                                     &mResourceIDToSetupCalls, &mResourceTracker,
+                                     mainContextReplayState, mValidateSerializedState);
             scanSetupCalls(frameCapture->getSetupCalls());
 
             std::stringstream protoStream;
@@ -8400,10 +8461,9 @@ void FrameCaptureShared::runMidExecutionCapture(gl::Context *mainContext)
             }
 
             CaptureMidExecutionSetup(shareContext.second, &frameCapture->getSetupCalls(),
-                                     frameCapture->getStateResetHelper().getResetCalls(),
-                                     &mShareGroupSetupCalls, &mResourceIDToSetupCalls,
-                                     &mResourceTracker, auxContextReplayState,
-                                     mValidateSerializedState);
+                                     frameCapture->getStateResetHelper(), &mShareGroupSetupCalls,
+                                     &mResourceIDToSetupCalls, &mResourceTracker,
+                                     auxContextReplayState, mValidateSerializedState);
 
             scanSetupCalls(frameCapture->getSetupCalls());
 
@@ -8584,7 +8644,8 @@ ResourceTracker::ResourceTracker() = default;
 
 ResourceTracker::~ResourceTracker() = default;
 
-StateResetHelper::StateResetHelper()  = default;
+StateResetHelper::StateResetHelper() = default;
+
 StateResetHelper::~StateResetHelper() = default;
 
 void StateResetHelper::setDefaultResetCalls(const gl::Context *context,

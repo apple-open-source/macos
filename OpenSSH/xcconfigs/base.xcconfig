@@ -1,0 +1,112 @@
+//  Copyright © 2023 Apple Inc. All rights reserved.
+//
+//  NOTE: We use MixedCase for user-defined settings.
+
+PRODUCT_NAME = $(TARGET_NAME)
+PRODUCT_MODULE_NAME = $(TARGET_NAME:identifier)
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.$(TARGET_NAME:rfc1034identifier)
+
+SDKROOT = macosx.internal
+MACOSX_DEPLOYMENT_TARGET = 14.0
+DEAD_CODE_STRIPPING = YES
+ENABLE_USER_SCRIPT_SANDBOXING = NO
+SWIFT_VERSION = 5.9
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(UnitTestCondition)
+SWIFT_COMPILATION_MODE = wholemodule
+
+// Settings for Debug vs Release
+is_debug = $(Configuration_is_debug_$(CONFIGURATION:identifier):default=NO)
+Configuration_is_debug_Debug = YES
+COPY_PHASE_STRIP = $(not_$(is_debug))
+ONLY_ACTIVE_ARCH = $(is_debug)
+ENABLE_TESTABILITY = $(is_debug)
+GCC_OPTIMIZATION_LEVEL = $(GCC_OPTIMIZATION_LEVEL_DEBUG_$(is_debug))
+GCC_OPTIMIZATION_LEVEL_DEBUG_NO = s
+GCC_OPTIMIZATION_LEVEL_DEBUG_YES = 0
+DebugFlagDefinition = $(DebugFlagDefinition_$(is_debug))
+DebugFlagDefinition_YES = DEBUG=1
+
+// Settings for unit tests
+UnitTestCondition = $($(PRODUCT_MODULE_NAME)_UnitTestCondition)
+SSHDWrapperTest_UnitTestCondition = UNIT_TEST
+
+// Installation
+AD_HOC_CODE_SIGNING_ALLOWED = YES
+CREATE_INFOPLIST_SECTION_IN_BINARY = YES
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_ENTITLEMENTS = $(CODE_SIGN_ENTITLEMENTS_$($(PRODUCT_NAME:identifier)_entitlements))
+CODE_SIGN_ENTITLEMENTS_YES = $(SRCROOT)/Entitlements/$(TARGET_NAME).entitlements
+DEFAULT_TEST_BUNDLE_INSTALL_PATH = /AppleInternal/Tests
+INFOPLIST_FILE = Info.plist
+INSTALL_OWNER = root
+INSTALL_GROUP = wheel
+INSTALL_PATH_bin = /usr/bin
+INSTALL_PATH_sbin = /usr/sbin
+INSTALL_PATH_libexec = /usr/libexec
+INSTALL_PATH_lbin = /usr/local/bin
+INSTALL_PATH = $(INSTALL_PATH_$($(TARGET_NAME:identifier)_path:default=bin))
+SKIP_INSTALL = $($(TARGET_NAME:identifier)_skip_install:default=NO)
+
+SSHDWrapperTest_skip_install = YES
+ssh_add_entitlements = YES
+ssh_apple_pkcs11_entitlements = YES
+ssh_entitlements = YES
+ssh_keygen_entitlements = YES
+ssh_pkcs11_helper_entitlements = YES
+ssh_sk_helper_entitlements = YES
+sshd_entitlements = YES
+sshd_keygen_wrapper_path = libexec
+
+// Warnings and safety
+ENABLE_STRICT_OBJC_MSGSEND = YES
+CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES
+CLANG_ENABLE_OBJC_WEAK = YES
+CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES
+CLANG_WARN_BOOL_CONVERSION = YES
+CLANG_WARN_COMMA = YES
+CLANG_WARN_CONSTANT_CONVERSION = YES
+CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES
+CLANG_WARN_EMPTY_BODY = YES
+CLANG_WARN_ENUM_CONVERSION = YES
+CLANG_WARN_INFINITE_RECURSION = YES
+CLANG_WARN_INT_CONVERSION = YES
+CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES
+CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES
+CLANG_WARN_OBJC_LITERAL_CONVERSION = YES
+CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES
+CLANG_WARN_RANGE_LOOP_ANALYSIS = YES
+CLANG_WARN_STRICT_PROTOTYPES = YES
+CLANG_WARN_SUSPICIOUS_MOVE = YES
+CLANG_WARN_UNREACHABLE_CODE = YES
+CLANG_WARN__DUPLICATE_METHOD_MATCH = YES
+GCC_NO_COMMON_BLOCKS = YES
+GCC_WARN_64_TO_32_BIT_CONVERSION = YES
+GCC_WARN_ABOUT_RETURN_TYPE = YES
+GCC_WARN_UNDECLARED_SELECTOR = YES
+GCC_WARN_UNINITIALIZED_AUTOS = YES
+GCC_WARN_UNUSED_FUNCTION = YES
+GCC_WARN_UNUSED_VARIABLE = YES
+
+// Defaults when not set by XBS.
+ProjectName=$(RC_ProjectName:default=sshtool)
+ProjectSourceVersion=$(RC_ProjectSourceVersion:default=0)
+ProjectBuildVersion=$(RC_ProjectBuildVersion:default=0)
+
+// Referenced in Info.plist
+Semvers = 1.0
+CFBundleIdentifier = $(PRODUCT_BUNDLE_IDENTIFIER)
+CFBundleName = $(PRODUCT_MODULE_NAME)
+CFBundleShortVersionString = $(Semvers)
+CFBundleVersion = $(Semvers)
+ExtendedVersionString = $(Semvers) ($(ProjectName)-$(ProjectSourceVersion)~$(ProjectBuildVersion))
+
+// Enable Apple-generic versioning as described in agvtool(1)
+CURRENT_PROJECT_VERSION = $(ProjectSourceVersion)
+VERSIONING_SYSTEM = apple-generic
+
+// Miscellaneous settings
+ALWAYS_SEARCH_USER_PATHS = NO
+
+// Utility variables
+not_YES = NO
+not_NO = YES

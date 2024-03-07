@@ -6,6 +6,11 @@
 #  Created by Cary on 12/2/22.
 #  Copyright © 2022 Apple Inc. All rights reserved.
 
+if ! [ -x "$(command -v fileproviderctl_internal)" ]; then
+  echo 'fileproviderctl is not available on this system, skipping tests.'
+  exit 0
+fi
+
 TMP=/tmp/mtree.$$
 
 rm -rf ${TMP}

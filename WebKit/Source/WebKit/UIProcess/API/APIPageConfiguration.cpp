@@ -28,6 +28,7 @@
 
 #include "APIProcessPoolConfiguration.h"
 #include "APIWebsitePolicies.h"
+#include "BrowsingContextGroup.h"
 #include "Logging.h"
 #include "WebInspectorUtilities.h"
 #include "WebPageGroup.h"
@@ -53,7 +54,10 @@ Ref<PageConfiguration> PageConfiguration::create()
     return adoptRef(*new PageConfiguration);
 }
 
-PageConfiguration::PageConfiguration() = default;
+PageConfiguration::PageConfiguration()
+    : m_data { BrowsingContextGroup::create() }
+{
+}
 
 PageConfiguration::~PageConfiguration() = default;
 
@@ -64,15 +68,19 @@ Ref<PageConfiguration> PageConfiguration::copy() const
     return copy;
 }
 
+BrowsingContextGroup& PageConfiguration::browsingContextGroup()
+{
+    return m_data.browsingContextGroup.get();
+}
 
 WebProcessPool* PageConfiguration::processPool()
 {
     return m_data.processPool.get();
 }
 
-void PageConfiguration::setProcessPool(WebProcessPool* processPool)
+void PageConfiguration::setProcessPool(RefPtr<WebProcessPool>&& processPool)
 {
-    m_data.processPool = processPool;
+    m_data.processPool = WTFMove(processPool);
 }
 
 WebUserContentControllerProxy* PageConfiguration::userContentController()
@@ -80,9 +88,9 @@ WebUserContentControllerProxy* PageConfiguration::userContentController()
     return m_data.userContentController.get();
 }
 
-void PageConfiguration::setUserContentController(WebUserContentControllerProxy* userContentController)
+void PageConfiguration::setUserContentController(RefPtr<WebUserContentControllerProxy>&& userContentController)
 {
-    m_data.userContentController = userContentController;
+    m_data.userContentController = WTFMove(userContentController);
 }
 
 #if ENABLE(WK_WEB_EXTENSIONS)
@@ -91,9 +99,9 @@ WebExtensionController* PageConfiguration::webExtensionController()
     return m_data.webExtensionController.get();
 }
 
-void PageConfiguration::setWebExtensionController(WebExtensionController* webExtensionController)
+void PageConfiguration::setWebExtensionController(RefPtr<WebExtensionController>&& webExtensionController)
 {
-    m_data.webExtensionController = webExtensionController;
+    m_data.webExtensionController = WTFMove(webExtensionController);
 }
 
 WebExtensionController* PageConfiguration::weakWebExtensionController()
@@ -112,9 +120,9 @@ WebPageGroup* PageConfiguration::pageGroup()
     return m_data.pageGroup.get();
 }
 
-void PageConfiguration::setPageGroup(WebPageGroup* pageGroup)
+void PageConfiguration::setPageGroup(RefPtr<WebPageGroup>&& pageGroup)
 {
-    m_data.pageGroup = pageGroup;
+    m_data.pageGroup = WTFMove(pageGroup);
 }
 
 WebPreferences* PageConfiguration::preferences()
@@ -122,9 +130,9 @@ WebPreferences* PageConfiguration::preferences()
     return m_data.preferences.get();
 }
 
-void PageConfiguration::setPreferences(WebPreferences* preferences)
+void PageConfiguration::setPreferences(RefPtr<WebPreferences>&& preferences)
 {
-    m_data.preferences = preferences;
+    m_data.preferences = WTFMove(preferences);
 }
 
 WebPageProxy* PageConfiguration::relatedPage() const
@@ -132,9 +140,9 @@ WebPageProxy* PageConfiguration::relatedPage() const
     return m_data.relatedPage.get();
 }
 
-void PageConfiguration::setRelatedPage(WebPageProxy* relatedPage)
+void PageConfiguration::setRelatedPage(RefPtr<WebPageProxy>&& relatedPage)
 {
-    m_data.relatedPage = relatedPage;
+    m_data.relatedPage = WTFMove(relatedPage);
 }
 
 WebKit::WebPageProxy* PageConfiguration::pageToCloneSessionStorageFrom() const
@@ -152,9 +160,9 @@ WebKit::VisitedLinkStore* PageConfiguration::visitedLinkStore()
     return m_data.visitedLinkStore.get();
 }
 
-void PageConfiguration::setVisitedLinkStore(WebKit::VisitedLinkStore* visitedLinkStore)
+void PageConfiguration::setVisitedLinkStore(RefPtr<WebKit::VisitedLinkStore>&& visitedLinkStore)
 {
-    m_data.visitedLinkStore = visitedLinkStore;
+    m_data.visitedLinkStore = WTFMove(visitedLinkStore);
 }
 
 WebKit::WebsiteDataStore* PageConfiguration::websiteDataStore()
@@ -162,9 +170,14 @@ WebKit::WebsiteDataStore* PageConfiguration::websiteDataStore()
     return m_data.websiteDataStore.get();
 }
 
-void PageConfiguration::setWebsiteDataStore(WebKit::WebsiteDataStore* websiteDataStore)
+RefPtr<WebKit::WebsiteDataStore> PageConfiguration::protectedWebsiteDataStore()
 {
-    m_data.websiteDataStore = websiteDataStore;
+    return m_data.websiteDataStore;
+}
+
+void PageConfiguration::setWebsiteDataStore(RefPtr<WebKit::WebsiteDataStore>&& websiteDataStore)
+{
+    m_data.websiteDataStore = WTFMove(websiteDataStore);
 }
 
 WebsitePolicies* PageConfiguration::defaultWebsitePolicies() const
@@ -172,9 +185,9 @@ WebsitePolicies* PageConfiguration::defaultWebsitePolicies() const
     return m_data.defaultWebsitePolicies.get();
 }
 
-void PageConfiguration::setDefaultWebsitePolicies(WebsitePolicies* policies)
+void PageConfiguration::setDefaultWebsitePolicies(RefPtr<WebsitePolicies>&& policies)
 {
-    m_data.defaultWebsitePolicies = policies;
+    m_data.defaultWebsitePolicies = WTFMove(policies);
 }
 
 RefPtr<WebKit::WebURLSchemeHandler> PageConfiguration::urlSchemeHandlerForURLScheme(const WTF::String& scheme)
@@ -231,9 +244,9 @@ ApplicationManifest* PageConfiguration::applicationManifest() const
     return m_data.applicationManifest.get();
 }
 
-void PageConfiguration::setApplicationManifest(ApplicationManifest* applicationManifest)
+void PageConfiguration::setApplicationManifest(RefPtr<ApplicationManifest>&& applicationManifest)
 {
-    m_data.applicationManifest = applicationManifest;
+    m_data.applicationManifest = WTFMove(applicationManifest);
 }
 #endif
 
@@ -247,6 +260,9 @@ WebKit::GPUProcessPreferencesForWebProcess PageConfiguration::preferencesForGPUP
         preferences->webGLEnabled(),
         preferences->webGPUEnabled(),
         preferences->useGPUProcessForDOMRenderingEnabled(),
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+        preferences->useCGDisplayListsForDOMRendering(),
+#endif
         allowTestOnlyIPC()
     };
 }

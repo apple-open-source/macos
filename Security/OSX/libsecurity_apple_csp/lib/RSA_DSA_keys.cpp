@@ -160,7 +160,21 @@ void RSABinaryKey::generateKeyBlob(
 	}
 	blob = encodedKey.release();
 }
-		
+
+BinaryKey *RSABinaryKey::getPublicKey() const
+{
+    if (mKeyHeader.keyClass() != CSSM_KEYCLASS_PRIVATE_KEY) {
+        CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
+    }
+    RSABinaryKey *pubBinKey = new RSABinaryKey();
+    pubBinKey->mRsaKey = RSA_new();
+    pubBinKey->mRsaKey->e = BN_dup(mRsaKey->e);
+    pubBinKey->mRsaKey->n = BN_dup(mRsaKey->n);
+    pubBinKey->mKeyHeader = CssmKey::Header::overlay(mKeyHeader);
+    pubBinKey->mKeyHeader.keyClass(CSSM_KEYCLASS_PUBLIC_KEY);
+    return pubBinKey;
+}
+
 /***
  *** RSA-style AppleKeyPairGenContext
  ***/

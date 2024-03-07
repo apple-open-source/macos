@@ -20,14 +20,6 @@ es_CO{
                 one{"{0} día"}
                 other{"{0} días"}
             }
-            hour{
-                one{"{0} h"}
-                other{"{0} h"}
-            }
-            minute{
-                one{"{0} min"}
-                other{"{0} min"}
-            }
             month{
                 dnam{"mes"}
                 one{"{0} mes"}

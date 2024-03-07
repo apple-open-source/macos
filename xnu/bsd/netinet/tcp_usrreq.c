@@ -117,6 +117,8 @@
 #include <skywalk/os_stats_private.h>
 #endif /* SKYWALK */
 
+#include <net/sockaddr_utils.h>
+
 extern char *proc_name_address(void *p);
 
 errno_t tcp_fill_info_for_info_tuple(struct info_tuple *, struct tcp_info *);
@@ -153,9 +155,9 @@ SYSCTL_PROC(_net_inet_tcp, OID_AUTO, info,
     CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY | CTLFLAG_KERN,
     0, 0, tcp_sysctl_info, "S", "TCP info per tuple");
 
-int faster_mcopy = 0;
+int faster_mcopy = 1;
 SYSCTL_INT(_net_inet_tcp, OID_AUTO, faster_mcopy,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &faster_mcopy, 0,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &faster_mcopy, 1,
     "Speed up m_copym");
 
 /*
@@ -294,7 +296,7 @@ tcp_usr_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 	 * Must check for multicast and broadcast addresses and disallow binding
 	 * to them.
 	 */
-	sinp = (struct sockaddr_in *)(void *)nam;
+	sinp = SIN(nam);
 	if (sinp->sin_family == AF_INET &&
 	    (IN_MULTICAST(ntohl(sinp->sin_addr.s_addr)) ||
 	    sinp->sin_addr.s_addr == INADDR_BROADCAST)) {
@@ -339,7 +341,7 @@ tcp6_usr_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 	 * Must check for multicast and broadcast addresses and disallow binding
 	 * to them.
 	 */
-	sin6p = (struct sockaddr_in6 *)(void *)nam;
+	sin6p = SIN6(nam);
 	if (sin6p->sin6_family == AF_INET6 &&
 	    (IN6_IS_ADDR_MULTICAST(&sin6p->sin6_addr) ||
 	    ((IN6_IS_ADDR_V4MAPPED(&sin6p->sin6_addr) ||
@@ -370,7 +372,7 @@ tcp6_usr_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 			inp->inp_vflag |= INP_IPV4;
 			inp->inp_vflag &= ~INP_IPV6;
 
-			error = in_pcbbind(inp, (struct sockaddr *)&sin, p);
+			error = in_pcbbind(inp, SA(&sin), p);
 			if (error != 0) {
 				inp->inp_vflag = old_flags;
 				route_clear(&inp->inp_route);
@@ -492,11 +494,11 @@ tcp_log_address_error(int error, struct sockaddr *nam, struct proc *p)
 	char buffer[MAX_IPv6_STR_LEN];
 
 	if (nam->sa_family == AF_INET6) {
-		struct sockaddr_in6 *sin6p = (struct sockaddr_in6 *)(void *)nam;
+		struct sockaddr_in6 *sin6p = SIN6(nam);
 
 		inet_ntop(AF_INET6, &sin6p->sin6_addr, buffer, sizeof(buffer));
 	} else {
-		struct sockaddr_in *sinp = (struct sockaddr_in *)(void *)nam;
+		struct sockaddr_in *sinp = SIN(nam);
 
 		inet_ntop(AF_INET, &sinp->sin_addr, buffer, sizeof(buffer));
 	}
@@ -528,7 +530,7 @@ tcp_usr_connect_common(struct socket *so, struct tcpcb *tp, struct sockaddr *nam
 		/*
 		 * Disallow connecting to multicast and broadcast addresses.
 		 */
-		sinp = (struct sockaddr_in *)(void *)nam;
+		sinp = SIN(nam);
 		if (sinp->sin_family == AF_INET &&
 		    (IN_MULTICAST(ntohl(sinp->sin_addr.s_addr)) ||
 		    sinp->sin_addr.s_addr == INADDR_BROADCAST)) {
@@ -550,7 +552,7 @@ tcp_usr_connect_common(struct socket *so, struct tcpcb *tp, struct sockaddr *nam
 		/*
 		 * Disallow connecting to multicast and broadcast addresses.
 		 */
-		sin6p = (struct sockaddr_in6 *)(void *)nam;
+		sin6p = SIN6(nam);
 		if (sin6p->sin6_family == AF_INET6 &&
 		    IN6_IS_ADDR_MULTICAST(&sin6p->sin6_addr)) {
 			error = EAFNOSUPPORT;
@@ -576,7 +578,7 @@ tcp_usr_connect_common(struct socket *so, struct tcpcb *tp, struct sockaddr *nam
 			}
 			inp->inp_vflag |= INP_IPV4;
 			inp->inp_vflag &= ~INP_IPV6;
-			if ((error = tcp_connect(tp, (struct sockaddr *)&sin, p)) != 0) {
+			if ((error = tcp_connect(tp, SA(&sin), p)) != 0) {
 				goto out;
 			}
 
@@ -1480,7 +1482,7 @@ tcp_connect(struct tcpcb *tp, struct sockaddr *nam, struct proc *p)
 	struct inpcb *inp = tp->t_inpcb, *oinp;
 	struct socket *so = inp->inp_socket;
 	struct tcpcb *otp;
-	struct sockaddr_in *sin = (struct sockaddr_in *)(void *)nam;
+	struct sockaddr_in *sin = SIN(nam);
 	struct in_addr laddr;
 	int error = 0;
 	struct ifnet *outif = NULL;
@@ -1615,7 +1617,7 @@ tcp6_connect(struct tcpcb *tp, struct sockaddr *nam, struct proc *p)
 	struct inpcb *inp = tp->t_inpcb, *oinp;
 	struct socket *so = inp->inp_socket;
 	struct tcpcb *otp;
-	struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)(void *)nam;
+	struct sockaddr_in6 *sin6 = SIN6(nam);
 	struct in6_addr addr6;
 	int error = 0;
 	struct ifnet *outif = NULL;
@@ -3001,7 +3003,6 @@ sysctl_tcp_sospace(struct sysctl_oid *oidp, __unused void *arg1,
 #pragma unused(arg2)
 	u_int32_t new_value = 0, *space_p = NULL;
 	int changed = 0, error = 0;
-	u_quad_t sb_effective_max = (sb_max / (SB_MSIZE_ADJ + MCLBYTES)) * MCLBYTES;
 
 	switch (oidp->oid_number) {
 	case TCPCTL_SENDSPACE:
@@ -3016,7 +3017,7 @@ sysctl_tcp_sospace(struct sysctl_oid *oidp, __unused void *arg1,
 	error = sysctl_io_number(req, *space_p, sizeof(u_int32_t),
 	    &new_value, &changed);
 	if (changed) {
-		if (new_value > 0 && new_value <= sb_effective_max) {
+		if (new_value > 0 && new_value <= sb_max) {
 			*space_p = new_value;
 			SYSCTL_SKMEM_UPDATE_AT_OFFSET(arg2, new_value);
 		} else {
@@ -3096,7 +3097,7 @@ tcp_attach(struct socket *so, struct proc *p)
 	}
 	tp = tcp_newtcpcb(inp);
 	if (tp == NULL) {
-		int nofd = so->so_state & SS_NOFDREF;   /* XXX */
+		short nofd = so->so_state & SS_NOFDREF;   /* XXX */
 
 		so->so_state &= ~SS_NOFDREF;    /* don't free the socket yet */
 		if (isipv6) {

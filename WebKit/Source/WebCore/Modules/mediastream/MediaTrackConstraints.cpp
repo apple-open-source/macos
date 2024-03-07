@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -173,7 +173,11 @@ static MediaTrackConstraintSetMap convertToInternalForm(ConstraintSetType setTyp
     set(result, setType, "groupId"_s, MediaConstraintType::GroupId, constraintSet.groupId);
     set(result, setType, "displaySurface"_s, MediaConstraintType::DisplaySurface, constraintSet.displaySurface);
     set(result, setType, "logicalSurface"_s, MediaConstraintType::LogicalSurface, constraintSet.logicalSurface);
+
+    set(result, setType, "whiteBalanceMode"_s, MediaConstraintType::WhiteBalanceMode, constraintSet.whiteBalanceMode);
     set(result, setType, "zoom"_s, MediaConstraintType::Zoom, constraintSet.zoom);
+    set(result, setType, "torch"_s, MediaConstraintType::Torch, constraintSet.torch);
+
     return result;
 }
 

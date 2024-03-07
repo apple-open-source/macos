@@ -9,7 +9,6 @@
  *
  */
 
-#ifdef WEBRTC_USE_H265
 #import "RTCVideoEncoderH265.h"
 
 #import <VideoToolbox/VideoToolbox.h>
@@ -39,6 +38,8 @@
 
 VT_EXPORT const CFStringRef kVTVideoEncoderSpecification_RequiredLowLatency;
 
+static constexpr int ErrorCallbackDefaultValue = -1;
+
 @interface RTCVideoEncoderH265 ()
 
 - (void)frameWasEncoded:(OSStatus)status
@@ -49,7 +50,6 @@ VT_EXPORT const CFStringRef kVTVideoEncoderSpecification_RequiredLowLatency;
            renderTimeMs:(int64_t)renderTimeMs
               timestamp:(uint32_t)timestamp
                rotation:(RTCVideoRotation)rotation;
-
 @end
 
 namespace {  // anonymous namespace
@@ -178,6 +178,7 @@ void compressionOutputCallback(void* encoder,
   bool _isLowLatencyEnabled;
   bool _needsToSendDescription;
   RTCVideoEncoderDescriptionCallback _descriptionCallback;
+  RTCVideoEncoderErrorCallback _errorCallback;
 }
 
 // .5 is set as a mininum to prevent overcompensating for large temporary
@@ -235,12 +236,20 @@ void compressionOutputCallback(void* encoder,
     _descriptionCallback = callback;
 }
 
-- (NSInteger)encode:(RTCVideoFrame*)frame
-    codecSpecificInfo:(id<RTCCodecSpecificInfo>)codecSpecificInfo
-           frameTypes:(NSArray<NSNumber*>*)frameTypes {
+- (void)setErrorCallback:(RTCVideoEncoderErrorCallback)callback
+{
+    _errorCallback = callback;
+}
+
+- (NSInteger)encode:(RTCVideoFrame *)frame
+    codecSpecificInfo:(nullable id<RTCCodecSpecificInfo>)codecSpecificInfo
+           frameTypes:(NSArray<NSNumber *> *)frameTypes {
   RTC_DCHECK_EQ(frame.width, _width);
   RTC_DCHECK_EQ(frame.height, _height);
   if (!_callback || !_compressionSession) {
+    if (_errorCallback) {
+      _errorCallback(ErrorCallbackDefaultValue);
+    }
     return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
   }
   BOOL isKeyframeRequired = NO;
@@ -279,6 +288,9 @@ void compressionOutputCallback(void* encoder,
       // Cropping required, we need to crop and scale to a new pixel buffer.
       pixelBuffer = CreatePixelBuffer(pixelBufferPool);
       if (!pixelBuffer) {
+        if (_errorCallback) {
+          _errorCallback(ErrorCallbackDefaultValue);
+        }
         return WEBRTC_VIDEO_CODEC_ERROR;
       }
       int dstWidth = CVPixelBufferGetWidth(pixelBuffer);
@@ -294,6 +306,9 @@ void compressionOutputCallback(void* encoder,
       _nv12ScaleBuffer.shrink_to_fit();
       if (![rtcPixelBuffer cropAndScaleTo:pixelBuffer
                            withTempBuffer:_nv12ScaleBuffer.data()]) {
+        if (_errorCallback) {
+          _errorCallback(ErrorCallbackDefaultValue);
+        }
         return WEBRTC_VIDEO_CODEC_ERROR;
       }
     }
@@ -303,12 +318,18 @@ void compressionOutputCallback(void* encoder,
     // We did not have a native frame buffer
     pixelBuffer = CreatePixelBuffer(pixelBufferPool);
     if (!pixelBuffer) {
+      if (_errorCallback) {
+        _errorCallback(ErrorCallbackDefaultValue);
+      }
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
     RTC_DCHECK(pixelBuffer);
     if (!CopyVideoFrameToPixelBuffer([frame.buffer toI420], pixelBuffer)) {
       RTC_LOG(LS_ERROR) << "Failed to copy frame data.";
       CVBufferRelease(pixelBuffer);
+      if (_errorCallback) {
+        _errorCallback(ErrorCallbackDefaultValue);
+      }
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
   }
@@ -465,20 +486,16 @@ void compressionOutputCallback(void* encoder,
 
 - (void)configureCompressionSession {
   RTC_DCHECK(_compressionSession);
-  SetVTSessionProperty(_compressionSession, nullptr, kVTCompressionPropertyKey_RealTime,
+  SetVTSessionProperty(_compressionSession, kVTCompressionPropertyKey_RealTime,
                        _isLowLatencyEnabled);
   // SetVTSessionProperty(_compressionSession,
   // kVTCompressionPropertyKey_ProfileLevel, _profile);
-  SetVTSessionProperty(_compressionSession, nullptr,
-                       kVTCompressionPropertyKey_AllowFrameReordering, false);
+  SetVTSessionProperty(_compressionSession, kVTCompressionPropertyKey_AllowFrameReordering, false);
   [self setEncoderBitrateBps:_targetBitrateBps];
 
   // Set a relatively large value for keyframe emission (7200 frames or 4 minutes).
-  SetVTSessionProperty(_compressionSession, nullptr,
-                       kVTCompressionPropertyKey_MaxKeyFrameInterval, 7200);
-  SetVTSessionProperty(_compressionSession, nullptr,
-                       kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration,
-                       240);
+  SetVTSessionProperty(_compressionSession, kVTCompressionPropertyKey_MaxKeyFrameInterval, 7200);
+  SetVTSessionProperty(_compressionSession, kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration, 240);
   OSStatus status =
       VTCompressionSessionPrepareToEncodeFrames(_compressionSession);
   if (status != noErr) {
@@ -506,7 +523,7 @@ void compressionOutputCallback(void* encoder,
 
 - (void)setEncoderBitrateBps:(uint32_t)bitrateBps {
   if (_compressionSession) {
-    SetVTSessionProperty(_compressionSession, nullptr, kVTCompressionPropertyKey_AverageBitRate, bitrateBps);
+    SetVTSessionProperty(_compressionSession, kVTCompressionPropertyKey_AverageBitRate, bitrateBps);
     _encoderBitrateBps = bitrateBps;
   }
 }
@@ -521,10 +538,16 @@ void compressionOutputCallback(void* encoder,
                rotation:(RTCVideoRotation)rotation {
   if (status != noErr) {
     RTC_LOG(LS_ERROR) << "h265 encode failed.";
+    if (_errorCallback) {
+      _errorCallback(status);
+    }
     return;
   }
   if (infoFlags & kVTEncodeInfo_FrameDropped) {
     RTC_LOG(LS_INFO) << "h265 encoder dropped a frame.";
+    if (_errorCallback) {
+      _errorCallback(noErr);
+    }
     return;
   }
 
@@ -546,6 +569,9 @@ void compressionOutputCallback(void* encoder,
   if (_useAnnexB) {
     if (!webrtc::H265CMSampleBufferToAnnexBBuffer(sampleBuffer, isKeyframe, buffer.get())) {
       RTC_LOG(LS_WARNING) << "Unable to parse H265 encoded buffer";
+      if (_errorCallback) {
+        _errorCallback(ErrorCallbackDefaultValue);
+      }
       return;
     }
   } else {
@@ -558,6 +584,9 @@ void compressionOutputCallback(void* encoder,
       size_t length;
       if (auto error = CMBlockBufferGetDataPointer(blockBuffer, currentStart, &length, nullptr, &data)) {
         RTC_LOG(LS_ERROR) << "H264 decoder: CMBlockBufferGetDataPointer failed with error " << error;
+        if (_errorCallback) {
+          _errorCallback(ErrorCallbackDefaultValue);
+        }
         return;
       }
       buffer->AppendData(data, size);
@@ -616,4 +645,3 @@ void compressionOutputCallback(void* encoder,
 }
 
 @end
-#endif // WEBRTC_USE_H265

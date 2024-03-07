@@ -25,12 +25,12 @@
 #ifndef KIM_CREDENTIAL_H
 #define KIM_CREDENTIAL_H
 
+#include <Kerberos/kim_types.h>
+#include <Kerberos/krb5.h>
+    
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
-#include <Kerberos/kim_types.h>
-#include <Kerberos/krb5.h>
     
 /*!
  * \addtogroup kim_types_reference

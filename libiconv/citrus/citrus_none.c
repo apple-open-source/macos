@@ -53,6 +53,9 @@ _CITRUS_STDENC_DEF_OPS(NONE);
 struct _citrus_stdenc_traits _citrus_NONE_stdenc_traits = {
 	0,	/* et_state_size */
 	1,	/* mb_cur_max */
+#ifdef __APPLE__
+	1,	/* mb_cur_min */
+#endif
 };
 
 #ifdef __APPLE__
@@ -123,6 +126,7 @@ _citrus_NONE_stdenc_init(struct _citrus_stdenc * __restrict ce,
 	 * encoding that can handle more.
 	 */
 	et->et_state_size = sizeof(_citrus_NONE_encoding_info);
+	et->et_mb_cur_min = 1;
 #else
 	et->et_state_size = 0;
 #endif

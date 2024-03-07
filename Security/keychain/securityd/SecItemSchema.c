@@ -257,11 +257,52 @@ SECDB_ATTR(v11_8_bin_client3,  "bin3",          Data,     SecDbFlags( , , , , ,D
 SECDB_ATTR(v11_9_lastscan,     "lastscan",      String,   SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v11_9_extra,        "extra",         Blob,     SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 
+// The sharing group ID, set for shared items.
+//
+// * The group is part of the primary key, to distinguish shared items from one
+//   another.
+// * It has a default value of `""` in the database, since SQLite doesn't allow
+//   NULLs in composite keys. Custom SQL queries should use `ggrp = ''` or
+//   `ggrp <> ''`, instead of `ggrp IS NULL` or `ggrp NOT NULL`.
+// * It's nullable at the _attribute_ layer, so it doesn't affect an item's
+//   primary key or SHA-1 hash if it's not set, and `SecDbItemGetValue`, etc.
+//   return `kCFNull` instead of `""`. See `SecDbAttrCopyValueForDb` and
+//   `SecDbColumnCopyString` for how this works.
+// * Items with this attribute are never backed up or synced via SOS or CKKS.
 SECDB_ATTR(v12_ggrp, "ggrp", String, SecDbFlags(P,L,I, ,A, , , ,H, , , , ,U,  , ), NULL, NULL);
 
+// Attributes for group sharing metadata entries. These attribute names are
+// terse because the query builder expects all attribute names to be 4
+// characters long (see `SecDbQuery.c:query_applier`).
+SECDB_ATTR(v12_1_sharingType,                         "type", Number, SecDbFlags( ,L, , ,A, , , ,H, ,Z, ,N, , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingIsDeletion,                   "deln", Number, SecDbFlags( ,L, , ,A, , , ,H, ,Z, ,N, , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingPrivateKeyKeyprint,           "pkkp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , , , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingPrivateKeyValueprint,         "pkvp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , , , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingInternetPasswordKeyprint,     "ipkp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , , , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingInternetPasswordValueprint,   "ipvp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , , , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingSidecarKeyprint,              "sckp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , , , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingSidecarValueprint,            "scvp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , , , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingFlags,                        "flag", Number, SecDbFlags( ,L, , ,A, , , ,H, ,Z, ,N, , , ), NULL, NULL);
+SECDB_ATTR(v12_1_sharingLastWrittenWithSchemaVersion, "lwsv", Number, SecDbFlags( ,L, , ,A, , , ,H, , , ,N, , , ), NULL, NULL);
 
 SECDB_ATTR(v12_2contextID,    "contextID",     String,   SecDbFlags(P,L, , , , , , , , , ,E,N, ,  , ), NULL, NULL);
 
+SECDB_ATTR(v12_3_sharingZone, "zone", String, SecDbFlags(P,L, , ,A, , , ,H, , ,E,N, , , ), NULL, NULL);
+
+SECDB_ATTR(v12_5_sharingOwner, "ownr", String, SecDbFlags(P,L, , ,A, , , ,H, , ,E,N, , , ), NULL, NULL);
+
+SECDB_ATTR(v12_8_sharingZone,                         "zone", String, SecDbFlags(P,L, , ,A, , , ,H, , ,E,N,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingOwner,                        "ownr", String, SecDbFlags(P,L, , ,A, , , ,H, , ,E,N,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingType,                         "type", Number, SecDbFlags( ,L, , ,A, , , ,H, ,Z, ,N,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingIsDeletion,                   "deln", Number, SecDbFlags( ,L, , ,A, , , ,H, ,Z, ,N,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingPrivateKeyKeyprint,           "pkkp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , ,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingPrivateKeyValueprint,         "pkvp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , ,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingInternetPasswordKeyprint,     "ipkp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , ,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingInternetPasswordValueprint,   "ipvp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , ,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingSidecarKeyprint,              "sckp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , ,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingSidecarValueprint,            "scvp", Data,   SecDbFlags( ,L, , ,A, , , ,H, , , , ,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingFlags,                        "flag", Number, SecDbFlags( ,L, , ,A, , , ,H, ,Z, ,N,U, , ), NULL, NULL);
+SECDB_ATTR(v12_8_sharingLastWrittenWithSchemaVersion, "lwsv", Number, SecDbFlags( ,L, , ,A, , , ,H, , , ,N,U, , ), NULL, NULL);
 
 SECDB_ATTR(v12_8suggestDeletion, "suggestDeletion", Number, SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 
@@ -1666,9 +1707,438 @@ const SecDbClass v_identity_class = {
     },
 };
 
+/// Stages remotely changed group sharing records from CloudKit that haven't
+/// been applied to the local Keychain yet. This is conceptually like the CKKS
+/// `incomingqueue` class, but it (1) only stores sharing entries, and
+/// (2) uses AKS encryption like other item classes.
+///
+/// Sharing records are encrypted with Manatee keys in CloudKit. Using AKS
+/// encryption locally protects them at rest on the device.
+const SecDbClass v12_8_sharing_incoming_queue_class = {
+    .name = CFSTR("sharingIncomingQueue"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_8_sharingZone,
+        &v12_8_sharingOwner,
+        &v12_8_sharingIsDeletion,
+        &v12_8_sharingType,
+        &v12_8_sharingFlags,
+        &v6data,
+        &v6pdmn,
+        &v6agrp,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        &v6mdat,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_5_sharing_incoming_queue_class = {
+    .name = CFSTR("sharingIncomingQueue"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_3_sharingZone,
+        &v12_5_sharingOwner,
+        &v12_1_sharingIsDeletion,
+        &v12_1_sharingType,
+        &v12_1_sharingFlags,
+        &v6data,
+        &v6pdmn,
+        &v6agrp,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        &v6mdat,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_3_sharing_incoming_queue_class = {
+    .name = CFSTR("sharingIncomingQueue"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_3_sharingZone,
+        &v12_1_sharingIsDeletion,
+        &v12_1_sharingType,
+        &v6data,
+        &v6pdmn,
+        &v6agrp,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        &v6mdat,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_1_sharing_incoming_queue_class = {
+    .name = CFSTR("sharingIncomingQueue"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_1_sharingIsDeletion,
+        &v12_1_sharingType,
+        &v6data,
+        &v6pdmn,
+        &v6agrp,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        &v6mdat,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+/// Holds a copy of all sharing CloudKit records as of the last full sync.
+/// Entries move from the incoming queue to the mirror after they're applied to
+/// the local Keychain, and from the outgoing queue to the mirror after they're
+/// uploaded to CloudKit.
+///
+/// This is like the CKKS `ckmirror` class, but (1) only stores sharing entries,
+/// and (2) receives incoming entries after they're applied to the local
+/// Keychain (CKKS writes incoming records simultaneously into `incomingqueue`
+/// and `ckmirror`).
+const SecDbClass v12_8_sharing_mirror_class = {
+    .name = CFSTR("sharingMirror"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_8_sharingZone,
+        &v12_8_sharingOwner,
+        &v12_8_sharingType,
+        &v12_8_sharingFlags,
+        &v12_8_sharingLastWrittenWithSchemaVersion,
+        &v6data,
+        &v6pdmn,
+        &v6agrp,
+        &v12_8_sharingPrivateKeyKeyprint,
+        &v12_8_sharingPrivateKeyValueprint,
+        &v12_8_sharingInternetPasswordKeyprint,
+        &v12_8_sharingInternetPasswordValueprint,
+        &v12_8_sharingSidecarKeyprint,
+        &v12_8_sharingSidecarValueprint,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        &v6mdat,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_5_sharing_mirror_class = {
+    .name = CFSTR("sharingMirror"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_3_sharingZone,
+        &v12_5_sharingOwner,
+        &v12_1_sharingType,
+        &v12_1_sharingFlags,
+        &v12_1_sharingLastWrittenWithSchemaVersion,
+        &v6data,
+        &v6pdmn,
+        &v6agrp,
+        &v12_1_sharingPrivateKeyKeyprint,
+        &v12_1_sharingPrivateKeyValueprint,
+        &v12_1_sharingInternetPasswordKeyprint,
+        &v12_1_sharingInternetPasswordValueprint,
+        &v12_1_sharingSidecarKeyprint,
+        &v12_1_sharingSidecarValueprint,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        &v6mdat,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_3_sharing_mirror_class = {
+    .name = CFSTR("sharingMirror"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_3_sharingZone,
+        &v12_1_sharingType,
+        &v12_1_sharingFlags,
+        &v12_1_sharingLastWrittenWithSchemaVersion,
+        &v6data,
+        &v6pdmn,
+        &v6agrp,
+        &v12_1_sharingPrivateKeyKeyprint,
+        &v12_1_sharingPrivateKeyValueprint,
+        &v12_1_sharingInternetPasswordKeyprint,
+        &v12_1_sharingInternetPasswordValueprint,
+        &v12_1_sharingSidecarKeyprint,
+        &v12_1_sharingSidecarValueprint,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        &v6mdat,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_1_sharing_mirror_class = {
+    .name = CFSTR("sharingMirror"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_1_sharingType,
+        &v12_1_sharingFlags,
+        &v12_1_sharingLastWrittenWithSchemaVersion,
+        &v6data,
+        &v6pdmn,
+        &v6agrp,
+        &v12_1_sharingPrivateKeyKeyprint,
+        &v12_1_sharingPrivateKeyValueprint,
+        &v12_1_sharingInternetPasswordKeyprint,
+        &v12_1_sharingInternetPasswordValueprint,
+        &v12_1_sharingSidecarKeyprint,
+        &v12_1_sharingSidecarValueprint,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        &v6mdat,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+/// Stages entries for locally changed sharing records that haven't been
+/// uploaded to CloudKit yet. Like the CKKS `outgoingqueue` class, but only
+/// stores sharing entries.
+const SecDbClass v12_8_sharing_outgoing_queue_class = {
+    .name = CFSTR("sharingOutgoingQueue"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_8_sharingZone,
+        &v12_8_sharingOwner,
+        &v12_8_sharingIsDeletion,
+        &v12_8_sharingType,
+        &v12_8_sharingFlags,
+        &v6data,
+        &v6mdat,
+        &v6pdmn,
+        &v6agrp,
+        &v12_8_sharingPrivateKeyKeyprint,
+        &v12_8_sharingPrivateKeyValueprint,
+        &v12_8_sharingInternetPasswordKeyprint,
+        &v12_8_sharingInternetPasswordValueprint,
+        &v12_8_sharingSidecarKeyprint,
+        &v12_8_sharingSidecarValueprint,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_5_sharing_outgoing_queue_class = {
+    .name = CFSTR("sharingOutgoingQueue"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_3_sharingZone,
+        &v12_5_sharingOwner,
+        &v12_1_sharingIsDeletion,
+        &v12_1_sharingType,
+        &v12_1_sharingFlags,
+        &v6data,
+        &v6mdat,
+        &v6pdmn,
+        &v6agrp,
+        &v12_1_sharingPrivateKeyKeyprint,
+        &v12_1_sharingPrivateKeyValueprint,
+        &v12_1_sharingInternetPasswordKeyprint,
+        &v12_1_sharingInternetPasswordValueprint,
+        &v12_1_sharingSidecarKeyprint,
+        &v12_1_sharingSidecarValueprint,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_3_sharing_outgoing_queue_class = {
+    .name = CFSTR("sharingOutgoingQueue"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_3_sharingZone,
+        &v12_1_sharingIsDeletion,
+        &v12_1_sharingType,
+        &v6data,
+        &v6mdat,
+        &v6pdmn,
+        &v6agrp,
+        &v12_1_sharingPrivateKeyKeyprint,
+        &v12_1_sharingPrivateKeyValueprint,
+        &v12_1_sharingInternetPasswordKeyprint,
+        &v12_1_sharingInternetPasswordValueprint,
+        &v12_1_sharingSidecarKeyprint,
+        &v12_1_sharingSidecarValueprint,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
+
+const SecDbClass v12_1_sharing_outgoing_queue_class = {
+    .name = CFSTR("sharingOutgoingQueue"),
+    .itemclass = false,
+    .attrs = {
+        // Persisted attributes.
+        &v6rowid,
+        &v10syncuuid,
+        &v12_1_sharingIsDeletion,
+        &v12_1_sharingType,
+        &v6data,
+        &v6mdat,
+        &v6pdmn,
+        &v6agrp,
+        &v12_1_sharingPrivateKeyKeyprint,
+        &v12_1_sharingPrivateKeyValueprint,
+        &v12_1_sharingInternetPasswordKeyprint,
+        &v12_1_sharingInternetPasswordValueprint,
+        &v12_1_sharingSidecarKeyprint,
+        &v12_1_sharingSidecarValueprint,
+        // Persisted attributes that are not used in the syncing layer, but
+        // specified because `SecDbItem` will fail to read and write items of
+        // this class if they're missing.
+        &v6sha1,
+        &v10_1itempersistentref,
+        &v6sync,
+        &v6tomb,
+        // In-memory attributes.
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        0
+    }
+};
 
 /*
  * Version 12.8
+ */
+/*
+ * Hashed sharing attributes are now in authenticated data because SecDb won't always fetch them otherwise
+ * Add suggestDeletion to ckmirror class.
  */
 const SecDbSchema v12_8_schema = {
     .majorVersion = 12,
@@ -1698,6 +2168,9 @@ const SecDbSchema v12_8_schema = {
         &v12_2_ckdevicestate_class,
         &v12_2_tlkshare_class,
         &v11_2_metadatakeys_class,
+        &v12_8_sharing_incoming_queue_class,
+        &v12_8_sharing_mirror_class,
+        &v12_8_sharing_outgoing_queue_class,
         0
     }
 };
@@ -1733,6 +2206,9 @@ const SecDbSchema v12_7_schema = {
         &v12_2_ckdevicestate_class,
         &v12_2_tlkshare_class,
         &v11_2_metadatakeys_class,
+        &v12_5_sharing_incoming_queue_class,
+        &v12_5_sharing_mirror_class,
+        &v12_5_sharing_outgoing_queue_class,
         0
     }
 };
@@ -1803,6 +2279,9 @@ const SecDbSchema v12_5_schema = {
         &v12_2_ckdevicestate_class,
         &v12_2_tlkshare_class,
         &v11_2_metadatakeys_class,
+        &v12_5_sharing_incoming_queue_class,
+        &v12_5_sharing_mirror_class,
+        &v12_5_sharing_outgoing_queue_class,
         0
     }
 };
@@ -1842,6 +2321,10 @@ const SecDbSchema v12_4_schema = {
     }
 };
 
+/*
+ * Version 12.3
+ * Add a zone ID column to the Keychain Item Sharing tables.
+ */
 const SecDbSchema v12_3_schema = {
     .majorVersion = 12,
     .minorVersion = 3,
@@ -1870,6 +2353,9 @@ const SecDbSchema v12_3_schema = {
         &v12_2_ckdevicestate_class,
         &v12_2_tlkshare_class,
         &v11_2_metadatakeys_class,
+        &v12_3_sharing_incoming_queue_class,
+        &v12_3_sharing_mirror_class,
+        &v12_3_sharing_outgoing_queue_class,
         0
     }
 };
@@ -1906,10 +2392,17 @@ const SecDbSchema v12_2_schema = {
         &v12_2_ckdevicestate_class,
         &v12_2_tlkshare_class,
         &v11_2_metadatakeys_class,
+        &v12_1_sharing_incoming_queue_class,
+        &v12_1_sharing_mirror_class,
+        &v12_1_sharing_outgoing_queue_class,
         0
     }
 };
 
+/*
+ * Version 12.0
+ * Add a `ggrp` column for items shared with a group.
+ */
 const SecDbSchema v12_schema = {
     .majorVersion = 12,
     .minorVersion = 0,
@@ -1942,6 +2435,10 @@ const SecDbSchema v12_schema = {
     }
 };
 
+/*
+ * Version 12.1
+ * Add new classes for Keychain Item Sharing sync metadata.
+ */
 const SecDbSchema v12_1_schema = {
     .majorVersion = 12,
     .minorVersion = 1,
@@ -1970,6 +2467,9 @@ const SecDbSchema v12_1_schema = {
         &v11_5_ckdevicestate_class,
         &v10_5_tlkshare_class,
         &v11_2_metadatakeys_class,
+        &v12_1_sharing_incoming_queue_class,
+        &v12_1_sharing_mirror_class,
+        &v12_1_sharing_outgoing_queue_class,
         0
     }
 };
@@ -3845,6 +4345,24 @@ const SecDbClass* tversion_class(void) {
     return find_class_helper(CFSTR("tversion"), &onceToken, &tversion);
 }
 
+
+const SecDbClass* sharingIncomingQueue_class(void) {
+    static const SecDbClass* sharingIncomingQueue = NULL;
+    static dispatch_once_t onceToken;
+    return find_class_helper(CFSTR("sharingIncomingQueue"), &onceToken, &sharingIncomingQueue);
+}
+
+const SecDbClass* sharingMirror_class(void) {
+    static const SecDbClass* sharingMirror = NULL;
+    static dispatch_once_t onceToken;
+    return find_class_helper(CFSTR("sharingMirror"), &onceToken, &sharingMirror);
+}
+
+const SecDbClass* sharingOutgoingQueue_class(void) {
+    static const SecDbClass* sharingOutgoingQueue = NULL;
+    static dispatch_once_t onceToken;
+    return find_class_helper(CFSTR("sharingOutgoingQueue"), &onceToken, &sharingOutgoingQueue);
+}
 
 // Per https://www.sqlite.org/pragma.html#pragma_user_version & https://www.sqlite.org/fileformat2.html#database_header
 // the user version is a 4-byte integer.

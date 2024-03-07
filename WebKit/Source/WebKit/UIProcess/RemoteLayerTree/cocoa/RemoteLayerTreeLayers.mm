@@ -28,19 +28,20 @@
 
 #if PLATFORM(COCOA)
 
-#import "CGDisplayList.h"
 #import "Logging.h"
 #import "RemoteLayerTreeNode.h"
+#import <WebCore/DynamicContentScalingDisplayList.h>
+#import <WebCore/DynamicContentScalingTypes.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-#import <WebKitAdditions/CGDisplayListImageBufferAdditions.h>
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+#import <CoreRE/RECGCommandsContext.h>
 #endif
 
 @implementation WKCompositingLayer {
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     RetainPtr<CFDataRef> _displayListDataForTesting;
 #endif
 }
@@ -50,11 +51,11 @@
     return WebKit::RemoteLayerTreeNode::appendLayerDescription(super.description, self);
 }
 
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
 
-- (void)_setWKContents:(id)contents withDisplayList:(WebKit::CGDisplayList&&)displayList replayForTesting:(BOOL)replay
+- (void)_setWKContents:(id)contents withDisplayList:(WebCore::DynamicContentScalingDisplayList&&)displayList replayForTesting:(BOOL)replay
 {
-    auto data = displayList.buffer()->createCFData();
+    auto data = displayList.displayList()->createCFData();
 
     if (replay) {
         _displayListDataForTesting = data;
@@ -72,8 +73,8 @@
         [ports addObject:static_cast<id>(portWrapper.get())];
     }
 
-    [self setValue:bridge_cast(data.get()) forKeyPath:WKCGDisplayListContentsKey];
-    [self setValue:ports.get() forKeyPath:WKCGDisplayListPortsKey];
+    [self setValue:bridge_cast(data.get()) forKeyPath:WKDynamicContentScalingContentsKey];
+    [self setValue:ports.get() forKeyPath:WKDynamicContentScalingPortsKey];
     [self setNeedsDisplay];
 }
 
@@ -83,10 +84,10 @@
         return;
     CGContextScaleCTM(context, 1, -1);
     CGContextTranslateCTM(context, 0, -self.bounds.size.height);
-    WKCGContextDrawCGCommandsEncodedData(context, _displayListDataForTesting.get(), nullptr);
+    RECGContextDrawCGCommandsEncodedData(context, _displayListDataForTesting.get(), nullptr);
 }
 
-#endif // ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+#endif // ENABLE(RE_DYNAMIC_CONTENT_SCALING)
 
 @end
 

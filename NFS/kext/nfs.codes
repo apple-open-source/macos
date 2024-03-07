@@ -88,8 +88,11 @@
 0x3150340 NFS_op_rpc_commit_v3
 0x3150344 NFS_op_rpc_commit_v4
 0x3150348 NFS_op_rpc_read
-0x315034c NFS_op_rpc_write2
+0x315034c NFS_op_rpc_write
 0x3150350 NFS_op_getattr_internal
 0x3150354 NFS_op_silly_rename
 0x3150358 NFS_op_data_lock_stoe
 0x315035c NFS_op_data_lock_etos
+0x3150360 NFS_op_send_sendlock_try
+0x3150364 NFS_op_send_sendlock_locked
+0x3150368 NFS_op_send_sendmbuf

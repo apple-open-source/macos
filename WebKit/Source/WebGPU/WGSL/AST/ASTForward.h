@@ -28,17 +28,22 @@
 namespace WGSL::AST {
 
 class Directive;
+class DiagnosticDirective;
+
+class Declaration;
 
 class Attribute;
 class AlignAttribute;
 class BindingAttribute;
 class BuiltinAttribute;
 class ConstAttribute;
+class DiagnosticAttribute;
 class GroupAttribute;
 class IdAttribute;
 class InterpolateAttribute;
 class InvariantAttribute;
 class LocationAttribute;
+class MustUseAttribute;
 class SizeAttribute;
 class StageAttribute;
 class WorkgroupSizeAttribute;
@@ -52,6 +57,7 @@ class BoolLiteral;
 class CallExpression;
 class FieldAccessExpression;
 class Float32Literal;
+class Float16Literal;
 class IdentifierExpression;
 class IdentityExpression;
 class IndexAccessExpression;
@@ -68,6 +74,7 @@ class Identifier;
 class Statement;
 class AssignmentStatement;
 class BreakStatement;
+class CallStatement;
 class CompoundAssignmentStatement;
 class CompoundStatement;
 class ContinueStatement;
@@ -95,10 +102,12 @@ class ReferenceTypeExpression;
 class Variable;
 class VariableQualifier;
 
-enum class AccessMode : uint8_t;
+struct SwitchClause;
+struct Diagnostic;
+struct Continuing;
+
 enum class BinaryOperation : uint8_t;
 enum class ParameterRole : uint8_t;
-enum class StorageClass : uint8_t;
 enum class StructureRole : uint8_t;
 enum class UnaryOperation : uint8_t;
 enum class VariableFlavor : uint8_t;

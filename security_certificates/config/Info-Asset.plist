@@ -14,10 +14,12 @@
 	<string>1.0</string>
 	<key>MobileAssetProperties</key>
 	<dict>
-		<key>FormatVersion</key>
-		<integer>1</integer>
+		<key>AssetSpecifier</key>
+		<string>PKITrustStore</string>
+		<key>AssetVersion</key>
+		<string>0.0.1.0.0,0</string>
 		<key>ContentVersion</key>
-		<integer>2023071300</integer>
+		<integer>2024013100</integer>
 		<key>__AssetDefaultGarbageCollectionBehavior</key>
 		<string>NeverCollected</string>
 	</dict>

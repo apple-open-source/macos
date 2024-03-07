@@ -49,7 +49,8 @@ public:
 	CSSM_KEYATTR_FLAGS attributes();
 	void returnKey(Handle &h, CssmKey::Header &hdr);
 	const CssmData &canonicalDigest();
-	
+    virtual void publicKey(const Context &context, CssmData &pubKeyData);
+
 	SecurityServerAcl &acl();
 	Database *relatedDatabase();
 

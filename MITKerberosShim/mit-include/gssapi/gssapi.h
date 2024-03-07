@@ -63,14 +63,6 @@
 #endif
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
-#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
-#    pragma pack(push,2)
-#endif
-
 #if defined(_MSDOS) || defined(_WIN32)
 #include <win-mac.h>
 #endif
@@ -93,6 +85,14 @@ extern "C" {
 /*
  * $Id: gssapi.hin 20876 2008-10-15 21:58:43Z tlyu $
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
+#    pragma pack(push,2)
+#endif
 
 /*
  * First, define the three platform-dependent pointer types.

@@ -81,12 +81,12 @@ __FBSDID("$FreeBSD: src/usr.bin/tar/read.c,v 1.40 2008/08/21 06:41:14 kientzle E
 
 #include <TargetConditionals.h>
 #if TARGET_OS_MAC && !TARGET_OS_IPHONE
-#define HAVE_QUARANTINE 1
+#define HAVE_MAC_QUARANTINE 1
 #endif /* TARGET_OS_MAC */
 
-#ifdef HAVE_QUARANTINE
+#ifdef HAVE_MAC_QUARANTINE
 #include <quarantine.h>
-#endif /* HAVE_QUARANTINE */
+#endif /* HAVE_MAC_QUARANTINE */
 
 #include "bsdtar.h"
 #include "err.h"
@@ -166,7 +166,7 @@ progress_func(void *cookie)
 	}
 }
 
-#ifdef HAVE_QUARANTINE
+#ifdef HAVE_MAC_QUARANTINE
 void
 _qtnapply(struct bsdtar *bsdtar, qtn_file_t qf, char *path)
 {
@@ -186,7 +186,7 @@ _qtnapply(struct bsdtar *bsdtar, qtn_file_t qf, char *path)
 	if (qstatus)
 		lafe_warnc(0, "qtn_file_apply_to_path(%s): %s", path, qtn_error(qstatus));
 }
-#endif /* HAVE_QUARANTINE */
+#endif /* HAVE_MAC_QUARANTINE */
 
 /*
  * Handle 'x' and 't' modes.
@@ -200,9 +200,9 @@ read_archive(struct bsdtar *bsdtar, char mode, struct archive *writer)
 	struct archive_entry	 *entry;
 	const char		 *reader_options;
 	int			  r;
-#ifdef HAVE_QUARANTINE
+#ifdef HAVE_MAC_QUARANTINE
 	qtn_file_t                qf = NULL;
-#endif /* HAVE_QUARANTINE */
+#endif /* HAVE_MAC_QUARANTINE */
 
 	while (*bsdtar->argv) {
 		if (archive_match_include_pattern(bsdtar->matching,
@@ -288,7 +288,7 @@ read_archive(struct bsdtar *bsdtar, char mode, struct archive *writer)
 	}
 #endif
 
-#ifdef HAVE_QUARANTINE
+#ifdef HAVE_MAC_QUARANTINE
 	if (mode == 'x' && bsdtar->filename != NULL && !(bsdtar->flags & OPTFLAG_STDOUT)) {
 		if ((qf = qtn_file_alloc()) != NULL) {
 			int qstatus = qtn_file_init_with_path(qf, bsdtar->filename);
@@ -298,7 +298,7 @@ read_archive(struct bsdtar *bsdtar, char mode, struct archive *writer)
 			}
 		}
 	}
-#endif /* HAVE_QUARANTINE */
+#endif /* HAVE_MAC_QUARANTINE */
 
 	for (;;) {
 		/* Support --fast-read option */
@@ -419,11 +419,11 @@ read_archive(struct bsdtar *bsdtar, char mode, struct archive *writer)
 				r = archive_read_data_into_fd(a, 1);
 			else
 				r = archive_read_extract2(a, entry, writer);
-#ifdef HAVE_QUARANTINE
+#ifdef HAVE_MAC_QUARANTINE
 			if (r == ARCHIVE_OK) {
 				_qtnapply(bsdtar, qf, (char *)archive_entry_pathname(entry));
 			}
-#endif /* HAVE_QUARANTINE */
+#endif /* HAVE_MAC_QUARANTINE */
 			if (r != ARCHIVE_OK) {
 				if (!bsdtar->verbose)
 					safe_fprintf(stderr, "%s",
@@ -453,12 +453,12 @@ read_archive(struct bsdtar *bsdtar, char mode, struct archive *writer)
 		    archive_format_name(a), archive_filter_name(a, 0));
 
 	archive_read_free(a);
-#ifdef HAVE_QUARANTINE
+#ifdef HAVE_MAC_QUARANTINE
 	if (qf != NULL) {
 		qtn_file_free(qf);
 		qf = NULL;
 	}
-#endif /* HAVE_QUARANTINE */
+#endif /* HAVE_MAC_QUARANTINE */
 }
 
 

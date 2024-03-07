@@ -60,6 +60,7 @@ header: "RemoteLayerTreeTransaction.h"
     OpaqueChanged
     ContentsHiddenChanged
     UserInteractionEnabledChanged
+    BackdropRootChanged
     EventRegionChanged
 #if ENABLE(SCROLLING_THREAD)
     ScrollingNodeIDChanged
@@ -81,13 +82,6 @@ enum class WebKit::SwapBuffersDisplayRequirement : uint8_t {
     NeedsFullDisplay,
     NeedsNormalDisplay,
     NeedsNoDisplay
-};
-
-header: "RemoteScrollingUIState.h"
-[OptionSet] enum class WebKit::RemoteScrollingUIStateChanges : uint8_t {
-    ScrollSnapNodes
-    UserScrollNodes
-    RubberbandingNodes
 };
 
 [LegacyPopulateFromEmptyConstructor] class WebKit::RemoteLayerTreeTransaction {
@@ -139,6 +133,10 @@ header: "RemoteScrollingUIState.h"
 #if PLATFORM(IOS_FAMILY)
     std::optional<uint64_t> m_dynamicViewportSizeUpdateID;
 #endif
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    Seconds m_acceleratedTimelineTimeOrigin;
+#endif
 }
 
 headers: "LayerProperties.h" "PlatformCALayerRemote.h"
@@ -188,7 +186,7 @@ headers: "LayerProperties.h" "PlatformCALayerRemote.h"
     std::unique_ptr<WebKit::RemoteLayerBackingStoreProperties> properties;
 };
 
-struct WebKit::LayerProperties {
+[LegacyPopulateFromEmptyConstructor] struct WebKit::LayerProperties {
     [OptionalTupleBits] OptionSet<WebKit::LayerChange> changedProperties;
     [NotSerialized] OptionSet<WebKit::LayerChange> everChangedProperties;
 
@@ -233,6 +231,7 @@ struct WebKit::LayerProperties {
     [OptionalTupleBit=WebKit::LayerChange::OpaqueChanged] bool opaque;
     [OptionalTupleBit=WebKit::LayerChange::ContentsHiddenChanged] bool contentsHidden;
     [OptionalTupleBit=WebKit::LayerChange::UserInteractionEnabledChanged] bool userInteractionEnabled;
+    [OptionalTupleBit=WebKit::LayerChange::BackdropRootChanged] bool backdropRoot;
     [OptionalTupleBit=WebKit::LayerChange::EventRegionChanged] WebCore::EventRegion eventRegion;
 #if ENABLE(SCROLLING_THREAD)
     [OptionalTupleBit=WebKit::LayerChange::ScrollingNodeIDChanged] WebCore::ScrollingNodeID scrollingNodeID;

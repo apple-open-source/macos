@@ -160,6 +160,9 @@ __thread bool CKKSSQLInWriteTransaction = false;
              CKKSSQLWhereComparatorAsString(obj.sqlOp),
              CKKSSQLWhereColumnNameAsString(obj.columnName)];
 
+        } else if ([value class] == [CKKSSQLWhereNullOrValue class]){
+            CKKSSQLWhereNullOrValue* obj = (CKKSSQLWhereNullOrValue*)value;
+            [whereClause appendFormat:@"(%@ is NULL OR (%@ IS NOT NULL AND %@%@(?)))", key, key, key, CKKSSQLWhereComparatorAsString(obj.sqlOp)];
         } else if([value isMemberOfClass:[NSNull class]]) {
             [whereClause appendFormat: @"%@ is NULL", key];
         } else if([value isMemberOfClass:[CKKSSQLWhereIn class]]) {
@@ -229,7 +232,7 @@ __thread bool CKKSSQLInWriteTransaction = false;
     __block int whereLocation = 1;
 
     [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL * _Nonnull stop) {
-        if([whereDict[key] class] == [CKKSSQLWhereValue class]) {
+        if(([whereDict[key] class] == [CKKSSQLWhereValue class]) || ([whereDict[key] class] == [CKKSSQLWhereNullOrValue class])) {
             CKKSSQLWhereValue* obj = (CKKSSQLWhereValue*)whereDict[key];
             SecDbBindObject(stmt, whereLocation, (__bridge CFStringRef)obj.value, cferror);
             whereLocation++;
@@ -671,6 +674,12 @@ NSString* CKKSSQLWhereColumnNameAsString(CKKSSQLWhereColumnName columnName)
     return [[CKKSSQLWhereValue alloc] initWithOperation:op value:value];
 
 }
+@end
+
+# pragma mark - CKKSSQLWhereNullOrValue
+
+@implementation CKKSSQLWhereNullOrValue
+// Functionally the same as parent class, but evaluated differently.
 @end
 
 #pragma mark - CKKSSQLWhereIn

@@ -10,6 +10,9 @@
 
 @implementation TPHObjectiveC : NSObject
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 + (SFECKeyPair* _Nullable)fetchKeyPairWithPrivateKeyPersistentRef:(NSData *)persistentRef error:(NSError**)error
 {
     SecKeyRef seckey = NULL;
@@ -26,6 +29,8 @@
 
     return [[SFECKeyPair alloc] initWithSecKey: seckey];
 }
+
+#pragma clang diagnostic pop
 
 + (ccec_full_ctx_t)ccec384Context
 {

@@ -1275,9 +1275,15 @@ smb2_smb_change_notify(struct smb_share *share, struct smb2_change_notify_rq *ch
         goto bad;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     /* Set up the async call back */
     rqp->sr_flags |= SMBR_ASYNC;
@@ -1368,9 +1374,15 @@ resend:
         return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
@@ -1526,9 +1538,15 @@ resend:
         return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
@@ -1783,9 +1801,15 @@ smb2_smb_echo(struct smbiod *iod, int timeout, vfs_context_t context)
         return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     SMB_LOG_KTRACE(SMB_DBG_SMB_ECHO | DBG_FUNC_START,
                    iod->iod_id, 0, 0, 0, 0);
@@ -1875,9 +1899,15 @@ resend:
         return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -2206,12 +2236,18 @@ smb2_smb_gss_session_setup(struct smbiod *iod, uint16_t *reply_flags,
             break;
         }
 
-        SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                       iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
-                       iod->iod_ref_cnt);
+#ifdef SMB_DEBUG
+    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
-        /* 
-         * Fill in Session Setup part 
+        /*
+         * Fill in Session Setup part
          * Cant use a struct ptr due to var length security blob that
          * could be some giant size greater than a single mbuf.
          */
@@ -2446,9 +2482,15 @@ resend:
         return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -2827,8 +2869,7 @@ bad:
 int
 smb2_smb_lease_break_ack(struct smb_share *share, struct smbiod *iod,
                          uint64_t lease_key_hi, uint64_t lease_key_low,
-                         uint32_t lease_state, uint32_t *ret_lease_state,
-                         vfs_context_t context)
+                         uint32_t lease_state, vfs_context_t context)
 {
     struct smb_rq *rqp;
     struct mbchain *mbp;
@@ -2837,15 +2878,17 @@ smb2_smb_lease_break_ack(struct smb_share *share, struct smbiod *iod,
     uint16_t length;
     uint64_t rsp_lease_key_hi, rsp_lease_key_low;
     bool replay = false;
-
+    uint32_t ret_lease_state = 0;
+    
 resend:
-    *ret_lease_state = 0;
     if (iod) {
         error = smb_iod_ref(iod, __FUNCTION__);
     } else {
         error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
     }
     if (error) {
+        SMBERROR("Failed to find iod for lease key: 0x%llx:0x%llx lease state: 0x%x \n",
+                 lease_key_hi, lease_key_low, lease_state);
         return error;
     }
 
@@ -2866,9 +2909,15 @@ resend:
      */
     rqp->sr_rqsessionid = iod->iod_session->session_session_id;
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -2880,7 +2929,7 @@ resend:
     mb_put_uint32le(mbp, 0);                    /* Flags (unused) */
     mb_put_uint64le(mbp, lease_key_hi);         /* Lease Key High */
     mb_put_uint64le(mbp, lease_key_low);        /* Lease Key Low */
-    mb_put_uint32le(mbp, lease_state);         /* Lease State */
+    mb_put_uint32le(mbp, lease_state);          /* Lease State */
     mb_put_uint64le(mbp, 0);                    /* Lease Duration (unused) */
 
     if (replay) {
@@ -2904,6 +2953,8 @@ resend:
             goto resend;
         }
         
+        SMBERROR("smb_rq_simple() failed %d for lease key: 0x%llx:0x%llx lease state: 0x%x \n",
+                 error, lease_key_hi, lease_key_low, lease_state);
         goto bad;
     }
     
@@ -2958,8 +3009,8 @@ resend:
         goto bad;
     }
 
-    /* Get Lease State */
-    error = md_get_uint32le(mdp, ret_lease_state);
+    /* Get returned Lease State and do nothing with it at this time */
+    error = md_get_uint32le(mdp, &ret_lease_state);
     if (error) {
         goto bad;
     }
@@ -2973,6 +3024,47 @@ resend:
 bad:
     smb_rq_done(rqp);
     return error;
+}
+
+int
+smb2_smb_lease_break_ack_queue(struct smb_share *share, struct smbiod *iod,
+                               uint64_t lease_key_hi, uint64_t lease_key_low,
+                               uint32_t lease_state, vfs_context_t context)
+{
+    int error = 0;
+    struct smb_rw_arg *rw_pb_ptr = NULL;
+    
+    /* Malloc a smb_rw */
+    SMB_MALLOC_TYPE(rw_pb_ptr, struct smb_rw_arg, Z_WAITOK_ZERO);
+    if (rw_pb_ptr == NULL) {
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
+        error = ENOMEM;
+        return error;
+    }
+
+    /* Fill it out */
+    lck_mtx_init(&rw_pb_ptr->rw_arg_lock, smb_rw_group, LCK_ATTR_NULL);
+
+    rw_pb_ptr->command = SMB_LEASE_BREAK_ACK;
+    rw_pb_ptr->share = share;
+    rw_pb_ptr->iod = iod;
+    rw_pb_ptr->lease_key_hi = lease_key_hi;
+    rw_pb_ptr->lease_key_low = lease_key_low;
+    rw_pb_ptr->lease_state = lease_state;
+    rw_pb_ptr->context = context;
+
+    /*
+     * Queue up the lease break ack to be sent by rw helper threads
+     * The rw helper threads will call smb2_smb_lease_break_ack() to
+     * actually send the ack request and handle the reply
+     *
+     * Note: the rw helper thread is responsible for freeing rw_arg_lock
+     * and this rw_pb_ptr
+     */
+    rw_pb_ptr->flags |= SMB_RW_IN_USE;
+    smb_rw_proxy(rw_pb_ptr);
+    
+    return(0);
 }
 
 int
@@ -3022,9 +3114,15 @@ resend:
         return error;
     }
 
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
@@ -3130,9 +3228,15 @@ resend:
 		return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     /*
      * Fill in Logoff part 
@@ -3307,9 +3411,15 @@ resend:
         return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -8028,9 +8138,15 @@ resend:
         return error;
     }
 
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     queryp->ret_rqp = rqp;
     
@@ -8247,9 +8363,15 @@ resend:
         return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -8443,9 +8565,15 @@ resend:
         return error;
     }
 
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     if (do_short_read == 0) {
         /* Just doing a normal read */
@@ -8780,11 +8908,9 @@ resend:
 
     /* Zero out param blocks */
     for (i = 0; i < quantumNbr; i++) {
-        rw_pb[i].read_writep = NULL;
-        rw_pb[i].rqp = NULL;
-        rw_pb[i].resid = 0;
-        rw_pb[i].error = 0;
-        rw_pb[i].flags = 0;
+        bzero(&rw_pb[i], sizeof(rw_pb[i]));
+        
+        rw_pb[i].command = SMB_READ_WRITE;
         if (!single_thread) {
             lck_mtx_init(&rw_pb[i].rw_arg_lock, smb_rw_group, LCK_ATTR_NULL);
         }
@@ -9345,9 +9471,15 @@ resend:
         return error;
     }
 
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -9720,9 +9852,15 @@ resend:
 		goto treeconnect_exit;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     /*
      * Build the Tree Connect Request
@@ -10002,11 +10140,17 @@ resend:
 		return error;
     }
     
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
-    /* 
+    /*
      * Fill in Tree Disconnect part 
      * Dont use struct ptr since its only 4 bytes long
      */
@@ -10169,9 +10313,15 @@ resend:
         return error;
     }
 
+#ifdef SMB_DEBUG
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
                    iod->iod_ref_cnt);
+#else
+    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, rqp->sr_command,
+                   iod->iod_ref_cnt);
+#endif
 
     *len = len32;
     

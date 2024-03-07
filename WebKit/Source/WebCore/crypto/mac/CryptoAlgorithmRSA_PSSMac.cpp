@@ -26,7 +26,7 @@
 #include "config.h"
 #include "CryptoAlgorithmRSA_PSS.h"
 
-#if ENABLE(WEB_CRYPTO) && HAVE(RSA_PSS)
+#if HAVE(RSA_PSS)
 
 #include "CommonCryptoUtilities.h"
 #include "CryptoAlgorithmRsaPssParams.h"
@@ -39,14 +39,14 @@ static ExceptionOr<Vector<uint8_t>> signRSA_PSS(CryptoAlgorithmIdentifier hash, 
 {
     CCDigestAlgorithm digestAlgorithm;
     if (!getCommonCryptoDigestAlgorithm(hash, digestAlgorithm))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto cryptoDigestAlgorithm = WebCore::cryptoDigestAlgorithm(hash);
     if (!cryptoDigestAlgorithm)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     auto digest = PAL::CryptoDigest::create(*cryptoDigestAlgorithm);
     if (!digest)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     digest->addBytes(data.data(), data.size());
     auto digestData = digest->computeHash();
 
@@ -55,7 +55,7 @@ static ExceptionOr<Vector<uint8_t>> signRSA_PSS(CryptoAlgorithmIdentifier hash, 
 
     CCCryptorStatus status = CCRSACryptorSign(key, ccRSAPSSPadding, digestData.data(), digestData.size(), digestAlgorithm, saltLength, signature.data(), &signatureSize);
     if (status)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     return WTFMove(signature);
 }
@@ -64,14 +64,14 @@ static ExceptionOr<bool> verifyRSA_PSS(CryptoAlgorithmIdentifier hash, const Pla
 {
     CCDigestAlgorithm digestAlgorithm;
     if (!getCommonCryptoDigestAlgorithm(hash, digestAlgorithm))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto cryptoDigestAlgorithm = WebCore::cryptoDigestAlgorithm(hash);
     if (!cryptoDigestAlgorithm)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     auto digest = PAL::CryptoDigest::create(*cryptoDigestAlgorithm);
     if (!digest)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     digest->addBytes(data.data(), data.size());
     auto digestData = digest->computeHash();
 
@@ -93,4 +93,4 @@ ExceptionOr<bool> CryptoAlgorithmRSA_PSS::platformVerify(const CryptoAlgorithmRs
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO) && HAVE(RSA_PSS)
+#endif // HAVE(RSA_PSS)

@@ -148,6 +148,7 @@ struct machine_thread {
 	unsigned int              preemption_count;       /* preemption count */
 	uint16_t                  exception_trace_code;
 	uint8_t                   reserved7;
+	bool                      reserved8;
 #if defined(HAS_APPLE_PAC)
 	uint64_t                  rop_pid;
 	uint64_t                  jop_pid;

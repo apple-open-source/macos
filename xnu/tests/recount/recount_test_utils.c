@@ -141,6 +141,14 @@ bind_to_cluster(char type)
 	usleep(10000);
 }
 
+static void
+_unbind_from_cluster(void)
+{
+	// Best effort.
+	(void)sysctlbyname("kern.sched_thread_bind_cluster_type", NULL, NULL, NULL,
+			0);
+}
+
 void
 run_on_all_perf_levels(void)
 {
@@ -153,6 +161,35 @@ run_on_all_perf_levels(void)
 	bind_to_cluster('E');
 	// Return to the kernel to synchronize timings with the scheduler.
 	(void)getppid();
+	_unbind_from_cluster();
+	T_SETUPEND;
+}
+
+static void
+_run_on_exclaves(void)
+{
+	int64_t output = 0;
+	size_t output_size = sizeof(output);
+	int64_t input = 0;
+	int ret = sysctlbyname("debug.test.exclaves_hello_exclave_test", &output,
+			&output_size, &input, sizeof(input));
+	T_QUIET;
+	T_ASSERT_POSIX_SUCCESS(ret, "systcl debug.test.exclaves_hello_exclave_test");
+}
+
+void
+run_in_exclaves_on_all_perf_levels(void)
+{
+	if (perf_level_count() == 1) {
+		_run_on_exclaves();
+	}
+
+	T_SETUPBEGIN;
+	bind_to_cluster('P');
+	_run_on_exclaves();
+	bind_to_cluster('E');
+	_run_on_exclaves();
+	_unbind_from_cluster();
 	T_SETUPEND;
 }
 

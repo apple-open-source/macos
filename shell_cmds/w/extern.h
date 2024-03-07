@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -27,9 +29,8 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/w/extern.h,v 1.5 2002/03/22 01:42:43 imp Exp $
+ * $FreeBSD$
  */
-
 
 extern	int use_ampm;
 
@@ -39,6 +40,6 @@ struct kinfo_proc;
 #define KI_PROC(ki) (&(ki)->kp->kp_proc)
 #endif
 
-void	pr_attime(time_t *, time_t *);
+int	pr_attime(time_t *, time_t *);
 int	pr_idle(time_t);
 int	proc_compare(struct kinfo_proc *, struct kinfo_proc *);

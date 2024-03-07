@@ -91,7 +91,9 @@ private:
     WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) override;
     void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) override;
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
+#if ENABLE(CONTEXT_MENUS)
     Ref<WebContextMenuProxy> createContextMenuProxy(WebPageProxy&, ContextMenuContextData&&, const UserData&) override;
+#endif // ENABLE(CONTEXT_MENUS)
 #if ENABLE(INPUT_TYPE_COLOR)
     RefPtr<WebColorPicker> createColorPicker(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&, Vector<WebCore::Color>&&) override;
 #endif
@@ -165,10 +167,6 @@ private:
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() override;
 
     bool effectiveAppearanceIsDark() const override;
-
-#if USE(WPE_RENDERER)
-    UnixFileDescriptor hostFileDescriptor() override;
-#endif
 
     void didChangeWebPageID() const override;
 

@@ -37,7 +37,7 @@ public:
 
 private:
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
-    RefPtr<WebCore::MediaRecorderPrivate> createMediaRecorderPrivate(WebCore::MediaStreamPrivate&, const WebCore::MediaRecorderPrivateOptions&) final;
+    std::unique_ptr<WebCore::MediaRecorderPrivate> createMediaRecorderPrivate(WebCore::MediaStreamPrivate&, const WebCore::MediaRecorderPrivateOptions&) final;
 #endif
 
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA) && ENABLE(GPU_PROCESS)

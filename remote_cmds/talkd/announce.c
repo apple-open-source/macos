@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,10 +35,8 @@ static char sccsid[] = "@(#)announce.c	8.3 (Berkeley) 4/28/95";
 #endif
 __attribute__((__used__))
 static const char rcsid[] =
-  "$FreeBSD: src/libexec/talkd/announce.c,v 1.16 2003/04/03 05:13:27 jmallett Exp $";
+  "$FreeBSD$";
 #endif /* not lint */
-
-#include <sys/cdefs.h>
 
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -66,8 +62,6 @@ static const char rcsid[] =
 #include "ttymsg.h"
 #endif
 #include "extern.h"
-
-extern char hostname[];
 
 /*
  * Announce an invitation to talk.
@@ -98,7 +92,7 @@ announce(CTL_MSG *request, const char *remote_machine)
  * Build a block of characters containing the message.
  * It is sent blank filled and in a single block to
  * try to keep the message in one piece if the recipient
- * in in vi at the time
+ * in vi at the time
  */
 int
 print_mesg(const char *tty, CTL_MSG *request,
@@ -106,7 +100,6 @@ print_mesg(const char *tty, CTL_MSG *request,
 {
 	struct timeval now;
 	time_t clock_sec;
-	struct timezone zone;
 	struct tm *localclock;
 	struct iovec iovec;
 	char line_buf[N_LINES][N_CHARS];
@@ -117,7 +110,7 @@ print_mesg(const char *tty, CTL_MSG *request,
 
 	i = 0;
 	max_size = 0;
-	gettimeofday(&now, &zone);
+	gettimeofday(&now, NULL);
 	clock_sec = now.tv_sec;
 	localclock = localtime(&clock_sec);
 	(void)snprintf(line_buf[i], N_CHARS, " ");

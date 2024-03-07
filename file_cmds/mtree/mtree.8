@@ -36,7 +36,7 @@
 .Nd map a directory hierarchy
 .Sh SYNOPSIS
 .Nm mtree
-.Op Fl LPUcdeinqruxw
+.Op Fl LPUcdeinqruxwD
 .Bk -words
 .Op Fl f Ar spec
 .Ek
@@ -96,6 +96,10 @@ having "in first spec only", "in second spec only", and "different"
 columns, prefixed by zero, one and two TAB characters respectively.
 Each entry in the "different" column occupies two lines,
 one from each specification.
+.\" ==========
+.It Fl D
+Do not set the XATTR_SHOWCOMPRESSION flag while processing extended
+attributes.
 .\" ==========
 .It Fl i
 Indent the output 4 spaces each time a directory level is descended when

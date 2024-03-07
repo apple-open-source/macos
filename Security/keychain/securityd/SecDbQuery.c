@@ -958,6 +958,9 @@ bool query_notify_and_destroy(Query *q, bool ok, CFErrorRef *error) {
         if (q->q_sync_changed || (q->q_changed && !SecMUSRIsSingleUserView(q->q_musrView))) {
             SecKeychainChanged();
         }
+        if (q->q_shared_changed) {
+            SecSharedItemsChanged();
+        }
     }
     return query_destroy(q, error) && ok;
 }
@@ -1025,6 +1028,7 @@ Query *query_create(const SecDbClass *qclass,
             secdebug("query", "Client is app clip, adding restriction to query attribute");
             CFDictionaryAddValue(q->q_item, kSecAttrAppClipItem, kCFBooleanTrue);
         }
+        q->q_skip_shared_items = !client->allowKeychainSharing;
     } else {
         secdebug("query", "no client information specified so not tweaking query attributes");
     }

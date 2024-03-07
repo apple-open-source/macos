@@ -3,10 +3,7 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 dv{
     AuxExemplarCharacters{"[\u200C\u200D ޙ ޚ ޜ ޢ ޣ ޥ ޛ ޘ ޠ ޡ ޤ ޝ ޞ ޟ ޱ]"}
-    ExemplarCharacters{
-        "[ހ ށ ނ ރ ބ ޅ ކ އ ވ މ ފ ދ ތ ލ ގ ޏ ސ ޑ ޒ ޓ ޔ ޕ ޖ ޗ \u07A6 \u07A7 \u07A8 "
-        "\u07A9 \u07AA \u07AB \u07AC \u07AD \u07AE \u07AF \u07B0]"
-    }
+    ExemplarCharacters{"[ހ ށ ނ ރ ބ ޅ ކ އ ވ މ ފ ދ ތ ލ ގ ޏ ސ ޑ ޒ ޓ ޔ ޕ ޖ ޗ ަ ާ ި ީ ު ޫ ެ ޭ ޮ ޯ ް]"}
     ExemplarCharactersIndex{"[ހ ށ ނ ރ ބ ޅ ކ އ ވ މ ފ ދ ތ ލ ގ ޏ ސ ޑ ޒ ޓ ޔ ޕ ޖ ޗ]"}
     NumberElements{
         arab{

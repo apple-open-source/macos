@@ -11,10 +11,9 @@
 set -e
 
 TMP=/tmp/mtree.$$
-
 rm -rf ${TMP}
-mkdir -p ${TMP} ${TMP}/mr ${TMP}/mt
 
+mkdir -p ${TMP}/mr ${TMP}/mt
 mkdir ${TMP}/mr/a
 mkdir ${TMP}/mr/b
 mkdir ${TMP}/mt/a
@@ -29,9 +28,8 @@ if mtree -f ${TMP}/_r -f ${TMP}/_t > ${TMP}/_ ; then
 	exit 1
 fi
 
-if [ `wc -l < ${TMP}/_` -ne 1 ] ; then
+if [ `wc -l < ${TMP}/_` -ne 7 ] ; then
 	echo "ERROR spec/spec compare generated wrong output" 1>&2
-	rm -rf ${TMP}
 	exit 1
 fi
 
@@ -40,9 +38,8 @@ if mtree -f ${TMP}/_t -f ${TMP}/_r > ${TMP}/_ ; then
 	exit 1
 fi
 
-if [ `wc -l < ${TMP}/_` -ne 1 ] ; then
+if [ `wc -l < ${TMP}/_` -ne 7 ] ; then
 	echo "ERROR spec/spec compare generated wrong output" 1>&2
-	rm -rf ${TMP}
 	exit 1
 fi
 

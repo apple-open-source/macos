@@ -670,4 +670,14 @@ errOut:
     CFReleaseNull(noSANCert);
 }
 
+- (void)testCopyCorporateRoots
+{
+    NSArray *roots = CFBridgingRelease(SecCertificateCopyAppleCorporateRoots());
+    XCTAssertNotNil(roots);
+    XCTAssertEqual(roots.count, 3);
+    for (id cert in roots) {
+        XCTAssertEqual(CFGetTypeID((__bridge CFTypeRef)cert), SecCertificateGetTypeID());
+    }
+}
+
 @end

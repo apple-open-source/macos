@@ -124,11 +124,23 @@ abort_test(thread_type_t type, corrupt_type_t corrupt_type)
 #if defined(__arm64e__)
 	// on arm64e pthread_self() checks a ptrauth signature so it is
 	// likely to die of either SIGTRAP or SIGBUS.
+	//
+	// On FPAC hardware with certain configurations, PAC exceptions
+	// are fatal, which means the delivered signal is SIGKILL.
 	if ((corrupt_type & (FULL_CORRUPTION | SIG_CORRUPTION))) {
-		if (signal == SIGBUS) {
+		switch(signal) {
+		case SIGBUS:
 			T_EXPECT_EQ(signal, SIGBUS, NULL);
-		} else {
+			break;
+		case SIGTRAP:
 			T_EXPECT_EQ(signal, SIGTRAP, NULL);
+			break;
+		default:
+			// If the delivered signal is not SIGTRAP or SIGBUS,
+			// it has to be because the exception is fatal,
+			// which means the signal is SIGKILL.
+			T_EXPECT_EQ(signal, SIGKILL, NULL);
+			break;
 		}
 		T_END;
 	}

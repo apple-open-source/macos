@@ -30,11 +30,15 @@
 #import "config.h"
 #import "_WKWebExtensionControllerConfigurationInternal.h"
 
+#import "APIPageConfiguration.h"
+#import "WKWebViewConfigurationPrivate.h"
 #import "WebExtensionControllerConfiguration.h"
-#import <WebCore/WebCoreObjCExtras.h>
 
 static NSString * const persistentCodingKey = @"persistent";
+static NSString * const temporaryCodingKey = @"temporary";
+static NSString * const temporaryDirectoryCodingKey = @"temporaryDirectory";
 static NSString * const identifierCodingKey = @"identifier";
+static NSString * const webViewConfigurationCodingKey = @"webViewConfiguration";
 
 @implementation _WKWebExtensionControllerConfiguration
 
@@ -61,7 +65,13 @@ static NSString * const identifierCodingKey = @"identifier";
 
     auto uuid = WTF::UUID::fromNSUUID(identifier);
     RELEASE_ASSERT(uuid);
+
     return WebKit::WebExtensionControllerConfiguration::create(*uuid)->wrapper();
+}
+
++ (instancetype)_temporaryConfiguration
+{
+    return WebKit::WebExtensionControllerConfiguration::createTemporary()->wrapper();
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder
@@ -70,6 +80,13 @@ static NSString * const identifierCodingKey = @"identifier";
 
     [coder encodeObject:self.identifier forKey:identifierCodingKey];
     [coder encodeBool:self.persistent forKey:persistentCodingKey];
+    [coder encodeObject:self.webViewConfiguration forKey:webViewConfigurationCodingKey];
+
+    if (!self._temporary)
+        return;
+
+    [coder encodeBool:YES forKey:temporaryCodingKey];
+    [coder encodeObject:self._storageDirectoryPath forKey:temporaryDirectoryCodingKey];
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
@@ -80,15 +97,29 @@ static NSString * const identifierCodingKey = @"identifier";
         return nil;
 
     using IsPersistent = WebKit::WebExtensionControllerConfiguration::IsPersistent;
+    using TemporaryTag = WebKit::WebExtensionControllerConfiguration::TemporaryTag;
+
+    if ([coder containsValueForKey:temporaryCodingKey]) {
+        RELEASE_ASSERT([coder decodeBoolForKey:temporaryCodingKey]);
+
+        NSString *temporaryDirectory = [coder decodeObjectOfClass:NSString.class forKey:temporaryDirectoryCodingKey];
+        API::Object::constructInWrapper<WebKit::WebExtensionControllerConfiguration>(self, TemporaryTag::Temporary, temporaryDirectory);
+
+        // Remake the directories if needed, since they might have been cleaned up since this was last used.
+        FileSystem::makeAllDirectories(temporaryDirectory);
+
+        return self;
+    }
 
     NSUUID *identifier = [coder decodeObjectOfClass:NSUUID.class forKey:identifierCodingKey];
     BOOL persistent = [coder decodeBoolForKey:persistentCodingKey];
 
-    auto uuid = WTF::UUID::fromNSUUID(identifier);
-    if (uuid)
+    if (auto uuid = WTF::UUID::fromNSUUID(identifier))
         API::Object::constructInWrapper<WebKit::WebExtensionControllerConfiguration>(self, *uuid);
     else
         API::Object::constructInWrapper<WebKit::WebExtensionControllerConfiguration>(self, persistent ? IsPersistent::Yes : IsPersistent::No);
+
+    self.webViewConfiguration = [coder decodeObjectOfClass:WKWebViewConfiguration.class forKey:webViewConfigurationCodingKey];
 
     return self;
 }
@@ -100,8 +131,7 @@ static NSString * const identifierCodingKey = @"identifier";
 
 - (void)dealloc
 {
-    if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKWebExtensionControllerConfiguration.class, self))
-        return;
+    ASSERT(isMainRunLoop());
 
     _webExtensionControllerConfiguration->~WebExtensionControllerConfiguration();
 }
@@ -120,7 +150,7 @@ static NSString * const identifierCodingKey = @"identifier";
 
 - (NSString *)debugDescription
 {
-    return [NSString stringWithFormat:@"<%@: %p; persistent = %@; identifier = %@>", NSStringFromClass(self.class), self, self.persistent ? @"YES" : @"NO", self.identifier];
+    return [NSString stringWithFormat:@"<%@: %p; persistent = %@; temporary = %@; identifier = %@>", NSStringFromClass(self.class), self, self.persistent ? @"YES" : @"NO", self._temporary ? @"YES" : @"NO", self.identifier];
 }
 
 - (NSUUID *)identifier
@@ -133,6 +163,28 @@ static NSString * const identifierCodingKey = @"identifier";
 - (BOOL)isPersistent
 {
     return _webExtensionControllerConfiguration->storageIsPersistent();
+}
+
+- (WKWebViewConfiguration *)webViewConfiguration
+{
+    return _webExtensionControllerConfiguration->webViewConfiguration();
+}
+
+- (void)setWebViewConfiguration:(WKWebViewConfiguration *)configuration
+{
+    _webExtensionControllerConfiguration->setWebViewConfiguration(configuration);
+}
+
+- (BOOL)_isTemporary
+{
+    return _webExtensionControllerConfiguration->storageIsTemporary();
+}
+
+- (NSString *)_storageDirectoryPath
+{
+    if (auto& directory = _webExtensionControllerConfiguration->storageDirectory(); !directory.isEmpty())
+        return directory;
+    return nil;
 }
 
 #pragma mark WKObject protocol implementation
@@ -164,6 +216,11 @@ static NSString * const identifierCodingKey = @"identifier";
     return nil;
 }
 
++ (instancetype)_temporaryConfiguration
+{
+    return nil;
+}
+
 - (void)encodeWithCoder:(NSCoder *)coder
 {
 }
@@ -186,6 +243,25 @@ static NSString * const identifierCodingKey = @"identifier";
 - (BOOL)isPersistent
 {
     return NO;
+}
+
+- (WKWebViewConfiguration *)webViewConfiguration
+{
+    return nil;
+}
+
+- (void)setWebViewConfiguration:(WKWebViewConfiguration *)webViewConfiguration
+{
+}
+
+- (BOOL)_isTemporary
+{
+    return NO;
+}
+
+- (NSString *)_storageDirectoryPath
+{
+    return nil;
 }
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

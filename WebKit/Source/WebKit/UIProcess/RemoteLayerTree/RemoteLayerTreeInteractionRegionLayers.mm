@@ -199,7 +199,9 @@ static CACornerMask convertToCACornerMask(OptionSet<InteractionRegion::CornerMas
 
 void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
 {
-    if (node.eventRegion().interactionRegions().isEmpty()) {
+    ASSERT(node.uiView());
+
+    if (node.eventRegion().interactionRegions().isEmpty() || !node.uiView()) {
         node.removeInteractionRegionsContainer();
         return;
     }
@@ -228,12 +230,12 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
     NSUInteger insertionPoint = 0;
     HashSet<std::pair<IntRect, InteractionRegion::Type>>dedupeSet;
     for (const WebCore::InteractionRegion& region : node.eventRegion().interactionRegions()) {
-        IntRect rect = region.rectInLayerCoordinates;
+        auto rect = region.rectInLayerCoordinates;
         if (!node.visibleRect() || !node.visibleRect()->intersects(rect))
             continue;
 
         auto interactionRegionGroupName = interactionRegionGroupNameForRegion(node.layerID(), region);
-        auto key = std::make_pair(rect, region.type);
+        auto key = std::make_pair(enclosingIntRect(rect), region.type);
         if (dedupeSet.contains(key))
             continue;
         auto reuseKey = std::make_pair(interactionRegionGroupName, region.type);
@@ -275,15 +277,33 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
             [regionLayer setFrame:rect];
 
         if (region.type == InteractionRegion::Type::Interaction) {
-            [regionLayer setCornerRadius:region.borderRadius];
+            [regionLayer setCornerRadius:region.cornerRadius];
+            if (region.cornerRadius)
+                [regionLayer setCornerCurve:kCACornerCurveCircular];
+
             constexpr CACornerMask allCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
             if (region.maskedCorners.isEmpty())
                 [regionLayer setMaskedCorners:allCorners];
             else
                 [regionLayer setMaskedCorners:convertToCACornerMask(region.maskedCorners)];
+
+            if (region.clipPath) {
+                RetainPtr<CAShapeLayer> mask = [regionLayer mask];
+                if (!mask) {
+                    mask = adoptNS([[CAShapeLayer alloc] init]);
+                    [regionLayer setMask:mask.get()];
+                }
+
+                [mask setFrame:[regionLayer bounds]];
+                [mask setPath:region.clipPath->platformPath()];
+            } else
+                [regionLayer setMask:nil];
         }
 
-        if ([container.sublayers objectAtIndex:insertionPoint] != regionLayer) {
+        // Since we insert new layers as we go, insertionPoint is always <= container.sublayers.count.
+        ASSERT(insertionPoint <= container.sublayers.count);
+        bool shouldAppendLayer = insertionPoint == container.sublayers.count;
+        if (shouldAppendLayer || [container.sublayers objectAtIndex:insertionPoint] != regionLayer) {
             [regionLayer removeFromSuperlayer];
             [container insertSublayer:regionLayer.get() atIndex:insertionPoint];
         }

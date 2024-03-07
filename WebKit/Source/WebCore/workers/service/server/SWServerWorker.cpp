@@ -26,8 +26,6 @@
 #include "config.h"
 #include "SWServerWorker.h"
 
-#if ENABLE(SERVICE_WORKER)
-
 #include "Logging.h"
 #include "SWServer.h"
 #include "SWServerRegistration.h"
@@ -38,15 +36,15 @@
 
 namespace WebCore {
 
-HashMap<ServiceWorkerIdentifier, SWServerWorker*>& SWServerWorker::allWorkers()
+HashMap<ServiceWorkerIdentifier, WeakPtr<SWServerWorker>>& SWServerWorker::allWorkers()
 {
-    static NeverDestroyed<HashMap<ServiceWorkerIdentifier, SWServerWorker*>> workers;
+    static NeverDestroyed<HashMap<ServiceWorkerIdentifier, WeakPtr<SWServerWorker>>> workers;
     return workers;
 }
 
-SWServerWorker* SWServerWorker::existingWorkerForIdentifier(ServiceWorkerIdentifier identifier)
+RefPtr<SWServerWorker> SWServerWorker::existingWorkerForIdentifier(ServiceWorkerIdentifier identifier)
 {
-    return allWorkers().get(identifier);
+    return allWorkers().get(identifier).get();
 }
 
 // FIXME: Use r-value references for script and contentSecurityPolicy
@@ -60,11 +58,11 @@ SWServerWorker::SWServerWorker(SWServer& server, SWServerRegistration& registrat
     , m_contentSecurityPolicy(contentSecurityPolicy)
     , m_crossOriginEmbedderPolicy(crossOriginEmbedderPolicy)
     , m_referrerPolicy(WTFMove(referrerPolicy))
-    , m_registrableDomain(m_data.scriptURL)
+    , m_topRegistrableDomain(m_registrationKey.topOrigin())
     , m_scriptResourceMap(WTFMove(scriptResourceMap))
     , m_terminationTimer(*this, &SWServerWorker::terminationTimerFired)
     , m_terminationIfPossibleTimer(*this, &SWServerWorker::terminationIfPossibleTimerFired)
-    , m_lastNavigationWasAppInitiated(m_server->clientIsAppInitiatedForRegistrableDomain(m_registrableDomain))
+    , m_lastNavigationWasAppInitiated(m_server->clientIsAppInitiatedForRegistrableDomain(m_topRegistrableDomain))
 {
     m_data.scriptURL.removeFragmentIdentifier();
 
@@ -176,7 +174,7 @@ const ClientOrigin& SWServerWorker::origin() const
 
 SWServerToContextConnection* SWServerWorker::contextConnection()
 {
-    return m_server ? m_server->contextConnectionForRegistrableDomain(registrableDomain()) : nullptr;
+    return m_server ? m_server->contextConnectionForRegistrableDomain(topRegistrableDomain()) : nullptr;
 }
 
 void SWServerWorker::scriptContextFailedToStart(const std::optional<ServiceWorkerJobDataIdentifier>& jobDataIdentifier, const String& message)
@@ -435,7 +433,7 @@ void SWServerWorker::terminationIfPossibleTimerFired()
         return;
 
     terminate();
-    m_server->removeContextConnectionIfPossible(registrableDomain());
+    m_server->removeContextConnectionIfPossible(topRegistrableDomain());
 }
 
 bool SWServerWorker::isClientActiveServiceWorker(ScriptExecutionContextIdentifier clientIdentifier) const
@@ -462,5 +460,3 @@ bool SWServerWorker::matchingImportedScripts(const Vector<std::pair<URL, ScriptB
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(SERVICE_WORKER)

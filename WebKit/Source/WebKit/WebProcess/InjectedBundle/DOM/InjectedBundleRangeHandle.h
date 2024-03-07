@@ -30,6 +30,7 @@
 #include <JavaScriptCore/JSBase.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 class IntRect;
@@ -43,7 +44,7 @@ class InjectedBundleNodeHandle;
 class InjectedBundleScriptWorld;
 class WebImage;
 
-class InjectedBundleRangeHandle : public API::ObjectImpl<API::Object::Type::BundleRangeHandle> {
+class InjectedBundleRangeHandle : public API::ObjectImpl<API::Object::Type::BundleRangeHandle>, public CanMakeWeakPtr<InjectedBundleRangeHandle> {
 public:
     static RefPtr<InjectedBundleRangeHandle> getOrCreate(JSContextRef, JSObjectRef);
     static RefPtr<InjectedBundleRangeHandle> getOrCreate(WebCore::Range*);

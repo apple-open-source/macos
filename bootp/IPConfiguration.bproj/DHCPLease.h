@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,7 +59,9 @@ typedef struct {
     dhcp_lease_time_t		lease_length;
     struct in_addr		router_ip;
     uint8_t			router_hwaddr[MAX_LINK_ADDR_LEN];
-    int				router_hwaddr_length;
+    uint8_t			router_hwaddr_length;
+    uint8_t			wifi_mac[ETHER_ADDR_LEN];
+    bool			wifi_mac_is_set;
     CFStringRef			ssid;
     CFStringRef			networkID;
     int				pkt_length;
@@ -78,10 +80,6 @@ DHCPLeaseListInit(DHCPLeaseListRef list_p);
 void
 DHCPLeaseListFree(DHCPLeaseListRef list_p);
 
-void
-DHCPLeaseListClear(DHCPLeaseListRef list_p,
-		   const char * ifname,
-		   uint8_t cid_type, const void * cid, int cid_length);
 void
 DHCPLeaseListRemoveLease(DHCPLeaseListRef list_p,
 			 struct in_addr our_ip,
@@ -140,8 +138,5 @@ DHCPLeaseListElement(DHCPLeaseListRef list_p, int i)
 {
     return (dynarray_element(list_p, i));
 }
-
-void
-DHCPLeaseListRemoveAllButLastLease(DHCPLeaseListRef list_p);
 
 #endif /* _S_DHCPLEASE_H */

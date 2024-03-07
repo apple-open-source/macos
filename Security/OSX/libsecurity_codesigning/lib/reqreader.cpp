@@ -45,7 +45,7 @@ Requirement::Reader::Reader(const Requirement *req)
 	: mReq(req), mPC(sizeof(Requirement))
 {
 	assert(req);
-	if (req->kind() != exprForm)
+	if (req->kind() != exprForm && req->kind() != lwcrForm)
 		MacOSError::throwMe(errSecCSReqUnsupported);
 }
 

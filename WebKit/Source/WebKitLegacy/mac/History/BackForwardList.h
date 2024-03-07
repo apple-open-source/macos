@@ -30,12 +30,13 @@
 #include <WebCore/BackForwardClient.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
+#include <wtf/WeakPtr.h>
 
 OBJC_CLASS WebView;
 
 typedef HashSet<RefPtr<WebCore::HistoryItem>> HistoryItemHashSet;
 
-class BackForwardList : public WebCore::BackForwardClient {
+class BackForwardList : public WebCore::BackForwardClient, public CanMakeWeakPtr<BackForwardList> {
 public: 
     static Ref<BackForwardList> create(WebView *webView) { return adoptRef(*new BackForwardList(webView)); }
     virtual ~BackForwardList();

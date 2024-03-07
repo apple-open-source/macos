@@ -41,8 +41,8 @@ static struct thsc_cpi
 _usage_to_cpi(struct recount_usage *usage)
 {
 	return (struct thsc_cpi){
-		       .tcpi_instructions = usage->ru_instructions,
-		       .tcpi_cycles = usage->ru_cycles,
+		       .tcpi_instructions = recount_usage_instructions(usage),
+		       .tcpi_cycles = recount_usage_cycles(usage),
 	};
 }
 
@@ -50,10 +50,10 @@ static struct thsc_time_cpi
 _usage_to_time_cpi(struct recount_usage *usage)
 {
 	return (struct thsc_time_cpi){
-		       .ttci_instructions = usage->ru_instructions,
-		       .ttci_cycles = usage->ru_cycles,
-		       .ttci_system_time_mach = usage->ru_system_time_mach,
-		       .ttci_user_time_mach = usage->ru_user_time_mach,
+		       .ttci_instructions = recount_usage_instructions(usage),
+		       .ttci_cycles = recount_usage_cycles(usage),
+		       .ttci_system_time_mach = recount_usage_system_time_mach(usage),
+		       .ttci_user_time_mach = usage->ru_metrics[RCT_LVL_USER].rm_time_mach,
 	};
 }
 
@@ -61,10 +61,10 @@ static struct thsc_time_energy_cpi
 _usage_to_time_energy_cpi(struct recount_usage *usage)
 {
 	return (struct thsc_time_energy_cpi){
-		       .ttec_instructions = usage->ru_instructions,
-		       .ttec_cycles = usage->ru_cycles,
-		       .ttec_system_time_mach = usage->ru_system_time_mach,
-		       .ttec_user_time_mach = usage->ru_user_time_mach,
+		       .ttec_instructions = recount_usage_instructions(usage),
+		       .ttec_cycles = recount_usage_cycles(usage),
+		       .ttec_system_time_mach = recount_usage_system_time_mach(usage),
+		       .ttec_user_time_mach = usage->ru_metrics[RCT_LVL_USER].rm_time_mach,
 #if CONFIG_PERVASIVE_ENERGY
 		       .ttec_energy_nj = usage->ru_energy_nj,
 #endif // CONFIG_PERVASIVE_ENERGY
@@ -191,10 +191,10 @@ static struct proc_threadcounts_data
 _usage_to_proc_threadcounts(struct recount_usage *usage)
 {
 	return (struct proc_threadcounts_data){
-		       .ptcd_instructions = usage->ru_instructions,
-		       .ptcd_cycles = usage->ru_cycles,
-		       .ptcd_system_time_mach = usage->ru_system_time_mach,
-		       .ptcd_user_time_mach = usage->ru_user_time_mach,
+		       .ptcd_instructions =  recount_usage_instructions(usage),
+		       .ptcd_cycles =  recount_usage_cycles(usage),
+		       .ptcd_system_time_mach =  recount_usage_system_time_mach(usage),
+		       .ptcd_user_time_mach =  usage->ru_metrics[RCT_LVL_USER].rm_time_mach,
 #if CONFIG_PERVASIVE_ENERGY
 		       .ptcd_energy_nj = usage->ru_energy_nj,
 #endif // CONFIG_PERVASIVE_ENERGY

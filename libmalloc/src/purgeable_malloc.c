@@ -214,9 +214,7 @@ purgeable_ptr_in_use_enumerator(task_t task,
 	szone_t *szone;
 	kern_return_t err;
 
-	if (!reader) {
-		reader = _malloc_default_reader;
-	}
+	reader = reader_or_in_memory_fallback(reader, task);
 
 	err = reader(task, zone_address, sizeof(szone_t), (void **)&szone);
 	if (err) {

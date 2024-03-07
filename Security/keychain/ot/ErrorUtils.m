@@ -34,7 +34,7 @@
  */
 
 static NSString * const _CKErrorDomain = @"CKErrorDomain";
-static NSString * const _CKInternalErrorDomain = @"CKInternalErrorDomain";
+static NSString * const _CKUnderlyingErrorDomain = @"CKInternalErrorDomain";
 static NSString * const _CKErrorRetryAfterKey = @"CKRetryAfter";
 static NSString * const _CKPartialErrorsByItemIDKey   = @"CKPartialErrors";
 
@@ -74,7 +74,7 @@ enum {
     return [self.domain isEqualToString:_CKErrorDomain] &&
         self.code == _CKErrorServerRejectedRequest &&
         underlyingError &&
-        [underlyingError.domain isEqualToString:_CKInternalErrorDomain] &&
+        [underlyingError.domain isEqualToString:_CKUnderlyingErrorDomain] &&
         underlyingError.code == _CKErrorInternalServerInternalError;
 }
 
@@ -85,7 +85,7 @@ enum {
     if ([error.domain isEqualToString:_CKErrorDomain] && error.code == _CKErrorServerRejectedRequest) {
         NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
 
-        if([underlyingError.domain isEqualToString:_CKInternalErrorDomain] && underlyingError.code == _CKErrorInternalPluginError) {
+        if([underlyingError.domain isEqualToString:_CKUnderlyingErrorDomain] && underlyingError.code == _CKErrorInternalPluginError) {
             NSError* cuttlefishError = underlyingError.userInfo[NSUnderlyingErrorKey];
 
             if([cuttlefishError.domain isEqualToString:CuttlefishErrorDomain] && cuttlefishError.code == cuttlefishErrorCode) {
@@ -102,6 +102,7 @@ enum {
     if ([error.domain isEqualToString:NSURLErrorDomain]) {
         switch (error.code) {
         case NSURLErrorTimedOut:
+        case NSURLErrorNotConnectedToInternet:
             return true;
         default:
             return false;
@@ -194,7 +195,7 @@ static NSTimeInterval _CKRetryAfterSecondsForError(NSError *error) {
     if ([error.domain isEqualToString:_CKErrorDomain] && error.code == _CKErrorServerRejectedRequest) {
         NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
 
-        if([underlyingError.domain isEqualToString:_CKInternalErrorDomain] && underlyingError.code == _CKErrorInternalPluginError) {
+        if([underlyingError.domain isEqualToString:_CKUnderlyingErrorDomain] && underlyingError.code == _CKErrorInternalPluginError) {
             NSError* cuttlefishError = underlyingError.userInfo[NSUnderlyingErrorKey];
 
             if([cuttlefishError.domain isEqualToString:CuttlefishErrorDomain]) {

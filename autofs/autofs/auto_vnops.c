@@ -315,9 +315,8 @@ auto_lookup(struct vnop_lookup_args *ap)
 	int do_notify = 0;
 	struct vnode_attr vattr;
 	int node_type;
-        boolean_t have_lock = 0;
+	int lock_mode = 0;
 	int retry_count = 0;
-
 	dfnip = vfstofni(vnode_mount(dvp));
 	AUTOFS_DPRINT((3, "auto_lookup: dvp=%p (%s) name=%.*s\n",
 	    (void *)dvp, dfnip->fi_map, namelen, cnp->cn_nameptr));
@@ -412,7 +411,10 @@ auto_lookup(struct vnop_lookup_args *ap)
 	AUTOFS_DPRINT((3, "auto_lookup: dvp=%p dfnp=%p\n", (void *)dvp,
 	    (void *)dfnp));
 
-	have_lock = auto_fninfo_lock_shared(dfnip, pid);
+	error = auto_fninfo_lock_shared(dfnip, pid, 1, &lock_mode);
+	if (error) {
+		goto fail;
+	}
 
 top:
 	/*
@@ -615,7 +617,7 @@ top:
 	}
 
 fail:
-	auto_fninfo_unlock_shared(dfnip, have_lock);
+	auto_fninfo_unlock_shared(dfnip, lock_mode);
 
 	if (error) {
 		/*
@@ -729,7 +731,7 @@ auto_readdir(struct vnop_readdir_args *ap)
 	int reached_max = 0;
 	int myeof = 0;
 	u_int this_reclen;
-        boolean_t have_lock = 0;
+	int lock_mode = 0;
 	boolean_t needs_put = 0;
 
         AUTOFS_DPRINT((4, "auto_readdir vp=%p offset=%lld\n",
@@ -760,8 +762,10 @@ auto_readdir(struct vnop_readdir_args *ap)
 	/*
 	 * Make sure the mounted map won't change out from under us.
 	 */
-	have_lock = auto_fninfo_lock_shared(fnip, pid);
-
+	error = auto_fninfo_lock_shared(fnip, pid, 0, &lock_mode);
+	if (error) {
+		return error;
+	}
 	/*
 	 * Make sure the directory we're reading won't change out from
 	 * under us while we're scanning it.
@@ -1054,7 +1058,7 @@ cleanup:
 
 done:
 	lck_rw_unlock_shared(fnp->fn_rwlock);
-	auto_fninfo_unlock_shared(fnip, have_lock);
+	auto_fninfo_unlock_shared(fnip, lock_mode);
 	AUTOFS_DPRINT((5, "auto_readdir vp=%p offset=%lld eof=%d\n",
 	    (void *)vp, uio_offset(uiop), myeof));	
 	return (error);

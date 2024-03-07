@@ -162,7 +162,11 @@ static int NUM_RETRIES = 5;
 #endif
     
     if(chosenAccount == nil) {
-        secnotice("octagon-account", "Unable to find Apple account matching persona %@", currentThreadPersonaUniqueString);
+        if(currentThreadPersonaUniqueString != nil) {
+            secnotice("octagon-account", "Unable to find Apple account matching persona %@", currentThreadPersonaUniqueString);
+        } else {
+            secinfo("octagon-account", "Unable to find Apple account matching primary persona (nil)");
+        }
         if(error && !*error) {
             *error = [NSError errorWithDomain:OctagonErrorDomain
                                          code:OctagonErrorNoAppleAccount

@@ -83,7 +83,7 @@
     [self.reachabilityTracker setNetworkReachability:false];
 
     // Fail next upload
-    NSError* noNetwork = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{
+    NSError* noNetwork = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{
                                                                                                                        CKErrorRetryAfterKey: @(0.2),
                                                                                                                        }];
     [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:noNetwork];
@@ -1661,7 +1661,7 @@
     } runBeforeFinished:^{}];
 
     self.keychainZone.limitFetchTo = ck1;
-    self.keychainZone.limitFetchError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}];
+    self.keychainZone.limitFetchError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}];
 
     // The seventh record gets magically added to CloudKit, but CKKS has never heard of it
     //  (emulates a lost record on the client, but that CloudKit already believes it's sent the record for)
@@ -2259,17 +2259,17 @@
          zone:LimitedPeersAllowed = <CKError 0x13f669d70: "Server Rejected Request" (15/2032); server message = "subscription is duplicate of 'zone:LimitedPeersAllowed'"; uuid = 9174968C-225F-4CF6-8D17-3D1D9B36B6EC <decode: missing data>
      */
 
-    NSError* duplicateSubscriptionError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+    NSError* duplicateSubscriptionError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                                            code:CKErrorServerRejectedRequest
                                                                        userInfo:@{
-        NSUnderlyingErrorKey: [[CKPrettyError alloc] initWithDomain:CKErrorDomain
-                                                               code:CKErrorInternalDuplicateSubscription
+        NSUnderlyingErrorKey: [[NSError alloc] initWithDomain:CKErrorDomain
+                                                               code:CKUnderlyingErrorDuplicateSubscription
                                                            userInfo:@{
             NSLocalizedDescriptionKey: @"subscription is duplicate of 'zone:keychain''",
         }]
     }];
 
-    NSError* partialError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+    NSError* partialError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                              code:CKErrorPartialFailure
                                                          userInfo:@{
         CKErrorRetryAfterKey: @(0.2),
@@ -2364,7 +2364,7 @@
 - (void)testRecoverFromTLKWriteFailure {
     // We need to handle the case where a device's first TLK write doesn't go through (due to whatever reason).
     // Test starts with nothing in CloudKit, and will fail the first TLK write.
-    NSError* noNetwork = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{}];
+    NSError* noNetwork = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{}];
     [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:noNetwork];
 
     // Spin up CKKS subsystem.
@@ -2970,7 +2970,7 @@
     // Network is now unavailable
     [self.reachabilityTracker setNetworkReachability:false];
 
-    NSError* noNetwork = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{
+    NSError* noNetwork = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{
                                                                                                                        CKErrorRetryAfterKey: @(0.2),
                                                                                                                        }];
     [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:noNetwork];
@@ -2999,7 +2999,7 @@
 
     // The first  CKRecordZoneChanges should fail with a 'delay' error.
     self.silentFetchesAllowed = false;
-    [self.keychainZone failNextFetchWith:[[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorRequestRateLimited userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}]];
+    [self.keychainZone failNextFetchWith:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorRequestRateLimited userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}]];
     [self expectCKFetch];
 
     // Spin up CKKS subsystem.
@@ -3602,9 +3602,9 @@
     OctagonStateTransitionRequest* request = [[OctagonStateTransitionRequest alloc] init:@"enter-wait-for-trust"
                                                                             sourceStates:CKKSAllStates()
                                                                              serialQueue:self.defaultCKKS.queue
-                                                                                 timeout:10 * NSEC_PER_SEC
                                                                             transitionOp:transitionOp];
-    [self.defaultCKKS.stateMachine handleExternalRequest:request];
+    [self.defaultCKKS.stateMachine handleExternalRequest:request
+                                            startTimeout:10*NSEC_PER_SEC];
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateError] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'error'");
     self.keychainView.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateError] wait:20*NSEC_PER_SEC], "CKKS entered 'error'");
@@ -4197,8 +4197,8 @@
                                                                                  stateMachine:self.defaultCKKS.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
-    [watcher timeout:20*NSEC_PER_SEC];
-    [self.defaultCKKS.stateMachine registerStateTransitionWatcher:watcher];
+    [self.defaultCKKS.stateMachine registerStateTransitionWatcher:watcher
+                                                     startTimeout:20*NSEC_PER_SEC];
 
     CKKSResultOperation *finishOp = [CKKSResultOperation named:[name stringByAppendingString:@"-finish"] withBlock:^{
         block(watcher.result);

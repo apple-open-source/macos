@@ -197,7 +197,7 @@ get_proc_info(int pid)
 	struct proc_list *proc;
 	void *arg;
 
-	if (pid == 0)
+	if (pid < 0)
 		return;
 
 	arg = (void *)(long)pid;

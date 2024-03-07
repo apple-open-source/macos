@@ -120,6 +120,7 @@ static int tests_init(void) {
     if (ok > 0) {
         securityd_init((__bridge CFURLRef) tmpDirURL);
         SecCKKSDisable();
+        KCSharingSetChangeTrackingEnabled(false);
     }
 
 #endif
@@ -133,6 +134,7 @@ tests_end(void)
 #ifdef NO_SERVER
 	setup("tests_end");
 
+    KCSharingClearChangeTrackingEnabledOverride();
 
 	/* Restore previous cwd and remove scratch dir. */
     ok_unix(fchdir(current_dir), "fchdir");

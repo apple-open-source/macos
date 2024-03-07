@@ -131,6 +131,9 @@
 #define z_debug_assert(expr)  (void)(expr)
 #endif
 
+#if CONFIG_PROB_GZALLOC && CONFIG_SPTM
+#error This is not a supported configuration
+#endif
 
 /* Returns pid of the task with the largest number of VM map entries.  */
 extern pid_t find_largest_process_vm_map_entries(void);
@@ -1466,6 +1469,32 @@ zone_id_require(zone_id_t zid, vm_size_t esize, void *addr)
 		return;
 	}
 	zone_id_require_panic(zid, addr);
+}
+
+void
+zone_id_require_aligned(zone_id_t zid, void *addr)
+{
+	zone_t zone = zone_by_id(zid);
+	vm_offset_t elem, offs;
+
+	elem = (vm_offset_t)addr;
+	offs = (elem & PAGE_MASK) - zone_elem_inner_offs(zone);
+
+	if (from_zone_map(addr, 1)) {
+		struct zone_page_metadata *meta;
+
+		meta = zone_meta_from_addr(elem);
+		if (meta->zm_chunk_len == ZM_SECONDARY_PAGE) {
+			offs += ptoa(meta->zm_page_index);
+		}
+
+		if (zid == meta->zm_index &&
+		    Z_FAST_ALIGNED(offs, zone->z_align_magic)) {
+			return;
+		}
+	}
+
+	zone_invalid_element_panic(zone, elem);
 }
 
 bool
@@ -5254,7 +5283,16 @@ again:
 	}
 
 #if OS_ATOMIC_HAS_LLSC
+	uint32_t castries = 20;
 	do {
+		if (__improbable(castries-- == 0)) {
+			/*
+			 * rdar://115922110 On many many cores devices,
+			 * this can fail for a very long time.
+			 */
+			goto again;
+		}
+
 		m = os_atomic_load_exclusive(&pgz_slot_head, dependency);
 		if (__improbable(m->zm_pgz_slot_next == NULL)) {
 			/*
@@ -5337,8 +5375,8 @@ pgz_protect(zone_t zone, vm_offset_t addr, void *fp)
 	vm_offset_t  new_addr = pgz_addr(slot);
 	kr = pmap_enter_options_addr(kernel_pmap, new_addr, pa,
 	    VM_PROT_READ | VM_PROT_WRITE, VM_PROT_NONE, 0, TRUE,
-	    get_preemption_level() ? PMAP_OPTIONS_NOWAIT : 0, NULL,
-	    PMAP_MAPPING_TYPE_INFER);
+	    get_preemption_level() ? (PMAP_OPTIONS_NOWAIT | PMAP_OPTIONS_NOPREEMPT) : 0,
+	    NULL, PMAP_MAPPING_TYPE_INFER);
 
 	if (__improbable(kr != KERN_SUCCESS)) {
 		pgz_slot_free(slot);
@@ -5384,8 +5422,9 @@ pgz_unprotect(vm_offset_t addr, void *fp)
 		goto double_free;
 	}
 
-	pmap_remove(kernel_pmap, vm_memtag_canonicalize_address(trunc_page(addr)),
-	    vm_memtag_canonicalize_address(trunc_page(addr) + PAGE_SIZE));
+	pmap_remove_options(kernel_pmap, vm_memtag_canonicalize_address(trunc_page(addr)),
+	    vm_memtag_canonicalize_address(trunc_page(addr) + PAGE_SIZE),
+	    PMAP_OPTIONS_REMOVE | PMAP_OPTIONS_NOPREEMPT);
 
 	pgz_backtrace(pgz_bt(slot, true), fp);
 
@@ -5991,7 +6030,7 @@ __attribute__((always_inline))
 void *
 zcache_mark_invalid(zone_t zone, void *elem)
 {
-	vm_size_t esize = zone_elem_inner_offs(zone);
+	vm_size_t esize = zone_elem_inner_size(zone);
 
 	ZFREE_LOG(zone, (vm_offset_t)elem, 1);
 	return (void *)__zcache_mark_invalid(zone, (vm_offset_t)elem, ZFREE_PACK_SIZE(esize, esize));
@@ -6311,15 +6350,19 @@ kfree_type_impl_internal(
 {
 	zone_t zsig = kt_view->kt_zsig;
 	zone_t z = kt_view->kt_zv.zv_zone;
-	struct zone_page_metadata *meta = zone_meta_from_addr((vm_offset_t) ptr);
-	zone_id_t zidx_meta = meta->zm_index;
-	zone_security_flags_t zsflags_meta = zone_security_array[zidx_meta];
+	struct zone_page_metadata *meta;
+	zone_id_t zidx_meta;
+	zone_security_flags_t zsflags_meta;
 	zone_security_flags_t zsflags_z = zone_security_config(z);
 	zone_security_flags_t zsflags_zsig;
 
 	if (NULL == ptr) {
 		return;
 	}
+
+	meta = zone_meta_from_addr((vm_offset_t) ptr);
+	zidx_meta = meta->zm_index;
+	zsflags_meta = zone_security_array[zidx_meta];
 
 	if ((zsflags_z.z_kheap_id == KHEAP_ID_DATA_BUFFERS) ||
 	    zone_has_index(z, zidx_meta)) {

@@ -19,6 +19,7 @@
 #include "decNumber.h"
 #include "double-conversion.h"
 #include "fphdlimp.h"
+#include "ulocimp.h"
 #include "uresimp.h"
 #include "ureslocs.h"
 
@@ -76,8 +77,15 @@ const char16_t* utils::getPatternForStyle(const Locale& locale, const char* nsNa
 // rdar:/
     LocalUResourceBundlePointer res;
     if (style == CLDR_PATTERN_STYLE_PERCENT || style == CLDR_PATTERN_STYLE_CURRENCY || style == CLDR_PATTERN_STYLE_ACCOUNTING) {
-        // for percent or currency, always use language fallback (see rdar://63758323 and rdar://68800014)
-        res.adoptInstead(ures_open(nullptr, locale.getName(), &status));
+        // for percent or currency, always use language fallback (see rdar://63758323 and rdar://68800014), but
+        // if the locale ID has the rg subtag, use it instead of the locale's region code (see rdar://115839570)
+        UErrorCode localStatus = U_ZERO_ERROR;
+        char correctedLocaleID[ULOC_FULLNAME_CAPACITY];
+        int32_t correctedIdLen = ulocimp_setRegionToSupplementalRegion(locale.getName(), correctedLocaleID, ULOC_FULLNAME_CAPACITY, &localStatus);
+        if (U_FAILURE(localStatus) || correctedIdLen == 0) {
+            uprv_strcpy(correctedLocaleID, locale.getName());
+        }
+        res.adoptInstead(ures_open(nullptr, correctedLocaleID, &status));
     } else {
         // for the other patterns, use country fallback when appropriate
         res.adoptInstead(ures_openWithCountryFallback(nullptr, locale.getName(), NULL, &status));

@@ -329,12 +329,17 @@
 }
 
 - (void)fetchCurrentDeviceListByAltDSID:(NSString *)altDSID
-                                  reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs, NSString* _Nullable version, NSError * _Nullable error))complete
+                                  reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs, 
+                                                  NSSet<NSString*>* _Nullable userInitiatedRemovals,
+                                                  NSSet<NSString*>* _Nullable evictedRemovals,
+                                                  NSSet<NSString*>* _Nullable unknownReasonRemovals,
+                                                  NSString* _Nullable version, 
+                                                  NSError * _Nullable error))complete
 {
     self.fetchInvocations += 1;
     if ([self.machineIDFetchErrors count] > 0) {
         NSError* firstError = [self.machineIDFetchErrors objectAtIndex:0];
-        complete(nil, nil, firstError);
+        complete(nil, nil, nil, nil, nil, firstError);
         [self.machineIDFetchErrors removeObjectAtIndex:0];
         return;
     }
@@ -345,7 +350,7 @@
     if (demo == NO &&
         self.injectAuthErrorsAtFetchTime &&
         [self.excludeDevices containsObject:self.currentMachineID]) {
-        complete(nil, nil, [NSError errorWithDomain:AKAppleIDAuthenticationErrorDomain code:-7026 userInfo:@{NSLocalizedDescriptionKey : @"Injected AKAuthenticationErrorNotPermitted error"}]);
+        complete(nil, nil, nil, nil, nil, [NSError errorWithDomain:AKAppleIDAuthenticationErrorDomain code:-7026 userInfo:@{NSLocalizedDescriptionKey : @"Injected AKAuthenticationErrorNotPermitted error"}]);
         return;
     }
     if (self.fetchCondition) {
@@ -354,8 +359,12 @@
     NSSet<NSString*>* deviceList = [self currentDeviceList];
     NSString* version = [NSString stringWithFormat:@"%lu", [deviceList hash]];
 
+    if (demo) {
+        complete([self currentDeviceList], nil, nil, nil, version, nil);
+        return;
+    }
     // TODO: fail if !accountPresent
-    complete([self currentDeviceList], version, nil);
+    complete([self currentDeviceList], self.excludeDevices, nil, nil, version, nil);
 }
 
 - (NSString * _Nullable)machineID:(NSString*)altDSID 
@@ -414,7 +423,7 @@
 
 - (void)sendIncompleteNotification {
     [self.listeners iterateListeners:^(id _Nonnull listener) {
-        [listener incompleteNotificationOfMachineIDListChange];
+        [listener notificationOfMachineIDListChange];
     }];
  }
 
@@ -431,9 +440,8 @@
 }
 
 - (void)sendAddNotification:(NSString*)machineID altDSID:(NSString*)altDSID {
-    NSArray<NSString*>* added = @[machineID];
     [self.listeners iterateListeners:^(id _Nonnull listener) {
-        [listener machinesAdded:added altDSID:altDSID];
+        [listener notificationOfMachineIDListChange];
     }];
  }
 
@@ -443,9 +451,8 @@
 }
 
 - (void)sendRemoveNotification:(NSString*)machineID altDSID:(NSString*)altDSID {
-    NSArray<NSString*>* removed = @[machineID];
     [self.listeners iterateListeners:^(id _Nonnull listener) {
-        [listener machinesRemoved:removed altDSID:altDSID];
+        [listener notificationOfMachineIDListChange];
     }];
  }
 
@@ -515,12 +522,15 @@
 
 - (void)submitEventMetric:(CKEventMetric *)eventMetric
 {
-    [self.metrics addObject:eventMetric];
-    
-    @try {
-        [self.mockContainerExpectations submitEventMetric:eventMetric];
-    } @catch (NSException *exception) {
-        XCTFail("Received an container exception when trying to add a metric: %@", exception);
+    // NSMutableArrays are not thread-safe
+    @synchronized(self.metrics) {
+        [self.metrics addObject:eventMetric];
+        
+        @try {
+            [self.mockContainerExpectations submitEventMetric:eventMetric];
+        } @catch (NSException *exception) {
+            XCTFail("Received an container exception when trying to add a metric: %@", exception);
+        }        
     }
 }
 
@@ -651,6 +661,9 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     // All tests start with the same flag set.
     SecCKKSTestResetFlags();
     SecCKKSTestSetDisableSOS(true);
+#if KCSHARING
+    KCSharingSetDisabledForTests(true);
+#endif  // KCSHARING
 
     self.silentFetchesAllowed = true;
     self.silentZoneDeletesAllowed = false; // Set to true if you want to do any deletes
@@ -1510,7 +1523,7 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 - (void)failNextZoneCreation:(CKRecordZoneID*)zoneID {
     XCTAssertNil(self.zones[zoneID], "Zone does not exist yet");
     self.zones[zoneID] = [[FakeCKZone alloc] initZone: zoneID];
-    self.zones[zoneID].creationError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+    self.zones[zoneID].creationError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                                         code:CKErrorNetworkUnavailable
                                                                     userInfo:@{
                                                                                CKErrorRetryAfterKey: @(0.5),
@@ -1527,7 +1540,7 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
 - (void)failNextZoneSubscription:(CKRecordZoneID*)zoneID {
     XCTAssertNotNil(self.zones[zoneID], "Zone exists");
-    self.zones[zoneID].subscriptionError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{}];
+    self.zones[zoneID].subscriptionError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{}];
 }
 
 - (void)failNextZoneSubscription:(CKRecordZoneID*)zoneID withError:(NSError*)error {
@@ -1664,11 +1677,11 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
         NSError* exists = failedRecords[record.recordID];
         if(!exists) {
             // TODO: might have important userInfo, but we're not mocking that yet
-            failedRecords[record.recordID] = [[CKPrettyError alloc] initWithDomain: CKErrorDomain code: CKErrorBatchRequestFailed userInfo: @{}];
+            failedRecords[record.recordID] = [[NSError alloc] initWithDomain: CKErrorDomain code: CKErrorBatchRequestFailed userInfo: @{}];
         }
     }
 
-    NSError* error = [[CKPrettyError alloc] initWithDomain: CKErrorDomain code: CKErrorPartialFailure userInfo: @{CKPartialErrorsByItemIDKey: failedRecords}];
+    NSError* error = [[NSError alloc] initWithDomain: CKErrorDomain code: CKErrorPartialFailure userInfo: @{CKPartialErrorsByItemIDKey: failedRecords}];
 
     // Emulate cloudkit and schedule the operation for execution. Be sure to wait for this operation
     // if you'd like to read the data from this write.
@@ -1846,6 +1859,9 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     [self cleanUpDirectories];
 
     SecCKKSTestResetFlags();
+#if KCSHARING
+    KCSharingSetDisabledForTests(false);
+#endif  // KCSHARING
 }
 
 - (CKKSKey*)fakeTLK:(CKRecordZoneID*)zoneID

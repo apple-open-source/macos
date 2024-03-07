@@ -34,7 +34,7 @@ Configure_Flags = CPPFLAGS="-iwithsysroot /usr/local/libressl/include" \
                   --enable-layout=Darwin \
                   --with-apr=$(shell xcrun -find apr-1-config) \
                   --with-apr-util=$(shell xcrun -find apu-1-config) \
-                  --with-pcre=$(SRCROOT)/$(Project)/../\
+                  --with-pcre2=$(SRCROOT)/$(Project)/../\
                   --enable-mods-shared=all \
                   --enable-ssl \
                   --with-z=$(SDKROOT)/usr/include \
@@ -58,12 +58,11 @@ Post_Install_Targets = module-setup module-disable module-enable recopy-httpd-co
 
 # Extract the source.
 
-install_source:: 
+build::
 	for patch in $(Patch_List); do \
 		(cd $(Sources) && patch -p0 -i $(SRCROOT)/patches/$${patch}) || exit 1; \
 	done
 
-build::
 	$(MKDIR) $(OBJROOT)
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
 	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -framework CoreFoundation -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L$(SDKROOT)/usr/local/libressl/lib -lcrypto -lssl" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"

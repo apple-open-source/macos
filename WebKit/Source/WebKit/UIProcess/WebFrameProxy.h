@@ -71,7 +71,7 @@ struct FrameTreeCreationParameters;
 struct FrameTreeNodeData;
 struct WebsitePoliciesData;
 
-class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame>, public CanMakeWeakPtr<WebFrameProxy>, public CanMakeCheckedPtr {
+class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame>, public CanMakeWeakPtr<WebFrameProxy> {
 public:
     static Ref<WebFrameProxy> create(WebPageProxy& page, WebProcessProxy& process, WebCore::FrameIdentifier frameID)
     {
@@ -149,7 +149,7 @@ public:
     void setNavigationCallback(CompletionHandler<void(std::optional<WebCore::PageIdentifier>, std::optional<WebCore::FrameIdentifier>)>&&);
 
     void disconnect();
-    void didCreateSubframe(WebCore::FrameIdentifier);
+    void didCreateSubframe(WebCore::FrameIdentifier, const String& frameName);
     ProcessID processID() const;
     void prepareForProvisionalNavigationInProcess(WebProcessProxy&, const API::Navigation&, CompletionHandler<void()>&&);
 
@@ -159,10 +159,14 @@ public:
     FrameTreeCreationParameters frameTreeCreationParameters() const;
 
     WebFrameProxy* parentFrame() { return m_parentFrame.get(); }
-    WebProcessProxy& process() { return m_process.get(); }
+    WebProcessProxy& process() const { return m_process.get(); }
+    Ref<WebProcessProxy> protectedProcess() const { return process(); }
     void setProcess(WebProcessProxy& process) { m_process = process; }
     ProvisionalFrameProxy* provisionalFrame() { return m_provisionalFrame.get(); }
     std::unique_ptr<ProvisionalFrameProxy> takeProvisionalFrame();
+    RefPtr<RemotePageProxy> remotePageProxy();
+
+    bool isFocused() const;
 
 private:
     WebFrameProxy(WebPageProxy&, WebProcessProxy&, WebCore::FrameIdentifier);
@@ -177,7 +181,9 @@ private:
 
     String m_MIMEType;
     String m_title;
+    String m_frameName;
     bool m_containsPluginDocument { false };
+    bool m_isDoingServiceWorkerClientNavigation { false };
     WebCore::CertificateInfo m_certificateInfo;
     RefPtr<WebFramePolicyListenerProxy> m_activeListener;
     WebCore::FrameIdentifier m_frameID;

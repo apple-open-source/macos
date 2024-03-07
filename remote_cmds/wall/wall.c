@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1988, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,7 +31,7 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/wall/wall.c,v 1.25 2008/01/15 07:40:30 das Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 __attribute__((__used__))
@@ -67,68 +65,49 @@ static const char sccsid[] = "@(#)wall.c	8.2 (Berkeley) 11/16/93";
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#ifdef __APPLE__
 #include <utmpx.h>
-#else
-#include <utmp.h>
-#endif
+#include <wchar.h>
+#include <wctype.h>
 
 #include "ttymsg.h"
 
 static void makemsg(char *);
 static void usage(void);
 
-struct wallgroup {
+static struct wallgroup {
 	struct wallgroup *next;
 	char		*name;
 	gid_t		gid;
 } *grouplist;
-int nobanner;
-int mbufsize;
-char *mbuf;
+static int nobanner;
+static int mbufsize;
+static char *mbuf;
 
-#ifndef __APPLE__
 static int
-ttystat(char *line, int sz)
+ttystat(char *line)
 {
 	struct stat sb;
 	char ttybuf[MAXPATHLEN];
 
-	(void)snprintf(ttybuf, sizeof(ttybuf), "%s%.*s", _PATH_DEV, sz, line);
+	(void)snprintf(ttybuf, sizeof(ttybuf), "%s%s", _PATH_DEV, line);
 	if (stat(ttybuf, &sb) == 0) {
 		return (0);
 	} else
 		return (-1);
 }
-#endif
 
 int
 main(int argc, char *argv[])
 {
 	struct iovec iov;
-#ifdef __APPLE__
-	// rdar://problem/4433603
-	struct utmpx *u;
-#else
-	struct utmp utmp;
-#endif
+	struct utmpx *utmp;
 	int ch;
 	int ingroup;
-#ifndef __APPLE__
-	FILE *fp;
-#endif
 	struct wallgroup *g;
 	struct group *grp;
 	char **np;
 	const char *p;
 	struct passwd *pw;
-#ifdef __APPLE__
-	char line[sizeof(u->ut_line) + 1];
-	char username[sizeof(u->ut_user) + 1];
-#else
-	char line[sizeof(utmp.ut_line) + 1];
-	char username[sizeof(utmp.ut_name) + 1];
-#endif
 
 	(void)setlocale(LC_CTYPE, "");
 
@@ -165,34 +144,17 @@ main(int argc, char *argv[])
 
 	makemsg(*argv);
 
-#ifdef __APPLE__
-	setutxent();
-#else
-	if (!(fp = fopen(_PATH_UTMP, "r")))
-		err(1, "cannot read %s", _PATH_UTMP);
-#endif
 	iov.iov_base = mbuf;
 	iov.iov_len = mbufsize;
 	/* NOSTRICT */
-#ifdef __APPLE__
-	while ((u = getutxent()) != NULL) {
-		if (!u->ut_user[0] || u->ut_type != USER_PROCESS)
+	while ((utmp = getutxent()) != NULL) {
+		if (utmp->ut_type != USER_PROCESS)
 			continue;
-#else
-	while (fread((char *)&utmp, sizeof(utmp), 1, fp) == 1) {
-		if (!utmp.ut_name[0])
+		if (ttystat(utmp->ut_line) != 0)
 			continue;
-		if (ttystat(utmp.ut_line, UT_LINESIZE) != 0)
-			continue;
-#endif
 		if (grouplist) {
 			ingroup = 0;
-#ifdef __APPLE__
-			strlcpy(username, u->ut_user, sizeof(username));
-#else
-			strlcpy(username, utmp.ut_name, sizeof(utmp.ut_name));
-#endif
-			pw = getpwnam(username);
+			pw = getpwnam(utmp->ut_user);
 			if (!pw)
 				continue;
 			for (g = grouplist; g && ingroup == 0; g = g->next) {
@@ -202,7 +164,7 @@ main(int argc, char *argv[])
 					ingroup = 1;
 				else if ((grp = getgrgid(g->gid)) != NULL) {
 					for (np = grp->gr_mem; *np; np++) {
-						if (strcmp(*np, username) == 0) {
+						if (strcmp(*np, utmp->ut_user) == 0) {
 							ingroup = 1;
 							break;
 						}
@@ -212,20 +174,14 @@ main(int argc, char *argv[])
 			if (ingroup == 0)
 				continue;
 		}
-#ifdef __APPLE__
-		strlcpy(line, u->ut_line, sizeof(line));
-#else
-		strncpy(line, utmp.ut_line, sizeof(utmp.ut_line));
-		line[sizeof(utmp.ut_line)] = '\0';
-#endif
-		if ((p = ttymsg(&iov, 1, line, 60*5)) != NULL)
+		if ((p = ttymsg(&iov, 1, utmp->ut_line, 60*5)) != NULL)
 			warnx("%s", p);
 	}
 	exit(0);
 }
 
 static void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr, "usage: wall [-g group] [file]\n");
 	exit(1);
@@ -235,14 +191,15 @@ void
 makemsg(char *fname)
 {
 	int cnt;
-	unsigned char ch;
+	wchar_t ch;
 	struct tm *lt;
 	struct passwd *pw;
 	struct stat sbuf;
 	time_t now;
 	FILE *fp;
 	int fd;
-	char *p, hostname[MAXHOSTNAMELEN], lbuf[256], tmpname[64];
+	char hostname[MAXHOSTNAMELEN], tmpname[64];
+	wchar_t *p, *tmp, lbuf[256], codebuf[13];
 	const char *tty;
 	const char *whom;
 	gid_t egid;
@@ -270,84 +227,62 @@ makemsg(char *fname)
 		 * Which means that we may leave a non-blank character
 		 * in column 80, but that can't be helped.
 		 */
-		(void)fprintf(fp, "\r%79s\r\n", " ");
-		(void)snprintf(lbuf, sizeof(lbuf), 
-		    "Broadcast Message from %s@%s",
+		(void)fwprintf(fp, L"\r%79s\r\n", " ");
+		(void)swprintf(lbuf, sizeof(lbuf)/sizeof(wchar_t),
+		    L"Broadcast Message from %s@%s",
 		    whom, hostname);
-		(void)fprintf(fp, "%-79.79s\007\007\r\n", lbuf);
-		(void)snprintf(lbuf, sizeof(lbuf),
-		    "        (%s) at %d:%02d %s...", tty,
+		(void)fwprintf(fp, L"%-79.79S\007\007\r\n", lbuf);
+		(void)swprintf(lbuf, sizeof(lbuf)/sizeof(wchar_t),
+		    L"        (%s) at %d:%02d %s...", tty,
 		    lt->tm_hour, lt->tm_min, lt->tm_zone);
-		(void)fprintf(fp, "%-79.79s\r\n", lbuf);
+		(void)fwprintf(fp, L"%-79.79S\r\n", lbuf);
 	}
-	(void)fprintf(fp, "%79s\r\n", " ");
+	(void)fwprintf(fp, L"%79s\r\n", " ");
 
 	if (fname) {
 		egid = getegid();
 		setegid(getgid());
-	       	if (freopen(fname, "r", stdin) == NULL)
+		if (freopen(fname, "r", stdin) == NULL)
 			err(1, "can't read %s", fname);
-		setegid(egid);
+		if (setegid(egid) != 0)
+			err(1, "setegid failed");
 	}
-	while (fgets(lbuf, sizeof(lbuf), stdin)) {
-		for (cnt = 0, p = lbuf; (ch = *p) != '\0'; ++p, ++cnt) {
-			if (ch == '\r') {
-				putc('\r', fp);
+	cnt = 0;
+	while (fgetws(lbuf, sizeof(lbuf)/sizeof(wchar_t), stdin)) {
+		for (p = lbuf; (ch = *p) != L'\0'; ++p, ++cnt) {
+			if (ch == L'\r') {
+				putwc(L'\r', fp);
 				cnt = 0;
 				continue;
-			} else if (ch == '\n') {
+			} else if (ch == L'\n') {
 				for (; cnt < 79; ++cnt)
-					putc(' ', fp);
-				putc('\r', fp);
-				putc('\n', fp);
+					putwc(L' ', fp);
+				putwc(L'\r', fp);
+				putwc(L'\n', fp);
 				break;
 			}
 			if (cnt == 79) {
-				putc('\r', fp);
-				putc('\n', fp);
+				putwc(L'\r', fp);
+				putwc(L'\n', fp);
 				cnt = 0;
 			}
-#ifdef __APPLE__
-			else // rdar://problem/3066405
-#endif
-			if (((ch & 0x80) && ch < 0xA0) ||
-				   /* disable upper controls */
-				   (!isprint(ch) && !isspace(ch) &&
-				    ch != '\a' && ch != '\b')
-				  ) {
-				if (ch & 0x80) {
-					ch &= 0x7F;
-					putc('M', fp);
+			if (iswprint(ch) || iswspace(ch) || ch == L'\a' || ch == L'\b') {
+				putwc(ch, fp);
+			} else {
+				(void)swprintf(codebuf, sizeof(codebuf)/sizeof(wchar_t), L"<0x%X>", ch);
+				for (tmp = codebuf; *tmp != L'\0'; ++tmp) {
+					putwc(*tmp, fp);
 					if (++cnt == 79) {
-						putc('\r', fp);
-						putc('\n', fp);
-						cnt = 0;
-					}
-					putc('-', fp);
-					if (++cnt == 79) {
-						putc('\r', fp);
-						putc('\n', fp);
+						putwc(L'\r', fp);
+						putwc(L'\n', fp);
 						cnt = 0;
 					}
 				}
-				if (iscntrl(ch)) {
-					ch ^= 040;
-					putc('^', fp);
-					if (++cnt == 79) {
-						putc('\r', fp);
-						putc('\n', fp);
-						cnt = 0;
-					}
-				}
+				--cnt;
 			}
-#ifdef __APPLE__
-			// rdar://problem/4557295
-			if (ch != '\n')
-#endif
-			putc(ch, fp);
 		}
 	}
-	(void)fprintf(fp, "%79s\r\n", " ");
+	(void)fwprintf(fp, L"%79s\r\n", " ");
 	rewind(fp);
 
 	if (fstat(fd, &sbuf))
@@ -357,5 +292,5 @@ makemsg(char *fname)
 		err(1, "out of memory");
 	if ((int)fread(mbuf, sizeof(*mbuf), mbufsize, fp) != mbufsize)
 		err(1, "can't read temporary file");
-	(void)close(fd);
+	fclose(fp);
 }

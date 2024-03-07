@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -3990,7 +3990,7 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 ServiceUnpublishCLAT46(ServiceRef service_p)
 {
     if (service_clat46_is_active(service_p)) {
@@ -4008,6 +4008,27 @@ ServiceUnpublishCLAT46(ServiceRef service_p)
 				    service_p->no_publish);
     }
     return;
+}
+
+PRIVATE_EXTERN boolean_t
+ServiceCanDoIPv6OnlyPreferred(ServiceRef service_p)
+{
+    IFStateRef		ifstate = service_ifstate(service_p);
+    boolean_t		ipv6_only_preferred = FALSE;
+    dynarray_t *	list = &ifstate->services_v6;
+
+    for (int i = 0; i < dynarray_count(list); i++) {
+	ServiceRef	service_p = dynarray_element(list, i);
+
+	if (service_p->method == ipconfig_method_automatic_v6_e
+	    || service_p->method == ipconfig_method_rtadv_e) {
+	    ipv6_only_preferred = TRUE;
+	    break;
+	}
+    }
+    my_log(LOG_INFO, "%s: IPv6OnlyPreferred is %spossible",
+	   if_name(ifstate->if_p), ipv6_only_preferred ? "" : "not ");
+    return (ipv6_only_preferred);
 }
 
 PRIVATE_EXTERN boolean_t

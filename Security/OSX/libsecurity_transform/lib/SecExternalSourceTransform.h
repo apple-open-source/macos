@@ -46,14 +46,14 @@ extern "C" {
 	
 	SecTransformRef SecExternalSourceTransformCreate(CFErrorRef* error
 											 )
-    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 	
 	
 	Boolean SecExternalSourceSetValue(SecTransformRef externalSourceTransform,
 									  CFTypeRef value,
 									  CFErrorRef *error
 									  )
-    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 	
 	

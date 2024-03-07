@@ -24,12 +24,20 @@
 #ifndef __NANO_MALLOC_COMMON_H
 #define __NANO_MALLOC_COMMON_H
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 typedef enum {
 	NANO_NONE	= 0,
 	NANO_V2		= 2,
 } nano_version_t;
 
 // Nano malloc enabled flag
+//
+// Note that this flag indicates whether a "nano-like" configuration, i.e. one
+// that trades memory for CPU and scalability, is enabled, but not literally
+// whether the nano allocator itself is engaged.  Test for nano itself using
+// initial_nano_zone.
 MALLOC_NOEXPORT
 extern nano_version_t _malloc_engaged_nano;
 
@@ -50,7 +58,7 @@ nano_common_cpu_number_override_set(void);
 
 MALLOC_NOEXPORT
 void
-nano_common_init(const char *envp[], const char *apple[], const char *bootargs);
+nano_common_init(const char * __null_terminated * __null_terminated envp, const char * __null_terminated * __null_terminated apple, const char *bootargs);
 
 MALLOC_NOEXPORT
 void
@@ -84,7 +92,7 @@ nano_common_default_reader(task_t task, vm_address_t address, vm_size_t size,
 
 MALLOC_NOEXPORT
 nano_version_t
-_nano_common_init_pick_mode(const char *envp[], const char *apple[], const char *bootargs, bool space_efficient_enabled);
+_nano_common_init_pick_mode(const char * __null_terminated * __null_terminated envp, const char * __null_terminated * __null_terminated apple, const char *bootargs, bool space_efficient_enabled);
 
 #endif // __NANO_MALLOC_COMMON_H
 

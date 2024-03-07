@@ -18,12 +18,25 @@ fbt:com.apple.filesystems.smbfs:smbfs_vget:entry
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_rename:entry
 {
-    self->ap = arg0;
+    self->vnop_rename_arg0 = arg0;
 
     printf("proc <%s> curr_name <%s> new_name <%s>",
         execname,
         stringof(((struct vnop_rename_args *) arg0)->a_fvp->v_name),
         stringof(((struct vnop_rename_args *) arg0)->a_tcnp->cn_nameptr)
     );
-    ustack(15);
+	//ustack(15);
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_rename:return
+/self->vnop_rename_arg0/
+{
+    printf("proc <%s> curr_name <%s> new_name <%s> error <%d>",
+        execname,
+        stringof(((struct vnop_rename_args *) self->vnop_rename_arg0)->a_fvp->v_name),
+        stringof(((struct vnop_rename_args *) self->vnop_rename_arg0)->a_tcnp->cn_nameptr),
+        arg1
+    );
+
+	self->vnop_rename_arg0 = 0;
 }

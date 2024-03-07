@@ -78,6 +78,7 @@ namespace WebCore {
     macro(AudioContext) \
     macro(AudioData) \
     macro(AudioDecoder) \
+    macro(AudioEncoder) \
     macro(AudioDestinationNode) \
     macro(AudioListener) \
     macro(AudioNode) \
@@ -151,6 +152,7 @@ namespace WebCore {
     macro(CSSRGB) \
     macro(CSSRotate) \
     macro(CSSScale) \
+    macro(CSSScopeRule) \
     macro(CSSSkew) \
     macro(CSSSkewX) \
     macro(CSSSkewY) \
@@ -167,6 +169,7 @@ namespace WebCore {
     macro(CookieStoreManager) \
     macro(CustomElementRegistry) \
     macro(CustomEffect) \
+    macro(CustomStateSet) \
     macro(Database) \
     macro(DataTransferItem) \
     macro(DataTransferItemList) \
@@ -264,11 +267,13 @@ namespace WebCore {
     macro(IIRFilterNode) \
     macro(ImageBitmap) \
     macro(ImageBitmapRenderingContext) \
+    macro(ImageCapture) \
     macro(IdleDeadline) \
     macro(InputDeviceInfo) \
     macro(InputEvent) \
     macro(IntersectionObserver) \
     macro(IntersectionObserverEntry) \
+    macro(InvokeEvent) \
     macro(KeyframeEffect) \
     macro(Lock) \
     macro(LockManager) \
@@ -297,7 +302,13 @@ namespace WebCore {
     macro(MediaStreamTrack) \
     macro(MerchantValidationEvent) \
     macro(MockRTCRtpTransform) \
+    macro(NavigateEvent) \
+    macro(Navigation) \
+    macro(NavigationCurrentEntryChangeEvent) \
+    macro(NavigationDestination) \
+    macro(NavigationHistoryEntry) \
     macro(NavigationPreloadManager) \
+    macro(NavigationTransition) \
     macro(NavigatorCredentials) \
     macro(NavigatorMediaDevices) \
     macro(NavigatorPermissions) \
@@ -338,6 +349,7 @@ namespace WebCore {
     macro(PushEvent) \
     macro(PushManager) \
     macro(PushMessageData) \
+    macro(PushNotificationEvent) \
     macro(PushSubscription) \
     macro(PushSubscriptionChangeEvent) \
     macro(PushSubscriptionOptions) \
@@ -390,6 +402,7 @@ namespace WebCore {
     macro(SQLTransaction) \
     macro(ScreenLuminance) \
     macro(ScreenOrientation) \
+    macro(ScrollTimeline) \
     macro(ServiceWorker) \
     macro(ServiceWorkerContainer) \
     macro(ServiceWorkerGlobalScope) \
@@ -428,6 +441,8 @@ namespace WebCore {
     macro(VideoDecoder) \
     macro(VideoEncoder) \
     macro(VideoFrame) \
+    macro(ViewTimeline) \
+    macro(ViewTransition) \
     macro(VisualViewport) \
     macro(WakeLock) \
     macro(WakeLockSentinel) \
@@ -583,6 +598,7 @@ namespace WebCore {
     macro(makeThisTypeError) \
     macro(matchingElementInFlatTree) \
     macro(mediaStreamTrackConstraints) \
+    macro(navigation) \
     macro(onbackgroundfetchsuccess) \
     macro(onbackgroundfetchfail) \
     macro(onbackgroundfetchabort) \

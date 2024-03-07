@@ -719,7 +719,7 @@ nfs_get_volname(struct mount *mp, char *volname, size_t len, __unused vfs_contex
 	/* Find first character after the last slash */
 	cptr = ptr = NULL;
 	for (size_t i = 0; i < mflen; i++) {
-		if (mntfrom[i] == '/') {
+		if (cptr && mntfrom[i] == '/') {
 			ptr = &mntfrom[i + 1];
 		}
 		/* And the first character after the first colon */
@@ -741,6 +741,12 @@ nfs_get_volname(struct mount *mp, char *volname, size_t len, __unused vfs_contex
 	}
 
 	mflen = &mntfrom[mflen] - ptr;
+
+	/* Handle the scenario were "/" is being exported */
+	if (mflen == 0 && *ptr == '/') {
+		mflen = 1;
+	}
+
 	len = mflen + 1 < len ? mflen + 1 : len;
 
 	strlcpy(volname, ptr, len);
@@ -2567,10 +2573,8 @@ mountnfs(
 		nmp->nm_tprintf_initial_delay = max(nfs_tprintf_initial_delay, 0);
 		microtime(&now);
 		nmp->nm_lastrcv = now.tv_sec - (nmp->nm_tprintf_delay - nmp->nm_tprintf_initial_delay);
-		nmp->nm_acregmin = NFS_MINATTRTIMO;
-		nmp->nm_acregmax = NFS_MAXATTRTIMO;
-		nmp->nm_acdirmin = NFS_MINDIRATTRTIMO;
-		nmp->nm_acdirmax = NFS_MAXDIRATTRTIMO;
+		nmp->nm_acregmin = nmp->nm_acdirmin = nmp->nm_acrootdirmin = NFS_MINATTRTIMO;
+		nmp->nm_acregmax = nmp->nm_acdirmax = nmp->nm_acrootdirmax = NFS_MAXATTRTIMO;
 		nmp->nm_etype = nfs_default_etypes;
 		nmp->nm_auth = RPCAUTH_SYS;
 		nmp->nm_iodlink.tqe_next = NFSNOLIST;
@@ -2683,10 +2687,12 @@ mountnfs(
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN)) {
 		xb_get_32(error, &xb, nmp->nm_acdirmin);
 		xb_skip(error, &xb, XDRWORD);
+		nmp->nm_acrootdirmin = nmp->nm_acdirmin; /* Use acdirmin value by default for backward compatibility */
 	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX)) {
 		xb_get_32(error, &xb, nmp->nm_acdirmax);
 		xb_skip(error, &xb, XDRWORD);
+		nmp->nm_acrootdirmax = nmp->nm_acdirmax; /* Use acdirmax value by default for backward compatibility */
 	}
 	nfsmerr_if(error);
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCK_MODE)) {
@@ -2703,7 +2709,7 @@ mountnfs(
 #endif
 			OS_FALLTHROUGH;
 		case NFS_LOCK_MODE_ENABLED:
-			nmp->nm_lockmode = val;
+			nmp->nm_lockmode = (uint16_t)val;
 			break;
 		default:
 			error = EINVAL;
@@ -3134,6 +3140,14 @@ mountnfs(
 			nmp->nm_readlink_nocache = val;
 		}
 	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN)) {
+		xb_get_32(error, &xb, nmp->nm_acrootdirmin);
+		xb_skip(error, &xb, XDRWORD);
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX)) {
+		xb_get_32(error, &xb, nmp->nm_acrootdirmax);
+		xb_skip(error, &xb, XDRWORD);
+	}
 
 	/*
 	 * Sanity check/finalize settings.
@@ -3159,6 +3173,9 @@ mountnfs(
 	}
 	if (nmp->nm_acdirmin > nmp->nm_acdirmax) {
 		nmp->nm_acdirmin = nmp->nm_acdirmax;
+	}
+	if (nmp->nm_acrootdirmin > nmp->nm_acrootdirmax) {
+		nmp->nm_acrootdirmin = nmp->nm_acrootdirmax;
 	}
 
 	/* need at least one fs location */
@@ -3228,6 +3245,7 @@ mountnfs(
 	NFS_BITMAP_CLR(nmp->nm_flags, NFS_MFLAG_NAMEDATTR);
 	NFS_BITMAP_CLR(nmp->nm_flags, NFS_MFLAG_NOACL);
 	NFS_BITMAP_CLR(nmp->nm_flags, NFS_MFLAG_ACLONLY);
+	NFS_BITMAP_CLR(nmp->nm_flags, NFS_MFLAG_SKIP_RENEW);
 #if CONFIG_NFS4
 }
 #endif
@@ -3799,6 +3817,14 @@ nfs_mirror_mount_domount(vnode_t dvp, vnode_t vp, __nfs4_unused vfs_context_t ct
 
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READLINK_NOCACHE)) {
 		xb_add_32(error, &xbnew, nmp->nm_readlink_nocache);
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN)) {
+		xb_copy_32(error, &xb, &xbnew, val);
+		xb_copy_32(error, &xb, &xbnew, val);
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX)) {
+		xb_copy_32(error, &xb, &xbnew, val);
+		xb_copy_32(error, &xb, &xbnew, val);
 	}
 	xb_build_done(error, &xbnew);
 
@@ -5462,6 +5488,8 @@ nfs_mountinfo_assemble(struct nfsmount *nmp, struct xdrbuf *xb)
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_ATTRCACHE_REG_MAX);
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN);
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX);
+	NFS_BITMAP_SET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN);
+	NFS_BITMAP_SET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX);
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_LOCK_MODE);
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_SECURITY);
 	if (nmp->nm_etype.selected < nmp->nm_etype.count) {
@@ -5532,6 +5560,7 @@ nfs_mountinfo_assemble(struct nfsmount *nmp, struct xdrbuf *xb)
 		NFS_BITMAP_SET(mflags_mask, NFS_MFLAG_NAMEDATTR);
 		NFS_BITMAP_SET(mflags_mask, NFS_MFLAG_NOACL);
 		NFS_BITMAP_SET(mflags_mask, NFS_MFLAG_ACLONLY);
+		NFS_BITMAP_SET(mflags_mask, NFS_MFLAG_SKIP_RENEW);
 	}
 #endif
 	NFS_BITMAP_SET(mflags_mask, NFS_MFLAG_NFC);
@@ -5585,6 +5614,9 @@ nfs_mountinfo_assemble(struct nfsmount *nmp, struct xdrbuf *xb)
 		}
 		if (NMFLAG(nmp, ACLONLY)) {
 			NFS_BITMAP_SET(mflags, NFS_MFLAG_ACLONLY);
+		}
+		if (NMFLAG(nmp, SKIP_RENEW)) {
+			NFS_BITMAP_SET(mflags, NFS_MFLAG_SKIP_RENEW);
 		}
 	}
 #endif
@@ -5755,6 +5787,10 @@ nfs_mountinfo_assemble(struct nfsmount *nmp, struct xdrbuf *xb)
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READLINK_NOCACHE)) {
 		xb_add_32(error, &xbinfo, nmp->nm_readlink_nocache);
 	}
+	xb_add_32(error, &xbinfo, nmp->nm_acrootdirmin);    /* ATTRCACHE_ROOTDIR_MIN */
+	xb_add_32(error, &xbinfo, 0);                       /* ATTRCACHE_ROOTDIR_MIN */
+	xb_add_32(error, &xbinfo, nmp->nm_acrootdirmax);    /* ATTRCACHE_ROOTDIR_MAX */
+	xb_add_32(error, &xbinfo, 0);                       /* ATTRCACHE_ROOTDIR_MAX */
 	curargs_end_offset = xb_offset(&xbinfo);
 
 	/* NFS_MIATTR_CUR_LOC_INDEX */

@@ -44,10 +44,15 @@ namespace WebCore {
 class VideoFrame;
 
 class MediaPlayerPrivateInterface {
-    WTF_MAKE_NONCOPYABLE(MediaPlayerPrivateInterface); WTF_MAKE_FAST_ALLOCATED;
 public:
     WEBCORE_EXPORT MediaPlayerPrivateInterface();
     WEBCORE_EXPORT virtual ~MediaPlayerPrivateInterface();
+
+    // MediaPlayerPrivateInterface subclasses should be ref-counted, but each subclass may choose whether
+    // to be RefCounted or ThreadSafeRefCounted. Therefore, each subclass must implement a pair of
+    // virtual ref()/deref() methods. See NullMediaPlayerPrivate for an example.
+    virtual void ref() = 0;
+    virtual void deref() = 0;
 
     virtual void load(const String&) { }
     virtual void load(const URL& url, const ContentType&, const String&) { load(url.string()); }
@@ -112,7 +117,7 @@ public:
     virtual bool hasVideo() const = 0;
     virtual bool hasAudio() const = 0;
 
-    virtual void setPageIsVisible(bool) = 0;
+    virtual void setPageIsVisible(bool, String&& sceneIdentifier = ""_s) = 0;
     virtual void setVisibleForCanvas(bool visible) { setPageIsVisible(visible); }
     virtual void setVisibleInViewport(bool) { }
 
@@ -346,8 +351,12 @@ public:
 
     virtual void isLoopingChanged() { }
 
+    virtual void setShouldCheckHardwareSupport(bool value) { m_shouldCheckHardwareSupport = value; }
+    bool shouldCheckHardwareSupport() const { return m_shouldCheckHardwareSupport; }
+
 protected:
     mutable PlatformTimeRanges m_seekable;
+    bool m_shouldCheckHardwareSupport { false };
 };
 
 }

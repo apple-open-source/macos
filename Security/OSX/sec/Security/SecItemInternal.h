@@ -37,6 +37,7 @@ __BEGIN_DECLS
 
 #define kSecServerKeychainChangedNotification   "com.apple.security.keychainchanged"
 #define kSecServerCertificateTrustNotification  "com.apple.security.certificatetrust"
+#define kSecServerSharedItemsChangedNotification "com.apple.security.shared-items-changed"
 
 /* label when certificate data is joined with key data */
 static const CFStringRef kSecAttrIdentityCertificateData = CFSTR("certdata");

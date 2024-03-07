@@ -303,6 +303,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)rpcFetchTotalCountOfTrustedPeers:(void (^)(NSNumber* count, NSError* replyError))reply;
 
+- (void)rerollWithReply:(void (^)(NSError *_Nullable error))reply;
+
 // For testing.
 - (OTAccountMetadataClassC_AccountState)currentMemoizedAccountState;
 - (OTAccountMetadataClassC_TrustState)currentMemoizedTrustState;

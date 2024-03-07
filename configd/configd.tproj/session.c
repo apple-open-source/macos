@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -852,7 +852,7 @@ static void
 _log_path(audit_token_t * token, const char * msg)
 {
 	if (_should_log_path) {
-		char 		proc_path[PROC_PIDPATHINFO_MAXSIZE] = {};
+		char 		proc_path[PROC_PIDPATHINFO_MAXSIZE] = {0};
 
 		if (proc_pidpath_audittoken(token, proc_path, sizeof(proc_path))
 		    <= 0) {

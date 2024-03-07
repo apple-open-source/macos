@@ -83,6 +83,7 @@
 #include "EAPLog.h"
 #include "EAPOLControlPrefs.h"
 #include "EAP.h"
+#include "EAPWiFiUtil.h"
 
 #ifndef kSCEntNetRefreshConfiguration
 #define kSCEntNetRefreshConfiguration	CFSTR("RefreshConfiguration")
@@ -155,8 +156,6 @@ is_console_user(uid_t check_uid)
 {
     return (TRUE);
 }
-
-static Boolean          S_wifi_power_state;
 
 #else /* TARGET_OS_IPHONE */
 
@@ -2116,154 +2115,6 @@ register_sim_status_change(void)
     return;
 }
 
-/*
- * WiFi power change notification
- * - WiFi manager callbacks require a runloop (rdar://problem/47165744)
- * - calling out to other services on the plug-in thread can block it
- *   for unbounded periods of time, causing issues like rdar://problem/46888119
- * - create a dispatch queue and dispatch_async all Wi-Fi related communication
- */
-#include <dispatch/dispatch.h>
-
-static dispatch_queue_t
-get_wifi_queue(void)
-{
-    static dispatch_once_t	once;
-    static dispatch_queue_t	queue;
-
-    dispatch_once(&once, ^{
-	    queue = dispatch_queue_create("EAP WiFi Power", NULL);
-	});
-    return (queue);
-}
-
-static void
-check_for_wifi_power_change(WiFiDeviceClientRef device)
-{
-    Boolean current_power_state = WiFiDeviceClientGetPower(device);
-
-    /*
-     * increment the generation ID in SC prefs so eapclient would know
-     * that wifi power was toggled from ON to OFF and it should not
-     * use the SIM specific stored info.
-     * So turning WiFi power off is similar to ejecting SIM as both actions
-     * lead to tearing down the 802.1X connection and incrementing the
-     * generation ID.
-     */
-    if (S_wifi_power_state == 1 && current_power_state == 0) {
-	EAPLOG_FL(LOG_INFO, "WiFi power is turned off");
-	EAPOLSIMGenerationIncrement();
-    }
-    S_wifi_power_state = current_power_state;
-}
-
-static void
-handle_wifi_power_change(WiFiDeviceClientRef device, void *refcon)
-{
-    CFRetain(device);
-    dispatch_async(get_wifi_queue(), ^{
-	    check_for_wifi_power_change(device);
-	    CFRelease(device);
-	});
-}
-
-static void
-register_wifi_power_change(WiFiManagerClientRef manager,
-			   WiFiDeviceClientRef device,
-			   CFRunLoopRef runloop)
-{
-    S_wifi_power_state = WiFiDeviceClientGetPower(device);
-    WiFiDeviceClientRegisterPowerCallback(device, handle_wifi_power_change,
-					  NULL);
-    WiFiManagerClientScheduleWithRunLoop(manager, runloop,
-					 kCFRunLoopDefaultMode);
-}
-
-static void
-handle_wifi_device_attach(WiFiManagerClientRef manager,
-			  WiFiDeviceClientRef device,
-			  void * refcon)
-{
-    static boolean_t 	device_attached;
-    CFRunLoopRef	runloop;
-
-    if (device_attached) {
-	/* this won't happen because more than one Wi-Fi device won't attach */
-	return;
-    }
-    device_attached = TRUE;
-    EAPLOG_FL(LOG_DEBUG, "Wi-Fi device attached.");
-    runloop = CFRunLoopGetCurrent();
-    CFRetain(device);
-    CFRetain(runloop);
-    dispatch_async(get_wifi_queue(), ^{
-	    register_wifi_power_change(manager, device, runloop);
-	    CFRelease(device);
-	    CFRelease(runloop);
-	});
-    return;
-}
-
-static void
-register_wifi_device_attach(WiFiManagerClientRef manager, CFRunLoopRef runloop)
-{
-    WiFiManagerClientRegisterDeviceAttachmentCallback(manager,
-						      handle_wifi_device_attach,
-						      NULL);
-    WiFiManagerClientScheduleWithRunLoop(manager, runloop,
-					 kCFRunLoopDefaultMode);
-    return;
-}
-
-static void
-initialize_wifi_power_change(CFRunLoopRef runloop)
-{
-    CFIndex 			count;
-    WiFiManagerClientRef 	manager;
-    CFArrayRef 			wifi_devices;
-
-    /* 'manager' object is never released and always remains valid */
-    manager = WiFiManagerClientCreate(kCFAllocatorDefault,
-				      kWiFiClientTypeNormal);
-    if (manager == NULL) {
-	EAPLOG_FL(LOG_ERR, "Failed to create WiFiManager client");
-	return;
-    }
-    wifi_devices = WiFiManagerClientCopyDevices(manager);
-    if (wifi_devices == NULL) {
-	/* need to wait for device to appear */
-	register_wifi_device_attach(manager, runloop);
-	return;
-    }
-    count = CFArrayGetCount(wifi_devices);
-    for (CFIndex i = 0; i < count; i++) {
-	WiFiDeviceClientRef device;
-
-	device = (WiFiDeviceClientRef)CFArrayGetValueAtIndex(wifi_devices, i);
-	if (device != NULL) {
-	    register_wifi_power_change(manager, device, runloop);
-	    /* stop after the first one (there will only be one) */
-	    break;
-	}
-    }
-    my_CFRelease(&wifi_devices);
-}
-
-static void
-initialize_wifi_power_notification(void)
-{
-    CFRunLoopRef runloop;
-
-    /* schedule callbacks on the EAPOLController thread */
-    runloop = CFRunLoopGetCurrent();
-    CFRetain(runloop);
-    dispatch_async(get_wifi_queue(), ^{
-	    initialize_wifi_power_change(runloop);
-	    CFRelease(runloop);
-	});
-    return;
-}
-
 static void
 eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 {
@@ -2962,7 +2813,7 @@ ControllerThread(void * arg)
     start_system_mode = FALSE;
     register_sim_status_change();
     register_user_switch();
-    initialize_wifi_power_notification();
+    EAPWiFiMonitorPowerStatus();
 #endif /* TARGET_OS_IPHONE */
     handle_config_changed(start_system_mode);
     register_system_ethernet_prefs_change();

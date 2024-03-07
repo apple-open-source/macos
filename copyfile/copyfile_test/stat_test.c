@@ -14,9 +14,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "../copyfile.h"
-#include "stat_test.h"
 #include "test_utils.h"
+
+REGISTER_TEST(preserve_dst_flags, true, 60);
+REGISTER_TEST(preserve_dst_tracked, false, 30);
 
 #define STORAGE_CLASS   	"copyfile_test"
 #define SPECIAL_DIR_NAME	"special_dir/"
@@ -103,10 +104,7 @@ static bool test_special_dir_with_flag(const char *source_directory, const char 
 bool do_preserve_dst_flags_test(const char *test_directory, __unused size_t block_size) {
 	int interior_file_src_fd, test_file_id;
 	char exterior_dir_src[BSIZE_B] = {0}, interior_file_src[BSIZE_B] = {0};
-	uid_t euid = geteuid();
 	bool success = true;
-
-	printf("START [preserve_dst_flags]\n");
 
 	// Construct our source layout.
 	assert_with_errno(snprintf(exterior_dir_src, BSIZE_B, "%s/" TEST_FILE_NAME, test_directory) > 0);
@@ -121,27 +119,17 @@ bool do_preserve_dst_flags_test(const char *test_directory, __unused size_t bloc
 	assert_with_errno(interior_file_src_fd >= 0);
 	assert_no_err(close(interior_file_src_fd)); // file only needs to exist
 
-	if (euid == 0) {
-		// Try to copy our directory into a restricted environment.
-		success &= test_special_dir_with_flag(exterior_dir_src, test_directory,
-			rootless_mkdir_restricted, SF_RESTRICTED);
+	// Try to copy our directory into a restricted environment.
+	success &= test_special_dir_with_flag(exterior_dir_src, test_directory,
+		rootless_mkdir_restricted, SF_RESTRICTED);
 
-		// Make sure SF_NOUNLINK works as well.
-		success &= test_special_dir_with_flag(exterior_dir_src, test_directory,
-			rootless_mkdir_nounlink, SF_NOUNLINK);
-	} else {
-		printf("Skipping SF_RESTRICTED and SF_NOUNLINK tests, because we are not root.\n");
-	}
+	// Make sure SF_NOUNLINK works as well.
+	success &= test_special_dir_with_flag(exterior_dir_src, test_directory,
+		rootless_mkdir_nounlink, SF_NOUNLINK);
 
 	// Try to copy our directory into a datavault.
 	success &= test_special_dir_with_flag(exterior_dir_src, test_directory,
 		rootless_mkdir_datavault, UF_DATAVAULT);
-
-	if (success) {
-		printf("PASS  [preserve_dst_flags]\n");
-	} else {
-		printf("FAIL  [preserve_dst_flags]\n");
-	}
 
 	(void)removefile(exterior_dir_src, NULL, REMOVEFILE_RECURSIVE);
 
@@ -154,8 +142,6 @@ bool do_preserve_dst_tracked_test(const char *test_directory, __unused size_t bl
 	int test_file_id;
 	struct stat dst_stb;
 	bool success = true;
-
-	printf("START [preserve_dst_tracked]\n");
 
 	// Create source file
 	assert_with_errno(snprintf(file_src, BSIZE_B, "%s/" TEST_FILE_NAME, test_directory) > 0);
@@ -176,11 +162,6 @@ bool do_preserve_dst_tracked_test(const char *test_directory, __unused size_t bl
 	assert_no_err(stat(file_dst, &dst_stb));
 	success = success && (dst_stb.st_size == src_fsize);
 	success = success && (dst_stb.st_flags & UF_TRACKED);
-	if (success) {
-		printf("PASS  [preserve_dst_tracked]\n");
-	} else {
-		printf("FAIL  [preserve_dst_tracked]\n");
-	}
 
 	(void)unlink(file_src);
 	(void)unlink(file_dst);

@@ -89,6 +89,12 @@ void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHa
         return;
     }
 
+    if (m_deviceRequested) {
+        callback(WGPURequestDeviceStatus_Error, Device::createInvalid(*this), "Adapter can only request one device"_s);
+        makeInvalid();
+        return;
+    }
+
     WGPULimits limits { };
 
     if (descriptor.requiredLimits) {
@@ -111,7 +117,7 @@ void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHa
     } else
         limits = defaultLimits();
 
-    auto features = Vector { descriptor.requiredFeatures, descriptor.requiredFeaturesCount };
+    auto features = Vector { descriptor.requiredFeatures, descriptor.requiredFeatureCount };
     if (includesUnsupportedFeatures(features, m_capabilities.features)) {
         callback(WGPURequestDeviceStatus_Error, Device::createInvalid(*this), "Device does not support requested features"_s);
         return;
@@ -124,6 +130,7 @@ void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHa
     };
 
     auto label = fromAPI(descriptor.label);
+    m_deviceRequested = true;
     // FIXME: this should be asynchronous - https://bugs.webkit.org/show_bug.cgi?id=233621
     callback(WGPURequestDeviceStatus_Success, Device::create(this->m_device, WTFMove(label), WTFMove(capabilities), *this), { });
 }
@@ -147,7 +154,7 @@ size_t wgpuAdapterEnumerateFeatures(WGPUAdapter adapter, WGPUFeatureName* featur
     return WebGPU::fromAPI(adapter).enumerateFeatures(features);
 }
 
-bool wgpuAdapterGetLimits(WGPUAdapter adapter, WGPUSupportedLimits* limits)
+WGPUBool wgpuAdapterGetLimits(WGPUAdapter adapter, WGPUSupportedLimits* limits)
 {
     return WebGPU::fromAPI(adapter).getLimits(*limits);
 }
@@ -157,7 +164,7 @@ void wgpuAdapterGetProperties(WGPUAdapter adapter, WGPUAdapterProperties* proper
     WebGPU::fromAPI(adapter).getProperties(*properties);
 }
 
-bool wgpuAdapterHasFeature(WGPUAdapter adapter, WGPUFeatureName feature)
+WGPUBool wgpuAdapterHasFeature(WGPUAdapter adapter, WGPUFeatureName feature)
 {
     return WebGPU::fromAPI(adapter).hasFeature(feature);
 }

@@ -26,7 +26,7 @@
 
 // Version number for shader translation API.
 // It is incremented every time the API changes.
-#define ANGLE_SH_VERSION 341
+#define ANGLE_SH_VERSION 345
 
 enum ShShaderSpec
 {
@@ -422,6 +422,9 @@ struct ShCompileOptions
     // Use an integer uniform to pass a bitset of enabled clip distances.
     uint64_t emulateClipDistanceState : 1;
 
+    // Use a uniform to emulate GL_CLIP_ORIGIN_EXT state.
+    uint64_t emulateClipOrigin : 1;
+
     // issuetracker.google.com/266235549 add aliased memory decoration to ssbo if the variable is
     // not declared with "restrict" memory qualifier in GLSL
     uint64_t aliasedUnlessRestrict : 1;
@@ -431,6 +434,9 @@ struct ShCompileOptions
 
     // Rescope globals that are only used in one function to be function-local.
     uint64_t rescopeGlobalVariables : 1;
+
+    // Pre-transform explicit cubemap derivatives for Apple GPUs.
+    uint64_t preTransformTextureCubeGradDerivatives : 1;
 
     ShCompileOptionsMetal metal;
     ShPixelLocalStorageOptions pls;
@@ -635,6 +641,9 @@ struct ShBuiltInResources
 
     // maximum number of shader storage buffer bindings
     int MaxShaderStorageBufferBindings;
+
+    // minimum point size (lower limit from ALIASED_POINT_SIZE_RANGE)
+    float MinPointSize;
 
     // maximum point size (higher limit from ALIASED_POINT_SIZE_RANGE)
     float MaxPointSize;
@@ -1107,6 +1116,12 @@ extern const char kDepthWriteEnabledConstName[];
 
 // Specialization constant to enable alpha to coverage.
 extern const char kEmulateAlphaToCoverageConstName[];
+
+// Specialization constant to write helper sample mask output.
+extern const char kWriteHelperSampleMaskConstName[];
+
+// Specialization constant to enable sample mask output.
+extern const char kSampleMaskWriteEnabledConstName[];
 }  // namespace mtl
 
 }  // namespace sh

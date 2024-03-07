@@ -1,0 +1,22 @@
+# Updating bc and regenerating the tests
+
+1. Update the source code and tests, taking care to remove any files in bc/tests which are not present in the release tarball.
+
+2. Build and install:
+
+       xcodebuild build install
+
+3. Generate the Makefile:
+
+       (cd bc && CPPFLAGS=-D_DARWIN_C_SOURCE LC_ALL=C ./configure --disable-generated-tests --disable-problematic-tests --enable-editline)
+
+   We disable generated and problematic tests because they are either very large or very slow and there is no compelling reason (e.g. known past regressions) to include them.
+
+4. Regenerate the plist:
+
+       ./tests/generate-tests.pl >tests/bc.plist
+
+5. Commit everything:
+
+       git add bc/tests tests
+       git commit

@@ -28,19 +28,21 @@
 
 #include <kern/debug.h>
 #include <kern/kalloc.h>
-#include <kern/perfmon.h>
 #include <sys/param.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <libkern/libkern.h>
 #include <kern/assert.h>
+#include <kern/cpc.h>
 
 #include <kern/kpc.h>
 #include <sys/ktrace.h>
 
 #include <pexpert/pexpert.h>
 #include <kperf/kperf.h>
+
+#if CONFIG_CPU_COUNTERS
 
 /* Various sysctl requests */
 #define REQ_CLASSES              (1)
@@ -412,7 +414,7 @@ kpc_sysctl SYSCTL_HANDLER_ARGS
 
 	ktrace_unlock();
 
-	if (perfmon_in_use(perfmon_cpmu)) {
+	if (cpc_hw_in_use(CPC_HW_CPMU)) {
 		return EBUSY;
 	}
 
@@ -588,3 +590,5 @@ SYSCTL_INT(_kpc, OID_AUTO, pc_capture_supported,
     "whether PC capture is supported by the hardware");
 
 #endif /* __arm64__ */
+
+#endif // CONFIG_CPU_COUNTERS

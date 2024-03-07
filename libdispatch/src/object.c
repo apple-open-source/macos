@@ -30,7 +30,7 @@ _os_object_retain_count(_os_object_t obj)
 	if (unlikely(xref_cnt == _OS_OBJECT_GLOBAL_REFCNT)) {
 		return ULONG_MAX; // global object
 	}
-	return (unsigned long)(xref_cnt + 1);
+	return (unsigned long)(xref_cnt);
 }
 
 DISPATCH_NOINLINE
@@ -66,7 +66,7 @@ _os_object_t
 _os_object_retain(_os_object_t obj)
 {
 	int xref_cnt = _os_object_xrefcnt_inc_orig(obj);
-	if (unlikely(xref_cnt < 0)) {
+	if (unlikely(xref_cnt < 1)) {
 		_OS_OBJECT_CLIENT_CRASH("Resurrection of an object");
 	}
 	return obj;
@@ -77,10 +77,10 @@ _os_object_t
 _os_object_retain_with_resurrect(_os_object_t obj)
 {
 	int xref_cnt = _os_object_xrefcnt_inc_orig(obj) + 1;
-	if (unlikely(xref_cnt < 0)) {
+	if (unlikely(xref_cnt < 1)) {
 		_OS_OBJECT_CLIENT_CRASH("Resurrection of an over-released object");
 	}
-	if (unlikely(xref_cnt == 0)) {
+	if (unlikely(xref_cnt == 1)) {
 		_os_object_retain_internal(obj);
 	}
 	return obj;
@@ -91,10 +91,10 @@ static inline bool
 _os_object_release_inline(_os_object_t obj)
 {
 	int xref_cnt = _os_object_xrefcnt_dec(obj);
-	if (likely(xref_cnt >= 0)) {
+	if (likely(xref_cnt >= 1)) {
 		return false;
 	}
-	if (unlikely(xref_cnt < -1)) {
+	if (unlikely(xref_cnt < 0)) {
 		_OS_OBJECT_CLIENT_CRASH("Over-release of an object");
 	}
 	return true;
@@ -127,10 +127,10 @@ _os_object_retain_weak(_os_object_t obj)
 		if (unlikely(xref_cnt == _OS_OBJECT_GLOBAL_REFCNT)) {
 			os_atomic_rmw_loop_give_up(return true); // global object
 		}
-		if (unlikely(xref_cnt == -1)) {
+		if (unlikely(xref_cnt == 0)) {
 			os_atomic_rmw_loop_give_up(return false);
 		}
-		if (unlikely(xref_cnt < -1)) {
+		if (unlikely(xref_cnt < 0)) {
 			os_atomic_rmw_loop_give_up(goto overrelease);
 		}
 		nxref_cnt = xref_cnt + 1;
@@ -144,10 +144,10 @@ bool
 _os_object_allows_weak_reference(_os_object_t obj)
 {
 	int xref_cnt = obj->os_obj_xref_cnt;
-	if (unlikely(xref_cnt == -1)) {
+	if (unlikely(xref_cnt == 0)) {
 		return false;
 	}
-	if (unlikely(xref_cnt < -1)) {
+	if (unlikely(xref_cnt < 0)) {
 		_OS_OBJECT_CLIENT_CRASH("Over-release of an object");
 	}
 	return true;
@@ -167,6 +167,20 @@ _dispatch_object_alloc(const void *vtable, size_t size)
 	return dou._do;
 #else
 	return _os_object_alloc_realized(vtable, size);
+#endif
+}
+
+void *
+_dispatch_object_alloc_bridged(const void *vtable, size_t size)
+{
+#if OS_OBJECT_HAVE_OBJC1
+	const struct dispatch_object_vtable_s *_vtable = vtable;
+	dispatch_object_t dou;
+	dou._os_obj = _os_object_alloc_bridged(_vtable->_os_obj_objc_isa, size);
+	dou._do->do_vtable = vtable;
+	return dou._do;
+#else
+	return _os_object_alloc_bridged(vtable, size);
 #endif
 }
 
@@ -371,5 +385,5 @@ size_t
 _dispatch_object_debug_attr(dispatch_object_t dou, char* buf, size_t bufsiz)
 {
 	return dsnprintf(buf, bufsiz, "xref = %d, ref = %d, ",
-			dou._do->do_xref_cnt + 1, dou._do->do_ref_cnt + 1);
+			dou._do->do_xref_cnt, dou._do->do_ref_cnt);
 }

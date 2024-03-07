@@ -34,6 +34,7 @@
 #define _CITRUS_STDENC_H_
 
 #ifdef __APPLE__
+#include <sys/param.h>	/* MAX */
 #include <errno.h>
 #endif
 
@@ -171,7 +172,7 @@ static __inline size_t
 _citrus_stdenc_get_mb_cur_min(struct _citrus_stdenc *ce)
 {
 
-	return (ce->ce_traits->et_mb_cur_min);
+	return MAX(ce->ce_traits->et_mb_cur_min, 1);
 }
 
 static __inline size_t

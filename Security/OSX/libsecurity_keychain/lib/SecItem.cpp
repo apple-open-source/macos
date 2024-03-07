@@ -4115,6 +4115,15 @@ OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, boo
         }
     }
 
+    if (CFDictionaryContainsKey(query, kSecAttrSharingGroup)) {
+        // Credentials shared with groups must use the modern keychain, even
+        // though they're not synced. The data protection attribute must either
+        // be omitted or set to `true`.
+        if (useDataProtection && !readNumber(useDataProtection)) {
+            return errSecParam;
+        }
+        useDataProtection = kCFBooleanTrue;
+    }
 
     CFTypeRef useSystem = NULL;
     if (CFDictionaryGetValueIfPresent(query, kSecUseSystemKeychainAlways, &useSystem) && readNumber(useSystem)) {
@@ -4150,8 +4159,9 @@ OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, boo
 	if (value != NULL) {
 		CFTypeID typeID = CFGetTypeID(value);
 		if (typeID == SecKeyGetTypeID()) {
-			can_target_osx = SecKeyIsCDSAKey((SecKeyRef)value);
-			can_target_ios = !can_target_osx;
+            bool isCDSAKey = SecKeyIsCDSAKey((SecKeyRef)value);
+			can_target_osx = can_target_osx && isCDSAKey;
+			can_target_ios = can_target_ios && !isCDSAKey;
 		} else if (typeID == SecCertificateGetTypeID()) {
 			// All types of certificates can target OSX keychains, but OSX certificates won't work on iOS
 			can_target_ios &= !SecCertificateIsItemImplInstance((SecCertificateRef)value);

@@ -12,7 +12,10 @@
 #include <os/feature_private.h>
 #import <MessageSecurity/MessageSecurity.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include "secoid.h"
+#pragma clang diagnostic pop
 
 static bool isMessageSecurityAllowedForCurrentBundleID(void) {
     static dispatch_once_t onceToken;

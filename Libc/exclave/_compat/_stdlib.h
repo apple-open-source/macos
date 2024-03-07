@@ -67,12 +67,6 @@ _Pragma("clang assume_nonnull begin")
 
 __BEGIN_DECLS
 
-double	 atof(const char *);
-double	 strtod(const char *, char * _Nullable * _Nullable);
-float	 strtof(const char *, char * _Nullable * _Nullable);
-long double
-	 strtold(const char *, char * _Nullable * _Nullable);
-
 #ifdef __BLOCKS__
 
 #if __has_attribute(noescape)

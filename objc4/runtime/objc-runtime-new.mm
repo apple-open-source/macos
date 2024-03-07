@@ -48,6 +48,10 @@ extern "C" {
 }
 #endif // !TARGET_OS_EXCLAVEKIT
 
+#if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
+#include <malloc_private.h>
+#endif // !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
+
 #define newprotocol(p) ((protocol_t *)p)
 
 static void disableTaggedPointers();
@@ -176,7 +180,6 @@ static constexpr T coveringMask(T n) {
     }
     return ~T{0};
 }
-const uintptr_t objc_debug_isa_class_mask  = ISA_MASK & coveringMask(OBJC_VM_MAX_ADDRESS - 1);
 
 const uintptr_t objc_debug_isa_magic_mask  = ISA_MAGIC_MASK;
 const uintptr_t objc_debug_isa_magic_value = ISA_MAGIC_VALUE;
@@ -191,6 +194,13 @@ STATIC_ASSERT((~ISA_MAGIC_MASK & ISA_MAGIC_VALUE) == 0);
 STATIC_ASSERT((~ISA_MASK & OBJC_VM_MAX_ADDRESS) == 0  ||
               ISA_MASK + sizeof(void*) == OBJC_VM_MAX_ADDRESS);
 
+#if TARGET_OS_EXCLAVEKIT
+// Initialize to value that might hopefully produce recognizable failures if used before properly initialized.
+uintptr_t objc_debug_isa_class_mask = 0xffff;
+#else
+const uintptr_t objc_debug_isa_class_mask = ISA_MASK & coveringMask(OBJC_VM_MAX_ADDRESS - 1);
+#endif
+
 // SUPPORT_PACKED_ISA
 #else
 // not SUPPORT_PACKED_ISA
@@ -202,6 +212,17 @@ const uintptr_t objc_debug_isa_magic_value = 0;
 
 // not SUPPORT_PACKED_ISA
 #endif
+
+extern void masks_init(void) {
+#if TARGET_OS_EXCLAVEKIT
+    // Start with the mask we would compute from OBJC_VM_MAX_ADDRESS, then
+    // strip it to shrink it in the case where the ptrauth signature takes more
+    // bits than we thought it did because the address space is smaller.
+    void *initialMask = (void *)(ISA_MASK & coveringMask(OBJC_VM_MAX_ADDRESS - 1));
+    void *strippedMask = ptrauth_strip(initialMask, ptrauth_key_process_independent_data);
+    objc_debug_isa_class_mask = (uintptr_t)strippedMask;
+#endif
+}
 
 // We use a *signed* "pointer" to control enforcement.  It's signed so that
 // an attacker can't just overwrite it with some random thing to turn off
@@ -452,7 +473,7 @@ alloc_class_for_subclass(Class supercls, size_t extraBytes)
     swift_class_t *swiftSupercls = (swift_class_t *)supercls;
     size_t superSize = swiftSupercls->classSize;
     void *superBits = swiftSupercls->baseAddress();
-    void *bits = malloc(superSize + extraBytes);
+    void *bits = _calloc_class(superSize + extraBytes);
 
     // Copy all of the superclass's data to the new class.
     memcpy(bits, superBits, superSize);
@@ -1682,6 +1703,19 @@ static void methodizeClass(Class cls, Class previously)
         const unsigned threshold = 100;
         const unsigned proportion = 2;
         if (listList->count >= threshold && numLoaded <= listList->count / proportion) {
+            if (PrintConnecting) {
+                _objc_inform("CLASS: Copying preoptimized categories for "
+                             "sparsely loaded class '%s' %s - %u lists, "
+                             "%u loaded - loaded lists are:",
+                             cls->nameForLogging(), isMeta ? "(meta)" : "",
+                             listList->count, numLoaded);
+                iter = listList->beginLists();
+                end = listList->endLists();
+                while (iter != end) {
+                    _objc_inform("    %p", *iter);
+                    ++iter;
+                }
+            }
             rw->extAllocIfNeeded()->methods.copyListList(numLoaded);
         }
     }
@@ -2264,12 +2298,17 @@ Class _class_remap(Class cls)
 * or is an ignored weak-linked class.
 * Locking: runtimeLock must be read- or write-locked by the caller
 **********************************************************************/
-static void remapClassRef(Class *clsref)
+static void remapClassRef(Class *clsref,
+                          uint32_t objcImageIndex,
+                          _dyld_objc_mark_image_mutable makeImageMutable)
 {
     lockdebug::assert_locked(&runtimeLock.get());
 
     Class newcls = remapClass(*clsref);
-    if (*clsref != newcls) *clsref = newcls;
+    if (*clsref != newcls) {
+        makeImageMutable(objcImageIndex);
+        *clsref = newcls;
+    }
 }
 
 
@@ -2643,12 +2682,15 @@ static ALWAYS_INLINE protocol_t *remapProtocol(protocol_ref_t proto)
 * Locking: runtimeLock must be read- or write-locked by the caller
 **********************************************************************/
 static size_t UnfixedProtocolReferences;
-static void remapProtocolRef(protocol_t **protoref)
+static void remapProtocolRef(protocol_t **protoref,
+                             uint32_t objcImageIndex,
+                             _dyld_objc_mark_image_mutable makeImageMutable)
 {
     lockdebug::assert_locked(&runtimeLock.get());
 
     protocol_t *newproto = remapProtocol((protocol_ref_t)*protoref);
     if (*protoref != newproto) {
+        makeImageMutable(objcImageIndex);
         *protoref = newproto;
         UnfixedProtocolReferences++;
     }
@@ -3382,13 +3424,14 @@ is_root_ramdisk()
 * Locking: write-locks runtimeLock
 **********************************************************************/
 void
-map_images(unsigned count, const struct _dyld_objc_notify_mapped_info infos[])
+map_images(unsigned count, const struct _dyld_objc_notify_mapped_info infos[],
+           _dyld_objc_mark_image_mutable makeImageMutable)
 {
     bool takeEnforcementDisableFault;
 
     {
         mutex_locker_t lock(runtimeLock);
-        map_images_nolock(count, infos, &takeEnforcementDisableFault);
+        map_images_nolock(count, infos, &takeEnforcementDisableFault, makeImageMutable);
     }
 
     if (takeEnforcementDisableFault) {
@@ -3423,7 +3466,10 @@ _objc_map_images(unsigned count, const char * const paths[],
         };
         infos.push_back(info);
     }
-    map_images(count, infos.data());
+    _dyld_objc_mark_image_mutable makeImageMutable = ^(uint32_t objcImageIndex) {
+        // TODO: Implement this if the JIT ever puts refs in read-only data
+    };
+    map_images(count, infos.data(), makeImageMutable);
 }
 
 static void load_categories_nolock(header_info *hi) {
@@ -3878,7 +3924,8 @@ readProtocol(protocol_t *newproto, Class protocol_class,
 *
 * Locking: runtimeLock acquired by map_images
 **********************************************************************/
-void _read_images(mapped_image_info infosParam[], uint32_t hCount, int totalClasses, int unoptimizedTotalClasses)
+void _read_images(mapped_image_info infosParam[], uint32_t hCount, int totalClasses, int unoptimizedTotalClasses,
+                  _dyld_objc_mark_image_mutable makeImageMutable)
 {
     UnsafeSpan<mapped_image_info> infos{infosParam, hCount};
 
@@ -4053,15 +4100,17 @@ void _read_images(mapped_image_info infosParam[], uint32_t hCount, int totalClas
     OBJC_RUNTIME_REMAP_CLASSES_START();
 
     if (!noClassesRemapped()) {
-        for (auto info : infos) {
+        for (const auto& info : infos) {
+            // The infos array is reversed, but dyld expects the original index
+            const uint32_t infoIndex = (hCount - 1) - infos.index(&info);
             Class *classrefs = info.hi->classrefs(&count);
             for (i = 0; i < count; i++) {
-                remapClassRef(&classrefs[i]);
+                remapClassRef(&classrefs[i], infoIndex, makeImageMutable);
             }
             // fixme why doesn't test future1 catch the absence of this?
             classrefs = info.hi->superrefs(&count);
             for (i = 0; i < count; i++) {
-                remapClassRef(&classrefs[i]);
+                remapClassRef(&classrefs[i], infoIndex, makeImageMutable);
             }
         }
     }
@@ -4138,16 +4187,19 @@ void _read_images(mapped_image_info infosParam[], uint32_t hCount, int totalClas
     // dtrace probe
     OBJC_RUNTIME_FIXUP_PROTOCOLS_START();
 
-    for (auto info : infos) {
-        // At launch time, we know preoptimized image refs are pointing at the
-        // shared cache definition of a protocol.  We can skip the check on
-        // launch, but have to visit @protocol refs for shared cache images
-        // loaded later.
-        if (launchTime && info.hi->isPreoptimized())
-            continue;
-        protocol_t **protolist = info.hi->protocolrefs(&count);
-        for (i = 0; i < count; i++) {
-            remapProtocolRef(&protolist[i]);
+    for (const auto& info : infos) {
+        // The infos array is reversed, but dyld expects the original index
+        const uint32_t infoIndex = (hCount - 1) - infos.index(&info);
+        if (launchTime && info.hi->isPreoptimized()) {
+            // At launch time, we know preoptimized image refs are pointing at the
+            // shared cache definition of a protocol.  We can skip the check on
+            // launch, but have to visit @protocol refs for shared cache images
+            // loaded later.
+        } else {
+            protocol_t **protolist = info.hi->protocolrefs(&count);
+            for (i = 0; i < count; i++) {
+              remapProtocolRef(&protolist[i], infoIndex, makeImageMutable);
+            }
         }
     }
 
@@ -4163,8 +4215,25 @@ void _read_images(mapped_image_info infosParam[], uint32_t hCount, int totalClas
     OBJC_RUNTIME_DISCOVER_CATEGORIES_START();
 
     if (didInitialAttachCategories) {
+        // We attach categories in two phases: first images with preattached
+        // categories, then images without. We need to avoid this scenario:
+        // 1. Class C still has a preattached categories list.
+        // 2. Library A has a non-preattached category on C. We copy C's
+        //    preattached lists to the heap and append A's list.
+        // 3. Library B has a preattached category on C. Because C no longer
+        //    has preattached lists, we append B's list.
+        // Step 2 already copied B's list, so we end up with two copies of it.
+        // This is usually mostly harmless (just a performance issue) but it
+        // can cause real problems for code using class_copyMethodList or
+        // similar, as it will see two copies of the entries in the duplicate
+        // list.
         for (auto info : infos) {
-            load_categories_nolock(info.hi);
+            if (info.dyldCategoriesOptimized())
+                load_categories_nolock(info.hi);
+        }
+        for (auto info : infos) {
+            if (!info.dyldCategoriesOptimized())
+                load_categories_nolock(info.hi);
         }
     }
 
@@ -4773,18 +4842,17 @@ fixupProtocol(protocol_t *proto)
 
 
 /***********************************************************************
-* fixupProtocolIfNeeded
+* fixupProtocolIfNeeded_nolock
 * Fixes up all of a protocol's method lists if they aren't fixed up already.
-* Locking: write-locks runtimeLock.
+* Locking: runtimeLock must be held.
 **********************************************************************/
 static void
-fixupProtocolIfNeeded(protocol_t *proto)
+fixupProtocolIfNeeded_nolock(protocol_t *proto)
 {
-    lockdebug::assert_unlocked(&runtimeLock.get());
+    lockdebug::assert_locked(&runtimeLock.get());
     ASSERT(proto);
 
     if (!proto->isFixedUp()) {
-        mutex_locker_t lock(runtimeLock);
         fixupProtocol(proto);
     }
 }
@@ -4858,9 +4926,9 @@ Method
 protocol_getMethod(protocol_t *proto, SEL sel, bool isRequiredMethod, bool isInstanceMethod, bool recursive)
 {
     if (!proto) return nil;
-    fixupProtocolIfNeeded(proto);
 
     mutex_locker_t lock(runtimeLock);
+    fixupProtocolIfNeeded_nolock(proto);
     return _method_sign(protocol_getMethod_nolock(proto, sel, isRequiredMethod,
                                                   isInstanceMethod, recursive));
 }
@@ -4921,9 +4989,9 @@ _protocol_getMethodTypeEncoding(Protocol *proto_gen, SEL sel,
     protocol_t *proto = newprotocol(proto_gen);
 
     if (!proto) return nil;
-    fixupProtocolIfNeeded(proto);
 
     mutex_locker_t lock(runtimeLock);
+    fixupProtocolIfNeeded_nolock(proto);
     return protocol_getMethodTypeEncoding_nolock(proto, sel,
                                                  isRequiredMethod,
                                                  isInstanceMethod);
@@ -5074,9 +5142,9 @@ protocol_copyMethodDescriptionList(Protocol *p,
         return nil;
     }
 
-    fixupProtocolIfNeeded(proto);
-
     mutex_locker_t lock(runtimeLock);
+
+    fixupProtocolIfNeeded_nolock(proto);
 
     method_list_t *mlist =
         getProtocolMethodList(proto, isRequiredMethod, isInstanceMethod);
@@ -9371,6 +9439,13 @@ _objc_getClassForTag(objc_tag_index_t tag)
 }
 
 #endif
+
+
+void *
+_calloc_canonical(size_t size)
+{
+    return calloc(1, size);
+}
 
 
 #if SUPPORT_FIXUP

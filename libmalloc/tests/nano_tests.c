@@ -91,8 +91,9 @@ T_DECL(nano_active_test, "Test that Nano is activated",
 	   T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_XZONE)
 {
 #if CONFIG_NANOZONE
-	if (getenv("MallocSecureAllocator")) {
-		T_ASSERT_EQ(malloc_engaged_nano(), 0, "Secure allocator engaged");
+	if (malloc_engaged_secure_allocator()) {
+		T_ASSERT_NE(malloc_engaged_nano(), 0,
+				"Secure allocator nano mode engaged");
 	} else {
 		void *ptr = malloc(16);
 		T_LOG("Nano ptr is %p\n", ptr);
@@ -110,8 +111,9 @@ T_DECL(nano_enumerator_test, "Test the Nanov2 enumerator",
 	   T_META_ENVVAR("MallocNanoZone=V2"), T_META_TAG_XZONE)
 {
 #if CONFIG_NANOZONE
-	if (getenv("MallocSecureAllocator")) {
-		T_ASSERT_EQ(malloc_engaged_nano(), 0, "Secure allocator engaged");
+	if (malloc_engaged_secure_allocator()) {
+		T_ASSERT_NE(malloc_engaged_nano(), 0,
+				"Secure allocator nano mode engaged");
 	} else {
 		T_ASSERT_EQ(malloc_engaged_nano(), 2, "Nanozone V2 engaged");
 	}

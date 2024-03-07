@@ -21,6 +21,7 @@
 // rdar://80374611 #259 Add to LANGUAGES[]: otk, oui (for Old Turkish)
 // rdar://82409455 #270 integrate OSS ICU 70rc and CLDR 40 beta to Apple ICU
 // rdar://89394823 #286 add locales for apw,sm; add loc names for apw; fix dz autonym
+// rdar://104584675 #369 fix unit test failures from adding locales cic, cho
 // rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm
 // rdar://49623848 c4215a3e0.. y->yyyy in intervalFormat skeletons used for japanese calendar
 // rdar:// contextTransforms for territory
@@ -115,6 +116,7 @@ structLocale:table(nofallback){
         CN{""}
         CO{""}
         CP{""}
+        CQ{""}
         CR{""} 
         CS{""}
         CU{""}
@@ -4165,51 +4167,51 @@ structLocale:table(nofallback){
             2,
             2,
         }
-        currencyName:intvector{  
+        currencyName:intvector{
             2,
             2,
         }
-        day-format-except-narrow:intvector{  
+        day-format-except-narrow:intvector{
             2,
             2,
         }
-        day-standalone-except-narrow:intvector{  
+        day-standalone-except-narrow:intvector{
             2,
             2,
         }
-        era-abbr:intvector{  
+        era-abbr:intvector{
             2,
             2,
         }
-        era-name:intvector{  
+        era-name:intvector{
             2,
             2,
         }
-        keyValue:intvector{  
+        keyValue:intvector{
             2,
             2,
         }
-        languages:intvector{  
+        languages:intvector{
             2,
             2,
         }
-        month-format-except-narrow:intvector{  
+        month-format-except-narrow:intvector{
             2,
             2,
         }
-        month-standalone-except-narrow:intvector{  
+        month-standalone-except-narrow:intvector{
             2,
             2,
         }
-        number-spellout:intvector{  
+        number-spellout:intvector{
             2,
             2,
         }
-        relative:intvector{  
+        relative:intvector{
             2,
             2,
         }
-        script:intvector{  
+        script:intvector{
             2,
             2,
         }
@@ -5293,7 +5295,7 @@ structLocale:table(nofallback){
             }
         }
         week{
-            dn{""}                    
+            dn{""}
             relative{
                 "-1"{""}
                 "0"{""}
@@ -5320,7 +5322,7 @@ structLocale:table(nofallback){
             }
         }
         week-narrow{
-            dn{""}                    
+            dn{""}
             relative{
                 "-1"{""}
                 "0"{""}
@@ -5347,7 +5349,7 @@ structLocale:table(nofallback){
             }
         }
         week-short{
-            dn{""}                    
+            dn{""}
             relative{
                 "-1"{""}
                 "0"{""}
@@ -5406,7 +5408,7 @@ structLocale:table(nofallback){
             dn{""}
         }
         year{
-            dn{""}                    
+            dn{""}
             relative{
                 "-1"{""}
                 "-2"{""}
@@ -5433,7 +5435,7 @@ structLocale:table(nofallback){
             }
         }
         year-narrow{
-            dn{""}                    
+            dn{""}
             relative{
                 "-1"{""}
                 "-2"{""}
@@ -5460,7 +5462,7 @@ structLocale:table(nofallback){
             }
         }
         year-short{
-            dn{""}                    
+            dn{""}
             relative{
                 "-1"{""}
                 "-2"{""}
@@ -6094,6 +6096,7 @@ structLocale:table(nofallback){
         vi{""}
         vls{""}
         vmf{""}
+        vmw{""}
         vo{""}
         vot{""}
         vro{""}
@@ -34561,6 +34564,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -35562,6 +35571,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -35948,6 +35963,12 @@ structLocale:table(nofallback){
                     y{""}
                 }
                 GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMEEEEd{
                     G{""}
                     M{""}
                     d{""}
@@ -37052,6 +37073,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -37448,6 +37475,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -37780,6 +37813,12 @@ structLocale:table(nofallback){
                     y{""}
                 }
                 GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMEEEEd{
                     G{""}
                     M{""}
                     d{""}
@@ -38184,6 +38223,12 @@ structLocale:table(nofallback){
                     y{""}
                 }
                 GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMEEEEd{
                     G{""}
                     M{""}
                     d{""}
@@ -38800,6 +38845,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMM{
                     G{""}
                     M{""}
@@ -39233,6 +39284,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -39599,6 +39656,12 @@ structLocale:table(nofallback){
                     y{""}
                 }
                 GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMEEEEd{
                     G{""}
                     M{""}
                     d{""}
@@ -40018,6 +40081,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -40376,6 +40445,12 @@ structLocale:table(nofallback){
                     y{""}
                 }
                 GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMEEEEd{
                     G{""}
                     M{""}
                     d{""}
@@ -41535,6 +41610,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -41901,6 +41982,12 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMEEEEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -42232,6 +42319,11 @@ structLocale:table(nofallback){
             surnameFirst-short-monogram-informal{""}
             surnameFirst-short-referring-formal{""}
             surnameFirst-short-referring-informal{""}
+        }
+        nativeSpaceReplacement{""}
+        parameterDefault{
+            formality{""}
+            length{""}
         }
     }
     transformNames{
@@ -53071,4 +53163,3 @@ structLocale:table(nofallback){
         }
     }
 }
-

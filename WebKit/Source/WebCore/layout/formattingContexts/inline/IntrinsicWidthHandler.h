@@ -31,18 +31,16 @@ namespace WebCore {
 namespace Layout {
 
 class AbstractLineBuilder;
-class ElementBox;
 class InlineFormattingContext;
-class InlineFormattingState;
-
+class InlineContentCache;
 struct IntrinsicWidthConstraints;
 
 class IntrinsicWidthHandler {
 public:
-    IntrinsicWidthHandler(const InlineFormattingContext&);
+    IntrinsicWidthHandler(InlineFormattingContext&, const InlineItemList&, bool mayUseSimplifiedTextOnlyInlineLayout);
 
-    IntrinsicWidthConstraints computedIntrinsicSizes();
-    LayoutUnit maximumContentSize();
+    InlineLayoutUnit minimumContentSize();
+    InlineLayoutUnit maximumContentSize();
 
     struct LineBreakingResult {
         InlineLayoutUnit constraint;
@@ -53,15 +51,20 @@ public:
 private:
     enum class MayCacheLayoutResult : bool { No, Yes };
     InlineLayoutUnit computedIntrinsicWidthForConstraint(IntrinsicWidthMode, AbstractLineBuilder&, MayCacheLayoutResult = MayCacheLayoutResult::No);
-    InlineLayoutUnit simplifiedMinimumWidth() const;
+    InlineLayoutUnit simplifiedMinimumWidth(const ElementBox& root) const;
+    InlineLayoutUnit simplifiedMaximumWidth(MayCacheLayoutResult = MayCacheLayoutResult::No);
 
+    InlineFormattingContext& formattingContext();
     const InlineFormattingContext& formattingContext() const;
-    const InlineFormattingState& formattingState() const;
+    const InlineContentCache& formattingState() const;
     const ElementBox& root() const;
 
 private:
-    const InlineFormattingContext& m_inlineFormattingContext;
+    InlineFormattingContext& m_inlineFormattingContext;
+    const InlineItemList& m_inlineItemList;
+    const bool m_mayUseSimplifiedTextOnlyInlineLayout { false };
 
+    std::optional<InlineLayoutUnit> m_maximumContentWidthBetweenLineBreaks { };
     std::optional<LineBreakingResult> m_maximumIntrinsicWidthResultForSingleLine { };
 };
 

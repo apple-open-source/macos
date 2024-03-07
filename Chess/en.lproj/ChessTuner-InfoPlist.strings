@@ -1,0 +1,7 @@
+/* Localized versions of Info.plist keys */
+
+CFBundleName = "Chess";
+CFBundleDisplayName = "Chess";
+NSHumanReadableCopyright = "Copyright 2003–2023 Apple Inc.";
+game = "Chess Game";
+moves= "Moves (PGN)";

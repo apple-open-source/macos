@@ -128,6 +128,8 @@
 #include <net/dlil.h>
 #include <net/pktap.h>
 
+#include <net/sockaddr_utils.h>
+
 #include <kern/assert.h>
 #include <kern/locks.h>
 #include <kern/thread_call.h>

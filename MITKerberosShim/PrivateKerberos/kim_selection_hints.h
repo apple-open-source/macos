@@ -25,12 +25,12 @@
 #ifndef KIM_SELECTION_HINTS_H
 #define KIM_SELECTION_HINTS_H
 
+#include <Kerberos/kim_types.h>
+    
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <Kerberos/kim_types.h>
-    
 /*!
  * \page kim_selection_hints_overview KIM Selection Hints Overview
  *

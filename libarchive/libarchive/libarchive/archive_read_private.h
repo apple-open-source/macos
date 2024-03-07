@@ -38,6 +38,10 @@
 #include "archive_string.h"
 #include "archive_private.h"
 
+#ifdef __APPLE__
+#include "archive_mac.h"
+#endif // __APPLE__
+
 struct archive_read;
 struct archive_read_filter_bidder;
 struct archive_read_filter;
@@ -227,6 +231,9 @@ struct archive_read {
 		archive_passphrase_callback *callback;
 		void *client_data;
 	}		passphrases;
+#ifdef HAVE_MAC_QUARANTINE
+	qtn_file_t qf;
+#endif // HAVE_MAC_QUARANTINE
 };
 
 int	__archive_read_register_format(struct archive_read *a,

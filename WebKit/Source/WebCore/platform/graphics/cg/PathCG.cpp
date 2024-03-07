@@ -154,10 +154,22 @@ static inline void addToCGContextPath(CGContextRef context, PathArc segment)
     CGContextAddArc(context, segment.center.x(), segment.center.y(), segment.radius, segment.startAngle, segment.endAngle, segment.direction == RotationDirection::Counterclockwise);
 }
 
+void PathCG::add(PathClosedArc closedArc)
+{
+    add(closedArc.arc);
+    add(PathCloseSubpath());
+}
+
+static inline void addToCGContextPath(CGContextRef context, PathClosedArc segment)
+{
+    addToCGContextPath(context, segment.arc);
+    CGContextClosePath(context);
+}
+
 static inline AffineTransform ellipseTransform(const PathEllipse& ellipse)
 {
     AffineTransform transform;
-    transform.translate(ellipse.center.x(), ellipse.center.y()).rotate(rad2deg(ellipse.rotation)).scale(ellipse.radiusX, ellipse.radiusY);
+    transform.translate(ellipse.center.x(), ellipse.center.y()).rotateRadians(ellipse.rotation).scale(ellipse.radiusX, ellipse.radiusY);
     return transform;
 }
 

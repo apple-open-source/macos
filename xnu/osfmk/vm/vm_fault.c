@@ -3407,31 +3407,6 @@ vm_fault_enter_set_mapped(
 	return page_needs_sync;
 }
 
-#if CODE_SIGNING_MONITOR && !XNU_PLATFORM_MacOSX
-#define KILL_FOR_CSM_VIOLATION 1
-#else /* CODE_SIGNING_MONITOR && !XNU_PLATFORM_MacOSX */
-#define KILL_FOR_CSM_VIOLATION 0
-#endif /* CODE_SIGNING_MONITOR && !XNU_PLATFORM_MacOSX */
-
-#if KILL_FOR_CSM_VIOLATION
-static void
-vm_fault_kill_for_csm_violation(
-	vm_map_offset_t vaddr,
-	vm_prot_t prot,
-	vm_prot_t fault_type)
-{
-	void *p;
-	char *pname;
-
-	p = get_bsdtask_info(current_task());
-	pname = p ? proc_best_name(p) : "?";
-	printf("CODESIGNING: killing %d[%s] for CSM violation at vaddr 0x%llx prot 0x%x fault 0x%x\n",
-	    proc_selfpid(), pname,
-	    (uint64_t)vaddr, prot, fault_type);
-	task_bsdtask_kill(current_task());
-}
-#endif /* KILL_FOR_CSM_VIOLATION */
-
 /*
  * wrapper for pmap_enter_options()
  */
@@ -3528,11 +3503,6 @@ vm_fault_attempt_pmap_enter(
 		    wired,
 		    pmap_options);
 	}
-#if KILL_FOR_CSM_VIOLATION
-	if (kr == KERN_CODESIGN_ERROR && pmap != kernel_pmap) {
-		vm_fault_kill_for_csm_violation(vaddr, *prot, fault_type);
-	}
-#endif /* KILL_FOR_CSM_VIOLATION */
 #endif /* CODE_SIGNING_MONITOR */
 
 	return kr;
@@ -3672,12 +3642,6 @@ vm_fault_pmap_enter_with_object_lock(
 		    pmap_options);
 
 		assert(VM_PAGE_OBJECT(m) == object);
-
-#if KILL_FOR_CSM_VIOLATION
-		if (kr == KERN_CODESIGN_ERROR && pmap != kernel_pmap) {
-			vm_fault_kill_for_csm_violation(vaddr, *prot, fault_type);
-		}
-#endif /* KILL_FOR_CSM_VIOLATION */
 
 		/* Take the object lock again. */
 		vm_object_lock(object);
@@ -4251,6 +4215,7 @@ vm_fault_internal(
 	 * this heuristic, but vm_object_unlock currently takes > 30 cycles.
 	 */
 	bool                    object_is_contended = false;
+
 
 	real_vaddr = vaddr;
 	trace_real_vaddr = vaddr;

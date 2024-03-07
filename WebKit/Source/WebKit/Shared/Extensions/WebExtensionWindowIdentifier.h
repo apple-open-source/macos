@@ -33,13 +33,15 @@ namespace WebKit {
 struct WebExtensionWindowIdentifierType;
 using WebExtensionWindowIdentifier = ObjectIdentifier<WebExtensionWindowIdentifierType>;
 
-struct WebExtensionWindowConstants {
+namespace WebExtensionWindowConstants {
+
     static constexpr double None { -1 };
     static constexpr double Current { -2 };
 
     static constexpr const WebExtensionWindowIdentifier NoneIdentifier { std::numeric_limits<uint64_t>::max() - 1 };
     static constexpr const WebExtensionWindowIdentifier CurrentIdentifier { std::numeric_limits<uint64_t>::max() - 2 };
-};
+
+}
 
 inline bool isNone(WebExtensionWindowIdentifier identifier)
 {
@@ -88,7 +90,7 @@ inline std::optional<WebExtensionWindowIdentifier> toWebExtensionWindowIdentifie
     return result;
 }
 
-inline double toWebAPI(WebExtensionWindowIdentifier identifier)
+inline double toWebAPI(const WebExtensionWindowIdentifier& identifier)
 {
     ASSERT(identifier.isValid());
 

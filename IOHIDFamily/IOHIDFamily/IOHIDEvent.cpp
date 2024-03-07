@@ -1326,6 +1326,67 @@ exit:
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::extendedGameControllerEventWithOptionalButtons
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::extendedGameControllerEventWithOptionalButtons(
+        UInt64                          timeStamp,
+        IOFixed                         dpadUp,
+        IOFixed                         dpadDown,
+        IOFixed                         dpadLeft,
+        IOFixed                         dpadRight,
+        IOFixed                         faceX,
+        IOFixed                         faceY,
+        IOFixed                         faceA,
+        IOFixed                         faceB,
+        IOFixed                         shoulderL1,
+        IOFixed                         shoulderR1,
+        IOFixed                         shoulderL2,
+        IOFixed                         shoulderR2,
+        IOFixed                         joystickX,
+        IOFixed                         joystickY,
+        IOFixed                         joystickZ,
+        IOFixed                         joystickRz,
+        bool                            thumbstickButtonLeft,
+        bool                            thumbstickButtonRight,
+        IOFixed                         shoulderL4,
+        IOFixed                         shoulderR4,
+        IOFixed                         bottomM1,
+        IOFixed                         bottomM2,
+        IOFixed                         bottomM3,
+        IOFixed                         bottomM4,
+        IOOptionBits                    options)
+{
+    IOHIDEvent *me = standardGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, options);
+    IOHIDGameControllerEventData *event = NULL;
+    __IOHIDGameControllerEventData *extData = NULL;
+    require(me, exit);
+
+    event = (IOHIDGameControllerEventData *)me->_data;
+    extData = (__IOHIDGameControllerEventData *)me->_data;
+
+    event->controllerType = kIOHIDGameControllerTypeExtended;
+    event->shoulder.l2  = shoulderL2;
+    event->shoulder.r2  = shoulderR2;
+    event->joystick.x   = joystickX;
+    event->joystick.y   = joystickY;
+    event->joystick.z   = joystickZ;
+    event->joystick.rz  = joystickRz;
+
+    extData->bottom.m1 = bottomM1;
+    extData->bottom.m2 = bottomM2;
+    extData->bottom.m3 = bottomM3;
+    extData->bottom.m4 = bottomM4;
+
+    extData->thumbstickButtonLeft = thumbstickButtonLeft;
+    extData->thumbstickButtonRight = thumbstickButtonRight;
+    extData->l4  = shoulderL4;
+    extData->r4  = shoulderR4;
+
+exit:
+    return me;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDEvent::humidityEvent
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDEvent * IOHIDEvent::humidityEvent(UInt64 timeStamp, IOFixed rh, UInt32 sequence, IOOptionBits options)

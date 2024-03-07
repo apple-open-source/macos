@@ -74,6 +74,11 @@
 #include <WebCore/PlatformDisplay.h>
 #endif
 
+#if ENABLE(EXTENSION_CAPABILITIES)
+#include "ExtensionCapabilityGrant.h"
+#include "MediaCapability.h"
+#endif
+
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, this->connection())
 
 namespace WebKit {
@@ -98,6 +103,27 @@ static WeakPtr<GPUProcessProxy>& singleton()
     return singleton;
 }
 
+static RefPtr<GPUProcessProxy>& keptAliveGPUProcessProxy()
+{
+    static MainThreadNeverDestroyed<RefPtr<GPUProcessProxy>> keptAliveGPUProcessProxy;
+    return keptAliveGPUProcessProxy.get();
+}
+
+void GPUProcessProxy::keepProcessAliveTemporarily()
+{
+    ASSERT(isMainRunLoop());
+    static constexpr auto durationToKeepGPUProcessAliveAfterDestruction = 1_min;
+
+    if (!singleton())
+        return;
+
+    keptAliveGPUProcessProxy() = singleton().get();
+    static NeverDestroyed<RunLoop::Timer> releaseGPUProcessTimer(RunLoop::main(), [] {
+        keptAliveGPUProcessProxy() = nullptr;
+    });
+    releaseGPUProcessTimer.get().startOneShot(durationToKeepGPUProcessAliveAfterDestruction);
+}
+
 Ref<GPUProcessProxy> GPUProcessProxy::getOrCreate()
 {
     ASSERT(RunLoop::isMain());
@@ -105,7 +131,7 @@ Ref<GPUProcessProxy> GPUProcessProxy::getOrCreate()
         ASSERT(existingGPUProcess->state() != State::Terminated);
         return *existingGPUProcess;
     }
-    auto gpuProcess = adoptRef(*new GPUProcessProxy);
+    Ref gpuProcess = adoptRef(*new GPUProcessProxy);
     singleton() = gpuProcess;
     return gpuProcess;
 }
@@ -116,9 +142,15 @@ GPUProcessProxy* GPUProcessProxy::singletonIfCreated()
 }
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
-static String gpuProcessCachesDirectory()
+static String gpuProcessCachesDirectory(bool isExtension)
 {
-    String path = WebsiteDataStore::cacheDirectoryInContainerOrHomeDirectory("/Library/Caches/com.apple.WebKit.GPU/"_s);
+    ASCIILiteral cacheDirectory;
+    if (isExtension)
+        cacheDirectory = "/Library/Caches/com.apple.WebKit.GPUExtension/"_s;
+    else
+        cacheDirectory = "/Library/Caches/com.apple.WebKit.GPU/"_s;
+
+    String path = WebsiteDataStore::cacheDirectoryInContainerOrHomeDirectory(cacheDirectory);
 
     FileSystem::makeAllDirectories(path);
     
@@ -154,7 +186,11 @@ GPUProcessProxy::GPUProcessProxy()
     parameters.parentPID = getCurrentProcessID();
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
-    auto containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory());
+    bool isExtension = false;
+#if USE(EXTENSIONKIT)
+    isExtension = !!extensionProcess();
+#endif
+    auto containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory(isExtension));
     auto containerTemporaryDirectory = WebsiteDataStore::defaultResolvedContainerTemporaryDirectory();
 
     if (!containerCachesDirectory.isEmpty()) {
@@ -180,12 +216,12 @@ GPUProcessProxy::GPUProcessProxy()
 
     platformInitializeGPUProcessParameters(parameters);
 
-    // Initialize the GPU process.
-    send(Messages::GPUProcess::InitializeGPUProcess(parameters), 0);
-
 #if PLATFORM(COCOA)
     m_hasSentGPUToolsSandboxExtensions = !parameters.gpuToolsExtensionHandles.isEmpty();
 #endif
+
+    // Initialize the GPU process.
+    send(Messages::GPUProcess::InitializeGPUProcess(WTFMove(parameters)), 0);
 
 #if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS) && ENABLE(AUDIO_COMPONENT_SERVER_REGISTRATIONS_IN_GPU_PROCESS)
     auto registrations = fetchAudioComponentServerRegistrations();
@@ -368,7 +404,7 @@ void GPUProcessProxy::updateSandboxAccess(bool allowAudioCapture, bool allowVide
 #endif // PLATFORM(IOS) || PLATFORM(VISION)
 
     if (!extensions.isEmpty())
-        send(Messages::GPUProcess::UpdateSandboxAccess { extensions }, 0);
+        send(Messages::GPUProcess::UpdateSandboxAccess { WTFMove(extensions) }, 0);
 #endif // PLATFORM(COCOA)
 }
 
@@ -488,6 +524,17 @@ void GPUProcessProxy::gpuProcessExited(ProcessTerminationReason reason)
         break;
     }
 
+#if ENABLE(EXTENSION_CAPABILITIES)
+    // FIXME: Any ExtensionCapabilityGranter can invalidate the GPUProcessProxy grants, so we pick the first one. In the future ExtensionCapabilityGranter should be made a singleton.
+    for (auto& processPool : WebProcessPool::allProcessPools()) {
+        processPool->extensionCapabilityGranter().invalidateGrants(moveToVector(std::exchange(extensionCapabilityGrants(), { }).values()));
+        break;
+    }
+
+#endif
+
+    if (keptAliveGPUProcessProxy() == this)
+        keptAliveGPUProcessProxy() = nullptr;
     if (singleton() == this)
         singleton() = nullptr;
 
@@ -542,8 +589,7 @@ void GPUProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
     }
     
 #if USE(RUNNINGBOARD)
-    if (xpc_connection_t connection = this->connection()->xpcConnection())
-        m_throttler.didConnectToProcess(xpc_connection_get_pid(connection));
+    m_throttler.didConnectToProcess(*this);
 #endif
 
 #if PLATFORM(COCOA)
@@ -705,7 +751,7 @@ void GPUProcessProxy::updatePreferences(WebProcessProxy& webProcess)
     // For the time being, each of the below features are enabled in the GPU Process if it is enabled by at least one web page's preferences.
     // In practice, all web pages' preferences should agree on these feature flag values.
     GPUProcessPreferences gpuPreferences;
-    for (auto page : webProcess.pages()) {
+    for (Ref page : webProcess.pages()) {
         Ref webPreferences = page->preferences();
         if (!webPreferences->useGPUProcessForMediaEnabled())
             continue;
@@ -739,7 +785,7 @@ void GPUProcessProxy::platformInitializeGPUProcessParameters(GPUProcessCreationP
 #endif
 
 #if ENABLE(VIDEO)
-void GPUProcessProxy::requestBitmapImageForCurrentTime(ProcessIdentifier processIdentifier, MediaPlayerIdentifier playerIdentifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completion)
+void GPUProcessProxy::requestBitmapImageForCurrentTime(ProcessIdentifier processIdentifier, MediaPlayerIdentifier playerIdentifier, CompletionHandler<void(std::optional<ShareableBitmap::Handle>&&)>&& completion)
 {
     sendWithAsyncReply(Messages::GPUProcess::RequestBitmapImageForCurrentTime(processIdentifier, playerIdentifier), WTFMove(completion));
 }

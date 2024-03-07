@@ -27,6 +27,7 @@
 #include "config.h"
 #include "StyleFilterImage.h"
 
+#include "BitmapImage.h"
 #include "CSSFilter.h"
 #include "CSSFilterImageValue.h"
 #include "CSSValuePool.h"
@@ -59,7 +60,8 @@ StyleFilterImage::~StyleFilterImage()
 
 bool StyleFilterImage::operator==(const StyleImage& other) const
 {
-    return is<StyleFilterImage>(other) && equals(downcast<StyleFilterImage>(other));
+    auto* otherFilterImage = dynamicDowncast<StyleFilterImage>(other);
+    return otherFilterImage && equals(*otherFilterImage);
 }
 
 bool StyleFilterImage::equals(const StyleFilterImage& other) const
@@ -100,10 +102,8 @@ void StyleFilterImage::load(CachedResourceLoader& cachedResourceLoader, const Re
     }
 
     for (auto& filterOperation : m_filterOperations.operations()) {
-        if (!is<ReferenceFilterOperation>(filterOperation))
-            continue;
-        auto& referenceFilterOperation = downcast<ReferenceFilterOperation>(*filterOperation);
-        referenceFilterOperation.loadExternalDocumentIfNeeded(cachedResourceLoader, options);
+        if (auto* referenceFilterOperation = dynamicDowncast<ReferenceFilterOperation>(filterOperation.get()))
+            referenceFilterOperation->loadExternalDocumentIfNeeded(cachedResourceLoader, options);
     }
 
     m_inputImageIsReady = true;
@@ -137,11 +137,12 @@ RefPtr<Image> StyleFilterImage::image(const RenderElement* renderer, const Float
     if (!sourceImage)
         return &Image::nullImage();
 
-    auto filteredImage = sourceImage->filteredImage(*cssFilter, [&](GraphicsContext& context) {
+    auto filteredImage = sourceImage->filteredNativeImage(*cssFilter, [&](GraphicsContext& context) {
         context.drawImage(*image, sourceImageRect);
     });
-
-    return filteredImage ? filteredImage : &Image::nullImage();
+    if (!filteredImage)
+        return &Image::nullImage();
+    return BitmapImage::create(WTFMove(filteredImage));
 }
 
 bool StyleFilterImage::knownToBeOpaque(const RenderElement&) const

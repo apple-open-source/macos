@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = perl
-VERSION = 5.34.0
+VERSION = 5.34.1
 COMPATVERSIONS =
 #TARVERSION :=
 

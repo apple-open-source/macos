@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>leave</string>
 		<key>OpenSourceVersion</key>
-		<string>2002-09-04</string>
+		<string>2017-11-20</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/leave?id=f4ac32def255b5968bdd8150057b9c0d14595689</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/leave?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
 		<key>OpenSourceImportDate</key>
-		<string>2008-08-09</string>
+		<string>2023-05-04</string>
 		<key>OpenSourceModifications</key>
 		<array>
 		</array>

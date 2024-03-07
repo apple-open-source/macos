@@ -34,6 +34,7 @@
 #include "RealtimeMediaSourceFactory.h"
 #include <AudioToolbox/AudioToolbox.h>
 #include <CoreAudio/CoreAudioTypes.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/text/WTFString.h>
 
 typedef struct OpaqueCMClock* CMClockRef;
@@ -86,6 +87,9 @@ private:
     void delaySamples(Seconds) final;
 #if PLATFORM(IOS_FAMILY)
     void setIsInBackground(bool) final;
+#endif
+#if PLATFORM(MAC)
+    void whenReady(CompletionHandler<void(CaptureSourceError&&)>&&) final;
 #endif
 
     std::optional<Vector<int>> discreteSampleRates() const final { return { { 8000, 16000, 32000, 44100, 48000, 96000 } }; }
@@ -151,8 +155,8 @@ private:
 
     // AudioCaptureFactory
     CaptureSourceOrError createAudioCaptureSource(const CaptureDevice&, MediaDeviceHashSalts&&, const MediaConstraints*, PageIdentifier) override;
-    CaptureDeviceManager& audioCaptureDeviceManager() override;
-    const Vector<CaptureDevice>& speakerDevices() const override;
+    CaptureDeviceManager& audioCaptureDeviceManager() final;
+    const Vector<CaptureDevice>& speakerDevices() const final;
 
     void beginInterruption();
     void endInterruption();

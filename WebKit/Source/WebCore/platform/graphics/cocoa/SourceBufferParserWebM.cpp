@@ -359,11 +359,11 @@ public:
                 Vector<uint8_t> buffer;
                 if (!buffer.tryReserveInitialCapacity(numToRead))
                     return Status(Status::kNotEnoughMemory);
-                buffer.resize(numToRead);
+                buffer.grow(numToRead);
                 auto readResult = currentSegment.read(m_positionWithinSegment, numToRead, buffer.data());
                 if (!readResult.has_value())
                     return segmentReadErrorToWebmStatus(readResult.error());
-                buffer.resize(readResult.value());
+                buffer.shrink(readResult.value());
                 rawBlockBuffer = SharedBuffer::create(WTFMove(buffer));
             } else
                 rawBlockBuffer = sharedBuffer->getContiguousData(m_positionWithinSegment, numToRead);
@@ -569,7 +569,7 @@ void WebMParser::createByteRangeSamples()
 ExceptionOr<int> WebMParser::parse(SourceBufferParser::Segment&& segment)
 {
     if (!m_parser)
-        return Exception { InvalidStateError };
+        return Exception { ExceptionCode::InvalidStateError };
 
     m_reader->appendSegment(WTFMove(segment));
 
@@ -1203,6 +1203,8 @@ WebMParser::AudioTrackData::AudioTrackData(CodecType codecType, const webm::Trac
     }
 }
 
+WebMParser::AudioTrackData::~AudioTrackData() = default;
+
 void WebMParser::AudioTrackData::resetCompletedFramesState()
 {
     mNumFramesInCompleteBlock = 0;
@@ -1232,16 +1234,18 @@ webm::Status WebMParser::AudioTrackData::consumeFrameData(webm::Reader& reader, 
                 return Skip(&reader, bytesRemaining);
             }
             OpusCookieContents cookieContents;
-            if (!parseOpusPrivateData(privateData.size(), privateData.data(), contiguousBuffer->size(), contiguousBuffer->data(), cookieContents)) {
+            if (!parseOpusPrivateData(privateData.size(), privateData.data(), *contiguousBuffer, cookieContents)) {
                 PARSER_LOG_ERROR_IF_POSSIBLE("Failed to parse Opus private data");
                 return Skip(&reader, bytesRemaining);
             }
+#if !HAVE(AUDIOFORMATPROPERTY_VARIABLEPACKET_SUPPORTED)
             if (!cookieContents.framesPerPacket) {
                 PARSER_LOG_ERROR_IF_POSSIBLE("Opus private data indicates 0 frames per packet; bailing");
                 return Skip(&reader, bytesRemaining);
             }
             m_framesPerPacket = cookieContents.framesPerPacket;
             m_frameDuration = cookieContents.frameDuration;
+#endif
             formatDescription = createOpusAudioInfo(cookieContents);
         }
 
@@ -1250,12 +1254,17 @@ webm::Status WebMParser::AudioTrackData::consumeFrameData(webm::Reader& reader, 
             return Skip(&reader, bytesRemaining);
         }
 
-        m_packetDuration = MediaTime(formatDescription->framesPerPacket, formatDescription->rate);
-
+        m_packetDurationParser = makeUnique<PacketDurationParser>(*formatDescription);
+        if (!m_packetDurationParser->isValid()) {
+            PARSER_LOG_ERROR_IF_POSSIBLE("Failed to create PacketDurationParser from audio track header");
+            return Skip(&reader, bytesRemaining);
+        }
         setFormatDescription(formatDescription.releaseNonNull());
-    } else if (codec() == CodecType::Opus) {
+    }
+#if !HAVE(AUDIOFORMATPROPERTY_VARIABLEPACKET_SUPPORTED)
+    else if (codec() == CodecType::Opus) {
         // Opus technically allows the frame duration and frames-per-packet values to change from packet to packet.
-        // CoreAudio doesn't support ASBD values like these to change on a per-packet basis, so throw an error when
+        // Prior rdar://71347713 CoreMedia opus decoder didn't support those, so throw an error when
         // that kind of variability is encountered.
         OpusCookieContents cookieContents;
         auto& privateData = track().codec_private.value();
@@ -1264,12 +1273,19 @@ webm::Status WebMParser::AudioTrackData::consumeFrameData(webm::Reader& reader, 
             PARSER_LOG_ERROR_IF_POSSIBLE("AudioTrackData::consumeFrameData: unable to create contiguous data block");
             return Skip(&reader, bytesRemaining);
         }
-        if (!parseOpusPrivateData(privateData.size(), privateData.data(), contiguousBuffer->size(), contiguousBuffer->data(), cookieContents)
+        if (!parseOpusPrivateData(privateData.size(), privateData.data(), *contiguousBuffer, cookieContents)
             || cookieContents.framesPerPacket != m_framesPerPacket
             || cookieContents.frameDuration != m_frameDuration) {
             PARSER_LOG_ERROR_IF_POSSIBLE("Opus frames-per-packet changed within a track; error");
             return Status(Status::Code(ErrorCode::VariableFrameDuration));
         }
+    }
+#endif
+
+    auto contiguousBuffer = contiguousCompleteBlockBuffer(0, codec() == CodecType::Opus ? kOpusMinimumFrameDataSize : kVorbisMinimumFrameDataSize);
+    if (!contiguousBuffer) {
+        PARSER_LOG_ERROR_IF_POSSIBLE("AudioTrackData::consumeFrameData: unable to create contiguous data block");
+        return Skip(&reader, bytesRemaining);
     }
 
     bool shouldDrain = !!m_processedMediaSamples.info();
@@ -1281,14 +1297,15 @@ webm::Status WebMParser::AudioTrackData::consumeFrameData(webm::Reader& reader, 
         parser().formatDescriptionChangedForTrackData(*this);
     }
 
+    MediaTime packetDuration = MediaTime(m_packetDurationParser->framesInPacket(*contiguousBuffer), downcast<AudioInfo>(formatDescription())->rate);
     auto trimDuration = MediaTime::zeroTime();
     MediaTime localPresentationTime = presentationTime;
     if (m_remainingTrimDuration.isFinite() && m_remainingTrimDuration > MediaTime::zeroTime()) {
-        if (m_remainingTrimDuration < m_packetDuration)
+        if (m_remainingTrimDuration < packetDuration)
             std::swap(trimDuration, m_remainingTrimDuration);
         else {
-            m_remainingTrimDuration -= m_packetDuration;
-            trimDuration = m_packetDuration;
+            m_remainingTrimDuration -= packetDuration;
+            trimDuration = packetDuration;
         }
     }
 
@@ -1313,9 +1330,9 @@ webm::Status WebMParser::AudioTrackData::consumeFrameData(webm::Reader& reader, 
             localPresentationTime -= discontinuityGap;
     }
 
-    m_lastPresentationEndTime = localPresentationTime + m_packetDuration;
+    m_lastPresentationEndTime = localPresentationTime + packetDuration;
 
-    m_processedMediaSamples.append({ localPresentationTime, MediaTime::invalidTime(), m_packetDuration, trimDuration, WTFMove(m_completeFrameData), MediaSample::SampleFlags::IsSync });
+    m_processedMediaSamples.append({ localPresentationTime, MediaTime::invalidTime(), packetDuration, trimDuration, WTFMove(m_completeFrameData), MediaSample::SampleFlags::IsSync });
 
     drainPendingSamples();
 
@@ -1437,11 +1454,14 @@ MediaPlayerEnums::SupportsType SourceBufferParserWebM::isContentTypeSupported(co
 #endif // ENABLE(VP9) || ENABLE(VORBIS) || ENABLE(OPUS)
 }
 
-RefPtr<SourceBufferParserWebM> SourceBufferParserWebM::create(const ContentType& type)
+bool SourceBufferParserWebM::isAvailable()
 {
-    if (isContentTypeSupported(type) != MediaPlayerEnums::SupportsType::IsNotSupported)
-        return adoptRef(new SourceBufferParserWebM());
-    return nullptr;
+    return isWebmParserAvailable();
+}
+
+RefPtr<SourceBufferParserWebM> SourceBufferParserWebM::create()
+{
+    return isAvailable() ? adoptRef(new SourceBufferParserWebM()) : nullptr;
 }
 
 void WebMParser::provideMediaData(MediaSamplesBlock&& samples)
@@ -1563,7 +1583,7 @@ void SourceBufferParserWebM::flushPendingAudioSamples()
     m_queuedAudioDuration = { };
 }
 
-void SourceBufferParserWebM::appendData(Segment&& segment, CompletionHandler<void()>&& completionHandler, AppendFlags appendFlags)
+Expected<void, PlatformMediaError> SourceBufferParserWebM::appendData(Segment&& segment, AppendFlags appendFlags)
 {
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, "flags(", appendFlags == AppendFlags::Discontinuity ? "Discontinuity" : "", "), size(", segment.size(), ")");
 
@@ -1573,41 +1593,19 @@ void SourceBufferParserWebM::appendData(Segment&& segment, CompletionHandler<voi
     }
 
     auto result = m_parser.parse(WTFMove(segment));
-    if (result.hasException()) {
-        completionHandler();
-        return;
-    }
-
-    if (result.returnValue()) {
-        ERROR_LOG_IF_POSSIBLE(LOGIDENTIFIER, "status.code(", result.returnValue(), ")");
-
-        m_callOnClientThreadCallback([this, protectedThis = Ref { *this }, code = result.returnValue()] {
-            if (m_didEncounterErrorDuringParsingCallback)
-                m_didEncounterErrorDuringParsingCallback(code);
-        });
-    }
+    if (result.hasException() || result.returnValue())
+        return makeUnexpected(PlatformMediaError::ParsingError);
 
     // Audio tracks are grouped into meta-samples of a duration no more than m_minimumSampleDuration.
     // But at the end of a file, no more audio data may be incoming, so flush and emit any pending
     // audio buffers.
     flushPendingAudioSamples();
 
-    completionHandler();
+    return { };
 }
 
 void SourceBufferParserWebM::flushPendingMediaData()
 {
-}
-
-void SourceBufferParserWebM::setShouldProvideMediaDataForTrackID(bool, uint64_t)
-{
-    notImplemented();
-}
-
-bool SourceBufferParserWebM::shouldProvideMediadataForTrackID(uint64_t)
-{
-    notImplemented();
-    return false;
 }
 
 void SourceBufferParserWebM::invalidate()
@@ -1621,7 +1619,7 @@ void SourceBufferParserWebM::setLogger(const Logger& newLogger, const void* newL
     m_logger = &newLogger;
     m_logIdentifier = newLogIdentifier;
     ALWAYS_LOG(LOGIDENTIFIER);
-    
+
     m_parser.setLogger(newLogger, newLogIdentifier);
 }
 

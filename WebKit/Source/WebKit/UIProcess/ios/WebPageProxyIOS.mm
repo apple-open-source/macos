@@ -47,7 +47,6 @@
 #import "PaymentAuthorizationViewController.h"
 #import "PrintInfo.h"
 #import "ProvisionalPageProxy.h"
-#import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeNode.h"
 #import "RemoteLayerTreeTransaction.h"
@@ -304,6 +303,12 @@ void WebPageProxy::setViewportConfigurationViewLayoutSize(const WebCore::FloatSi
         m_process->send(Messages::WebPage::SetViewportConfigurationViewLayoutSize(size, scaleFactor, minimumEffectiveDeviceWidth), webPageID());
 }
 
+void WebPageProxy::setSceneIdentifier(String&& sceneIdentifier)
+{
+    if (hasRunningProcess())
+        m_process->send(Messages::WebPage::SetSceneIdentifier(WTFMove(sceneIdentifier)), webPageID());
+}
+
 void WebPageProxy::setForceAlwaysUserScalable(bool userScalable)
 {
     if (m_forceAlwaysUserScalable == userScalable)
@@ -497,14 +502,6 @@ void WebPageProxy::updateSelectionWithExtentPointAndBoundary(const WebCore::IntP
     sendWithAsyncReply(Messages::WebPage::UpdateSelectionWithExtentPointAndBoundary(point, granularity, isInteractingWithFocusedElement), WTFMove(callback));
 }
 
-void WebPageProxy::requestDictationContext(CompletionHandler<void(const String&, const String&, const String&)>&& callbackFunction)
-{
-    if (!hasRunningProcess())
-        return callbackFunction({ }, { }, { });
-
-    sendWithAsyncReply(Messages::WebPage::RequestDictationContext(), WTFMove(callbackFunction));
-}
-
 #if ENABLE(REVEAL)
 void WebPageProxy::requestRVItemInCurrentSelectedRange(CompletionHandler<void(const WebKit::RevealItem&)>&& callbackFunction)
 {
@@ -607,7 +604,6 @@ void WebPageProxy::performActionOnElements(uint32_t action, Vector<WebCore::Elem
 
 void WebPageProxy::saveImageToLibrary(SharedMemory::Handle&& imageHandle, const String& authorizationToken)
 {
-    MESSAGE_CHECK(!imageHandle.isNull());
     MESSAGE_CHECK(isValidPerformActionOnElementAuthorizationToken(authorizationToken));
 
     auto sharedMemoryBuffer = SharedMemory::map(WTFMove(imageHandle), SharedMemory::Protection::ReadOnly);
@@ -622,7 +618,7 @@ void WebPageProxy::applicationDidEnterBackground()
 {
     m_lastObservedStateWasBackground = true;
 
-    bool isSuspendedUnderLock = [UIApp isSuspendedUnderLock];
+    bool isSuspendedUnderLock = UIApplication.sharedApplication.isSuspendedUnderLock;
     
     WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationDidEnterBackground: isSuspendedUnderLock? %d", isSuspendedUnderLock);
 
@@ -655,7 +651,7 @@ void WebPageProxy::applicationWillEnterForeground()
 {
     m_lastObservedStateWasBackground = false;
 
-    bool isSuspendedUnderLock = [UIApp isSuspendedUnderLock];
+    bool isSuspendedUnderLock = UIApplication.sharedApplication.isSuspendedUnderLock;
     WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationWillEnterForeground: isSuspendedUnderLock? %d", isSuspendedUnderLock);
 
     m_process->send(Messages::WebPage::ApplicationWillEnterForeground(isSuspendedUnderLock), webPageID());
@@ -669,7 +665,7 @@ void WebPageProxy::applicationWillResignActive()
 
 void WebPageProxy::applicationDidEnterBackgroundForMedia()
 {
-    bool isSuspendedUnderLock = [UIApp isSuspendedUnderLock];
+    bool isSuspendedUnderLock = UIApplication.sharedApplication.isSuspendedUnderLock;
     WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationWillEnterForegroundForMedia: isSuspendedUnderLock? %d", isSuspendedUnderLock);
 
     m_process->send(Messages::WebPage::ApplicationDidEnterBackgroundForMedia(isSuspendedUnderLock), webPageID());
@@ -677,7 +673,7 @@ void WebPageProxy::applicationDidEnterBackgroundForMedia()
 
 void WebPageProxy::applicationWillEnterForegroundForMedia()
 {
-    bool isSuspendedUnderLock = [UIApp isSuspendedUnderLock];
+    bool isSuspendedUnderLock = UIApplication.sharedApplication.isSuspendedUnderLock;
     WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationWillEnterForegroundForMedia: isSuspendedUnderLock? %d", isSuspendedUnderLock);
 
     m_process->send(Messages::WebPage::ApplicationWillEnterForegroundForMedia(isSuspendedUnderLock), webPageID());
@@ -771,6 +767,13 @@ void WebPageProxy::registerWebProcessAccessibilityToken(const IPC::DataReference
 {
     pageClient().accessibilityWebProcessTokenReceived(data);
 }    
+
+
+void WebPageProxy::relayAccessibilityNotification(const String& notificationName, const IPC::DataReference& data)
+{
+    NSData *notificationData = [NSData dataWithBytes:data.data() length:data.size()];
+    pageClient().relayAccessibilityNotification(notificationName, notificationData);
+}
 
 void WebPageProxy::assistiveTechnologyMakeFirstResponder()
 {
@@ -940,6 +943,11 @@ void WebPageProxy::elementDidBlur()
     pageClient().elementDidBlur();
 }
 
+void WebPageProxy::updateFocusedElementInformation(const FocusedElementInformation& information)
+{
+    pageClient().updateFocusedElementInformation(information);
+}
+
 void WebPageProxy::focusedElementDidChangeInputMode(WebCore::InputMode mode)
 {
 #if ENABLE(TOUCH_EVENTS)
@@ -1087,7 +1095,7 @@ IPC::Connection::AsyncReplyID WebPageProxy::drawToPDFiOS(FrameIdentifier frameID
     return sendWithAsyncReply(Messages::WebPage::DrawToPDFiOS(frameID, printInfo, pageCount), WTFMove(completionHandler));
 }
 
-IPC::Connection::AsyncReplyID WebPageProxy::drawToImage(FrameIdentifier frameID, const PrintInfo& printInfo, CompletionHandler<void(WebKit::ShareableBitmap::Handle&&)>&& completionHandler)
+IPC::Connection::AsyncReplyID WebPageProxy::drawToImage(FrameIdentifier frameID, const PrintInfo& printInfo, CompletionHandler<void(std::optional<WebKit::ShareableBitmap::Handle>&&)>&& completionHandler)
 {
     if (!hasRunningProcess()) {
         completionHandler({ });
@@ -1202,14 +1210,14 @@ WebCore::FloatRect WebPageProxy::selectionBoundingRectInRootViewCoordinates() co
     return bounds;
 }
 
-void WebPageProxy::requestDocumentEditingContext(WebKit::DocumentEditingContextRequest request, CompletionHandler<void(WebKit::DocumentEditingContext)>&& completionHandler)
+void WebPageProxy::requestDocumentEditingContext(WebKit::DocumentEditingContextRequest&& request, CompletionHandler<void(WebKit::DocumentEditingContext&&)>&& completionHandler)
 {
     if (!hasRunningProcess()) {
         completionHandler({ });
         return;
     }
 
-    sendWithAsyncReply(Messages::WebPage::RequestDocumentEditingContext(request), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::WebPage::RequestDocumentEditingContext(WTFMove(request)), WTFMove(completionHandler));
 }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -1312,10 +1320,10 @@ const String& WebPageProxy::Internals::paymentCoordinatorCTDataConnectionService
 
 #if ENABLE(APPLE_PAY) && ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
 
-void WebPageProxy::Internals::getWindowSceneIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&)>&& completionHandler)
+void WebPageProxy::Internals::getWindowSceneAndBundleIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&, const String&)>&& completionHandler)
 {
     ASSERT_NOT_REACHED();
-    completionHandler(nullString());
+    completionHandler(nullString(), nullString());
 }
 
 #endif

@@ -86,22 +86,22 @@ struct nfs_gss_clnt_ctx {
 	kauth_cred_t            gss_clnt_cred;          // Owner of this context
 	uint8_t                 *gss_clnt_principal;    // Principal to use for this credential
 	size_t                  gss_clnt_prinlen;       // Length of principal
+	uint32_t                gss_clnt_seqwin;        // Server's seq num window
 	gssd_nametype           gss_clnt_prinnt;        // Name type of principal
 	char                    *gss_clnt_display;      // display name of principal
 	uint32_t                gss_clnt_proc;          // Current GSS proc for cred
 	uint32_t                gss_clnt_seqnum;        // GSS sequence number
 	uint32_t                gss_clnt_service;       // Indicates krb5, krb5i or krb5p
-	uint8_t                 *gss_clnt_handle;       // Identifies server context
 	uint32_t                gss_clnt_handle_len;    // Size of server's ctx handle
+	uint8_t                 *gss_clnt_handle;       // Identifies server context
 	time_t                  gss_clnt_nctime;        // When context was put in the negative cache
-	uint32_t                gss_clnt_seqwin;        // Server's seq num window
 	uint32_t                *gss_clnt_seqbits;      // Bitmap to track seq numbers in use
 	mach_port_t             gss_clnt_mport;         // Mach port for gssd upcall
+	gssd_nametype           gss_clnt_svcnt;         // Service name type
 	uint32_t                gss_clnt_verflen;       // RPC verifier length from server
 	uint8_t                 *gss_clnt_verf;         // RPC verifier from server
 	uint8_t                 *gss_clnt_svcname;      // Service name e.g. "nfs/big.apple.com"
 	size_t                  gss_clnt_svcnamlen;     // Service name length
-	gssd_nametype           gss_clnt_svcnt;         // Service name type
 	gssd_cred               gss_clnt_cred_handle;   // Opaque cred handle from gssd
 	gssd_ctx                gss_clnt_context;       // Opaque context handle from gssd
 	gss_ctx_id_t            gss_clnt_ctx_id;        // Underlying gss context

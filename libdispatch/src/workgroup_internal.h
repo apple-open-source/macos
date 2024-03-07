@@ -48,6 +48,14 @@ void _os_workgroup_interval_explicit_dispose(os_workgroup_interval_t wgi);
 
 extern pthread_key_t _os_workgroup_key;
 void _os_workgroup_tsd_cleanup(void *ctxt);
+/*!
+ * @function _os_workgroup_get_backing_workinterval
+ *
+ * @abstract
+ * Returns the work interval port backing this os workgroup, if available.
+ * This does *not* take an additional reference to a send right on the returned port.
+ */
+mach_port_t _os_workgroup_get_backing_workinterval(os_workgroup_t wg);
 
 void _workgroup_init(void);
 

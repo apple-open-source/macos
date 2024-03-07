@@ -1528,6 +1528,11 @@ main(int argc, char *argv[])
 				nmissedmax = ntransmitted - nreceived - 1;
 				if (options & F_MISSED)
 					(void)write(STDOUT_FILENO, &BBELL, 1);
+				if (options & F_PRTIME) {
+					pr_currenttime();
+					printf("Request timeout for seq %u\n",
+                                               (uint16_t)(ntransmitted - 2));
+				}
 			}
 		}
 	}
@@ -3335,6 +3340,5 @@ usage(void)
 	(void)fprintf(stderr, "            -K net_service_type  # set traffic class socket options\n");
 	(void)fprintf(stderr, "            --apple-connect      # call connect(2) in the socket\n");
 	(void)fprintf(stderr, "            --apple-time         # display current time\n");
-	(void)fprintf(stderr, "            --apple-progress     # show progress for debugging\n");
 	exit(1);
 }

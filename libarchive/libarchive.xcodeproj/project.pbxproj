@@ -527,6 +527,8 @@
 		CA0BE38C2212140400E93D29 /* err.c in Sources */ = {isa = PBXBuildFile; fileRef = FDE953B21148815D0033A30A /* err.c */; };
 		CA0BE38D2212154800E93D29 /* cmdline.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8A58104DCC930096D791 /* cmdline.c */; };
 		CAC43C8D2343EE980076863B /* test_read_format_zip_multithread.c in Sources */ = {isa = PBXBuildFile; fileRef = CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */; };
+		D02231B82B4E0960001728C9 /* archive_mac.c in Sources */ = {isa = PBXBuildFile; fileRef = D02231B72B4E0960001728C9 /* archive_mac.c */; };
+		D04310EF2B33CC5000BE2049 /* test_archive_set_quarantine.c in Sources */ = {isa = PBXBuildFile; fileRef = D04310EE2B33CC4F00BE2049 /* test_archive_set_quarantine.c */; };
 		D0A701C02A0ED98D00DA39CA /* archive_check_entitlement.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A701BE2A0ED98D00DA39CA /* archive_check_entitlement.c */; };
 		D0A701C22A0EDBD800DA39CA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0A701C12A0EDBD800DA39CA /* Security.framework */; };
 		D0A701C42A12C98F00DA39CA /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0A701C32A12C98F00DA39CA /* CoreFoundation.framework */; };
@@ -1341,6 +1343,8 @@
 		CA0BE3572212129200E93D29 /* test_option_uuencode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_uuencode.c; path = libarchive/cpio/test/test_option_uuencode.c; sourceTree = SOURCE_ROOT; };
 		CA0BE3582212129200E93D29 /* test_option_J_upper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_J_upper.c; path = libarchive/cpio/test/test_option_J_upper.c; sourceTree = SOURCE_ROOT; };
 		CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = test_read_format_zip_multithread.c; path = libarchive/libarchive/test/test_read_format_zip_multithread.c; sourceTree = SOURCE_ROOT; };
+		D02231B72B4E0960001728C9 /* archive_mac.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_mac.c; path = libarchive/libarchive/archive_mac.c; sourceTree = "<group>"; };
+		D04310EE2B33CC4F00BE2049 /* test_archive_set_quarantine.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_archive_set_quarantine.c; path = libarchive/libarchive/test/test_archive_set_quarantine.c; sourceTree = SOURCE_ROOT; };
 		D0A701BE2A0ED98D00DA39CA /* archive_check_entitlement.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = archive_check_entitlement.c; path = libarchive/libarchive/archive_check_entitlement.c; sourceTree = "<group>"; };
 		D0A701C12A0EDBD800DA39CA /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		D0A701C32A12C98F00DA39CA /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -1656,6 +1660,7 @@
 		CA0BE0B5220E6CF300E93D29 /* libarchive_test */ = {
 			isa = PBXGroup;
 			children = (
+				D04310EE2B33CC4F00BE2049 /* test_archive_set_quarantine.c */,
 				CA0BE0BB220E6D2600E93D29 /* list.h */,
 				CA0BE0BA220E6D2600E93D29 /* read_open_memory.c */,
 				CA0BE0BC220E6D2600E93D29 /* test_acl_nfs4.c */,
@@ -2057,6 +2062,7 @@
 		FD9B89E5104DC8010096D791 /* libarchive */ = {
 			isa = PBXGroup;
 			children = (
+				D02231B72B4E0960001728C9 /* archive_mac.c */,
 				3EE6CED51FA8CFB70018AA21 /* archive_acl.c */,
 				D3B0EFD325CC810E00E729D9 /* archive_blake2s_ref.c */,
 				D3B0EFC625CC810000E729D9 /* archive_blake2sp_ref.c */,
@@ -2947,6 +2953,7 @@
 				CA0BE2D9220E702B00E93D29 /* test_tar_large.c in Sources */,
 				CA0BE2A4220E702B00E93D29 /* test_zip_filename_encoding.c in Sources */,
 				CA0BE1B5220E6E4000E93D29 /* test_read_filter_lrzip.c in Sources */,
+				D04310EF2B33CC5000BE2049 /* test_archive_set_quarantine.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3119,6 +3126,7 @@
 				FD9B89C3104DC7F10096D791 /* archive_write_open_memory.c in Sources */,
 				D0A701C02A0ED98D00DA39CA /* archive_check_entitlement.c in Sources */,
 				FD9B89D1104DC7F10096D791 /* archive_write_set_format.c in Sources */,
+				D02231B82B4E0960001728C9 /* archive_mac.c in Sources */,
 				FD9B89C9104DC7F10096D791 /* archive_write_set_format_ar.c in Sources */,
 				3EE6CF391FA8CFD60018AA21 /* archive_write_add_filter.c in Sources */,
 				FD9B89CA104DC7F10096D791 /* archive_write_set_format_by_name.c in Sources */,

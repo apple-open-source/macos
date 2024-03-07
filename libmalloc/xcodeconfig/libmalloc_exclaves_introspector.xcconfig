@@ -1,0 +1,17 @@
+#include "libmalloc_common.xcconfig"
+
+BUILD_VARIANTS = normal
+INSTALL_PATH = /System/Library/PrivateFrameworks
+PRODUCT_NAME = MallocExclavesIntrospector
+
+// FIXME: Causes overlapping definitions between System.framework's public and private headers
+// rdar://115572617 (Support modular inclusion of mach/vm_reclaim.h)
+CLANG_ENABLE_MODULES = NO
+
+SUPPORTS_TEXT_BASED_API = YES
+
+SYSTEM_HEADER_SEARCH_PATHS = $(inherited) $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) MALLOC_TARGET_EXCLAVES_INTROSPECTOR=1
+
+OTHER_LDFLAGS = $(inherited) -lCrashReporterClient

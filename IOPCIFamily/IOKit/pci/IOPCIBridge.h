@@ -470,6 +470,9 @@ protected:
 	// findDeviceByXXX retains the returned IOPCIDevice object
 	IOPCIDevice *findDeviceByBDF(IOPCIAddressSpace space);
 	IOPCIDevice *findDeviceByMemAddress(IOPhysicalAddress address);
+
+private:
+    void waitForDartToQuiesce(IOPCIDevice *nub);
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -556,6 +559,10 @@ public:
 
     IOReturn setPowerState( unsigned long powerState,
                             IOService * whatDevice ) override;
+
+    virtual IOReturn powerStateDidChangeTo (IOPMPowerFlags  capabilities,
+                                            unsigned long   stateNumber,
+                                            IOService*      whatDevice) override;
 
     void adjustPowerState(unsigned long state);
 

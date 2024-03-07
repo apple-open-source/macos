@@ -47,32 +47,4 @@ void	 qsort_r(void *__base, size_t __nel, size_t __width, void *,
 /* For merge_b */
 typedef unsigned char u_char;
 
-/* For strtofp.c */
-#define ENABLE_LOCALE_SUPPORT 0
-
-__attribute__((visibility("hidden")))
-void strtoencf16(unsigned char * restrict encptr,
-                      const char * restrict nptr,
-                      char ** restrict endptr);
-
-__attribute__((visibility("hidden")))
-void strtoencf32(unsigned char * restrict encptr,
-                      const char * restrict nptr,
-                      char ** restrict endptr);
-
-__attribute__((visibility("hidden")))
-void strtoencf64(unsigned char * restrict encptr,
-                      const char * restrict nptr,
-                      char ** restrict endptr);
-
-__attribute__((visibility("hidden")))
-void strtoencf64x(unsigned char *restrict encptr,
-                       const char * restrict nptr,
-                       char ** restrict endptr);
-
-__attribute__((visibility("hidden")))
-void strtoencf128(unsigned char * restrict encptr,
-                       const char * restrict nptr,
-                       char ** restrict endptr);
-
 #endif /* _PRIVATE_COMPAT_H_ */

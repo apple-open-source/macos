@@ -195,7 +195,12 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	}
 	
 	// Setup/Inherit launch constraints
-	launchConstraints = std::move(state.mLaunchConstraints);
+	launchConstraints = state.mLaunchConstraints;
+	// The copy constructor for CFRef does not retain the reference but launchConstraints will get destructed
+	// before state.mLaunchConstraints, so make sure we retain any references we do find in the array.
+	for (auto& ref : launchConstraints) {
+		ref.retain();
+	}
 	if ((inherit & kSecCodeSignerPreserveLaunchConstraints) &&
 		!launchConstraints[0] &&
 		!launchConstraints[1] &&

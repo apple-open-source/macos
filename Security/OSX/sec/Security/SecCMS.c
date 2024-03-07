@@ -38,6 +38,10 @@
 #endif
 
 #if ENABLE_CMS
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 #include <Security/SecBase.h>
 #include <Security/SecCmsMessage.h>
 #include <Security/SecCmsSignedData.h>
@@ -870,5 +874,6 @@ out:
     return message;
 }
 
-#endif /* ENABLE_CMS */
+#pragma clang diagnostic pop
 
+#endif /* ENABLE_CMS */

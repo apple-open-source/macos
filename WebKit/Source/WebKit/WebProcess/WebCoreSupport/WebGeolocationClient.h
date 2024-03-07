@@ -25,11 +25,11 @@
 
 #pragma once
 
+#include "WebPage.h"
 #include <WebCore/GeolocationClient.h>
+#include <wtf/WeakRef.h>
 
 namespace WebKit {
-
-class WebPage;
 
 class WebGeolocationClient final : public WebCore::GeolocationClient {
     WTF_MAKE_FAST_ALLOCATED;
@@ -54,7 +54,7 @@ private:
     void requestPermission(WebCore::Geolocation&) final;
     void cancelPermissionRequest(WebCore::Geolocation&) final;
 
-    WebPage& m_page;
+    WeakRef<WebPage> m_page;
 };
 
 } // namespace WebKit

@@ -559,7 +559,8 @@ CSSM_KEYBLOB_FORMAT inferFormat(
  */
 CSSM_KEYBLOB_FORMAT requestedKeyFormat(
 	const Context 	&context,
-	const CssmKey	&key)
+	const CssmKey	&key,
+    CSSM_KEYBLOB_FORMAT defaultFormat)
 {
 	CSSM_ATTRIBUTE_TYPE attrType;
 	
@@ -576,8 +577,8 @@ CSSM_KEYBLOB_FORMAT requestedKeyFormat(
 		default:
 			return CSSM_KEYBLOB_RAW_FORMAT_NONE;
 	}
-	/* not present ==> 0 ==> CSSM_KEYBLOB_RAW_FORMAT_NONE */
-	return context.getInt(attrType);
+    CSSM_KEYBLOB_FORMAT format;
+    return context.getInt(attrType, format) ? format : defaultFormat;
 }
 
 /* one-shot SHA1 digest */

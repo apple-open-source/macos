@@ -74,6 +74,7 @@ he{
         bez{"בנה"}
         bfd{"באפוט"}
         bg{"בולגרית"}
+        bgc{"הריאנבי"}
         bgn{"באלוצ׳י מערבית"}
         bho{"בוג׳פורי"}
         bi{"ביסלמה"}
@@ -131,7 +132,7 @@ he{
         crs{"קריאולית (סיישל)"}
         cs{"צ׳כית"}
         csb{"קשובית"}
-        csw{"סקרי של אזור הביצות"}
+        csw{"קרי של אזור הביצות"}
         cu{"סלאבית כנסייתית עתיקה"}
         cv{"צ׳ובאש"}
         cy{"וולשית"}
@@ -1099,16 +1100,16 @@ he{
     }
     characterLabelPattern{
         all{"{0} - הכל"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} - תאימות"}
         enclosed{"{0} - תחום"}
         extended{"{0} - מורחב"}
+        facing-left{"{0} פונה שמאלה"}
+        facing-right{"{0} פונה ימינה"}
         historic{"{0} - היסטורי"}
         miscellaneous{"{0} - שונות"}
         other{"{0} - אחר"}
         scripts{"כתב - {0}"}
         strokes{
-            many{"{0} משיכות מכחול"}
             one{"משיכת מכחול {0}"}
             other{"{0} משיכות מכחול"}
             two{"{0} משיכות מכחול"}
@@ -1123,7 +1124,5 @@ he{
     }
     localeDisplayPattern{
         keyTypePattern{"{0}:‏ {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

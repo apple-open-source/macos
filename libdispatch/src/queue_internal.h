@@ -1261,15 +1261,18 @@ struct dispatch_apply_s {
 	dispatch_continuation_t da_dc;
 #endif
 	size_t _Atomic da_index;
+#if DISPATCH_INTROSPECTION
 	size_t _Atomic da_todo;
+#endif
 	size_t da_iterations;
 #if OS_OBJECT_HAVE_OBJC1
 	dispatch_continuation_t da_dc;
 #endif
 	size_t da_nested;
-	dispatch_thread_event_s da_event;
+	dispatch_once_t *da_once_gates;
 	dispatch_invoke_flags_t da_flags;
 	int32_t da_thr_cnt;
+	int32_t da_final_thr_cnt;
 	uint32_t _Atomic da_worker_index;
 	dispatch_apply_attr_t da_attr;
 };
@@ -1292,6 +1295,23 @@ struct dispatch_apply_attr_s {
 };
 dispatch_static_assert(sizeof(struct dispatch_apply_attr_s) == __DISPATCH_APPLY_ATTR_SIZE__,
 		"Opaque dispatch apply attr and internal apply attr size should match");
+
+#if __LP64__
+/* Our continuation allocator is a bit more performant than the default system
+ * malloc (especially with our per-thread cache), so let's use it if we can.
+ * On 32-bit platforms and introspection variant, dispatch_apply_s is bigger than
+ * dispatch_continuation_s so we can't use the cont allocator, but we're okay with
+ * the slight perf degradation there.
+ */
+
+#if DISPATCH_INTROSPECTION
+#define DISPATCH_APPLY_USE_CONTINUATION_ALLOCATOR 0
+#else
+#define DISPATCH_APPLY_USE_CONTINUATION_ALLOCATOR 1
+#endif // DISPATCH_INTROSPECTION
+#else // __LP64__
+#define DISPATCH_APPLY_USE_CONTINUATION_ALLOCATOR 0
+#endif // __LP64__
 
 #pragma mark -
 #pragma mark dispatch_block_t

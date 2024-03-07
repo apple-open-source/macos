@@ -63,6 +63,25 @@ build_manlocales() {
 	decho "Available manual locales: $MANLOCALES"
 }
 
+# Usage: build_mansect
+# Builds a correct MANSECT variable.
+build_mansect() {
+	# If the user has set mansect, who are we to argue.
+	if [ -n "$MANSECT" ]; then
+		return
+	fi
+
+	parse_configs
+
+	# Trim leading colon
+	MANSECT=${mansect#:}
+
+	if [ -z "$MANSECT" ]; then
+		MANSECT=$man_default_sections
+	fi
+	decho "Using manual sections: $MANSECT"
+}
+
 # Usage: build_manpath
 # Builds a correct MANPATH variable.
 build_manpath() {
@@ -180,13 +199,16 @@ exists() {
 	# Use some globbing tricks in the shell to determine if a file
 	# exists or not.
 	set +f
-	set -- "$1" $1
-	set -f
 
-	if [ "$1" != "$2" -a -r "$2" ]; then
-		found="$2"
-		return 0
-	fi
+	for file in "$1"*
+	do
+		if [ -r "$file" ]; then
+			found="$file"
+			set -f
+			return 0
+		fi
+	done
+	set -f
 
 	return 1
 }
@@ -209,10 +231,10 @@ find_file() {
 	fi
 	decho "  Searching directory $manroot" 2
 
-	mann="$manroot/$4.$2*"
-	man0="$manroot/$4.0*"
-	catn="$catroot/$4.$2*"
-	cat0="$catroot/$4.0*"
+	mann="$manroot/$4.$2"
+	man0="$manroot/$4.0"
+	catn="$catroot/$4.$2"
+	cat0="$catroot/$4.0"
 
 	# This is the behavior as seen by the original man utility.
 	# Let's not change that which doesn't seem broken.
@@ -296,7 +318,7 @@ man_check_for_so() {
 		.so*)	trim "${line#.so}"
 			decho "$manpage includes $tstr"
 			# Glob and check for the file.
-			if ! check_man "$path/$tstr*" ""; then
+			if ! check_man "$path/$tstr" ""; then
 				decho "  Unable to find $tstr"
 				return 1
 			fi
@@ -407,14 +429,14 @@ man_display_page() {
 
 	if [ $debug -gt 0 ]; then
 #ifdef __APPLE__
-		decho "Command: cd $path && $cattool \"$manpage\" | $pipeline"
+		decho "Command: cd \"$path\" && $cattool \"$manpage\" | $pipeline"
 #else
 #		decho "Command: $cattool $manpage | $pipeline"
 #endif
 		ret=0
 	else
 #ifdef __APPLE__
-		(cd $path && eval "$cattool \"$manpage\" | $pipeline")
+		(cd "$path" && eval "$cattool \"$manpage\" | $pipeline")
 #else
 #		eval "$cattool $manpage | $pipeline"
 #endif
@@ -562,7 +584,7 @@ man_display_page_groff() {
 # Usage: man_find_and_display page
 # Search through the manpaths looking for the given page.
 man_find_and_display() {
-	local found_page locpath p path sect
+	local candidate candidate_manpage found_page locpath p path sect
 
 	# Check to see if it's a file. But only if it has a '/' in
 	# the filename.
@@ -634,16 +656,51 @@ man_find_and_display() {
 				# Check plain old manpath.
 				if find_file $p $sect '' "$1"; then
 					if man_check_for_so $manpage $p; then
-						found_page=yes
 #ifdef __APPLE__
-						man_display_page $p
+						case "$manpage" in
+						*.$man_preferred_section)
+							candidate="$p"
+							candidate_manpage=$manpage
+							found_page=yes
+							;;
+						*)
+							# Use first candidate if we
+							# don't find one with
+							# the "preferred"
+							# section (if one was
+							# specified in args)
+							if [ -z "$candidate" ]; then
+								candidate="$p"
+								candidate_manpage=$manpage
+								found_page=maybe
+							fi
+							;;
+						esac
 #else
+#						found_page=yes
 #						man_display_page
 #endif
 						if [ -n "$aflag" ]; then
+#ifdef __APPLE__
+							# If we're displaying
+							# them all anyways,
+							# just do it now.
+							man_display_page $p
+#endif
 							continue 2
 						else
-							return
+#ifdef __APPLE__
+							# Keep cycling until we
+							# either hit the end or
+							# have a definitive
+							# match.
+							if [ "$foundpage" != "yes" ]; then
+								continue 2
+							fi
+							break 2
+#else
+#							return
+#endif
 						fi
 					fi
 				fi
@@ -657,13 +714,20 @@ man_find_and_display() {
 		echo "No manual entry for $1" >&2
 		ret=1
 		return
+#ifdef __APPLE__
+	elif [ -z "$aflag" ]; then
+		# We deferred rendering in case we find a better candidate while
+		# searching.
+		manpage="$candidate_manpage"
+		man_display_page "$candidate"
+#endif
 	fi
 }
 
-# Usage: man_parse_args "$@"
+# Usage: man_parse_opts "$@"
 # Parses commandline options for man.
-man_parse_args() {
-	local IFS cmd_arg
+man_parse_opts() {
+	local cmd_arg
 
 	OPTIND=1
 #ifdef __APPLE__
@@ -722,39 +786,6 @@ man_parse_args() {
 		do_apropos "$@"
 		exit
 	fi
-
-	IFS=:
-	for sect in $man_default_sections; do
-		if [ "$sect" = "$1" ]; then
-			decho "Detected manual section as first arg: $1"
-			MANSECT="$1"
-			shift
-			break
-		fi
-	done
-	unset IFS
-
-#ifdef __APPLE__
-	# Convoluted to simplify later handling of these path args; just
-	# expanding $* into $pages won't DTRT, we'll break up args with internal
-	# spaces.  Sidestep it entirely by instead shuffling the remainder of
-	# our args over into a newline-delimited $pages, which we can then
-	# process through with read.
-	if [ $# -lt 1 ]; then
-		return
-	fi
-
-	nl=$'\n'
-	for i in $(seq 1 $#); do
-		eval page=\"\${${i}}\"
-		if [ "${i}" -gt 1 ]; then
-			pages="${pages}${nl}"
-		fi
-		pages="${pages}${page}"
-	done
-#else
-#	pages="$*"
-#endif
 }
 
 # Usage: man_setup
@@ -776,14 +807,8 @@ man_setup() {
 #endif
 
 	setup_pager
-
-	# Setup manual sections to search.
-	if [ -z "$MANSECT" ]; then
-		MANSECT=$man_default_sections
-	fi
-	decho "Using manual sections: $MANSECT"
-
 	build_manpath
+	build_mansect
 	man_setup_locale
 	man_setup_width
 }
@@ -953,11 +978,11 @@ parse_file() {
 				trim "${line#MANCONFIG}"
 				config_local="$tstr"
 				;;
-#ifdef __APPLE__
 		MANSECT*)	decho "    MANSECT" 3
 				trim "${line#MANSECT}"
-				man_default_sections="$tstr"
+				mansect="$mansect:$tstr"
 				;;
+#ifdef __APPLE__
 		# Assume every other line describes a variable
 		*[\ \	]*)	var="${line%%[\ \	]*}"
 #else
@@ -1051,18 +1076,24 @@ search_whatis() {
 
 		if [ -f "$path/$f" -a -r "$path/$f" ]; then
 			decho "Found whatis: $path/$f"
-			wlist="$wlist $path/$f"
 #ifdef __APPLE__
+			wlist="$wlist:$path/$f"
 		else
 			decho "Using makewhatis.local: $path"
-			localwlist="$localwlist $path"
+			localwlist="$localwlist:$path"
+#else
+#			wlist="$wlist $path/$f"
 #endif
 		fi
 
 		for loc in $MANLOCALES; do
 			if [ -f "$path/$loc/$f" -a -r "$path/$loc/$f" ]; then
 				decho "Found whatis: $path/$loc/$f"
-				wlist="$wlist $path/$loc/$f"
+#ifdef __APPLE__
+				wlist="$wlist:$path/$loc/$f"
+#else
+#				wlist="$wlist $path/$loc/$f"
+#endif
 			fi
 		done
 	done
@@ -1102,8 +1133,11 @@ search_whatis() {
 		# Apple systems frequently won't have any directories in manpath
 		# with a whatis database.
 		if [ -n "$wlist" ]; then
-			out=$($GREP -Ehi $opt -- "$key" $wlist | eval ${sectfilter} | \
-			    $SED -e 's/\\n/\\\\n/g')
+			wlist=${wlist##:}
+			IFS=:
+			out=$($GREP -Ehi $opt -- "$key" $wlist | \
+			    eval ${sectfilter} | $SED -e 's/\\n/\\\\n/g')
+			unset IFS
 			if [ -n "$out" ]; then
 				good="$good\n$out"
 				found=1
@@ -1120,15 +1154,17 @@ search_whatis() {
 #endif
 
 #ifdef __APPLE__
+		IFS=:
 		for path in $localwlist; do
 			out=$(/usr/libexec/makewhatis.local "-o /dev/fd/1" \
-			    $path | $GREP -Ehi $opt -- "$key" | eval ${sectfilter} | \
+			    "$path" | $GREP -Ehi $opt -- "$key" | eval ${sectfilter} | \
 			    $SED -e 's/\\n/\\\\n/g')
 			if [ -n "$out" ]; then
 				good="$good\\n$out"
 				found=1
 			fi
 		done
+		unset IFS
 
 		if [ $found -eq 0 ]; then
 			bad="$bad\\n$key: nothing appropriate"
@@ -1265,12 +1301,86 @@ do_apropos() {
 }
 
 do_man() {
-	man_parse_args "$@"
+	local IFS
+
+	man_parse_opts "$@"
+	man_setup
+
+	shift $(( $OPTIND - 1 ))
+	IFS=:
+	for sect in $MANSECT; do
+		if [ "$sect" = "$1" ]; then
+			decho "Detected manual section as first arg: $1"
+#ifdef __APPLE__
+			man_preferred_section="$1"
+#endif
+			MANSECT="$1"
+			shift
+			break
+		fi
+	done
+	unset IFS
+
+#ifdef __APPLE__
+	if [ $# -gt 1 ]; then
+		local base_section
+
+		# See if we match an alternatively valid section; the previous
+		# version of man will reportedly accept any single number
+		# followed by up to 3 letters.  Naturally, if there's only one
+		# argument then we skip this entirely as it won't be the
+		# section.
+		#
+		# This sed invocation's expressions:
+		# - Eliminate any first arg that doesn't start with a number
+		# - Eliminate any first arg that starts with a number but is
+		#    followed by a non-alphabetic char
+		# - Eliminate any first arg that is followed by more than 3
+		#    alphabetic chars.
+		# - Rewrite what's left to just the leading number
+		#
+		# This somewhat efficiently validates the argument as an
+		# alternatively valid section
+		base_section=$(echo "$1" | $SED -E	\
+		    -e '/^[^0-9]/d'			\
+		    -e '/^[0-9][^[:alpha:]]/d'		\
+		    -e '/^[0-9][[:alpha:]]{4,}/d'	\
+		    -e 's/^([0-9])[[:alpha:]]{1,3}$/\1/')
+
+		if [ -n "$base_section" ]; then
+			decho "Detected extended manual section as first arg: $1"
+
+			man_preferred_section="$1"
+			MANSECT="$1:$base_section"
+			shift
+		fi
+	fi
+
+	# Convoluted to simplify later handling of these path args; just
+	# expanding $* into $pages won't DTRT, we'll break up args with internal
+	# spaces.  Sidestep it entirely by instead shuffling the remainder of
+	# our args over into a newline-delimited $pages, which we can then
+	# process through with read.
+	if [ $# -lt 1 ]; then
+		return
+	fi
+
+	nl=$'\n'
+	for i in $(seq 1 $#); do
+		eval page=\"\${${i}}\"
+		if [ "${i}" -gt 1 ]; then
+			pages="${pages}${nl}"
+		fi
+		pages="${pages}${page}"
+	done
+#else
+#	pages="$*"
+#endif
+
 	if [ -z "$pages" ]; then
 		echo 'What manual page do you want?' >&2
 		exit 1
 	fi
-	man_setup
 
 #ifdef __APPLE__
 	while read page; do
@@ -1333,6 +1443,7 @@ do_whatis() {
 #ifdef __APPLE__
 # rdar://problem/113400634 - avoid PATH searches where possible
 CAT=/bin/cat
+FIND=/usr/bin/find
 GREP=/usr/bin/grep
 MANDOC=/usr/bin/mandoc
 SED=/usr/bin/sed
@@ -1351,6 +1462,8 @@ debug=0
 man_default_sections='1:8:2:3:3lua:n:4:5:6:7:9:l'
 #ifdef __APPLE__
 man_default_path='/usr/share/man:/usr/local/share/man'
+# First argument that we'll eat if it's a valid section
+man_preferred_section=''
 #else
 #man_default_path='/usr/share/man:/usr/share/openssl/man:/usr/local/share/man:/usr/local/man'
 #endif

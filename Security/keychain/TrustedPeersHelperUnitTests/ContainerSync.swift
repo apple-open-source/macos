@@ -161,7 +161,7 @@ extension Container {
 
     func vouchWithBottleSync(test: XCTestCase, b: String, entropy: Data, bottleSalt: String, tlkShares: [CKKSTLKShare]) -> (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) {
         let expectation = XCTestExpectation(description: "vouchWithBottle replied")
-        var reta: Data?, retb: Data?, retc: [CKKSTLKShare]? = nil, retd: TrustedPeersHelperTLKRecoveryResult?, reterr: Error?
+        var reta: Data?, retb: Data?, retc: [CKKSTLKShare]?, retd: TrustedPeersHelperTLKRecoveryResult?, reterr: Error?
         self.vouchWithBottle(bottleID: b, entropy: entropy, bottleSalt: bottleSalt, tlkShares: tlkShares) { a, b, c, d, err in
             reta = a
             retb = b
@@ -183,7 +183,7 @@ extension Container {
                   altDSID: String?,
                   flowID: String?,
                   deviceSessionID: String?,
-                  canSendMetrics:Bool) -> (String?, [CKRecord]?, TPSyncingPolicy?, Error?) {
+                  canSendMetrics: Bool) -> (String?, [CKRecord]?, TPSyncingPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "join replied")
         var reta: String?, retkhr: [CKRecord]?, reterr: Error?
         var retpolicy: TPSyncingPolicy?
@@ -262,34 +262,18 @@ extension Container {
         return (retstate, retpolicy, reterr)
     }
 
-    func setAllowedMachineIDsSync(test: XCTestCase, allowedMachineIDs: Set<String>, accountIsDemo: Bool, listDifference: Bool = true) -> (Error?) {
+    func setAllowedMachineIDsSync(test: XCTestCase,
+                                  allowedMachineIDs: Set<String>,
+                                  userInitiatedRemovals: Set<String>? = nil,
+                                  evictedRemovals: Set<String>? = nil,
+                                  unknownReasonRemovals: Set<String>? = nil,
+                                  accountIsDemo: Bool,
+                                  listDifference: Bool = true) -> (Error?) {
         let expectation = XCTestExpectation(description: "setAllowedMachineIDs replied")
         var reterr: Error?
         let honorIDMSListChanges = accountIsDemo ? false : true
-        self.setAllowedMachineIDs(allowedMachineIDs, honorIDMSListChanges: honorIDMSListChanges, version: nil) { differences, err in
+        self.setAllowedMachineIDs(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasonRemovals, honorIDMSListChanges: honorIDMSListChanges, version: nil) { differences, err in
             XCTAssertEqual(differences, listDifference, "Reported list difference should match expectation")
-            reterr = err
-            expectation.fulfill()
-        }
-        test.wait(for: [expectation], timeout: 10.0)
-        return reterr
-    }
-
-    func addAllowedMachineIDsSync(test: XCTestCase, machineIDs: [String]) -> Error? {
-        let expectation = XCTestExpectation(description: "addAllow replied")
-        var reterr: Error?
-        self.addAllow(machineIDs) { err in
-            reterr = err
-            expectation.fulfill()
-        }
-        test.wait(for: [expectation], timeout: 10.0)
-        return reterr
-    }
-
-    func removeAllowedMachineIDsSync(test: XCTestCase, machineIDs: [String]) -> Error? {
-        let expectation = XCTestExpectation(description: "removeAllow replied")
-        var reterr: Error?
-        self.removeAllow(machineIDs) { err in
             reterr = err
             expectation.fulfill()
         }

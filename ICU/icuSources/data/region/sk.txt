@@ -310,6 +310,7 @@ sk{
         CI{"Pobrežie Slonoviny"}
         CZ{"Česká republika"}
         FK{"Falklandy (Malvíny)"}
+        NZ{"Aotearoa – Nový Zéland"}
         SZ{"Svazijsko"}
     }
 }

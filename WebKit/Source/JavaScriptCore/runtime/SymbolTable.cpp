@@ -31,6 +31,7 @@
 
 #include "CodeBlock.h"
 #include "JSCJSValueInlines.h"
+#include "ResourceExhaustion.h"
 #include "TypeProfiler.h"
 
 #include <wtf/CommaPrinter.h>
@@ -117,7 +118,7 @@ const SymbolTable::LocalToEntryVec& SymbolTable::localToEntry(const ConcurrentJS
             if (offset.isScope())
                 size = std::max(size, offset.scopeOffset().offset() + 1);
         }
-
+    
         m_localToEntry = makeUnique<LocalToEntryVec>(size, nullptr);
         for (auto& entry : m_map) {
             VarOffset offset = entry.value.varOffset();
@@ -125,7 +126,7 @@ const SymbolTable::LocalToEntryVec& SymbolTable::localToEntry(const ConcurrentJS
                 m_localToEntry->at(offset.scopeOffset().offset()) = &entry.value;
         }
     }
-
+    
     return *m_localToEntry;
 }
 
@@ -140,24 +141,49 @@ SymbolTableEntry* SymbolTable::entryFor(const ConcurrentJSLocker& locker, ScopeO
 SymbolTable* SymbolTable::cloneScopePart(VM& vm)
 {
     SymbolTable* result = SymbolTable::create(vm);
-
+    
     result->m_usesSloppyEval = m_usesSloppyEval;
     result->m_nestedLexicalScope = m_nestedLexicalScope;
     result->m_scopeType = m_scopeType;
 
+    HashMap<VarOffset, uint32_t> varOffsetToArgIndexMap;
+
+    if (this->arguments()) {
+        // Copy the arguments, but not the WatchpointSets. We create new WatchpointSets as appropriate when we create the SymbolTableEntry
+        // copies below and propogate the new watchpointSets to the new ScopedArgumentsTable.
+        auto length = this->arguments()->length();
+        ScopedArgumentsTable* arguments = ScopedArgumentsTable::tryCreate(vm, length);
+        RELEASE_ASSERT_RESOURCE_AVAILABLE(arguments, MemoryExhaustion, "Crash intentionally because memory is exhausted.");
+
+        for (uint32_t index = 0; index < length; ++index) {
+            ScopeOffset offset = this->arguments()->get(index);
+
+            arguments->trySet(vm, index, offset);
+            if (this->arguments()->getWatchpointSet(index))
+                varOffsetToArgIndexMap.set(VarOffset(offset), index);
+        }
+
+        result->m_arguments.set(vm, result, arguments);
+    }
+
+    bool hasScopedArgumentWatchpoints = !varOffsetToArgIndexMap.isEmpty();
+
     for (auto iter = m_map.begin(), end = m_map.end(); iter != end; ++iter) {
         if (!iter->value.varOffset().isScope())
             continue;
-        result->m_map.add(
-            iter->key,
-            SymbolTableEntry(iter->value.varOffset(), iter->value.getAttributes()));
+        SymbolTableEntry entry(iter->value.varOffset(), iter->value.getAttributes());
+
+        if (hasScopedArgumentWatchpoints) {
+            auto findIter = varOffsetToArgIndexMap.find(iter->value.varOffset());
+            if (findIter != varOffsetToArgIndexMap.end())
+                result->prepareToWatchScopedArgument(entry, findIter->value);
+        }
+
+        result->m_map.add(iter->key, WTFMove(entry));
     }
 
     result->m_maxScopeOffset = m_maxScopeOffset;
 
-    if (ScopedArgumentsTable* arguments = this->arguments())
-        result->m_arguments.set(vm, result, arguments);
-    
     if (m_rareData) {
         result->ensureRareData();
 
@@ -277,6 +303,22 @@ RefPtr<TypeSet> SymbolTable::globalTypeSetForVariable(const ConcurrentJSLocker& 
 
     return iter->value;
 }
+
+#if ASSERT_ENABLED
+bool SymbolTable::hasScopedWatchpointSet(WatchpointSet* watchpointSet)
+{
+    for (auto iter = m_map.begin(), end = m_map.end(); iter != end; ++iter) {
+        if (!iter->value.varOffset().isScope())
+            continue;
+
+        auto* entryWatchpointSet = iter->value.watchpointSet();
+        if (entryWatchpointSet && entryWatchpointSet == watchpointSet)
+            return true;
+    }
+
+    return false;
+}
+#endif
 
 SymbolTable::SymbolTableRareData& SymbolTable::ensureRareDataSlow()
 {

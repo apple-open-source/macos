@@ -136,9 +136,9 @@ static int      igmp_input_v1_query(struct ifnet *, const struct ip *,
 static int      igmp_input_v2_query(struct ifnet *, const struct ip *,
     const struct igmp *);
 static int      igmp_input_v3_query(struct ifnet *, const struct ip *,
-    /*const*/ struct igmpv3 *);
+    /*const*/ struct igmpv3 *__indexable);
 static int      igmp_input_v3_group_query(struct in_multi *,
-    int, /*const*/ struct igmpv3 *);
+    int, /*const*/ struct igmpv3 *__indexable);
 static int      igmp_input_v1_report(struct ifnet *, struct mbuf *,
     /*const*/ struct ip *, /*const*/ struct igmp *);
 static int      igmp_input_v2_report(struct ifnet *, struct mbuf *,
@@ -331,7 +331,7 @@ igmp_scrub_context(struct mbuf *m)
 
 #ifdef IGMP_DEBUG
 static __inline const char *
-inet_ntop_haddr(in_addr_t haddr, char *buf, socklen_t size)
+inet_ntop_haddr(in_addr_t haddr, char *buf __counted_by(size), socklen_t size)
 {
 	struct in_addr ia;
 
@@ -517,7 +517,7 @@ igmp_dispatch_queue(struct igmp_ifinfo *igi, struct ifqueue *ifq, int limit,
 	 * thread holding the workloop lock tries to acquire the igi lock at
 	 * the same time.
 	 */
-	sk_protect_t protect = sk_async_transmit_protect();
+	sk_protect_t __single protect = sk_async_transmit_protect();
 #endif /* SKYWALK */
 
 	for (;;) {
@@ -1112,7 +1112,7 @@ igmp_v2_update_group(struct in_multi *inm, const int timer)
  */
 static int
 igmp_input_v3_query(struct ifnet *ifp, const struct ip *ip,
-    /*const*/ struct igmpv3 *igmpv3)
+    /*const*/ struct igmpv3 *__indexable igmpv3)
 {
 	struct igmp_ifinfo      *igi;
 	struct in_multi         *inm;
@@ -1305,7 +1305,7 @@ done:
  */
 static int
 igmp_input_v3_group_query(struct in_multi *inm,
-    int timer, /*const*/ struct igmpv3 *igmpv3)
+    int timer, /*const*/ struct igmpv3 *__indexable igmpv3)
 {
 	int                      retval;
 	uint16_t                 nsrc;
@@ -1436,7 +1436,7 @@ igmp_input_v1_report(struct ifnet *ifp, struct mbuf *m, /*const*/ struct ip *ip,
 			IFA_LOCK(&ia->ia_ifa);
 			ip->ip_src.s_addr = htonl(ia->ia_subnet);
 			IFA_UNLOCK(&ia->ia_ifa);
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 		}
 	}
 
@@ -1543,7 +1543,7 @@ igmp_input_v2_report(struct ifnet *ifp, struct mbuf *m, /*const*/ struct ip *ip,
 		IFA_LOCK(&ia->ia_ifa);
 		if (in_hosteq(ip->ip_src, IA_SIN(ia)->sin_addr)) {
 			IFA_UNLOCK(&ia->ia_ifa);
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 			return 0;
 		}
 		IFA_UNLOCK(&ia->ia_ifa);
@@ -1555,7 +1555,7 @@ igmp_input_v2_report(struct ifnet *ifp, struct mbuf *m, /*const*/ struct ip *ip,
 	if ((ifp->if_flags & IFF_LOOPBACK) ||
 	    (m->m_pkthdr.pkt_flags & PKTF_LOOP)) {
 		if (ia != NULL) {
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 		}
 		return 0;
 	}
@@ -1563,7 +1563,7 @@ igmp_input_v2_report(struct ifnet *ifp, struct mbuf *m, /*const*/ struct ip *ip,
 	if (!IN_MULTICAST(ntohl(igmp->igmp_group.s_addr)) ||
 	    !in_hosteq(igmp->igmp_group, ip->ip_dst)) {
 		if (ia != NULL) {
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 		}
 		IGMPSTAT_INC(igps_rcv_badreports);
 		OIGMPSTAT_INC(igps_rcv_badreports);
@@ -1585,7 +1585,7 @@ igmp_input_v2_report(struct ifnet *ifp, struct mbuf *m, /*const*/ struct ip *ip,
 		}
 	}
 	if (ia != NULL) {
-		IFA_REMREF(&ia->ia_ifa);
+		ifa_remref(&ia->ia_ifa);
 	}
 
 	IGMP_INET_PRINTF(igmp->igmp_group,
@@ -3210,7 +3210,7 @@ igmp_v3_enqueue_group_record(struct ifqueue *ifq, struct in_multi *inm,
 	struct igmp_grouprec    *pig;
 	struct ifnet            *ifp;
 	struct ip_msource       *ims, *nims;
-	struct mbuf             *m0, *m, *md;
+	mbuf_ref_t               m0, m, md;
 	int                      error, is_filter_list_change;
 	int                      minrec0len, m0srcs, nbytes, off;
 	uint16_t                 msrcs;
@@ -3608,7 +3608,7 @@ igmp_v3_enqueue_filter_change(struct ifqueue *ifq, struct in_multi *inm)
 	struct igmp_grouprec     ig;
 	struct igmp_grouprec    *pig;
 	struct ip_msource       *ims, *nims;
-	struct mbuf             *m, *m0, *md;
+	mbuf_ref_t               m0, m, md;
 	in_addr_t                naddr;
 	int                      m0srcs, nbytes, npbytes, off, schanged;
 	uint16_t                 rsrcs;
@@ -3827,10 +3827,10 @@ static int
 igmp_v3_merge_state_changes(struct in_multi *inm, struct ifqueue *ifscq)
 {
 	struct ifqueue  *gq;
-	struct mbuf     *m;             /* pending state-change */
-	struct mbuf     *m0;            /* copy of pending state-change */
-	struct mbuf     *mt;            /* last state-change in packet */
-	struct mbuf     *n;
+	mbuf_ref_t       m;             /* pending state-change */
+	mbuf_ref_t       m0;            /* copy of pending state-change */
+	mbuf_ref_t       mt;            /* last state-change in packet */
+	mbuf_ref_t       n;;
 	int              docopy, domerge;
 	u_int            recslen;
 
@@ -4182,7 +4182,7 @@ igmp_v3_encap_report(struct ifnet *ifp, struct mbuf *m)
 			IFA_LOCK(&ia->ia_ifa);
 			ip->ip_src = ia->ia_addr.sin_addr;
 			IFA_UNLOCK(&ia->ia_ifa);
-			IFA_REMREF(&ia->ia_ifa);
+			ifa_remref(&ia->ia_ifa);
 		}
 	}
 

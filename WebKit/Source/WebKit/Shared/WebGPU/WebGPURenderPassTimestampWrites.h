@@ -29,20 +29,17 @@
 
 #include "WebGPUIdentifier.h"
 #include <WebCore/WebGPUIntegralTypes.h>
-#include <WebCore/WebGPURenderPassTimestampLocation.h>
 #include <optional>
 #include <wtf/Ref.h>
 #include <wtf/Vector.h>
 
 namespace WebKit::WebGPU {
 
-struct RenderPassTimestampWrite {
+struct RenderPassTimestampWrites {
     WebGPUIdentifier querySet;
-    WebCore::WebGPU::Size32 queryIndex { 0 };
-    WebCore::WebGPU::RenderPassTimestampLocation location { WebCore::WebGPU::RenderPassTimestampLocation::Beginning };
+    WebCore::WebGPU::Size32 beginningOfPassWriteIndex { 0 };
+    WebCore::WebGPU::Size32 endOfPassWriteIndex { 0 };
 };
-
-using RenderPassTimestampWrites = Vector<RenderPassTimestampWrite>;
 
 } // namespace WebKit::WebGPU
 

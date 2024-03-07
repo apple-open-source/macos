@@ -58,7 +58,7 @@ void RemoteCaptureSampleManager::stopListeningForIPC()
     setConnection(nullptr);
 }
 
-void RemoteCaptureSampleManager::setConnection(IPC::Connection* connection)
+void RemoteCaptureSampleManager::setConnection(RefPtr<IPC::Connection>&& connection)
 {
     if (m_connection == connection)
         return;
@@ -83,7 +83,7 @@ void RemoteCaptureSampleManager::setConnection(IPC::Connection* connection)
 void RemoteCaptureSampleManager::addSource(Ref<RemoteRealtimeAudioSource>&& source)
 {
     ASSERT(WTF::isMainRunLoop());
-    setConnection(Ref { source->connection() }.ptr());
+    setConnection(Ref { source->connection() });
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, source = WTFMove(source)]() mutable {
         auto identifier = source->identifier();
@@ -96,7 +96,7 @@ void RemoteCaptureSampleManager::addSource(Ref<RemoteRealtimeAudioSource>&& sour
 void RemoteCaptureSampleManager::addSource(Ref<RemoteRealtimeVideoSource>&& source)
 {
     ASSERT(WTF::isMainRunLoop());
-    setConnection(&source->connection());
+    setConnection(Ref { source->connection() });
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, source = WTFMove(source)]() mutable {
         auto identifier = source->identifier();
@@ -122,10 +122,10 @@ void RemoteCaptureSampleManager::didUpdateSourceConnection(IPC::Connection& conn
     setConnection(&connection);
 }
 
-void RemoteCaptureSampleManager::setVideoFrameObjectHeapProxy(RemoteVideoFrameObjectHeapProxy* proxy)
+void RemoteCaptureSampleManager::setVideoFrameObjectHeapProxy(RefPtr<RemoteVideoFrameObjectHeapProxy>&& proxy)
 {
     Locker lock(m_videoFrameObjectHeapProxyLock);
-    m_videoFrameObjectHeapProxy = proxy;
+    m_videoFrameObjectHeapProxy = WTFMove(proxy);
 }
 
 void RemoteCaptureSampleManager::audioStorageChanged(WebCore::RealtimeMediaSourceIdentifier identifier, ConsumerSharedCARingBuffer::Handle&& handle, const WebCore::CAAudioStreamDescription& description, IPC::Semaphore&& semaphore, const MediaTime& mediaTime, size_t frameChunkSize)

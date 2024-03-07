@@ -246,7 +246,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         let bottle = self.fakeCuttlefishServer.state.bottles[0]
 
         // some other peer should restore from this bottle
-        let differentDevice = self.makeInitiatorContext(contextID: "differenDevice")
+        let differentDevice = self.makeInitiatorContext(contextID: "differentDevice")
         let differentRestoreExpectation = self.expectation(description: "different restore returns")
         differentDevice.startOctagonStateMachine()
         differentDevice.join(withBottle: bottle.bottleID,
@@ -284,17 +284,26 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertEnters(context: restoreContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: restoreContext)
 
-        // The restore context should exclude its sponsor
-        try self.assertTrusts(context: restoreContext, includedPeerIDCount: 2, excludedPeerIDCount: 1)
+        // The restore context should still include its sponsor until the next fetch
+        try self.assertTrusts(context: restoreContext, includedPeerIDCount: 3, excludedPeerIDCount: 0)
 
-        // Then, the remote peer should trust the new peer and exclude the original
+        // Then, the remote peer should trust the new peer and trust the original
         self.sendContainerChangeWaitForFetchForStates(context: differentDevice, states: [OctagonStateReadyUpdated, OctagonStateReady])
-        try self.assertTrusts(context: differentDevice, includedPeerIDCount: 2, excludedPeerIDCount: 1)
+        try self.assertTrusts(context: differentDevice, includedPeerIDCount: 3, excludedPeerIDCount: 0)
 
-        // Then, if by some strange miracle the original peer is still around, it should bail (as it's now untrusted)
-        self.sendContainerChangeWaitForFetchForStates(context: self.cuttlefishContext, states: [OctagonStateUntrusted])
-        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
-        try self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 0, excludedPeerIDCount: 1)
+        // Then, if by some strange miracle the original peer is still around, the original peer will exclude the newly restored peer
+        self.sendContainerChangeWaitForFetchForStates(context: self.cuttlefishContext, states: [OctagonStateReady])
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        try self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 2, excludedPeerIDCount: 1)
+
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.sendContainerChangeWaitForFetch(context: restoreContext)
+
+        try self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 2, excludedPeerIDCount: 1)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+
+        try self.assertTrusts(context: restoreContext, includedPeerIDCount: 0, excludedPeerIDCount: 1)
+        self.assertConsidersSelfUntrusted(context: restoreContext)
     }
 
     func testRestoreSPIFromPiggybackingState() throws {
@@ -830,6 +839,8 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
     }
 
     func testRecoverFromDeviceNotOnMachineIDList() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         self.startCKAccountStatusMock()
 
         let clique: OTClique
@@ -941,7 +952,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.wait(for: [restoreDumpCallback], timeout: 10)
 
         // Now, exclude peer A's machine ID
-        restoremockAuthKit.otherDevices = [deviceBmockAuthKit.currentMachineID]
+        restoremockAuthKit.removeAndSendNotification(deviceBmockAuthKit.currentMachineID)
 
         // Peer C should upload a new trust status
         let updateTrustExpectation = self.expectation(description: "updateTrust")
@@ -956,7 +967,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
             return nil
         }
 
-        restoreContext.incompleteNotificationOfMachineIDListChange()
+        restoreContext.notificationOfMachineIDListChange()
         self.wait(for: [updateTrustExpectation], timeout: 10)
 
         self.assertEnters(context: restoreContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)

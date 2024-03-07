@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-import CloudKit
+@_spi(CloudKitPrivate) import CloudKit
 import CloudKit_Private
 import CloudKitCode
 import CoreData
@@ -34,42 +34,50 @@ let CuttlefishPushTopicBundleIdentifier = "com.apple.security.cuttlefish"
 
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "containermap")
 
-struct CKInternalErrorMatcher {
-    let code: Int
-    let internalCode: Int
+struct CKUnderlyingErrorMatcher {
+    let code: CKError.Code
+    let underlyingCode: CKUnderlyingError.Code
     let noL3Error: Bool
 }
 
-// Match a CKError/CKInternalError
-func ~= (pattern: CKInternalErrorMatcher, value: Error?) -> Bool {
-    guard let value = value else {
+// Match a CKError/CKUnderlyingError
+func ~= (pattern: CKUnderlyingErrorMatcher, value: Error?) -> Bool {
+    guard let value else {
         return false
     }
-    let error = value as NSError
-    guard let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? NSError else {
+    switch value {
+    case let error as CKError:
+        guard let underlyingError = error.underlyingError else {
+            return false
+        }
+        guard error.code == pattern.code &&
+                underlyingError.code == pattern.underlyingCode else {
+            return false
+        }
+        guard pattern.noL3Error else {
+            return true
+        }
+        return underlyingError.userInfo[NSUnderlyingErrorKey] == nil
+    default:
         return false
     }
-    guard error.domain == CKErrorDomain && error.code == pattern.code &&
-        underlyingError.domain == CKInternalErrorDomain && underlyingError.code == pattern.internalCode else {
-        return false
-    }
-    guard pattern.noL3Error else {
-        return true
-    }
-    return underlyingError.userInfo[NSUnderlyingErrorKey] == nil
 }
 
 struct CKErrorMatcher {
-    let code: Int
+    let code: CKError.Code
 }
 
 // Match a CKError
 func ~= (pattern: CKErrorMatcher, value: Error?) -> Bool {
-    guard let value = value else {
+    guard let value else {
         return false
     }
-    let error = value as NSError
-    return error.domain == CKErrorDomain && error.code == pattern.code
+    switch value {
+    case let error as CKError:
+        return error.code == pattern.code
+    default:
+        return false
+    }
 }
 
 struct NSURLErrorMatcher {
@@ -78,11 +86,15 @@ struct NSURLErrorMatcher {
 
 // Match an NSURLError
 func ~= (pattern: NSURLErrorMatcher, value: Error?) -> Bool {
-    guard let value = value else {
+    guard let value else {
         return false
     }
-    let error = value as NSError
-    return error.domain == NSURLErrorDomain && error.code == pattern.code
+    switch value {
+    case let error as NSError:
+        return error.domain == NSURLErrorDomain && error.code == pattern.code
+    default:
+        return false
+    }
 }
 
 protocol ConfiguredCloudKit {
@@ -108,13 +120,14 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
 
     public class func retryableError(error: Error?) -> Bool {
         switch error {
-        case NSURLErrorMatcher(code: NSURLErrorTimedOut):
+        case NSURLErrorMatcher(code: NSURLErrorTimedOut),
+             NSURLErrorMatcher(code: NSURLErrorNotConnectedToInternet):
             return true
-        case CKErrorMatcher(code: CKError.networkFailure.rawValue):
+        case CKErrorMatcher(code: CKError.networkFailure):
             return true
-        case CKInternalErrorMatcher(code: CKError.serverRejectedRequest.rawValue, internalCode: CKInternalErrorCode.errorInternalServerInternalError.rawValue, noL3Error: false):
+        case CKUnderlyingErrorMatcher(code: CKError.serverRejectedRequest, underlyingCode: CKUnderlyingError.serverInternalError, noL3Error: false):
             return true
-        case CKInternalErrorMatcher(code: CKError.serverRejectedRequest.rawValue, internalCode: CKInternalErrorCode.errorInternalPluginError.rawValue, noL3Error: true):
+        case CKUnderlyingErrorMatcher(code: CKError.serverRejectedRequest, underlyingCode: CKUnderlyingError.pluginError, noL3Error: true):
             return true
         case CuttlefishErrorMatcher(code: CuttlefishErrorCode.retryableServerFailure):
             return true
@@ -158,7 +171,7 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
         op.requestCompletedBlock = requestCompletion
 
         // we only want to send Cuttlefish metrics if there's an associated flowID
-        var shouldSendMetrics:Bool = false
+        var shouldSendMetrics: Bool = false
         if flowID != nil && flowID != "" && deviceSessionID != nil && deviceSessionID != "" {
             shouldSendMetrics = true
         }
@@ -176,13 +189,13 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
             switch response {
             case .success:
                 event.addMetrics([kSecurityRTCFieldRetryAttemptCount: attemptNumber,
-                                 kSecurityRTCFieldTotalRetryDuration: Date().timeIntervalSince(startTime),])
+                                 kSecurityRTCFieldTotalRetryDuration: Date().timeIntervalSince(startTime), ])
                 SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: true, error: nil)
 
                 completion(response)
             case .failure(let error):
                 event.addMetrics([kSecurityRTCFieldRetryAttemptCount: attemptNumber,
-                                 kSecurityRTCFieldTotalRetryDuration: Date().timeIntervalSince(startTime),])
+                                 kSecurityRTCFieldTotalRetryDuration: Date().timeIntervalSince(startTime), ])
                 SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
 
                 if RetryingCKCodeService.retryableError(error: error) {
@@ -285,20 +298,6 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
             return CuttlefishAPI.FetchPolicyDocumentsOperation(request: request)
         }, completion: completion)
     }
-    public func reportHealth(
-      _ request: ReportHealthRequest,
-      completion: @escaping (Swift.Result<ReportHealthResponse, Swift.Error>) -> Swift.Void) {
-        retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
-            return CuttlefishAPI.ReportHealthOperation(request: request)
-        }, completion: completion)
-    }
-    public func pushHealthInquiry(
-      _ request: PushHealthInquiryRequest,
-      completion: @escaping (Swift.Result<PushHealthInquiryResponse, Swift.Error>) -> Swift.Void) {
-        retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
-            return CuttlefishAPI.PushHealthInquiryOperation(request: request)
-        }, completion: completion)
-    }
     public func getRepairAction(
       _ request: GetRepairActionRequest,
       completion: @escaping (Swift.Result<GetRepairActionResponse, Swift.Error>) -> Swift.Void) {
@@ -311,20 +310,6 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
       completion: @escaping (Swift.Result<GetSupportAppInfoResponse, Swift.Error>) -> Swift.Void) {
         retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
             return CuttlefishAPI.GetSupportAppInfoOperation(request: request)
-        }, completion: completion)
-    }
-    public func getClubCertificates(
-      _ request: GetClubCertificatesRequest,
-      completion: @escaping (Swift.Result<GetClubCertificatesResponse, Swift.Error>) -> Swift.Void) {
-          retry(functionName: #function, deviceSessionID: nil, flowID: nil, operationCreator: {
-            return CuttlefishAPI.GetClubCertificatesOperation(request: request)
-        }, completion: completion)
-    }
-    public func fetchSosiCloudIdentity(
-      _ request: FetchSOSiCloudIdentityRequest,
-      completion: @escaping (Swift.Result<FetchSOSiCloudIdentityResponse, Swift.Error>) -> Swift.Void) {
-        retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
-            return CuttlefishAPI.FetchSosiCloudIdentityOperation(request: request)
         }, completion: completion)
     }
     public func resetAccountCdpcontents(
@@ -464,7 +449,7 @@ class ContainerMap {
                 return container
             } else {
                 // Set up Core Data stack
-                let persistentStoreURL = ContainerMap.urlForPersistentStore(name: containerName)
+                let persistentStoreURL = try ContainerMap.urlForPersistentStore(name: containerName)
                 let description = NSPersistentStoreDescription(url: persistentStoreURL)
 
                 // Wrap whatever we're given in a magically-retrying layer
@@ -484,9 +469,13 @@ class ContainerMap {
         }
     }
 
-    static func urlForPersistentStore(name: ContainerName) -> URL {
+    static func urlForPersistentStore(name: ContainerName) throws -> URL {
         let filename = name.container + "-" + name.context + ".TrustedPeersHelper.db"
-        return SecCopyURLForFileInUserScopedKeychainDirectory(filename as CFString) as URL
+        let url = SecCopyURLForFileInUserScopedKeychainDirectory(filename as CFString) as URL?
+        guard let url else {
+            throw ContainerError.unableToCreateDirectory
+        }
+        return url
     }
 
     // To be called via test only

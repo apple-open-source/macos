@@ -43,6 +43,7 @@
 #include "LegacyRenderSVGImage.h"
 #include "LocalFrame.h"
 #include "Logging.h"
+#include "MemoryCache.h"
 #include "Page.h"
 #include "RenderImage.h"
 #include "RenderSVGImage.h"
@@ -108,6 +109,22 @@ static inline bool pageIsBeingDismissed(Document& document)
 {
     auto* frame = document.frame();
     return frame && frame->loader().pageDismissalEventBeingDispatched() != FrameLoader::PageDismissalType::None;
+}
+
+// https://html.spec.whatwg.org/multipage/images.html#updating-the-image-data:list-of-available-images
+static bool canReuseFromListOfAvailableImages(const CachedResourceRequest& request, Document& document)
+{
+    CachedResource* resource = MemoryCache::singleton().resourceForRequest(request.resourceRequest(), document.page()->sessionID());
+    if (!resource || resource->stillNeedsLoad() || resource->isPreloaded())
+        return false;
+
+    if (resource->options().mode == FetchOptions::Mode::Cors && !document.securityOrigin().isSameOriginAs(*resource->origin()))
+        return false;
+
+    if (resource->options().mode != request.options().mode || resource->options().credentials != request.options().credentials)
+        return false;
+
+    return true;
 }
 
 ImageLoader::ImageLoader(Element& element)
@@ -229,7 +246,7 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
 #endif
             if (m_lazyImageLoadState == LazyImageLoadState::None && isImageElement) {
                 auto& imageElement = downcast<HTMLImageElement>(element());
-                if (imageElement.isLazyLoadable() && document.settings().lazyImageLoadingEnabled()) {
+                if (imageElement.isLazyLoadable() && document.settings().lazyImageLoadingEnabled() && !canReuseFromListOfAvailableImages(request, document)) {
                     m_lazyImageLoadState = LazyImageLoadState::Deferred;
                     request.setIgnoreForRequestCount(true);
                 }
@@ -324,6 +341,19 @@ void ImageLoader::updateFromElementIgnoringPreviousError(RelevantMutation releva
     updateFromElement(relevantMutation);
 }
 
+void ImageLoader::updateFromElementIgnoringPreviousErrorToSameValue()
+{
+    if (!m_image || !m_image->allowsCaching() || !m_failedLoadURL.isEmpty() || element().document().activeServiceWorker()) {
+        updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
+        return;
+    }
+    if (m_hasPendingLoadEvent || !m_pendingURL.isEmpty())
+        return;
+    ASSERT(m_image);
+    m_hasPendingLoadEvent = true;
+    notifyFinished(*m_image, NetworkLoadMetrics { });
+}
+
 static inline void resolvePromises(Vector<RefPtr<DeferredPromise>>& promises)
 {
     ASSERT(!promises.isEmpty());
@@ -337,7 +367,7 @@ static inline void rejectPromises(Vector<RefPtr<DeferredPromise>>& promises, ASC
     ASSERT(!promises.isEmpty());
     auto promisesToBeRejected = std::exchange(promises, { });
     for (auto& promise : promisesToBeRejected)
-        promise->reject(Exception { EncodingError, message });
+        promise->reject(Exception { ExceptionCode::EncodingError, message });
 }
 
 inline void ImageLoader::resolveDecodePromises()

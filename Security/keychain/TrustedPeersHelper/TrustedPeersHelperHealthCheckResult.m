@@ -9,6 +9,7 @@
                         postEscrowCFU:(bool)postEscrowCFU
                          resetOctagon:(bool)resetOctagon
                            leaveTrust:(bool)leaveTrust
+                               reroll:(bool)reroll
                           moveRequest:(OTEscrowMoveRequestContext* _Nullable)moveRequest
                    totalEscrowRecords:(uint64_t)totalEscrowRecords
              collectableEscrowRecords:(uint64_t)collectableEscrowRecords
@@ -29,6 +30,7 @@
         _postEscrowCFU = postEscrowCFU;
         _resetOctagon = resetOctagon;
         _leaveTrust = leaveTrust;
+        _reroll = reroll;
         _moveRequest = moveRequest;
         _totalEscrowRecords = totalEscrowRecords;
         _collectableEscrowRecords = collectableEscrowRecords;
@@ -54,6 +56,7 @@
                       " postEscrowCFU: %@,"
                        " resetOctagon: %@,"
                          " leaveTrust: %@,"
+                             " reroll: %@,"
                      " moveRequest? %@,"
                  " totalEscrowRecords: %" PRIu64 ","
                      " collectableEscrowRecords: %" PRIu64 ","
@@ -72,6 +75,7 @@
                      self.postEscrowCFU ? @"true" : @"false",
                      self.resetOctagon ? @"true" : @"false",
                      self.leaveTrust ? @"true" : @"false",
+                     self.reroll ? @"true" : @"false",
                      self.moveRequest,
                      self.totalEscrowRecords,
                      self.collectableEscrowRecords,
@@ -99,6 +103,7 @@
         _postEscrowCFU = [coder decodeBoolForKey:@"postEscrowCFU"];
         _resetOctagon = [coder decodeBoolForKey:@"resetOctagon"];
         _leaveTrust = [coder decodeBoolForKey:@"leaveTrust"];
+        _reroll = [coder decodeBoolForKey:@"reroll"];
         _moveRequest = [coder decodeObjectOfClass:[OTEscrowMoveRequestContext class] forKey:@"moveRequest"];
         _totalEscrowRecords = [coder decodeInt64ForKey:@"totalEscrowRecords"];
         _collectableEscrowRecords = [coder decodeInt64ForKey:@"collectableEscrowRecords"];
@@ -122,6 +127,7 @@
     [coder encodeBool:self.postEscrowCFU forKey:@"postEscrowCFU"];
     [coder encodeBool:self.resetOctagon forKey:@"resetOctagon"];
     [coder encodeBool:self.leaveTrust forKey:@"leaveTrust"];
+    [coder encodeBool:self.reroll forKey:@"reroll"];
     [coder encodeObject:self.moveRequest forKey:@"moveRequest"];
     [coder encodeInt64:self.totalEscrowRecords forKey:@"totalEscrowRecords"];
     [coder encodeInt64:self.collectableEscrowRecords forKey:@"collectableEscrowRecords"];
@@ -145,6 +151,7 @@
     ret[@"postEscrowCFU"] = @(self.postEscrowCFU);
     ret[@"resetOctagon"] = @(self.resetOctagon);
     ret[@"leaveTrust"] = @(self.leaveTrust);
+    ret[@"reroll"] = @(self.reroll);
     if (self.moveRequest != nil) {
         ret[@"moveRequest"] = [self.moveRequest dictionaryRepresentation];
     }

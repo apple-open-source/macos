@@ -1,5 +1,5 @@
 Project        = mod_perl
-ProjectVersion = $(Project)-2.0.9
+ProjectVersion = $(Project)-2.0.12
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 

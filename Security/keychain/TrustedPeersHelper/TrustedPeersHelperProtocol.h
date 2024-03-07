@@ -133,6 +133,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property bool postEscrowCFU;
 @property bool resetOctagon;
 @property bool leaveTrust;
+@property bool reroll;
 @property (nullable) OTEscrowMoveRequestContext* moveRequest;
 @property uint64_t totalEscrowRecords;
 @property uint64_t collectableEscrowRecords;
@@ -152,6 +153,7 @@ NS_ASSUME_NONNULL_BEGIN
                         postEscrowCFU:(bool)postEscrowCFU
                          resetOctagon:(bool)resetOctagon
                            leaveTrust:(bool)leaveTrust
+                               reroll:(bool)reroll
                           moveRequest:(OTEscrowMoveRequestContext* _Nullable)moveRequest
                    totalEscrowRecords:(uint64_t)totalEscrowRecords
              collectableEscrowRecords:(uint64_t)collectableEscrowRecords
@@ -214,19 +216,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 // listDifferences: False if the allowedMachineIDs list passed in exactly matches the previous state,
 //                  True if there were any differences
+
 - (void)setAllowedMachineIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                           allowedMachineIDs:(NSSet<NSString*> *)allowedMachineIDs
+                           allowedMachineIDs:(NSSet<NSString *> *)allowedMachineIDs
+                       userInitiatedRemovals:(NSSet<NSString *> * _Nullable)userInitiatedRemovals
+                             evictedRemovals:(NSSet<NSString *> * _Nullable)evictedRemovals
+                       unknownReasonRemovals:(NSSet<NSString *> * _Nullable)unknownReasonRemovals
                         honorIDMSListChanges:(BOOL)honorIDMSListChanges
                                      version:(NSString* _Nullable)version
                                        reply:(void (^)(BOOL listDifferences, NSError * _Nullable error))reply;
-
-- (void)addAllowedMachineIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                                  machineIDs:(NSArray<NSString*> *)machineIDs
-                                       reply:(void (^)(NSError * _Nullable error))reply;
-
-- (void)removeAllowedMachineIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                                     machineIDs:(NSArray<NSString*> *)machineIDs
-                                          reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)fetchAllowedMachineIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                          reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))reply;
@@ -381,6 +379,16 @@ NS_ASSUME_NONNULL_BEGIN
                                                                 TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
                                                                 NSError * _Nullable error))reply;
 
+// Returns a voucher for our own identity, reroll
+- (void)vouchWithRerollWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                              oldPeerID:(NSString*)oldPeerID
+                              tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                  reply:(void (^)(NSData * _Nullable voucher,
+                                                  NSData * _Nullable voucherSig,
+                                                  NSArray<CKKSTLKShare*>* _Nullable newSelfTLKShares,
+                                                  TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                  NSError * _Nullable error))reply;
+
 // As of right now, join and attemptPreapprovedJoin will upload TLKShares for any TLKs that this peer already has.
 // Note that in The Future, a device might decide to join an existing Octagon set while introducing a new view.
 // These interfaces will have to change...
@@ -513,14 +521,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)findCustodianRecoveryKeyWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                             uuid:(NSUUID *)uuid
                                            reply:(void (^)(TrustedPeersHelperCustodianRecoveryKey* _Nullable crk, NSError* _Nullable error))reply;
-
-- (void)reportHealthWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                   stateMachineState:(NSString *)state
-                          trustState:(NSString *)trustState
-                               reply:(void (^)(NSError* _Nullable error))reply;
-
-- (void)pushHealthInquiryWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                                    reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)requestHealthCheckWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck

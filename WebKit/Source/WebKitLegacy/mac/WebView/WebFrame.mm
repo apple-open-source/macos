@@ -64,11 +64,13 @@
 #import <WebCore/AccessibilityObject.h>
 #import <WebCore/CSSStyleDeclaration.h>
 #import <WebCore/CachedResourceLoader.h>
+#import <WebCore/CaptionUserPreferences.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/CompositionHighlight.h>
 #import <WebCore/DatabaseManager.h>
 #import <WebCore/DocumentFragment.h>
+#import <WebCore/DocumentInlines.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/Editing.h>
@@ -94,11 +96,13 @@
 #import <WebCore/MutableStyleProperties.h>
 #import <WebCore/OriginAccessPatterns.h>
 #import <WebCore/Page.h>
+#import <WebCore/PageGroup.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/PlatformMouseEvent.h>
 #import <WebCore/PluginData.h>
 #import <WebCore/PrintContext.h>
 #import <WebCore/Range.h>
+#import <WebCore/RemoteUserInputEventData.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderLayerCompositor.h>
 #import <WebCore/RenderLayerScrollableArea.h>
@@ -481,7 +485,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if (!frame)
             continue;
         if (auto* document = frame->document())
-            document->markers().removeMarkers(WebCore::DocumentMarker::Grammar);
+            document->markers().removeMarkers(WebCore::DocumentMarker::Type::Grammar);
     }
 }
 
@@ -494,7 +498,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if (!frame)
             continue;
         if (auto* document = frame->document())
-            document->markers().removeMarkers(WebCore::DocumentMarker::Spelling);
+            document->markers().removeMarkers(WebCore::DocumentMarker::Type::Spelling);
     }
 #endif
 }
@@ -866,7 +870,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!document)
         return nil;
 
-    return kit(createFragmentFromMarkup(*document, markupString, baseURLString, { WebCore::ParserContentPolicy::AllowPluginContent }).ptr());
+    return kit(createFragmentFromMarkup(*document, markupString, baseURLString, { }).ptr());
 }
 
 - (DOMDocumentFragment *)_documentFragmentWithNodesAsParagraphs:(NSArray *)nodes
@@ -1701,8 +1705,8 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
 
     for (WebCore::Node* node = root; node; node = WebCore::NodeTraversal::next(*node)) {
         auto markers = document->markers().markersFor(*node);
-        for (auto* marker : markers) {
-            if (marker->type() != WebCore::DocumentMarker::DictationResult)
+        for (auto& marker : markers) {
+            if (marker->type() != WebCore::DocumentMarker::Type::DictationResult)
                 continue;
 
             id metadata = std::get<RetainPtr<id>>(marker->data()).get();
@@ -1743,7 +1747,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
     if (!range)
         return nil;
 
-    auto markers = core(self)->document()->markers().markersInRange(makeSimpleRange(*core(range)), WebCore::DocumentMarker::DictationResult);
+    auto markers = core(self)->document()->markers().markersInRange(makeSimpleRange(*core(range)), WebCore::DocumentMarker::Type::DictationResult);
 
     // UIKit should only ever give us a DOMRange for a phrase with alternatives, which should not be part of more than one result.
     ASSERT(markers.size() <= 1);
@@ -1910,6 +1914,25 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
 {
 }
 #endif // ENABLE(TEXT_AUTOSIZING)
+
+- (void)_createCaptionPreferencesTestingModeToken
+{
+    auto* page = core(self)->page();
+    if (!page)
+        return;
+    _private->captionPreferencesTestingModeToken = page->group().ensureCaptionPreferences().createTestingModeToken().moveToUniquePtr();
+}
+
+- (void)_setCaptionDisplayMode:(NSString *)mode
+{
+    auto* page = core(self)->page();
+    if (!page)
+        return;
+    auto& captionPreferences = page->group().ensureCaptionPreferences();
+    auto displayMode = WTF::EnumTraits<WebCore::CaptionUserPreferences::CaptionDisplayMode>::fromString(mode);
+    if (displayMode.has_value())
+        captionPreferences.setCaptionDisplayMode(displayMode.value());
+}
 
 - (void)_replaceSelectionWithFragment:(DOMDocumentFragment *)fragment selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle
 {
@@ -2192,7 +2215,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     auto coreFrame = _private->coreFrame;
     if (coreFrame)
-        coreFrame->loader().setOpener(0);
+        coreFrame->loader().setOpener(nullptr);
 }
 
 - (BOOL)hasRichlyEditableDragCaret

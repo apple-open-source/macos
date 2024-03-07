@@ -39,6 +39,10 @@ NSString* homeDirUUID;
 {
     [super setUp];
 
+#if KCSHARING
+    KCSharingSetChangeTrackingEnabled(false);
+    KCSharingSetDisabledForTests(true);
+#endif  // KCSHARING
 
     securityd_init_local_spi();
     securityd_init(NULL);
@@ -125,6 +129,10 @@ NSString* homeDirUUID;
 
 + (void)tearDown
 {
+#if KCSHARING
+    KCSharingClearChangeTrackingEnabledOverride();
+    KCSharingSetDisabledForTests(false);
+#endif  // KCSHARING
 
     SecSetCustomHomeURLString(NULL);
     SecKeychainDbReset(NULL);

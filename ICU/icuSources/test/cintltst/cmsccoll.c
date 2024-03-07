@@ -5891,7 +5891,7 @@ typedef struct {
 static const CharSortPosition pinyinAddsTestData[] = {
     // char / code, chrs before & after in old short pinyin
     { u"㙦" /* 3666*/, u"綊", u"熁" },
-    { u"䓬" /* 44EC*/, u"禚", u"劅" },
+    { u"䓬" /* 44EC*/, u"䐁", u"劅" }, // rdar://116151591: the 'before' character here was originally 禚, but CLDR 44 moved it after 䓬, so we're using 䐁 as the new 'before' character
     { u"鿍" /* 9FCD*/, u"港", u"焵" },
     { u"鿎" /* 9FCE*/, u"蹹", u"塔" },
     { u"鿏" /* 9FCF*/, u"衇", u"勱" },

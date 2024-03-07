@@ -1272,6 +1272,12 @@ unquote(char       *dst,		/* I - Destination buffer */
     if (*src == '\\')
     {
       src ++;
+
+      if (src[0] == 0)
+      {
+        break;
+      }
+
       if (isdigit(src[0] & 255) && isdigit(src[1] & 255) &&
           isdigit(src[2] & 255))
       {

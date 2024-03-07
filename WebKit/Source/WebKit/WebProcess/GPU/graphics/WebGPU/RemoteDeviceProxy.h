@@ -28,6 +28,7 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "RemoteAdapterProxy.h"
+#include "SharedVideoFrame.h"
 #include "WebGPUIdentifier.h"
 #include <WebCore/WebGPUCommandEncoderDescriptor.h>
 #include <WebCore/WebGPUDevice.h>
@@ -108,6 +109,7 @@ private:
     void popErrorScope(CompletionHandler<void(std::optional<WebCore::WebGPU::Error>&&)>&&) final;
 
     void setLabelInternal(const String&) final;
+    void resolveDeviceLostPromise(CompletionHandler<void(WebCore::WebGPU::DeviceLostReason)>&&) final;
 
     Deque<CompletionHandler<void(Ref<WebCore::WebGPU::ComputePipeline>&&)>> m_createComputePipelineAsyncCallbacks;
     Deque<CompletionHandler<void(Ref<WebCore::WebGPU::RenderPipeline>&&)>> m_createRenderPipelineAsyncCallbacks;
@@ -118,6 +120,9 @@ private:
     Ref<ConvertToBackingContext> m_convertToBackingContext;
     Ref<RemoteAdapterProxy> m_parent;
     Ref<RemoteQueueProxy> m_queue;
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+    WebKit::SharedVideoFrameWriter m_sharedVideoFrameWriter;
+#endif
 };
 
 } // namespace WebKit::WebGPU

@@ -1,10 +1,12 @@
-print.bc
-parse.bc
-add.bc
-subtract.bc
 multiply.bc
 divide.bc
+subtract.bc
+add.bc
+print.bc
+parse.bc
+root.bc
 array.bc
+array2.bc
 atan.bc
 bessel.bc
 functions.bc
@@ -13,3 +15,7 @@ len.bc
 rand.bc
 references.bc
 screen.bc
+strings2.bc
+ifs.bc
+ifs2.bc
+afl1.bc

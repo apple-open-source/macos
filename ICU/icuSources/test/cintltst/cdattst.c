@@ -35,6 +35,7 @@
 #include "cintltst.h"
 #include "cdattst.h"
 #include "cformtst.h"
+#include "cstring.h"
 #include "cmemory.h"
 #if APPLE_ICU_CHANGES
 // rdar://  , rdar://108767828
@@ -46,12 +47,11 @@
 
 #include <math.h>
 #include <stdbool.h>
-#if APPLE_ICU_CHANGES
-// rdar://
-#include <stdio.h>  // for sprintf
-#endif  // APPLE_ICU_CHANGES
+#include <stdio.h> // for sprintf()
 
 #if APPLE_ICU_CHANGES
+// rdar://
+// rdar://52980140 Many locales, fix hour cycle overrides and non-gregorian default time cycle
 // rdar://
 #define ADD_ALLOC_TEST 0
 #define WRITE_HOUR_MISMATCH_ERRS 0
@@ -72,6 +72,8 @@ static void TestForceGannenNumbering(void);
 static void TestMapDateToCalFields(void);
 static void TestNarrowQuarters(void);
 static void TestExtraneousCharacters(void);
+static void TestParseTooStrict(void);
+static void TestHourCycle(void);
 #if APPLE_ICU_CHANGES
 // rdar://
 static void TestStandardPatterns(void);
@@ -96,6 +98,7 @@ static void TestAbbreviationForSeptember(void); // rdar://87654639
 static void TestParseTooStrict(void); // rdar://106745488
 static void TestRgSubtag(void); // rdar://106566783
 static void TestTimeFormatInheritance(void); // rdar://106179361
+static void TestRelativeDateTime(void); // rdar://114975916
 #endif  // APPLE_ICU_CHANGES
 
 void addDateForTest(TestNode** root);
@@ -126,6 +129,8 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestMapDateToCalFields);
     TESTCASE(TestNarrowQuarters);
     TESTCASE(TestExtraneousCharacters);
+    TESTCASE(TestParseTooStrict);
+    TESTCASE(TestHourCycle);
 #if APPLE_ICU_CHANGES
 // rdar://
     TESTCASE(TestStandardPatterns);
@@ -139,7 +144,7 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestMapPatternCharToFields); /* rdar://62136559 */
     TESTCASE(TestRemapPatternWithOpts); /* Apple-specific */
 #if WRITE_HOUR_MISMATCH_ERRS
-    TESTCASE(WriteHourMismatchErrs); /* 52980140 */
+    TESTCASE(WriteHourMismatchErrs); /* rdar://52980140 */
 #endif
 #if WRITE_COUNTRY_FALLBACK_RESULTS
     TESTCASE(WriteCountryFallbackResults); /* rdar://26911014 */
@@ -151,6 +156,7 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestParseTooStrict); // rdar://106745488
     TESTCASE(TestRgSubtag); // rdar://106566783
     TESTCASE(TestTimeFormatInheritance); // rdar://106179361
+    TESTCASE(TestRelativeDateTime); // rdar://114975916
 #endif  // APPLE_ICU_CHANGES
 }
 /* Testing the DateFormat API */
@@ -673,7 +679,9 @@ static void TestSymbols()
 {
 #if APPLE_ICU_CHANGES
 // rdar://
-    UDateFormat *def, *fr, *zhChiCal, *esMX, *esUS, *msIslamic, *es419;
+// rdar://107613655 LA: REGRESSION Time format for 12 hours for AM and PM has space between the letters again
+// rdar://118178213 #440 Update data for date/time format for regions CL,CO
+    UDateFormat *def, *fr, *zhChiCal, *esMX, *esUS, *msIslamic, *es419, *esCo, *esCl;
 #else
     UDateFormat *def, *fr, *zhChiCal, *esMX;
 #endif  // APPLE_ICU_CHANGES
@@ -726,6 +734,7 @@ static void TestSymbols()
     }
 #if APPLE_ICU_CHANGES
 // rdar://
+// rdar://107613655 LA: REGRESSION Time format for 12 hours for AM and PM has space between the letters again
     /*creating a dateformat with es_US locale */
     log_verbose("\ncreating a date format with es_US locale\n");
     esUS = udat_open(UDAT_SHORT, UDAT_NONE, "es_US", NULL, 0, NULL, 0, &status);
@@ -750,6 +759,24 @@ static void TestSymbols()
     if(U_FAILURE(status))
     {
         log_data_err("error in creating the dateformat using no date, short time, locale es_419 -> %s (Are you missing data?)\n",
+            myErrorName(status) );
+        return;
+    }
+    /*creating a dateformat with es_CO locale */
+    log_verbose("\ncreating a date format with es_CO locale\n");
+    esCo = udat_open(UDAT_SHORT, UDAT_NONE, "es_CO", NULL, 0, NULL, 0, &status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("error in creating the dateformat using no date, short time, locale es_CO -> %s (Are you missing data?)\n",
+            myErrorName(status) );
+        return;
+    }
+    /*creating a dateformat with es_CL locale */
+    log_verbose("\ncreating a date format with es_CL locale\n");
+    esCl = udat_open(UDAT_SHORT, UDAT_NONE, "es_CL", NULL, 0, NULL, 0, &status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("error in creating the dateformat using no date, short time, locale es_CL -> %s (Are you missing data?)\n",
             myErrorName(status) );
         return;
     }
@@ -836,6 +863,10 @@ static void TestSymbols()
     VerifygetSymbols(esUS, UDAT_AM_PMS, 1, "p.m."); // see rdar://66358568
     VerifygetSymbols(es419, UDAT_AM_PMS, 0, "a.m."); // see rdar://107613655
     VerifygetSymbols(es419, UDAT_AM_PMS, 1, "p.m."); // see rdar://107613655
+    VerifygetSymbols(esCo, UDAT_AM_PMS, 0, "a.\\u00a0m."); // see rdar://118178213
+    VerifygetSymbols(esCo, UDAT_AM_PMS, 1, "p.\\u00a0m."); // see rdar://118178213
+    VerifygetSymbols(esCl, UDAT_AM_PMS, 0, "a.\\u00a0m."); // see rdar://118178213
+    VerifygetSymbols(esCl, UDAT_AM_PMS, 1, "p.\\u00a0m."); // see rdar://118178213
 #endif  // APPLE_ICU_CHANGES
 #if UDAT_HAS_PATTERN_CHAR_FOR_TIME_SEPARATOR
     VerifygetSymbols(def,UDAT_LOCALIZED_CHARS, 0, "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxrbB:");
@@ -846,6 +877,7 @@ static void TestSymbols()
 #if APPLE_ICU_CHANGES
 // rdar://
     // rdar://90771208
+    // Some month names updated for rdar://77151664
     VerifygetSymbols(msIslamic, UDAT_MONTHS, 0, "Muharam");
     VerifygetSymbols(msIslamic, UDAT_MONTHS, 1, "Safar");
     VerifygetSymbols(msIslamic, UDAT_MONTHS, 2, "Rabiulawal");
@@ -858,18 +890,24 @@ static void TestSymbols()
     VerifygetSymbols(msIslamic, UDAT_MONTHS, 9, "Syawal");
     VerifygetSymbols(msIslamic, UDAT_MONTHS, 10, "Zulkaedah");
     VerifygetSymbols(msIslamic, UDAT_MONTHS, 11, "Zulhijah");
-    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 0, "Muh.");
-    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 1, "Saf.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 0, "Mhrm.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 1, "Safr.");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 2, "Rab. Awal");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 3, "Rab. Akhir");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 4, "Jum. Awal");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 5, "Jum. Akhir");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 6, "Rej.");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 7, "Sya.");
-    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 8, "Ram.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 8, "Rmdn.");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 9, "Syaw.");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 10, "Zulka.");
     VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 11, "Zulhi.");
+#endif  // APPLE_ICU_CHANGES
+
+#if APPLE_ICU_CHANGES
+    // rdar://118178213
+    VerifygetSymbols(esCo, UDAT_SHORT_MONTHS, 8, "sep.");
+    VerifygetSymbols(esCl, UDAT_SHORT_MONTHS, 8, "sep.");
 #endif  // APPLE_ICU_CHANGES
 
     if(result != NULL) {
@@ -1224,8 +1262,8 @@ static void TestCalendarDateParse() {
 
  FAIL:
     udat_close(simpleDateFormat);
-    udat_close(tempCal);
-    udat_close(calendar);
+    ucal_close(tempCal);
+    ucal_close(calendar);
 }
 
 
@@ -2214,7 +2252,7 @@ static void TestNarrowQuarters(void) {
         u"es_MX", u"QQQ y",   u"1er. trim. 1970",
         u"es_MX", u"QQQQQ y", u"1T 1970",
 #else
-        u"es_MX", u"QQQQ y",  u"1.er trimestre 1970",
+        u"es_MX", u"QQQQ y",  u"1.º trimestre 1970",
         u"es_MX", u"QQQ y",   u"T1 1970",
         u"es_MX", u"QQQQQ y", u"1 1970",
 #endif  // APPLE_ICU_CHANGES
@@ -2224,11 +2262,13 @@ static void TestNarrowQuarters(void) {
 #if APPLE_ICU_CHANGES
 // rdar://
         u"es_MX", u"qqqq",    u"1er. trimestre",
-#else
-        u"es_MX", u"qqqq",    u"1.er trimestre",
-#endif  // APPLE_ICU_CHANGES
-        u"es_MX", u"qqq",     u"T1",
+        u"es_MX", u"qqq",     u"1er. trim.",
         u"es_MX", u"qqqqq",   u"1T",
+#else
+        u"es_MX", u"qqqq",    u"1.º trimestre",
+        u"es_MX", u"qqq",     u"T1",
+        u"es_MX", u"qqqqq",   u"1",
+#endif  // APPLE_ICU_CHANGES
     };
     
     UErrorCode err = U_ZERO_ERROR;
@@ -2293,6 +2333,112 @@ static void TestExtraneousCharacters(void) {
     ucal_close(cal);
 }
 
+static void TestParseTooStrict(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    const char* locale = "en_US";
+    UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, locale, u"UTC", -1, u"MM/dd/yyyy", -1, &status);
+    if (U_FAILURE(status)) {
+        log_data_err("udat_open locale %s pattern MM/dd/yyyy: %s\n", locale, u_errorName(status));
+        return;
+    }
+    UCalendar* cal = ucal_open(u"UTC", -1, locale, UCAL_GREGORIAN, &status);
+    if (U_FAILURE(status)) {
+        log_data_err("ucal_open locale %s: %s\n", locale, u_errorName(status));
+        udat_close(df);
+        return;
+    }
+    ucal_clear(cal);
+    int32_t ppos = 0;
+    udat_setLenient(df, false);
+    udat_parseCalendar(df, cal, u"1/1/2023", -1, &ppos, &status);
+    if (U_FAILURE(status)) {
+        log_err("udat_parseCalendar locale %s, 1/1/2023: %s\n", locale, u_errorName(status));
+    } else if (ppos != 8) {
+        log_err("udat_parseCalendar locale %s, 1/1/2023: ppos expect 8, get %d\n", locale, ppos);
+    } else {
+        UDate parsedDate = ucal_getMillis(cal, &status);
+        if (U_FAILURE(status)) {
+            log_err("ucal_getMillis: %s\n", u_errorName(status));
+        } else if (parsedDate < 1672531200000.0 || parsedDate >= 1672617600000.0) { // check for day stating at UTC 2023-01-01 00:00
+            log_err("udat_parseCalendar locale %s, 1/1/2023: parsed UDate %.0f out of range\n", locale, parsedDate);
+        }
+    }
+
+    ucal_close(cal);
+    udat_close(df);
+}
+
+static void TestHourCycle(void) {
+    static const UDate date = -845601267742; // March 16, 1943 at 3:45 PM
+    const UChar* testCases[] = {
+        // test some locales for which we have data
+        u"en_US", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_CA", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_GB", u"Tuesday 16 March 1943 at 15:45:32",
+        u"en_AU", u"Tuesday 16 March 1943 at 3:45:32 PM",
+        // test a couple locales for which we don't have specific locale files (we should still get the correct hour cycle)
+        u"en_CO", u"Tuesday, 16 March 1943 at 3:45:32 PM",
+        u"en_MX", u"Tuesday, 16 March 1943 at 3:45:32 p.m.",
+        // test that the rg subtag does the right thing
+#if APPLE_ICU_CHANGES
+// rdar://112976115 (SEED: 21A5291h/iPhone13,3: Date format incorrect with en_US@rg=dkzzzz)
+// IMPORTANT NOTE: Apple ICU *changes* the semantics of the @rg subtag from what open-source ICU does, and we did it
+// in response to the above Radar.  Open-source ICU follows the locale's region code when determining the formatting
+// pattern to use; Apple ICU follows the rg subtag.  Both use the rg subtag to determine the hour cycle for time formats
+// and the locale's region code to determine the symbols to use (e.g., the AM/PM strings).  The LDML spec is actually
+// rather vague as to which things should be controlled by the rg subtag.  We may be doing the wrong thing here,
+// but probably can't without breaking rdar://112976115.  This needs more thought! --rtg 1/3/24
+        u"en_US@rg=GBzzzz", u"Tuesday 16 March 1943 at 15:45:32",
+        u"en_US@rg=CAzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_CA@rg=USzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_GB@rg=USzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_GB@rg=CAzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_GB@rg=AUzzzz", u"Tuesday 16 March 1943 at 3:45:32 PM",
+#else
+        u"en_US@rg=GBzzzz", u"Tuesday, March 16, 1943 at 15:45:32",
+        u"en_US@rg=CAzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_CA@rg=USzzzz", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_GB@rg=USzzzz", u"Tuesday 16 March 1943 at 3:45:32 PM",
+        u"en_GB@rg=CAzzzz", u"Tuesday 16 March 1943 at 3:45:32 PM",
+        u"en_GB@rg=AUzzzz", u"Tuesday 16 March 1943 at 3:45:32 PM",
+#endif // APPLE_ICU_CHANGES
+        // test that the hc ("hours") subtag does the right thing
+        u"en_US@hours=h23", u"Tuesday, March 16, 1943 at 15:45:32",
+        u"en_GB@hours=h12", u"Tuesday 16 March 1943 at 3:45:32 PM",
+        // test that the rg and hc subtags do the right thing when used together
+#if APPLE_ICU_CHANGES
+// rdar://112976115 (SEED: 21A5291h/iPhone13,3: Date format incorrect with en_US@rg=dkzzzz)
+// (See block comment above)
+        u"en_US@rg=GBzzzz;hours=h12", u"Tuesday 16 March 1943 at 3:45:32 PM",
+        u"en_GB@rg=USzzzz;hours=h23", u"Tuesday, March 16, 1943 at 15:45:32",
+#else
+        u"en_US@rg=GBzzzz;hours=h12", u"Tuesday, March 16, 1943 at 3:45:32 PM",
+        u"en_GB@rg=USzzzz;hours=h23", u"Tuesday 16 March 1943 at 15:45:32",
+#endif // APPLE_ICU_CHANGES
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 2) {
+        char errorMessage[200];
+        char* locale = austrdup(testCases[i]);
+        
+        UErrorCode err = U_ZERO_ERROR;
+        sprintf(errorMessage, "Error creating formatter for %s", locale);
+        if (assertSuccess(errorMessage, &err)) {
+            UDateFormat* df = udat_open(UDAT_MEDIUM, UDAT_FULL, austrdup(testCases[i]), u"America/Los_Angeles", -1, NULL, 0, &err);
+            sprintf(errorMessage, "Error formatting value for %s", locale);
+            if (assertSuccess(errorMessage, &err)) {
+                UChar result[100];
+                udat_format(df, date, result, 100, NULL, &err);
+                
+                sprintf(errorMessage, "Wrong result for %s", locale);
+                assertUEquals(errorMessage, testCases[i + 1], result);
+                
+                udat_close(df);
+            }
+        }
+    }
+}
+
 #if APPLE_ICU_CHANGES
 // rdar://
 /* defined above
@@ -2314,7 +2460,7 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_KR", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 at 5:10\u202FAM" },
     { "en_MX", UDAT_MEDIUM, UDAT_SHORT, u"25 Feb 2015 at 5:10 a.m." }, // rdar://17705154
     { "es_MX", UDAT_MEDIUM, UDAT_SHORT, u"25 feb 2015, 5:10 a.m." }, // rdar://17705154
-    { "es_CL", UDAT_MEDIUM, UDAT_SHORT, u"25-02-2015, 05:10" }, // rdar://17705154
+    { "es_CL", UDAT_MEDIUM, UDAT_SHORT, u"25-02-2015, 5:10 a.\u00a0m." }, // rdar://17705154 (CLDR 44 changed CL to 12-hour time)
     { "es_419@rg=MX", UDAT_MEDIUM, UDAT_SHORT, u"25 feb 2015, 5:10 a.m." }, // rdar://17705154
     { "en_AU", UDAT_SHORT, UDAT_NONE, u"25/2/2015" }, // rdar://83597941
     // Add tests for rdar://51014042; currently no specific locales for these
@@ -2372,7 +2518,7 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_SI", UDAT_FULL,   UDAT_NONE, u"Wednesday, 25 February 2015" },
     { "en_SI", UDAT_LONG,   UDAT_NONE, u"25 February 2015" },
     { "en_SI", UDAT_MEDIUM, UDAT_NONE, u"25 Feb 2015" },
-    { "en_SI", UDAT_SHORT,  UDAT_NONE, u"25. 02. 15" },
+    { "en_SI", UDAT_SHORT,  UDAT_NONE, u"25. 2. 15" },
    // terminator
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
 };
@@ -3112,9 +3258,9 @@ static const char * remapResults_ko[] = {
     "a h:mm",                            // short
     "HH:mm",                             //   force24
     "a h:mm",                            //   force12
-    "y\\uB144 M\\uC6D4 d\\uC77C EEEE a h\\uC2DC m\\uBD84 s\\uCD08 z",    // long_df
-    "y\\uB144 M\\uC6D4 d\\uC77C EEEE H\\uC2DC m\\uBD84 s\\uCD08 z",      //   force24
-    "y\\uB144 M\\uC6D4 d\\uC77C EEEE a h\\uC2DC m\\uBD84 s\\uCD08 z",    //   force12
+    "y\\uB144 MMMM d\\uC77C EEEE a h\\uC2DC m\\uBD84 s\\uCD08 z",    // long_df
+    "y\\uB144 MMMM d\\uC77C EEEE H\\uC2DC m\\uBD84 s\\uCD08 z",      //   force24
+    "y\\uB144 MMMM d\\uC77C EEEE a h\\uC2DC m\\uBD84 s\\uCD08 z",    //   force12
     "y. M. d. a h:mm",                   // short_ds
     "y. M. d. HH:mm",                    //   force24
     "y. M. d. a h:mm",                   //   force12
@@ -3427,12 +3573,12 @@ static const char * remapResults_es_PR_japanese[] = { // rdar://52461062
     "h:mm\\u202Fa",         // short
     "HH:mm",          //   force24
     "h:mm\\u202Fa",         //   force12
-    "EEEE, d 'de' MMMM 'de' G y, h:mm:ss\\u202Fa z", // long_df
-    "EEEE, d 'de' MMMM 'de' G y, HH:mm:ss z",  //   force24
-    "EEEE, d 'de' MMMM 'de' G y, h:mm:ss\\u202Fa z", //   force12
-    "MM/dd/GGGGGyy, h:mm\\u202Fa", // short_ds
-    "MM/dd/GGGGGyy, HH:mm",  //   force24
-    "MM/dd/GGGGGyy, h:mm\\u202Fa", //   force12
+    "EEEE, d 'de' MMMM 'de' G y, h:mm:ss\\u202Fa z", // long_df // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "EEEE, d 'de' MMMM 'de' G y, HH:mm:ss z",  //   force24 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "EEEE, d 'de' MMMM 'de' G y, h:mm:ss\\u202Fa z", //   force12 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "MM/dd/GGGGGyy, h:mm\\u202Fa", // short_ds // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "MM/dd/GGGGGyy, HH:mm",  //   force24 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "MM/dd/GGGGGyy, h:mm\\u202Fa", //   force12 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
 
     "h:mm:ss\\u202Fa",      // jmmss
     "HH:mm:ss",       //   force24
@@ -3553,12 +3699,12 @@ static const char * remapResults_en_IN_japanese[] = { // rdar://56309604
     "h:mm\\u202Fa",         // short
     "HH:mm",          //   force24
     "h:mm\\u202Fa",         //   force12
-    "EEEE, d MMMM G y 'at' h:mm:ss\\u202Fa z", // long_df
-    "EEEE, d MMMM G y 'at' HH:mm:ss z",  //   force24
-    "EEEE, d MMMM G y 'at' h:mm:ss\\u202Fa z", //   force12
-    "dd/MM/GGGGGy, h:mm\\u202Fa", // short_ds
-    "dd/MM/GGGGGy, HH:mm",  //   force24
-    "dd/MM/GGGGGy, h:mm\\u202Fa", //   force12
+    "EEEE, d MMMM G y 'at' h:mm:ss\\u202Fa z", // long_df // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "EEEE, d MMMM G y 'at' HH:mm:ss z",  //   force24 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "EEEE, d MMMM G y 'at' h:mm:ss\\u202Fa z", //   force12 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "dd/MM/GGGGGy, h:mm\\u202Fa", // short_ds // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "dd/MM/GGGGGy, HH:mm",  //   force24 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "dd/MM/GGGGGy, h:mm\\u202Fa", //   force12 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
 
     "h:mm:ss\\u202Fa",      // jmmss
     "HH:mm:ss",       //   force24
@@ -3679,12 +3825,12 @@ static const char * remapResults_en_BE_japanese[] = { // rdar://56309604
     "HH:mm",          // short
     "HH:mm",          //   force24
     "h:mm\\u202Fa",         //   force12
-    "EEEE, d MMMM G y 'at' HH:mm:ss z",  // long_df
-    "EEEE, d MMMM G y 'at' HH:mm:ss z",  //   force24
-    "EEEE, d MMMM G y 'at' h:mm:ss\\u202Fa z", //   force12
-    "dd/MM/GGGGGy, HH:mm",  // short_ds
-    "dd/MM/GGGGGy, HH:mm",  //   force24
-    "dd/MM/GGGGGy, h:mm\\u202Fa", //   force12
+    "EEEE, d MMMM G y 'at' HH:mm:ss z",  // long_df // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "EEEE, d MMMM G y 'at' HH:mm:ss z",  //   force24 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "EEEE, d MMMM G y 'at' h:mm:ss\\u202Fa z", //   force12 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "dd/MM/GGGGGy, HH:mm",  // short_ds // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "dd/MM/GGGGGy, HH:mm",  //   force24 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
+    "dd/MM/GGGGGy, h:mm\\u202Fa", //   force12 // rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
 
     "HH:mm:ss",       // jmmss
     "HH:mm:ss",       //   force24
@@ -3874,7 +4020,7 @@ static void TestPerf(void) {
 #endif /* #if ADD_ALLOC_TEST */
 
 #if WRITE_HOUR_MISMATCH_ERRS
-// WriteHourMismatchErrs stuff 52980140
+// WriteHourMismatchErrs stuff rdar://52980140
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -4203,8 +4349,10 @@ static void TestCountryFallback(void) { /* rdar://26911014 */
         "de_US", "de",     "*en_US", "en_US",  // rdar://31169349 (I think we no longer address this Radar...)
 //        "en_CZ", "en_150", "cs_CZ",  "cs_CZ",  // rdar://57625632 (Long date format doesn't match en_150)
         
-        // Special for en_SA, date formats should match those for en_001, other items match en
-        "en_SA", "en_001@calendar=islamic-umalqura", "en_001@calendar=islamic-umalqura", "en_001@calendar=islamic-umalqura",
+        // Special for en_SA, date formats should match those for "generic" (this used to map to
+        // en_001@calendar=islamic, but that no longer works because CLDR 44 added Islamic-calendar patterns
+        // to the 'en' locale, which are not what we want here)
+//        "en_SA", "en_001@calendar=generic", "en_001@calendar=generic", "en_001@calendar=generic",
 
         // Tests for situations where the default calendar and/or numbering system is different depending on whether you
         // fall back by language or by country:
@@ -4423,40 +4571,6 @@ static void TestAbbreviationForSeptember(void) {
     ucal_close(cal2);
 }
 
-static void TestParseTooStrict(void) { // rdar://106745488
-    UErrorCode status = U_ZERO_ERROR;
-    const char* locale = "en_US";
-    UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, locale, u"UTC", -1, u"MM/dd/yyyy", -1, &status);
-    if (U_FAILURE(status)) {
-        log_data_err("udat_open locale %s pattern MM/dd/yyyy: %s\n", locale, u_errorName(status));
-        return;
-    }
-    UCalendar* cal = ucal_open(u"UTC", -1, locale, UCAL_GREGORIAN, &status);
-    if (U_FAILURE(status)) {
-        log_data_err("ucal_open locale %s: %s\n", locale, u_errorName(status));
-        udat_close(df);
-        return;
-    }
-    udat_setLenient(df, false);
-    int32_t ppos = 0;
-    udat_parseCalendar(df, cal, u"1/1/2023", -1, &ppos, &status);
-    if (U_FAILURE(status)) {
-        log_err("udat_parseCalendar locale %s, 1/1/2023: %s\n", locale, u_errorName(status));
-    } else if (ppos != 8) {
-        log_err("udat_parseCalendar locale %s, 1/1/2023: ppos expect 8, get %d\n", locale, ppos);
-    } else {
-        UDate parsedDate = ucal_getMillis(cal, &status);
-        if (U_FAILURE(status)) {
-            log_err("ucal_getMillis: %s\n", u_errorName(status));
-        } else if (parsedDate < 1672531200000.0 || parsedDate >= 1672617600000.0) { // check for day stating at UTC 2023-01-01 00:00
-            log_err("udat_parseCalendar locale %s, 1/1/2023: parsed UDate %.0f out of range\n", locale, parsedDate);
-        }
-    }
-
-    ucal_close(cal);
-    udat_close(df);
-}
-
 static void TestRgSubtag(void) { // rdar://106566783
     UChar* testData[] = {
         u"es_ES",            u"16/3/43, 23:56",
@@ -4488,6 +4602,8 @@ static void TestRgSubtag(void) { // rdar://106566783
         u"ar_SA",            u"٩ ربيع١، ١٣٦٢ هـ، ١١:٥٦\u00a0م",
         u"ar_US",            u"١٦‏/٣‏/١٩٤٣، ١١:٥٦ م",
         u"ar_SA@rg=USzzzz",  u"١٦‏/٣‏/١٩٤٣، ١١:٥٦ م",
+        
+        u"*en_US@rg=dkzzzz",  u"Tuesday, 16 March 1943 at 23.56", // rdar://112976115
     };
     
     UErrorCode err = U_ZERO_ERROR;
@@ -4505,11 +4621,18 @@ static void TestRgSubtag(void) { // rdar://106566783
     }
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testData); i+= 2) {
-        char* locale = austrdup(testData[i]);
+        char* locale = "";
+        UDateFormatStyle dateStyle = UDAT_SHORT;
+        if (testData[i][0] == u'*') {
+            locale = austrdup(testData[i] + 1);
+            dateStyle = UDAT_FULL;
+        } else {
+            locale = austrdup(testData[i]);
+        }
         UChar* expectedResult = testData[i + 1];
         
         err = U_ZERO_ERROR;
-        UDateFormat* df = udat_open(UDAT_SHORT, UDAT_SHORT, locale, u"UTC", -1, NULL, 0, &err);
+        UDateFormat* df = udat_open(UDAT_SHORT, dateStyle, locale, u"UTC", -1, NULL, 0, &err);
         
         char errorMessage[100];
         snprintf(errorMessage, 100, "Failed to create date formatter for %s", locale);
@@ -4544,6 +4667,50 @@ static void TestTimeFormatInheritance(void) {
         char errorMessage[200];
         sprintf(errorMessage, "Patterns don't match for %s", locale);
         assertUEquals(errorMessage, expectedResult, pattern);
+    }
+}
+
+// rdar://114975916
+static void TestRelativeDateTime(void) {
+    typedef struct {
+        const char* locale;
+        UDateFormatStyle style;
+        const UChar* expectedResult;
+    } RelativeDateTimeTestCase;
+    
+    RelativeDateTimeTestCase testCases[] = {
+        { "en_US", UDAT_FULL_RELATIVE,   u"today at 5:00 PM" },
+        { "en_US", UDAT_LONG_RELATIVE,   u"today at 5:00 PM" },
+        { "en_US", UDAT_MEDIUM_RELATIVE, u"today at 5:00 PM" },
+        { "en_US", UDAT_SHORT_RELATIVE,  u"today, 5:00 PM" },
+        { "fi_FI", UDAT_FULL_RELATIVE,   u"tänään klo 17.00" },
+        { "fi_FI", UDAT_LONG_RELATIVE,   u"tänään klo 17.00" },
+        { "fi_FI", UDAT_MEDIUM_RELATIVE, u"tänään klo 17.00" },
+        { "fi_FI", UDAT_SHORT_RELATIVE,  u"tänään klo 17.00" },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UDateFormat* df = udat_open(UDAT_SHORT, testCases[i].style, testCases[i].locale, u"America/Los_Angeles", -1, NULL, 0, &err);
+        
+        if (assertSuccess("Failed to create date formatter", &err)) {
+            UCalendar* cal = ucal_open(u"America/Los_Angeles", -1, "en_US", UCAL_GREGORIAN, &err);
+            ucal_setMillis(cal, ucal_getNow(), &err);
+            ucal_set(cal, UCAL_HOUR_OF_DAY, 17);
+            ucal_set(cal, UCAL_MINUTE, 0);
+            ucal_set(cal, UCAL_SECOND, 0);
+            UDate now = ucal_getMillis(cal, &err);
+            
+            if (assertSuccess("Failed to create calendar or calculate date", &err)) {
+                UChar result[200];
+                char errorMessage[200];
+                snprintf(errorMessage, 200, "Wrong result: locale=%s, style=%d", testCases[i].locale, testCases[i].style);
+                
+                udat_format(df, now, result, 200, NULL, &err);
+                assertUEquals(errorMessage, testCases[i].expectedResult, result);
+            }
+            udat_close(df);
+        }
     }
 }
 

@@ -12,6 +12,23 @@
 	</array>
 	<key>Tests</key>
 	<array>
+		<dict>
+			<key>TestName</key>
+			<string>text_cmds.base64</string>
+			<key>TestOutputType</key>
+			<string>darwintest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/text_cmds/bintrans/test_base64</string>
+			</array>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+		</dict>
 #if TARGET_OS_OSX
 		<dict>
 			<key>TestName</key>
@@ -26,7 +43,26 @@
 				<string>PRESUBMISSION</string>
 				<string>NIGHTLY</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 		</dict>
+#endif
+		<dict>
+			<key>TestName</key><string>text_cmds.bintrans.legacy_test</string>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>/AppleInternal/Tests/text_cmds/bintrans/legacy_test.sh</string>
+			</array>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+		</dict>
+#if TARGET_OS_OSX
 		<dict>
 			<key>TestName</key>
 			<string>text_cmds.bintrans_test.sh.decode_qp</string>
@@ -99,6 +135,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that cat(1) aligns the output right with options '-be' (PR bin/4841)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -124,6 +162,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that cat(1) doesn't return zero exit status for a nonexistent file (PR bin/3538)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -149,6 +189,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that cat(1) prints out numbers on non-blank lines with '-b'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -174,6 +216,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that cat(1) prints a $ sign on blank lines with options '-se' (PR bin/51250)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -199,6 +243,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that cat(1) squeezes multiple adjacent empty lines producing a single spaced output with option '-s'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -224,6 +270,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that cat(1) prints a $ sign on blank lines with option '-e'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -249,6 +297,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that cat(1) displays non-printing characters, namely control characters, tab character and meta-characters using options '-vt'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -274,6 +324,8 @@
 			</array>
 			<key>Description</key>
 			<string>testing just newlines</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -299,6 +351,8 @@
 			</array>
 			<key>Description</key>
 			<string>testing reverse line feed</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -324,6 +378,8 @@
 			</array>
 			<key>Description</key>
 			<string>testing half line feed</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -340,6 +396,8 @@
 				<string>PRESUBMISSION</string>
 				<string>NIGHTLY</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 		</dict>
 #if TARGET_OS_OSX
 		<dict>
@@ -364,6 +422,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test an edge case where input has fewer lines than count</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -389,6 +449,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks basic functionality</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -414,6 +476,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks -s flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -439,6 +503,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks -d flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -464,6 +530,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks -s and -d flags combined</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -489,6 +557,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks support for non-ascii characters</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -514,6 +584,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks support for multibyte characters</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -539,6 +611,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check -s flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -564,6 +638,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'b'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -589,6 +665,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 's'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -614,6 +692,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that an invalid usage with a supported option produces a valid error message</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -639,6 +719,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that fold(1) executes successfully and silently when invoked without any arguments</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -662,6 +744,8 @@
 				<string>grep_freebsd_test.sh.grep_r_implied.results.txt</string>
 				<string>grep_r_implied</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -687,6 +771,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks basic functionality</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -712,6 +798,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks handling of binary files</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -737,6 +825,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks recursive searching</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -762,6 +852,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks symbolic link recursion</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -787,6 +879,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks word-regexps</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -812,6 +906,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks handling of line beginnings and ends</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -837,6 +933,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks ignore-case option</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -862,6 +960,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks selecting non-matching lines with -v option</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -887,6 +987,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks whole-line matching with -x flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -912,6 +1014,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks handling of files with no matches</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -937,6 +1041,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks displaying context with -A, -B and -C flags</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -962,6 +1068,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks reading expressions from file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -987,6 +1095,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks matching special characters with egrep</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1012,6 +1122,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks handling of gzipped files with zgrep</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1037,6 +1149,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks for zgrep wrapper problems with combined flags (PR 247126)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1062,6 +1176,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks for zgrep wrapper problems with -e PATTERN (PR 247126)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1087,6 +1203,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks for zgrep wrapper problems with empty -e flags pattern (PR 247126)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1112,6 +1230,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks for zgrep wrapper problems with -f FILE (PR 247126)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1137,6 +1257,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks for zgrep wrapper problems with --ignore-case reading from stdin (PR 247126)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1162,6 +1284,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks for zgrep wrapper problems with multiple -e flags (PR 247126)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1187,6 +1311,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks that -s flag suppresses error messages about nonexistent files</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1212,6 +1338,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks displaying context with -z flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1237,6 +1365,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check behavior of zero-length matches with -o flag (PR 195763)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1262,6 +1392,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check that we actually get a match with -x flag (PR 180990)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1287,6 +1419,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check --color support</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1312,6 +1446,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for handling of a null byte in empty file, specified by -f (PR 202022)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1337,6 +1473,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check proper handling of escaped vs. unescaped dot expressions (PR 175314)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1362,6 +1500,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for handling of an invalid empty pattern (PR 194823)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1387,6 +1527,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for successful zero-length matches with ^$</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1412,6 +1554,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for proper handling of -w with an empty pattern (PR 105221)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1435,6 +1579,8 @@
 				<string>t_grep.sh.xflag_emptypat.results.txt</string>
 				<string>xflag_emptypat</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1458,6 +1604,8 @@
 				<string>t_grep.sh.xflag_emptypat_plus.results.txt</string>
 				<string>xflag_emptypat_plus</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1481,6 +1629,8 @@
 				<string>t_grep.sh.emptyfile.results.txt</string>
 				<string>emptyfile</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1506,6 +1656,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for proper handling of lines with excessive matches (PR 218811)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1531,6 +1683,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for incorrectly matching lines with both -w and -v flags (PR 218467)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1556,6 +1710,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for fgrep sanity, literal expressions only</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1581,6 +1737,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for egrep sanity, EREs only</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1606,6 +1764,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for basic grep sanity, BREs only</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1631,6 +1791,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for -n/-b producing per-line metadata output</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1656,6 +1818,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for no match (-c, -l, -L, -q) flags not producing line matches or context (PR 219077)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1681,6 +1845,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check output for binary flags (-a, -I, -U, --binary-files)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1706,6 +1872,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check for handling of invalid context arguments</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1731,6 +1899,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check basic matching with --mmap flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1756,6 +1926,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check proper behavior of matching all with an empty string</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1781,6 +1953,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check proper behavior with multiple patterns supplied to fgrep</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1806,6 +1980,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check proper handling of -i supplied to fgrep</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1831,6 +2007,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check proper handling of -o supplied to fgrep</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1856,6 +2034,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check proper handling of -c</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1881,6 +2061,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check proper handling of -m</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1906,6 +2088,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check proper handling of -m with trailing context (PR 253350)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1931,6 +2115,8 @@
 			</array>
 			<key>Description</key>
 			<string>Ensures that zgrep functions properly with multiple files</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1956,6 +2142,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s handling of an empty file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -1981,6 +2169,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s default mode</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2006,6 +2196,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s -n option</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2031,6 +2223,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s -c option</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2056,6 +2250,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s handling of a sparse file with text at the beginning of the file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2081,6 +2277,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s handling of a sparse file with text at the end of the file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2106,6 +2304,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s handling of a missing line count arg</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2131,6 +2331,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s handling of an invalid line count arg</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2156,6 +2358,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test head(1)'s reading of stdin</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2172,6 +2376,8 @@
 				<string>PRESUBMISSION</string>
 				<string>NIGHTLY</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 		</dict>
 #if TARGET_OS_OSX
 		<dict>
@@ -2196,6 +2402,8 @@
 			</array>
 			<key>Description</key>
 			<string>A basic test of pr(1) (cf. PR bin/41880)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2221,6 +2429,8 @@
 			</array>
 			<key>Description</key>
 			<string>Format columns in round-robin order with pr -a</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2246,6 +2456,8 @@
 			</array>
 			<key>Description</key>
 			<string>Merge two files with pr -m</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2271,6 +2483,8 @@
 			</array>
 			<key>Description</key>
 			<string>Format a file with three columns</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2296,6 +2510,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'c'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2321,6 +2537,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 's'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2346,6 +2564,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'C'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2371,6 +2591,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'S'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2396,6 +2618,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 't'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2421,6 +2645,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'T'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2446,6 +2672,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'k'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2471,6 +2699,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'K'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2496,6 +2726,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'g'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2521,6 +2753,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'G'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2546,6 +2780,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'e'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2571,6 +2807,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'n'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2596,6 +2834,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'y'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2621,6 +2861,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'h'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2646,6 +2888,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'H'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2671,6 +2915,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'j'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2696,6 +2942,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'm'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2721,6 +2969,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify the usage of option 'z'</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2746,6 +2996,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that an invalid usage with a supported option produces a valid error message</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2771,6 +3023,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that rs(1) executes successfully and produces a valid output when invoked without any arguments</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2787,6 +3041,8 @@
 				<string>PRESUBMISSION</string>
 				<string>NIGHTLY</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 		</dict>
 		<dict>
 			<key>TestName</key><string>text_cmds.sed.legacy</string>
@@ -2800,6 +3056,8 @@
 				<string>PRESUBMISSION</string>
 				<string>NIGHTLY</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 		</dict>
 #if TARGET_OS_OSX
 		<dict>
@@ -2838,6 +3096,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that sed(1) does not fail when the 2048'th character is a backslash (PR bin/25899)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2863,6 +3123,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that sed(1) handles empty back references (PR bin/28126)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2888,6 +3150,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that sed(1) handles long lines correctly (PR bin/42261)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2913,6 +3177,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that sed(1) handles range selection correctly</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2938,6 +3204,8 @@
 			</array>
 			<key>Description</key>
 			<string>Test that sed(1) preserves leading whitespace in insert and append (PR bin/49872)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -2988,6 +3256,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -i works correctly with the 'q' command</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3013,6 +3283,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -i works with a symlinked source file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3038,6 +3310,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -i works with a symlinked source file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3063,6 +3337,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify functional escaping of \n, \r, and \t</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3088,6 +3364,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify -f -</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3113,6 +3391,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify proper conversion of hex escapes</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3138,6 +3418,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify '[' is ordinary character for 'y' command</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3163,6 +3445,8 @@
 			</array>
 			<key>Description</key>
 			<string>Basic functionality test</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3188,6 +3472,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests sorting an empty file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3213,6 +3499,8 @@
 			</array>
 			<key>Description</key>
 			<string>Determination of end of option list</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3238,6 +3526,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests with missing new line in input file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3263,6 +3553,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the behavior of null bytes</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3288,6 +3580,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests long lines and keys</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3313,6 +3607,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests with a long file to try to force intermediate files</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3338,6 +3634,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests with files containing non-printable/extended characters</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3363,6 +3661,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -b flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3388,6 +3688,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -c flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3413,6 +3715,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -k flag with one field</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3438,6 +3742,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -k flag with two fields</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3463,6 +3769,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -k flag with many fields</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3488,6 +3796,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -k flag with out of bounds fields</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3513,6 +3823,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -k flag with apparently nonmonotone field specs</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3538,6 +3850,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -k flag field limits</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3563,6 +3877,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -k flag with various alpha fields</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3588,6 +3904,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -k flag with a field without end</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3613,6 +3931,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -m flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3638,6 +3958,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -m flag together with -u</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3663,6 +3985,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests that the -m flag together with -u picks the first among equal</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3688,6 +4012,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -n flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3713,6 +4039,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -n and -r flag combination</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3738,6 +4066,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -o flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3763,6 +4093,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -o flag after the file names</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3788,6 +4120,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -r flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3813,6 +4147,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -s flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3838,6 +4174,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -s flag with multiple files</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3863,6 +4201,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -t flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3888,6 +4228,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -t flag with a character as the delimiter</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3913,6 +4255,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -t flag with character positions in fields</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3938,6 +4282,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -t flag with spaces and tabs as the delimiter</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3963,6 +4309,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -u flag</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -3988,6 +4336,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -u and -r flag combination</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4013,6 +4363,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests +- addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4038,6 +4390,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests +- addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4063,6 +4417,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests +- addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4088,6 +4444,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests += addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4113,6 +4471,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests +- addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4138,6 +4498,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests +- addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4163,6 +4525,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests +- addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4188,6 +4552,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests +- addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4213,6 +4579,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests +- addressing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4413,6 +4781,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse an empty file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4438,6 +4808,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4463,6 +4835,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a file and display the last 28 characters</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4488,6 +4862,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse the last two lines of a file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4513,6 +4889,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a pipe whose first character is a newline</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4538,6 +4916,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a long file</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4563,6 +4943,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a file that's too long to store in RAM</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4588,6 +4970,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a long file with extremely long lines</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4613,6 +4997,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a long file and print the last 135,782 bytes</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4638,6 +5024,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a long file with extremely long lines and print the last 145,782 bytes</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4663,6 +5051,8 @@
 			</array>
 			<key>Description</key>
 			<string>Reverse a long file and print the last 2,500 lines</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4688,6 +5078,8 @@
 			</array>
 			<key>Description</key>
 			<string>Do not print bogus errno based output on short writes</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4713,6 +5105,8 @@
 			</array>
 			<key>Description</key>
 			<string>Check basic operations on standard input</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4738,6 +5132,8 @@
 			</array>
 			<key>Description</key>
 			<string>Basic regression test for -f</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4763,6 +5159,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that -f works with files piped to standard input</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4788,6 +5186,8 @@
 			</array>
 			<key>Description</key>
 			<string>Verify that -F works</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4813,6 +5213,8 @@
 			</array>
 			<key>Description</key>
 			<string>rdar://problem/96169775 - verify that the BOF is handled properly</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4829,6 +5231,8 @@
 				<string>PRESUBMISSION</string>
 				<string>NIGHTLY</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
 		</dict>
 #if TARGET_OS_OSX
 		<dict>
@@ -4853,6 +5257,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests for tr -d</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4878,6 +5284,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests for tr -s</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4903,6 +5311,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests for tr -ds</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4928,6 +5338,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests for tr substitution</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4953,6 +5365,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests for tr substitution with -c</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -4978,6 +5392,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks the basic functionality</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -5003,6 +5419,8 @@
 			</array>
 			<key>Description</key>
 			<string>Tests the -c option, comparing each line of the input file data starting from the second field</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -5028,6 +5446,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks the -d option, comparing each line of the input file data starting from the second field</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -5053,6 +5473,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks the -u option, comparing each line of the input file data starting from the second field</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
@@ -5078,6 +5500,8 @@
 			</array>
 			<key>Description</key>
 			<string>Checks the -d option, comparing each line of the input file data starting from the third character (-s option)</string>
+			<key>MayRunConcurrently</key>
+			<true/>
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>

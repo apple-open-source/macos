@@ -1704,7 +1704,7 @@ int32_t RuleBasedBreakIterator57::checkDictionary(int32_t startPos,
         // Ask the language object if there are any breaks. It will leave the text
         // pointer on the other side of its range, ready to search for the next one.
         if (lbe != NULL) {
-            foundBreakCount += lbe->findBreaks(fText, rangeStart, rangeEnd, breaks, false, status);
+            foundBreakCount += lbe->findBreaks(fText, current, rangeEnd, breaks, false, status);
         }
         
         // Reload the loop variables for the next go-round
@@ -1812,7 +1812,9 @@ getLanguageBreakEngineFromFactory(UChar32 c)
     const LanguageBreakEngine *lbe = NULL;
     while (--i >= 0) {
         LanguageBreakFactory *factory = (LanguageBreakFactory *)(gLanguageBreakFactories->elementAt(i));
-        lbe = factory->getEngineFor(c);
+        // NOTE: DictionaryBreakIterator::handles() doesn't currently use its locale parameter,
+        // so this is safe for now, but may not always be (as of ICU 74, 10/25/23)
+        lbe = factory->getEngineFor(c, NULL);
         if (lbe != NULL) {
             break;
         }
@@ -1844,7 +1846,9 @@ RuleBasedBreakIterator57::getLanguageBreakEngine(UChar32 c) {
     int32_t i = fLanguageBreakEngines->size();
     while (--i >= 0) {
         lbe = (const LanguageBreakEngine *)(fLanguageBreakEngines->elementAt(i));
-        if (lbe->handles(c)) {
+        // NOTE: DictionaryBreakIterator::handles() doesn't currently use its locale parameter,
+        // so this is safe for now, but may not always be (as of ICU 74, 10/25/23)
+        if (lbe->handles(c, NULL)) {
             return lbe;
         }
     }

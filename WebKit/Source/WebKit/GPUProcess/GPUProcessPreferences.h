@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,18 +29,11 @@
 
 #include <optional>
 
-namespace IPC {
-class Decoder;
-class Encoder;
-}
-
 namespace WebKit {
 
 class WebPreferences;
 
 struct GPUProcessPreferences {
-    GPUProcessPreferences();
-    GPUProcessPreferences(const WebPreferences&);
     void copyEnabledWebPreferences(const WebPreferences&);
     
 #if ENABLE(OPUS)
@@ -75,8 +68,15 @@ struct GPUProcessPreferences {
     std::optional<bool> useSCContentSharingPicker;
 #endif
 
-    void encode(IPC::Encoder&) const;
-    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, GPUProcessPreferences&);
+#if ENABLE(EXTENSION_CAPABILITIES)
+    std::optional<bool> mediaCapabilityGrantsEnabled;
+#endif
+
+#if ENABLE(VP9)
+    std::optional<bool> vp8DecoderEnabled;
+    std::optional<bool> vp9DecoderEnabled;
+    std::optional<bool> vp9SWDecoderEnabled;
+#endif
 };
 
 } // namespace WebKit

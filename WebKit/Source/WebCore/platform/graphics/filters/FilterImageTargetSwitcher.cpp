@@ -56,7 +56,7 @@ GraphicsContext* FilterImageTargetSwitcher::drawingContext(GraphicsContext& cont
     return m_sourceImage ? &m_sourceImage->context() : &context;
 }
 
-void FilterImageTargetSwitcher::beginClipAndDrawSourceImage(GraphicsContext& destinationContext, const FloatRect& repaintRect)
+void FilterImageTargetSwitcher::beginClipAndDrawSourceImage(GraphicsContext& destinationContext, const FloatRect& repaintRect, const FloatRect&)
 {
     if (auto* context = drawingContext(destinationContext)) {
         context->save();
@@ -79,7 +79,7 @@ void FilterImageTargetSwitcher::endDrawSourceImage(GraphicsContext& destinationC
         return;
 
     FilterResults results;
-    destinationContext.drawFilteredImageBuffer(m_sourceImage.get(), m_sourceImageRect, *m_filter, m_results ? *m_results : results);
+    destinationContext.drawFilteredImageBuffer(m_sourceImage.get(), m_sourceImageRect, Ref { *m_filter }, m_results ? *m_results : results);
 }
 
 } // namespace WebCore

@@ -76,12 +76,15 @@ typedef struct fninfo {
 	char		*fi_key;		/* key to use on direct maps */
 	char		*fi_opts;		/* default mount options */
 	uint32_t	fi_mntflags;		/* Boolean mount options */
-	int		fi_pathlen;		/* autofs mountpoint len */
-	int		fi_maplen;		/* size of context */
-	int		fi_subdirlen;
-	int		fi_keylen;
-	int		fi_optslen;		/* default mount options len */
-	int		fi_flags;
+	int			fi_pathlen;		/* autofs mountpoint len */
+	int			fi_maplen;		/* size of context */
+	int			fi_subdirlen;
+	int			fi_keylen;
+	int			fi_optslen;		/* default mount options len */
+	int			fi_flags;
+	lck_mtx_t	*fi_busy_mtx;
+	int			fi_busy_shared;
+	int 		fi_busy_exclusive;
 } fninfo_t;
 
 /*
@@ -154,6 +157,12 @@ struct autofs_symlink_node {
  * 	MF_HOMEDIRMOUNT:
  * 		- A home directory mount is in progress on this node.
  */
+
+#define MOUNT_BUSY_SHARED		0
+#define MOUNT_BUSY_EXCLUSIVE	1
+
+#define MOUNT_LOCK_MODE_LOCK	0x01
+#define MOUNT_LOCK_MODE_BUSY	0x02
 
 /*
  * The inode of AUTOFS
@@ -248,9 +257,11 @@ extern int auto_lookup_request(fninfo_t *, char *, int, char *,
 
 extern void autofs_free_globals(struct autofs_globals *);
 	
-extern boolean_t auto_fninfo_lock_shared(fninfo_t *fnip, int pid);
-extern void auto_fninfo_unlock_shared(fninfo_t *fnip, boolean_t have_lock);
+int auto_fninfo_lock_shared(fninfo_t *, int, int, int *);
+void auto_fninfo_unlock_shared(fninfo_t *, int);
 
+void autofs_mount_clear_busy(fninfo_t *, int);
+int autofs_mount_set_busy(fninfo_t *, int);
 #endif /* __APPLE_API_PRIVATE */
 
 #endif	/* __AUTOFS_KERN_H__ */

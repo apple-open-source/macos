@@ -61,7 +61,8 @@ JSC_DECLARE_JIT_OPERATION(operationConvertToI64, int64_t, (Instance*, EncodedJSV
 JSC_DECLARE_JIT_OPERATION(operationConvertToF64, double, (Instance*, EncodedJSValue));
 JSC_DECLARE_JIT_OPERATION(operationConvertToI32, int32_t, (Instance*, EncodedJSValue));
 JSC_DECLARE_JIT_OPERATION(operationConvertToF32, float, (Instance*, EncodedJSValue));
-JSC_DECLARE_JIT_OPERATION(operationConvertToFuncref, EncodedJSValue, (Instance*, EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationConvertToFuncref, EncodedJSValue, (Instance*, const TypeDefinition*, EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationConvertToAnyref, EncodedJSValue, (Instance*, const TypeDefinition*, EncodedJSValue));
 JSC_DECLARE_JIT_OPERATION(operationConvertToBigInt, EncodedJSValue, (Instance*, EncodedWasmValue));
 
 JSC_DECLARE_JIT_OPERATION(operationIterateResults, void, (Instance*, const TypeDefinition*, EncodedJSValue, uint64_t*, uint64_t*));
@@ -99,6 +100,8 @@ JSC_DECLARE_JIT_OPERATION(operationWasmThrow, void*, (Instance*, unsigned except
 JSC_DECLARE_JIT_OPERATION(operationWasmRethrow, void*, (Instance*, EncodedJSValue thrownValue));
 
 JSC_DECLARE_JIT_OPERATION(operationWasmToJSException, void*, (Instance*, Wasm::ExceptionType));
+JSC_DECLARE_JIT_OPERATION(operationCrashDueToBBQStackOverflow, void, ());
+JSC_DECLARE_JIT_OPERATION(operationCrashDueToOMGStackOverflow, void, ());
 
 struct ThrownExceptionInfo {
     EncodedJSValue thrownValue;
@@ -112,9 +115,9 @@ JSC_DECLARE_JIT_OPERATION(operationWasmArrayNewEmpty, EncodedJSValue, (Instance*
 JSC_DECLARE_JIT_OPERATION(operationWasmArrayGet, EncodedJSValue, (Instance* instance, uint32_t typeIndex, EncodedJSValue encValue, uint32_t index));
 JSC_DECLARE_JIT_OPERATION(operationWasmArraySet, void, (Instance* instance, uint32_t typeIndex, EncodedJSValue encValue, uint32_t index, EncodedJSValue value));
 JSC_DECLARE_JIT_OPERATION(operationWasmIsSubRTT, bool, (Wasm::RTT*, Wasm::RTT*));
-JSC_DECLARE_JIT_OPERATION(operationWasmExternInternalize, EncodedJSValue, (EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationWasmAnyConvertExtern, EncodedJSValue, (EncodedJSValue));
 
-JSC_DECLARE_JIT_OPERATION(operationWasmRefTest, int32_t, (Instance*, EncodedJSValue, uint32_t, int32_t));
+JSC_DECLARE_JIT_OPERATION(operationWasmRefTest, int32_t, (Instance*, EncodedJSValue, uint32_t, int32_t, bool));
 JSC_DECLARE_JIT_OPERATION(operationWasmRefCast, EncodedJSValue, (Instance*, EncodedJSValue, uint32_t, int32_t));
 
 #if USE(JSVALUE64)

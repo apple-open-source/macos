@@ -57,7 +57,7 @@
 #include <i386/mp_desc.h>
 #include <i386/misc_protos.h>
 #include <i386/thread.h>
-#include <i386/trap.h>
+#include <i386/trap_internal.h>
 #include <i386/seg.h>
 #include <mach/i386/syscall_sw.h>
 #include <sys/syscall.h>

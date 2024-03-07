@@ -102,23 +102,37 @@ static int proxy_balancer_canon(request_rec *r, char *url)
     if (apr_table_get(r->notes, "proxy-nocanon")) {
         path = url;   /* this is the raw path */
     }
-    else {
-        path = ap_proxy_canonenc(r->pool, url, strlen(url), enc_path, 0,
-                                 r->proxyreq);
+    else if (apr_table_get(r->notes, "proxy-noencode")) {
+        path = url;   /* this is the encoded path already */
         search = r->args;
-        if (search && *(ap_scan_vchar_obstext(search))) {
-            /*
-             * We have a raw control character or a ' ' in r->args.
-             * Correct encoding was missed.
-             */
-             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(10407)
-                           "To be forwarded query string contains control "
-                           "characters or spaces");
-             return HTTP_FORBIDDEN;
-        }
     }
-    if (path == NULL)
-        return HTTP_BAD_REQUEST;
+    else {
+        core_dir_config *d = ap_get_core_module_config(r->per_dir_config);
+        int flags = d->allow_encoded_slashes && !d->decode_encoded_slashes ? PROXY_CANONENC_NOENCODEDSLASHENCODING : 0;
+
+        path = ap_proxy_canonenc_ex(r->pool, url, strlen(url), enc_path, flags,
+                                    r->proxyreq);
+        if (!path) {
+            return HTTP_BAD_REQUEST;
+        }
+        search = r->args;
+    }
+    /*
+     * If we have a raw control character or a ' ' in nocanon path or
+     * r->args, correct encoding was missed.
+     */
+    if (path == url && *ap_scan_vchar_obstext(path)) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(10416)
+                      "To be forwarded path contains control "
+                      "characters or spaces");
+        return HTTP_FORBIDDEN;
+    }
+    if (search && *ap_scan_vchar_obstext(search)) {
+         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(10407)
+                       "To be forwarded query string contains control "
+                       "characters or spaces");
+         return HTTP_FORBIDDEN;
+    }
 
     r->filename = apr_pstrcat(r->pool, "proxy:" BALANCER_PREFIX, host,
             "/", path, (search) ? "?" : "", (search) ? search : "", NULL);

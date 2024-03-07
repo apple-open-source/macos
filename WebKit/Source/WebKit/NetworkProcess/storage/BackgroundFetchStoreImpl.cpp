@@ -26,9 +26,6 @@
 #include "config.h"
 #include "BackgroundFetchStoreImpl.h"
 
-
-#if ENABLE(SERVICE_WORKER)
-
 #include "BackgroundFetchChange.h"
 #include "BackgroundFetchState.h"
 #include "BackgroundFetchStoreManager.h"
@@ -136,7 +133,7 @@ void BackgroundFetchStoreImpl::initializeFetchesInternal(const WebCore::ClientOr
             return;
         }
         backgroundFetchManager->initializeFetches([internalCallback = WTFMove(internalCallback)](auto&& fetches) mutable {
-            callOnMainRunLoop([fetches = WTFMove(fetches), internalCallback = WTFMove(internalCallback)]() mutable {
+            callOnMainRunLoop([fetches = std::forward<decltype(fetches)>(fetches), internalCallback = WTFMove(internalCallback)]() mutable {
                 internalCallback(WTFMove(fetches));
             });
         });
@@ -439,5 +436,3 @@ void BackgroundFetchStoreImpl::clickBackgroundFetch(const String& filename, Comp
 }
 
 } // namespace WebKit
-
-#endif // ENABLE(SERVICE_WORKER)

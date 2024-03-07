@@ -47,6 +47,7 @@
 #include "PlatformMouseEvent.h"
 #include "PlatformStrategies.h"
 #include "PrivateClickMeasurement.h"
+#include "Quirks.h"
 #include "RegistrableDomain.h"
 #include "RenderImage.h"
 #include "ResourceRequest.h"
@@ -102,7 +103,7 @@ bool HTMLAnchorElement::isMouseFocusable() const
 {
 #if !(PLATFORM(GTK) || PLATFORM(WPE))
     // Only allow links with tabIndex or contentEditable to be mouse focusable.
-    if (isLink())
+    if (isLink() && !document().quirks().needsAnchorElementsToBeMouseFocusable())
         return HTMLElement::supportsFocus();
 #endif
 
@@ -159,23 +160,23 @@ bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent* event) const
 
 static void appendServerMapMousePosition(StringBuilder& url, Event& event)
 {
-    if (!is<MouseEvent>(event))
-        return;
-    auto& mouseEvent = downcast<MouseEvent>(event);
-
-    if (!is<HTMLImageElement>(mouseEvent.target()))
+    auto* mouseEvent = dynamicDowncast<MouseEvent>(event);
+    if (!mouseEvent)
         return;
 
-    auto& imageElement = downcast<HTMLImageElement>(*mouseEvent.target());
-    if (!imageElement.isServerMap())
+    auto* imageElement = dynamicDowncast<HTMLImageElement>(mouseEvent->target());
+    if (!imageElement)
         return;
 
-    auto* renderer = imageElement.renderer();
-    if (!is<RenderImage>(renderer))
+    if (!imageElement->isServerMap())
+        return;
+
+    CheckedPtr renderer = dynamicDowncast<RenderImage>(imageElement->renderer());
+    if (!renderer)
         return;
 
     // FIXME: This should probably pass UseTransforms in the OptionSet<MapCoordinatesMode>.
-    auto absolutePosition = downcast<RenderImage>(*renderer).absoluteToLocal(FloatPoint(mouseEvent.pageX(), mouseEvent.pageY()));
+    auto absolutePosition = renderer->absoluteToLocal(FloatPoint(mouseEvent->pageX(), mouseEvent->pageY()));
     url.append('?', std::lround(absolutePosition.x()), ',', std::lround(absolutePosition.y()));
 }
 
@@ -197,9 +198,9 @@ void HTMLAnchorElement::defaultEventHandler(Event& event)
             // This keeps track of the editable block that the selection was in (if it was in one) just before the link was clicked
             // for the LiveWhenNotFocused editable link behavior
             auto& eventNames = WebCore::eventNames();
-            if (event.type() == eventNames.mousedownEvent && is<MouseEvent>(event) && downcast<MouseEvent>(event).button() != MouseButton::Right && document().frame()) {
+            if (auto* mouseEvent = dynamicDowncast<MouseEvent>(event); event.type() == eventNames.mousedownEvent && mouseEvent && mouseEvent->button() != MouseButton::Right && document().frame()) {
                 setRootEditableElementForSelectionOnMouseDown(document().frame()->selection().selection().rootEditableElement());
-                m_wasShiftKeyDownOnMouseDown = downcast<MouseEvent>(event).shiftKey();
+                m_wasShiftKeyDownOnMouseDown = mouseEvent->shiftKey();
             } else if (event.type() == eventNames.mouseoverEvent) {
                 // These are cleared on mouseover and not mouseout because their values are needed for drag events,
                 // but drag events happen after mouse out events.
@@ -241,10 +242,7 @@ void HTMLAnchorElement::attributeChanged(const QualifiedName& name, const AtomSt
     HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
 
     if (name == hrefAttr) {
-        bool wasLink = isLink();
         setIsLink(!newValue.isNull() && !shouldProhibitLinks(this));
-        if (wasLink != isLink())
-            invalidateStyleForSubtree();
         if (isLink()) {
             auto parsedURL = newValue.string().trim(isASCIIWhitespace);
             if (document().isDNSPrefetchEnabled() && document().frame()) {
@@ -602,7 +600,6 @@ void HTMLAnchorElement::handleClick(Event& event)
 #endif
 
     AtomString downloadAttribute;
-#if ENABLE(DOWNLOAD_ATTRIBUTE)
     if (document().settings().downloadAttributeEnabled()) {
         // Ignore the download attribute completely if the href URL is cross origin.
         bool isSameOrigin = completedURL.protocolIsData() || document().securityOrigin().canRequest(completedURL, OriginAccessPatternsForWebProcess::singleton());
@@ -611,7 +608,6 @@ void HTMLAnchorElement::handleClick(Event& event)
         else if (hasAttributeWithoutSynchronization(downloadAttr))
             document().addConsoleMessage(MessageSource::Security, MessageLevel::Warning, "The download attribute on anchor was ignored because its href URL has a different security origin."_s);
     }
-#endif
 
     SystemPreviewInfo systemPreviewInfo;
 #if USE(SYSTEM_PREVIEW)
@@ -664,9 +660,9 @@ AtomString HTMLAnchorElement::effectiveTarget() const
 
 HTMLAnchorElement::EventType HTMLAnchorElement::eventType(Event& event)
 {
-    if (!is<MouseEvent>(event))
-        return NonMouseEvent;
-    return downcast<MouseEvent>(event).shiftKey() ? MouseEventWithShiftKey : MouseEventWithoutShiftKey;
+    if (auto* mouseEvent = dynamicDowncast<MouseEvent>(event))
+        return mouseEvent->shiftKey() ? MouseEventWithShiftKey : MouseEventWithoutShiftKey;
+    return NonMouseEvent;
 }
 
 bool HTMLAnchorElement::treatLinkAsLiveForEventType(EventType eventType) const
@@ -697,7 +693,10 @@ bool HTMLAnchorElement::treatLinkAsLiveForEventType(EventType eventType) const
 
 bool isEnterKeyKeydownEvent(Event& event)
 {
-    return event.type() == eventNames().keydownEvent && is<KeyboardEvent>(event) && downcast<KeyboardEvent>(event).keyIdentifier() == "Enter"_s;
+    if (event.type() != eventNames().keydownEvent)
+        return false;
+    auto* keyboardEvent = dynamicDowncast<KeyboardEvent>(event);
+    return keyboardEvent && keyboardEvent->keyIdentifier() == "Enter"_s;
 }
 
 bool shouldProhibitLinks(Element* element)

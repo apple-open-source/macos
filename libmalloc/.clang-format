@@ -78,8 +78,8 @@ BreakBeforeBraces: Linux
 # Always attach braces to surrounding context except -
 # break before braces on function, namespace and class definitions
 
-ColumnLimit: 132
-# every body has wide screen now. 132 seems to be reasonable limit now.
+ColumnLimit: 80
+# style(3) recommends 80 columns
 
 ContinuationIndentWidth: 8
 # indent continued lines by two tabs

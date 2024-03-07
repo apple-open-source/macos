@@ -1,0 +1,23 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>sysctl</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-05-01</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/sbin/sysctl?id=f1957db43d28dbae1f82905304bab5be51942342</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-10-20</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>sysctl.8: document Darwin sysctls (5214548, 5223855)</string>
+			<string>sysctl.c: treat ENOTSUP the same as EOPNOTSUPP (4574083)</string>
+			<string>sysctl.c: allow empty string assignment (77205344)</string>
+			<string>sysctl.c: honor CTLFLAG_MASK (3314263, 3336579)</string>
+			<string>sysctl.c: fix/suppress warnings (9683086, 77205344)</string>
+			<string>sysctl.c: numeric types under 32-bit not supported (83864182)</string>
+			<string>sysctl.c: CTLFLAG_SKIP not supported (83864182)</string>
+			<string>sysctl.c: print vm.swapusage (5223855)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

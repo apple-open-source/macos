@@ -14,7 +14,6 @@ wal{
         " ⶹ ⶻ ⶼ ⶾ ⷀ ⷁ ⷃ ⷄ ⷆ ⷈ ⷉ ⷋ ⷌ ⷎ ⷐ ⷑ ⷓ ⷔ ⷖ ⷘ ⷙ ⷛ ⷜ ⷝ]"
     }
     NumberElements{
-        default{"latn"}
         latn{
             patterns{
                 currencyFormat{"¤#,##0.00"}
@@ -23,7 +22,6 @@ wal{
                 group{"’"}
             }
         }
-        native{"latn"}
         traditional{"ethi"}
     }
     calendar{

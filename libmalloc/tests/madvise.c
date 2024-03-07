@@ -11,9 +11,6 @@
 #include "nano_zone_common.h"
 #include "nano_zone.h"
 
-extern int
-malloc_engaged_nano(void);
-
 #define T_EXPECT_BYTES(p, len, byte, msg, ...) do { \
 	char *_p = (char *)(p); \
 	bool bytes = true; \

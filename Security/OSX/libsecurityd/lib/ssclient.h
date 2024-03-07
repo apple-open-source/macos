@@ -225,6 +225,9 @@ public:
 	void getKeyDigest(KeyHandle key, CssmData &digest)
 	{ return getKeyDigest(key, digest, returnAllocator); }
 
+    void getPublicKey(const Security::Context &context, KeyHandle key, CssmData &pubKey, Allocator &alloc);
+    void getPublicKey(const Security::Context &context, KeyHandle key, CssmData &pubKey)
+    { return getPublicKey(context, key, pubKey, returnAllocator); }
 
     // key wrapping and unwrapping
 	void wrapKey(const Security::Context &context, KeyHandle key, KeyHandle keyToBeWrapped,

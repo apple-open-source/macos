@@ -23,5 +23,5 @@ clean:
 stage: asset
 	echo "CertificatePinning staging"
 	rm -rf staged
-	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 95
+	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 96
 	$(shell /usr/bin/xcrun --find assettool) sign -s staged

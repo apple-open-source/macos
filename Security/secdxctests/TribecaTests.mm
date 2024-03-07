@@ -893,7 +893,7 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     XCTAssertEqual(status.enabled, true);
     XCTAssertEqual(
         status.timeLeftInSeconds,
-        10
+        (uint64_t)10
     );
     XCTAssertEqual(status.usingAEToken, false);
 }
@@ -1421,6 +1421,9 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
 
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 - (void)testGetStatusXPCTimeLeftZeroCase {
     TribecaManager* manager = [[TribecaManager alloc]
         initWithSettings: NULL
@@ -1552,7 +1555,7 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     XCTAssertEqual(status.enabled, false);
     XCTAssertEqual(
         status.timeLeftInSeconds,
-        0
+        (uint64_t)0
     );
     XCTAssertEqual(status.usingAEToken, false);
     
@@ -1569,6 +1572,8 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     XCTAssertTrue([statusDict[kSecuritydTribecaServiceTimeLeft] isEqual: [[NSNumber alloc] initWithUnsignedLongLong:0]]);
     XCTAssertTrue([statusDict[kSecuritydTribecaServiceTimeLeftFormatted] isEqual:@"0"]);
 }
+
+#pragma clang diagnostic pop
 
 - (TestTribecaManager*) createTestManagerWithLastRestoreTime:(NSNumber*) lastRestoreTime
      currentTime:(NSNumber*)now

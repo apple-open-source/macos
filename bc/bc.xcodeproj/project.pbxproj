@@ -3,8 +3,25 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 50;
 	objects = {
+
+/* Begin PBXAggregateTarget section */
+		CBBF243B29CB42E200E18F5E /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = CBBF243C29CB42E200E18F5E /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+				CBBF244029CB42F700E18F5E /* Install dc link */,
+				CBBF244129CB432000E18F5E /* Install open source info */,
+				CBBF244529CE17A400E18F5E /* Install test scripts */,
+			);
+			dependencies = (
+				CBBF243F29CB42E600E18F5E /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+/* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
 		2A37D7F8265478970030E662 /* dc_parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A37D7E2265478960030E662 /* dc_parse.c */; };
@@ -35,10 +52,11 @@
 		2A8D0D7C26549D4F00055C54 /* bc_help.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A8D0D7B26549D4F00055C54 /* bc_help.c */; };
 		2A8D0D8026549FC300055C54 /* bc.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A8D0D7E26549F3800055C54 /* bc.1 */; };
 		2A8D0D8126549FC900055C54 /* dc.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A8D0D7F26549F5000055C54 /* dc.1 */; };
+		CB7B1AE529D72723004EDD18 /* libedit.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB7B1AE429D72723004EDD18 /* libedit.tbd */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		2A37D844265497890030E662 /* PBXContainerItemProxy */ = {
+		CBBF243E29CB42E600E18F5E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 2A37D7CD265477D60030E662 /* Project object */;
 			proxyType = 1;
@@ -86,13 +104,14 @@
 		2A37D7F6265478970030E662 /* program.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = program.c; path = bc/src/program.c; sourceTree = "<group>"; };
 		2A37D7F7265478970030E662 /* read.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = read.c; path = bc/src/read.c; sourceTree = "<group>"; };
 		2A37D8272654922C0030E662 /* BSD.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BSD.xcconfig; sourceTree = "<group>"; };
-		2A37D83E265497670030E662 /* executables */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = executables; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A8D0D7526549D0D00055C54 /* lib2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib2.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A8D0D7726549D2200055C54 /* lib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lib.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A8D0D7926549D2D00055C54 /* dc_help.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dc_help.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A8D0D7B26549D4F00055C54 /* bc_help.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = bc_help.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A8D0D7E26549F3800055C54 /* bc.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = bc.1; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A8D0D7F26549F5000055C54 /* dc.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = dc.1; sourceTree = BUILT_PRODUCTS_DIR; };
+		CB7B1AE429D72723004EDD18 /* libedit.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libedit.tbd; path = usr/lib/libedit.tbd; sourceTree = SDKROOT; };
+		CBBF244329CE150900E18F5E /* bc.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = bc.plist; path = tests/bc.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +119,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB7B1AE529D72723004EDD18 /* libedit.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -109,10 +129,12 @@
 		2A37D7CC265477D60030E662 = {
 			isa = PBXGroup;
 			children = (
+				CBBF244329CE150900E18F5E /* bc.plist */,
 				2A37D8272654922C0030E662 /* BSD.xcconfig */,
 				2A37D812265487890030E662 /* Derived Sources */,
 				2A37D7E1265478670030E662 /* Sources */,
 				2A37D7D6265477D60030E662 /* Products */,
+				CB7B1AE329D72723004EDD18 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -120,7 +142,6 @@
 			isa = PBXGroup;
 			children = (
 				2A37D7D5265477D60030E662 /* bc */,
-				2A37D83E265497670030E662 /* executables */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -167,6 +188,14 @@
 			name = "Derived Sources";
 			sourceTree = "<group>";
 		};
+		CB7B1AE329D72723004EDD18 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				CB7B1AE429D72723004EDD18 /* libedit.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -179,7 +208,6 @@
 				2A37D7D1265477D60030E662 /* Sources */,
 				2A37D7D2265477D60030E662 /* Frameworks */,
 				2A37D7D3265477D60030E662 /* CopyFiles */,
-				2AA7A69126CDF74300890417 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -188,23 +216,6 @@
 			name = bc;
 			productName = bc;
 			productReference = 2A37D7D5265477D60030E662 /* bc */;
-			productType = "com.apple.product-type.tool";
-		};
-		2A37D83D265497670030E662 /* executables */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 2A37D842265497670030E662 /* Build configuration list for PBXNativeTarget "executables" */;
-			buildPhases = (
-				2A8D0D71265497C000055C54 /* Install dc link */,
-				2A8D0D722654985900055C54 /* Install open source info */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				2A37D845265497890030E662 /* PBXTargetDependency */,
-			);
-			name = executables;
-			productName = executables;
-			productReference = 2A37D83E265497670030E662 /* executables */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -218,8 +229,8 @@
 					2A37D7D4265477D60030E662 = {
 						CreatedOnToolsVersion = 12.5;
 					};
-					2A37D83D265497670030E662 = {
-						CreatedOnToolsVersion = 12.5;
+					CBBF243B29CB42E200E18F5E = {
+						CreatedOnToolsVersion = 14.3;
 					};
 				};
 			};
@@ -236,8 +247,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				CBBF243B29CB42E200E18F5E /* All */,
 				2A37D7D4265477D60030E662 /* bc */,
-				2A37D83D265497670030E662 /* executables */,
 			);
 		};
 /* End PBXProject section */
@@ -291,8 +302,9 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/bc_man.sh\n";
+			showEnvVarsInLog = 0;
 		};
-		2A8D0D71265497C000055C54 /* Install dc link */ = {
+		CBBF244029CB42F700E18F5E /* Install dc link */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -311,7 +323,7 @@
 			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/bc_link.sh \n";
 			showEnvVarsInLog = 0;
 		};
-		2A8D0D722654985900055C54 /* Install open source info */ = {
+		CBBF244129CB432000E18F5E /* Install open source info */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -330,9 +342,8 @@
 			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh\n";
 			showEnvVarsInLog = 0;
 		};
-		2AA7A69126CDF74300890417 /* ShellScript */ = {
+		CBBF244529CE17A400E18F5E /* Install test scripts */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 8;
 			files = (
 			);
@@ -340,13 +351,14 @@
 			);
 			inputPaths = (
 			);
+			name = "Install test scripts";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/bc_link.sh\n";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-tests.sh\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -388,10 +400,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		2A37D845265497890030E662 /* PBXTargetDependency */ = {
+		CBBF243F29CB42E600E18F5E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2A37D7D4265477D60030E662 /* bc */;
-			targetProxy = 2A37D844265497890030E662 /* PBXContainerItemProxy */;
+			targetProxy = CBBF243E29CB42E600E18F5E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -456,20 +468,24 @@
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-I${SRCROOT}/bc/include",
+					"-DBUILDTYPE=A",
 					"-DMAINEXEC=bc",
-					"-DBC_ENABLED",
-					"-DBC_ENABLE_PROMPT",
-					"-DBC_ENABLE_LONG_OPTIONS",
+					"-DNDEBUG",
+					"-DBC_ENABLE_EDITLINE",
+					"-DBC_ENABLE_HISTORY",
 					"-DBC_ENABLE_EXTRA_MATH",
 					"-DBC_ENABLE_HISTORY",
+					"-DBC_ENABLE_LONG_OPTIONS",
+					"-DBC_ENABLE_PROMPT",
 					"-DBC_ENABLE_RAND",
+					"-DBC_ENABLED",
 					"-DDC_ENABLED",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
-		2A37D843265497670030E662 /* Release */ = {
+		CBBF243D29CB42E200E18F5E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -496,10 +512,10 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2A37D842265497670030E662 /* Build configuration list for PBXNativeTarget "executables" */ = {
+		CBBF243C29CB42E200E18F5E /* Build configuration list for PBXAggregateTarget "All" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2A37D843265497670030E662 /* Release */,
+				CBBF243D29CB42E200E18F5E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

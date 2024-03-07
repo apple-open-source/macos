@@ -74,6 +74,7 @@ enum class TokenType: uint32_t {
     IntegerLiteralSigned,
     IntegerLiteralUnsigned,
     FloatLiteral,
+    HalfLiteral,
 
     Identifier,
 
@@ -129,7 +130,10 @@ FOREACH_KEYWORD(ENUM_ENTRY)
     Underbar,
     Xor,
     XorEq,
-    // FIXME: add all the other special tokens
+
+    Placeholder,
+    TemplateArgsLeft,
+    TemplateArgsRight,
 };
 
 String toString(TokenType);
@@ -151,7 +155,8 @@ struct Token {
             && type != TokenType::IntegerLiteral
             && type != TokenType::IntegerLiteralSigned
             && type != TokenType::IntegerLiteralUnsigned
-            && type != TokenType::FloatLiteral);
+            && type != TokenType::FloatLiteral
+            && type != TokenType::HalfLiteral);
     }
 
     Token(TokenType type, SourcePosition position, unsigned length, double literalValue)
@@ -163,7 +168,8 @@ struct Token {
             || type == TokenType::IntegerLiteral
             || type == TokenType::IntegerLiteralSigned
             || type == TokenType::IntegerLiteralUnsigned
-            || type == TokenType::FloatLiteral);
+            || type == TokenType::FloatLiteral
+            || type == TokenType::HalfLiteral);
     }
 
     Token(TokenType type, SourcePosition position, unsigned length, String&& ident)
@@ -193,6 +199,32 @@ struct Token {
         case TokenType::IntegerLiteralSigned:
         case TokenType::IntegerLiteralUnsigned:
         case TokenType::FloatLiteral:
+        case TokenType::HalfLiteral:
+            literalValue = other.literalValue;
+            break;
+        default:
+            break;
+        }
+
+        return *this;
+    }
+
+    Token& operator=(const Token& other)
+    {
+        type = other.type;
+        span = other.span;
+
+        switch (other.type) {
+        case TokenType::Identifier:
+            new (NotNull, &ident) String();
+            ident = other.ident;
+            break;
+        case TokenType::AbstractFloatLiteral:
+        case TokenType::IntegerLiteral:
+        case TokenType::IntegerLiteralSigned:
+        case TokenType::IntegerLiteralUnsigned:
+        case TokenType::FloatLiteral:
+        case TokenType::HalfLiteral:
             literalValue = other.literalValue;
             break;
         default:
@@ -216,6 +248,7 @@ struct Token {
         case TokenType::IntegerLiteralSigned:
         case TokenType::IntegerLiteralUnsigned:
         case TokenType::FloatLiteral:
+        case TokenType::HalfLiteral:
             literalValue = other.literalValue;
             break;
         default:

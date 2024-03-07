@@ -29,11 +29,6 @@
 
 #include <wtf/text/WTFString.h>
 
-namespace IPC {
-class Decoder;
-class Encoder;
-}
-
 namespace WebCore {
 class ScrollingStateTree;
 }
@@ -42,16 +37,15 @@ namespace WebKit {
 
 class RemoteScrollingCoordinatorTransaction {
 public:
+    enum class FromDeserialization : bool { No, Yes };
     RemoteScrollingCoordinatorTransaction();
-    RemoteScrollingCoordinatorTransaction(std::unique_ptr<WebCore::ScrollingStateTree>&&, bool);
+    RemoteScrollingCoordinatorTransaction(std::unique_ptr<WebCore::ScrollingStateTree>&&, bool, FromDeserialization = FromDeserialization::Yes);
     RemoteScrollingCoordinatorTransaction(RemoteScrollingCoordinatorTransaction&&);
     RemoteScrollingCoordinatorTransaction& operator=(RemoteScrollingCoordinatorTransaction&&);
     ~RemoteScrollingCoordinatorTransaction();
 
     std::unique_ptr<WebCore::ScrollingStateTree>& scrollingStateTree() { return m_scrollingStateTree; }
-
-    void encode(IPC::Encoder&) const;
-    static std::optional<RemoteScrollingCoordinatorTransaction> decode(IPC::Decoder&);
+    const std::unique_ptr<WebCore::ScrollingStateTree>& scrollingStateTree() const { return m_scrollingStateTree; }
 
     bool clearScrollLatching() const { return m_clearScrollLatching; }
 

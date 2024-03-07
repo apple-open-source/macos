@@ -307,6 +307,7 @@ vi{
         CI{"Bờ Biển Ngà"}
         CZ{"Cộng hòa Séc"}
         FK{"Quần đảo Falkland (Islas Malvinas)"}
+        NZ{"Aotearoa New Zealand"}
         SZ{"Swaziland"}
         TL{"Đông Timor"}
     }

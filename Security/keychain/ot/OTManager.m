@@ -902,7 +902,9 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                                allowNonPrimaryAccounts:(BOOL)allowNonPrimaryAccounts
                                                                  error:(NSError**)error
 {
-    secnotice("octagon-account", "Finding a context for user: %@", activeAccount);
+    if(OctagonSupportsPersonaMultiuser() || !activeAccount.isPrimaryAccount) {
+        secnotice("octagon-account", "Finding a context for user: %@", activeAccount);
+    }
     OTCuttlefishContext* context = [self contextForContainerName:activeAccount.cloudkitContainerName
                                                        contextID:activeAccount.octagonContextID
                                                  possibleAccount:activeAccount
@@ -969,7 +971,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
            && arguments.altDSID == nil
            && [arguments.containerName isEqualToString:OTCKContainerName]
            && [arguments.contextID isEqualToString:OTDefaultContext]) {
-            secnotice("octagon-account", "Cannot find an account matching persona/altDSID, allowing default context return: %@ %@", arguments, accountLookupError);
+            secinfo("octagon-account", "Cannot find an account matching primary persona/altDSID, allowing default context return: %@ %@", arguments, accountLookupError);
             return [self contextForContainerName:arguments.containerName
                                        contextID:arguments.contextID];
 
@@ -1088,7 +1090,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         return;
     }
 
-    secnotice("octagon", "Received a trust status for arguments (%@)", arguments);
+    secinfo("octagon", "Received a trust status for arguments (%@)", arguments);
     [cfshContext rpcTrustStatus:configuration reply:^(CliqueStatus status,
                                                       NSString * _Nullable peerID,
                                                       NSDictionary<NSString *,NSNumber *> * _Nullable peerCountByModelID,
@@ -1147,7 +1149,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         return;
     }
 
-    secnotice("octagon", "Received a status RPC for arguments (%@): %@", arguments, context);
+    secinfo("octagon", "Received a status RPC for arguments (%@): %@", arguments, context);
     [context rpcStatus:reply];
 }
 
@@ -1309,6 +1311,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 }
 
 - (void)fetchAllViableBottles:(OTControlArguments*)arguments
+                       source:(OTEscrowRecordFetchSource)source
                         reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply
 {
     NSError* clientError = nil;
@@ -1322,7 +1325,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     SFAnalyticsActivityTracker *tracker = [[self.loggerClass logger] startLogSystemMetricsForActivityNamed:OctagonActivityFetchAllViableBottles];
 
-    [cfshContext rpcFetchAllViableBottlesFromSource:OTEscrowRecordFetchSourceDefault
+    [cfshContext rpcFetchAllViableBottlesFromSource:source
                                               reply:^(NSArray<NSString *> * _Nullable sortedBottleIDs,
                                                       NSArray<NSString *> * _Nullable sortedPartialEscrowRecordIDs,
                                                       NSError * _Nullable error) {
@@ -1814,18 +1817,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 }
 
 - (bool)isFullPeer {
-    NSString* modelID = self.deviceInformationAdapter.modelID;
-
-#if TARGET_OS_XR
-    for (NSString* p in @[@"Mac", @"iPhone", @"iPad", @"iPod", @"Watch", @"RealityDevice"]) {
-#else
-    for (NSString* p in @[@"Mac", @"iPhone", @"iPad", @"iPod", @"Watch"]) {
-#endif
-        if ([modelID containsString:p]) {
-            return true;
-        }
-    }
-    return false;
+    return [OTDeviceInformation isFullPeer:self.deviceInformationAdapter.modelID];
 }
 
 
@@ -2846,13 +2838,6 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [cfshContext rpcTlkRecoverabilityForEscrowRecordData:recordData source:source reply:reply];
 }
 
-- (void)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
-                           reply:(void (^)(NSError* _Nullable error))reply
-{
-    [self.authKitAdapter deliverAKDeviceListDeltaMessagePayload:notificationDictionary];
-    reply(nil);
-}
-
 - (void)isRecoveryKeySet:(OTControlArguments*)arguments
                    reply:(void (^)(BOOL isSet, NSError* _Nullable error))reply
 {
@@ -2968,12 +2953,35 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                                                            error:&clientError];
     if(cfshContext == nil || clientError != nil) {
         secnotice("octagon", "Rejecting a areRecoveryKeysDistrusted RPC for arguments (%@): %@", arguments, clientError);
-        reply(nil, clientError);
+        reply(NO, clientError);
         return;
     }
     
     [cfshContext areRecoveryKeysDistrusted:reply];
 }    
+
+- (void)reroll:(OTControlArguments*)arguments
+         reply:(void (^)(NSError *_Nullable error))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a reroll RPC for arguments (%@): %@", arguments, clientError);
+        reply(clientError);
+        return;
+    }
+
+    secnotice("octagon", "reroll invoked for arguments (%@)", arguments);
+
+    SFAnalyticsActivityTracker *tracker = [[self.loggerClass logger] startLogSystemMetricsForActivityNamed:OctagonActivityReroll];
+
+    [cfshContext startOctagonStateMachine];
+    [cfshContext rerollWithReply:^(NSError *_Nullable error) {
+        [tracker stopWithEvent:OctagonEventReroll result:error];
+        reply(error);
+    }];
+}
 
 + (CKContainer*)makeCKContainer:(NSString*)containerName
 {

@@ -260,7 +260,6 @@ private:
     void createImageGenerator();
     void destroyImageGenerator();
     RetainPtr<CGImageRef> createImageForTimeInRect(float, const FloatRect&);
-    void paintWithImageGenerator(GraphicsContext&, const FloatRect&);
 
     using UpdateCompletion = CompletionHandler<void()>;
     void updateLastImage(UpdateCompletion&&);
@@ -439,7 +438,6 @@ private:
     RetainPtr<NSArray> m_cachedTracks;
     RetainPtr<NSArray> m_currentMetaData;
     FloatSize m_cachedPresentationSize;
-    MediaTime m_cachedDuration;
     mutable MediaPlayer::CurrentTimeDidChangeCallback m_currentTimeDidChangeCallback;
     mutable MediaTime m_cachedCurrentMediaTime { -1, 1, 0 };
     mutable MediaTime m_lastPeriodicObserverMediaTime;
@@ -491,6 +489,7 @@ private:
     std::unique_ptr<Observer<void()>> m_waitForVideoOutputMediaDataWillChangeObserver;
     ProcessIdentity m_resourceOwner;
     PlatformTimeRanges m_buffered;
+    TrackID m_currentTextTrackID { 0 };
 };
 
 }

@@ -673,6 +673,17 @@ void ClientSession::getKeyDigest(KeyHandle key, CssmData &digest, Allocator &all
 
 
 //
+// Getting public key
+//
+void ClientSession::getPublicKey(const Context &context, KeyHandle key, CssmData &pubKey, Allocator &allocator)
+{
+    CopyIn ctxcopy(&context, reinterpret_cast<xdrproc_t>(xdr_CSSM_CONTEXT));
+    DataOutput pubk(pubKey, allocator);
+    IPC(ucsp_client_getPublicKey(UCSP_ARGS, ctxcopy.data(), ctxcopy.length(), key, DATA_OUT(pubk)));
+}
+
+
+//
 // Key wrapping and unwrapping
 //
 void ClientSession::wrapKey(const Context &context, KeyHandle wrappingKey,

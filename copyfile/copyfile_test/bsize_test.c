@@ -11,16 +11,14 @@
 #include <sys/fcntl.h>
 #include <sys/mount.h>
 
-#include "../copyfile.h"
-#include "bsize_test.h"
 #include "test_utils.h"
+
+REGISTER_TEST(bsize, false, TIMEOUT_MIN(1));
 
 #define SOURCE_FILE_NAME     	"bsize_source"
 #define DESTINATION_FILE_NAME	"bsize_destination"
 
-#define ONE_MIB  	(1024 * 1024)
-#define ONE_GIB  	(ONE_MIB * 1024)
-#define FILE_SIZE	(8 * ONE_MIB)
+#define FILE_SIZE	(8 * MB)
 
 typedef struct copyfile_cb_ctx {
 	uint32_t progress_cb_calls;
@@ -95,8 +93,6 @@ bool do_bsize_test(const char *apfs_test_directory, size_t block_size) {
 	struct statfs sfs; // for f_iosize
 	bool success = true;
 
-	printf("START [bsize]\n");
-
 	// Get ready for the test.
 	test_file_id = rand() % DEFAULT_NAME_MOD;
 	create_test_file_name(apfs_test_directory, SOURCE_FILE_NAME, test_file_id, test_src);
@@ -107,34 +103,28 @@ bool do_bsize_test(const char *apfs_test_directory, size_t block_size) {
 	src_fd = open(test_src, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM);
 	assert_with_errno(src_fd >= 0);
 	// Write 8 MiB into the file.
-	assert_with_errno(pwrite(src_fd, "j", 1, 8 * ONE_MIB) == 1);
-	assert_no_err(ftruncate(src_fd, 8 * ONE_MIB));
+	assert_with_errno(pwrite(src_fd, "j", 1, 8 * MB) == 1);
+	assert_no_err(ftruncate(src_fd, 8 * MB));
 	assert_no_err(close(src_fd));
 
 	// Copy this file into our destination, using each blocksize, and validate its contents
 	// and the number of times our callback was called.
 	success = success && verify_bsize_behavior(test_src, test_dst, block_size,
-		(8 * ONE_MIB) / block_size, bs_both);
+		(8 * MB) / block_size, bs_both);
 	success = success && verify_bsize_behavior(test_src, test_dst, (size_t) sfs.f_iosize,
-		(8 * ONE_MIB) / sfs.f_iosize, bs_both);
-	success = success && verify_bsize_behavior(test_src, test_dst, ONE_MIB, 8, bs_both);
-	success = success && verify_bsize_behavior(test_src, test_dst, 8 * ONE_MIB, 1, bs_both);
+		(8 * MB) / sfs.f_iosize, bs_both);
+	success = success && verify_bsize_behavior(test_src, test_dst, MB, 8, bs_both);
+	success = success && verify_bsize_behavior(test_src, test_dst, 8 * MB, 1, bs_both);
 	success = success && verify_bsize_behavior(test_src, test_dst, SIZE_MAX, 1, bs_both);
 	success = success && verify_bsize_behavior(test_src, test_dst, 0,
-		(8 * ONE_MIB) / sfs.f_iosize, bs_both); // 0 means let copyfile() choose
+		(8 * MB) / sfs.f_iosize, bs_both); // 0 means let copyfile() choose
 
 	// Check that setting just the source (or destination) blocksize still results
 	// in the copy size being capped by the destination (or source) filesystem's copy blocksize.
-	success = success && verify_bsize_behavior(test_src, test_dst, ONE_MIB,
-		(8 * ONE_MIB) / sfs.f_iosize, bs_src);
-	success = success && verify_bsize_behavior(test_src, test_dst, ONE_MIB,
-		(8 * ONE_MIB) / sfs.f_iosize, bs_dst);
-
-	if (success) {
-		printf("PASS  [bsize]\n");
-	} else {
-		printf("FAIL  [bsize]\n");
-	}
+	success = success && verify_bsize_behavior(test_src, test_dst, MB,
+		(8 * MB) / sfs.f_iosize, bs_src);
+	success = success && verify_bsize_behavior(test_src, test_dst, MB,
+		(8 * MB) / sfs.f_iosize, bs_dst);
 
 	(void)removefile(test_src, NULL, REMOVEFILE_RECURSIVE);
 

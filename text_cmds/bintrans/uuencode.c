@@ -184,6 +184,13 @@ main_encode(int argc, char *argv[])
 		encode();
 	if (ferror(output))
 		errx(1, "write error");
+#ifdef __APPLE__
+	/*
+	 * rdar://problem/89052523 - don't ignore errors when flushing stdout.
+	 */
+	if (fflush(output) != 0)
+		err(1, "flush output");
+#endif
 	exit(0);
 }
 
@@ -251,7 +258,7 @@ static void
 encode(void)
 {
 #ifdef __APPLE__
-	size_t n;
+	ssize_t n;
 	int ch;
 #else
 	int ch, n;
@@ -329,6 +336,9 @@ usage(void)
 {
 	(void)fprintf(stderr,
 "usage: uuencode [-m] [-o outfile] [infile] remotefile\n"
-"       b64encode [-o outfile] [infile] remotefile\n");
+#ifndef __APPLE__
+"       b64encode [-o outfile] [infile] remotefile\n"
+#endif
+	    );
 	exit(1);
 }

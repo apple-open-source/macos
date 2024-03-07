@@ -100,7 +100,7 @@ typedef struct _node {
 #define F_INODE		0x04000000		/* inode */
 #define F_ACL		0x08000000		/* digest of access control list */
 #define F_SIBLINGID	0x10000000		/* sibling id */
-#define F_NXATTR	0x20000000		/* number of xattrs (includes decmpfs)*/
+#define F_NXATTR	0x20000000		/* number of xattrs (includes decmpfs or not depending on the -D flag)*/
 #define F_DATALESS	0x40000000		/* dataless */
 	u_int	flags;				/* items set */
 

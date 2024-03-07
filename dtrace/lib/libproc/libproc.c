@@ -525,6 +525,16 @@ update_check_symbol_gen(struct ps_prochandle *P, CSSymbolRef symbol, bool err_on
 	return update_check_symbol_owner_gen(P, owner, err_on_mismatched_gen);
 }
 
+static bool
+is_sym_mangled(const char *name)
+{
+	static const char *cpp_mangled_prefix = "__Z";
+	static const char *swift_mangled_prefix = "_$s";
+
+	return ((strncmp(name, cpp_mangled_prefix, 3) == 0) ||
+	    (strncmp(name, swift_mangled_prefix, 3) == 0));
+}
+
 #if defined(__arm__) || defined(__arm64__)
 static uint32_t
 get_arm_arch_subinfo(CSSymbolRef symbol)
@@ -549,7 +559,6 @@ get_arm_arch_subinfo(CSSymbolRef symbol)
 }
 #endif
 #endif /* DTRACE_USE_CORESYMBOLICATION */
-
 
 /*
  * Search the process symbol tables looking for a symbol whose name matches the
@@ -703,10 +712,7 @@ Pxlookup_by_addr(
 		} else {
 			if (_dtrace_mangled) {
 				const char *mangledName = CSSymbolGetMangledName(symbol);
-				if (strlen(mangledName) >= 3 &&
-				    mangledName[0] == '_' &&
-				    mangledName[1] == '_' &&
-				    mangledName[2] == 'Z') {
+				if (is_sym_mangled(mangledName)) {
 					// mangled name - use it
 					strncpy(sym_name_buffer, mangledName, bufsize);
 				} else {
@@ -1071,10 +1077,7 @@ Psymbol_iter_by_addr_syms(struct ps_prochandle *P, const char *object_name,
 				const char *mangledName;
 				if (_dtrace_mangled &&
 				    (mangledName = CSSymbolGetMangledName(symbol)) &&
-				    strlen(mangledName) >= 3 &&
-				    mangledName[0] == '_' &&
-				    mangledName[1] == '_' &&
-				    mangledName[2] == 'Z') {
+				    is_sym_mangled(mangledName)) {
 					// mangled name - use it
 					err = func(cd, &gelf_sym, mangledName);
 				} else {

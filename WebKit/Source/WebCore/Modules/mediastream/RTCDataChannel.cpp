@@ -58,7 +58,7 @@ Ref<RTCDataChannel> RTCDataChannel::create(ScriptExecutionContext& context, std:
         channel->m_isDetachable = false;
         if (!channel->m_handler)
             return;
-        if (auto* context = channel->scriptExecutionContext())
+        if (RefPtr context = channel->scriptExecutionContext())
             channel->m_handler->setClient(*channel, context->identifier());
     });
     return channel;
@@ -73,7 +73,7 @@ NetworkSendQueue RTCDataChannel::createMessageQueue(ScriptExecutionContext& cont
         if (!channel.m_handler->sendRawData(span.data(), span.size()))
             channel.scriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Error, "Error sending binary data through RTCDataChannel."_s);
     }, [&channel](ExceptionCode errorCode) {
-        if (auto* context = channel.scriptExecutionContext()) {
+        if (RefPtr context = channel.scriptExecutionContext()) {
             auto code = static_cast<int>(errorCode);
             context->addConsoleMessage(MessageSource::JS, MessageLevel::Error, makeString("Error ", code, " in retrieving a blob data to be sent through RTCDataChannel."));
         }
@@ -109,7 +109,7 @@ void RTCDataChannel::setBinaryType(BinaryType binaryType)
 ExceptionOr<void> RTCDataChannel::send(const String& data)
 {
     if (m_readyState != RTCDataChannelState::Open)
-        return Exception { InvalidStateError };
+        return Exception { ExceptionCode::InvalidStateError };
 
     // FIXME: We might want to use strict conversion like WebSocket.
     auto utf8 = data.utf8();
@@ -121,7 +121,7 @@ ExceptionOr<void> RTCDataChannel::send(const String& data)
 ExceptionOr<void> RTCDataChannel::send(ArrayBuffer& data)
 {
     if (m_readyState != RTCDataChannelState::Open)
-        return Exception { InvalidStateError };
+        return Exception { ExceptionCode::InvalidStateError };
 
     m_bufferedAmount += data.byteLength();
     m_messageQueue.enqueue(data, 0, data.byteLength());
@@ -131,7 +131,7 @@ ExceptionOr<void> RTCDataChannel::send(ArrayBuffer& data)
 ExceptionOr<void> RTCDataChannel::send(ArrayBufferView& data)
 {
     if (m_readyState != RTCDataChannelState::Open)
-        return Exception { InvalidStateError };
+        return Exception { ExceptionCode::InvalidStateError };
 
     m_bufferedAmount += data.byteLength();
     m_messageQueue.enqueue(*data.unsharedBuffer(), data.byteOffset(), data.byteLength());
@@ -141,7 +141,7 @@ ExceptionOr<void> RTCDataChannel::send(ArrayBufferView& data)
 ExceptionOr<void> RTCDataChannel::send(Blob& blob)
 {
     if (m_readyState != RTCDataChannelState::Open)
-        return Exception { InvalidStateError };
+        return Exception { ExceptionCode::InvalidStateError };
 
     m_bufferedAmount += blob.size();
     m_messageQueue.enqueue(blob);

@@ -49,7 +49,8 @@ std::unique_ptr<ImageBufferShareableMappedIOSurfaceBitmapBackend> ImageBufferSha
     auto surface = IOSurface::create(creationContext.surfacePool, backendSize, parameters.colorSpace, IOSurface::Name::ImageBuffer, IOSurface::formatForPixelFormat(parameters.pixelFormat));
     if (!surface)
         return nullptr;
-
+    if (creationContext.resourceOwner)
+        surface->setOwnershipIdentity(creationContext.resourceOwner);
     auto lockAndContext = surface->createBitmapPlatformContext();
     if (!lockAndContext)
         return nullptr;
@@ -73,7 +74,7 @@ ImageBufferShareableMappedIOSurfaceBitmapBackend::~ImageBufferShareableMappedIOS
     IOSurface::moveToPool(WTFMove(m_surface), m_ioSurfacePool.get());
 }
 
-ImageBufferBackendHandle ImageBufferShareableMappedIOSurfaceBitmapBackend::createBackendHandle(SharedMemory::Protection) const
+std::optional<ImageBufferBackendHandle> ImageBufferShareableMappedIOSurfaceBitmapBackend::createBackendHandle(SharedMemory::Protection) const
 {
     return ImageBufferBackendHandle(m_surface->createSendRight());
 }
@@ -114,28 +115,18 @@ GraphicsContext& ImageBufferShareableMappedIOSurfaceBitmapBackend::context()
     return *m_context;
 }
 
-void ImageBufferShareableMappedIOSurfaceBitmapBackend::setOwnershipIdentity(const WebCore::ProcessIdentity& resourceOwner)
-{
-    m_surface->setOwnershipIdentity(resourceOwner);
-}
-
-IntSize ImageBufferShareableMappedIOSurfaceBitmapBackend::backendSize() const
-{
-    return m_surface->size();
-}
-
 unsigned ImageBufferShareableMappedIOSurfaceBitmapBackend::bytesPerRow() const
 {
     return m_surface->bytesPerRow();
 }
 
-RefPtr<NativeImage> ImageBufferShareableMappedIOSurfaceBitmapBackend::copyNativeImage(BackingStoreCopy copyBehavior)
+RefPtr<NativeImage> ImageBufferShareableMappedIOSurfaceBitmapBackend::copyNativeImage()
 {
     ASSERT_NOT_REACHED(); // Not applicable for LayerBacking.
     return nullptr;
 }
 
-RefPtr<NativeImage> ImageBufferShareableMappedIOSurfaceBitmapBackend::copyNativeImageForDrawing(GraphicsContext&)
+RefPtr<NativeImage> ImageBufferShareableMappedIOSurfaceBitmapBackend::createNativeImageReference()
 {
     ASSERT_NOT_REACHED(); // Not applicable for LayerBacking.
     return nullptr;

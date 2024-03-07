@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2016 and later: Unicode, Inc. and others.
+// Copyright (C) 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Copyright (c) 2007-2015 International Business Machines
 // Corporation and others. All Rights Reserved.
@@ -119,7 +119,7 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_FULL,TIME=LONG",
                     "ERA=1,YEAR=2012,MONTH=OCTOBER,DATE=8,HOUR_OF_DAY=23,MINUTE=59,SECOND=0",
-                    "Monday, October 8, 2012, 11:59:00 PM GMT"
+                    "Monday, October 8, 2012 at 11:59:00 PM GMT"
                },
                // normal formats, combined using ", "
                {
@@ -127,7 +127,7 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_MEDIUM,TIME=SHORT",
                     "ERA=1,YEAR=2012,MONTH=OCTOBER,DATE=8,HOUR_OF_DAY=23,MINUTE=59,SECOND=0",
-                    "Oct 8, 2012, 11:59 PM"
+                    "Oct 8, 2012 at 11:59 PM"
                },
                // formats with relative day, combined using 'at'
                {
@@ -135,13 +135,13 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_FULL,TIME=LONG",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
-                    "yesterday, 5:00:00 PM GMT"
+                    "yesterday at 5:00:00 PM GMT"
                },
                // formats with relative day, combined using ", "
                {
                     "en_US@calendar=gregorian",         
                     "GMT",
-                    "DATE=RELATIVE_MEDIUM,TIME=SHORT",
+                    "DATE=RELATIVE_SHORT,TIME=SHORT",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
                     "yesterday, 5:00 PM"
                },
@@ -151,7 +151,7 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_FULL,TIME=LONG",
                     "ERA=1,YEAR=2012,MONTH=OCTOBER,DATE=8,HOUR_OF_DAY=23,MINUTE=59,SECOND=0",
-                    "segunda-feira, 8 de outubro de 2012 23:59:00 GMT"
+                    "segunda-feira, 8 de outubro de 2012 às 23:59:00 GMT"
                },
                // vi combined formats have time first
                // rdar:// update for change to std long fmt
@@ -160,14 +160,14 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_LONG,TIME=MEDIUM",
                     "ERA=1,YEAR=2012,MONTH=OCTOBER,DATE=8,HOUR_OF_DAY=23,MINUTE=59,SECOND=0",
-                    "23:59:00 ngày 8 tháng 10, 2012"
+                    "lúc 23:59:00 ngày 8 tháng 10, 2012"
                },
                {
                     "vi@calendar=gregorian",         
                     "GMT",
                     "DATE=RELATIVE_LONG,TIME=MEDIUM",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
-                    "17:00:00 Hôm qua"
+                    "lúc 17:00:00 Hôm qua"
                },
                // el combines formats using hyphen
                // rdar:// for removing periods in μ.μ.
@@ -176,14 +176,14 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_LONG,TIME=MEDIUM",
                     "ERA=1,YEAR=2012,MONTH=OCTOBER,DATE=8,HOUR_OF_DAY=23,MINUTE=59,SECOND=0",
-                    "8 Οκτωβρίου 2012 - 11:59:00 μμ"
+                    "8 Οκτωβρίου 2012 στις 11:59:00 μμ"
                },
                {
                     "el@calendar=gregorian",         
                     "GMT",
                     "DATE=RELATIVE_LONG,TIME=MEDIUM",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
-                    "χθες - 5:00:00 μμ"
+                    "χθες στις 5:00:00 μμ"
                },
               // other tests
                {
@@ -551,6 +551,7 @@ format:table(nofallback) {
             //        or RELATIVE_ADD:DATE=1  which means that the field "DATE" will be added by +1 relative to current time,
             //           and any other fields present will be set explicitly.
             // str:   the expected unicode string
+            // modified rdar://16828927 en@calendar=hebrew date formats should use “d MMM+ y”
             
             Cases { 
                {

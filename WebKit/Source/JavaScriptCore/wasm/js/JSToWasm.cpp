@@ -26,7 +26,7 @@
 #include "config.h"
 #include "JSToWasm.h"
 
-#if ENABLE(WEBASSEMBLY)
+#if ENABLE(WEBASSEMBLY) && ENABLE(JIT)
 
 #include "CCallHelpers.h"
 #include "JSCJSValueInlines.h"
@@ -83,7 +83,7 @@ void marshallJSResult(CCallHelpers& jit, const TypeDefinition& typeDefinition, c
             JSValueRegs inputJSR = wasmFrameConvention.results[0].location.jsr();
             jit.prepareWasmCallOperation(GPRInfo::wasmContextInstancePointer);
             jit.setupArguments<decltype(operationConvertToBigInt)>(GPRInfo::wasmContextInstancePointer, inputJSR);
-            jit.callOperation(operationConvertToBigInt);
+            jit.callOperation<OperationPtrTag>(operationConvertToBigInt);
         } else
             boxNativeCalleeResult(jit, signature.returnType(0), wasmFrameConvention.results[0].location, JSRInfo::returnValueJSR);
     } else {
@@ -193,7 +193,7 @@ void marshallJSResult(CCallHelpers& jit, const TypeDefinition& typeDefinition, c
                 jit.loadValue(address, valueJSR);
                 jit.prepareWasmCallOperation(GPRInfo::wasmContextInstancePointer);
                 jit.setupArguments<decltype(operationConvertToBigInt)>(GPRInfo::wasmContextInstancePointer, valueJSR);
-                jit.callOperation(operationConvertToBigInt);
+                jit.callOperation<OperationPtrTag>(operationConvertToBigInt);
                 jit.storeValue(JSRInfo::returnValueJSR, address);
             }
         }
@@ -206,7 +206,7 @@ void marshallJSResult(CCallHelpers& jit, const TypeDefinition& typeDefinition, c
         jit.prepareWasmCallOperation(GPRInfo::wasmContextInstancePointer);
         jit.setupArguments<decltype(operationAllocateResultsArray)>(GPRInfo::wasmContextInstancePointer, CCallHelpers::TrustedImmPtr(&typeDefinition), indexingType, savedResultsGPR);
         JIT_COMMENT(jit, "operationAllocateResultsArray");
-        jit.callOperation(operationAllocateResultsArray);
+        jit.callOperation<OperationPtrTag>(operationAllocateResultsArray);
         if constexpr (!!maxFrameExtentForSlowPathCall)
             jit.addPtr(CCallHelpers::TrustedImm32(maxFrameExtentForSlowPathCall), CCallHelpers::stackPointerRegister);
 
@@ -335,7 +335,7 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, Calle
             else
                 jit.loadPtr(CCallHelpers::Address(GPRInfo::wasmContextInstancePointer, Wasm::Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer);
         }
-        jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, size, scratch, /* validateAuth */ true, /* mayBeNull */ false);
+        jit.cageConditionally(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, size, scratch);
     }
 #endif
 
@@ -362,4 +362,4 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, Calle
 
 } } // namespace JSC::Wasm
 
-#endif // ENABLE(WEBASSEMBLY)
+#endif // ENABLE(WEBASSEMBLY) && ENABLE(JIT)

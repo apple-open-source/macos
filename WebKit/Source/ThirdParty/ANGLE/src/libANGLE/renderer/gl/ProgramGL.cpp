@@ -107,9 +107,9 @@ class ProgramGL::LinkTaskGL final : public LinkTask
     {}
     ~LinkTaskGL() override = default;
 
-    std::vector<std::shared_ptr<LinkSubTask>> link(
-        const gl::ProgramLinkedResources &resources,
-        const gl::ProgramMergedVaryings &mergedVaryings) override
+    std::vector<std::shared_ptr<LinkSubTask>> link(const gl::ProgramLinkedResources &resources,
+                                                   const gl::ProgramMergedVaryings &mergedVaryings,
+                                                   bool *areSubTasksOptionalOut) override
     {
         mProgram->linkJobImpl(mExtensions);
 
@@ -188,7 +188,8 @@ void ProgramGL::destroy(const gl::Context *context)
 
 angle::Result ProgramGL::load(const gl::Context *context,
                               gl::BinaryInputStream *stream,
-                              std::shared_ptr<LinkTask> *loadTaskOut)
+                              std::shared_ptr<LinkTask> *loadTaskOut,
+                              bool *successOut)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "ProgramGL::load");
     ProgramExecutableGL *executableGL = getExecutable();
@@ -205,13 +206,14 @@ angle::Result ProgramGL::load(const gl::Context *context,
     // Verify that the program linked
     if (!checkLinkStatus())
     {
-        return angle::Result::Incomplete;
+        return angle::Result::Continue;
     }
 
     executableGL->postLink(mFunctions, mStateManager, mFeatures, mProgramID);
     reapplyUBOBindingsIfNeeded(context);
 
     *loadTaskOut = {};
+    *successOut  = true;
 
     return angle::Result::Continue;
 }
@@ -779,14 +781,14 @@ void ProgramGL::linkResources(const gl::ProgramLinkedResources &resources)
     resources.atomicCounterBufferLinker.link(sizeMap);
 }
 
-angle::Result ProgramGL::syncState(const gl::Context *context,
-                                   const gl::Program::DirtyBits &dirtyBits)
+angle::Result ProgramGL::syncState(const gl::Context *context)
 {
     const gl::ProgramExecutable &executable = mState.getExecutable();
 
+    gl::ProgramExecutable::DirtyBits dirtyBits = executable.getAndResetDirtyBits();
     for (size_t dirtyBit : dirtyBits)
     {
-        ASSERT(dirtyBit <= gl::Program::DIRTY_BIT_UNIFORM_BLOCK_BINDING_MAX);
+        ASSERT(dirtyBit <= gl::ProgramExecutable::DIRTY_BIT_UNIFORM_BLOCK_BINDING_MAX);
         GLuint binding = static_cast<GLuint>(dirtyBit);
         setUniformBlockBinding(binding, executable.getUniformBlockBinding(binding));
     }

@@ -3677,8 +3677,14 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
 
     return nil;
 }
-#endif
+
+#else /* !OCTAGON */
+
+- (void)triggerRingUpdateNow:(void ((^))(NSError *error))reply
+{
+    reply(nil);
+}
+
+#endif /* OCTAGON */
 
 @end
-
-

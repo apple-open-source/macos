@@ -26,10 +26,12 @@
 #import "config.h"
 #import "RemoteLayerTreePropertyApplier.h"
 
+#import "Logging.h"
 #import "PlatformCAAnimationRemote.h"
 #import "PlatformCALayerRemote.h"
 #import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeInteractionRegionLayers.h"
+#import "WKVideoView.h"
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/MediaPlayerEnumsCocoa.h>
 #import <WebCore/PlatformCAFilters.h>
@@ -65,6 +67,10 @@ static void configureSeparatedLayer(CALayer *) { }
 {
     NSUInteger numOldSubviews = self.subviews.count;
     NSUInteger numNewSubviews = newSubviews.count;
+
+    // This method does not handle interleaved UIView and CALayer children of
+    // a UIView, so we must not have any non-UIView-backed CALayer children.
+    ASSERT(numOldSubviews == self.layer.sublayers.count);
 
     NSUInteger currIndex = 0;
     for (currIndex = 0; currIndex < numNewSubviews; ++currIndex) {
@@ -117,11 +123,11 @@ static RetainPtr<CGColorRef> cgColorFromColor(const Color& color)
 static NSString *toCAFilterType(PlatformCALayer::FilterType type)
 {
     switch (type) {
-    case PlatformCALayer::Linear:
+    case PlatformCALayer::FilterType::Linear:
         return kCAFilterLinear;
-    case PlatformCALayer::Nearest:
+    case PlatformCALayer::FilterType::Nearest:
         return kCAFilterNearest;
-    case PlatformCALayer::Trilinear:
+    case PlatformCALayer::FilterType::Trilinear:
         return kCAFilterTrilinear;
     };
 
@@ -204,8 +210,11 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
     if (properties.changedProperties & LayerChange::ContentsRectChanged)
         layer.contentsRect = properties.contentsRect;
 
-    if (properties.changedProperties & LayerChange::CornerRadiusChanged)
+    if (properties.changedProperties & LayerChange::CornerRadiusChanged) {
         layer.cornerRadius = properties.cornerRadius;
+        if (properties.cornerRadius)
+            layer.cornerCurve = kCACornerCurveCircular;
+    }
 
     if (properties.changedProperties & LayerChange::ShapeRoundedRectChanged) {
         Path path;
@@ -256,7 +265,7 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
                 asyncContentsIdentifier = layerTreeNode->asyncContentsIdentifier();
             }
 
-            backingStore->applyBackingStoreToLayer(layer, layerContentsType, asyncContentsIdentifier, layerTreeHost->replayCGDisplayListsIntoBackingStore());
+            backingStore->applyBackingStoreToLayer(layer, layerContentsType, asyncContentsIdentifier, layerTreeHost->replayDynamicContentScalingDisplayListsIntoBackingStore());
         } else
             [layer _web_clearContents];
     }
@@ -264,14 +273,24 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
     if (properties.changedProperties & LayerChange::FiltersChanged)
         PlatformCAFilters::setFiltersOnLayer(layer, properties.filters ? *properties.filters : FilterOperations());
 
-    if (properties.changedProperties & LayerChange::AnimationsChanged)
+    if (properties.changedProperties & LayerChange::AnimationsChanged) {
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+        if (layerTreeHost->threadedAnimationResolutionEnabled()) {
+            LOG_WITH_STREAM(Animations, stream << "RemoteLayerTreePropertyApplier::applyProperties() for layer " << layerTreeNode->layerID() << " found " << properties.animationChanges.effects.size() << " effects.");
+            layerTreeNode->setAcceleratedEffectsAndBaseValues(properties.animationChanges.effects, properties.animationChanges.baseValues, *layerTreeHost);
+        } else
+#endif
         PlatformCAAnimationRemote::updateLayerAnimations(layer, layerTreeHost, properties.animationChanges.addedAnimations, properties.animationChanges.keysOfAnimationsToRemove);
+    }
 
     if (properties.changedProperties & LayerChange::AntialiasesEdgesChanged)
         layer.edgeAntialiasingMask = properties.antialiasesEdges ? (kCALayerLeftEdge | kCALayerRightEdge | kCALayerBottomEdge | kCALayerTopEdge) : 0;
 
     if (properties.changedProperties & LayerChange::CustomAppearanceChanged)
         updateCustomAppearance(layer, properties.customAppearance);
+
+    if (properties.changedProperties & LayerChange::BackdropRootChanged)
+        layer.shouldRasterize = properties.backdropRoot;
 
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     if (properties.changedProperties & LayerChange::SeparatedChanged) {
@@ -293,8 +312,14 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
 
 #if HAVE(AVKIT)
     if (properties.changedProperties & LayerChange::VideoGravityChanged) {
-        if ([layer respondsToSelector:@selector(setVideoGravity:)])
-            [(WebAVPlayerLayer*)layer setVideoGravity:convertMediaPlayerToAVLayerVideoGravity(properties.videoGravity)];
+        auto *playerLayer = layer;
+#if PLATFORM(IOS_FAMILY)
+        if (layerTreeNode && [layerTreeNode->uiView() isKindOfClass:WKVideoView.class])
+            playerLayer = [(WKVideoView*)layerTreeNode->uiView() playerLayer];
+#endif
+        ASSERT([playerLayer respondsToSelector:@selector(setVideoGravity:)]);
+        if ([playerLayer respondsToSelector:@selector(setVideoGravity:)])
+            [(WebAVPlayerLayer*)playerLayer setVideoGravity:convertMediaPlayerToAVLayerVideoGravity(properties.videoGravity)];
     }
 #endif
 }
@@ -372,10 +397,6 @@ void RemoteLayerTreePropertyApplier::applyHierarchyUpdates(RemoteLayerTreeNode& 
 #endif
         return childNode->layer();
     }).get();
-
-#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
-    node.updateInteractionRegionAfterHierarchyChange();
-#endif
 
     END_BLOCK_OBJC_EXCEPTIONS
 }

@@ -13,10 +13,9 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#include "../copyfile.h"
-
-#include "ctype_test.h"
 #include "test_utils.h"
+
+REGISTER_TEST(compressed_type, false, TIMEOUT_MIN(1));
 
 #define COMPRESSED_FILE_NAME	"aria"
 #define DESTINATION_FILE_NAME	"lieder"
@@ -202,8 +201,6 @@ bool do_compressed_type_test(const char *apfs_test_directory, __unused size_t bl
 	int test_folder_id;
 	bool success = true;
 
-	printf("START [compressed_type]\n");
-
 	// Get ready for the test.
 	test_folder_id = rand() % DEFAULT_NAME_MOD;
 	create_test_file_name(apfs_test_directory, "compressed_type", test_folder_id, test_dir);
@@ -212,12 +209,6 @@ bool do_compressed_type_test(const char *apfs_test_directory, __unused size_t bl
 	// Test with both the copyfile_data() and copyfile_stat() paths.
 	success = verify_compressed_type(test_dir, "14", false);
 	success = verify_compressed_type(test_dir, "14", true);
-
-	if (success) {
-		printf("PASS  [compressed_type]\n");
-	} else {
-		printf("FAIL  [compressed_type]\n");
-	}
 
 	(void)removefile(test_dir, NULL, REMOVEFILE_RECURSIVE);
 

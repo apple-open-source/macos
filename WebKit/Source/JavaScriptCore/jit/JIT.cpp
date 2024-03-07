@@ -36,6 +36,7 @@
 #include "JITInlines.h"
 #include "JITOperations.h"
 #include "JITSizeStatistics.h"
+#include "JITThunks.h"
 #include "LinkBuffer.h"
 #include "MaxFrameExtentForSlowPathCall.h"
 #include "ModuleProgramCodeBlock.h"
@@ -49,11 +50,14 @@
 #include "TypeProfilerLog.h"
 #include <wtf/GraphNodeWorklist.h>
 #include <wtf/SimpleStats.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace JSC {
 namespace JITInternal {
 static constexpr const bool verbose = false;
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JIT);
 
 Seconds totalBaselineCompileTime;
 Seconds totalDFGCompileTime;
@@ -84,12 +88,11 @@ JITConstantPool::Constant JIT::addToConstantPool(JITConstantPool::Type type, voi
     return result;
 }
 
-std::tuple<BaselineUnlinkedStructureStubInfo*, JITConstantPool::Constant> JIT::addUnlinkedStructureStubInfo()
+std::tuple<BaselineUnlinkedStructureStubInfo*, StructureStubInfoIndex> JIT::addUnlinkedStructureStubInfo()
 {
-    void* unlinkedStubInfoIndex = bitwise_cast<void*>(static_cast<uintptr_t>(m_unlinkedStubInfos.size()));
+    unsigned stubInfoIndex = m_unlinkedStubInfos.size();
     BaselineUnlinkedStructureStubInfo* stubInfo = &m_unlinkedStubInfos.alloc();
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, unlinkedStubInfoIndex);
-    return std::tuple { stubInfo, stubInfoIndex };
+    return std::tuple { stubInfo, StructureStubInfoIndex { stubInfoIndex } };
 }
 
 BaselineUnlinkedCallLinkInfo* JIT::addUnlinkedCallLinkInfo()
@@ -193,8 +196,6 @@ void JIT::privateCompileMainPass()
     auto& instructions = m_unlinkedCodeBlock->instructions();
     unsigned instructionCount = m_unlinkedCodeBlock->instructions().size();
 
-    m_callLinkInfoIndex = 0;
-
     BytecodeIndex startBytecodeIndex(0);
 
     m_bytecodeCountHavingSlowCase = 0;
@@ -268,7 +269,6 @@ void JIT::privateCompileMainPass()
         DEFINE_SLOW_OP(is_constructor)
         DEFINE_SLOW_OP(typeof)
         DEFINE_SLOW_OP(typeof_is_object)
-        DEFINE_SLOW_OP(typeof_is_function)
         DEFINE_SLOW_OP(strcat)
         DEFINE_SLOW_OP(push_with_scope)
         DEFINE_SLOW_OP(create_lexical_environment)
@@ -350,6 +350,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_instanceof)
         DEFINE_OP(op_is_empty)
         DEFINE_OP(op_typeof_is_undefined)
+        DEFINE_OP(op_typeof_is_function)
         DEFINE_OP(op_is_undefined_or_null)
         DEFINE_OP(op_is_boolean)
         DEFINE_OP(op_is_number)
@@ -470,8 +471,6 @@ void JIT::privateCompileMainPass()
             dataLog("At ", bytecodeOffset, ": ", m_slowCases.size(), "\n");
     }
 
-    RELEASE_ASSERT(m_callLinkInfoIndex == m_callCompilationInfo.size());
-
 #ifndef NDEBUG
     // Reset this, in order to guard its use with ASSERTs.
     m_bytecodeIndex = BytecodeIndex();
@@ -500,7 +499,6 @@ void JIT::privateCompileSlowCases()
     m_delByValIndex = 0;
     m_instanceOfIndex = 0;
     m_privateBrandAccessIndex = 0;
-    m_callLinkInfoIndex = 0;
 
     unsigned bytecodeCountHavingSlowCase = 0;
     for (Vector<SlowCaseEntry>::iterator iter = m_slowCases.begin(); iter != m_slowCases.end();) {
@@ -536,15 +534,7 @@ void JIT::privateCompileSlowCases()
 
         switch (currentInstruction->opcodeID()) {
         DEFINE_SLOWCASE_OP(op_add)
-        DEFINE_SLOWCASE_OP(op_call)
-        DEFINE_SLOWCASE_OP(op_call_ignore_result)
-        DEFINE_SLOWCASE_OP(op_tail_call)
         DEFINE_SLOWCASE_OP(op_call_direct_eval)
-        DEFINE_SLOWCASE_OP(op_call_varargs)
-        DEFINE_SLOWCASE_OP(op_tail_call_varargs)
-        DEFINE_SLOWCASE_OP(op_tail_call_forward_arguments)
-        DEFINE_SLOWCASE_OP(op_construct_varargs)
-        DEFINE_SLOWCASE_OP(op_construct)
         DEFINE_SLOWCASE_OP(op_eq)
         DEFINE_SLOWCASE_OP(op_try_get_by_id)
         DEFINE_SLOWCASE_OP(op_in_by_id)
@@ -626,6 +616,7 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_SLOW_OP(get_prototype_of)
         DEFINE_SLOWCASE_SLOW_OP(check_tdz)
         DEFINE_SLOWCASE_SLOW_OP(to_property_key)
+        DEFINE_SLOWCASE_SLOW_OP(typeof_is_function)
         default:
             RELEASE_ASSERT_NOT_REACHED();
         }
@@ -654,7 +645,6 @@ void JIT::privateCompileSlowCases()
     RELEASE_ASSERT(m_inByIdIndex == m_inByIds.size());
     RELEASE_ASSERT(m_instanceOfIndex == m_instanceOfs.size());
     RELEASE_ASSERT(m_privateBrandAccessIndex == m_privateBrandAccesses.size());
-    RELEASE_ASSERT(m_callLinkInfoIndex == m_callCompilationInfo.size());
 
 #ifndef NDEBUG
     // Reset this, in order to guard its use with ASSERTs.
@@ -664,9 +654,14 @@ void JIT::privateCompileSlowCases()
 
 void JIT::emitMaterializeMetadataAndConstantPoolRegisters()
 {
-    loadPtr(addressFor(CallFrameSlot::codeBlock), regT0);
+    emitMaterializeMetadataAndConstantPoolRegisters(*this);
+}
+
+void JIT::emitMaterializeMetadataAndConstantPoolRegisters(CCallHelpers& jit)
+{
+    jit.loadPtr(addressFor(CallFrameSlot::codeBlock), s_constantsGPR);
     ASSERT(static_cast<ptrdiff_t>(CodeBlock::offsetOfJITData() + sizeof(void*)) == CodeBlock::offsetOfMetadataTable());
-    loadPairPtr(Address(regT0, CodeBlock::offsetOfJITData()), s_constantsGPR, s_metadataGPR);
+    jit.loadPairPtr(Address(s_constantsGPR, CodeBlock::offsetOfJITData()), s_constantsGPR, s_metadataGPR);
 }
 
 void JIT::emitSaveCalleeSaves()
@@ -725,7 +720,7 @@ void JIT::emitConsistencyCheck()
     m_consistencyCheckLabel = label();
     move(TrustedImm32(-stackPointerOffsetFor(m_unlinkedCodeBlock)), regT0);
     m_bytecodeIndex = BytecodeIndex(0);
-    emitNakedNearTailCall(vm().getCTIStub(consistencyCheckGenerator).retaggedCode<NoPtrTag>());
+    nearTailCallThunk(CodeLocationLabel { vm().getCTIStub(consistencyCheckGenerator).retaggedCode<NoPtrTag>() });
     m_bytecodeIndex = BytecodeIndex(); // Reset this, in order to guard its use with ASSERTs.
 }
 #endif
@@ -859,7 +854,7 @@ std::tuple<std::unique_ptr<LinkBuffer>, RefPtr<BaselineJITCode>> JIT::compileAnd
         getArityPadding(*m_vm, numberOfParameters, regT1, regT0, regT2, regT3, stackOverflow);
 
         move(regT0, GPRInfo::argumentGPR0);
-        emitNakedNearCall(m_vm->getCTIStub(arityFixupGenerator).retaggedCode<NoPtrTag>());
+        nearCallThunk(CodeLocationLabel { m_vm->getCTIStub(CommonJITThunkID::ArityFixup).retaggedCode<NoPtrTag>() });
 
 #if ASSERT_ENABLED
         m_bytecodeIndex = BytecodeIndex(); // Reset this, in order to guard its use with ASSERTs.
@@ -928,19 +923,6 @@ RefPtr<BaselineJITCode> JIT::link(LinkBuffer& patchBuffer)
         }
     }
 
-    if (!m_exceptionChecks.empty())
-        patchBuffer.link(m_exceptionChecks, CodeLocationLabel(vm().getCTIStub(handleExceptionGenerator).retaggedCode<NoPtrTag>()));
-    if (!m_exceptionChecksWithCallFrameRollback.empty())
-        patchBuffer.link(m_exceptionChecksWithCallFrameRollback, CodeLocationLabel(vm().getCTIStub(handleExceptionWithCallFrameRollbackGenerator).retaggedCode<NoPtrTag>()));
-
-    for (auto& record : m_nearJumps) {
-        if (record.target)
-            patchBuffer.link(record.from, record.target);
-    }
-    for (auto& record : m_nearCalls) {
-        if (record.callee)
-            patchBuffer.link(record.from, record.callee);
-    }
     for (auto& record : m_farCalls) {
         if (record.callee)
             patchBuffer.link(record.from, record.callee);
@@ -1101,6 +1083,21 @@ HashMap<CString, Seconds> JIT::compileTimeStats()
 Seconds JIT::totalCompileTime()
 {
     return totalBaselineCompileTime + totalDFGCompileTime + totalFTLCompileTime;
+}
+
+void JIT::exceptionCheck(Jump jumpToHandler)
+{
+    jumpToHandler.linkThunk(CodeLocationLabel(vm().getCTIStub(CommonJITThunkID::HandleException).retaggedCode<NoPtrTag>()), this);
+}
+
+void JIT::exceptionCheck()
+{
+    exceptionCheck(emitExceptionCheck(vm()));
+}
+
+void JIT::exceptionChecksWithCallFrameRollback(Jump jumpToHandler)
+{
+    jumpToHandler.linkThunk(CodeLocationLabel(vm().getCTIStub(CommonJITThunkID::HandleExceptionWithCallFrameRollback).retaggedCode<NoPtrTag>()), this);
 }
 
 } // namespace JSC

@@ -23,29 +23,52 @@
 
 /* Private interfaces between libsystem_malloc, libSystem, and MallocStackLogging */
 
-#include <malloc/malloc.h>
-#include <stack_logging.h>
-
 #ifndef _MALLOC_IMPLEMENTATION_H_
 #define _MALLOC_IMPLEMENTATION_H_
 
-#include <mach/boolean.h>
+#include <TargetConditionals.h>
+
+#include <malloc/malloc.h>
+
+#if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
+# include <stack_logging.h>
+#endif // !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <ptrauth.h>
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 #if defined(__PTRAUTH_INTRINSICS__) && __PTRAUTH_INTRINSICS__ && \
 		__has_builtin(__builtin_ptrauth_string_discriminator)
 #define LIBMALLOC_FUNCTION_PTRAUTH(f) \
-   __ptrauth(ptrauth_key_function_pointer, 1, \
-           __builtin_ptrauth_string_discriminator("libmalloc_functions_" # f) \
-   ) f
+	__ptrauth(ptrauth_key_function_pointer, 1, \
+			__builtin_ptrauth_string_discriminator("libmalloc_functions_" # f) \
+	) f
 #else
 #define LIBMALLOC_FUNCTION_PTRAUTH(f) f
 #endif
 
 
 /*********	Libsystem initializers ************/
+
+struct _malloc_late_init;
+
+struct _malloc_late_init {
+	unsigned long version;
+	/* The following functions are included in version 1 of this structure */
+	void * (*LIBMALLOC_FUNCTION_PTRAUTH(dlopen)) (const char * __null_terminated path, int mode);
+	void * (*LIBMALLOC_FUNCTION_PTRAUTH(dlsym)) (void *handle, const char * __null_terminated symbol);
+	bool internal_diagnostics;  /* os_variant_has_internal_diagnostics() */
+	/* The following are included in version 2 of this structure */
+	const struct _malloc_msl_symbols *msl;
+};
+
+void __malloc_init(const char * __null_terminated * __null_terminated apple);
+#if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
+void __malloc_late_init(const struct _malloc_late_init *);
 
 struct _malloc_msl_lite_hooks_s;
 
@@ -61,27 +84,11 @@ struct _malloc_msl_symbols {
 	void (*fork_child) (void);
 
 	void (*set_flags_from_environment) (const char **env);
-	void (*initialize) ();
+	void (*initialize) (void);
 	boolean_t (*turn_on_stack_logging) (stack_logging_mode_type mode);
-	void (*turn_off_stack_logging) ();
+	void (*turn_off_stack_logging) (void);
 	void (*copy_msl_lite_hooks) (struct _malloc_msl_lite_hooks_s *hooksp, size_t size);
 };
-
-
-struct _malloc_late_init {
-	unsigned long version;
-	/* The following functions are included in version 1 of this structure */
-	void * (*LIBMALLOC_FUNCTION_PTRAUTH(dlopen)) (const char *path, int mode);
-	void * (*LIBMALLOC_FUNCTION_PTRAUTH(dlsym)) (void *handle, const char *symbol);
-	bool internal_diagnostics;  /* os_variant_has_internal_diagnostics() */
-	/* The following are included in version 2 of this structure */
-	const struct _malloc_msl_symbols *msl;
-};
-
-void __malloc_init(const char *apple[]);
-void __malloc_late_init(const struct _malloc_late_init *);
-
-
 
 /*
  * Definitions intended for the malloc stack logging library only.
@@ -92,34 +99,17 @@ void __malloc_late_init(const struct _malloc_late_init *);
 
 typedef struct szone_s szone_t;
 
-typedef struct _malloc_msl_lite_hooks_s {
-	szone_t *(*create_and_insert_msl_lite_zone)(const char *name,
-											void *mallocp, void *callocp,
-											void *vallocp, void *reallocp, void *batch_mallocp,
-											void *batch_freep, void *memalignp, void *freep,
-											void *free_definite_sizep, void *sizep);
-	malloc_zone_t *(*helper_zone)(szone_t *zone);
-	size_t (*szone_size)(szone_t *szone, const void *ptr);
-	void *(*szone_malloc)(szone_t *szone, size_t size);
-	void *(*szone_malloc_should_clear)(szone_t *szone, size_t size,
-									   boolean_t cleared_requested);
-	void (*szone_free)(szone_t *szone, void *ptr);
-	void *(*szone_realloc)(szone_t *szone, void *ptr, size_t new_size);
-	void *(*szone_valloc)(szone_t *szone, size_t size);
-	void *(*szone_memalign)(szone_t *szone, size_t alignment, size_t size);
-	unsigned (*szone_batch_malloc)(szone_t *szone, size_t size, void **results,
-								   unsigned count);
-	void (*szone_batch_free)(szone_t *szone, void **to_be_freed, unsigned count);
-	boolean_t (*has_default_zone0)(void);
-	
-	size_t (*calloc_get_size)(size_t num_items, size_t size, size_t extra_size,
-							  size_t *total_size);
+/* Flags which uniquely identify the lite zone's wrapped zone */
+#define MALLOC_MSL_LITE_WRAPPED_ZONE_FLAGS (1 << 10)
 
-	size_t (*szone_good_size)(szone_t *szone, size_t size);
-	malloc_zone_t *(*basic_zone)(szone_t *zone);
+typedef struct _malloc_msl_lite_hooks_s {
+	boolean_t (*has_default_zone0)(void);
+	void (*insert_msl_lite_zone)(malloc_zone_t *zone);
+	malloc_zone_t *(*get_global_helper_zone)(void);
 } _malloc_msl_lite_hooks_t;
 
 #endif // defined(MALLOC_ENABLE_MSL_LITE_SPI) && MALLOC_ENABLE_MSL_LITE_SPI
 
-#endif
+#endif // !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 
+#endif

@@ -206,6 +206,20 @@ struct FeaturesMtl : FeatureSetBase
         &members,
     };
 
+    FeatureInfo writeHelperSampleMask = {
+        "writeHelperSampleMask",
+        FeatureCategory::MetalWorkarounds,
+        "Some GPUs produce incorrect derivatives unless [[sample_mask]] is written",
+        &members,
+    };
+
+    FeatureInfo preTransformTextureCubeGradDerivatives = {
+        "preTransformTextureCubeGradDerivatives",
+        FeatureCategory::MetalWorkarounds,
+        "Apply a vendor-specific transformation to explicit cubemap derivatives",
+        &members,
+    };
+
     FeatureInfo multisampleColorFormatShaderReadWorkaround = {
         "multisampleColorFormatShaderReadWorkaround",
         FeatureCategory::MetalWorkarounds,
@@ -405,6 +419,13 @@ struct FeaturesMtl : FeatureSetBase
         FeatureCategory::MetalFeatures,
         "Rescope global variables that are only used in one function to be function-local.",
         &members, "http://anglebug.com/8311"
+    };
+
+    FeatureInfo alwaysResolveMultisampleRenderBuffers = {
+        "alwaysResolveMultisampleRenderBuffers",
+        FeatureCategory::MetalFeatures,
+        "Always automatically resolve MSAA render buffers to single sampled texture.",
+        &members, "http://crbug.com/1486094"
     };
 
 };

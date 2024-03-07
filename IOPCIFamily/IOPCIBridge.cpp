@@ -2489,6 +2489,46 @@ bool IOPCIBridge::initializeNub( IOPCIDevice * nub,
     return (true);
 }
 
+void IOPCIBridge::waitForDartToQuiesce(IOPCIDevice *nub)
+{
+// This function will be removed once rdar://115125719 is resolved
+#if TARGET_CPU_ARM64 || TARGET_CPU_ARM
+    IOMapper* dartMapper = IOMapper::copyMapperForDevice(nub);
+    if(   (dartMapper != NULL)
+       && (dartMapper->metaCast("IODARTMapper") != NULL))
+    {
+        const OSSymbol *getNumAllocations = OSSymbol::withCString(kIODARTFunctionGetNumAllocations);
+        IOReturn err = kIOReturnSuccess;
+        uint32_t allocs = 0;
+
+#define DART_WAIT_TIME_MS 100 // Arbitrary
+        AbsoluteTime deadline, now = 0;
+        clock_interval_to_deadline(DART_WAIT_TIME_MS, kMillisecondScale, &deadline);
+
+        do
+        {
+            err = dartMapper->callPlatformFunction(getNumAllocations,
+                                                   false,
+                                                   &allocs,
+                                                   NULL,
+                                                   NULL,
+                                                   NULL);
+            if (allocs != 0)
+            {
+                IOSleepWithLeeway(10, 10);
+            }
+            clock_get_uptime(&now);
+        }
+        while (   (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline))
+               && (err == kIOReturnSuccess)
+               && (allocs != 0));
+
+        OSSafeReleaseNULL(getNumAllocations);
+    }
+    OSSafeReleaseNULL(dartMapper);
+#endif
+}
+
 void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
 {
     IOReturn ret = kIOReturnSuccess;
@@ -2504,17 +2544,22 @@ void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
 
 	// If the nub was terminated as part of the clientCrashed handler, we've
 	// already torn down its mapper.
-    if (!device->reserved->deadMapper)
+#if TARGET_CPU_ARM64 || TARGET_CPU_ARM
+    if (device->reserved->sessionOptions & kIOPCISessionOptionDriverkit)
     {
-        device->callPlatformFunction(gIOPCIDeviceChangedKey,
-                                      /* waitForFunction */ false,
-                                      /* nub             */ device,
-                                      kOSBooleanFalse, NULL, NULL);
+        // Wait for DART allocations to be freed by process exit cleanup or the driver.
+        waitForDartToQuiesce(device);
+    }
+#endif
+
+    device->callPlatformFunction(gIOPCIDeviceChangedKey,
+                                  /* waitForFunction */ false,
+                                  /* nub             */ device,
+                                  kOSBooleanFalse, NULL, NULL);
 
 #if ACPI_SUPPORT
-        AppleVTD::removeDevice(device);
+    AppleVTD::removeDevice(device);
 #endif
-    }
 
     restoreQRemove(device);
     configOpParams cp = {.device = device, .op = kConfigOpTerminated, .result = nullptr};
@@ -2904,11 +2949,16 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 
             {
                 IOByteCount capa, msiCapa;
+                uint8_t headerType = 0;
 				OSData *    data;
 
                 nubs->setObject(index++, nub);
 
-			    nub->reserved->headerType = (0x7F & nub->configRead8(kIOPCIConfigHeaderType));
+                headerType = nub->configRead8(kIOPCIConfigHeaderType);
+
+                nub->reserved->headerType = 0x7F & headerType;
+                nub->reserved->isMFD = nub->reserved->configEntry->isMFD;
+
                 capa = 0;
                 if (nub->extendedFindPCICapability(kIOPCIPowerManagementCapability, &capa))
                     nub->reserved->powerCapability = capa;
@@ -3098,6 +3148,12 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
                 if (nub->extendedFindPCICapability(kIOPCIExpressCapabilityIDPrecisionTimeManagement, &capa))
                 {
                     nub->reserved->ptmCapability = capa;
+                }
+
+                capa = 0;
+                if (nub->extendedFindPCICapability(kIOPCIExpressCapabilityIDAlternativeRoutingID, &capa))
+                {
+                    nub->reserved->ariCapability = capa;
                 }
 
 				nub->reserved->probeTimeMS = kDefaultLinkUpTimeoutMS;
@@ -4234,6 +4290,13 @@ void IOPCI2PCIBridge::timerProbe(IOTimerEventSource * es)
 {
     if (fNeedProbe && (kIOPCIDeviceOnState == fPowerState))
     {
+        // If a prior termination is in progress, defer the probe for 100ms
+        if (fPresence == true && getBusyState() != 0)
+        {
+            DLOG("[%s()] Deferring %s (%s)'s probe\n", __func__, fLogName, getLocation());
+            fTimerProbeES->setTimeoutMS(100);
+            return;
+        }
         fNeedProbe = false;
         DLOG("%s: probe\n", fLogName);
         fBridgeDevice->kernelRequestProbe(kIOPCIProbeOptionDone | kIOPCIProbeOptionLinkInt | kIOPCIProbeOptionNeedsScan);
@@ -4697,6 +4760,64 @@ IOReturn IOPCI2PCIBridge::setPowerState( unsigned long powerState,
 	while (false);
 
     return (super::setPowerState(powerState, whatDevice));
+}
+
+IOReturn IOPCI2PCIBridge::powerStateDidChangeTo(IOPMPowerFlags capabilities, unsigned long stateNumber, IOService *whatDevice)
+{
+	getConfiguratorWorkLoop()->runActionBlock(^IOReturn
+	{
+		IOPCIDevice *child = OSDynamicCast(IOPCIDevice, getChildEntry(gIOServicePlane));
+
+	// For an Upstream Port associated with a non-ARI Multi-Function Device
+	// (MFD) whose Max_Payload_Size settings are not identical across all
+	// Functions, the Receiver is required to check the TLP’s data payload
+	// against a Max_Payload_Size setting whose determination is implementation
+	// specific.
+
+	// Such MFDs may throw an error if a function receives a payload before
+	// its peers have had their MPS setting restored; it's implementation-defined.
+	// Prevent such an error by restoring the MPS setting before client drivers
+	// have a chance to execute.
+
+	// Perform this in the configurator workloop so the device control RMW is
+	// performed atomically w.r.t other operations, such as
+	// IOPCIConfigurator::maskUR() during bus scan.
+
+		if (   (whatDevice == this)
+			&& (stateNumber == kIOPCIDeviceOnState)
+			&& (child != NULL)
+			&& (child->reserved->isMFD)
+			&& (child->reserved->headerType == kPCIHeaderType0)
+			&& (child->reserved->expressCapability != 0)
+			&& (child->reserved->ariCapability == 0)
+			&& (child->checkLink(kCheckLinkForPower) == kIOReturnSuccess))
+		{
+			OSIterator *childIter = getChildIterator( gIOServicePlane );
+			OSObject *child = NULL;
+
+			while (    (childIter != NULL)
+					&& ((child = childIter->getNextObject()) != NULL))
+			{
+				IOPCIDevice *nub = OSDynamicCast(IOPCIDevice, child);
+				if (nub)
+				{
+					// RMW the MPS setting. This will be overwritten (with the same value) when
+					// the nub's setPowerState() restores the function's config space.
+					uint16_t devCtrl = nub->configRead16(nub->reserved->expressCapability + 0x8);
+					devCtrl &= ~(7 << 5);
+					devCtrl |= (nub->reserved->configEntry->rootPortEntry->expressMaxPayload << 5);
+					DLOG("[%s()] Restoring MPS %u to child %s\n", __func__, nub->reserved->configEntry->rootPortEntry->expressMaxPayload, nub->getName());
+					nub->configWrite16(nub->reserved->expressCapability + 0x8, devCtrl);
+				}
+			}
+
+			OSSafeReleaseNULL(childIter);
+		}
+
+		return kIOReturnSuccess;
+	});
+
+    return super::powerStateDidChangeTo(capabilities, stateNumber, whatDevice);
 }
 
 void IOPCI2PCIBridge::adjustPowerState(unsigned long state)
@@ -5754,27 +5875,6 @@ IOPCIBridge::terminateChildGated(IOPCIDevice *child)
             && (pciPeer->isInactive() == false)
             && (pciPeer == child || resetType == kIOPCIResetHot))
         {
-            // The crashed process's leftover IODMACommand and IOMemoryDescriptor
-            // objects are released automatically on process exit in this thread
-            // context. If mapper teardown is performed in ::removeDevice as part of nub
-            // termination, it will race with process cleanup and can cause a PMAP
-            // assertion failure.
-            //
-            // It's safe to teardown the mapper before all IODMACommands have
-            // completed; if they're completed after, iovmUnmapMemory() becomes a no-op.
-            // Note that we've disabled Bus Leading and flushed in-flight transactions
-            // at this point.
-            pciPeer->callPlatformFunction(gIOPCIDeviceChangedKey,
-                                          /* waitForFunction */ false,
-                                          /* nub             */ pciPeer,
-                                          kOSBooleanFalse, NULL, NULL);
-
-#if ACPI_SUPPORT
-            AppleVTD::removeDevice(pciPeer);
-#endif
-
-		    pciPeer->reserved->deadMapper = true;
-
             DLOG("%s Terminating device %u:%u:%u\n", __PRETTY_FUNCTION__, PCI_ADDRESS_TUPLE(pciPeer));
             pciPeer->terminate(kIOServiceTerminateNeedWillTerminate);
         }

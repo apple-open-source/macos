@@ -1,7 +1,7 @@
 $ $
 $ SPDX-License-Identifier: BSD-2-Clause
 $ $
-$ Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+$ Copyright (c) 2018-2023 Gavin D. Howard and contributors.
 $ $
 $ Redistribution and use in source and binary forms, with or without
 $ modification, are permitted provided that the following conditions are met:
@@ -28,13 +28,8 @@ $ $
 
 $quote "
 
-$ Ró¿ne wiadomo¶ci.
-$set 1
-
-1 "Funkcja:"
-
 $ Typy b³êdów.
-$set 2
+$set 1
 
 1 "B³±d matematyczny:"
 2 "B³±d parse'a:"
@@ -43,7 +38,7 @@ $set 2
 5 "Ostrze¿enie:"
 
 $ B³êdy matematyczne.
-$set 3
+$set 2
 
 1 "liczba ujemna"
 2 "numer nieintegracyjny"
@@ -51,7 +46,7 @@ $set 3
 4 "dzielenie przez 0"
 
 $ B³êdy Parse'a.
-$set 4
+$set 3
 
 1 "koniec akt"
 2 "niewa¿ny znak '%c'"
@@ -60,7 +55,7 @@ $set 4
 5 "niewa¿ny token"
 6 "niewa¿ne wyra¿enie"
 7 "puste wyra¿enie"
-8 "niewa¿ny wyci±g z wydruku"
+8 "nieprawid³owe polecenie drukowania lub przesy³ania strumienia"
 9 "nieprawid³owa definicja funkcji"
 10 "nieprawid³owe przyporz±dkowanie: lewa strona musi byæ elementem scale, ibase, obase, last, var lub element array"
 11 "nie znaleziono zmiennej automatycznej"
@@ -77,12 +72,15 @@ $set 4
 22 "POSIX nie pozwala na porównywanie operatorów na zewn±trz, je¶li deklaracje lub pêtle"
 23 "POSIX wymaga 0 lub 1 operatora porównawczego na jeden warunek"
 24 "POSIX wymaga, aby wszystkie 3 czê¶ci pêtli nie by³y puste"
-25 "POSIX nie pozwala na notacjê wyk³adnicz±"
-26 "POSIX nie zezwala na odniesienia do tablicy jako parametrów funkcji"
-27 "POSIX wymaga, aby lewe usztywnienie znajdowa³o siê na tej samej linii co nag³ówek funkcji"
+25 "POSIX wymaga nowej linii pomiêdzy ¶rednikiem a definicj± funkcji"
+26 "POSIX nie pozwala na notacjê wyk³adnicz±"
+27 "POSIX nie zezwala na odniesienia do tablicy jako parametrów funkcji"
+28 "POSIX nie dopuszcza funkcji void"
+29 "POSIX wymaga, aby lewe usztywnienie znajdowa³o siê na tej samej linii co nag³ówek funkcji"
+30 "POSIX nie pozwala na przypisywanie ci±gów znaków do zmiennych lub tablic"
 
 $ B³êdy Runtime'u.
-$set 5
+$set 4
 
 1 "nieprawid³owa ibase: musi byæ [%lu, %lu]"
 2 "nieprawid³owa obase: musi byæ [%lu, %lu]"
@@ -91,21 +89,20 @@ $set 5
 5 "powtarzalne wywo³anie read()"
 6 "element zmienny lub tablicowy jest niew³a¶ciwym typem"
 7 "stos ma zbyt ma³o elementów"
-8 "niew³a¶ciwa liczba parametrów; potrzeba %zu, maj± %zu"
-9 "niezdefiniowana funkcja: %s()"
-10 "nie mo¿e u¿yæ warto¶ci pustej w wyra¿eniu"
+8 "stos dla rejestru \"%s\" ma zbyt ma³o elementów"
+9 "niew³a¶ciwa liczba parametrów; potrzeba %zu, maj± %zu"
+10 "niezdefiniowana funkcja: %s()"
+11 "nie mo¿e u¿yæ warto¶ci pustej w wyra¿eniu"
 
 $ Fatalne b³êdy.
-$set 6
+$set 5
 
 1 "Alokacja pamiêci nie powiod³a siê"
 2 "B³±d we/wy"
 3 "nie móg³ otworzyæ pliku: %s"
-4 "plik nie jest ASCII: %s"
+4 "plik nie jest tekstem: %s"
 5 "¶cie¿ka to katalog: %s"
-6 "nieprawid³owa opcja wiersza poleceñ: '%c' (\"%s\")"
-
-$set 7
-
-1 "opcja wymaga argumentu: '%c' (\"%s\")"
-2 "opcja nie wymaga ¿adnych argumentów: '%c' (\"%s\")"
+6 "nieprawid³owa opcja wiersza poleceñ: \"%s\""
+7 "opcja wymaga argumentu: '%c' (\"%s\")"
+8 "opcja nie wymaga ¿adnych argumentów: '%c' (\"%s\")"
+9 "nieprawid³owa argument opcja wiersza poleceñ: \"%s\""

@@ -2674,7 +2674,7 @@ strncat_from_utf8_to_utf8(struct archive_string *as, const void *_p,
 			if (p + (s - ss) > endp) {
 				as->length = p - as->s;
 				if (archive_string_ensure(as,
-				    as->buffer_length + len + 1) == NULL)
+				    as->buffer_length + s - ss + 1) == NULL)
 					return (-1);
 				p = as->s + as->length;
 				endp = as->s + as->buffer_length -1;

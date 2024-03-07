@@ -176,14 +176,16 @@ static void _XCTAssertTimeDiffWithInterval(CKKSAnalyticsTests* self, const char*
         if (format) {
             va_list args;
             va_start(args, format);
-            va_end(args);
             arg = [[NSString alloc] initWithFormat: format arguments: args];
+            va_end(args);
         }
 
+        XCTSourceCodeLocation *location = [[XCTSourceCodeLocation alloc] initWithFilePath:[[NSString alloc] initWithCString:filename encoding: NSUTF8StringEncoding]
+                                                                               lineNumber:line];
         XCTIssue* issue = [[XCTIssue alloc] initWithType:XCTIssueTypeAssertionFailure
-                                      compactDescription:[comparison stringByAppendingString: arg]
-                                     detailedDescription:nil
-                                       sourceCodeContext:[[XCTSourceCodeContext alloc] init]
+                                      compactDescription:@"elapsed time not within bounds"
+                                     detailedDescription:[comparison stringByAppendingString: arg]
+                                       sourceCodeContext:[[XCTSourceCodeContext alloc] initWithLocation:location]
                                          associatedError:nil
                                              attachments:@[]];
         [self recordIssue:issue];

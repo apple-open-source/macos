@@ -732,8 +732,9 @@ void pmap_abandon_measurement(void);
 #define PMAP_RESOLVE_KERNEL_ENTITLEMENTS_INDEX 107
 #define PMAP_ACCELERATE_ENTITLEMENTS_INDEX 108
 #define PMAP_CHECK_TRUST_CACHE_RUNTIME_FOR_UUID_INDEX 109
+#define PMAP_IMAGE4_MONITOR_TRAP_INDEX 110
 
-#define PMAP_COUNT 110
+#define PMAP_COUNT 111
 
 /**
  * Value used when initializing pmap per-cpu data to denote that the structure

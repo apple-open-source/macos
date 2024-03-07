@@ -161,6 +161,8 @@
 		72311F54194A354F00EB4788 /* conn_lib.c in Sources */ = {isa = PBXBuildFile; fileRef = 72311F50194A354F00EB4788 /* conn_lib.c */; };
 		72311F55194A354F00EB4788 /* mptcp_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 72311F53194A354F00EB4788 /* mptcp_client.c */; };
 		72311F56194A76DA00EB4788 /* mptcp_client.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72311F52194A354F00EB4788 /* mptcp_client.1 */; };
+		723E50282B04293400B8339C /* libpcap.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 723E50272B04293400B8339C /* libpcap.tbd */; };
+		723E50292B045D5D00B8339C /* libnetwork_cmds_lib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E0B535291C0CB000E573A7 /* libnetwork_cmds_lib.a */; };
 		724753E7144905E300F6A941 /* dnctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724753E61448E1EF00F6A941 /* dnctl.8 */; };
 		724769371CE2B1FF00AAB5F0 /* gmt2local.c in Sources */ = {isa = PBXBuildFile; fileRef = 7282BA3C1AFAD58E005DE836 /* gmt2local.c */; };
 		724769381CE2C1E400AAB5F0 /* gmt2local.c in Sources */ = {isa = PBXBuildFile; fileRef = 7282BA3C1AFAD58E005DE836 /* gmt2local.c */; };
@@ -202,6 +204,7 @@
 		7294F1080EE8BBB10052EC88 /* traceroute.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120F00EE86FA700AFED1B /* traceroute.8 */; };
 		7294F12E0EE8BD2F0052EC88 /* traceroute6.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120FB0EE86FB500AFED1B /* traceroute6.c */; };
 		7294F1320EE8BD430052EC88 /* traceroute6.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120FA0EE86FB500AFED1B /* traceroute6.8 */; };
+		7295B51B2AFC1CB800618BA8 /* libpcap.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7295B51A2AFC1CB800618BA8 /* libpcap.tbd */; };
 		72B732DF1899B0380060E6D4 /* cfilutil.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72B732DE1899B0380060E6D4 /* cfilutil.1 */; };
 		72B732EF1899B23A0060E6D4 /* cfilutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B732EE1899B23A0060E6D4 /* cfilutil.c */; };
 		72B732F11899B2430060E6D4 /* cfilstat.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B732F01899B2430060E6D4 /* cfilstat.c */; };
@@ -1088,6 +1091,7 @@
 		72311F52194A354F00EB4788 /* mptcp_client.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = mptcp_client.1; sourceTree = "<group>"; };
 		72311F53194A354F00EB4788 /* mptcp_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mptcp_client.c; sourceTree = "<group>"; };
 		723C7068142BAFEA007C87E9 /* dnctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dnctl; sourceTree = BUILT_PRODUCTS_DIR; };
+		723E50272B04293400B8339C /* libpcap.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libpcap.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.Internal.sdk/usr/lib/libpcap.tbd; sourceTree = DEVELOPER_DIR; };
 		72432D722A35164F00E75001 /* network-management-entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "network-management-entitlements.plist"; sourceTree = "<group>"; };
 		724753E61448E1EF00F6A941 /* dnctl.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = dnctl.8; sourceTree = "<group>"; };
 		7247B83116165EDC00873B3C /* pktapctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pktapctl; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1216,6 +1220,7 @@
 		72946F4F1BBF07FF00087E35 /* frame_delay.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = frame_delay.c; sourceTree = "<group>"; };
 		7294F0F90EE8BB460052EC88 /* traceroute */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = traceroute; sourceTree = BUILT_PRODUCTS_DIR; };
 		7294F12A0EE8BD280052EC88 /* traceroute6 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = traceroute6; sourceTree = BUILT_PRODUCTS_DIR; };
+		7295B51A2AFC1CB800618BA8 /* libpcap.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libpcap.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.4.Internal.sdk/usr/lib/libpcap.tbd; sourceTree = DEVELOPER_DIR; };
 		72B732DA1899B0380060E6D4 /* cfilutil */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cfilutil; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B732DE1899B0380060E6D4 /* cfilutil.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = cfilutil.1; sourceTree = "<group>"; };
 		72B732EE1899B23A0060E6D4 /* cfilutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cfilutil.c; sourceTree = "<group>"; };
@@ -1399,6 +1404,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7295B51B2AFC1CB800618BA8 /* libpcap.tbd in Frameworks */,
 				72E0B55C291C242400E573A7 /* libnetwork_cmds_lib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1407,6 +1413,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				723E50292B045D5D00B8339C /* libnetwork_cmds_lib.a in Frameworks */,
+				723E50282B04293400B8339C /* libpcap.tbd in Frameworks */,
 				72B894EC0EEDB17C00C218D6 /* libipsec.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1549,6 +1557,8 @@
 		7255D42F1E44036D008F4A32 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				7295B51A2AFC1CB800618BA8 /* libpcap.tbd */,
+				723E50272B04293400B8339C /* libpcap.tbd */,
 				7255D4321E44037F008F4A32 /* libssl.35.dylib */,
 				7255D4301E44036D008F4A32 /* libcrypto.35.dylib */,
 			);

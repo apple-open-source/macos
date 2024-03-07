@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "DisplayListRecorder.h"
+#include "DisplayListRecorderImpl.h"
 
 #include "DisplayList.h"
 #include "DisplayListDrawingContext.h"
@@ -124,9 +124,9 @@ void RecorderImpl::recordSetMiterLimit(float limit)
     append(SetMiterLimit(limit));
 }
 
-void RecorderImpl::recordClearShadow()
+void RecorderImpl::recordClearDropShadow()
 {
-    append(ClearShadow());
+    append(ClearDropShadow());
 }
 
 void RecorderImpl::recordResetClip()
@@ -187,14 +187,19 @@ void RecorderImpl::recordDrawDecomposedGlyphs(const Font& font, const Decomposed
     append(DrawDecomposedGlyphs(font.renderingResourceIdentifier(), decomposedGlyphs.renderingResourceIdentifier()));
 }
 
-void RecorderImpl::recordDrawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void RecorderImpl::recordDrawDisplayListItems(const Vector<Item>& items, const FloatPoint& destination)
+{
+    append(DrawDisplayListItems(items, destination));
+}
+
+void RecorderImpl::recordDrawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     append(DrawImageBuffer(imageBuffer.renderingResourceIdentifier(), destRect, srcRect, options));
 }
 
-void RecorderImpl::recordDrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void RecorderImpl::recordDrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
-    append(DrawNativeImage(imageIdentifier, imageSize, destRect, srcRect, options));
+    append(DrawNativeImage(imageIdentifier, destRect, srcRect, options));
 }
 
 void RecorderImpl::recordDrawSystemImage(SystemImage& systemImage, const FloatRect& destinationRect)
@@ -202,7 +207,7 @@ void RecorderImpl::recordDrawSystemImage(SystemImage& systemImage, const FloatRe
     append(DrawSystemImage(systemImage, destinationRect));
 }
 
-void RecorderImpl::recordDrawPattern(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& transform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void RecorderImpl::recordDrawPattern(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& transform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     append(DrawPattern(imageIdentifier, destRect, tileRect, transform, phase, spacing, options));
 }
@@ -299,6 +304,11 @@ void RecorderImpl::recordFillArc(const PathArc& arc)
     append(FillArc(arc));
 }
 
+void RecorderImpl::recordFillClosedArc(const PathClosedArc& closedArc)
+{
+    append(FillClosedArc(closedArc));
+}
+
 void RecorderImpl::recordFillQuadCurve(const PathDataQuadCurve& curve)
 {
     append(FillQuadCurve(curve));
@@ -329,7 +339,7 @@ void RecorderImpl::recordFillEllipse(const FloatRect& rect)
 #if ENABLE(VIDEO)
 void RecorderImpl::recordPaintFrameForMedia(MediaPlayer& player, const FloatRect& destination)
 {
-    append(PaintFrameForMedia(player, destination));
+    append(PaintFrameForMedia(player.identifier(), destination));
 }
 
 void RecorderImpl::recordPaintVideoFrame(VideoFrame&, const FloatRect&, bool /* shouldDiscardAlpha */)
@@ -359,6 +369,11 @@ void RecorderImpl::recordStrokeLineWithColorAndThickness(const PathDataLine& lin
 void RecorderImpl::recordStrokeArc(const PathArc& arc)
 {
     append(StrokeArc(arc));
+}
+
+void RecorderImpl::recordStrokeClosedArc(const PathClosedArc& closedArc)
+{
+    append(StrokeClosedArc(closedArc));
 }
 
 void RecorderImpl::recordStrokeQuadCurve(const PathDataQuadCurve& curve)

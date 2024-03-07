@@ -84,7 +84,7 @@ const char *kSecXPCKeyBackupKeybagPath = "backupKeybagPath";
 const char *kSecXPCVersion = "version";
 const char *kSecXPCKeySignInAnalytics = "signinanalytics";
 const char *kSecXPCKeySOSCompatibilityMode = "sosCompatibilityMode";
-
+const char *kSecXPCKeySharingGroup = "sharingGroup";
 
 //
 // XPC Functions for both client and server.
@@ -200,6 +200,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("delete");
         case sec_item_update_id: 
             return CFSTR("update");
+        case sec_item_share_with_group_id:
+            return CFSTR("share_with_group");
         case sec_keychain_backup_id:
             return CFSTR("keychain_backup");
         case sec_keychain_backup_syncable_id: 
@@ -302,6 +304,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("FetchCompatibilityMode");
         case kSecXPCOpFetchCompatibilityModeCachedValue:
             return CFSTR("FetchCompatibilityModeCached");
+        case kSecXPCOpPushResetCircle:
+            return CFSTR("PushResetCircle");
         default:
             return CFSTR("Unknown xpc operation");
     }

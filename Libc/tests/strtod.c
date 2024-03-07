@@ -118,6 +118,15 @@ static void strtod_verify(const char *src, double expected_nearest, double expec
   strtod_verify_with_rounding_mode(src, FE_TOWARDZERO, expected, expected_errno, src + strlen(src), "");
 }
 
+static void strtod_verify_noerange(const char *src, double expected_nearest, double expected_down, double expected_up) {
+  int expected_errno = 0;
+  strtod_verify_with_rounding_mode(src, FE_TONEAREST, expected_nearest, expected_errno, src + strlen(src), "");
+  strtod_verify_with_rounding_mode(src, FE_DOWNWARD, expected_down, expected_errno, src + strlen(src), "");
+  strtod_verify_with_rounding_mode(src, FE_UPWARD, expected_up, expected_errno, src + strlen(src), "");
+  double expected = signbit(expected_up) ? expected_up : expected_down;
+  strtod_verify_with_rounding_mode(src, FE_TOWARDZERO, expected, expected_errno, src + strlen(src), "");
+}
+
 // Explicit zero, infinity, or Nan inputs never trigger ERANGE...
 static void strtod_verify_no_overunder(const char *src, double expected) {
   strtod_verify_with_rounding_mode(src, FE_TONEAREST, expected, 0, src + strlen(src), "");
@@ -312,6 +321,21 @@ T_DECL(strtod, "strtod(3)")
          "8641513168478436313080237596295773983001708984375000000000000000"
          "00000000000000000000000000000000000000000000000000000000001e-324",
          min_subnormal_succ, min_subnormal, min_subnormal_succ);
+
+  // Subnormal hexfloats
+  // rdar://108539918 - Only set erange for inexact subnormal hexfloats
+  strtod_verify_noerange("0x0.8p-1022", 0x0.8p-1022, 0x0.8p-1022, 0x0.8p-1022);
+  strtod_verify_noerange("0x0.5555555555555p-1022",
+		0x0.5555555555555p-1022, 0x0.5555555555555p-1022, 0x0.5555555555555p-1022);
+  strtod_verify_noerange("0x0.fffffffffffffp-1022", max_subnormal, max_subnormal, max_subnormal);
+  // This is inexact, so should set ERANGE
+  strtod_verify("0x0.555555555555555555p-1022",
+		0x1.5555555555554p-1024, 0x1.5555555555554p-1024, 0x1.5555555555558p-1024);
+  // Rounds up to min normal (no error), down to max subnormal (erange)
+  static const char *hexfloat1 = "0x0.fffffffffffff8p-1022";
+  strtod_verify_with_rounding_mode(hexfloat1, FE_TONEAREST, min_normal, 0, hexfloat1 + strlen(hexfloat1), "");
+  strtod_verify_with_rounding_mode(hexfloat1, FE_UPWARD, min_normal, 0, hexfloat1 + strlen(hexfloat1), "");
+  strtod_verify_with_rounding_mode(hexfloat1, FE_DOWNWARD, max_subnormal, ERANGE, hexfloat1 + strlen(hexfloat1), "");
 
   strtod_verify("123456.7890123e-4789", 0.0, 0.0, min_subnormal);
   strtod_verify("-8e-9999999999999999999999999999999999", -0.0, -min_subnormal, -0.0);

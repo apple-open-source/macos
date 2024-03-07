@@ -44,11 +44,12 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderRubyBase);
 
 RenderRubyBase::RenderRubyBase(Document& document, RenderStyle&& style)
-    : RenderBlockFlow(document, WTFMove(style))
+    : RenderBlockFlow(Type::RubyBase, document, WTFMove(style))
     , m_initialOffset(0)
     , m_isAfterExpansion(true)
 {
     setInline(false);
+    ASSERT(isRenderRubyBase());
 }
 
 RenderRubyBase::~RenderRubyBase() = default;

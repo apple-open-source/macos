@@ -331,7 +331,7 @@ bool IOAudioTimeIntervalFilterFIR::initFilter(uint32_t expectedInterval, uint32_
 
 	mDataHistory = NULL;
 	mDataOffsetHistory = NULL;
-	mNumCoeffs = NULL;
+	mNumCoeffs = 0;
 
 	result = IOAudioTimeIntervalFilter::initFilter(expectedInterval, multiIntervalCount);
 

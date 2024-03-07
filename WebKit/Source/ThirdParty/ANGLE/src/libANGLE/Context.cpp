@@ -52,6 +52,7 @@
 #include "libANGLE/queryutils.h"
 #include "libANGLE/renderer/DisplayImpl.h"
 #include "libANGLE/renderer/Format.h"
+#include "libANGLE/trace.h"
 #include "libANGLE/validationES.h"
 
 #if defined(ANGLE_PLATFORM_APPLE)
@@ -439,11 +440,6 @@ bool GetIsExternal(const egl::AttributeMap &attribs)
     return (attribs.get(EGL_EXTERNAL_CONTEXT_ANGLE, EGL_FALSE) == EGL_TRUE);
 }
 
-bool GetSaveAndRestoreState(const egl::AttributeMap &attribs)
-{
-    return (attribs.get(EGL_EXTERNAL_CONTEXT_SAVE_STATE_ANGLE, EGL_FALSE) == EGL_TRUE);
-}
-
 void GetPerfMonitorString(const std::string &name,
                           GLsizei bufSize,
                           GLsizei *length,
@@ -624,7 +620,6 @@ Context::Context(egl::Display *display,
       mRefCount(0),
       mOverlay(mImplementation.get()),
       mIsExternal(GetIsExternal(attribs)),
-      mSaveAndRestoreState(GetSaveAndRestoreState(attribs)),
       mIsDestroyed(false)
 {
     for (angle::SubjectIndex uboIndex = kUniformBuffer0SubjectIndex;
@@ -897,6 +892,7 @@ egl::Error Context::onDestroy(const egl::Display *display)
 
     releaseShaderCompiler();
 
+    mState.ensureNoPendingLink(this);
     mState.reset(this);
 
     releaseSharedObjects();
@@ -1068,7 +1064,7 @@ GLuint Context::createShaderProgramv(ShaderType type, GLsizei count, const GLcha
         Shader *shaderObject = getShaderNoResolveCompile(shaderID);
         ASSERT(shaderObject);
         shaderObject->setSource(this, count, strings, nullptr);
-        shaderObject->compile(this);
+        shaderObject->compile(this, angle::JobResultExpectancy::Immediate);
         const ShaderProgramID programID = PackParam<ShaderProgramID>(createProgram());
         if (programID.value)
         {
@@ -1083,11 +1079,14 @@ GLuint Context::createShaderProgramv(ShaderType type, GLsizei count, const GLcha
                 // As per Khronos issue 2261:
                 // https://gitlab.khronos.org/Tracker/vk-gl-cts/issues/2261
                 // We must wait to mark the program separable until it's successfully compiled.
-                programObject->setSeparable(true);
+                programObject->setSeparable(this, true);
 
                 programObject->attachShader(this, shaderObject);
 
-                if (programObject->link(this) != angle::Result::Continue)
+                // Note: the result expectancy of this link could be turned to Future if
+                // |detachShader| below is made not to resolve the link.
+                if (programObject->link(this, angle::JobResultExpectancy::Immediate) !=
+                    angle::Result::Continue)
                 {
                     deleteShader(shaderID);
                     deleteProgram(programID);
@@ -2940,7 +2939,7 @@ void Context::bindUniformLocation(ShaderProgramID program,
     Program *programObject = getProgramResolveLink(program);
     ASSERT(programObject);
 
-    programObject->bindUniformLocation(location, name);
+    programObject->bindUniformLocation(this, location, name);
 }
 
 GLuint Context::getProgramResourceIndex(ShaderProgramID program,
@@ -3342,7 +3341,7 @@ void Context::getSamplerParameterfvRobust(SamplerID sampler,
 void Context::programParameteri(ShaderProgramID program, GLenum pname, GLint value)
 {
     gl::Program *programObject = getProgramResolveLink(program);
-    SetProgramParameteri(programObject, pname, value);
+    SetProgramParameteri(this, programObject, pname, value);
 }
 
 void Context::initRendererString()
@@ -3922,7 +3921,6 @@ void Context::initCaps()
         mSupportedExtensions.textureCompressionRgtcEXT                       = false;
         mSupportedExtensions.textureCompressionS3tcSrgbEXT                   = false;
         mSupportedExtensions.textureCompressionAstcSliced3dKHR               = false;
-        mSupportedExtensions.textureFilteringHintCHROMIUM                    = false;
 
         caps->compressedTextureFormats.clear();
     }
@@ -3983,6 +3981,14 @@ void Context::initCaps()
     ANGLE_LIMIT_CAP(caps->maxRenderbufferSize, IMPLEMENTATION_MAX_RENDERBUFFER_SIZE);
     ANGLE_LIMIT_CAP(caps->maxColorAttachments, IMPLEMENTATION_MAX_DRAW_BUFFERS);
     ANGLE_LIMIT_CAP(caps->maxVertexAttributes, MAX_VERTEX_ATTRIBS);
+    if (mDisplay->getFrontendFeatures().forceMinimumMaxVertexAttributes.enabled &&
+        getClientVersion() <= Version(2, 0))
+    {
+        // Only limit GL_MAX_VERTEX_ATTRIBS on ES2 or lower, the ES3+ cap is already at the minimum
+        // (16)
+        static_assert(MAX_VERTEX_ATTRIBS == 16);
+        ANGLE_LIMIT_CAP(caps->maxVertexAttributes, 8);
+    }
     ANGLE_LIMIT_CAP(caps->maxVertexAttribStride,
                     static_cast<GLint>(limits::kMaxVertexAttribStride));
 
@@ -6117,7 +6123,7 @@ void Context::bindAttribLocation(ShaderProgramID program, GLuint index, const GL
     // Ideally we could share the program query with the validation layer if possible.
     Program *programObject = getProgramResolveLink(program);
     ASSERT(programObject);
-    programObject->bindAttributeLocation(index, name);
+    programObject->bindAttributeLocation(this, index, name);
 }
 
 void Context::bindBufferBase(BufferBinding target, GLuint index, BufferID buffer)
@@ -6136,6 +6142,7 @@ void Context::bindBufferRange(BufferBinding target,
     if (target == BufferBinding::Uniform)
     {
         mUniformBufferObserverBindings[index].bind(object);
+        mState.onUniformBufferStateChange(index);
         mStateCache.onUniformBufferStateChange(this);
     }
     else if (target == BufferBinding::AtomicCounter)
@@ -6717,7 +6724,7 @@ void Context::compileShader(ShaderProgramID shader)
     {
         return;
     }
-    shaderObject->compile(this);
+    shaderObject->compile(this, angle::JobResultExpectancy::Future);
 }
 
 void Context::deleteBuffers(GLsizei n, const BufferID *buffers)
@@ -7189,7 +7196,7 @@ void Context::linkProgram(ShaderProgramID program)
 {
     Program *programObject = getProgramNoResolveLink(program);
     ASSERT(programObject);
-    ANGLE_CONTEXT_TRY(programObject->link(this));
+    ANGLE_CONTEXT_TRY(programObject->link(this, angle::JobResultExpectancy::Future));
 }
 
 void Context::releaseShaderCompiler()
@@ -7214,8 +7221,8 @@ void Context::bindFragDataLocationIndexed(ShaderProgramID program,
                                           const char *name)
 {
     Program *programObject = getProgramNoResolveLink(program);
-    programObject->bindFragmentOutputLocation(colorNumber, name);
-    programObject->bindFragmentOutputIndex(index, name);
+    programObject->bindFragmentOutputLocation(this, colorNumber, name);
+    programObject->bindFragmentOutputIndex(this, index, name);
 }
 
 void Context::bindFragDataLocation(ShaderProgramID program, GLuint colorNumber, const char *name)
@@ -7664,7 +7671,7 @@ void Context::transformFeedbackVaryings(ShaderProgramID program,
 {
     Program *programObject = getProgramResolveLink(program);
     ASSERT(programObject);
-    programObject->setTransformFeedbackVaryings(count, varyings, bufferMode);
+    programObject->setTransformFeedbackVaryings(this, count, varyings, bufferMode);
 }
 
 void Context::getTransformFeedbackVarying(ShaderProgramID program,
@@ -9245,6 +9252,46 @@ std::shared_ptr<angle::WorkerThreadPool> Context::getShaderCompileThreadPool() c
     return mDisplay->getSingleThreadPool();
 }
 
+std::shared_ptr<angle::WorkerThreadPool> Context::getLinkSubTaskThreadPool() const
+{
+    return getFrontendFeatures().alwaysRunLinkSubJobsThreaded.enabled
+               ? getWorkerThreadPool()
+               : getShaderCompileThreadPool();
+}
+
+std::shared_ptr<angle::WaitableEvent> Context::postCompileLinkTask(
+    const std::shared_ptr<angle::Closure> &task,
+    angle::JobThreadSafety safety,
+    angle::JobResultExpectancy resultExpectancy) const
+{
+    // If the compile/link job is not thread safe, use the single-thread pool.  Otherwise, the pool
+    // that is configured by the application (through GL_KHR_parallel_shader_compile) is used.
+    const bool isThreadSafe = safety == angle::JobThreadSafety::Safe;
+    std::shared_ptr<angle::WorkerThreadPool> workerPool =
+        isThreadSafe ? getShaderCompileThreadPool() : getSingleThreadPool();
+
+    // If the job is thread-safe, but it's still not going to be threaded, then it's performed as an
+    // unlocked tail call to allow other threads to proceed.  This is only possible if the results
+    // of the call are not immediately needed in the same entry point call.
+    if (isThreadSafe && !workerPool->isAsync() &&
+        resultExpectancy == angle::JobResultExpectancy::Future &&
+        !getShareGroup()->getFrameCaptureShared()->enabled())
+    {
+        std::shared_ptr<angle::AsyncWaitableEvent> event =
+            std::make_shared<angle::AsyncWaitableEvent>();
+        auto unlockedTask = [task, event](void *resultOut) {
+            ANGLE_TRACE_EVENT0("gpu.angle", "Compile/Link (unlocked)");
+            (*task)();
+            event->markAsReady();
+        };
+        egl::Display::GetCurrentThreadUnlockedTailCall()->add(unlockedTask);
+        return event;
+    }
+
+    // Otherwise, just schedule the task on the pool
+    return workerPool->postWorkerTask(task);
+}
+
 std::shared_ptr<angle::WorkerThreadPool> Context::getSingleThreadPool() const
 {
     return mDisplay->getSingleThreadPool();
@@ -9336,6 +9383,12 @@ void Context::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMess
                 case angle::SubjectMessage::ProgramRelinked:
                     ANGLE_CONTEXT_TRY(mState.installProgramPipelineExecutable(this));
                     mStateCache.onProgramExecutableChange(this);
+                    break;
+                case angle::SubjectMessage::ProgramUniformBlockBindingUpdated:
+                    // A heavier hammer than necessary, but ensures the UBOs are reprocessed after
+                    // the binding change.  Applications should not call glUniformBlockBinding other
+                    // than right after link.
+                    mState.mDirtyBits.set(state::DIRTY_BIT_PROGRAM_EXECUTABLE);
                     break;
                 default:
                     UNREACHABLE();
@@ -9957,13 +10010,13 @@ GLenum ErrorSet::getGraphicsResetStatus(rx::ContextImpl *contextImpl)
 
 // StateCache implementation.
 StateCache::StateCache()
-    : mCachedHasAnyEnabledClientAttrib(false),
-      mCachedNonInstancedVertexElementLimit(0),
+    : mCachedNonInstancedVertexElementLimit(0),
       mCachedInstancedVertexElementLimit(0),
       mCachedBasicDrawStatesErrorString(kInvalidPointer),
       mCachedBasicDrawStatesErrorCode(GL_NO_ERROR),
       mCachedBasicDrawElementsError(kInvalidPointer),
       mCachedProgramPipelineError(kInvalidPointer),
+      mCachedHasAnyEnabledClientAttrib(false),
       mCachedTransformFeedbackActiveUnpaused(false),
       mCachedCanDraw(false)
 {
@@ -10051,8 +10104,14 @@ void StateCache::updateVertexElementLimitsImpl(Context *context)
         GLint64 limit = attrib.getCachedElementLimit();
         if (binding.getDivisor() > 0)
         {
+            // For instanced draw calls, |divisor| times this limit is the limit for instance count
+            // (because every |divisor| instances accesses the same attribute)
+            angle::CheckedNumeric<GLint64> checkedLimit = limit;
+            checkedLimit *= binding.getDivisor();
+
             mCachedInstancedVertexElementLimit =
-                std::min(mCachedInstancedVertexElementLimit, limit);
+                std::min<GLint64>(mCachedInstancedVertexElementLimit,
+                                  checkedLimit.ValueOrDefault(VertexAttribute::kIntegerOverflow));
         }
         else
         {
@@ -10162,6 +10221,11 @@ void StateCache::onVertexArrayBufferStateChange(Context *context)
 }
 
 void StateCache::onGLES1ClientStateChange(Context *context)
+{
+    updateActiveAttribsMask(context);
+}
+
+void StateCache::onGLES1TextureStateChange(Context *context)
 {
     updateActiveAttribsMask(context);
 }

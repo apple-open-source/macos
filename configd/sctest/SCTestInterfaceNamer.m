@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -444,7 +444,7 @@ create_hidden_interface(u_char ea_unique)
 	struct {
 		NSString		*bsdName;
 		IOEthernetControllerRef	controller;
-	} interfaces[N_INTERFACES]			= { { } };
+	} interfaces[N_INTERFACES]			= { { 0 } };
 	BOOL				ok		= TRUE;
 	SCTestInterfaceNamer		*test;
 

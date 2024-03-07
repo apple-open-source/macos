@@ -50,7 +50,7 @@ public:
     
     static constexpr RenderingMode renderingMode = RenderingMode::Accelerated;
 
-    IOSurface* surface();
+    IOSurface* surface() override;
     GraphicsContext& context() override;
     void flushContext() override;
 
@@ -59,10 +59,9 @@ protected:
     CGContextRef ensurePlatformContext();
     // Returns true if flush happened.
     bool flushContextDraws();
-    IntSize backendSize() const override;
     
-    RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) override;
-    RefPtr<NativeImage> copyNativeImageForDrawing(GraphicsContext&) override;
+    RefPtr<NativeImage> copyNativeImage() override;
+    RefPtr<NativeImage> createNativeImageReference() override;
     RefPtr<NativeImage> sinkIntoNativeImage() override;
 
     void getPixelBuffer(const IntRect&, PixelBuffer&) override;

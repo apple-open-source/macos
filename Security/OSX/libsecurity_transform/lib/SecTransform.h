@@ -199,12 +199,12 @@ CF_ENUM(CFIndex)
 	kSecTransformErrorAborted = 20,
 	kSecTransformInvalidArgument = 21
 	
-} API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+} API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 typedef CFTypeRef SecTransformRef
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 typedef CFTypeRef SecGroupTransformRef
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function SecTransformGetTypeID
@@ -213,7 +213,7 @@ API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA,
 */
 
 CF_EXPORT CFTypeID SecTransformGetTypeID(void)
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function SecGroupTransformGetTypeID
@@ -223,7 +223,7 @@ API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA,
 
 
 CF_EXPORT CFTypeID SecGroupTransformGetTypeID(void)
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 
 /****************	Transform Attribute Names  ****************/
@@ -232,14 +232,14 @@ API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA,
 		The name of the input attribute.
  */
 CF_EXPORT const CFStringRef kSecTransformInputAttributeName
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@constant kSecTransformOutputAttributeName
 		The name of the output attribute.
  */
 CF_EXPORT const CFStringRef kSecTransformOutputAttributeName
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@constant kSecTransformDebugAttributeName
@@ -251,21 +251,21 @@ API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA,
 		stderr.
  */
 CF_EXPORT const CFStringRef kSecTransformDebugAttributeName
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@constant kSecTransformTransformName
 		The name of the transform.
 */
 CF_EXPORT const CFStringRef kSecTransformTransformName
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@constant kSecTransformAbortAttributeName
 		The name of the abort attribute.
  */
 CF_EXPORT const CFStringRef kSecTransformAbortAttributeName
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function			SecTransformCreateFromExternalRepresentation
@@ -290,7 +290,7 @@ CF_EXPORT __nullable
 SecTransformRef SecTransformCreateFromExternalRepresentation(
 								CFDictionaryRef dictionary,
 								CFErrorRef *error) 
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function 			SecTransformCopyExternalRepresentation
@@ -314,7 +314,7 @@ http://developer.apple.com/mac/library/documentation/CoreFoundation/Conceptual/C
 CF_EXPORT 
 CFDictionaryRef SecTransformCopyExternalRepresentation(
 							   SecTransformRef transformRef) 
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function			SecTransformCreateGroupTransform
@@ -339,7 +339,7 @@ API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA,
 */
 CF_EXPORT 
 SecGroupTransformRef SecTransformCreateGroupTransform(void)
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function			SecTransformConnectTransforms
@@ -444,7 +444,7 @@ SecGroupTransformRef SecTransformConnectTransforms(SecTransformRef sourceTransfo
 				 		   CFStringRef destinationAttributeName,
 						   SecGroupTransformRef group,
 						   CFErrorRef *error)
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function			SecTransformSetAttribute
@@ -480,7 +480,7 @@ Boolean SecTransformSetAttribute(SecTransformRef transformRef,
 								CFStringRef key,
 								CFTypeRef value,
 								CFErrorRef *error)
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function			SecTransformGetAttribute
@@ -503,7 +503,7 @@ API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA,
 CF_EXPORT __nullable
 CFTypeRef SecTransformGetAttribute(SecTransformRef transformRef,
 								   CFStringRef key) 
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function			SecTransformFindByName
@@ -528,7 +528,7 @@ API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA,
 CF_EXPORT __nullable
 SecTransformRef SecTransformFindByName(SecGroupTransformRef transform, 
 								CFStringRef name)
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@function			SecTransformExecute
@@ -568,7 +568,7 @@ API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA,
 
 CF_EXPORT CF_RETURNS_RETAINED
 CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef) 
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
 	@typedef			SecMessageBlock
@@ -621,7 +621,7 @@ CF_EXPORT
 void SecTransformExecuteAsync(SecTransformRef transformRef,
 							dispatch_queue_t deliveryQueue,
 							SecMessageBlock deliveryBlock) 
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 12.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

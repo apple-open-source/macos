@@ -250,7 +250,8 @@ public:
         return result;
     }
 
-    void callOperation(const CodePtr<OperationPtrTag> operation)
+    template<PtrTag tag>
+    void callOperation(const CodePtr<tag> operation)
     {
         move(TrustedImmPtr(operation.taggedPtr()), scratchRegister());
         m_assembler.call(scratchRegister());
@@ -577,8 +578,17 @@ public:
         m_assembler.popcntq_mr(src.offset, src.base, dst);
     }
 
+    void addUnsignedRightShift32(RegisterID src1, RegisterID src2, TrustedImm32 amount, RegisterID dest)
+    {
+        // dest = src1 + (src2 >> amount)
+        urshift32(src2, amount, scratchRegister());
+        add32(src1, scratchRegister(), dest);
+    }
+
     void lshift64(TrustedImm32 imm, RegisterID dest)
     {
+        if (UNLIKELY(!imm.m_value))
+            return;
         m_assembler.shlq_i8r(imm.m_value, dest);
     }
     
@@ -632,6 +642,8 @@ public:
 
     void rshift64(TrustedImm32 imm, RegisterID dest)
     {
+        if (UNLIKELY(!imm.m_value))
+            return;
         m_assembler.sarq_i8r(imm.m_value, dest);
     }
 
@@ -669,6 +681,8 @@ public:
 
     void urshift64(TrustedImm32 imm, RegisterID dest)
     {
+        if (UNLIKELY(!imm.m_value))
+            return;
         m_assembler.shrq_i8r(imm.m_value, dest);
     }
 
@@ -706,6 +720,8 @@ public:
 
     void rotateRight64(TrustedImm32 imm, RegisterID dest)
     {
+        if (UNLIKELY(!imm.m_value))
+            return;
         m_assembler.rorq_i8r(imm.m_value, dest);
     }
 
@@ -743,6 +759,8 @@ public:
 
     void rotateLeft64(TrustedImm32 imm, RegisterID dest)
     {
+        if (UNLIKELY(!imm.m_value))
+            return;
         m_assembler.rolq_i8r(imm.m_value, dest);
     }
 
@@ -1247,6 +1265,23 @@ public:
         transfer64(src, dest);
     }
 
+    void transfer32(BaseIndex src, BaseIndex dest)
+    {
+        load32(src, scratchRegister());
+        store32(scratchRegister(), dest);
+    }
+
+    void transfer64(BaseIndex src, BaseIndex dest)
+    {
+        load64(src, scratchRegister());
+        store64(scratchRegister(), dest);
+    }
+
+    void transferPtr(BaseIndex src, BaseIndex dest)
+    {
+        transfer64(src, dest);
+    }
+
     DataLabel32 store64WithAddressOffsetPatch(RegisterID src, Address address)
     {
         padBeforePatch();
@@ -1461,6 +1496,12 @@ public:
     Jump branch32(RelationalCondition cond, AbsoluteAddress left, RegisterID right)
     {
         load32(left.m_ptr, scratchRegister());
+        return branch32(cond, scratchRegister(), right);
+    }
+
+    Jump branch32WithMemory16(RelationalCondition cond, Address left, RegisterID right)
+    {
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, left, scratchRegister());
         return branch32(cond, scratchRegister(), right);
     }
 

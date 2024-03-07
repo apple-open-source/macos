@@ -33,11 +33,17 @@ namespace Layout {
 class InlineItem;
 
 enum class LineEndingEllipsisPolicy : uint8_t {
-    No,
+    NoEllipsis,
     WhenContentOverflowsInInlineDirection,
     WhenContentOverflowsInBlockDirection,
     // FIXME: This should be used when we realize the last line of this IFC is where the content is truncated (sibling IFC has more lines).
     Always
+};
+
+struct ExpansionInfo {
+    size_t opportunityCount { 0 };
+    Vector<size_t> opportunityList;
+    Vector<ExpansionBehavior> behaviorList;
 };
 
 struct InlineItemPosition {
@@ -66,6 +72,7 @@ struct PreviousLine {
     // Content width measured during line breaking (avoid double-measuring).
     std::optional<InlineLayoutUnit> trailingOverflowingContentWidth { };
     bool endsWithLineBreak { false };
+    bool hasInlineContent { false };
     TextDirection inlineBaseDirection { TextDirection::LTR };
     Vector<const Box*> suspendedFloats;
 };

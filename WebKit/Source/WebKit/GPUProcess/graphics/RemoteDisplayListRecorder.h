@@ -29,7 +29,6 @@
 
 #include "Decoder.h"
 #include "RemoteRenderingBackend.h"
-#include "SharedVideoFrame.h"
 #include "StreamMessageReceiver.h"
 #include "StreamServerConnection.h"
 #include <WebCore/ControlFactory.h>
@@ -43,6 +42,7 @@ namespace WebKit {
 
 class RemoteRenderingBackend;
 class RemoteResourceCache;
+class SharedVideoFrameReader;
 
 class RemoteDisplayListRecorder : public IPC::StreamMessageReceiver, public CanMakeWeakPtr<RemoteDisplayListRecorder> {
 public:
@@ -69,7 +69,7 @@ public:
     void setLineDash(WebCore::DisplayList::SetLineDash&&);
     void setLineJoin(WebCore::LineJoin);
     void setMiterLimit(float);
-    void clearShadow();
+    void clearDropShadow();
     void clip(const WebCore::FloatRect&);
     void clipRoundedRect(const WebCore::FloatRoundedRect&);
     void clipOut(const WebCore::FloatRect&);
@@ -80,11 +80,12 @@ public:
     void resetClip();
     void drawGlyphs(WebCore::DisplayList::DrawGlyphs&&);
     void drawDecomposedGlyphs(WebCore::RenderingResourceIdentifier fontIdentifier, WebCore::RenderingResourceIdentifier decomposedGlyphsIdentifier);
+    void drawDisplayListItems(Vector<WebCore::DisplayList::Item>&&, const WebCore::FloatPoint& destination);
     void drawFilteredImageBuffer(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, Ref<WebCore::Filter>);
-    void drawImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destinationRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&);
-    void drawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatSize& imageSize, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&);
+    void drawImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destinationRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions);
+    void drawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions);
     void drawSystemImage(Ref<WebCore::SystemImage>, const WebCore::FloatRect&);
-    void drawPattern(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint&, const WebCore::FloatSize& spacing, const WebCore::ImagePaintingOptions&);
+    void drawPattern(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint&, const WebCore::FloatSize& spacing, WebCore::ImagePaintingOptions);
     void beginTransparencyLayer(float opacity);
     void endTransparencyLayer();
     void drawRect(const WebCore::FloatRect&, float borderThickness);
@@ -104,6 +105,7 @@ public:
 #if ENABLE(INLINE_PATH_DATA)
     void fillLine(const WebCore::PathDataLine&);
     void fillArc(const WebCore::PathArc&);
+    void fillClosedArc(const WebCore::PathClosedArc&);
     void fillQuadCurve(const WebCore::PathDataQuadCurve&);
     void fillBezierCurve(const WebCore::PathDataBezierCurve&);
 #endif
@@ -118,6 +120,7 @@ public:
     void strokeLine(const WebCore::PathDataLine&);
     void strokeLineWithColorAndThickness(const WebCore::PathDataLine&, WebCore::DisplayList::SetInlineStroke&&);
     void strokeArc(const WebCore::PathArc&);
+    void strokeClosedArc(const WebCore::PathClosedArc&);
     void strokeQuadCurve(const WebCore::PathDataQuadCurve&);
     void strokeBezierCurve(const WebCore::PathDataBezierCurve&);
 #endif
@@ -155,6 +158,8 @@ private:
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
+    SharedVideoFrameReader& sharedVideoFrameReader();
+
     void paintVideoFrame(SharedVideoFrame&&, const WebCore::FloatRect&, bool shouldDiscardAlpha);
     void setSharedVideoFrameSemaphore(IPC::Semaphore&&);
     void setSharedVideoFrameMemory(SharedMemory::Handle&&);
@@ -165,7 +170,7 @@ private:
     RefPtr<RemoteRenderingBackend> m_renderingBackend;
     std::unique_ptr<WebCore::ControlFactory> m_controlFactory;
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
-    SharedVideoFrameReader m_sharedVideoFrameReader;
+    std::unique_ptr<SharedVideoFrameReader> m_sharedVideoFrameReader;
 #endif
 };
 

@@ -44,6 +44,7 @@ struct app;
 struct app *app_add(struct app *current_app, const char *name);
 void app_set_default(struct app *app);
 void app_set_argmode_logonly(struct app *app);
+void app_add_addarg(struct app *app, const char **argv, int nargv);
 void app_set_path(struct app *app, const char *path, bool relcwd);
 const char *app_get_path(const struct app *app);
 void app_add_flag(struct app *app, const char *flag, const char *alias,

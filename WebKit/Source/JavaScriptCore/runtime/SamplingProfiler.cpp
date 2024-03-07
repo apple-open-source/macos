@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,6 +51,7 @@
 #include <wtf/JSONValues.h>
 #include <wtf/RefPtr.h>
 #include <wtf/StackTrace.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace JSC {
@@ -65,6 +66,8 @@ static constexpr bool sReportStats = false;
 
 using FrameType = SamplingProfiler::FrameType;
 using UnprocessedStackFrame = SamplingProfiler::UnprocessedStackFrame;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SamplingProfiler);
 
 ALWAYS_INLINE static void reportStats()
 {
@@ -447,11 +450,8 @@ void SamplingProfiler::takeSample(Seconds& stackTraceProcessingTime)
                 Vector<UnprocessedStackFrame> stackTrace;
                 stackTrace.reserveInitialCapacity(walkSize + !!shouldAppendTopFrameAsCCode);
                 if (shouldAppendTopFrameAsCCode)
-                    stackTrace.uncheckedAppend(UnprocessedStackFrame { machinePC });
-                for (size_t i = 0; i < walkSize; i++) {
-                    UnprocessedStackFrame frame = m_currentFrames[i];
-                    stackTrace.uncheckedAppend(frame);
-                }
+                    stackTrace.append(UnprocessedStackFrame { machinePC });
+                stackTrace.appendRange(m_currentFrames.begin(), m_currentFrames.begin() + walkSize);
 
                 m_unprocessedStackTraces.append(UnprocessedStackTrace { timestamp, nowTime, machinePC, topFrameIsLLInt, llintPC, regExp, WTFMove(stackTrace) });
 
@@ -492,11 +492,7 @@ void SamplingProfiler::processUnverifiedStackTraces()
 
         auto populateCodeLocation = [] (CodeBlock* codeBlock, JITType jitType, BytecodeIndex bytecodeIndex, StackFrame::CodeLocation& location) {
             if (bytecodeIndex.offset() < codeBlock->instructionsSize()) {
-                int divot;
-                int startOffset;
-                int endOffset;
-                codeBlock->expressionRangeForBytecodeIndex(bytecodeIndex, divot, startOffset, endOffset,
-                    location.lineNumber, location.columnNumber);
+                location.lineColumn = codeBlock->lineColumnForBytecodeIndex(bytecodeIndex);
                 location.bytecodeIndex = bytecodeIndex;
             }
             if (codeBlock->hasHash())

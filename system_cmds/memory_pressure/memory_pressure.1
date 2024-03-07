@@ -13,6 +13,8 @@
 .Op Fl p Ar percent_free
 |
 .Op Fl S Fl l Ar level
+|
+.Op Fl s Ar sleep_seconds
 .Sh OPTIONS
 .Ar -l <level>
 Apply real or simulate memory pressure (if specified alongside simulate argument) on the system till low memory notifications corresponding to <level> are generated.
@@ -27,7 +29,7 @@ Simulate memory pressure on the system by placing it artificially for <sleep_sec
 .Pp
 .Ar -s <sleep_seconds>
 Duration to wait before allocating or freeing memory if applying real pressure.
-In case of simulating memory pressure, this is the duration the system will be maintained at an artifical memory level.
+In case of simulating memory pressure, this is the duration the system will be maintained at an artificial memory level.
 .Sh DESCRIPTION
 A tool to apply real or simulate memory pressure on the system
 .Sh SEE ALSO

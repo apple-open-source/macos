@@ -456,7 +456,7 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
             nonTranscodedTypes = platformTypesFromItems(*allItems);
     }
 
-    reader.contentOrigin = readOrigin();
+    reader.setContentOrigin(readOrigin());
 
     if (types.contains(WebArchivePboardType)) {
         if (auto buffer = readBufferAtPreferredItemIndex(WebArchivePboardType, itemIndex, strategy, m_pasteboardName, context())) {
@@ -670,7 +670,7 @@ void Pasteboard::addHTMLClipboardTypesForCocoaType(ListHashSet<String>& resultTy
 
     // UTI may not do these right, so make sure we get the right, predictable result
     if (cocoaType == String(legacyStringPasteboardType()) || cocoaType == String(NSPasteboardTypeString)) {
-        resultTypes.add("text/plain"_s);
+        resultTypes.add(textPlainContentTypeAtom());
         return;
     }
     if (cocoaType == String(legacyURLPasteboardType())) {

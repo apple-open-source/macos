@@ -51,13 +51,22 @@
 namespace WebKit {
 using namespace WebCore;
 
+#if HAVE(DISPLAY_LINK)
+LayerTreeHost::LayerTreeHost(WebPage& webPage)
+#else
 LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displayID)
+#endif
     : m_webPage(webPage)
     , m_surface(AcceleratedSurface::create(webPage, *this))
     , m_viewportController(webPage.size())
     , m_layerFlushTimer(RunLoop::main(), this, &LayerTreeHost::layerFlushTimerFired)
+#if HAVE(DISPLAY_LINK)
+    , m_didRenderFrameTimer(RunLoop::main(), this, &LayerTreeHost::didRenderFrameTimerFired)
+#endif
     , m_coordinator(webPage, *this)
+#if !HAVE(DISPLAY_LINK)
     , m_displayID(displayID)
+#endif
 {
 #if USE(GLIB_EVENT_LOOP)
     m_layerFlushTimer.setPriority(RunLoopSourcePriority::LayerFlushTimer);
@@ -75,11 +84,13 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displa
     scaledSize.scale(m_webPage.deviceScaleFactor());
     float scaleFactor = m_webPage.deviceScaleFactor() * m_viewportController.pageScaleFactor();
 
-    TextureMapper::PaintFlags paintFlags = 0;
-    if (m_surface->shouldPaintMirrored())
-        paintFlags |= TextureMapper::PaintingMirrored;
-
-    m_compositor = ThreadedCompositor::create(*this, *this, m_displayID, scaledSize, scaleFactor, paintFlags);
+#if HAVE(DISPLAY_LINK)
+    // FIXME: remove the displayID from ThreadedCompositor too.
+    auto displayID = m_webPage.corePage()->displayID();
+    m_compositor = ThreadedCompositor::create(*this, displayID, scaledSize, scaleFactor, m_surface->shouldPaintMirrored());
+#else
+    m_compositor = ThreadedCompositor::create(*this, *this, displayID, scaledSize, scaleFactor, m_surface->shouldPaintMirrored());
+#endif
     m_layerTreeContext.contextID = m_surface->surfaceID();
     m_surface->didCreateCompositingRunLoop(m_compositor->compositingRunLoop());
 
@@ -113,11 +124,6 @@ void LayerTreeHost::setLayerFlushSchedulingEnabled(bool layerFlushingEnabled)
     m_compositor->suspend();
 }
 
-void LayerTreeHost::setShouldNotifyAfterNextScheduledLayerFlush(bool notifyAfterScheduledLayerFlush)
-{
-    m_notifyAfterScheduledLayerFlush = notifyAfterScheduledLayerFlush;
-}
-
 void LayerTreeHost::scheduleLayerFlush()
 {
     if (!m_layerFlushSchedulingEnabled)
@@ -139,16 +145,21 @@ void LayerTreeHost::cancelPendingLayerFlush()
 
 void LayerTreeHost::layerFlushTimerFired()
 {
-    if (m_isSuspended || m_isWaitingForRenderer)
+    if (m_isSuspended)
+        return;
+
+    if (m_isWaitingForRenderer)
         return;
 
     if (!m_coordinator.rootCompositingLayer())
         return;
 
+#if !HAVE(DISPLAY_LINK)
     // If a force-repaint callback was registered, we should force a 'frame sync' that
     // will guarantee us a call to renderNextFrame() once the update is complete.
     if (m_forceRepaintAsync.callback)
         m_coordinator.forceFrameSync();
+#endif
 
     OptionSet<FinalizeRenderingUpdateFlags> flags;
 #if PLATFORM(GTK)
@@ -158,7 +169,7 @@ void LayerTreeHost::layerFlushTimerFired()
     flags.add(FinalizeRenderingUpdateFlags::ApplyScrollingTreeLayerPositions);
 #endif
 
-    bool didSync = m_coordinator.flushPendingLayerChanges(flags);
+    m_coordinator.flushPendingLayerChanges(flags);
 
 #if PLATFORM(GTK)
     // If we have an active transient zoom, we want the zoom to win over any changes
@@ -167,10 +178,9 @@ void LayerTreeHost::layerFlushTimerFired()
         applyTransientZoomToLayers(m_transientZoomScale, m_transientZoomOrigin);
 #endif
 
-    if (m_notifyAfterScheduledLayerFlush && didSync) {
-        m_webPage.drawingArea()->layerHostDidFlushLayers();
-        m_notifyAfterScheduledLayerFlush = false;
-    }
+#if HAVE(DISPLAY_LINK)
+    m_compositor->updateScene();
+#endif
 }
 
 void LayerTreeHost::setRootCompositingLayer(GraphicsLayer* graphicsLayer)
@@ -191,10 +201,7 @@ void LayerTreeHost::scrollNonCompositedContents(const IntRect& rect)
         return;
 
     m_viewportController.didScroll(rect.location());
-    if (m_isDiscardable)
-        m_discardableSyncActions.add(DiscardableSyncActions::UpdateViewport);
-    else
-        didChangeViewport();
+    didChangeViewport();
 }
 
 void LayerTreeHost::forceRepaint()
@@ -234,12 +241,6 @@ void LayerTreeHost::forceRepaintAsync(CompletionHandler<void()>&& callback)
 
 void LayerTreeHost::sizeDidChange(const IntSize& size)
 {
-    if (m_isDiscardable) {
-        m_discardableSyncActions.add(DiscardableSyncActions::UpdateSize);
-        m_viewportController.didChangeViewportSize(size);
-        return;
-    }
-
     if (m_surface->hostResize(size))
         m_layerTreeContext.contextID = m_surface->surfaceID();
 
@@ -253,20 +254,17 @@ void LayerTreeHost::sizeDidChange(const IntSize& size)
     didChangeViewport();
 }
 
-void LayerTreeHost::targetRefreshRateDidChange(uint32_t rate)
-{
-    m_compositor->targetRefreshRateDidChange(rate);
-}
-
 void LayerTreeHost::pauseRendering()
 {
     m_isSuspended = true;
+    m_surface->visibilityDidChange(false);
     m_compositor->suspend();
 }
 
 void LayerTreeHost::resumeRendering()
 {
     m_isSuspended = false;
+    m_surface->visibilityDidChange(true);
     m_compositor->resume();
     scheduleLayerFlush();
 }
@@ -279,19 +277,13 @@ GraphicsLayerFactory* LayerTreeHost::graphicsLayerFactory()
 void LayerTreeHost::contentsSizeChanged(const IntSize& newSize)
 {
     m_viewportController.didChangeContentsSize(newSize);
-    if (m_isDiscardable)
-        m_discardableSyncActions.add(DiscardableSyncActions::UpdateViewport);
-    else
-        didChangeViewport();
+    didChangeViewport();
 }
 
 void LayerTreeHost::didChangeViewportAttributes(ViewportAttributes&& attr)
 {
     m_viewportController.didChangeViewportAttributes(WTFMove(attr));
-    if (m_isDiscardable)
-        m_discardableSyncActions.add(DiscardableSyncActions::UpdateViewport);
-    else
-        didChangeViewport();
+    didChangeViewport();
 }
 
 void LayerTreeHost::didChangeViewport()
@@ -333,41 +325,11 @@ void LayerTreeHost::didChangeViewport()
     }
 }
 
-void LayerTreeHost::setIsDiscardable(bool discardable)
-{
-    m_isDiscardable = discardable;
-    if (m_isDiscardable) {
-        m_discardableSyncActions = OptionSet<DiscardableSyncActions>();
-        return;
-    }
-
-    if (m_discardableSyncActions.isEmpty())
-        return;
-
-    if (m_discardableSyncActions.contains(DiscardableSyncActions::UpdateSize)) {
-        // Size changes already sets the scale factor and updates the viewport.
-        sizeDidChange(m_webPage.size());
-        return;
-    }
-
-    if (m_discardableSyncActions.contains(DiscardableSyncActions::UpdateScale))
-        deviceOrPageScaleFactorChanged();
-
-    if (m_discardableSyncActions.contains(DiscardableSyncActions::UpdateViewport))
-        didChangeViewport();
-}
-
 void LayerTreeHost::deviceOrPageScaleFactorChanged()
 {
-    if (m_isDiscardable) {
-        m_discardableSyncActions.add(DiscardableSyncActions::UpdateScale);
-        return;
-    }
-
     if (m_surface->hostResize(m_webPage.size()))
         m_layerTreeContext.contextID = m_surface->surfaceID();
 
-    m_coordinator.deviceOrPageScaleFactorChanged();
     m_webPage.corePage()->pageOverlayController().didChangeDeviceScaleFactor();
     IntSize scaledSize(m_webPage.size());
     scaledSize.scale(m_webPage.deviceScaleFactor());
@@ -375,11 +337,13 @@ void LayerTreeHost::deviceOrPageScaleFactorChanged()
     didChangeViewport();
 }
 
+#if !HAVE(DISPLAY_LINK)
 RefPtr<DisplayRefreshMonitor> LayerTreeHost::createDisplayRefreshMonitor(PlatformDisplayID displayID)
 {
     ASSERT(m_displayID == displayID);
     return Ref { m_compositor->displayRefreshMonitor() };
 }
+#endif
 
 void LayerTreeHost::didFlushRootLayer(const FloatRect& visibleContentRect)
 {
@@ -432,19 +396,39 @@ void LayerTreeHost::resize(const IntSize& size)
 
 void LayerTreeHost::willRenderFrame()
 {
+    RunLoop::main().dispatch([webPage = Ref { m_webPage }] {
+        if (auto* drawingArea = webPage->drawingArea())
+            drawingArea->willStartRenderingUpdateDisplay();
+    });
     m_surface->willRenderFrame();
 }
 
 void LayerTreeHost::didRenderFrame()
 {
     m_surface->didRenderFrame();
+#if HAVE(DISPLAY_LINK)
+    if (!m_didRenderFrameTimer.isActive())
+        m_didRenderFrameTimer.startOneShot(0_s);
+#endif
+    RunLoop::main().dispatch([webPage = Ref { m_webPage }] {
+        if (auto* drawingArea = webPage->drawingArea())
+            drawingArea->didCompleteRenderingUpdateDisplay();
+    });
 }
+
+#if HAVE(DISPLAY_LINK)
+void LayerTreeHost::didRenderFrameTimerFired()
+{
+    renderNextFrame(false);
+}
+#endif
 
 void LayerTreeHost::displayDidRefresh(PlatformDisplayID displayID)
 {
     WebProcess::singleton().eventDispatcher().notifyScrollingTreesDisplayDidRefresh(displayID);
 }
 
+#if !HAVE(DISPLAY_LINK)
 void LayerTreeHost::requestDisplayRefreshMonitorUpdate()
 {
     // Flush layers to cause a repaint. If m_isWaitingForRenderer was true at this point, the layer
@@ -460,12 +444,12 @@ void LayerTreeHost::handleDisplayRefreshMonitorUpdate(bool hasBeenRescheduled)
     // that will cause the display refresh notification to come.
     renderNextFrame(hasBeenRescheduled);
 }
+#endif
 
 void LayerTreeHost::renderNextFrame(bool forceRepaint)
 {
     m_isWaitingForRenderer = false;
     bool scheduledWhileWaitingForRenderer = std::exchange(m_scheduledWhileWaitingForRenderer, false);
-    m_coordinator.renderNextFrame();
 
     if (m_forceRepaintAsync.callback) {
         // If the asynchronous force-repaint needs a separate fresh flush, it was due to
@@ -483,8 +467,10 @@ void LayerTreeHost::renderNextFrame(bool forceRepaint)
 
     if (scheduledWhileWaitingForRenderer || m_layerFlushTimer.isActive() || forceRepaint) {
         m_layerFlushTimer.stop();
+#if !HAVE(DISPLAY_LINK)
         if (forceRepaint)
             m_coordinator.forceFrameSync();
+#endif
         layerFlushTimerFired();
     }
 }
@@ -568,6 +554,13 @@ void LayerTreeHost::commitTransientZoom(double scale, FloatPoint origin)
     m_transientZoom = false;
     m_transientZoomScale = 1;
     m_transientZoomOrigin = FloatPoint();
+}
+#endif
+
+#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
+void LayerTreeHost::preferredBufferFormatsDidChange()
+{
+    m_surface->preferredBufferFormatsDidChange();
 }
 #endif
 

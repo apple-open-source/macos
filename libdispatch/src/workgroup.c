@@ -184,7 +184,7 @@ void
 _os_workgroup_debug(os_workgroup_t wg, char *buf, size_t size)
 {
 	snprintf(buf, size, "wg[%p] = {xref = %d, ref = %d, name = %s}",
-			(void *) wg, wg->do_xref_cnt + 1, wg->do_ref_cnt + 1, wg->name);
+			(void *) wg, wg->do_xref_cnt, wg->do_ref_cnt, wg->name);
 }
 
 void
@@ -877,6 +877,15 @@ _os_workgroup_interval_copy_telemetry_data(os_workgroup_interval_t wgi,
 			break;
 	}
 #endif
+}
+
+mach_port_t
+_os_workgroup_get_backing_workinterval(os_workgroup_t wg)
+{
+	if (wg && _os_workgroup_has_backing_workinterval(wg)) {
+		return wg->port;
+	}
+	return MACH_PORT_NULL;
 }
 
 #pragma mark Private functions

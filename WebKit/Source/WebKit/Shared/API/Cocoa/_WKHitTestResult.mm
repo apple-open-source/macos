@@ -26,6 +26,9 @@
 #import "config.h"
 #import "_WKHitTestResultInternal.h"
 
+#import "WKFrameInfoInternal.h"
+#import "WebPageProxy.h"
+
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
 
 #import <WebCore/WebCoreObjCExtras.h>
@@ -82,14 +85,56 @@ static NSURL *URLFromString(const WTF::String& urlString)
     return _hitTestResult->lookupText();
 }
 
+- (NSString *)imageMIMEType
+{
+    return _hitTestResult->sourceImageMIMEType();
+}
+
 - (BOOL)isContentEditable
 {
     return _hitTestResult->isContentEditable();
 }
 
+- (BOOL)isSelected
+{
+    return _hitTestResult->isSelected();
+}
+
+- (BOOL)isMediaDownloadable
+{
+    return _hitTestResult->isDownloadableMedia();
+}
+
+- (BOOL)isMediaFullscreen
+{
+    return _hitTestResult->mediaIsInFullscreen();
+}
+
 - (CGRect)elementBoundingBox
 {
     return _hitTestResult->elementBoundingBox();
+}
+
+- (_WKHitTestResultElementType)elementType
+{
+    switch (_hitTestResult->elementType()) {
+    case WebKit::WebHitTestResultData::ElementType::None:
+        return _WKHitTestResultElementTypeNone;
+    case WebKit::WebHitTestResultData::ElementType::Audio:
+        return _WKHitTestResultElementTypeAudio;
+    case WebKit::WebHitTestResultData::ElementType::Video:
+        return _WKHitTestResultElementTypeVideo;
+    }
+
+    ASSERT_NOT_REACHED();
+    return _WKHitTestResultElementTypeNone;
+}
+
+- (WKFrameInfo *)frameInfo
+{
+    if (auto frameInfo = _hitTestResult->frameInfo())
+        return wrapper(API::FrameInfo::create(WTFMove(*frameInfo), _hitTestResult->page())).autorelease();
+    return nil;
 }
 
 - (id)copyWithZone:(NSZone *)zone

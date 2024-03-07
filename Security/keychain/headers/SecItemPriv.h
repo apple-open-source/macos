@@ -791,6 +791,19 @@ __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
 extern const CFStringRef kSecAttrTokenIDSecureElement
 SPI_AVAILABLE(ios(10.13));
 
+extern const CFStringRef kSecAttrSharingGroup
+SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0));
+
+extern const CFStringRef kSecAttrGroupKitGroup
+SPI_DEPRECATED_WITH_REPLACEMENT("kSecAttrSharingGroup", macos(13.0, 13.0), ios(16.0, 16.0), tvos(16.0, 16.0), watchos(9.0, 9.0));
+
+/*!
+ @abstract The `kSecAttrSharingGroup` attribute value for items that are
+           not shared with a group.
+ @discussion This constant can be used to exclude shared items in queries.
+ */
+extern const CFStringRef kSecAttrSharingGroupNone
+SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0));
 
 /*!
  @function SecItemDeleteKeychainItemsForAppClip
@@ -814,6 +827,46 @@ SPI_AVAILABLE(ios(14.0));
 OSStatus SecItemPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStringRef parentAppID)
 SPI_AVAILABLE(ios(15.0));
 
+/*!
+    @function SecItemShareWithGroup
+    @abstract Shares one or more Keychain items with a sharing group.
+    @param query A dictionary containing an item class specification, attributes
+                 describing the items to share, optional search attribute keys,
+                 and optional return result keys. See the "Attribute Key
+                 Constants", "Search Constants", and "Return Type Key Constants"
+                 sections (SecItem.h) for all currently defined query keys.
+    @param sharingGroup The sharing group ID.
+    @param error An optional error reference.
+    @result A reference to the cloned items. Depending on the search attributes
+            and return result keys passed in the query, the result can either be
+            a dictionary, or an array of dictionaries.
+    @discussion Sharing an item creates a clone of it in the local Keychain.
+                Clones have the same contents (attributes and data) as their
+                originals, except for `kSecAttrSharingGroup` and
+                `kSecAttrSynchronizable`.
+
+                Clones are distinct keychain items, and can be queried, updated,
+                and deleted like other items. Originals can be shared with
+                multiple groups, with each group receiving its own clone.
+                Updates to the originals, or to a clone for one group, do _not_
+                automatically propagate to other clones.
+
+                If the query dictionary omits `kSecMatchLimit`, the match limit
+                defaults to `kSecMatchLimitAll`.
+
+                If the query dictionary omits `kSecAttrSharingGroup`, this
+                function defaults to `kSecAttrSharingGroupNone`, which ignores
+                existing clones when querying for originals. However, specifying
+                `kSecAttrSharingGroup` with an existing clone's group is
+                allowed, to share that clone with a new group.
+*/
+CFTypeRef SecItemShareWithGroup(CFDictionaryRef query, CFStringRef sharingGroup, CFErrorRef *error)
+SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0))
+CF_RETURNS_RETAINED;
+
+CFTypeRef SecItemCloneToGroupKitGroup(CFDictionaryRef query, CFStringRef groupKitGroup, CFErrorRef *error)
+SPI_DEPRECATED_WITH_REPLACEMENT("SecItemShareWithGroup", macos(13.0, 13.0), ios(16.0, 16.0), tvos(16.0, 16.0), watchos(9.0, 9.0))
+CF_RETURNS_RETAINED;
 
 /*!
  * @function SecDeleteItemsOnSignOut

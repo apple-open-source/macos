@@ -18,6 +18,7 @@ extern malloc_zone_t **malloc_zones;
 
 T_DECL(malloc_zone_unregister_establish_custom_default_zone,
 		"Unregister all initial zones and register a custom default zone",
+		T_META_ENVVAR("MallocProbGuard=0"),
 		T_META_ENVVAR("MallocNanoZone=1"))
 {
   void *ptr = malloc(7);

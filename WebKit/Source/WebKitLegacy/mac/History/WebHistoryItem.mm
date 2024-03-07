@@ -29,6 +29,7 @@
 #import "WebHistoryItemInternal.h"
 #import "WebHistoryItemPrivate.h"
 
+#import "LegacyHistoryItemClient.h"
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
 #import "WebHTMLViewInternal.h"
@@ -97,7 +98,7 @@ using namespace WebCore;
 
 @end
 
-typedef HashMap<HistoryItem*, WebHistoryItem*> HistoryItemMap;
+using HistoryItemMap = HashMap<WeakRef<HistoryItem>, WebHistoryItem*>;
 
 static inline WebCoreHistoryItem* core(WebHistoryItemPrivate* itemPrivate)
 {
@@ -110,7 +111,7 @@ static HistoryItemMap& historyItemWrappers()
     return historyItemWrappers;
 }
 
-void WKNotifyHistoryItemChanged(HistoryItem&)
+void WKNotifyHistoryItemChanged()
 {
 #if !PLATFORM(IOS_FAMILY)
     [[NSNotificationCenter defaultCenter]
@@ -133,14 +134,14 @@ void WKNotifyHistoryItemChanged(HistoryItem&)
 
 - (instancetype)init
 {
-    return [self initWithWebCoreHistoryItem:HistoryItem::create()];
+    return [self initWithWebCoreHistoryItem:HistoryItem::create(LegacyHistoryItemClient::singleton())];
 }
 
 - (instancetype)initWithURLString:(NSString *)URLString title:(NSString *)title lastVisitedTimeInterval:(NSTimeInterval)time
 {
     WebCoreThreadViolationCheckRoundOne();
 
-    WebHistoryItem *item = [self initWithWebCoreHistoryItem:HistoryItem::create(URLString, title)];
+    WebHistoryItem *item = [self initWithWebCoreHistoryItem:HistoryItem::create(LegacyHistoryItemClient::singleton(), URLString, title)];
     item->_private->_lastVisitedTime = time;
 
     return item;
@@ -151,7 +152,7 @@ void WKNotifyHistoryItemChanged(HistoryItem&)
     if (WebCoreObjCScheduleDeallocateOnMainThread([WebHistoryItem class], self))
         return;
 
-    historyItemWrappers().remove(_private->_historyItem.get());
+    historyItemWrappers().remove(*_private->_historyItem);
     [_private release];
 
     [super dealloc];
@@ -164,7 +165,7 @@ void WKNotifyHistoryItemChanged(HistoryItem&)
 
     copy->_private->_lastVisitedTime = _private->_lastVisitedTime;
 
-    historyItemWrappers().set(core(copy->_private), copy.get());
+    historyItemWrappers().set(*core(copy->_private), copy.get());
 
     return copy.leakRef();
 }
@@ -260,7 +261,7 @@ HistoryItem* core(WebHistoryItem *item)
 {
     if (!item)
         return nullptr;
-    ASSERT(historyItemWrappers().get(core(item->_private)) == item);
+    ASSERT(historyItemWrappers().get(*core(item->_private)) == item);
     return core(item->_private);
 }
 
@@ -268,7 +269,7 @@ WebHistoryItem *kit(HistoryItem* item)
 {
     if (!item)
         return nil;
-    if (auto wrapper = historyItemWrappers().get(item))
+    if (auto wrapper = historyItemWrappers().get(*item))
         return retainPtr(wrapper).autorelease();
     return adoptNS([[WebHistoryItem alloc] initWithWebCoreHistoryItem:*item]).autorelease();
 }
@@ -280,7 +281,7 @@ WebHistoryItem *kit(HistoryItem* item)
 
 - (id)initWithURLString:(NSString *)URLString title:(NSString *)title displayTitle:(NSString *)displayTitle lastVisitedTimeInterval:(NSTimeInterval)time
 {
-    auto item = [self initWithWebCoreHistoryItem:HistoryItem::create(URLString, title, displayTitle)];
+    auto item = [self initWithWebCoreHistoryItem:HistoryItem::create(LegacyHistoryItemClient::singleton(), URLString, title, displayTitle)];
     if (!item)
         return nil;
     item->_private->_lastVisitedTime = time;
@@ -291,22 +292,14 @@ WebHistoryItem *kit(HistoryItem* item)
 {   
     WebCoreThreadViolationCheckRoundOne();
 
-    // Need to tell WebCore what function to call for the 
-    // "History Item has Changed" notification - no harm in doing this
-    // everytime a WebHistoryItem is created
-    // Note: We also do this in [WebFrameView initWithFrame:] where we do
-    // other "init before WebKit is used" type things
-    // FIXME: This means that if we mix legacy WebKit and modern WebKit in the same process, we won't get both notifications.
-    WebCore::notifyHistoryItemChanged = WKNotifyHistoryItemChanged;
-
     if (!(self = [super init]))
         return nil;
 
     _private = [[WebHistoryItemPrivate alloc] init];
     _private->_historyItem = WTFMove(item);
 
-    ASSERT(!historyItemWrappers().get(core(_private)));
-    historyItemWrappers().set(core(_private), self);
+    ASSERT(!historyItemWrappers().get(*core(_private)));
+    historyItemWrappers().set(*core(_private), self);
     return self;
 }
 

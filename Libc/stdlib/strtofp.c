@@ -285,23 +285,50 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
-#include <fenv.h>
 #include <float.h>
-#if !defined(ENABLE_LOCALE_SUPPORT) || ENABLE_LOCALE_SUPPORT
-#include <langinfo.h>
-#include <locale.h>
-#endif
-#include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__APPLE__) && (!defined(ENABLE_LOCALE_SUPPORT) || ENABLE_LOCALE_SUPPORT)
-#include <xlocale.h>
-#include <xlocale_private.h>
+#include <strings.h>
+
+// Check whether access to the floating-point environment is supported
+#if !defined(ENABLE_FENV_ACCESS)
+#if __has_include(<fenv.h>)
+  #include <fenv.h>
+
+  #define ENABLE_FENV_ACCESS 1
+#else
+  #define ENABLE_FENV_ACCESS 0
+#endif
 #endif
 
-// #pragma STDC FENV_ACCESS ON
+// Check whether precision/range of floating-point values is defined
+#if __has_include(<math.h>)
+  #include <math.h>
+#else
+#if !defined(FLT_EVAL_METHOD)
+  // Note that Clang's builtin float.h header does define this macro
+  #define FLT_EVAL_METHOD -1
+#endif
+#endif
+
+// Check whether locales are supported
+#if !defined(ENABLE_LOCALE_SUPPORT)
+#if __has_include(<langinfo.h>) && __has_include(<locale.h>)
+  #include <langinfo.h>
+  #include <locale.h>
+#if defined(__APPLE__)
+  #include <xlocale.h>
+  #include <xlocale_private.h>
+#endif
+
+  #define ENABLE_LOCALE_SUPPORT 1
+#else
+  #define ENABLE_LOCALE_SUPPORT 0
+#endif
+#endif
 
 // ================================================================
 // Detect the floating-point formats supported on this platform
@@ -335,17 +362,17 @@
 // Is "long double" on this system the same as Float80?
 // (Example: macOS, Linux, and FreeBSD when running on x86 or x86_64 processors.)
 #if (FLT_RADIX == 2) && (LDBL_MANT_DIG == 64) && (LDBL_MIN_EXP == -16381) && (LDBL_MAX_EXP == 16384)
- #define LONG_DOUBLE_IS_FLOAT80 1
+  #define LONG_DOUBLE_IS_FLOAT80 1
 #else
- #define LONG_DOUBLE_IS_FLOAT80 0
+  #define LONG_DOUBLE_IS_FLOAT80 0
 #endif
 
 // Does "long double" on this system use IEEE 754 binary128 format?
 // (Example: Android on LP64 hardware.)
 #if (FLT_RADIX == 2) && (LDBL_MANT_DIG == 113) && (LDBL_MIN_EXP == -16381) && (LDBL_MAX_EXP == 16384)
- #define LONG_DOUBLE_IS_BINARY128 1
+  #define LONG_DOUBLE_IS_BINARY128 1
 #else
- #define LONG_DOUBLE_IS_BINARY128 0
+  #define LONG_DOUBLE_IS_BINARY128 0
 #endif
 
 // ================================================================
@@ -370,11 +397,6 @@
 // calling the standard functions:  We defer such calls until
 // we see a character that is not a digit or other known character,
 // and we handle the "C" locale specially.)
-
-// Enable locale support by default
-#ifndef ENABLE_LOCALE_SUPPORT
- #define ENABLE_LOCALE_SUPPORT 1
-#endif
 
 // Define macros used for locale information below:
 //
@@ -414,6 +436,36 @@
  #error Need definition for strtofp_locale_decimal_point and strtofp_current_locale for this platform
 #endif
 
+// ================================================================
+// Floating-point rounding mode
+
+#if ENABLE_FENV_ACCESS
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wignored-pragmas"
+  #pragma STDC FENV_ACCESS ON
+  #pragma GCC diagnostic pop
+
+  #define FENV_ROUNDING_MODE() fegetround()
+#else
+  // By default, we use FE_TONEAREST, which rounds to the nearest representable value
+  #define FENV_ROUNDING_MODE() 0
+#endif
+
+// In certain scenarios, we require FE_TOWARDZERO, which rounds towards zero,
+// but need to provide a sentinel value if it is not defined
+#ifndef FE_TOWARDZERO
+  #define FE_TOWARDZERO 0xFE00
+#endif
+
+#if defined(FE_DOWNWARD) && FE_TOWARDZERO == FE_DOWNWARD
+  #error "Definition of FE_TOWARDZERO conflicts with FE_DOWNWARD"
+#endif
+#if defined(FE_TONEAREST) && FE_TOWARDZERO == FE_TONEAREST
+  #error "Definition of FE_TOWARDZERO conflicts with FE_TONEAREST"
+#endif
+#if defined(FE_UPWARD) && FE_TOWARDZERO == FE_UPWARD
+  #error "Definition of FE_TOWARDZERO conflicts with FE_UPWARD"
+#endif
 
 // ================================================================
 //
@@ -459,7 +511,7 @@
   #define ENABLE_FLOAT80_OPTIMIZATIONS 1
  #endif
 #else
- #undef ENABLE_FLOAT80_OPTIMIZATIONS
+ #define ENABLE_FLOAT80_OPTIMIZATIONS 0
 #endif
 
 // Enable binary128 interval optimization by default.
@@ -468,7 +520,7 @@
    #define ENABLE_BINARY128_OPTIMIZATIONS 1
  #endif
 #else
- #undef ENABLE_BINARY128_OPTIMIZATIONS
+ #define ENABLE_BINARY128_OPTIMIZATIONS 0
 #endif
 
 // At least one format must be enabled
@@ -946,7 +998,7 @@ static const mp_word_t MP_WORD_MAX = UINT32_MAX;
 static const int mp_word_bits = sizeof(mp_word_t) * 8;
 // __builtin_clz() takes an `unsigned` which may be different from mp_word_t
 // This adjusts the result accordingly.
-#define CLZ_WORD(word) (__builtin_clz((word)) + (mp_word_bits - sizeof(unsigned) * 8))
+#define CLZ_WORD(word) ((unsigned)__builtin_clz((word)) + (mp_word_bits - sizeof(unsigned) * 8))
 
 // A multi-precision integer is represented as two pointers:
 // lsw - points to least-significant word (lowest address in memory)
@@ -1031,8 +1083,10 @@ static void addToMP(mp_t *work, uint64_t addend) {
 static mp_t shiftRightMPWithRounding(mp_t work,
                                      int shift,
                                      int trailingNonZero,
-                                     int negative,
+                                     bool negative,
                                      int roundingMode) {
+  (void)negative;
+
   if (shift == 0) {
     return work;
   }
@@ -1050,12 +1104,17 @@ static mp_t shiftRightMPWithRounding(mp_t work,
     // words and possibly increment.
     result.lsw += wordsShift;
     switch (roundingMode) {
+#ifdef FE_TOWARDZERO
     case FE_TOWARDZERO:
       return result;
+#endif
+#ifdef FE_DOWNWARD
     case FE_DOWNWARD:
       // Upwards & downwards rounding are symmetric
       negative = !negative;
       // FALL THROUGH
+#endif
+#ifdef FE_UPWARD
     case FE_UPWARD:
       for (mp_word_t *p = work.lsw; p < result.lsw; p++) {
         trailingNonZero |= *p;
@@ -1065,12 +1124,15 @@ static mp_t shiftRightMPWithRounding(mp_t work,
       } else {
         break; // Increment and return
       }
+#endif
+#ifdef FE_TONEAREST
     case FE_TONEAREST:
+#endif
     default: {
       // shift is non-zero, so result.lsw[-1] is valid
       // and is the most-significant-word of the fraction:
       mp_word_t fractionMsw = result.lsw[-1];
-      mp_word_t oneHalf = 1 << (mp_word_bits - 1);
+      mp_word_t oneHalf = 1U << (mp_word_bits - 1);
       if (fractionMsw < oneHalf) {
         return result;
       } else if (fractionMsw > oneHalf) {
@@ -1092,28 +1154,35 @@ static mp_t shiftRightMPWithRounding(mp_t work,
   }
 
   result.lsw += wordsShift;
-  mp_word_t fraction = result.lsw[0] & ((1 << bitsShift) - 1);
+  mp_word_t fraction = result.lsw[0] & ((1U << bitsShift) - 1);
 
-  mp_word_t *p = result.lsw;
-  mp_dword_t t = *p++ >> bitsShift;
-  for (; p < result.msw; p++) {
-    t |= (mp_dword_t)*p << (mp_word_bits - bitsShift);
-    p[-1] = (mp_word_t)t;
-    t >>= mp_word_bits;
-  }
-  if (t == 0) {
-    result.msw -= 1;
-  } else {
-    p[-1] = (mp_word_t)t;
+  {
+    mp_word_t *p = result.lsw;
+    mp_dword_t t = *p++ >> bitsShift;
+    for (; p < result.msw; p++) {
+      t |= (mp_dword_t)*p << (mp_word_bits - bitsShift);
+      p[-1] = (mp_word_t)t;
+      t >>= mp_word_bits;
+    }
+    if (t == 0) {
+      result.msw -= 1;
+    } else {
+      p[-1] = (mp_word_t)t;
+    }
   }
 
   switch (roundingMode) {
+#ifdef FE_TOWARDZERO
   case FE_TOWARDZERO:
     return result;
+#endif
+#ifdef FE_DOWNWARD
   case FE_DOWNWARD:
     // Upwards & downwards rounding are symmetric
     negative = !negative;
     // FALL THROUGH
+#endif
+#ifdef FE_UPWARD
   case FE_UPWARD:
     trailingNonZero |= fraction;
     for (mp_word_t *p = work.lsw; p < result.lsw; p++) {
@@ -1124,9 +1193,12 @@ static mp_t shiftRightMPWithRounding(mp_t work,
     } else {
       break; // Increment and return
     }
+#endif
+#ifdef FE_TONEAREST
   case FE_TONEAREST:
+#endif
   default: {
-    mp_word_t half = 1 << (bitsShift - 1);
+    mp_word_t half = (mp_word_t)(1U << (bitsShift - 1));
     if (fraction < half) {
       return result;
     } else if (fraction > half) {
@@ -1186,7 +1258,7 @@ static void multiplyByFiveToTheN(mp_t *dest, int power) {
       t >>= mp_word_bits;
     }
     while (t > 0) {
-      *p++ = t;
+      *p++ = (mp_word_t)t;
       t >>= mp_word_bits;
     }
     dest->msw = p;
@@ -1441,7 +1513,7 @@ struct parseInfo {
   // Decimal exponent, corrected for decimal point location
   int base10Exponent;
   // True if number is negative
-  int negative;
+  bool negative;
 };
 
 // ================================================================
@@ -1484,7 +1556,7 @@ static void infinity(struct parseInfo *info) {
 
   // 80- and 128-bit formats we build up incrementally.
   // TODO: Support big-endian.
-  memset(info->dest, 0, info->bytes);
+  memset(info->dest, 0, (size_t)info->bytes);
   switch(info->bytes) {
 #if ENABLE_FLOAT80_SUPPORT
   case 10: // float80
@@ -1527,9 +1599,15 @@ static void underflow(struct parseInfo *info) {
   // very small non-zero (such as "1e-999999").
   errno = ERANGE;
   uint8_t bottomBit = 0;
-  int roundingMode = fegetround();
-  if ((roundingMode == FE_DOWNWARD && info->negative)
-      || (roundingMode == FE_UPWARD && !info->negative)) {
+  int roundingMode = FENV_ROUNDING_MODE();
+  if (0
+#ifdef FE_DOWNWARD
+      || (roundingMode == FE_DOWNWARD && info->negative)
+#endif
+#ifdef FE_UPWARD
+      || (roundingMode == FE_UPWARD && !info->negative)
+#endif
+    ) {
     bottomBit = 1;
   }
 
@@ -1561,7 +1639,7 @@ static void underflow(struct parseInfo *info) {
 #if ENABLE_FLOAT80_SUPPORT || ENABLE_BINARY128_SUPPORT
   case 10: case 16: {
     // TODO: Make this endian-safe
-    memset(info->dest, 0, info->bytes); // Initialize to +0
+    memset(info->dest, 0, (size_t)info->bytes); // Initialize to +0
     info->dest[0] = bottomBit;
     info->dest[info->bytes - 1] = info->negative ? 0x80 : 0;
     break;
@@ -1621,10 +1699,10 @@ static void initMPFromDigits(mp_t *work, struct parseInfo *info) {
     int batchSize = remainingDigitCount > 9 ? 9 : remainingDigitCount;
     uint64_t batch = 0;
     for (int i = 0; i < batchSize; i++, p++) {
-      unsigned t = *p - '0';
+      unsigned t = (unsigned)(*p - '0');
       while (t > 9) {
         p += 1; // Skip non-digits (decimal point)
-        t = *p - '0';
+        t = (unsigned)(*p - '0');
       }
       batch = batch * 10 + t;
     }
@@ -1682,7 +1760,7 @@ static void generalSlowpath(struct parseInfo *info,
                             int roundingMode,
                             mp_word_t *stackWorkArea,
                             int stackWorkAreaWords,
-                            int heapAllocOK)
+                            bool heapAllocOK)
 {
   mp_t mpSignificand;
   int binaryExponent;
@@ -1714,13 +1792,13 @@ static void generalSlowpath(struct parseInfo *info,
     int totalWordsNeeded = significandWordsNeeded + exponentWordsNeeded;
     mp_t workMP;
     if (totalWordsNeeded <= stackWorkAreaWords) {
-      memset(stackWorkArea, 0, stackWorkAreaWords * sizeof(mp_word_t));
+      memset(stackWorkArea, 0, (size_t)stackWorkAreaWords * sizeof(mp_word_t));
       workMP.lsw = workMP.msw = stackWorkArea;
     } else {
       assert(heapAllocOK);
-      heapAlloc = (mp_word_t *)calloc(totalWordsNeeded, sizeof(mp_word_t));
+      heapAlloc = (mp_word_t *)calloc((size_t)totalWordsNeeded, sizeof(mp_word_t));
       if (heapAlloc == NULL) {
-        memset(info->dest, 0, info->bytes);
+        memset(info->dest, 0, (size_t)info->bytes);
         return;
       }
       workMP.lsw = workMP.msw = heapAlloc;
@@ -1776,9 +1854,9 @@ static void generalSlowpath(struct parseInfo *info,
       work = stackWorkArea;
     } else {
       assert(heapAllocOK);
-      heapAlloc = (mp_word_t *)calloc(totalWordsNeeded, sizeof(mp_word_t));
+      heapAlloc = (mp_word_t *)calloc((size_t)totalWordsNeeded, sizeof(mp_word_t));
       if (heapAlloc == NULL) {
-        memset(info->dest, 0, info->bytes);
+        memset(info->dest, 0, (size_t)info->bytes);
         return;
       }
       work = heapAlloc;
@@ -1861,18 +1939,18 @@ static void generalSlowpath(struct parseInfo *info,
   }
 
   // Zero-extend to sigBits and copy to dest
-  size_t mpWords = mpSignificand.msw - mpSignificand.lsw;
-  size_t expectedWords = (info->sigBits + mp_word_bits - 1) / mp_word_bits;
+  size_t mpWords = (size_t)(mpSignificand.msw - mpSignificand.lsw);
+  size_t expectedWords = (size_t)((info->sigBits + mp_word_bits - 1) / mp_word_bits);
   if (mpWords < expectedWords) {
     memset(mpSignificand.lsw + mpWords, 0, (expectedWords - mpWords) * sizeof(mp_word_t));
   }
   // TODO: Endianness.  This only works for little-endian systems.
-  memcpy(info->dest, mpSignificand.lsw, (info->sigBits + 7) / 8);
+  memcpy(info->dest, mpSignificand.lsw, ((unsigned)info->sigBits + 7) / 8);
   // Free the heap work area (if any)
   free(heapAlloc);
 
   // Set the exponent & sign bits
-  uint16_t exponentBits = binaryExponent - info->minBinaryExp;
+  uint16_t exponentBits = (uint16_t)(binaryExponent - info->minBinaryExp);
   if (info->bytes <= 8) {
     // float80 and binary128 have 16 bit exponent+sign, so no shift needed
     exponentBits <<= 16 - (info->bytes * 8 - info->sigBits + 1);
@@ -1911,8 +1989,7 @@ static void generalSlowpath(struct parseInfo *info,
 // been verified to be '0x'.
 static void
 hexFloat(const unsigned char *start, struct parseInfo *info) {
-  const unsigned char *p = start;
-  p += 2; // Skip leading '0x'
+  const unsigned char *p = start + 2; // Skip leading '0x'
 
   // Two 64-bit ints that we use as a joint 128-bit accumulator
   uint64_t significand_lsw = 0, significand_msw = 0;
@@ -2005,15 +2082,15 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
     } else {
       // Skip zeros in "0x1p+0000000000000000000000000001"
       int exp = 0;
-      unsigned t = *p - '0';
+      unsigned t = (unsigned)(*p - '0');
       while (t < 10) {
         if (exp > 99999999) {
           exp = 99999999;
         } else {
-          exp = exp * 10 + t;
+          exp = exp * 10 + (int)t;
         }
         p += 1;
-        t = *p - '0';
+        t = (unsigned)(*p - '0');
       }
       if (negativeExponent) {
         exp = -exp;
@@ -2080,9 +2157,12 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
         significand_msw = 0;
       }
 
-      switch (fegetround()) {
+      switch (FENV_ROUNDING_MODE()) {
+#ifdef FE_TOWARDZERO
       case FE_TOWARDZERO:
         break;
+#endif
+#ifdef FE_DOWNWARD
       case FE_DOWNWARD:
         if (info->negative && (fraction != 0)) {
           significand_lsw += 1;
@@ -2091,6 +2171,8 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
           }
         }
         break;
+#endif
+#ifdef FE_UPWARD
       case FE_UPWARD:
         if (!info->negative && (fraction != 0)) {
           significand_lsw += 1;
@@ -2099,7 +2181,10 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
           }
         }
         break;
+#endif
+#ifdef FE_TONEAREST
       case FE_TONEAREST:
+#endif
       default: {
         const uint64_t oneHalf = (uint64_t)1 << 63;
         if (fraction > oneHalf
@@ -2126,13 +2211,14 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
           significand_msw >>= 1;
         }
         base2Exponent += 1;
-      } else if (base2Exponent == info->minBinaryExp) {
-        errno = ERANGE; // Subnormal did not overflow to normal, so set ERANGE
+      } else if (base2Exponent == info->minBinaryExp // Subnormal
+		 && fraction != 0) { // Not exact
+        errno = ERANGE;
       }
     }
   }
 
-  if (info->end) *info->end = (char *)p;
+  if (info->end) *info->end = (char *)(uintptr_t)p;
   if (base2Exponent > info->maxBinaryExp) {
     overflow(info);
   } else if (base2Exponent < info->minBinaryExp - info->sigBits + 1) {
@@ -2141,33 +2227,33 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
     switch (info->bytes) {
 #if ENABLE_BINARY16_SUPPORT
     case 2: {
-      uint16_t exponentBits = base2Exponent - info->minBinaryExp;
-      uint16_t raw =
-        (info->negative ? 0x8000U : 0)
-        | (exponentBits << 10)
-        | (significand_lsw & 0x3ffU);
+      uint16_t exponentBits = (uint16_t)(base2Exponent - info->minBinaryExp);
+      uint16_t raw = (uint16_t)
+        ((info->negative ? 0x8000U : 0U)
+        | (uint16_t)(exponentBits << 10)
+        | (significand_lsw & 0x3ffU));
       memcpy(info->dest, &raw, sizeof(raw));
       break;
     }
 #endif
 #if ENABLE_BINARY32_SUPPORT
     case 4: {
-      uint32_t exponentBits = base2Exponent - info->minBinaryExp;
-      uint32_t raw =
-        (info->negative ? 0x80000000UL : 0)
-        | (exponentBits << 23)
-        | (significand_lsw & 0x7fffffULL);
+      uint32_t exponentBits = (uint32_t)(base2Exponent - info->minBinaryExp);
+      uint32_t raw = (uint32_t)
+        ((info->negative ? 0x80000000UL : 0UL)
+        | (exponentBits << 23U)
+        | (uint32_t)(significand_lsw & 0x7fffffULL));
       memcpy(info->dest, &raw, sizeof(raw));
       break;
     }
 #endif
 #if ENABLE_BINARY64_SUPPORT
     case 8: {
-      uint64_t exponentBits = base2Exponent - info->minBinaryExp;
-      uint64_t raw =
-        (info->negative ? 0x8000000000000000ULL : 0)
-        | (exponentBits << 52)
-        | (significand_lsw & 0xfffffffffffffULL);
+      uint64_t exponentBits = (uint64_t)(base2Exponent - info->minBinaryExp);
+      uint64_t raw = (uint64_t)
+        ((info->negative ? 0x8000000000000000ULL : 0UL)
+        | (exponentBits << 52U)
+        | (significand_lsw & 0xfffffffffffffULL));
       memcpy(info->dest, &raw, sizeof(raw));
       break;
     }
@@ -2175,7 +2261,7 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
 #if ENABLE_FLOAT80_SUPPORT
     case 10: {
       // TODO: Support big-endian
-      uint16_t exponentBits = base2Exponent - info->minBinaryExp;
+      uint16_t exponentBits = (uint16_t)(base2Exponent - info->minBinaryExp);
       memcpy(info->dest, &significand_lsw, sizeof(significand_lsw));
       info->dest[8] = exponentBits & 0xff;
       info->dest[9] = (exponentBits >> 8) | (info->negative ? 0x80 : 0);
@@ -2185,7 +2271,7 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
 #if ENABLE_BINARY128_SUPPORT
     case 16: {
       // TODO: Support big-endian
-      uint16_t exponentBits = base2Exponent - info->minBinaryExp;
+      uint16_t exponentBits = (uint16_t)(base2Exponent - info->minBinaryExp);
       memcpy(info->dest, &significand_lsw, sizeof(significand_lsw));
       memcpy(info->dest + 8, &significand_msw, sizeof(significand_msw));
       info->dest[14] = exponentBits & 0xff;
@@ -2212,20 +2298,19 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
 
 static void parseNan(const unsigned char *start, struct parseInfo *info) {
   const unsigned char *p = start + 3; // Skip "nan"
-
-  unsigned char stackWorkArea[20];
+  unsigned char _Alignas(sizeof(mp_word_t)) stackWorkArea[20];
   memset(stackWorkArea, 0, sizeof(stackWorkArea));
   const unsigned char *endNan = p;
   if (*p == '(') {
     p += 1;
-    int base = 10;
+    unsigned base = 10;
     if (*p == '0') {
-      if (p[1] == 'x') {
+      p += 1;
+      if (*p == 'x') {
         base = 16;
-        p += 2;
+        p += 1;
       } else {
         base = 8;
-        p += 1;
       }
     }
     mp_t stackMP = { (mp_word_t *)stackWorkArea,
@@ -2252,7 +2337,7 @@ static void parseNan(const unsigned char *start, struct parseInfo *info) {
     }
   }
   // TODO: Endianness.  This only works for little-endian.
-  memcpy(info->dest, stackWorkArea, info->bytes);
+  memcpy(info->dest, stackWorkArea, (size_t)info->bytes);
   switch (info->bytes) {
 #if ENABLE_BINARY16_SUPPORT
   case 2: {
@@ -2291,7 +2376,7 @@ static void parseNan(const unsigned char *start, struct parseInfo *info) {
   }
 #endif
   }
-  if (info->end) *info->end = (char *)p;
+  if (info->end) *info->end = (char *)(uintptr_t)p;
 }
 
 // This is used as the initial parse for all formats.
@@ -2320,7 +2405,6 @@ static int
 fastParse64(struct parseInfo *info) {
   const unsigned char *p = (const unsigned char *)info->start;
 
-  const unsigned char *firstUnparsedDigit;
   uint64_t digits = 0;
   int digitCount = 0;
   int base10Exponent = 0;
@@ -2367,7 +2451,7 @@ fastParse64(struct parseInfo *info) {
         p += 3;
       }
       // Matched 'inf' or 'infinity' case-insensitive
-      if (info->end) *info->end = (char *)p;
+      if (info->end) *info->end = (char *)(uintptr_t)p;
       infinity(info);
       return 0;
     }
@@ -2418,18 +2502,20 @@ fastParse64(struct parseInfo *info) {
   }
 
   // Collect digits before the decimal point
-  firstUnparsedDigit = p;
-  uint8_t t = *p - '0';
-  if (t < 10) {
-    digits = t;
-    p += 1;
-    t = *p - '0';
-    while(t < 10) {
-      digits = 10 * digits + t;
+  const unsigned char *firstUnparsedDigit = p;
+  {
+    uint8_t t = (uint8_t)(*p - '0');
+    if (t < 10) {
+      digits = t;
       p += 1;
-      t = *p - '0';
+      t = (uint8_t)(*p - '0');
+      while(t < 10) {
+        digits = 10 * digits + t;
+        p += 1;
+        t = (uint8_t)(*p - '0');
+      }
+      digitCount = (int)(p - firstUnparsedDigit);
     }
-    digitCount = (int)(p - firstUnparsedDigit);
   }
 
   // Try to match an optional decimal point
@@ -2478,29 +2564,29 @@ fastParse64(struct parseInfo *info) {
       }
       // "0.000000001234" has 4 digits
       firstUnparsedDigit = p;
-      unsigned t = *p - '0';
+      unsigned t = (unsigned)(*p - '0');
       if (t < 10) {
         p += 1;
         digits = t;
-        t = *p - '0';
+        t = (unsigned)(*p - '0');
         while (t < 10) {
           digits = 10 * digits + t;
           p += 1;
-          t = *p - '0';
+          t = (unsigned)(*p - '0');
         }
       }
       digitCount = (int)(p - firstUnparsedDigit);
     } else {
       // Perf: For canada.txt benchmark, this loop is ~30% of total runtime
-      unsigned t = *p - '0';
+      unsigned t = (unsigned)(*p - '0');
       if (t < 10) {
         p += 1;
         digits = 10 * digits + t;
-        t = *p - '0';
+        t = (unsigned)(*p - '0');
         while (t < 10) {
           p += 1;
           digits = 10 * digits + t;
-          t = *p - '0';
+          t = (unsigned)(*p - '0');
         }
       }
       digitCount += p - firstDigitAfterDecimalPoint;
@@ -2521,15 +2607,15 @@ fastParse64(struct parseInfo *info) {
     } else if (*p == '+') {
       p += 1;
     }
-    uint8_t t = *p - '0';
+    uint8_t t = (uint8_t)(*p - '0');
     if (t < 10) {
-      int exp = t;
+      unsigned exp = t;
       p += 1;
-      t = *p - '0';
+      t = (uint8_t)(*p - '0');
       while (t < 10) {
         p += 1;
         exp = 10 * exp + t;
-        t = *p - '0';
+        t = (uint8_t)(*p - '0');
       }
       if (p - exponentPhraseStart > 9) {
         // The exponent text was unusually long... re-parse
@@ -2547,13 +2633,13 @@ fastParse64(struct parseInfo *info) {
           exp = 99999999;
         }
       }
-      base10Exponent += exp * negativeExponent;
+      base10Exponent += (int)exp * negativeExponent;
     } else {
       p = exponentPhraseStart;
     }
   }
 
-  if (info->end) *info->end = (char *)p;
+  if (info->end) *info->end = (char *)(uintptr_t)p;
 
   // No non-zero digits, must be an explicit zero:
   // "0", ".000", "0.0", "0e0", "0.0e999", etc.
@@ -2580,7 +2666,7 @@ fastParse64(struct parseInfo *info) {
     const unsigned char *q = firstUnparsedDigit;
     while (i < 19) {
       // Note: Skip non-digit chars (e.g., decimal point)
-      unsigned t = *q - '0';
+      unsigned t = (unsigned)(*q - '0');
       if (t < 10) {
         digits = digits * 10 + t;
         i += 1;
@@ -2602,7 +2688,7 @@ fastParse64(struct parseInfo *info) {
   return 1; // Regular decimal case...
 
  fail:
-  if (info->end) *info->end = (char *)info->start;
+  if (info->end) *info->end = (char *)(uintptr_t)info->start;
   memset(info->dest, 0, info->bytes);
   return 0;
 }
@@ -2624,18 +2710,19 @@ static void _ffpp_strtoencf16_l(unsigned char *dest, const char *start, char **e
   static const int minDecimalExp = -7;
   static const int maxDecimalExp = 5;
   static const int maxDecimalMidpointDigits = 22;
-  struct parseInfo info;
-  info.bytes = bytes;
-  info.sigBits = sigBits;
-  info.minBinaryExp = minBinaryExp;
-  info.maxBinaryExp = maxBinaryExp;
-  info.minDecimalExp = minDecimalExp;
-  info.maxDecimalExp = maxDecimalExp;
-  info.maxDecimalMidpointDigits = maxDecimalMidpointDigits;
-  info.dest = dest;
-  info.start = start;
-  info.end = end;
-  info.loc = loc;
+  struct parseInfo info = {
+    .bytes = bytes,
+    .sigBits = sigBits,
+    .minBinaryExp = minBinaryExp,
+    .maxBinaryExp = maxBinaryExp,
+    .minDecimalExp = minDecimalExp,
+    .maxDecimalExp = maxDecimalExp,
+    .maxDecimalMidpointDigits = maxDecimalMidpointDigits,
+    .dest = dest,
+    .start = start,
+    .end = end,
+    .loc = loc,
+  };
 
   // ================================================================
   // Parse the input (mostly)
@@ -2651,9 +2738,9 @@ static void _ffpp_strtoencf16_l(unsigned char *dest, const char *start, char **e
   // ================================================================
   // Slow Path (varint calculation)
   // ================================================================
-  char stackWorkArea[32];
+  char _Alignas(sizeof(mp_word_t)) stackWorkArea[32];
   static const size_t stackWorkAreaWords = sizeof(stackWorkArea) / sizeof(mp_word_t);
-  generalSlowpath(&info, fegetround(),  (mp_word_t *)stackWorkArea, stackWorkAreaWords, 0);
+  generalSlowpath(&info, FENV_ROUNDING_MODE(), (mp_word_t *)stackWorkArea, stackWorkAreaWords, false);
 }
 #endif
 
@@ -2673,18 +2760,19 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
   static const int minDecimalExp = -46;
   static const int maxDecimalExp = 40;
   static const int maxDecimalMidpointDigits = 113;
-  struct parseInfo info;
-  info.bytes = bytes;
-  info.sigBits = sigBits;
-  info.minBinaryExp = minBinaryExp;
-  info.maxBinaryExp = maxBinaryExp;
-  info.minDecimalExp = minDecimalExp;
-  info.maxDecimalExp = maxDecimalExp;
-  info.maxDecimalMidpointDigits = maxDecimalMidpointDigits;
-  info.dest = dest;
-  info.start = start;
-  info.end = end;
-  info.loc = loc;
+  struct parseInfo info = {
+    .bytes = bytes,
+    .sigBits = sigBits,
+    .minBinaryExp = minBinaryExp,
+    .maxBinaryExp = maxBinaryExp,
+    .minDecimalExp = minDecimalExp,
+    .maxDecimalExp = maxDecimalExp,
+    .maxDecimalMidpointDigits = maxDecimalMidpointDigits,
+    .dest = dest,
+    .start = start,
+    .end = end,
+    .loc = loc,
+  };
 
   // ================================================================
   // Parse the input (mostly)
@@ -2713,7 +2801,7 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
   }
 #endif
 
-  int roundingMode = fegetround();
+  int roundingMode = FENV_ROUNDING_MODE();
 
 #if 1
   // ================================================================
@@ -2723,12 +2811,12 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
   // upper/lower bounds for the correct answer.  If those bounds
   // agree, then we can return the result.
   int16_t exp10;
-  int upperBoundOffset;
+  unsigned upperBoundOffset;
   if (info.digitCount <= 19) {
-    exp10 = info.base10Exponent;
+    exp10 = (int16_t)info.base10Exponent;
     upperBoundOffset = 4;
   } else {
-    exp10 = info.base10Exponent + info.digitCount - 19;
+    exp10 = (int16_t)(info.base10Exponent + info.digitCount - 19);
     upperBoundOffset = 36;
   }
 
@@ -2769,10 +2857,13 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
   uint64_t u = l + upperBoundOffset;
   uint32_t lowerSignificand, upperSignificand;
   switch (roundingMode) {
+#ifdef FE_TOWARDZERO
   case FE_TOWARDZERO:
     lowerSignificand = (l) >> 40;
     upperSignificand = (u) >> 40;
     break;
+#endif
+#ifdef FE_DOWNWARD
   case FE_DOWNWARD:
     if (info.negative) {
       lowerSignificand = (l + 0x0ffffffffff) >> 40;
@@ -2782,6 +2873,8 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
       upperSignificand = (l + 4) >> 40;
     }
     break;
+#endif
+#ifdef FE_UPWARD
   case FE_UPWARD:
     if (!info.negative) {
       lowerSignificand = (l + 0x0ffffffffff) >> 40;
@@ -2791,8 +2884,11 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
       upperSignificand = (u) >> 40;
     }
     break;
-  default:
+#endif
+#ifdef FE_TONEAREST
   case FE_TONEAREST:
+#endif
+  default:
     // Instead of worrying about exact ties-round-even, round lower
     // down (adding 0x7ff...ff) and upper up (adding 0x800...00) so
     // that exact ties fall through to be handled elsewhere.
@@ -2812,12 +2908,12 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
     }
     // TODO: ... Subnormal? ...
   } else if (upperSignificand == lowerSignificand) {
-    uint32_t exponentBits = ((uint32_t)binaryExponent - minBinaryExp) << (sigBits - 1);
+    uint32_t exponentBits = (uint32_t)(binaryExponent - minBinaryExp) << (sigBits - 1);
     uint32_t significandMask = (((uint32_t)1 << (sigBits - 1)) - 1);
     uint32_t significandBits = lowerSignificand & significandMask;
     uint32_t signbit = info.negative ? 0x80000000UL : 0ULL;
     uint32_t raw = signbit | exponentBits | significandBits;
-    memcpy(dest, &raw, sizeof(raw));
+    memcpy(info.dest, &raw, sizeof(raw));
     return;
   }
 #endif
@@ -2825,9 +2921,9 @@ static void _ffpp_strtoencf32_l(unsigned char *dest, const char *start, char **e
   // ================================================================
   // Slow Path (varint calculation)
   // ================================================================
-  char stackWorkArea[128];
+  char _Alignas(sizeof(mp_word_t)) stackWorkArea[128];
   static const size_t stackWorkAreaWords = sizeof(stackWorkArea) / sizeof(mp_word_t);
-  generalSlowpath(&info, fegetround(),  (mp_word_t *)stackWorkArea, stackWorkAreaWords, 0);
+  generalSlowpath(&info, FENV_ROUNDING_MODE(), (mp_word_t *)stackWorkArea, stackWorkAreaWords, false);
 }
 #endif
 
@@ -2848,18 +2944,19 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
   static const int minDecimalExp = -325;
   static const int maxDecimalExp = 310;
   static const int maxDecimalMidpointDigits = 768;
-  struct parseInfo info;
-  info.bytes = bytes;
-  info.sigBits = sigBits;
-  info.minBinaryExp = minBinaryExp;
-  info.maxBinaryExp = maxBinaryExp;
-  info.minDecimalExp = minDecimalExp;
-  info.maxDecimalExp = maxDecimalExp;
-  info.maxDecimalMidpointDigits = maxDecimalMidpointDigits;
-  info.dest = dest;
-  info.start = start;
-  info.end = end;
-  info.loc = loc;
+  struct parseInfo info = {
+    .bytes = bytes,
+    .sigBits = sigBits,
+    .minBinaryExp = minBinaryExp,
+    .maxBinaryExp = maxBinaryExp,
+    .minDecimalExp = minDecimalExp,
+    .maxDecimalExp = maxDecimalExp,
+    .maxDecimalMidpointDigits = maxDecimalMidpointDigits,
+    .dest = dest,
+    .start = start,
+    .end = end,
+    .loc = loc,
+  };
 
   // ================================================================
   // Parse the input (mostly)
@@ -2920,8 +3017,8 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
       if (info.digitCount <= 19) {
         // We can give exact inputs to fma if we have <= 19 digits
         // and base10Exponent is in [1..18].
-        int64_t lowMask = 0x7ff;
-        int64_t highMask = ~lowMask;
+        uint64_t lowMask = 0x7ff;
+        uint64_t highMask = ~lowMask;
         // digits has <= 64 bits (19 digits)
         double highDigits = (double)(info.digits & highMask); // <= 53 bits
         double lowDigits = (double)(info.digits & lowMask); // 11 bits
@@ -2929,7 +3026,7 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
         if (info.negative) p10 = -p10;
         double u = lowDigits * p10; // Exact (11 bits + 42 bits)
         // Inputs to fma are all exact, so result is correctly rounded
-        double result = fma(highDigits, p10, u);
+        double result = __builtin_fma(highDigits, p10, u);
         memcpy(info.dest, &result, sizeof(result));
         return;
       }
@@ -2937,7 +3034,7 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
   }
 #endif
 
-  int roundingMode = fegetround();
+  int roundingMode = FENV_ROUNDING_MODE();
 
 #if 1
   // ================================================================
@@ -2945,9 +3042,9 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
   // ================================================================
   int16_t exp10;
   // Total possible inaccuracy in our calculations below
-  int intervalWidth;
+  unsigned intervalWidth;
   if (info.digitCount <= 19) {
-    exp10 = info.base10Exponent;
+    exp10 = (int16_t)info.base10Exponent;
     // We have all the digits, so our upper/lower bounds
     // on the significand are the same, which makes the final
     // bounds fairly tight.
@@ -2960,7 +3057,7 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
     // have upper/lower bounds for 10^p.
     // info.digits already has the first 19 digits, we just need to
     // adjust the effective exponent.
-    exp10 = info.base10Exponent + info.digitCount - 19;
+    exp10 = (int16_t)(info.base10Exponent + info.digitCount - 19);
     // The non-trivial significand bounds lead to a wider final interval.
     // This still gives us success ~96% of the time.
     intervalWidth = 80;
@@ -3019,25 +3116,36 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
   // bits. For example, to precisely round away from zero, we
   // would ideally want to add 0x7ff.ffffffffffffffff.  Rounding that
   // value down/up to the nearest integer gives us 0x7ff, 0x800.
-  int lowerRoundOffset, upperRoundOffset;
-  int negative = info.negative;
-  switch (roundingMode) {
-  case FE_UPWARD:
-    negative = !negative;
-    // FALL THROUGH
-  case FE_DOWNWARD:
-    if (negative) {
-      lowerRoundOffset = 0x7ff; upperRoundOffset = 0x800 + intervalWidth;
+  unsigned lowerRoundOffset, upperRoundOffset;
+  {
+    bool negative = info.negative;
+    switch (roundingMode) {
+#ifdef FE_UPWARD
+    case FE_UPWARD:
+      negative = !negative;
+      // FALL THROUGH
+#endif
+#ifdef FE_DOWNWARD
+    case FE_DOWNWARD:
+      if (negative) {
+        lowerRoundOffset = 0x7ff; upperRoundOffset = 0x800 + intervalWidth;
+        break;
+      }
+      // FALL THROUGH
+#endif
+#ifdef FE_TOWARDZERO
+    case FE_TOWARDZERO:
+      lowerRoundOffset = 0; upperRoundOffset = intervalWidth;
+      break;
+#endif
+#ifdef FE_TONEAREST
+    case FE_TONEAREST:
+#endif
+    default:
+      (void)negative;
+      lowerRoundOffset = 0x3ff; upperRoundOffset = 0x400 + intervalWidth;
       break;
     }
-    // FALL THROUGH
-  case FE_TOWARDZERO:
-    lowerRoundOffset = 0; upperRoundOffset = intervalWidth;
-    break;
-  default:
-  case FE_TONEAREST:
-    lowerRoundOffset = 0x3ff; upperRoundOffset = 0x400 + intervalWidth;
-    break;
   }
   uint64_t lowerSignificand = (l + lowerRoundOffset) >> 11;
   uint64_t upperSignificand = (l + upperRoundOffset) >> 11;
@@ -3062,20 +3170,29 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
     if (shift < 64) {
       assert(0 < shift && shift < 64);
       uint64_t lro, uro;
-      int negative = info.negative;
+      bool negative = info.negative;
       switch (roundingMode) {
+#ifdef FE_UPWARD
       case FE_UPWARD:
         negative = !negative;
         // FALL THROUGH
+#endif
+#ifdef FE_DOWNWARD
       case FE_DOWNWARD:
         if (negative) {
           lro = (1ULL << (shift)) - 1; uro = lro + intervalWidth; break;
         }
         // FALL THROUGH
+#endif
+#ifdef FE_TOWARDZERO
       case FE_TOWARDZERO:
         lro = 0; uro = intervalWidth; break;
-      default:
+#endif
+#ifdef FE_TONEAREST
       case FE_TONEAREST:
+#endif
+      default:
+        (void)negative;
         lro = (1ULL << (shift - 1)) - 1; uro = (1ULL << (shift - 1)) + intervalWidth; break;
       }
       lowerSignificand = (l + lro) >> shift;
@@ -3090,18 +3207,18 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
         if (raw != 0x0010000000000000ULL) {
           errno = ERANGE;
         }
-        memcpy(dest, &raw, sizeof(raw));
+        memcpy(info.dest, &raw, sizeof(raw));
         return;
       }
     }
   } else if (upperSignificand == lowerSignificand) {
     // Normal
-    uint64_t exponentBits = ((uint64_t)adjustedBinaryExponent - minBinaryExp) << (sigBits - 1);
+    uint64_t exponentBits = (uint64_t)(adjustedBinaryExponent - minBinaryExp) << (sigBits - 1);
     uint64_t significandMask = (((uint64_t)1 << (sigBits - 1)) - 1);
     uint64_t significandBits = lowerSignificand & significandMask;
     uint64_t signbit = info.negative ? 0x8000000000000000ULL : 0ULL;
     uint64_t raw = signbit | exponentBits | significandBits;
-    memcpy(dest, &raw, sizeof(raw));
+    memcpy(info.dest, &raw, sizeof(raw));
     return;
   }
   // TODO: If we fall through, should we try refining the
@@ -3114,9 +3231,9 @@ static void _ffpp_strtoencf64_l(unsigned char *dest, const char *start, char **e
   // ================================================================
   // Random testing suggests this step only runs about 3% of the
   // time, so we focus here on optimizing for code size rather than perf.
-  char stackWorkArea[656];
+  char _Alignas(sizeof(mp_word_t)) stackWorkArea[656];
   static const size_t stackWorkAreaWords = sizeof(stackWorkArea) / sizeof(mp_word_t);
-  generalSlowpath(&info, roundingMode,  (mp_word_t *)stackWorkArea, stackWorkAreaWords, 0);
+  generalSlowpath(&info, roundingMode, (mp_word_t *)stackWorkArea, stackWorkAreaWords, false);
 }
 #endif
 
@@ -3155,7 +3272,7 @@ typedef struct { uint64_t low; uint64_t high; } my_uint128_t;
 #define extractHigh64(x) ((x).high)
 #define isZero(x) ((x).low == 0 && (x).high == 0)
 #define isEqual(lhs, rhs) ((lhs).low == (rhs).low && ((lhs).high == (rhs).high))
-my_uint128_t shiftLeft(my_uint128_t lhs, int rhs) {
+static my_uint128_t shiftLeft(my_uint128_t lhs, int rhs) {
   if (rhs > 64) {
     lhs.high = lhs.low << (rhs - 64);
     lhs.low = 0;
@@ -3168,7 +3285,7 @@ my_uint128_t shiftLeft(my_uint128_t lhs, int rhs) {
   }
   return lhs;
 }
-my_uint128_t shiftRight(my_uint128_t lhs, int rhs) {
+static my_uint128_t shiftRight(my_uint128_t lhs, int rhs) {
   if (rhs > 64) {
     lhs.low = lhs.high >> (rhs - 64);
     lhs.high = 0;
@@ -3181,18 +3298,18 @@ my_uint128_t shiftRight(my_uint128_t lhs, int rhs) {
   }
   return lhs;
 }
-my_uint128_t create128FromHighLow64(uint64_t high, uint64_t low) {
+static my_uint128_t create128FromHighLow64(uint64_t high, uint64_t low) {
   my_uint128_t result = {low, high};
   return result;
 }
-my_uint128_t add128x64(my_uint128_t lhs, uint64_t rhs) {
+static my_uint128_t add128x64(my_uint128_t lhs, uint64_t rhs) {
   if (lhs.low > UINT64_MAX - rhs) {
     lhs.high += 1;
   }
   lhs.low += rhs;
   return lhs;
 }
-my_uint128_t add128x128(my_uint128_t lhs, my_uint128_t rhs) {
+static my_uint128_t add128x128(my_uint128_t lhs, my_uint128_t rhs) {
   if (lhs.low > UINT64_MAX - rhs.low) {
     lhs.high += 1;
   }
@@ -3200,7 +3317,7 @@ my_uint128_t add128x128(my_uint128_t lhs, my_uint128_t rhs) {
   lhs.high += rhs.high;
   return lhs;
 }
-my_uint128_t fullMultiply64x64(uint64_t lhs, uint64_t rhs) {
+static my_uint128_t fullMultiply64x64(uint64_t lhs, uint64_t rhs) {
   uint64_t a = (lhs >> 32) * (rhs >> 32);
   uint64_t b = (lhs >> 32) * (rhs & UINT32_MAX);
   uint64_t c = (lhs & UINT32_MAX) * (rhs >> 32);
@@ -3209,11 +3326,11 @@ my_uint128_t fullMultiply64x64(uint64_t lhs, uint64_t rhs) {
   return create128FromHighLow64(a + (b >> 32) + (c >> 32),
                                 (b << 32) + (d & UINT32_MAX));
 }
-my_uint128_t multiply128xInt(my_uint128_t lhs, int rhs) {
-  uint64_t a = (lhs.low & UINT32_MAX) * rhs;
-  uint64_t b = (lhs.low >> 32) * rhs;
+static my_uint128_t multiply128xInt(my_uint128_t lhs, int rhs) {
+  uint64_t a = (lhs.low & UINT32_MAX) * (uint64_t)rhs;
+  uint64_t b = (lhs.low >> 32) * (uint64_t)rhs;
   b += (a >> 32);
-  lhs.high = (lhs.high * rhs) + (b >> 32);
+  lhs.high = (lhs.high * (uint64_t)rhs) + (b >> 32);
   lhs.low = (a & UINT32_MAX) + (b << 32);
   return lhs;
 }
@@ -3274,12 +3391,12 @@ static my_uint128_t getPowerOfTenRoundedDown(int p, int *exponent) {
 
 static int highPrecisionIntervalPath(struct parseInfo *info, int roundingMode) {
   int16_t exp10;
-  int upperBoundOffset;
+  unsigned upperBoundOffset;
   if (info->digitCount <= 38) {
-    exp10 = info->base10Exponent;
+    exp10 = (int16_t)info->base10Exponent;
     upperBoundOffset = 16; // FIXME
   } else {
-    exp10 = info->base10Exponent + info->digitCount - 38;
+    exp10 = (int16_t)(info->base10Exponent + info->digitCount - 38);
     upperBoundOffset = 272;  // FIXME
   }
 
@@ -3297,7 +3414,7 @@ static int highPrecisionIntervalPath(struct parseInfo *info, int roundingMode) {
         p++;
       }
       digits = multiply128xInt(digits, 10);
-      digits = add128x64(digits, *p - '0');
+      digits = add128x64(digits, (uint64_t)(*p - '0'));
       p += 1;
     }
     if (extractHigh64(digits) != 0) {
@@ -3330,11 +3447,14 @@ static int highPrecisionIntervalPath(struct parseInfo *info, int roundingMode) {
 
   // Upper/lower bounds for the 64-bit significand
   my_uint128_t u = add128x64(l, upperBoundOffset);
-  int negative = info->negative;
+  bool negative = info->negative;
   switch (roundingMode) {
+#ifdef FE_DOWNWARD
   case FE_DOWNWARD:
     negative = !negative;
     // FALL THROUGH
+#endif
+#ifdef FE_UPWARD
   case FE_UPWARD:
     if (!negative) {
       my_uint128_t offset = create128FromHighLow64(UINT64_MAX, UINT64_MAX);
@@ -3345,10 +3465,16 @@ static int highPrecisionIntervalPath(struct parseInfo *info, int roundingMode) {
       break;
     }
     // FALL THROUGH
+#endif
+#ifdef FE_TOWARDZERO
   case FE_TOWARDZERO:
     break;
-  default:
-  case FE_TONEAREST: {
+#endif
+#ifdef FE_TONEAREST
+  case FE_TONEAREST:
+#endif
+  default: {
+    (void)negative;
     my_uint128_t offset = create128FromHighLow64(UINT64_MAX, UINT64_MAX);
     offset = shiftRight(offset, info->sigBits + 1);
     l = add128x128(l, offset);
@@ -3376,7 +3502,7 @@ static int highPrecisionIntervalPath(struct parseInfo *info, int roundingMode) {
     switch (info->bytes) {
     case 10: {
       uint16_t signbit = info->negative ? 0x8000U : 0U;
-      uint16_t exponentBits = signbit | ((uint16_t)binaryExponent - info->minBinaryExp);
+      uint16_t exponentBits = signbit | (uint16_t)(binaryExponent - info->minBinaryExp);
       uint64_t significandBits = extractLow64(lowerSignificand);
       memcpy(info->dest, &significandBits, sizeof(significandBits));
       memcpy(info->dest + 8, &exponentBits, sizeof(exponentBits));
@@ -3384,7 +3510,7 @@ static int highPrecisionIntervalPath(struct parseInfo *info, int roundingMode) {
     }
     case 16: {
       uint16_t signbit = info->negative ? 0x8000U : 0U;
-      uint16_t exponentBits = signbit | ((uint16_t)binaryExponent - info->minBinaryExp);
+      uint16_t exponentBits = signbit | (uint16_t)(binaryExponent - info->minBinaryExp);
       memcpy(info->dest, &lowerSignificand, sizeof(lowerSignificand));
       memcpy(info->dest + 14, &exponentBits, sizeof(exponentBits));
       return 1;
@@ -3412,18 +3538,19 @@ static void _ffpp_strtoencf80_l(unsigned char *dest, const char *start, char **e
   static const int minDecimalExp = -5000;
   static const int maxDecimalExp = 5000;
   static const int maxDecimalMidpointDigits = 11515;
-  struct parseInfo info;
-  info.bytes = bytes;
-  info.sigBits = sigBits;
-  info.minBinaryExp = minBinaryExp;
-  info.maxBinaryExp = maxBinaryExp;
-  info.minDecimalExp = minDecimalExp;
-  info.maxDecimalExp = maxDecimalExp;
-  info.maxDecimalMidpointDigits = maxDecimalMidpointDigits;
-  info.dest = dest;
-  info.start = start;
-  info.end = end;
-  info.loc = loc;
+  struct parseInfo info = {
+    .bytes = bytes,
+    .sigBits = sigBits,
+    .minBinaryExp = minBinaryExp,
+    .maxBinaryExp = maxBinaryExp,
+    .minDecimalExp = minDecimalExp,
+    .maxDecimalExp = maxDecimalExp,
+    .maxDecimalMidpointDigits = maxDecimalMidpointDigits,
+    .dest = dest,
+    .start = start,
+    .end = end,
+    .loc = loc,
+  };
 
   // ================================================================
   // Parse the input (mostly)
@@ -3457,7 +3584,7 @@ static void _ffpp_strtoencf80_l(unsigned char *dest, const char *start, char **e
   }
 #endif
 
-  int roundingMode = fegetround();
+  int roundingMode = FENV_ROUNDING_MODE();
 
 #if ENABLE_FLOAT80_OPTIMIZATIONS
   if (highPrecisionIntervalPath(&info, roundingMode)) {
@@ -3468,9 +3595,9 @@ static void _ffpp_strtoencf80_l(unsigned char *dest, const char *start, char **e
   // ================================================================
   // Slow Path (varint calculation)
   // ================================================================
-  char stackWorkArea[1536];
+  char _Alignas(sizeof(mp_word_t)) stackWorkArea[1536];
   static const size_t stackWorkAreaWords = sizeof(stackWorkArea) / sizeof(mp_word_t);
-  generalSlowpath(&info, roundingMode,  (mp_word_t *)stackWorkArea, stackWorkAreaWords, 1);
+  generalSlowpath(&info, roundingMode, (mp_word_t *)stackWorkArea, stackWorkAreaWords, true);
 }
 #endif
 
@@ -3491,18 +3618,19 @@ static void _ffpp_strtoencf128_l(unsigned char *dest, const char *start, char **
   static const int minDecimalExp = -5000;
   static const int maxDecimalExp = 5000;
   static const int maxDecimalMidpointDigits = 11564;
-  struct parseInfo info;
-  info.bytes = bytes;
-  info.sigBits = sigBits;
-  info.minBinaryExp = minBinaryExp;
-  info.maxBinaryExp = maxBinaryExp;
-  info.minDecimalExp = minDecimalExp;
-  info.maxDecimalExp = maxDecimalExp;
-  info.maxDecimalMidpointDigits = maxDecimalMidpointDigits;
-  info.dest = dest;
-  info.start = start;
-  info.end = end;
-  info.loc = loc;
+  struct parseInfo info = {
+    .bytes = bytes,
+    .sigBits = sigBits,
+    .minBinaryExp = minBinaryExp,
+    .maxBinaryExp = maxBinaryExp,
+    .minDecimalExp = minDecimalExp,
+    .maxDecimalExp = maxDecimalExp,
+    .maxDecimalMidpointDigits = maxDecimalMidpointDigits,
+    .dest = dest,
+    .start = start,
+    .end = end,
+    .loc = loc,
+  };
 
   // ================================================================
   // Parse the input (mostly)
@@ -3538,7 +3666,7 @@ static void _ffpp_strtoencf128_l(unsigned char *dest, const char *start, char **
   }
 #endif
 
-  int roundingMode = fegetround();
+  int roundingMode = FENV_ROUNDING_MODE();
 
 #if ENABLE_BINARY128_OPTIMIZATIONS
   if (highPrecisionIntervalPath(&info, roundingMode)) {
@@ -3549,9 +3677,9 @@ static void _ffpp_strtoencf128_l(unsigned char *dest, const char *start, char **
   // ================================================================
   // Slow Path (varint calculation)
   // ================================================================
-  char stackWorkArea[1536];
+  char _Alignas(sizeof(mp_word_t)) stackWorkArea[1536];
   static const size_t stackWorkAreaWords = sizeof(stackWorkArea) / sizeof(mp_word_t);
-  generalSlowpath(&info, roundingMode,  (mp_word_t *)stackWorkArea, stackWorkAreaWords, 1);
+  generalSlowpath(&info, roundingMode, (mp_word_t *)stackWorkArea, stackWorkAreaWords, true);
 }
 #endif
 
@@ -3575,7 +3703,7 @@ static void _ffpp_strtoencf128_l(unsigned char *dest, const char *start, char **
 void strtoencf16(unsigned char * restrict encptr,
                       const char * restrict nptr,
                       char ** restrict endptr) {
- _ffpp_strtoencf16_l(encptr, nptr, endptr, strtofp_current_locale());
+  _ffpp_strtoencf16_l(encptr, nptr, endptr, strtofp_current_locale());
 }
 #endif
 
@@ -3629,7 +3757,7 @@ void strtoencf64(unsigned char * restrict encptr,
 #if ENABLE_BINARY64_SUPPORT && LONG_DOUBLE_IS_BINARY64
 // TS 18661-3 `strtoencf64x` API
 // If `long double` is binary64, we assume Float64x is binary64
-void strtoencf64x(unsigned char *restrict encptr,
+void strtoencf64x(unsigned char * restrict encptr,
                        const char * restrict nptr,
                        char ** restrict endptr) {
   _ffpp_strtoencf64_l(encptr, nptr, endptr, strtofp_current_locale());
@@ -3683,7 +3811,7 @@ long double strtold_l(const char * restrict nptr,
 
 #if ENABLE_FLOAT80_SUPPORT && ENABLE_LOCALE_SUPPORT
 // Non-standard but helpful for testing.
-void strtoencf80_l(unsigned char *restrict encptr,
+void strtoencf80_l(unsigned char * restrict encptr,
                         const char * restrict nptr,
                         char ** restrict endptr,
                         strtofp_locale_t loc) {
@@ -3694,7 +3822,7 @@ void strtoencf80_l(unsigned char *restrict encptr,
 #if ENABLE_FLOAT80_SUPPORT && LONG_DOUBLE_IS_FLOAT80
 // TS 18661-3 `strtoencf64x` API
 // If `long double` is float80, assume `Float64x` is float80
-void strtoencf64x(unsigned char *restrict encptr,
+void strtoencf64x(unsigned char * restrict encptr,
                        const char * restrict nptr,
                        char ** restrict endptr) {
   _ffpp_strtoencf80_l(encptr, nptr, endptr, strtofp_current_locale());

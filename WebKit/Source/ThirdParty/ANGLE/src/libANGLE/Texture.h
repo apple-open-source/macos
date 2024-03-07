@@ -189,6 +189,8 @@ class TextureState final : private angle::NonCopyable
 
     gl::TilingMode getTilingMode() const { return mTilingMode; }
 
+    bool isInternalIncompleteTexture() const { return mIsInternalIncompleteTexture; }
+
   private:
     // Texture needs access to the ImageDesc functions.
     friend class Texture;
@@ -231,6 +233,11 @@ class TextureState final : private angle::NonCopyable
     GLuint mMaxLevel;
 
     GLenum mDepthStencilTextureMode;
+
+    // Distinguish internally created textures.  The Vulkan backend avoids initializing them from an
+    // unlocked tail call because they are lazily created on draw, and we don't want to add the
+    // overhead of tail-call checks to draw calls.
+    bool mIsInternalIncompleteTexture;
 
     bool mHasBeenBoundAsImage;
     bool mHasBeenBoundAsAttachment;
@@ -561,10 +568,6 @@ class Texture final : public RefCountObject<TextureID>,
     GLenum getImplementationColorReadFormat(const Context *context) const;
     GLenum getImplementationColorReadType(const Context *context) const;
 
-    bool isCompressedFormatEmulated(const Context *context,
-                                    TextureTarget target,
-                                    GLint level) const;
-
     // We pass the pack buffer and state explicitly so they can be overridden during capture.
     angle::Result getTexImage(const Context *context,
                               const PixelPackState &packState,
@@ -683,6 +686,8 @@ class Texture final : public RefCountObject<TextureID>,
 
     // Texture buffer updates.
     void onBufferContentsChange();
+
+    void markInternalIncompleteTexture() { mState.mIsInternalIncompleteTexture = true; }
 
   private:
     rx::FramebufferAttachmentObjectImpl *getAttachmentImpl() const override;

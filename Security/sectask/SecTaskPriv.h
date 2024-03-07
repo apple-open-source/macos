@@ -73,6 +73,20 @@ Boolean SecTaskEntitlementsValidated(SecTaskRef _Nonnull task);
 __nullable
 CFStringRef SecTaskCopyTeamIdentifier(SecTaskRef _Nonnull task, CFErrorRef _Nullable * _Nullable error);
 
+#if !TARGET_OS_SIMULATOR
+CF_IMPLICIT_BRIDGING_ENABLED
+/*!
+ @function SecTaskValidateForLightweightCodeRequirementData
+ @abstract Match the DER encoded requirement against the running task.
+ @param task A previously created SecTask object
+ @param requirement The DER encoded requirement to match against.
+ @param error A CFError set if the requirement does not match the task.
+ @result True if there requirement matches the task and false otherwise.
+ */
+bool SecTaskValidateForLightweightCodeRequirementData(SecTaskRef _Nonnull task, CFDataRef _Nonnull requirement, CFErrorRef _Nullable * _Nullable error);
+CF_IMPLICIT_BRIDGING_DISABLED
+#endif
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECTASKPRIV_H_ */

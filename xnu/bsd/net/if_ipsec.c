@@ -3406,6 +3406,11 @@ ipsec_ctl_bind(kern_ctl_ref kctlref,
 		return EINVAL;
 	}
 
+	if (pcb->ipsec_ctlref != NULL) {
+		// Return if bind was already called
+		return EINVAL;
+	}
+
 	/* Setup the protocol control block */
 	pcb->ipsec_ctlref = kctlref;
 	pcb->ipsec_unit = sac->sc_unit;

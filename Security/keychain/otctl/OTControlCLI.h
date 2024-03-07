@@ -44,10 +44,16 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
                     control:(OTControl*)control;
 
 - (int)fetchAllBottles:(OTControlArguments*)arguments
-               control:(OTControl *)control;
+               control:(OTControl *)control
+   overrideEscrowCache:(BOOL)overrideEscrowCache;
 
-- (int)fetchEscrowRecords:(OTControlArguments*)arguments json:(bool)json;
-- (int)fetchAllEscrowRecords:(OTControlArguments*)arguments json:(bool)json;
+- (int)fetchEscrowRecords:(OTControlArguments*)arguments
+                     json:(bool)json
+      overrideEscrowCache:(BOOL)overrideEscrowCache;
+
+- (int)fetchAllEscrowRecords:(OTControlArguments*)arguments
+                        json:(bool)json
+         overrideEscrowCache:(BOOL)overrideEscrowCache;
 
 - (int)healthCheck:(OTControlArguments*)arguments
        skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
@@ -110,6 +116,8 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
 
 - (int)setRecoveryKeyWithArguments:(OTControlArguments*)arguments;
 
+- (int)joinWithRecoveryKeyWithArguments:(OTControlArguments*)arguments recoveryKey:(NSString*)recoveryKey;
+
 - (int)createInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
                               uuidString:(NSString*_Nullable)uuidString
                                     json:(bool)json
@@ -170,6 +178,9 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
 
 - (int)printAccountMetadataWithArguments:(OTControlArguments*)argumentsName
                                     json:(bool)json;
+
+- (int)rerollWithArguments:(OTControlArguments*)argumentsName
+                      json:(bool)json;
 
 @end
 

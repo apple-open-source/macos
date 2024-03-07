@@ -1,7 +1,8 @@
 decimal
 print
-print2
 parse
+lib2
+print2
 length
 scale
 shift
@@ -24,6 +25,7 @@ scientific
 engineering
 globals
 strings
+strings2
 letters
 exponent
 log
@@ -32,6 +34,7 @@ arctangent
 sine
 cosine
 bessel
+fib
 arrays
 misc
 misc1
@@ -41,6 +44,18 @@ misc4
 misc5
 misc6
 misc7
+misc8
 void
 rand
-lib2
+recursive_arrays
+divmod
+modexp
+bitfuncs
+leadingzero
+is_number
+is_string
+asciify_array
+line_by_line1
+line_by_line2
+line_loop_quit1
+line_loop_quit2

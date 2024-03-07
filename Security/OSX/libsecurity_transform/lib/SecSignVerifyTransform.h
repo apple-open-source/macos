@@ -36,9 +36,9 @@ extern "C" {
     CF_ASSUME_NONNULL_BEGIN
     CF_IMPLICIT_BRIDGING_ENABLED
 
-	extern const CFStringRef kSecKeyAttributeName, kSecSignatureAttributeName, kSecInputIsAttributeName API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+	extern const CFStringRef kSecKeyAttributeName, kSecSignatureAttributeName, kSecInputIsAttributeName API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 	// WARNING: kSecInputIsRaw is frequently cryptographically unsafe (for example if you don't blind a DSA or ECDSA signature you give away the key very quickly), please only use it if you really know the math.
-	extern const CFStringRef kSecInputIsPlainText, kSecInputIsDigest, kSecInputIsRaw API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+	extern const CFStringRef kSecInputIsPlainText, kSecInputIsDigest, kSecInputIsRaw API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 	// Supported optional attributes: kSecDigestTypeAttribute (kSecDigestMD2, kSecDigestMD4, kSecDigestMD5, kSecDigestSHA1, kSecDigestSHA2), kSecDigestLengthAttribute
 	
 	/*!
@@ -62,7 +62,7 @@ extern "C" {
 	SecTransformRef SecSignTransformCreate(SecKeyRef key,
 											 CFErrorRef* error
 											 )
-    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 	
 	/*!
 	 @function SecVerifyTransformCreate
@@ -89,7 +89,7 @@ extern "C" {
 											 CFDataRef __nullable signature,
 											 CFErrorRef* error
 											 )
-    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
     CF_IMPLICIT_BRIDGING_DISABLED
     CF_ASSUME_NONNULL_END

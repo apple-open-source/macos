@@ -21,6 +21,7 @@
 #include "apr_version.h"
 #include "apr_strings.h"
 #include "apr_hash.h"
+#include "http_core.h"
 #include "proxy_util.h"
 #include "ajp.h"
 #include "scgi.h"
@@ -200,14 +201,16 @@ PROXY_DECLARE(void) ap_proxy_c2hex(int ch, char *x)
  * and encodes those which must be encoded, and does not touch
  * those which must not be touched.
  */
-PROXY_DECLARE(char *)ap_proxy_canonenc(apr_pool_t *p, const char *x, int len,
-                                       enum enctype t, int forcedec,
-                                       int proxyreq)
+PROXY_DECLARE(char *)ap_proxy_canonenc_ex(apr_pool_t *p, const char *x, int len,
+                                          enum enctype t, int flags,
+                                          int proxyreq)
 {
     int i, j, ch;
     char *y;
     char *allowed;  /* characters which should not be encoded */
     char *reserved; /* characters which much not be en/de-coded */
+    int forcedec = flags & PROXY_CANONENC_FORCEDEC;
+    int noencslashesenc = flags & PROXY_CANONENC_NOENCODEDSLASHENCODING;
 
 /*
  * N.B. in addition to :@&=, this allows ';' in an http path
@@ -256,16 +259,28 @@ PROXY_DECLARE(char *)ap_proxy_canonenc(apr_pool_t *p, const char *x, int len,
  * decode it if not already done. do not decode reverse proxied URLs
  * unless specifically forced
  */
-        if ((forcedec || (proxyreq && proxyreq != PROXYREQ_REVERSE)) && ch == '%') {
+        if ((forcedec || noencslashesenc
+            || (proxyreq && proxyreq != PROXYREQ_REVERSE)) && ch == '%') {
             if (!apr_isxdigit(x[i + 1]) || !apr_isxdigit(x[i + 2])) {
                 return NULL;
             }
             ch = ap_proxy_hex2c(&x[i + 1]);
-            i += 2;
             if (ch != 0 && strchr(reserved, ch)) {  /* keep it encoded */
-                ap_proxy_c2hex(ch, &y[j]);
-                j += 2;
+                y[j++] = x[i++];
+                y[j++] = x[i++];
+                y[j] = x[i];
                 continue;
+            }
+            if (noencslashesenc && !forcedec && (proxyreq == PROXYREQ_REVERSE)) {
+                /*
+                 * In the reverse proxy case when we only want to keep encoded
+                 * slashes untouched revert back to '%' which will cause
+                 * '%' to be encoded in the following.
+                 */
+                ch = '%';
+            }
+            else {
+                i += 2;
             }
         }
 /* recode it, if necessary */
@@ -279,6 +294,22 @@ PROXY_DECLARE(char *)ap_proxy_canonenc(apr_pool_t *p, const char *x, int len,
     }
     y[j] = '\0';
     return y;
+}
+
+/*
+ * Convert a URL-encoded string to canonical form.
+ * It decodes characters which need not be encoded,
+ * and encodes those which must be encoded, and does not touch
+ * those which must not be touched.
+ */
+PROXY_DECLARE(char *)ap_proxy_canonenc(apr_pool_t *p, const char *x, int len,
+                                       enum enctype t, int forcedec,
+                                       int proxyreq)
+{
+    int flags;
+
+    flags = forcedec ? PROXY_CANONENC_FORCEDEC : 0;
+    return ap_proxy_canonenc_ex(p, x, len, t, flags, proxyreq);
 }
 
 /*
@@ -4696,7 +4727,7 @@ PROXY_DECLARE(apr_status_t) ap_proxy_tunnel_create(proxy_tunnel_rec **ptunnel,
 {
     apr_status_t rv;
     conn_rec *c_i = r->connection;
-    apr_interval_time_t timeout = -1;
+    apr_interval_time_t client_timeout = -1, origin_timeout = -1;
     proxy_tunnel_rec *tunnel;
 
     *ptunnel = NULL;
@@ -4723,9 +4754,16 @@ PROXY_DECLARE(apr_status_t) ap_proxy_tunnel_create(proxy_tunnel_rec **ptunnel,
     tunnel->client->bb = apr_brigade_create(c_i->pool, c_i->bucket_alloc);
     tunnel->client->pfd = &APR_ARRAY_PUSH(tunnel->pfds, apr_pollfd_t);
     tunnel->client->pfd->p = r->pool;
-    tunnel->client->pfd->desc_type = APR_POLL_SOCKET;
-    tunnel->client->pfd->desc.s = ap_get_conn_socket(c_i);
+    tunnel->client->pfd->desc_type = APR_NO_DESC;
+    rv = ap_get_pollfd_from_conn(tunnel->client->c,
+                                 tunnel->client->pfd, &client_timeout);
+    if (rv != APR_SUCCESS) {
+        return rv;
+    }
     tunnel->client->pfd->client_data = tunnel->client;
+    if (tunnel->client->pfd->desc_type == APR_POLL_SOCKET) {
+        apr_socket_opt_set(tunnel->client->pfd->desc.s, APR_SO_NONBLOCK, 1);
+    }
 
     tunnel->origin->c = c_o;
     tunnel->origin->name = "origin";
@@ -4735,17 +4773,12 @@ PROXY_DECLARE(apr_status_t) ap_proxy_tunnel_create(proxy_tunnel_rec **ptunnel,
     tunnel->origin->pfd->desc_type = APR_POLL_SOCKET;
     tunnel->origin->pfd->desc.s = ap_get_conn_socket(c_o);
     tunnel->origin->pfd->client_data = tunnel->origin;
-
-    /* Defaults to the biggest timeout of both connections */
-    apr_socket_timeout_get(tunnel->client->pfd->desc.s, &timeout);
-    apr_socket_timeout_get(tunnel->origin->pfd->desc.s, &tunnel->timeout);
-    if (timeout >= 0 && (tunnel->timeout < 0 || tunnel->timeout < timeout)) {
-        tunnel->timeout = timeout;
-    }
-
-    /* We should be nonblocking from now on the sockets */
-    apr_socket_opt_set(tunnel->client->pfd->desc.s, APR_SO_NONBLOCK, 1);
+    apr_socket_timeout_get(tunnel->origin->pfd->desc.s, &origin_timeout);
     apr_socket_opt_set(tunnel->origin->pfd->desc.s, APR_SO_NONBLOCK, 1);
+
+    /* Defaults to the largest timeout of both connections */
+    tunnel->timeout = (client_timeout >= 0 && client_timeout > origin_timeout ?
+                       client_timeout : origin_timeout);
 
     /* No coalescing filters */
     ap_remove_output_filter_byhandle(c_i->output_filters,
@@ -4769,14 +4802,43 @@ PROXY_DECLARE(apr_status_t) ap_proxy_tunnel_create(proxy_tunnel_rec **ptunnel,
         tunnel->nohalfclose = 1;
     }
 
-    /* Start with POLLOUT and let ap_proxy_tunnel_run() schedule both
-     * directions when there are no output data pending (anymore).
-     */
-    tunnel->client->pfd->reqevents = APR_POLLOUT | APR_POLLERR;
-    tunnel->origin->pfd->reqevents = APR_POLLOUT | APR_POLLERR;
-    if ((rv = apr_pollset_add(tunnel->pollset, tunnel->client->pfd))
-            || (rv = apr_pollset_add(tunnel->pollset, tunnel->origin->pfd))) {
-        return rv;
+    if (tunnel->client->pfd->desc_type == APR_POLL_SOCKET) {
+        /* Both ends are sockets, the poll strategy is:
+         * - poll both sides POLLOUT
+         * - when one side is writable, remove the POLLOUT
+         *   and add POLLIN to the other side.
+         * - tunnel arriving data, remove POLLIN from the source
+         *   again and add POLLOUT to the receiving side
+         * - on EOF on read, remove the POLLIN from that side
+         * Repeat until both sides are down */
+        tunnel->client->pfd->reqevents = APR_POLLOUT | APR_POLLERR;
+        tunnel->origin->pfd->reqevents = APR_POLLOUT | APR_POLLERR;
+        if ((rv = apr_pollset_add(tunnel->pollset, tunnel->origin->pfd)) ||
+            (rv = apr_pollset_add(tunnel->pollset, tunnel->client->pfd))) {
+            return rv;
+        }
+    }
+    else if (tunnel->client->pfd->desc_type == APR_POLL_FILE) {
+        /* Input is a PIPE fd, the poll strategy is:
+         * - always POLLIN on origin
+         * - use socket strategy described above for client only
+         * otherwise the same
+         */
+        tunnel->client->pfd->reqevents = 0;
+        tunnel->origin->pfd->reqevents = APR_POLLIN | APR_POLLHUP |
+                                         APR_POLLOUT | APR_POLLERR;
+        if ((rv = apr_pollset_add(tunnel->pollset, tunnel->origin->pfd))) {
+            return rv;
+        }
+    }
+    else {
+        /* input is already closed, unsual, but we know nothing about
+         * the tunneled protocol. */
+        tunnel->client->down_in = 1;
+        tunnel->origin->pfd->reqevents = APR_POLLIN | APR_POLLHUP;
+        if ((rv = apr_pollset_add(tunnel->pollset, tunnel->origin->pfd))) {
+            return rv;
+        }
     }
 
     *ptunnel = tunnel;
@@ -4888,7 +4950,23 @@ static int proxy_tunnel_forward(proxy_tunnel_rec *tunnel,
         }
 
         del_pollset(tunnel->pollset, in->pfd, APR_POLLIN);
-        add_pollset(tunnel->pollset, out->pfd, APR_POLLOUT);
+        if (out->pfd->desc_type == APR_POLL_SOCKET) {
+            /* if the output is a SOCKET, we can stop polling the input
+             * until the output signals POLLOUT again. */
+            add_pollset(tunnel->pollset, out->pfd, APR_POLLOUT);
+        }
+        else {
+            /* We can't use POLLOUT in this direction for the only
+             * APR_POLL_FILE case we have so far (mod_h2's "signal" pipe),
+             * we assume that the client's ouput filters chain will block/flush
+             * if necessary (i.e. no pending data), hence that the origin
+             * is EOF when reaching here. This direction is over. */
+            ap_assert(in->down_in && APR_STATUS_IS_EOF(rv));
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE3, 0, tunnel->r,
+                          "proxy: %s: %s write shutdown",
+                          tunnel->scheme, out->name);
+            out->down_out = 1;
+        }
     }
 
     return OK;

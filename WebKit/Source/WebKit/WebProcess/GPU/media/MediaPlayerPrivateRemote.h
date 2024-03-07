@@ -37,13 +37,14 @@
 #include "RemoteVideoFrameObjectHeapProxy.h"
 #include "RemoteVideoFrameProxy.h"
 #include "TextTrackPrivateRemote.h"
-#include "TrackPrivateRemoteIdentifier.h"
 #include "VideoTrackPrivateRemote.h"
 #include <WebCore/MediaPlayerPrivate.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/VideoFrameMetadata.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/MediaTime.h>
+#include <wtf/RefCounted.h>
+#include <wtf/StdUnorderedMap.h>
 
 #if ENABLE(MEDIA_SOURCE)
 #include "MediaSourcePrivateRemote.h"
@@ -75,25 +76,30 @@ struct VideoTrackPrivateRemoteConfiguration;
 
 class MediaPlayerPrivateRemote final
     : public WebCore::MediaPlayerPrivateInterface
+    , public RefCounted<MediaPlayerPrivateRemote>
     , public IPC::MessageReceiver
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
 #endif
 {
 public:
-    static std::unique_ptr<MediaPlayerPrivateRemote> create(WebCore::MediaPlayer* player, WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, WebCore::MediaPlayerIdentifier identifier, RemoteMediaPlayerManager& manager)
+    static Ref<MediaPlayerPrivateRemote> create(WebCore::MediaPlayer* player, WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, WebCore::MediaPlayerIdentifier identifier, RemoteMediaPlayerManager& manager)
     {
-        return makeUnique<MediaPlayerPrivateRemote>(player, remoteEngineIdentifier, identifier, manager);
+        return adoptRef(*new MediaPlayerPrivateRemote(player, remoteEngineIdentifier, identifier, manager));
     }
 
     MediaPlayerPrivateRemote(WebCore::MediaPlayer*, WebCore::MediaPlayerEnums::MediaEngineIdentifier, WebCore::MediaPlayerIdentifier, RemoteMediaPlayerManager&);
     ~MediaPlayerPrivateRemote();
+
+    void ref() final { RefCounted::ref(); }
+    void deref() final { RefCounted::deref(); }
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
     WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier() const { return m_remoteEngineIdentifier; }
     WebCore::MediaPlayerIdentifier identifier() const final { return m_id; }
     IPC::Connection& connection() const { return m_manager.gpuProcessConnection().connection(); }
+    Ref<IPC::Connection> protectedConnection() const { return m_manager.gpuProcessConnection().protectedConnection(); }
     RefPtr<WebCore::MediaPlayer> player() const { return m_player.get(); }
 
     WebCore::MediaPlayer::ReadyState readyState() const final { return m_cachedState.readyState; }
@@ -115,39 +121,39 @@ public:
     void firstVideoFrameAvailable();
     void renderingModeChanged();
 #if PLATFORM(COCOA)
-    void layerHostingContextIdChanged(std::optional<WebKit::LayerHostingContextID>&&, const WebCore::IntSize&);
+    void layerHostingContextIdChanged(std::optional<WebKit::LayerHostingContextID>&&, const WebCore::FloatSize&);
     WebCore::FloatSize videoLayerSize() const final;
     void setVideoLayerSizeFenced(const WebCore::FloatSize&, WTF::MachSendRight&&) final;
 #endif
 
     void currentTimeChanged(const MediaTime&, const MonotonicTime&, bool);
 
-    void addRemoteAudioTrack(TrackPrivateRemoteIdentifier, AudioTrackPrivateRemoteConfiguration&&);
-    void removeRemoteAudioTrack(TrackPrivateRemoteIdentifier);
-    void remoteAudioTrackConfigurationChanged(TrackPrivateRemoteIdentifier, AudioTrackPrivateRemoteConfiguration&&);
+    void addRemoteAudioTrack(AudioTrackPrivateRemoteConfiguration&&);
+    void removeRemoteAudioTrack(WebCore::TrackID);
+    void remoteAudioTrackConfigurationChanged(WebCore::TrackID, AudioTrackPrivateRemoteConfiguration&&);
 
-    void addRemoteVideoTrack(TrackPrivateRemoteIdentifier, VideoTrackPrivateRemoteConfiguration&&);
-    void removeRemoteVideoTrack(TrackPrivateRemoteIdentifier);
-    void remoteVideoTrackConfigurationChanged(TrackPrivateRemoteIdentifier, VideoTrackPrivateRemoteConfiguration&&);
+    void addRemoteVideoTrack(VideoTrackPrivateRemoteConfiguration&&);
+    void removeRemoteVideoTrack(WebCore::TrackID);
+    void remoteVideoTrackConfigurationChanged(WebCore::TrackID, VideoTrackPrivateRemoteConfiguration&&);
 
-    void addRemoteTextTrack(TrackPrivateRemoteIdentifier, TextTrackPrivateRemoteConfiguration&&);
-    void removeRemoteTextTrack(TrackPrivateRemoteIdentifier);
-    void remoteTextTrackConfigurationChanged(TrackPrivateRemoteIdentifier, TextTrackPrivateRemoteConfiguration&&);
+    void addRemoteTextTrack(TextTrackPrivateRemoteConfiguration&&);
+    void removeRemoteTextTrack(WebCore::TrackID);
+    void remoteTextTrackConfigurationChanged(WebCore::TrackID, TextTrackPrivateRemoteConfiguration&&);
 
-    void parseWebVTTFileHeader(TrackPrivateRemoteIdentifier, String&&);
-    void parseWebVTTCueData(TrackPrivateRemoteIdentifier, IPC::DataReference&&);
-    void parseWebVTTCueDataStruct(TrackPrivateRemoteIdentifier, WebCore::ISOWebVTTCue&&);
+    void parseWebVTTFileHeader(WebCore::TrackID, String&&);
+    void parseWebVTTCueData(WebCore::TrackID, IPC::DataReference&&);
+    void parseWebVTTCueDataStruct(WebCore::TrackID, WebCore::ISOWebVTTCue&&);
 
-    void addDataCue(TrackPrivateRemoteIdentifier, MediaTime&& start, MediaTime&& end, IPC::DataReference&&);
+    void addDataCue(WebCore::TrackID, MediaTime&& start, MediaTime&& end, IPC::DataReference&&);
 #if ENABLE(DATACUE_VALUE)
-    void addDataCueWithType(TrackPrivateRemoteIdentifier, MediaTime&& start, MediaTime&& end, WebCore::SerializedPlatformDataCueValue&&, String&&);
-    void updateDataCue(TrackPrivateRemoteIdentifier, MediaTime&& start, MediaTime&& end, WebCore::SerializedPlatformDataCueValue&&);
-    void removeDataCue(TrackPrivateRemoteIdentifier, MediaTime&& start, MediaTime&& end, WebCore::SerializedPlatformDataCueValue&&);
+    void addDataCueWithType(WebCore::TrackID, MediaTime&& start, MediaTime&& end, WebCore::SerializedPlatformDataCueValue&&, String&&);
+    void updateDataCue(WebCore::TrackID, MediaTime&& start, MediaTime&& end, WebCore::SerializedPlatformDataCueValue&&);
+    void removeDataCue(WebCore::TrackID, MediaTime&& start, MediaTime&& end, WebCore::SerializedPlatformDataCueValue&&);
 #endif
 
-    void addGenericCue(TrackPrivateRemoteIdentifier, WebCore::GenericCueData&&);
-    void updateGenericCue(TrackPrivateRemoteIdentifier, WebCore::GenericCueData&&);
-    void removeGenericCue(TrackPrivateRemoteIdentifier, WebCore::GenericCueData&&);
+    void addGenericCue(WebCore::TrackID, WebCore::GenericCueData&&);
+    void updateGenericCue(WebCore::TrackID, WebCore::GenericCueData&&);
+    void removeGenericCue(WebCore::TrackID, WebCore::GenericCueData&&);
 
     void requestResource(RemoteMediaResourceIdentifier, WebCore::ResourceRequest&&, WebCore::PlatformMediaResourceLoader::LoadOptions);
     void removeResource(RemoteMediaResourceIdentifier);
@@ -166,9 +172,9 @@ public:
 #endif
 
 #if ENABLE(MEDIA_SOURCE)
-    RefPtr<AudioTrackPrivateRemote> audioTrackPrivateRemote(TrackPrivateRemoteIdentifier identifier) const { return m_audioTracks.get(identifier); }
-    RefPtr<VideoTrackPrivateRemote> videoTrackPrivateRemote(TrackPrivateRemoteIdentifier identifier) const { return m_videoTracks.get(identifier); }
-    RefPtr<TextTrackPrivateRemote> textTrackPrivateRemote(TrackPrivateRemoteIdentifier identifier) const { return m_textTracks.get(identifier); }
+    RefPtr<AudioTrackPrivateRemote> audioTrackPrivateRemote(WebCore::TrackID) const;
+    RefPtr<VideoTrackPrivateRemote> videoTrackPrivateRemote(WebCore::TrackID) const;
+    RefPtr<TextTrackPrivateRemote> textTrackPrivateRemote(WebCore::TrackID) const;
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -256,7 +262,7 @@ private:
     bool hasVideo() const final;
     bool hasAudio() const final;
 
-    void setPageIsVisible(bool) final;
+    void setPageIsVisible(bool, String&& sceneIdentifier) final;
 
     MediaTime durationMediaTime() const final;
     MediaTime currentMediaTime() const final;
@@ -423,6 +429,8 @@ private:
 
     void setShouldDisableHDR(bool) final;
 
+    void setShouldCheckHardwareSupport(bool) final;
+
 #if PLATFORM(COCOA)
     void pushVideoFrameMetadata(WebCore::VideoFrameMetadata&&, RemoteVideoFrameProxy::Properties&&);
 #endif
@@ -452,9 +460,9 @@ private:
 #endif
 
     HashMap<RemoteMediaResourceIdentifier, RefPtr<WebCore::PlatformMediaResource>> m_mediaResources;
-    HashMap<TrackPrivateRemoteIdentifier, Ref<AudioTrackPrivateRemote>> m_audioTracks;
-    HashMap<TrackPrivateRemoteIdentifier, Ref<VideoTrackPrivateRemote>> m_videoTracks;
-    HashMap<TrackPrivateRemoteIdentifier, Ref<TextTrackPrivateRemote>> m_textTracks;
+    StdUnorderedMap<WebCore::TrackID, Ref<AudioTrackPrivateRemote>> m_audioTracks;
+    StdUnorderedMap<WebCore::TrackID, Ref<VideoTrackPrivateRemote>> m_videoTracks;
+    StdUnorderedMap<WebCore::TrackID, Ref<TextTrackPrivateRemote>> m_textTracks;
 
     WebCore::SecurityOriginData m_documentSecurityOrigin;
     mutable HashMap<WebCore::SecurityOriginData, std::optional<bool>> m_isCrossOriginCache;

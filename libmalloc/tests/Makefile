@@ -12,13 +12,9 @@ TRACE_FILES := \
 #   exclude_this_file.mtrace
 EXCLUDED_TRACE_FILES :=
 
-CUSTOM_TARGETS = \
-	MALLOC_BENCH
-
 OTHER_TEST_TARGETS = \
 	$(addprefix nano-trace-replay_, $(basename $(filter-out $(EXCLUDED_TRACE_FILES), $(TRACE_FILES)))) 
 
-MALLOCBENCHTEST_DIR = $(SRCROOT)/MallocBenchTest
 BATS_PLISTS_EXTRACT = \
 	$(patsubst %,$(SYMROOT)/%.plist,$(OTHER_TEST_TARGETS))
 
@@ -29,6 +25,7 @@ CXX := $(shell $(XCRUN) -sdk "$(TARGETSDK)" -find clang++)
 WARNING_CFLAGS := -Wno-format-invalid-specifier -Wno-format-extra-args
 OTHER_CFLAGS += \
 	-DDARWINTEST \
+	-DOS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY=1 \
 	-DOS_UNFAIR_LOCK_INLINE=1 \
 	-DT_META_TAG_XZONE=T_META_TAG\(\"xzone\"\) \
 	-DT_META_TAG_XZONE_ONLY=T_META_TAG\(\"xzone_only\"\) \
@@ -52,17 +49,7 @@ nano-trace-replay_%: $(SRCROOT)/nano_trace_replay.c
 		-o $@ \
 		$(SRCROOT)/nano_trace_replay.c
 
-# For now, we only build and run MallocBench on iOS. macOS requires
-# us to adopt installAPI.
-LOWER_SDKROOT  = $(shell echo $(SDKROOT) | tr '[:upper:]' '[:lower:]')
-ifneq (, $(findstring iphoneos,$(LOWER_SDKROOT)))
-include MallocBenchTest/Makefile.malloc-bench
-BATS_PLISTS = $(BATS_PLISTS_EXTRACT) $(MALLOCBENCHTEST_DIR)/MallocBench.plist
-else
-include MallocBenchTest/Makefile.dummy
 BATS_PLISTS = $(BATS_PLISTS_EXTRACT)
-endif
-
 BATS_PLISTS += $(PROJECT_DIR)/tests/xctests/BATS.plist
 
 $(BATS_PLISTS_EXTRACT): %.plist : %
@@ -80,33 +67,45 @@ else
 EXCLUDED_SOURCES += tsan.c
 endif
 
+bounds_test: OTHER_CFLAGS += -fbounds-attributes
+
+malloc_msl: OTHER_CFLAGS += -F $(PRIVATE_FRAMEWORKS)
+malloc_msl: OTHER_CFLAGS += -framework MallocStackLogging
+malloc_msl: OTHER_LDFLAGS += -F $(PRIVATE_FRAMEWORKS)
+malloc_msl: OTHER_LDFLAGS += -framework MallocStackLogging
+
+malloc_with_options_test: OTHER_LDFLAGS += -F $(PRIVATE_FRAMEWORKS)
+malloc_with_options_test: OTHER_LDFLAGS += -framework ktrace
+malloc_with_options_test: OTHER_CFLAGS += -I../src
+
 madvise: OTHER_CFLAGS += -I../src
+malloc_claimed_address_tests: OTHER_CFLAGS += -I../src
+scribble_tests: OTHER_CFLAGS += -I../src
+malloc_size_test: OTHER_CFLAGS += -I../src
 
 xzone: OTHER_LDFLAGS += -ldarwintest_utils
 
 malloc_type: OTHER_CFLAGS += -ftyped-memory-operations
 
-ifneq ($(PLATFORM),WatchOS)
-# Modify the BATS plist to run general tests again with xzone malloc enabled
-add_xzone_tests: bats.plist
-	xcrun -sdk $(SDKROOT) python3 ./add_xzone_tests.py $(SYMROOT)/bats.plist
+EXCLUDED_SOURCES += malloc_type_callsite_cpp.cpp
 
-CUSTOM_TARGETS += libmalloc_debug_symlink
+malloc_type_callsite_cpp.o: malloc_type_callsite_cpp.cpp
+	$(CXX) $(OTHER_CXXFLAGS) $(CXXFLAGS) -fno-typed-memory-operations -fno-typed-cxx-new-delete -c $< -o $(SYMROOT)/$@
 
-# Create a symlink to the debug version of the dylib that can be picked up in
-# isolation using DYLD_LIBRARY_PATH and DYLD_IMAGE_SUFFIX
-libmalloc_debug_symlink: ;
+malloc_type_callsite: malloc_type_callsite_cpp.o
+malloc_type_callsite: OTHER_CFLAGS += $(SYMROOT)/malloc_type_callsite_cpp.o
+malloc_type_callsite: OTHER_LDFLAGS += -lc++
 
-install-libmalloc_debug_symlink:
-	mkdir -p $(INSTALLDIR)
-	ln -sf /usr/lib/system/libsystem_malloc_debug.dylib $(INSTALLDIR)/libsystem_malloc_testdebug.dylib
+# BATS test plist handling
+#  - Modify plist (add tests) to run general tests again with xzone malloc enabled
+project_test_configs: bats.plist
+	xcrun -sdk $(SDKROOT) python3 ./add_xzone_tests.py $(SYMROOT)/bats.plist --platform $(PLATFORM)
 
-.PHONY: add_xzone_tests
+.PHONY: project_test_configs
 
 # Ensure that we add the xzone tests before bats.plist is installed to the
 # dstroot
-install: add_xzone_tests
-endif # ($(PLATFORM),WatchOS)
+install: project_test_configs
 
 .DEFAULT_GOAL := all
 

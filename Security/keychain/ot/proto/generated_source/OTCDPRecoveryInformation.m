@@ -93,6 +93,20 @@
 {
     return _has.usesMultipleIcsc != 0;
 }
+@synthesize nonViableRepair = _nonViableRepair;
+- (void)setNonViableRepair:(BOOL)v
+{
+    _has.nonViableRepair = (uint)YES;
+    _nonViableRepair = v;
+}
+- (void)setHasNonViableRepair:(BOOL)f
+{
+    _has.nonViableRepair = (uint)f;
+}
+- (BOOL)hasNonViableRepair
+{
+    return _has.nonViableRepair != 0;
+}
 
 - (NSString *)description
 {
@@ -129,6 +143,10 @@
     if (self->_has.usesMultipleIcsc)
     {
         [dict setObject:[NSNumber numberWithBool:self->_usesMultipleIcsc] forKey:@"uses_multiple_icsc"];
+    }
+    if (self->_has.nonViableRepair)
+    {
+        [dict setObject:[NSNumber numberWithBool:self->_nonViableRepair] forKey:@"non_viable_repair"];
     }
     return dict;
 }
@@ -189,6 +207,12 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
             {
                 self->_has.usesMultipleIcsc = (uint)YES;
                 self->_usesMultipleIcsc = PBReaderReadBOOL(reader);
+            }
+            break;
+            case 8 /* nonViableRepair */:
+            {
+                self->_has.nonViableRepair = (uint)YES;
+                self->_nonViableRepair = PBReaderReadBOOL(reader);
             }
             break;
             default:
@@ -255,6 +279,13 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
             PBDataWriterWriteBOOLField(writer, self->_usesMultipleIcsc, 7);
         }
     }
+    /* nonViableRepair */
+    {
+        if (self->_has.nonViableRepair)
+        {
+            PBDataWriterWriteBOOLField(writer, self->_nonViableRepair, 8);
+        }
+    }
 }
 
 - (void)copyTo:(OTCDPRecoveryInformation *)other
@@ -292,6 +323,11 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
         other->_usesMultipleIcsc = _usesMultipleIcsc;
         other->_has.usesMultipleIcsc = YES;
     }
+    if (self->_has.nonViableRepair)
+    {
+        other->_nonViableRepair = _nonViableRepair;
+        other->_has.nonViableRepair = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -324,6 +360,11 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
         copy->_usesMultipleIcsc = _usesMultipleIcsc;
         copy->_has.usesMultipleIcsc = YES;
     }
+    if (self->_has.nonViableRepair)
+    {
+        copy->_nonViableRepair = _nonViableRepair;
+        copy->_has.nonViableRepair = YES;
+    }
     return copy;
 }
 
@@ -345,6 +386,8 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
     ((self->_has.containsIcdpData && other->_has.containsIcdpData && ((self->_containsIcdpData && other->_containsIcdpData) || (!self->_containsIcdpData && !other->_containsIcdpData))) || (!self->_has.containsIcdpData && !other->_has.containsIcdpData))
     &&
     ((self->_has.usesMultipleIcsc && other->_has.usesMultipleIcsc && ((self->_usesMultipleIcsc && other->_usesMultipleIcsc) || (!self->_usesMultipleIcsc && !other->_usesMultipleIcsc))) || (!self->_has.usesMultipleIcsc && !other->_has.usesMultipleIcsc))
+    &&
+    ((self->_has.nonViableRepair && other->_has.nonViableRepair && ((self->_nonViableRepair && other->_nonViableRepair) || (!self->_nonViableRepair && !other->_nonViableRepair))) || (!self->_has.nonViableRepair && !other->_has.nonViableRepair))
     ;
 }
 
@@ -365,6 +408,8 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
     (self->_has.containsIcdpData ? PBHashInt((NSUInteger)self->_containsIcdpData) : 0)
     ^
     (self->_has.usesMultipleIcsc ? PBHashInt((NSUInteger)self->_usesMultipleIcsc) : 0)
+    ^
+    (self->_has.nonViableRepair ? PBHashInt((NSUInteger)self->_nonViableRepair) : 0)
     ;
 }
 
@@ -402,6 +447,11 @@ BOOL OTCDPRecoveryInformationReadFrom(__unsafe_unretained OTCDPRecoveryInformati
     {
         self->_usesMultipleIcsc = other->_usesMultipleIcsc;
         self->_has.usesMultipleIcsc = YES;
+    }
+    if (other->_has.nonViableRepair)
+    {
+        self->_nonViableRepair = other->_nonViableRepair;
+        self->_has.nonViableRepair = YES;
     }
 }
 

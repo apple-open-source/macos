@@ -619,8 +619,8 @@ tcp_log_connection_summary(struct tcpcb *tp)
 #define TCP_LOG_CONNECTION_SUMMARY_FMT \
 	    "tcp_connection_summary " \
 	    TCP_LOG_COMMON_PCB_FMT \
-	    "Duration: %u.%u sec " \
-	    "Conn_Time: %u.%u sec " \
+	    "Duration: %u.%03u sec " \
+	    "Conn_Time: %u.%03u sec " \
 	    "bytes in/out: %llu/%llu " \
 	    "pkts in/out: %llu/%llu " \
 	    "pkt rxmit: %u " \

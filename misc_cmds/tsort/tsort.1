@@ -1,5 +1,3 @@
-.\"	$NetBSD: tsort.1,v 1.7 1997/10/20 01:09:53 lukem Exp $
-.\"
 .\" Copyright (c) 1990, 1993, 1994
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -14,11 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -35,8 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)tsort.1	8.3 (Berkeley) 4/1/94
+.\" $FreeBSD$
 .\"
-.Dd April 1, 1994
+.Dd August 30, 2020
 .Dt TSORT 1
 .Os
 .Sh NAME
@@ -44,20 +39,20 @@
 .Nd topological sort of a directed graph
 .Sh SYNOPSIS
 .Nm
-.Op Fl l
-.Op Fl q
+.Op Fl dlq
 .Op Ar file
 .Sh DESCRIPTION
+The
 .Nm
-takes a list of pairs of node names representing directed arcs in
+utility takes a list of pairs of node names representing directed arcs in
 a graph and prints the nodes in topological order on standard output.
 Input is taken from the named
 .Ar file ,
 or from standard input if no file
 is given.
 .Pp
-Node names in the input are separated by white space and there must
-be an even number of node pairs.
+There must be an even number of nodes in the input.
+Node names specified on the same line should be white space separated.
 .Pp
 Presence of a node in a graph can be represented by an arc from the node
 to itself.
@@ -68,23 +63,96 @@ one of the arcs in the cycle is ignored and the sort continues.
 Cycles are reported on standard error.
 .Pp
 The options are as follows:
-.Bl -tag -width Ds
+.Bl -tag -width indent
+.It Fl d
+Turn on debugging.
 .It Fl l
 Search for and display the longest cycle.
 Can take a very long time.
 .It Fl q
-Do not display informational messages about cycles.  This is primarily
+Do not display informational messages about cycles.
+This is primarily
 intended for building libraries, where optimal ordering is not critical,
 and cycles occur often.
 .El
+.Sh EXAMPLES
+Assuming a file named
+.Pa dag
+with the following contents representing a directed acyclic graph:
+.Bd -literal -offset indent
+A B
+A F
+B C
+B D
+D E
+.Ed
+.Pp
+Sort the nodes of the graph:
+.Bd -literal -offset indent
+$ tsort dag
+A
+F
+B
+D
+C
+E
+.Ed
+.Pp
+White spaces and new line characters are considered equal.
+This file for example is considered equal to the one we defined before:
+.Bd -literal -offset indent
+$ cat dga
+A B A F B C B D D E
+.Ed
+.Pp
+Assume we add a new directed arc from D to A creating a cycle:
+.Bd -literal -offset indent
+A B
+A F
+B C
+B D
+D E
+D A
+.Ed
+.Pp
+Ordering the graph detects the cycle:
+.Bd -literal -offset indent
+$ tsort dag
+tsort: cycle in data
+tsort: A
+tsort: B
+tsort: D
+D
+E
+A
+F
+B
+C
+.Ed
+.Pp
+Same as above but silencing the warning about the cycle:
+.Bd -literal -offset indent
+$ tsort -q dag
+D
+E
+A
+F
+B
+C
+.Ed
 .Sh SEE ALSO
 .Xr ar 1
 .Sh HISTORY
-A
+The
 .Nm
 command appeared in
 .At v7 .
 This
 .Nm
 command and manual page are derived from sources contributed to Berkeley by
-Michael Rendell of Memorial University of Newfoundland.
+.An Michael Rendell
+of Memorial University of Newfoundland.
+.Sh BUGS
+The
+.Nm
+utility does not recognize multibyte characters.

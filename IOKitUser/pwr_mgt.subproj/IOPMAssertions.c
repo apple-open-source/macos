@@ -1002,8 +1002,8 @@ void offloadAssertions(bool forced)
                 ERROR_LOG("Failed to create the remoteID to CF for id %@\n", assertion);
                 continue;
             }
-            INFO_LOG("powerd returned assertion id 0x%x for async id %@\n",
-                      remoteID, assertion);
+            INFO_LOG("powerd returned assertion id 0x%x for async id 0x%x \n",
+                      remoteID, a_id);
             gCurrentAssertion = a_id;
             gCurrentRemoteAssertion = remoteID;
             gCurrentRemoteAssertionIsCoalesced = multipleActiveAssertionsExist();  // May be coalescing other active assertions
@@ -1114,30 +1114,34 @@ void processAssertionTimeout(xpc_object_t msg)
 
 void processAssertionUpdateActivity(xpc_object_t msg)
 {
+    uint64_t        token = 0;
+    xpc_object_t    reply = NULL;
+    xpc_object_t    data = NULL;
+
     INFO_LOG("Powerd has requested assertion activity update");
-    if (gAsyncAssertionActivityLog.unreadCnt == 0 || CFArrayGetCount(gAsyncAssertionActivityLog.log) == 0) {
-        DEBUG_LOG("No assertion activity to update");
-        return;
-    }
+
     if (!gAssertionConnection) {
         ERROR_LOG("processAssertionUpdateActivity: No gAssertionConnection");
         return;
     }
 
-    xpc_object_t reply = xpc_dictionary_create_reply(msg);
-    xpc_object_t data;
+    reply = xpc_dictionary_create_reply(msg);
     if (!reply) {
         ERROR_LOG("Failed to create xpc reply object");
         return;
     }
 
-    DEBUG_LOG("processAssertionUpdateActivity unread-count %d", gAsyncAssertionActivityLog.unreadCnt);
+    // Take the token from incoming message and put it in reply
+    token = xpc_dictionary_get_uint64(msg, kAssertionCheckTokenKey);
+    xpc_dictionary_set_uint64(reply, kAssertionCheckTokenKey, token);
 
-    data = _CFXPCCreateXPCObjectFromCFObject(gAsyncAssertionActivityLog.log);
-    xpc_dictionary_set_value(reply, kAssertionActivityLogKey, data);
-    if (gAsyncAssertionActivityLog.unreadCnt > kMaxAsyncAssertionsLog) {
-        // set overflow = true.
-        xpc_dictionary_set_bool(reply, kAssertionCopyActivityUpdateOverflowKey, true);
+    DEBUG_LOG("processAssertionUpdateActivity unread-count %d", gAsyncAssertionActivityLog.unreadCnt);
+    if (gAsyncAssertionActivityLog.unreadCnt > 0 && CFArrayGetCount(gAsyncAssertionActivityLog.log) != 0) {
+        data = _CFXPCCreateXPCObjectFromCFObject(gAsyncAssertionActivityLog.log);
+        xpc_dictionary_set_value(reply, kAssertionActivityLogKey, data);
+        if (gAsyncAssertionActivityLog.unreadCnt > kMaxAsyncAssertionsLog) {
+            xpc_dictionary_set_bool(reply, kAssertionCopyActivityUpdateOverflowKey, true);
+        }
     }
 
     xpc_connection_send_message(gAssertionConnection, reply);
@@ -1155,17 +1159,30 @@ void processCurrentActiveAssertions(xpc_object_t msg)
     /*
      powerd has requested all active async assertions
      */
+    uint64_t            token = 0;
+    xpc_object_t        reply = NULL;
+    xpc_object_t        data = NULL;
+    CFMutableArrayRef   toLog = NULL;
+
+    INFO_LOG("Powerd has requested active assertions update");
+
     if (!gAssertionConnection) {
-        ERROR_LOG("processAssertionUpdateActivity: No gAssertionConnection");
+        ERROR_LOG("processCurrentActiveAssertions: No gAssertionConnection");
         return;
     }
+
+    reply = xpc_dictionary_create_reply(msg);
+    if (!reply) {
+        ERROR_LOG("Failed to create xpc reply object");
+        return;
+    }
+
+    // Take the token from incoming message and put it in reply
+    token = xpc_dictionary_get_uint64(msg, kAssertionCheckTokenKey);
+    xpc_dictionary_set_uint64(reply, kAssertionCheckTokenKey, token);
+
     if (gActiveAssertionsDict && CFDictionaryGetCount(gActiveAssertionsDict) > 0) {
-        xpc_object_t reply = xpc_dictionary_create_reply(msg);
-        if (!reply) {
-            ERROR_LOG("Failed to create xpc reply object");
-            return;
-        }
-        CFMutableArrayRef toLog = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        toLog = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
         for (int idx = 0; idx < kMaxAsyncAssertions; idx++) {
             CFMutableDictionaryRef assertion;
             if (!CFDictionaryGetValueIfPresent(gActiveAssertionsDict, (uintptr_t)idx, (const void **)&assertion)) {
@@ -1177,18 +1194,19 @@ void processCurrentActiveAssertions(xpc_object_t msg)
             }
             CFArrayAppendValue(toLog, assertion);
         }
-        xpc_object_t data = _CFXPCCreateXPCObjectFromCFObject(toLog);
+        data = _CFXPCCreateXPCObjectFromCFObject(toLog);
         xpc_dictionary_set_value(reply, kAssertionUpdateActivesMsg, data);
-        xpc_connection_send_message(gAssertionConnection, reply);
-        if (data) {
-            xpc_release(data);
-        }
-        if (reply) {
-            xpc_release(reply);
-        }
-        if (toLog) {
-            CFRelease(toLog);
-        }
+    }
+
+    xpc_connection_send_message(gAssertionConnection, reply);
+    if (data) {
+        xpc_release(data);
+    }
+    if (reply) {
+        xpc_release(reply);
+    }
+    if (toLog) {
+        CFRelease(toLog);
     }
 }
 
@@ -1619,7 +1637,9 @@ void clearAssertionLogBuffer(void)
 {
     gAsyncAssertionActivityLog.unreadCnt = 0;
     gAsyncAssertionActivityLog.idx = 0;
-    CFArrayRemoveAllValues(gAsyncAssertionActivityLog.log);
+    if (gAsyncAssertionActivityLog.log) {
+        CFArrayRemoveAllValues(gAsyncAssertionActivityLog.log);
+    }
 }
 
 bool activeAssertions(void)

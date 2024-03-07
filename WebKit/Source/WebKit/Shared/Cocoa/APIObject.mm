@@ -104,11 +104,14 @@
 #endif
 
 #if ENABLE(WK_WEB_EXTENSIONS)
+#import "_WKWebExtensionActionInternal.h"
+#import "_WKWebExtensionCommandInternal.h"
 #import "_WKWebExtensionContextInternal.h"
 #import "_WKWebExtensionControllerConfigurationInternal.h"
 #import "_WKWebExtensionControllerInternal.h"
 #import "_WKWebExtensionInternal.h"
 #import "_WKWebExtensionMatchPatternInternal.h"
+#import "_WKWebExtensionMessagePortInternal.h"
 #endif
 
 static const size_t minimumObjectAlignment = alignof(std::aligned_storage<std::numeric_limits<size_t>::max()>::type);
@@ -403,6 +406,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         wrapper = [_WKWebExtensionContext alloc];
         break;
 
+    case Type::WebExtensionAction:
+        wrapper = [_WKWebExtensionAction alloc];
+        break;
+
+    case Type::WebExtensionCommand:
+        wrapper = [_WKWebExtensionCommand alloc];
+        break;
+
     case Type::WebExtensionController:
         wrapper = [_WKWebExtensionController alloc];
         break;
@@ -413,6 +424,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     case Type::WebExtensionMatchPattern:
         wrapper = [_WKWebExtensionMatchPattern alloc];
+        break;
+
+    case Type::WebExtensionMessagePort:
+        wrapper = [_WKWebExtensionMessagePort alloc];
         break;
 #endif
 
@@ -550,7 +565,7 @@ RefPtr<API::Object> Object::fromNSObject(NSObject<NSSecureCoding> *object)
         result.reserveInitialCapacity(array.count);
         for (id member in array) {
             if (auto memberObject = fromNSObject(member))
-                result.uncheckedAppend(WTFMove(memberObject));
+                result.append(WTFMove(memberObject));
         }
         return API::Array::create(WTFMove(result));
     }

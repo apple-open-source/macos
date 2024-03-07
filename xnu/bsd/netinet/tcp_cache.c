@@ -40,6 +40,7 @@
 #include <kern/locks.h>
 #include <sys/queue.h>
 #include <dev/random/randomdev.h>
+#include <net/sockaddr_utils.h>
 
 typedef union {
 	struct in_addr addr;
@@ -592,14 +593,14 @@ tcp_cache_update_mptcp_version(struct tcpcb *tp, boolean_t succeeded)
 			.sin6_family = AF_INET6,
 			.sin6_addr = inp->in6p_faddr,
 		};
-		mptcp_version_cache_key_src_init((struct sockaddr *)&dst, &tcks);
+		mptcp_version_cache_key_src_init(SA(&dst), &tcks);
 	} else {
 		struct sockaddr_in dst = {
 			.sin_len = sizeof(struct sockaddr_in),
 			.sin_family = AF_INET,
 			.sin_addr = inp->inp_faddr,
 		};
-		mptcp_version_cache_key_src_init((struct sockaddr *)&dst, &tcks);
+		mptcp_version_cache_key_src_init(SA(&dst), &tcks);
 	}
 
 	/* Call lookup/create function */

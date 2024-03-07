@@ -156,9 +156,15 @@
     __descriptionRecursion += 1;
 
     if(self.descriptionErrorCode != 0) {
+        NSMutableDictionary* userInfo = nil;
+        if(self.descriptionUnderlyingError != nil) {
+            userInfo = [NSMutableDictionary dictionary];
+            userInfo[NSUnderlyingErrorKey] = self.descriptionUnderlyingError;
+        }
+
         result = [NSError errorWithDomain:CKKSResultDescriptionErrorDomain
                                      code:self.descriptionErrorCode
-                                 userInfo:nil];
+                                 userInfo:userInfo];
     } else if(__descriptionRecursion > 10) {
         result = [NSError errorWithDomain:CKKSResultDescriptionErrorDomain
                                      code:-1

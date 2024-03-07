@@ -386,8 +386,8 @@ udp_log_connection_summary(struct inpcb *inp)
 #define UDP_LOG_CONNECTION_SUMMARY_FMT \
 	    "udp_connection_summary " \
 	    UDP_LOG_COMMON_PCB_FMT \
-	    "Duration: %lu.%d sec " \
-	    "Conn_Time: %lu.%d sec " \
+	    "Duration: %lu.%03d sec " \
+	    "Conn_Time: %lu.%03d sec " \
 	    "bytes in/out: %llu/%llu " \
 	    "pkts in/out: %llu/%llu " \
 	    "so_error: %d " \

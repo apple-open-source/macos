@@ -66,7 +66,8 @@ RefPtr<Uint8Array> CDMSessionAVFoundationObjC::generateKeyRequest(const String& 
 {
     UNUSED_PARAM(mimeType);
 
-    if (!m_parent) {
+    RefPtr parent = m_parent.get();
+    if (!parent) {
         ERROR_LOG(LOGIDENTIFIER, "error: !parent");
         errorCode = LegacyCDM::UnknownError;
         return nullptr;
@@ -81,7 +82,7 @@ RefPtr<Uint8Array> CDMSessionAVFoundationObjC::generateKeyRequest(const String& 
         return nullptr;
     }
 
-    m_request = m_parent->takeRequestForKeyURI(keyURI);
+    m_request = parent->takeRequestForKeyURI(keyURI);
     if (!m_request) {
         ERROR_LOG(LOGIDENTIFIER, "error: could not find request for key URI");
         errorCode = LegacyCDM::UnknownError;
@@ -97,7 +98,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (!keyRequest) {
-        ERROR_LOG(LOGIDENTIFIER, "failed to generate key request with error: ", String(nsError.localizedDescription));
+        ERROR_LOG(LOGIDENTIFIER, "failed to generate key request with error: ", nsError);
         errorCode = LegacyCDM::DomainError;
         systemCode = mediaKeyErrorSystemCode(nsError);
         return nullptr;
@@ -142,7 +143,7 @@ void CDMSessionAVFoundationObjC::playerDidReceiveError(NSError *error)
     if (!m_client)
         return;
 
-    ERROR_LOG(LOGIDENTIFIER, String(error.localizedDescription));
+    ERROR_LOG(LOGIDENTIFIER, error);
 
     unsigned long code = mediaKeyErrorSystemCode(error);
     m_client->sendError(LegacyCDMSessionClient::MediaKeyErrorDomain, code);

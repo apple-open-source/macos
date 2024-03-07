@@ -178,7 +178,10 @@ __log_SCNetworkReachability(void)
 static __inline__ CFTypeRef
 isA_SCNetworkReachability(CFTypeRef obj)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	return (isA_CFType(obj, SCNetworkReachabilityGetTypeID()));
+#pragma GCC diagnostic pop
 }
 
 static CFStringRef
@@ -839,7 +842,10 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 		}
 
 		name = _SC_cfstring_to_cstring(nodename, NULL, 0, kCFStringEncodingUTF8);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 		target = SCNetworkReachabilityCreateWithName(allocator, name);
+#pragma GCC diagnostic pop
 		CFAllocatorDeallocate(NULL, (void *)name);
 	} else if (addr_p != NULL) {
 		if ((addr_l != NULL) ||					// can't have PTR and target address
@@ -850,12 +856,15 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 
 		target = __SCNetworkReachabilityCreateWithPTR(NULL, addr_p);
 	} else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 		if ((addr_l != NULL) && (addr_r != NULL)) {
 			target = SCNetworkReachabilityCreateWithAddressPair(NULL, addr_l, addr_r);
 		} else if (addr_r != NULL) {
 			target = SCNetworkReachabilityCreateWithAddress(NULL, addr_r);
 		} else if (addr_l != NULL) {
 			target = SCNetworkReachabilityCreateWithAddressPair(NULL, addr_l, NULL);
+#pragma GCC diagnostic pop
 		} else {
 			_SCErrorSet(kSCStatusInvalidArgument);
 			return NULL;

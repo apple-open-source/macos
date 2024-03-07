@@ -43,6 +43,9 @@
 #include "citrus_hash.h"
 #include "citrus_iconv.h"
 #include "citrus_iconv_none.h"
+#ifdef __APPLE__
+#include "citrus_mapper.h"
+#endif
 
 /* ---------------------------------------------------------------------- */
 
@@ -98,11 +101,18 @@ _citrus_iconv_none_iconv_uninit_context(struct _citrus_iconv *cv __unused)
 
 static int
 /*ARGSUSED*/
+#ifdef __APPLE__
+_citrus_iconv_none_iconv_convert(struct _citrus_iconv * __restrict ci,
+#else
 _citrus_iconv_none_iconv_convert(struct _citrus_iconv * __restrict ci __unused,
+#endif
     char * __restrict * __restrict in, size_t * __restrict inbytes,
     char * __restrict * __restrict out, size_t * __restrict outbytes,
     uint32_t flags __unused, size_t * __restrict invalids)
 {
+#ifdef __APPLE__
+	struct iconv_hooks *hooks = ci->cv_shared->ci_hooks;
+#endif
 	size_t len;
 	int e2big;
 
@@ -111,12 +121,44 @@ _citrus_iconv_none_iconv_convert(struct _citrus_iconv * __restrict ci __unused,
 	if ((*in == NULL) || (*out == NULL) || (*inbytes == 0) || (*outbytes == 0))
 		return (0);
 	len = *inbytes;
+#ifdef __APPLE__
+	/*
+	 * Floor it to the nearest wchar_t because we could have been passed an
+	 * array with some excess, and we shouldn't E2BIG that.
+	 */
+	if (ci->cv_wchar_dir == MDIR_UCS_BOTH)
+		len = (len / sizeof(wchar_t)) * sizeof(wchar_t);
+#endif
 	e2big = 0;
 	if (*outbytes<len) {
 		e2big = 1;
 		len = *outbytes;
+#ifdef __APPLE__
+		/* Floor it again. */
+		if (ci->cv_wchar_dir == MDIR_UCS_BOTH)
+			len = (len / sizeof(wchar_t)) * sizeof(wchar_t);
+#endif
 	}
+#ifdef __APPLE__
+	/*
+	 * We'll just memcpy the whole array if we don't need to call any hooks.
+	 */
+	if (ci->cv_wchar_dir == MDIR_UCS_BOTH && hooks != NULL &&
+	    hooks->wc_hook != NULL) {
+		wchar_t *iwc = (wchar_t *)*in, *owc = (wchar_t *)*out;
+		size_t nwchar = len / sizeof(*iwc);
+
+		for (size_t i = 0; i < nwchar; i++, iwc++, owc++) {
+			*owc = *iwc;
+
+			hooks->wc_hook(*owc, hooks->data);
+		}
+	} else {
+		memcpy(*out, *in, len);
+	}
+#else
 	memcpy(*out, *in, len);
+#endif
 	in += len;
 	*inbytes -= len;
 	out += len;

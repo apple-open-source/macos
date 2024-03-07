@@ -2331,10 +2331,12 @@
             NSError* error = nil;
             NSString* currentIdentifier = [NSString stringWithFormat:@"%@-%@", accessGroup, identifier];
             
-            secnotice("ckkspersona", "getCurrentItemForAccessGroup: thread persona [%@/%@] this currentIdentifier [%@] viewhint [%@]",
-                      [ self.personaAdapter currentThreadPersonaUniqueString ], self.operationDependencies.activeAccount.personaUniqueString,
-                      currentIdentifier, viewHint);
-            
+            if(OctagonSupportsPersonaMultiuser()) {
+                secnotice("ckkspersona", "getCurrentItemForAccessGroup: thread persona [%@/%@] this currentIdentifier [%@] viewhint [%@]",
+                          [ self.personaAdapter currentThreadPersonaUniqueString ], self.operationDependencies.activeAccount.personaUniqueString,
+                          currentIdentifier, viewHint);
+            }
+
             CKKSCurrentItemPointer* cip = [CKKSCurrentItemPointer fromDatabase:currentIdentifier
                                                                      contextID:self.operationDependencies.contextID
                                                                          state:SecCKKSProcessedStateLocal
@@ -2574,8 +2576,8 @@
                                                                                  stateMachine:self.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
-    [watcher timeout:300*NSEC_PER_SEC];
-    [self.stateMachine registerStateTransitionWatcher:watcher];
+    [self.stateMachine registerStateTransitionWatcher:watcher
+                                         startTimeout:300*NSEC_PER_SEC];
 
     dispatch_sync(self.queue, ^{
         // Keep normal rate-limiting to avoid clients abusing the call to generate CK traffic
@@ -2651,8 +2653,8 @@
                                                                                  stateMachine:self.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
-    [watcher timeout:300*NSEC_PER_SEC];
-    [self.stateMachine registerStateTransitionWatcher:watcher];
+    [self.stateMachine registerStateTransitionWatcher:watcher
+                                         startTimeout:300*NSEC_PER_SEC];
 
     dispatch_sync(self.queue, ^{
         [self.operationDependencies.currentFetchReasons addObject:why];
@@ -2734,8 +2736,8 @@
                                                                                  stateMachine:self.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
-    [watcher timeout:300*NSEC_PER_SEC];
-    [self.stateMachine registerStateTransitionWatcher:watcher];
+    [self.stateMachine registerStateTransitionWatcher:watcher
+                                         startTimeout:300*NSEC_PER_SEC];
 
     dispatch_sync(self.queue, ^{
         [self.operationDependencies.currentFetchReasons addObject:why];
@@ -2810,8 +2812,8 @@
                                                                                  stateMachine:self.stateMachine
                                                                                          path:path
                                                                                initialRequest:nil];
-    [watcher timeout:300*NSEC_PER_SEC];
-    [self.stateMachine registerStateTransitionWatcher:watcher];
+    [self.stateMachine registerStateTransitionWatcher:watcher
+                                         startTimeout:300*NSEC_PER_SEC];
 
     [self.stateMachine handleFlag:CKKSFlagProcessIncomingQueue];
 
@@ -2892,8 +2894,8 @@
     OctagonStateMultiStateArrivalWatcher* waitForTransient = [[OctagonStateMultiStateArrivalWatcher alloc] initNamed:@"rpc-watcher"
                                                                                                          serialQueue:self.queue
                                                                                                               states:CKKSKeyStateNonTransientStates()];
-    [waitForTransient timeout:timeout];
-    [self.stateMachine registerMultiStateArrivalWatcher:waitForTransient];
+    [self.stateMachine registerMultiStateArrivalWatcher:waitForTransient
+                                           startTimeout:timeout];
 
     CKKSUpdateDeviceStateOperation* op = [[CKKSUpdateDeviceStateOperation alloc] initWithOperationDependencies:self.operationDependencies
                                                                                                      rateLimit:rateLimit
@@ -3429,7 +3431,8 @@
         CKKSStateLoggedOut: [NSError errorWithDomain:CKKSErrorDomain code:CKKSNotLoggedIn description:@"CloudKit account not present"],
         CKKSStateError: [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorNotSupported description:@"CKKS currently in error state"],
     }];
-    [self.stateMachine _onqueueRegisterMultiStateArrivalWatcher:self.priorityViewsProcessed];
+    [self.stateMachine _onqueueRegisterMultiStateArrivalWatcher:self.priorityViewsProcessed
+                                                   startTimeout:DISPATCH_TIME_FOREVER];
 }
 
 - (CKKSKeychainViewState*)createViewState:(NSString*)zoneName
@@ -4086,8 +4089,8 @@
                                                                                                                   CKKSStateWaitForTrust,
                                                                                                                   OctagonStateMachineHalted,
                                                                                                               ]]];
-    [waitForTransient timeout:nonTransientStateTimeout];
-    [self.stateMachine registerMultiStateArrivalWatcher:waitForTransient];
+    [self.stateMachine registerMultiStateArrivalWatcher:waitForTransient
+                                           startTimeout:nonTransientStateTimeout];
 
     WEAKIFY(self);
     CKKSResultOperation* statusOp = [CKKSResultOperation named:@"status-rpc" withBlock:^{

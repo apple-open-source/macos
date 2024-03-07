@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 1997 Wolfgang Helbig
  * All rights reserved.
  *
@@ -76,7 +78,7 @@ static struct djswitch {
 	{"AT", "Austria",       {1583, 10,  5}},
 	{"AU", "Australia",     {1752,  9,  2}},
 	{"BE", "Belgium",       {1582, 12, 14}},
-	{"BG", "Bulgaria",      {1916,  3, 18}},
+	{"BG", "Bulgaria",      {1916,  3, 31}},
 	{"CA", "Canada",        {1752,  9,  2}},
 	{"CH", "Switzerland",   {1655,  2, 28}},
 	{"CN", "China",         {1911, 12, 18}},
@@ -92,8 +94,7 @@ static struct djswitch {
 	{"IS", "Iceland",       {1700, 11, 16}},
 	{"IT", "Italy",         {1582, 10,  4}},
 	{"JP", "Japan",         {1918, 12, 18}},
-	{"LI", "Lithuania",     {1918,  2,  1}},
-	{"LN", "Latin",         {9999, 05, 31}},
+	{"LT", "Lithuania",     {1918,  2,  1}},
 	{"LU", "Luxembourg",    {1582, 12, 14}},
 	{"LV", "Latvia",        {1918,  2,  1}},
 	{"NL", "Netherlands",   {1582, 12, 14}},
@@ -496,10 +497,8 @@ main(int argc, char *argv[])
 			monthrangeb(y, m, flag_julian_day, before, after);
 		else
 			monthranger(y, m, flag_julian_day, before, after);
-#ifdef __APPLE__
 	if (ferror(stdout) != 0 || fflush(stdout) != 0)
 		err(1, "stdout");
-#endif
 	return (0);
 }
 
@@ -582,7 +581,7 @@ printeaster(int y, int julian, int orthodox)
 			(y)++;		\
 		}
 #define	M2Y(m)	((m) / 12)
-#define	M2M(m)	(1 + (m) % 12) 
+#define	M2M(m)	(1 + (m) % 12)
 
 /* Print all months for the period in the range [ before .. y-m .. after ]. */
 static void
@@ -927,13 +926,14 @@ mkmonthb(int y, int m, int jd_flag, struct monthlines *mlines)
 	for (i = 0; i != 6; i++) {
 		l = 0;
 		for (j = firsts + 7 * i, k = 0; j < last && k != dw * 7;
-		    j++, k += dw) { 
+		    j++, k += dw) {
 			if (j >= first) {
 				if (jd_flag)
 					dt.d = j - jan1 + 1;
 				else
 					sdateb(j, &dt);
-				if (j == highlightdate && !flag_nohighlight)
+				if (j == highlightdate && !flag_nohighlight
+				 && isatty(STDOUT_FILENO))
 					highlight(mlines->lines[i] + k,
 					    ds + dt.d * dw, dw, &l);
 				else
@@ -1114,7 +1114,8 @@ highlight(char *dst, char *src, int len, int *extralen)
 	static const char *term_so, *term_se;
 
 	if (first) {
-		char tbuf[1024], cbuf[512], *b;
+		static char cbuf[512];
+		char tbuf[1024], *b;
 
 		term_se = term_so = NULL;
 

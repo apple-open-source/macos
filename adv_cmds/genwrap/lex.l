@@ -41,6 +41,7 @@ struct kword {
 	{ "application",	APPLICATION },
 	{ "cwdpath",		CWDPATH },
 	{ "path",		PATH },
+	{ "addarg",		ADDARG },
 	{ "flag",		FLAG },
 	{ "default",		DEFAULT },
 	{ "arg",		ARG },
@@ -74,6 +75,12 @@ ID	[A-Za-z_][-A-Za-z_0-9]*
 			return i;
 		}
 \"[^"]*\"	{
+			BEGIN 0;
+			yytext[yyleng-1] = '\0';
+			yylval.str = strdup(yytext + 1);
+			return ID;
+		}
+'[^']*'		{
 			BEGIN 0;
 			yytext[yyleng-1] = '\0';
 			yylval.str = strdup(yytext + 1);

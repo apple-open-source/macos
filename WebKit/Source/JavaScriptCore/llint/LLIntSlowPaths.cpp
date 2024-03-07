@@ -588,15 +588,35 @@ LLINT_SLOW_PATH_DECL(stack_check)
     LLINT_RETURN_TWO(pc, callFrame);
 }
 
-extern "C" UGPRPair llint_link_call(CallFrame* calleeFrame, JSCell* globalObject, CallLinkInfo* callLinkInfo)
+extern "C" UGPRPair llint_default_call(CallFrame* calleeFrame, CallLinkInfo* callLinkInfo)
 {
-    return linkFor(calleeFrame, jsCast<JSGlobalObject*>(globalObject), callLinkInfo);
+    JSCell* owner = callLinkInfo->ownerForSlowPath(calleeFrame);
+    VM& vm = owner->vm();
+    NativeCallFrameTracer tracer(vm, calleeFrame);
+    sanitizeStackForVM(vm);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    calleeFrame->setCodeBlock(nullptr);
+    void* callTarget = linkFor(vm, owner, calleeFrame, callLinkInfo);
+    ensureStillAliveHere(owner);
+    if (UNLIKELY(scope.exception()))
+        return encodeResult(callTarget, bitwise_cast<void*>(&vm));
+    return encodeResult(callTarget, nullptr);
 }
 
-extern "C" UGPRPair llint_virtual_call(CallFrame* calleeFrame, JSCell* globalObject, CallLinkInfo* callLinkInfo)
+extern "C" UGPRPair llint_virtual_call(CallFrame* calleeFrame, CallLinkInfo* callLinkInfo)
 {
+    JSCell* owner = callLinkInfo->ownerForSlowPath(calleeFrame);
+    VM& vm = owner->vm();
+    NativeCallFrameTracer tracer(vm, calleeFrame);
+    sanitizeStackForVM(vm);
+    auto scope = DECLARE_THROW_SCOPE(vm);
     JSCell* calleeAsFunctionCellIgnored;
-    return virtualForWithFunction(jsCast<JSGlobalObject*>(globalObject), calleeFrame, callLinkInfo, calleeAsFunctionCellIgnored);
+    calleeFrame->setCodeBlock(nullptr);
+    void* callTarget = virtualForWithFunction(vm, owner, calleeFrame, callLinkInfo, calleeAsFunctionCellIgnored);
+    ensureStillAliveHere(owner);
+    if (UNLIKELY(scope.exception()))
+        return encodeResult(callTarget, bitwise_cast<void*>(&vm));
+    return encodeResult(callTarget, nullptr);
 }
 
 LLINT_SLOW_PATH_DECL(slow_path_new_object)
@@ -2622,10 +2642,7 @@ extern "C" void llint_write_barrier_slow(CallFrame* callFrame, JSCell* cell)
 
 extern "C" UGPRPair llint_check_vm_entry_permission(VM*, ProtoCallFrame*)
 {
-    if (Options::crashOnDisallowedVMEntry() || g_jscConfig.vmEntryDisallowed)
-        CRASH_WITH_EXTRA_SECURITY_IMPLICATION_AND_INFO(VMEntryDisallowed, "VM entry disallowed"_s);
-
-    // Else return, and let doVMEntry return undefined.
+    Interpreter::checkVMEntryPermission();
     return encodeResult(nullptr, nullptr);
 }
 

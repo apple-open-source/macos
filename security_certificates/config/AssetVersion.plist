@@ -3,8 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>VersionNumber</key>
-	<real>2023071300</real>
+	<integer>2024013100</integer>
 	<key>MobileAssetContentVersion</key>
-	<integer>1002</integer>
+	<integer>1003</integer>
+	<key>PKITrustStoreAssetsVersion</key>
+	<string>0.0.1.0.0,0</string>
 </dict>
 </plist>

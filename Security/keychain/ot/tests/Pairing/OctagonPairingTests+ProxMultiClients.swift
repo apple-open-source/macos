@@ -867,6 +867,8 @@ extension OctagonPairingTests {
         OctagonSetSOSFeatureEnabled(false)
         self.startCKAccountStatusMock()
 
+        SecCKKSSetTestSkipTLKShareHealing(true)
+
         self.getAcceptorInCircle()
 
         let initiator2ContextID = "initiatorContext2"
@@ -1009,6 +1011,9 @@ extension OctagonPairingTests {
         self.wait(for: [thirdInitiatorCallback], timeout: 10)
         XCTAssertNil(initiatorThirdPacket, "acceptor second packet should be nil")
 
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContextForAcceptor)
+        self.sendContainerChangeWaitForUntrustedFetch(context: initiator2Context)
+
         /* PAIR-2 INITIATOR SECOND RTT PREPARE*/
         var pair2InitiatorSecondPacket = Data()
         let pair2SecondInitiatorCallback = self.expectation(description: "pair2SecondInitiatorCallback callback occurs")
@@ -1028,8 +1033,8 @@ extension OctagonPairingTests {
 
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
 
-        let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+        let initiator1DumpCallback = self.expectation(description: "initiator1DumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(initiator1Context.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1039,9 +1044,9 @@ extension OctagonPairingTests {
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
-            initiatorDumpCallback.fulfill()
+            initiator1DumpCallback.fulfill()
         }
-        self.wait(for: [initiatorDumpCallback], timeout: 10)
+        self.wait(for: [initiator1DumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
@@ -1086,10 +1091,12 @@ extension OctagonPairingTests {
         self.wait(for: [pair2ThirdInitiatorCallback], timeout: 10)
         XCTAssertNil(pair2InitiatorThirdPacket, "acceptor second packet should be nil")
 
-        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContextForAcceptor)
+        self.sendContainerChangeWaitForFetch(context: initiator2Context)
+        self.sendContainerChangeWaitForFetch(context: initiator1Context)
 
-        let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+        let pair2InitiatorDumpCallback = self.expectation(description: "initiator2DumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(initiator2Context.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1097,11 +1104,15 @@ extension OctagonPairingTests {
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
-            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            XCTAssertEqual(included!.count, 3, "should be 3 peer ids")
 
             pair2InitiatorDumpCallback.fulfill()
         }
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
+
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContextForAcceptor)
+        self.sendContainerChangeWaitForFetch(context: initiator2Context)
+        self.sendContainerChangeWaitForFetch(context: initiator1Context)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
@@ -1118,17 +1129,21 @@ extension OctagonPairingTests {
         self.wait(for: [pair2AcceptorDumpCallback], timeout: 10)
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 3, "should be 3 bottles")
 
-        let initiatorStatus = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.trustStatus(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) {egoStatus, error in
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContextForAcceptor)
+        self.sendContainerChangeWaitForFetch(context: initiator2Context)
+        self.sendContainerChangeWaitForFetch(context: initiator1Context)
+
+        let initiator1Status = self.expectation(description: "initiator1 callback occurs")
+        self.tphClient.trustStatus(with: try XCTUnwrap(initiator1Context.activeAccount)) {egoStatus, error in
             XCTAssertEqual(egoStatus.egoStatus.rawValue & TPPeerStatus.partiallyReciprocated.rawValue, TPPeerStatus.partiallyReciprocated.rawValue, "initiator should be partially accepted")
             XCTAssertNotNil(egoStatus.egoPeerID, "should have an identity")
-            XCTAssertEqual(egoStatus.numberOfPeersInOctagon, 2, "should be 2 peers")
+            XCTAssertEqual(egoStatus.numberOfPeersInOctagon, 3, "should be 3 peers")
             XCTAssertFalse(egoStatus.isExcluded, "should not be excluded")
 
             XCTAssertNil(error, "error should be nil")
-            initiatorStatus.fulfill()
+            initiator1Status.fulfill()
         }
-        self.wait(for: [initiatorStatus], timeout: 10)
+        self.wait(for: [initiator1Status], timeout: 10)
 
         let acceptorStatus = self.expectation(description: "acceptorDumpCallback callback occurs")
         self.tphClient.trustStatus(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) {egoStatus, error in

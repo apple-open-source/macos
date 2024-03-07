@@ -31,6 +31,7 @@
 #include <WebCore/PlatformCALayer.h>
 #include <WebCore/PlatformCALayerDelegatedContents.h>
 #include <WebCore/PlatformLayer.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 class LayerPool;
@@ -50,7 +51,7 @@ struct PlatformCALayerRemoteDelegatedContents {
     std::optional<WebCore::RenderingResourceIdentifier> surfaceIdentifier;
 };
 
-class PlatformCALayerRemote : public WebCore::PlatformCALayer {
+class PlatformCALayerRemote : public WebCore::PlatformCALayer, public CanMakeWeakPtr<PlatformCALayerRemote> {
 public:
     static Ref<PlatformCALayerRemote> create(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
     static Ref<PlatformCALayerRemote> create(PlatformLayer *, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
@@ -114,6 +115,8 @@ public:
 
     WebCore::TransformationMatrix sublayerTransform() const override;
     void setSublayerTransform(const WebCore::TransformationMatrix&) override;
+
+    void setIsBackdropRoot(bool) override;
 
     bool isHidden() const override;
     void setHidden(bool) override;
@@ -248,6 +251,8 @@ public:
     
     virtual void populateCreationProperties(RemoteLayerTreeTransaction::LayerCreationProperties&, const RemoteLayerTreeContext&, WebCore::PlatformCALayer::LayerType);
 
+    bool containsBitmapOnly() const;
+
 protected:
     PlatformCALayerRemote(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext&);
     PlatformCALayerRemote(const PlatformCALayerRemote&, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
@@ -260,7 +265,7 @@ private:
     void updateBackingStore();
     void removeSublayer(PlatformCALayerRemote*);
 
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     RemoteLayerBackingStore::IncludeDisplayList shouldIncludeDisplayListInBackingStore() const;
 #endif
 

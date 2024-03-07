@@ -43,22 +43,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		096213F5239827D0005847FC /* identical_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = identical_test.h; sourceTree = "<group>"; };
 		096213F6239827D0005847FC /* identical_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = identical_test.c; sourceTree = "<group>"; };
-		098AF3B422692BF300F9BA42 /* stat_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stat_test.h; sourceTree = "<group>"; };
 		098AF3B522692BF300F9BA42 /* stat_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stat_test.c; sourceTree = "<group>"; };
 		098AF3B7226A510E00F9BA42 /* copyfile_test.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = copyfile_test.entitlements; sourceTree = "<group>"; };
-		0995EE812632401A007E32F3 /* bsize_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bsize_test.h; sourceTree = "<group>"; };
 		0995EE822632401A007E32F3 /* bsize_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bsize_test.c; sourceTree = "<group>"; };
-		0996C65226B48AED004B1073 /* ctype_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ctype_test.h; sourceTree = "<group>"; };
 		0996C65326B48AED004B1073 /* ctype_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ctype_test.c; sourceTree = "<group>"; };
-		0998F99028ECF564008142F5 /* xdev_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xdev_test.h; sourceTree = "<group>"; };
 		0998F99128ECF564008142F5 /* xdev_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xdev_test.c; sourceTree = "<group>"; };
-		09B503BF2591048B00718584 /* clone_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = clone_test.h; sourceTree = "<group>"; };
 		09B503C02591048B00718584 /* clone_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = clone_test.c; sourceTree = "<group>"; };
-		09BBB7BB27AB0AE7002EEC14 /* revert_writable_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = revert_writable_test.h; sourceTree = "<group>"; };
 		09BBB7BC27AB0AE7002EEC14 /* revert_writable_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = revert_writable_test.c; sourceTree = "<group>"; };
-		3EF9FA5D2418B6BA003B43E8 /* readonly_fd_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = readonly_fd_test.h; sourceTree = "<group>"; };
+		09C701E82AA29188007083B2 /* scaffolding */ = {isa = PBXFileReference; lastKnownFileType = folder; path = scaffolding; sourceTree = "<group>"; };
 		3EF9FA5E2418B6BA003B43E8 /* readonly_fd_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = readonly_fd_test.c; sourceTree = "<group>"; };
 		3F1EFD4C185C4EB400D1C970 /* copyfile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = copyfile.xcconfig; path = xcodescripts/copyfile.xcconfig; sourceTree = "<group>"; };
 		721D4F051EA95008000F0555 /* libcopyfile.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcopyfile.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/usr/lib/system/libcopyfile.tbd; sourceTree = DEVELOPER_DIR; };
@@ -66,7 +59,6 @@
 		726EE9D81E9423E50017A5B9 /* copyfile_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = copyfile_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		726EE9DA1E9423E50017A5B9 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		726EE9DE1E9425160017A5B9 /* sparse_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sparse_test.c; sourceTree = "<group>"; };
-		726EE9DF1E9425160017A5B9 /* sparse_test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sparse_test.h; sourceTree = "<group>"; };
 		726EE9E11E9427B40017A5B9 /* test_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test_utils.h; sourceTree = "<group>"; };
 		726EE9E21E946B320017A5B9 /* systemx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = systemx.c; sourceTree = "<group>"; };
 		726EE9E31E946B320017A5B9 /* systemx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = systemx.h; sourceTree = "<group>"; };
@@ -75,7 +67,6 @@
 		72EAA3AF16A72F4500833E98 /* xattr_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xattr_flags.h; sourceTree = "<group>"; };
 		861E1C14180F0AF900E65B9A /* xattr_name_with_flags.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = xattr_name_with_flags.3; sourceTree = "<group>"; };
 		86EF9F091834018C00AAB3F3 /* xattr_properties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xattr_properties.h; sourceTree = "<group>"; };
-		D11048A02455AE7900E8F465 /* xattr_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xattr_test.h; sourceTree = "<group>"; };
 		D11048A12455AE7900E8F465 /* xattr_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xattr_test.c; sourceTree = "<group>"; };
 		FCCE17BB135A6444002CEE6D /* libcopyfile.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcopyfile.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCCE17C0135A658F002CEE6D /* copyfile.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = copyfile.3; sourceTree = "<group>"; };
@@ -112,31 +103,22 @@
 		726EE9D91E9423E50017A5B9 /* copyfile_test */ = {
 			isa = PBXGroup;
 			children = (
+				09C701E82AA29188007083B2 /* scaffolding */,
 				726EE9DA1E9423E50017A5B9 /* main.c */,
-				0995EE812632401A007E32F3 /* bsize_test.h */,
 				0995EE822632401A007E32F3 /* bsize_test.c */,
 				096213F6239827D0005847FC /* identical_test.c */,
-				096213F5239827D0005847FC /* identical_test.h */,
 				3EF9FA5E2418B6BA003B43E8 /* readonly_fd_test.c */,
-				3EF9FA5D2418B6BA003B43E8 /* readonly_fd_test.h */,
 				726EE9DE1E9425160017A5B9 /* sparse_test.c */,
-				726EE9DF1E9425160017A5B9 /* sparse_test.h */,
 				098AF3B522692BF300F9BA42 /* stat_test.c */,
-				098AF3B422692BF300F9BA42 /* stat_test.h */,
 				726EE9E51E946D590017A5B9 /* test_utils.c */,
 				726EE9E11E9427B40017A5B9 /* test_utils.h */,
 				726EE9E21E946B320017A5B9 /* systemx.c */,
 				726EE9E31E946B320017A5B9 /* systemx.h */,
 				098AF3B7226A510E00F9BA42 /* copyfile_test.entitlements */,
-				D11048A02455AE7900E8F465 /* xattr_test.h */,
 				D11048A12455AE7900E8F465 /* xattr_test.c */,
-				09B503BF2591048B00718584 /* clone_test.h */,
 				09B503C02591048B00718584 /* clone_test.c */,
-				0996C65226B48AED004B1073 /* ctype_test.h */,
 				0996C65326B48AED004B1073 /* ctype_test.c */,
-				09BBB7BB27AB0AE7002EEC14 /* revert_writable_test.h */,
 				09BBB7BC27AB0AE7002EEC14 /* revert_writable_test.c */,
-				0998F99028ECF564008142F5 /* xdev_test.h */,
 				0998F99128ECF564008142F5 /* xdev_test.c */,
 			);
 			path = copyfile_test;
@@ -193,6 +175,7 @@
 			buildPhases = (
 				726EE9D41E9423E50017A5B9 /* Sources */,
 				726EE9D51E9423E50017A5B9 /* Frameworks */,
+				09B114BC2AA172CA00377A72 /* ShellScript */,
 				726EE9D61E9423E50017A5B9 /* CopyFiles */,
 			);
 			buildRules = (
@@ -256,6 +239,26 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		09B114BC2AA172CA00377A72 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/copyfile_test/scaffolding/test_macos.plist",
+				"$(SRCROOT)/copyfile_test/scaffolding/test_ios.plist",
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(INSTALL_ROOT)/AppleInternal/CoreOS/BATS/unit_tests/copyfile.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nif [ \"$PLATFORM_NAME\" == \"macosx\" ]; then\n    cp \"$SCRIPT_INPUT_FILE_0\" \"$SCRIPT_OUTPUT_FILE_0\"\n    echo \"Copied $SCRIPT_INPUT_FILE_0\"\nelse\n    cp \"$SCRIPT_INPUT_FILE_1\" \"$SCRIPT_OUTPUT_FILE_0\"\n    echo \"Copied $SCRIPT_INPUT_FILE_1\"\nfi\n\n";
+		};
 		FCCE17DF135A70A0002CEE6D /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -340,6 +343,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/copyfile/;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)/usr/lib/system",

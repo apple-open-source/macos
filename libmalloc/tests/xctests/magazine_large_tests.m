@@ -40,7 +40,7 @@
 	return malloc_zone_malloc(mzone, size);
 }
 
-- (void *)large_free:(void *)ptr {
+- (void)large_free:(void *)ptr {
 	malloc_zone_free(mzone, ptr);
 }
 

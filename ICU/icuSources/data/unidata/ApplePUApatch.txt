@@ -1,5 +1,5 @@
---- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2022-09-16 19:08:12
-+++ icuSources/data/unidata/DerivedCoreProperties.txt	2023-01-04 13:45:17
+--- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2023-10-17 14:27:39
++++ icuSources/data/unidata/DerivedCoreProperties.txt	2023-10-28 14:32:51
 @@ -163,6 +163,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
@@ -31,16 +31,16 @@
  F900..FA6D    ; Alphabetic
  FA70..FAD9    ; Alphabetic
  FB00..FB06    ; Alphabetic
-@@ -1401,7 +1409,7 @@
+@@ -1402,7 +1410,7 @@
  30000..3134A  ; Alphabetic
  31350..323AF  ; Alphabetic
  
--# Total code points: 137765
-+# Total code points: 137765+ApplePUA
+-# Total code points: 138387
++# Total code points: 138387+ApplePUA
  
  # ================================================
  
-@@ -3265,6 +3273,10 @@
+@@ -3266,6 +3274,10 @@
  ABE5          ; Case_Ignorable
  ABE8          ; Case_Ignorable
  ABED          ; Case_Ignorable
@@ -51,7 +51,7 @@
  FB1E          ; Case_Ignorable
  FBB2..FBC2    ; Case_Ignorable
  FE00..FE0F    ; Case_Ignorable
-@@ -3439,7 +3451,7 @@
+@@ -3440,7 +3452,7 @@
  E0020..E007F  ; Case_Ignorable
  E0100..E01EF  ; Case_Ignorable
  
@@ -60,7 +60,7 @@
  
  # ================================================
  
-@@ -10602,6 +10614,9 @@
+@@ -10622,6 +10634,9 @@
  ABE5          ; Grapheme_Extend
  ABE8          ; Grapheme_Extend
  ABED          ; Grapheme_Extend
@@ -70,7 +70,7 @@
  FB1E          ; Grapheme_Extend
  FE00..FE0F    ; Grapheme_Extend
  FE20..FE2F    ; Grapheme_Extend
-@@ -10750,7 +10765,7 @@
+@@ -10770,7 +10785,7 @@
  E0020..E007F  ; Grapheme_Extend
  E0100..E01EF  ; Grapheme_Extend
  
@@ -79,7 +79,7 @@
  
  # ================================================
  
-@@ -11810,6 +11825,10 @@
+@@ -11831,6 +11846,10 @@
  AC00..D7A3    ; Grapheme_Base
  D7B0..D7C6    ; Grapheme_Base
  D7CB..D7FB    ; Grapheme_Base
@@ -90,18 +90,18 @@
  F900..FA6D    ; Grapheme_Base
  FA70..FAD9    ; Grapheme_Base
  FB00..FB06    ; Grapheme_Base
-@@ -12501,7 +12520,7 @@
+@@ -12523,7 +12542,7 @@
  30000..3134A  ; Grapheme_Base
  31350..323AF  ; Grapheme_Base
  
--# Total code points: 146986
-+# Total code points: 146986+ApplePUA
+-# Total code points: 147613
++# Total code points: 147613+ApplePUA
  
  # ================================================
  
---- icuSources/data/unidata/base_unidata/ppucd.txt	2022-09-16 19:08:12
-+++ icuSources/data/unidata/ppucd.txt	2023-01-04 13:47:13
-@@ -19512,8 +19512,47 @@
+--- icuSources/data/unidata/base_unidata/ppucd.txt	2023-10-17 14:27:39
++++ icuSources/data/unidata/ppucd.txt	2023-10-28 14:34:56
+@@ -19544,9 +19544,48 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;lb=SG
  # DC00..DFFF Low Surrogates
  
@@ -109,7 +109,7 @@
 -# E000..F8FF Private Use Area
 +block;E000..F7F2;age=1.1;blk=PUA;ea=A;gc=Co;vo=U
 +# E000..F7F2 Private Use Area
-+
+ 
 +# Apple Corp Chars
 +block;F7F3..F8FF;age=1.1;bc=ON;blk=PUA;ea=N;gc=So;lb=AL;sc=Zyyy
 +cp;F7F3..F84F;Gr_Base
@@ -148,12 +148,13 @@
 +cp;F8C0;ea=F;gc=Sm;lb=ID;Math;Gr_Base
 +cp;F8C1..F8D6;bc=L;ea=W;gc=Lo;lb=NS;Alpha;Gr_Base
 +cp;F8D7..F8FF;Gr_Base
- 
++
  block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;vo=U;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
---- icuSources/data/unidata/base_unidata/UnicodeData.txt	2022-09-16 19:08:12
-+++ icuSources/data/unidata/UnicodeData.txt	2023-01-04 13:48:12
-@@ -15257,7 +15257,65 @@
+ # Pronunciation variants from KS X 1001:1998
+--- icuSources/data/unidata/base_unidata/UnicodeData.txt	2023-10-17 14:27:39
++++ icuSources/data/unidata/UnicodeData.txt	2023-10-28 14:35:57
+@@ -15262,7 +15262,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
  E000;<Private Use, First>;Co;0;L;;;;;N;;;;;

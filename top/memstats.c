@@ -420,3 +420,33 @@ top_compressed_create(WINDOW *parent, const char *name)
 	return create_statistic(STATISTIC_COMPRESSED, parent, NULL, &compressed_callbacks, name);
 }
 #endif /* TOP_ANONYMOUS_MEMORY */
+
+static bool
+jetsam_priority_insert_cell(struct statistic *s, const void *sample)
+{
+	const libtop_psamp_t *psamp = sample;
+	char buf[7];
+
+	if (top_uinteger_format_result(buf, sizeof(buf), psamp->jetsam_priority, psamp->p_jetsam_priority, psamp->b_jetsam_priority)) {
+		return true;
+	}
+
+	return generic_insert_cell(s, buf);
+}
+
+static struct statistic_callbacks jetsam_priority_callbacks = {
+	.draw = generic_draw,
+	.resize_cells = generic_resize_cells,
+	.move_cells = generic_move_cells,
+	.get_request_size = generic_get_request_size,
+	.get_minimum_size = generic_get_minimum_size,
+	.insert_cell = jetsam_priority_insert_cell,
+	.reset_insertion = generic_reset_insertion,
+};
+
+struct statistic *
+top_jetsam_priority_create(WINDOW *parent, const char *name)
+{
+	return create_statistic(STATISTIC_JETSAM_PRI, parent, NULL, &jetsam_priority_callbacks, name);
+}
+

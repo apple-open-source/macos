@@ -28,7 +28,7 @@
 .\"     @(#)shutdown.8	8.2 (Berkeley) 4/27/95
 .\" $FreeBSD$
 .\"
-.Dd January 11, 2020
+.Dd June 6, 2023
 .Dt SHUTDOWN 8
 .Os
 .Sh NAME
@@ -38,11 +38,7 @@
 .Nm
 .Op Fl
 .Oo
-.Fl h
-.Op Fl u
-|
-.Fl p |
-.Fl r | Fl s | Fl k
+.Fl h | Fl p | Fl r | Fl s | Fl k
 .Oc
 .Oo
 .Fl o
@@ -112,12 +108,6 @@ to
 or
 .Xr reboot 8 .
 The use of this option is discouraged as it can result in data loss.
-.It Fl u
-The system is halted up until the point of removing system power, but waits
-before removing power for 5 minutes so that an external UPS
-(uninterruptible power supply) can forcibly remove power.
-This simulates a dirty shutdown to permit a later automatic power on.
-macOS uses this mode automatically with supported UPSs in emergency shutdowns.
 .It Ar time
 .Ar Time
 is the time at which

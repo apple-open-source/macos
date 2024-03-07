@@ -22,3 +22,6 @@ install:
 	$(INSTALL_FILE) manpath.1 $(DESTDIR)$(MANDIR)/man1/manpath.1
 	$(INSTALL_FILE) whatis.1 $(DESTDIR)$(MANDIR)/man1/whatis.1
 	$(INSTALL_FILE) man.conf.5 $(DESTDIR)$(MANDIR)/man5/man.conf.5
+
+	# Install test material as well
+	$(MAKE) -C $(SRCROOT)/tests install

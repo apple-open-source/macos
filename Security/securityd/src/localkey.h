@@ -75,7 +75,10 @@ public:
 	
 	// generate the canonical key digest
 	const CssmData &canonicalDigest();
-    
+
+    // get public key data
+    void publicKey(const Context &context, CssmData &pubKeyData);
+
 	CSSM_KEYATTR_FLAGS attributes();
 	
 public:

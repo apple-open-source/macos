@@ -46,3 +46,4 @@ _backboardd:*:287:287::0:0:BackBoard:/var/empty:/usr/bin/false
 _avphidbridge:*:288:288::0:0:Apple Virtual Platform HID Bridge:/var/empty:/usr/bin/false
 _launchservices:*:290:290::0:0:Launch Services:/var/empty:/usr/bin/false
 _mobilegestalthelper:*:293:293::0:0:MobileGestaltHelper:/var/empty:/usr/bin/false
+_eligibilityd:*:297:297::0:0:OS Eligibility Daemon:/var/db/eligibilityd:/usr/bin/false

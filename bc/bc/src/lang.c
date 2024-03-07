@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2023 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,96 +38,95 @@
 #include <string.h>
 
 #include <lang.h>
+#include <program.h>
 #include <vm.h>
 
-#ifndef NDEBUG
-void bc_id_free(void *id) {
-	BC_SIG_ASSERT_LOCKED;
-	assert(id != NULL);
-	free(((BcId*) id)->name);
-}
-#endif // NDEBUG
+void
+bc_const_free(void* constant)
+{
+	BcConst* c = constant;
 
-void bc_string_free(void *string) {
 	BC_SIG_ASSERT_LOCKED;
-	assert(string != NULL && (*((char**) string)) != NULL);
-	if (BC_IS_BC) free(*((char**) string));
-}
 
-void bc_const_free(void *constant) {
-	BcConst *c = constant;
-	BC_SIG_ASSERT_LOCKED;
 	assert(c->val != NULL);
-	free(c->val);
+
 	bc_num_free(&c->num);
 }
 
 #if BC_ENABLED
-void bc_func_insert(BcFunc *f, BcProgram *p, char *name,
-                    BcType type, size_t line)
+void
+bc_func_insert(BcFunc* f, BcProgram* p, char* name, BcType type, size_t line)
 {
-	BcLoc a;
+	BcAuto a;
 	size_t i, idx;
 
+	// The function must *always* be valid.
 	assert(f != NULL);
 
+	// Get the index of the variable.
 	idx = bc_program_search(p, name, type == BC_TYPE_VAR);
 
-	for (i = 0; i < f->autos.len; ++i) {
-		BcLoc *id = bc_vec_item(&f->autos, i);
-		if (BC_ERR(idx == id->loc && type == (BcType) id->idx)) {
-			const char *array = type == BC_TYPE_ARRAY ? "[]" : "";
-			bc_vm_error(BC_ERR_PARSE_DUP_LOCAL, line, name, array);
+	// Search through all of the other autos/parameters.
+	for (i = 0; i < f->autos.len; ++i)
+	{
+		// Get the auto.
+		BcAuto* aptr = bc_vec_item(&f->autos, i);
+
+		// If they match, barf.
+		if (BC_ERR(idx == aptr->idx && type == aptr->type))
+		{
+			const char* array = type == BC_TYPE_ARRAY ? "[]" : "";
+
+			bc_error(BC_ERR_PARSE_DUP_LOCAL, line, name, array);
 		}
 	}
 
-	a.loc = idx;
-	a.idx = type;
+	// Set the auto.
+	a.idx = idx;
+	a.type = type;
 
+	// Push it.
 	bc_vec_push(&f->autos, &a);
 }
 #endif // BC_ENABLED
 
-void bc_func_init(BcFunc *f, const char *name) {
-
+void
+bc_func_init(BcFunc* f, const char* name)
+{
 	BC_SIG_ASSERT_LOCKED;
 
 	assert(f != NULL && name != NULL);
 
-	bc_vec_init(&f->code, sizeof(uchar), NULL);
-
-	bc_vec_init(&f->consts, sizeof(BcConst), bc_const_free);
+	bc_vec_init(&f->code, sizeof(uchar), BC_DTOR_NONE);
 
 #if BC_ENABLED
-	if (BC_IS_BC) {
 
-		bc_vec_init(&f->strs, sizeof(char*), bc_string_free);
-
-		bc_vec_init(&f->autos, sizeof(BcLoc), NULL);
-		bc_vec_init(&f->labels, sizeof(size_t), NULL);
+	// Only bc needs these things.
+	if (BC_IS_BC)
+	{
+		bc_vec_init(&f->autos, sizeof(BcAuto), BC_DTOR_NONE);
+		bc_vec_init(&f->labels, sizeof(size_t), BC_DTOR_NONE);
 
 		f->nparams = 0;
 		f->voidfn = false;
 	}
+
 #endif // BC_ENABLED
 
 	f->name = name;
 }
 
-void bc_func_reset(BcFunc *f) {
-
+void
+bc_func_reset(BcFunc* f)
+{
 	BC_SIG_ASSERT_LOCKED;
 	assert(f != NULL);
 
 	bc_vec_popAll(&f->code);
 
-	bc_vec_popAll(&f->consts);
-
 #if BC_ENABLED
-	if (BC_IS_BC) {
-
-		bc_vec_popAll(&f->strs);
-
+	if (BC_IS_BC)
+	{
 		bc_vec_popAll(&f->autos);
 		bc_vec_popAll(&f->labels);
 
@@ -137,45 +136,43 @@ void bc_func_reset(BcFunc *f) {
 #endif // BC_ENABLED
 }
 
-void bc_func_free(void *func) {
-
-#if BC_ENABLE_FUNC_FREE
-
-	BcFunc *f = (BcFunc*) func;
+#if BC_DEBUG
+void
+bc_func_free(void* func)
+{
+	BcFunc* f = (BcFunc*) func;
 
 	BC_SIG_ASSERT_LOCKED;
 	assert(f != NULL);
 
 	bc_vec_free(&f->code);
 
-	bc_vec_free(&f->consts);
-
 #if BC_ENABLED
-#ifndef NDEBUG
-	if (BC_IS_BC) {
-
-		bc_vec_free(&f->strs);
-
+	if (BC_IS_BC)
+	{
 		bc_vec_free(&f->autos);
 		bc_vec_free(&f->labels);
 	}
-#endif // NDEBUG
 #endif // BC_ENABLED
-
-#else // BC_ENABLE_FUNC_FREE
-	BC_UNUSED(func);
-#endif // BC_ENABLE_FUNC_FREE
 }
+#endif // BC_DEBUG
 
-void bc_array_init(BcVec *a, bool nums) {
+void
+bc_array_init(BcVec* a, bool nums)
+{
 	BC_SIG_ASSERT_LOCKED;
-	if (nums) bc_vec_init(a, sizeof(BcNum), bc_num_free);
-	else bc_vec_init(a, sizeof(BcVec), bc_vec_free);
+
+	// Set the proper vector.
+	if (nums) bc_vec_init(a, sizeof(BcNum), BC_DTOR_NUM);
+	else bc_vec_init(a, sizeof(BcVec), BC_DTOR_VEC);
+
+	// We always want at least one item in the array.
 	bc_array_expand(a, 1);
 }
 
-void bc_array_copy(BcVec *d, const BcVec *s) {
-
+void
+bc_array_copy(BcVec* d, const BcVec* s)
+{
 	size_t i;
 
 	BC_SIG_ASSERT_LOCKED;
@@ -183,57 +180,89 @@ void bc_array_copy(BcVec *d, const BcVec *s) {
 	assert(d != NULL && s != NULL);
 	assert(d != s && d->size == s->size && d->dtor == s->dtor);
 
+	// Make sure to destroy everything currently in d. This will put a lot of
+	// temps on the reuse list, so allocating later is not going to be as
+	// expensive as it seems. Also, it makes it easier to copy numbers that are
+	// strings.
 	bc_vec_popAll(d);
+
+	// Preexpand.
 	bc_vec_expand(d, s->cap);
 	d->len = s->len;
 
-	for (i = 0; i < s->len; ++i) {
-		BcNum *dnum = bc_vec_item(d, i), *snum = bc_vec_item(s, i);
-		bc_num_createCopy(dnum, snum);
+	for (i = 0; i < s->len; ++i)
+	{
+		BcNum* dnum;
+		BcNum* snum;
+
+		dnum = bc_vec_item(d, i);
+		snum = bc_vec_item(s, i);
+
+		// We have to create a copy of the number as well.
+		if (BC_PROG_STR(snum))
+		{
+			// NOLINTNEXTLINE
+			memcpy(dnum, snum, sizeof(BcNum));
+		}
+		else bc_num_createCopy(dnum, snum);
 	}
 }
 
-void bc_array_expand(BcVec *a, size_t len) {
-
+void
+bc_array_expand(BcVec* a, size_t len)
+{
 	assert(a != NULL);
 
 	BC_SIG_ASSERT_LOCKED;
 
 	bc_vec_expand(a, len);
 
-	if (a->size == sizeof(BcNum) && a->dtor == bc_num_free) {
-		BcNum n;
-		while (len > a->len) {
-			bc_num_init(&n, BC_NUM_DEF_SIZE);
-			bc_vec_push(a, &n);
+	// If this is true, then we have a num array.
+	if (a->size == sizeof(BcNum) && a->dtor == BC_DTOR_NUM)
+	{
+		// Initialize numbers until we reach the target.
+		while (len > a->len)
+		{
+			BcNum* n = bc_vec_pushEmpty(a);
+			bc_num_init(n, BC_NUM_DEF_SIZE);
 		}
 	}
-	else {
-		BcVec v;
-		assert(a->size == sizeof(BcVec) && a->dtor == bc_vec_free);
-		while (len > a->len) {
-			bc_array_init(&v, true);
-			bc_vec_push(a, &v);
+	else
+	{
+		assert(a->size == sizeof(BcVec) && a->dtor == BC_DTOR_VEC);
+
+		// Recursively initialize arrays until we reach the target. Having the
+		// second argument of bc_array_init() be true will activate the base
+		// case, so we're safe.
+		while (len > a->len)
+		{
+			BcVec* v = bc_vec_pushEmpty(a);
+			bc_array_init(v, true);
 		}
 	}
 }
 
-void bc_result_clear(BcResult *r) {
+void
+bc_result_clear(BcResult* r)
+{
 	r->t = BC_RESULT_TEMP;
 	bc_num_clear(&r->d.n);
 }
 
 #if DC_ENABLED
-void bc_result_copy(BcResult *d, BcResult *src) {
-
+void
+bc_result_copy(BcResult* d, BcResult* src)
+{
 	assert(d != NULL && src != NULL);
 
 	BC_SIG_ASSERT_LOCKED;
 
+	// d is assumed to not be valid yet.
 	d->t = src->t;
 
-	switch (d->t) {
-
+	// Yes, it depends on what type.
+	switch (d->t)
+	{
 		case BC_RESULT_TEMP:
 		case BC_RESULT_IBASE:
 		case BC_RESULT_SCALE:
@@ -247,17 +276,17 @@ void bc_result_copy(BcResult *d, BcResult *src) {
 		}
 
 		case BC_RESULT_VAR:
-#if BC_ENABLED
 		case BC_RESULT_ARRAY:
-#endif // BC_ENABLED
 		case BC_RESULT_ARRAY_ELEM:
 		{
+			// NOLINTNEXTLINE
 			memcpy(&d->d.loc, &src->d.loc, sizeof(BcLoc));
 			break;
 		}
 
 		case BC_RESULT_STR:
 		{
+			// NOLINTNEXTLINE
 			memcpy(&d->d.n, &src->d.n, sizeof(BcNum));
 			break;
 		}
@@ -273,25 +302,27 @@ void bc_result_copy(BcResult *d, BcResult *src) {
 		case BC_RESULT_VOID:
 		case BC_RESULT_LAST:
 		{
-#ifndef NDEBUG
+#if BC_DEBUG
+			// We should *never* try copying either of these.
 			abort();
-#endif // NDEBUG
+#endif // BC_DEBUG
 		}
 #endif // BC_ENABLED
 	}
 }
 #endif // DC_ENABLED
 
-void bc_result_free(void *result) {
-
-	BcResult *r = (BcResult*) result;
+void
+bc_result_free(void* result)
+{
+	BcResult* r = (BcResult*) result;
 
 	BC_SIG_ASSERT_LOCKED;
 
 	assert(r != NULL);
 
-	switch (r->t) {
-
+	switch (r->t)
+	{
 		case BC_RESULT_TEMP:
 		case BC_RESULT_IBASE:
 		case BC_RESULT_SCALE:
@@ -305,9 +336,7 @@ void bc_result_free(void *result) {
 		}
 
 		case BC_RESULT_VAR:
-#if BC_ENABLED
 		case BC_RESULT_ARRAY:
-#endif // BC_ENABLED
 		case BC_RESULT_ARRAY_ELEM:
 		case BC_RESULT_STR:
 		case BC_RESULT_ZERO:

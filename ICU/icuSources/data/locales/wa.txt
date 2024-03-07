@@ -2,11 +2,8 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 wa{
-    AuxExemplarCharacters{"[á ä ã ā ē í ì ī ñ ó ò ö ø ú ǔ]"}
-    ExemplarCharacters{
-        "[a à â å æ b c ç d e é è ê ë f g h i î ï j k l m n o ô œ p q r s t u ù û ü v"
-        " w x y ÿ z]"
-    }
+    AuxExemplarCharacters{"[áäãā ē íìī ñ óòöø úǔ]"}
+    ExemplarCharacters{"[aàâå æ b cç d eéèêë f g h iîï j k l m n oô œ p q r s t uùûü v w x yÿ z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — , ; \\: ! ? . … ’ \u0022 “ ” « » ( ) \\[ \\] § @ * / \\& # † ‡]"}
+    ExemplarCharactersPunctuation{"[\\- ‐‑ – — , ; \\: ! ? . … ’ \u0022“” « » ( ) \\[ \\] § @ * / \\& # † ‡]"}
 }

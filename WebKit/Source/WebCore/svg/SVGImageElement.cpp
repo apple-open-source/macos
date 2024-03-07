@@ -27,10 +27,10 @@
 #include "CSSPropertyNames.h"
 #include "HTMLParserIdioms.h"
 #include "LegacyRenderSVGImage.h"
+#include "LegacyRenderSVGResource.h"
 #include "NodeName.h"
 #include "RenderImageResource.h"
 #include "RenderSVGImage.h"
-#include "RenderSVGResource.h"
 #include "SVGElementInlines.h"
 #include "SVGNames.h"
 #include "XLinkNames.h"
@@ -42,7 +42,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(SVGImageElement);
 
 inline SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document& document)
-    : SVGGraphicsElement(tagName, document, makeUniqueRef<PropertyRegistry>(*this))
+    : SVGGraphicsElement(tagName, document, makeUniqueRef<PropertyRegistry>(*this), TypeFlag::HasDidMoveToNewDocument)
     , SVGURIReference(this)
     , m_imageLoader(*this)
 {

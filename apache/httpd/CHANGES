@@ -1,5 +1,236 @@
                                                          -*- coding: utf-8 -*-
+Changes with Apache 2.4.58
+
+  *) mod_ssl: Silence info log message "SSL Library Error: error:0A000126:
+     SSL routines::unexpected eof while reading" when using
+     OpenSSL 3 by setting SSL_OP_IGNORE_UNEXPECTED_EOF if
+     available. [Rainer Jung]
+
+  *) mod_http2: improved early cleanup of streams.
+     [Stefan Eissing]
+
+  *) mod_proxy_http2: improved error handling on connection errors while
+     response is already underway.
+     [Stefan Eissing]
+
+  *) mod_http2: fixed a bug that could lead to a crash in main connection
+     output handling. This occured only when the last request on a HTTP/2
+     connection had been processed and the session decided to shut down.
+     This could lead to an attempt to send a final GOAWAY while the previous
+     write was still in progress. See PR 66646.
+     [Stefan Eissing]
+
+  *) mod_proxy_http2: fix `X-Forward-Host` header to carry the correct value.
+     Fixes PR66752.
+     [Stefan Eissing]
+
+  *) mod_http2: added support for bootstrapping WebSockets via HTTP/2, as
+     described in RFC 8441. A new directive 'H2WebSockets on|off' has been
+     added. The feature is by default not enabled.
+     As also discussed in the manual, this feature should work for setups
+     using "ProxyPass backend-url upgrade=websocket" without further changes.
+     Special server modules for WebSockets will have to be adapted,
+     most likely, as the handling if IO events is different with HTTP/2.
+     HTTP/2 WebSockets are supported on platforms with native pipes. This
+     excludes Windows.
+     [Stefan Eissing]
+
+  *) mod_rewrite: Fix a regression with both a trailing ? and [QSA].
+     in OCSP stapling. PR 66672. [Frank Meier <frank.meier ergon.ch>, covener]
+
+  *) mod_http2: fixed a bug in flushing pending data on an already closed
+     connection that could lead to a busy loop, preventing the HTTP/2 session
+     to close down successfully. Fixed PR 66624.
+     [Stefan Eissing]
+
+  *) mod_http2: v2.0.15 with the following fixes and improvements
+     - New directive 'H2EarlyHint name value' to add headers to a response,
+       picked up already when a "103 Early Hints" response is sent. 'name' and
+       'value' must comply to the HTTP field restrictions.
+       This directive can be repeated several times and header fields of the
+       same names add. Sending a 'Link' header with 'preload' relation will
+       also cause a HTTP/2 PUSH if enabled and supported by the client.
+     - Fixed an issue where requests were not logged and accounted in a timely
+       fashion when the connection returns to "keepalive" handling, e.g. when
+       the request served was the last outstanding one.
+       This led to late appearance in access logs with wrong duration times
+       reported.
+     - Accurately report the bytes sent for a request in the '%O' Log format.
+       This addresses #203, a long outstanding issue where mod_h2 has reported
+       numbers over-eagerly from internal buffering and not what has actually
+       been placed on the connection.
+       The numbers are now the same with and without H2CopyFiles enabled.
+     [Stefan Eissing]
+
+  *) mod_proxy_http2: fix retry handling to not leak temporary errors.
+     On detecting that that an existing connection was shutdown by the other
+     side, a 503 response leaked even though the request was retried on a
+     fresh connection.
+     [Stefan Eissing]
+
+  *) mod_rewrite: Add server directory to include path as mod_rewrite requires
+     test_char.h. PR 66571 [Valeria Petrov <valeria.petrov@spinetix.com>]
+
+  *) mod_http2: new directive `H2ProxyRequests on|off` to enable handling
+     of HTTP/2 requests in a forward proxy configuration.
+     General forward proxying is enabled via `ProxyRequests`. If the
+     HTTP/2 protocol is also enabled for such a server/host, this new
+     directive is needed in addition.
+     [Stefan Eissing]
+
+  *) core: Updated conf/mime.types:
+     - .js moved from 'application/javascript' to 'text/javascript'
+     - .mjs was added as 'text/javascript'
+     - add .opus ('audio/ogg')
+     - add 'application/vnd.geogebra.slides'
+     - add WebAssembly MIME types and extension
+     [Mathias Bynens <@mathiasbynens> via PR 318,
+      Richard de Boer <richard tubul.net>, Dave Hodder <dmh dmh.org.uk>,
+      Zbynek Konecny <zbynek1729 gmail.com>]
+
+  *) mod_proxy_http2: fixed using the wrong "bucket_alloc" from the backend
+     connection when sending data on the frontend one. This caused crashes
+     or infinite loops in rare situations.
+  *) mod_proxy_http2: fixed a bug in retry/response handling that could lead
+     to wrong status codes or HTTP messages send at the end of response bodies
+     exceeding the announced content-length.
+  *) mod_proxy_http2: fix retry handling to not leak temporary errors.
+     On detecting that that an existing connection was shutdown by the other
+     side, a 503 response leaked even though the request was retried on a
+     fresh connection.
+  *) mod_http2: fixed a bug that did cleanup of consumed and pending buckets in
+     the wrong order when a bucket_beam was destroyed.
+     [Stefan Eissing]
+
+  *) mod_http2: avoid double chunked-encoding on internal redirects.
+     PR 66597 [Yann Ylavic, Stefan Eissing]
+
+  *) mod_http2: Fix reporting of `Total Accesses` in server-status to not count
+     HTTP/2 requests twice. Fixes PR 66801.
+     [Stefan Eissing]
+
+  *) mod_ssl: Fix handling of Certificate Revoked messages
+     in OCSP stapling. PR 66626. [<gmoniker gmail.com>]
+
+  *) mod_http2: fixed a bug in handling of stream timeouts.
+     [Stefan Eissing]
+
+  *) mod_tls: updating to rustls-ffi version 0.9.2 or higher.
+     Checking in configure for proper version installed. Code
+     fixes for changed clienthello member name.
+     [Stefan Eissing]
+
+  *) mod_md:
+     - New directive `MDMatchNames all|servernames` to allow more control over how
+       MDomains are matched to VirtualHosts.
+     - New directive `MDChallengeDns01Version`. Setting this to `2` will provide
+       the command also with the challenge value on `teardown` invocation. In version
+       1, the default, only the `setup` invocation gets this parameter.
+       Refs #312. Thanks to @domrim for the idea.
+     - For Managed Domain in "manual" mode, the checks if all used ServerName and
+       ServerAlias are part of the MDomain now reports a warning instead of an error
+       (AH10040) when not all names are present.
+     - MDChallengeDns01 can now be configured for individual domains.
+       Using PR from Jérôme Billiras (@bilhackmac) and adding test case and fixing proper working
+     - Fixed a bug found by Jérôme Billiras (@bilhackmac) that caused the challenge
+       teardown not being invoked as it should.
+
+  *) mod_ldap: Avoid performance overhead of APR-util rebind cache for
+     OpenLDAP 2.2+.  PR 64414.  [Joe Orton]
+
+  *) mod_http2: new directive 'H2MaxDataFrameLen n' to limit the maximum
+     amount of response body bytes put into a single HTTP/2 DATA frame.
+     Setting this to 0 places no limit (but the max size allowed by the
+     protocol is observed).
+     The module, by default, tries to use the maximum size possible, which is
+     somewhat around 16KB. This sets the maximum. When less response data is
+     available, smaller frames will be sent.
+
+  *) mod_md: fixed passing of the server environment variables to programs
+     started via MDMessageCmd and MDChallengeDns01 on *nix system.
+     See <https://github.com/icing/mod_md/issues/319>.
+     [Stefan Eissing]
+
+  *) mod_dav: Add DavBasePath directive to configure the repository root
+     path.  PR 35077.  [Joe Orton]
+
+  *) mod_alias: Add AliasPreservePath directive to map the full
+     path after the alias in a location. [Graham Leggett]
+
+  *) mod_alias: Add RedirectRelative to allow relative redirect targets to be
+     issued as-is. [Eric Covener, Graham Leggett]
+
+  *) core: Add formats %{z} and %{strftime-format} to ErrorLogFormat, and make
+     sure that if the format is configured early enough it applies to every log
+     line.  PR 62161.  [Yann Ylavic]
+
+  *) mod_deflate: Add DeflateAlterETag to control how the ETag
+     is modified. The 'NoChange' parameter mimics 2.2.x behavior.
+     PR 45023, PR 39727. [Eric Covener]
+
+  *) core: Optimize send_brigade_nonblocking(). [Yann Ylavic, Christophe Jaillet]
+
+  *) mod_status: Remove duplicate keys "BusyWorkers" and "IdleWorkers".
+     Resolve inconsistency between the previous two occurrences by
+     counting workers in state SERVER_GRACEFUL no longer as busy,
+     but instead in a new counter "GracefulWorkers" (or on HTML
+     view as "workers gracefully restarting"). Also add the graceful
+     counter as a new column to the existing HTML per process table
+     for async MPMs. PR 63300. [Rainer Jung]
+
+Changes with Apache 2.4.57
+
+  *) mod_proxy: Check before forwarding that a nocanon path has not been
+     rewritten with spaces during processing.  [Yann Ylavic]
+
+  *) mod_proxy: In case that AllowEncodedSlashes is set to NoDecode do not
+     double encode encoded slashes in the URL sent by the reverse proxy to the
+     backend. [Ruediger Pluem]
+
+  *) mod_http2: fixed a crash during connection termination. See PR 66539.
+     [Stefan Eissing]
+
+  *) mod_rewrite: Fix a 2.4.56 regression for substitutions ending
+     in a question mark. PR66547. [Eric Covener]
+
+  *) mod_rewrite: Add "BCTLS" and "BNE" RewriteRule flags. Re-allow encoded
+     characters on redirections without the "NE" flag. 
+     [Yann Ylavic, Eric Covener]
+
+  *) mod_proxy: Fix double encoding of the uri-path of the request forwarded
+     to the origin server, when using mapping=encoded|servlet.  [Yann Ylavic]
+
+  *) mod_mime: Do not match the extention against possible query string
+     parameters in case ProxyPass was used with the nocanon option.
+     [Ruediger Pluem]
+
 Changes with Apache 2.4.56
+
+  *) SECURITY: CVE-2023-27522: Apache HTTP Server: mod_proxy_uwsgi
+     HTTP response splitting (cve.mitre.org)
+     HTTP Response Smuggling vulnerability in Apache HTTP Server via
+     mod_proxy_uwsgi. This issue affects Apache HTTP Server: from
+     2.4.30 through 2.4.55.
+     Special characters in the origin response header can
+     truncate/split the response forwarded to the client.
+     Credits: Dimas Fariski Setyawan Putra (nyxsorcerer)
+
+  *) SECURITY: CVE-2023-25690: HTTP request splitting with
+     mod_rewrite and mod_proxy (cve.mitre.org)
+     Some mod_proxy configurations on Apache HTTP Server versions
+     2.4.0 through 2.4.55 allow a HTTP Request Smuggling attack.
+     Configurations are affected when mod_proxy is enabled along with
+     some form of RewriteRule or ProxyPassMatch in which a non-specific
+     pattern matches some portion of the user-supplied request-target (URL)
+     data and is then re-inserted into the proxied request-target
+     using variable substitution. For example, something like:
+        RewriteEngine on
+        RewriteRule "^/here/(.*)" "http://example.com:8080/elsewhere?$1"; [P]
+        ProxyPassReverse /here/  http://example.com:8080/
+     Request splitting/smuggling could result in bypass of access
+     controls in the proxy server, proxying unintended URLs to
+     existing origin servers, and cache poisoning.
+     Credits: Lars Krapf of Adobe
 
   *) rotatelogs: Add -T flag to allow subsequent rotated logfiles to be
      truncated without the initial logfile being truncated.  [Eric Covener]
@@ -112,6 +343,7 @@ Changes with Apache 2.4.55
        The checks for this in nghttp2 v1.50.0+ are disabled.
      - Extensive testing in production done by Alessandro Bianchi (@alexskynet)
        on the v2.0.x versions for stability. Many thanks!
+
   *) mod_proxy_http2: fixed #235 by no longer forwarding 'Host:' header when
      request ':authority' is known. Improved test case that did not catch that
      the previous 'fix' was incorrect.
@@ -318,6 +550,9 @@ Changes with Apache 2.4.54
      This gives trusted certificates for tailscale assigned
      domain names in the *.ts.net space.
      [Stefan Eissing]
+
+  *) core: Change default value of LimitRequestBody from 0 (unlimited)
+     to 1GB. [Eric Covener]
 
 Changes with Apache 2.4.53
 

@@ -44,7 +44,7 @@ public:
     
     // A group should delay destruction while excution is starting
     void StartingExecutionInGroup();
-    void StartedExecutionInGroup(bool succesful);
+    void StartedExecutionInGroup(bool successful);
 	
 	virtual CFDictionaryRef Externalize(CFErrorRef* error);
 	

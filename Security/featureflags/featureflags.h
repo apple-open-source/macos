@@ -39,6 +39,16 @@ bool _SecSystemKeychainAlwaysIsEnabled(void);
 void _SecSystemKeychainAlwaysOverride(bool value);
 void _SecSystemKeychainAlwaysClearOverride(void);
 
+/// Indicates if change tracking is enabled for shared items. If `true`, changes
+/// to shared items will be fetched and uploaded automatically.
+bool KCSharingIsChangeTrackingEnabled(void);
+
+/// Enables or disables change tracking for shared items. This is exposed for
+/// testing only.
+void KCSharingSetChangeTrackingEnabled(bool enabled);
+
+/// Resets the change tracking state to the default.
+void KCSharingClearChangeTrackingEnabledOverride(void);
 
 // Helpers for trust settings feature flags
 bool _SecTrustSettingsUseXPCEnabled(void);

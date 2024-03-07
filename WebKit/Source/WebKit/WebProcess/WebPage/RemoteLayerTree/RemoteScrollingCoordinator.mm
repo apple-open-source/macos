@@ -109,7 +109,8 @@ RemoteScrollingCoordinatorTransaction RemoteScrollingCoordinator::buildTransacti
 
     return {
         scrollingStateTree()->commit(LayerRepresentation::PlatformLayerIDRepresentation),
-        std::exchange(m_clearScrollLatchingInNextTransaction, false)
+        std::exchange(m_clearScrollLatchingInNextTransaction, false),
+        RemoteScrollingCoordinatorTransaction::FromDeserialization::No
     };
 }
 
@@ -170,13 +171,13 @@ void RemoteScrollingCoordinator::receivedWheelEventWithPhases(WebCore::PlatformW
         monitor->receivedWheelEventWithPhases(phase, momentumPhase);
 }
 
-void RemoteScrollingCoordinator::startDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID nodeID, WebCore::WheelEventTestMonitor::DeferReason reason)
+void RemoteScrollingCoordinator::startDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID nodeID, OptionSet<WebCore::WheelEventTestMonitor::DeferReason> reason)
 {
     if (auto monitor = m_page->wheelEventTestMonitor())
         monitor->deferForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(nodeID), reason);
 }
 
-void RemoteScrollingCoordinator::stopDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID nodeID, WebCore::WheelEventTestMonitor::DeferReason reason)
+void RemoteScrollingCoordinator::stopDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID nodeID, OptionSet<WebCore::WheelEventTestMonitor::DeferReason> reason)
 {
     if (auto monitor = m_page->wheelEventTestMonitor())
         monitor->removeDeferralForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(nodeID), reason);

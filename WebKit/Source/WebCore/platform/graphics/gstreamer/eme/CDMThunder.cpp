@@ -150,11 +150,7 @@ Vector<AtomString> CDMPrivateThunder::supportedInitDataTypes() const
     static std::once_flag onceFlag;
     static Vector<AtomString> supportedInitDataTypes;
     std::call_once(onceFlag, [] {
-        supportedInitDataTypes.reserveInitialCapacity(4);
-        supportedInitDataTypes.uncheckedAppend("keyids"_s);
-        supportedInitDataTypes.uncheckedAppend("cenc"_s);
-        supportedInitDataTypes.uncheckedAppend("webm"_s);
-        supportedInitDataTypes.uncheckedAppend("cbcs"_s);
+        supportedInitDataTypes.appendList({ "keyids"_s, "cenc"_s, "webm"_s, "cbcs"_s });
     });
     return supportedInitDataTypes;
 }
@@ -495,7 +491,7 @@ void CDMInstanceSessionThunder::errorCallback(RefPtr<SharedBuffer>&& message)
     m_sessionChangedCallbacks.clear();
 }
 
-void CDMInstanceSessionThunder::requestLicense(LicenseType licenseType, const AtomString& initDataType, Ref<SharedBuffer>&& initDataSharedBuffer,
+void CDMInstanceSessionThunder::requestLicense(LicenseType licenseType, KeyGroupingStrategy, const AtomString& initDataType, Ref<SharedBuffer>&& initDataSharedBuffer,
     LicenseCallback&& callback)
 {
     ASSERT(isMainThread());

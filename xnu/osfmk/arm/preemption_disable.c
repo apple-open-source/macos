@@ -265,12 +265,12 @@ _preemption_disable_snap_start(void)
 	pcpu->pdp_abandon = false;
 	pcpu->pdp_start.pds_mach_time = ml_get_sched_hygiene_timebase();
 	pcpu->pdp_start.pds_int_mach_time = recount_current_processor_interrupt_time_mach();
-#if MONOTONIC
+#if CONFIG_CPU_COUNTERS
 	if (__probable(sched_hygiene_debug_pmc)) {
 		mt_cur_cpu_cycles_instrs_speculative(&pcpu->pdp_start.pds_cycles,
 		    &pcpu->pdp_start.pds_instrs);
 	}
-#endif /* MONOTONIC */
+#endif /* CONFIG_CPU_COUNTERS */
 }
 
 /*
@@ -401,7 +401,7 @@ _collect_preemption_disable_measurement(void)
 		uint64_t average_cpi_whole = 0;
 		uint64_t average_cpi_fractional = 0;
 
-#if MONOTONIC
+#if CONFIG_CPU_COUNTERS
 		if (__probable(sched_hygiene_debug_pmc)) {
 			/*
 			 * We're getting these values a bit late, but getting them
@@ -424,7 +424,7 @@ _collect_preemption_disable_measurement(void)
 			average_cpi_fractional =
 			    ((cycles_elapsed * 100) / instrs_retired) % 100;
 		}
-#endif /* MONOTONIC */
+#endif /* CONFIG_CPU_COUNTERS */
 
 		if (__probable(sched_preemption_disable_debug_mode == SCHED_HYGIENE_MODE_PANIC)) {
 			panic("preemption disable timeout exceeded: %llu >= %llu mt ticks (start: %llu, now: %llu, gross: %llu, inttime: %llu), "

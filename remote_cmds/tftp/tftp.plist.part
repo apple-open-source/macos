@@ -2,19 +2,15 @@
 		<key>OpenSourceProject</key>
 		<string>tftp</string>
 		<key>OpenSourceVersion</key>
-		<string>2007-11-07</string>
+		<string>2023-03-13</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/tftp?id=10f9229070a6a01520c51edb9a0ffff63994f1d4</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/tftp?id=fc76ddee9be0d7f98c9f9a162627950f8102964e</string>
 		<key>OpenSourceImportDate</key>
-		<string>2008-03-26</string>
+		<string>2023-03-13</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>tftp.c: tftp has a 32MB limit</string>
-			<string>tftp.c: avoid option parsing during rollover</string>
-			<string>tftp.c: tftp byte-swaps short for OACK packet</string>
-			<string>tftp.c: ignore packets from sessions that don't match (15245872)</string>
-			<string>tftp.c: compare ports using sockaddr instead of getnameinfo (15245872)</string>
-			<string>main.c: Lion tftp PUT stack overflow (9849223)</string>
+			<string>main.c: -e option</string>
+			<string>main.c: tsize, tout, blksize commands</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

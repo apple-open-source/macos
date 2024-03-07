@@ -1139,6 +1139,14 @@ _archive_read_free(struct archive *_a)
 	a->archive.magic = 0;
 	__archive_clean(&a->archive);
 	free(a->client.dataset);
+
+#ifdef HAVE_MAC_QUARANTINE
+	if (a->qf) {
+		qtn_file_free(a->qf);
+		a->qf = NULL;
+	}
+#endif
+
 	free(a);
 	return (r);
 }

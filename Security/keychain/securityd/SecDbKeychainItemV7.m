@@ -52,9 +52,9 @@
 
 // See corresponding "reasonable size" client-side limit(s) in SecItem.
 
-// Generally the secret data dictionary contains a single key
-// with the client's password/key NSData therein, so 4k feels extremely luxurious
-#define REASONABLE_SECRET_DATA_SIZE 4096
+// Many clients store a plist with secret data.
+// Complain only if it exceeds 32KiB.
+#define REASONABLE_SECRET_DATA_SIZE (1024 * 32)
 
 // This feels similarly generous, but let's find out
 #define REASONABLE_METADATA_SIZE 2048

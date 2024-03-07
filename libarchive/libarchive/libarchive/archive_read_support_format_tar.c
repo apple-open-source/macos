@@ -136,6 +136,7 @@ struct tar {
 	struct archive_string	 line;
 	int			 pax_hdrcharset_binary;
 	int			 header_recursion_depth;
+	int			 apple_metadata_recursion_depth;
 	int64_t			 entry_bytes_remaining;
 	int64_t			 entry_offset;
 	int64_t			 entry_padding;
@@ -540,6 +541,7 @@ archive_read_format_tar_read_header(struct archive_read *a,
 	gnu_clear_sparse_list(tar);
 	tar->realsize = -1; /* Mark this as "unset" */
 	tar->realsize_override = 0;
+	tar->apple_metadata_recursion_depth = 0;
 
 	/* Setup default string conversion. */
 	tar->sconv = tar->opt_sconv;
@@ -849,9 +851,16 @@ tar_read_header(struct archive_read *a, struct tar *tar,
 	if ((err == ARCHIVE_WARN || err == ARCHIVE_OK) &&
 	    tar->header_recursion_depth == 0 &&
 	    tar->process_mac_extensions) {
+		++tar->apple_metadata_recursion_depth;
+		if (tar->apple_metadata_recursion_depth > 1) {
+			return ARCHIVE_OK;
+		}
+
 		int err2 = read_mac_metadata_blob(a, tar, entry, h, unconsumed);
 		if (err2 < err)
 			err = err2;
+
+		--tar->apple_metadata_recursion_depth;
 	}
 
 	/* We return warnings or success as-is.  Anything else is fatal. */
@@ -1146,9 +1155,9 @@ read_body_to_string(struct archive_read *a, struct tar *tar,
 	(void)tar; /* UNUSED */
 	header = (const struct archive_entry_header_ustar *)h;
 	size  = tar_atol(header->size, sizeof(header->size));
-	if ((size > 1048576) || (size < 0)) {
+	if ((size > 2097152) || (size < 0)) {
 		archive_set_error(&a->archive, EINVAL,
-		    "Special header too large");
+		    "Special header too large: %llu", size);
 		return (ARCHIVE_FATAL);
 	}
 

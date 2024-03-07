@@ -1792,32 +1792,6 @@ int ssl_callback_SSLVerify(int ok, X509_STORE_CTX *ctx)
          */
         return TRUE;
     }
-    /*
-     * Allow relaxed checking of cert chains wrt to the key usage of the CA certs
-     */
-    if (!ok && (errnum == X509_V_ERR_INVALID_PURPOSE) &&
-        (dc && (dc->nOptions & SSL_OPT_LEGACYCHAINVERIFY)))
-    {
-            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, conn, APLOGNO(76433)
-                      "Certificate Verification: the LegacyCertChainVerify option is set,"
-                      "  X509_V_ERR_INVALID_PURPOSE(26) error ignored.");
-            X509_STORE_CTX_set_error(ctx, X509_V_OK);
-            ok = TRUE;
-    }
-    /*
-     * Apply relaxed checking to signature
-     */
-    if (!ok && (errnum == X509_V_ERR_CERT_SIGNATURE_FAILURE) &&
-        (dc && (dc->nOptions & SSL_OPT_LEGACYCHAINVERIFY)))
-    {
-            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, conn, APLOGNO(76433)
-                      "Certificate Verification: the LegacyCertChainVerify option is set,"
-                      "  X509_V_ERR_CERT_SIGNATURE_FAILURE(7) error ignored.");
-            X509_STORE_CTX_set_error(ctx, X509_V_OK);
-            ok = TRUE;
-    }
-
-
 
     if (ssl_verify_error_is_optional(errnum) &&
         (verify == SSL_CVERIFY_OPTIONAL_NO_CA))

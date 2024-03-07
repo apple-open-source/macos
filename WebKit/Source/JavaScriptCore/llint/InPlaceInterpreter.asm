@@ -96,7 +96,7 @@ elsif ARMv7
 else
 end
 
-const WasmCodeBlock = CallerFrame - constexpr Wasm::numberOfIPIntCalleeSaveRegisters * SlotSize - MachineRegisterSize
+const UnboxedWasmCalleeStackSlot = CallerFrame - constexpr Wasm::numberOfIPIntCalleeSaveRegisters * SlotSize - MachineRegisterSize
 
 ##########
 # Macros #
@@ -104,30 +104,33 @@ const WasmCodeBlock = CallerFrame - constexpr Wasm::numberOfIPIntCalleeSaveRegis
 
 # Callee Save
 
+# FIXME: This happens to work because UnboxedWasmCalleeStackSlot sits in the extra space we should be more precise in case we want to use an even number of callee saves in the future.
+const IPIntCalleeSaveSpaceStackAligned = 2*CalleeSaveSpaceStackAligned
+
 macro saveIPIntRegisters()
-    subp 2*CalleeSaveSpaceStackAligned, sp
+    subp IPIntCalleeSaveSpaceStackAligned, sp
     if ARM64 or ARM64E
-        storepairq wasmInstance, PB, -16[cfr]
-        storeq PM, -24[cfr]
+        storepairq PM, PB, -16[cfr]
+        storeq wasmInstance, -24[cfr]
     elsif X86_64 or RISCV64
         storep PB, -0x8[cfr]
-        storep wasmInstance, -0x10[cfr]
-        storep PM, -0x18[cfr]
+        storep PM, -0x10[cfr]
+        storep wasmInstance, -0x18[cfr]
     else
     end
 end
 
 macro restoreIPIntRegisters()
     if ARM64 or ARM64E
-        loadpairq -16[cfr], wasmInstance, PB
-        loadq -24[cfr], PM
+        loadpairq -16[cfr], PM, PB
+        loadq -24[cfr], wasmInstance
     elsif X86_64 or RISCV64
         loadp -0x8[cfr], PB
-        loadp -0x10[cfr], wasmInstance
-        loadp -0x18[cfr], PM
+        loadp -0x10[cfr], PM
+        loadp -0x18[cfr], wasmInstance
     else
     end
-    addp 2*CalleeSaveSpaceStackAligned, sp
+    addp IPIntCalleeSaveSpaceStackAligned, sp
 end
 
 # Get IPIntCallee object at startup
@@ -140,7 +143,7 @@ end
     leap WTFConfig + constexpr WTF::offsetOfWTFConfigLowestAccessibleAddress, ws1
     loadp [ws1], ws1
     addp ws1, ws0
-    storep ws0, WasmCodeBlock[cfr]
+    storep ws0, UnboxedWasmCalleeStackSlot[cfr]
 end
 
 # Tail-call dispatch
@@ -353,6 +356,9 @@ macro popFloat64FT1()
 end
 
 # Instruction labels
+# Important Note: If you don't use the unaligned global label from C++ (in our case we use the
+# labels in InPlaceInterpreter.cpp) then some linkers will still remove the definition which
+# causes all kinds of problems.
 
 # FIXME: switch offlineasm unalignedglobal to take alignment and optionally pad with breakpoint instructions (rdar://113594783)
 macro alignment()
@@ -392,7 +398,9 @@ macro ipintReloadMemory()
         loadp Wasm::Instance::m_cachedMemory[wasmInstance], memoryBase
         loadp Wasm::Instance::m_cachedBoundsCheckingSize[wasmInstance], boundsCheckingSize
     end
-    cagedPrimitiveMayBeNull(memoryBase, boundsCheckingSize, t2, t3)
+    if not ARMv7
+        cagedPrimitiveMayBeNull(memoryBase, t2)
+    end
 end
 
 # Operation Calls
@@ -410,6 +418,8 @@ macro operationCall(fn)
 end
 
 macro operationCallMayThrow(fn)
+    storei PC, CallSiteIndex[cfr]
+
     move wasmInstance, a0
     push PC, MC
     push PL, ws0
@@ -434,14 +444,14 @@ macro ipintException(exception)
     # addq PM, sp
     # restoreCallerPCAndCFR()
     storei constexpr Wasm::ExceptionType::%exception%, ArgumentCountIncludingThis + PayloadOffset[cfr]
-    restoreIPIntRegisters()
     jmp _wasm_throw_from_slow_path_trampoline
 end
 
 # OSR
 
 macro ipintPrologueOSR(increment)
-    loadp WasmCodeBlock[cfr], ws0
+if JIT
+    loadp UnboxedWasmCalleeStackSlot[cfr], ws0
     baddis increment, Wasm::IPIntCallee::m_tierUpCounter + Wasm::LLIntTierUpCounter::m_counter[ws0], .continue
 
     subq (NumberOfWasmArgumentJSRs + NumberOfWasmArgumentFPRs) * 8, sp
@@ -515,12 +525,14 @@ end
     end
 
 .recover:
-    loadp WasmCodeBlock[cfr], ws0
+    loadp UnboxedWasmCalleeStackSlot[cfr], ws0
 .continue:
+end
 end
 
 macro ipintLoopOSR(increment)
-    loadp WasmCodeBlock[cfr], ws0
+if JIT
+    loadp UnboxedWasmCalleeStackSlot[cfr], ws0
     baddis increment, Wasm::IPIntCallee::m_tierUpCounter + Wasm::LLIntTierUpCounter::m_counter[ws0], .continue
 
     move cfr, a1
@@ -543,17 +555,49 @@ macro ipintLoopOSR(increment)
     end
 
 .recover:
-    loadp WasmCodeBlock[cfr], ws0
+    loadp UnboxedWasmCalleeStackSlot[cfr], ws0
 .continue:
+end
 end
 
 macro ipintEpilogueOSR(increment)
-    loadp WasmCodeBlock[cfr], ws0
+if JIT
+    loadp UnboxedWasmCalleeStackSlot[cfr], ws0
     baddis increment, Wasm::IPIntCallee::m_tierUpCounter + Wasm::LLIntTierUpCounter::m_counter[ws0], .continue
 
     move cfr, a1
     operationCall(macro() cCall2(_ipint_extern_epilogue_osr) end)
 .continue:
+end
+end
+
+
+
+macro decodeLEBVarUInt32(offset, dst, scratch1, scratch2, scratch3, scratch4)
+    # if it's a single byte, fastpath it
+    const tempPC = scratch4
+    leap offset[PC], tempPC
+    loadb [PB, tempPC], dst
+
+    bbb dst, 0x80, .fastpath
+    # otherwise, set up for second iteration
+    # next shift is 7
+    move 7, scratch1
+    # take off high bit
+    subi 0x80, dst
+.loop:
+    addp 1, tempPC
+    loadb [PB, tempPC], scratch2
+    # scratch3 = high bit 7
+    # leave scratch2 with low bits 6-0
+    move 0x80, scratch3
+    andi scratch2, scratch3
+    xori scratch3, scratch2
+    lshifti scratch1, scratch2
+    addi 7, scratch1
+    ori scratch2, dst
+    bbneq scratch3, 0, .loop
+.fastpath:
 end
 
 ########################
@@ -588,8 +632,14 @@ if WEBASSEMBLY and (ARM64 or ARM64E or X86_64)
     storep wasmInstance, CodeBlock[cfr]
     getIPIntCallee()
 
-    # Allocate space for locals
-    loadi Wasm::IPIntCallee::m_localSizeToAlloc[ws0], csr0
+    # Allocate space for locals and rethrow values
+    if ARM64 or ARM64E
+        loadpairi Wasm::IPIntCallee::m_localSizeToAlloc[ws0], csr0, csr3
+    else
+        loadi Wasm::IPIntCallee::m_localSizeToAlloc[ws0], csr0
+        loadi Wasm::IPIntCallee::m_numRethrowSlotsToAlloc[ws0], csr3
+    end
+    addq csr3, csr0
     mulq LocalSize, csr0
     move sp, csr3
     subq csr0, sp
@@ -665,8 +715,14 @@ if WEBASSEMBLY and (ARM64 or ARM64E or X86_64)
     storep wasmInstance, CodeBlock[cfr]
     getIPIntCallee()
 
-    # Allocate space for locals
-    loadi Wasm::IPIntCallee::m_localSizeToAlloc[ws0], csr0
+    # Allocate space for locals and rethrow values
+    if ARM64 or ARM64E
+        loadpairi Wasm::IPIntCallee::m_localSizeToAlloc[ws0], csr0, csr3
+    else
+        loadi Wasm::IPIntCallee::m_localSizeToAlloc[ws0], csr0
+        loadi Wasm::IPIntCallee::m_numRethrowSlotsToAlloc[ws0], csr3
+    end
+    addq csr3, csr0
     mulq LocalSize, csr0
     move sp, csr3
     subq csr0, sp
@@ -718,6 +774,75 @@ const argumINTSrc = csr2
     nextIPIntInstruction()
 else
     ret
+end
+
+macro ipintCatchCommon()
+    getVMFromCallFrame(t3, t0)
+    restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer(t3, t0)
+
+    loadp VM::callFrameForCatch[t3], cfr
+    storep 0, VM::callFrameForCatch[t3]
+
+    loadp VM::targetInterpreterPCForThrow[t3], PC
+    loadp VM::targetInterpreterMetadataPCForThrow[t3], MC
+
+    getIPIntCallee()
+
+    loadp CodeBlock[cfr], wasmInstance
+    if ARM64 or ARM64E
+        pcrtoaddr _ipint_unreachable, IB
+    end
+    loadp Wasm::IPIntCallee::m_bytecode[ws0], PB
+    loadp Wasm::IPIntCallee::m_metadata[ws0], PM
+
+    # Recompute PL
+    if ARM64 or ARM64E
+        loadpairi Wasm::IPIntCallee::m_localSizeToAlloc[ws0], t0, t1
+    else
+        loadi Wasm::IPIntCallee::m_localSizeToAlloc[ws0], t0
+        loadi Wasm::IPIntCallee::m_numRethrowSlotsToAlloc[ws0], t1
+    end
+    addq t1, t0
+    # FIXME: Can this be an leaq?
+    mulq LocalSize, t0
+    addq IPIntCalleeSaveSpaceStackAligned, t0
+    subq cfr, t0, PL
+
+    loadi [PM, MC], t0
+    # 1 << 4 == StackValueSize
+    lshiftq 4, t0
+    addq IPIntCalleeSaveSpaceStackAligned, t0
+    subp cfr, t0, sp
+end
+
+global _ipint_catch_entry
+_ipint_catch_entry:
+if WEBASSEMBLY and (ARM64 or ARM64E or X86_64)
+    ipintCatchCommon()
+
+    move cfr, a1
+    move sp, a2
+    move PL, a3
+    operationCall(macro() cCall4(_ipint_extern_retrieve_and_clear_exception) end)
+
+    ipintReloadMemory()
+    advanceMC(4)
+    nextIPIntInstruction()
+end
+
+global _ipint_catch_all_entry
+_ipint_catch_all_entry:
+if WEBASSEMBLY and (ARM64 or ARM64E or X86_64)
+    ipintCatchCommon()
+
+    move cfr, a1
+    move 0, a2
+    move PL, a3
+    operationCall(macro() cCall4(_ipint_extern_retrieve_and_clear_exception) end)
+
+    ipintReloadMemory()
+    advanceMC(4)
+    nextIPIntInstruction()
 end
 
 if WEBASSEMBLY and (ARM64 or ARM64E or X86_64)
@@ -773,10 +898,45 @@ instructionLabel(_else)
     loadi 4[PM, MC], MC
     nextIPIntInstruction()
 
-reservedOpcode(0x06)
-reservedOpcode(0x07)
-reservedOpcode(0x08)
-reservedOpcode(0x09)
+instructionLabel(_try)
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
+    nextIPIntInstruction()
+
+instructionLabel(_catch)
+    # Counterintuitively, like else, we only run this instruction
+    # if no exception was thrown during the preceeding try or catch block.
+    loadi [PM, MC], PC
+    loadi 4[PM, MC], MC
+    nextIPIntInstruction()
+
+instructionLabel(_throw)
+    storei PC, CallSiteIndex[cfr]
+
+    loadp Wasm::Instance::m_vm[wasmInstance], t0
+    loadp VM::topEntryFrame[t0], t0
+    copyCalleeSavesToEntryFrameCalleeSavesBuffer(t0)
+
+    move cfr, a1
+    move sp, a2
+    loadi [PM, MC], a3
+    operationCall(macro() cCall4(_ipint_extern_throw_exception) end)
+    jumpToException()
+
+instructionLabel(_rethrow)
+    storei PC, CallSiteIndex[cfr]
+
+    loadp Wasm::Instance::m_vm[wasmInstance], t0
+    loadp VM::topEntryFrame[t0], t0
+    copyCalleeSavesToEntryFrameCalleeSavesBuffer(t0)
+
+    move cfr, a1
+    move PL, a2
+    loadi [PM, MC], a3
+    operationCall(macro() cCall4(_ipint_extern_rethrow_exception) end)
+    jumpToException()
+
 reservedOpcode(0x0a)
 
 # FIXME: switch offlineasm unalignedglobal to take alignment and optionally pad with breakpoint instructions (rdar://113594783)
@@ -896,10 +1056,14 @@ instructionLabel(_return)
     jmp .ipint_end_ret
 
 instructionLabel(_call)
+    storei PC, CallSiteIndex[cfr]
+
     # call
     jmp _ipint_call_impl
 
 instructionLabel(_call_indirect)
+    storei PC, CallSiteIndex[cfr]
+
     # Get ref
     # Load pre-computed values from metadata
     popInt32(t0, t1)
@@ -926,8 +1090,20 @@ reservedOpcode(0x14)
 reservedOpcode(0x15)
 reservedOpcode(0x16)
 reservedOpcode(0x17)
-reservedOpcode(0x18)
-reservedOpcode(0x19)
+
+instructionLabel(_delegate)
+    # Counterintuitively, like else, we only run this instruction
+    # if no exception was thrown during the preceeding try or catch block.
+    loadi [PM, MC], PC
+    loadi 4[PM, MC], MC
+    nextIPIntInstruction()
+
+instructionLabel(_catch_all)
+    # Counterintuitively, like else, we only run this instruction
+    # if no exception was thrown during the preceeding try or catch block.
+    loadi [PM, MC], PC
+    loadi 4[PM, MC], MC
+    nextIPIntInstruction()
 
 instructionLabel(_drop)
     addq StackValueSize, sp
@@ -1133,12 +1309,11 @@ instructionLabel(_table_set)
 
 reservedOpcode(0x27)
 
-macro ipintCheckMemoryBound(mem, size)
-    leap size - 1[mem], t2
-    bpb t2, boundsCheckingSize, .continuation
+macro ipintCheckMemoryBound(mem, scratch, size)
+    leap size - 1[mem], scratch
+    bpb scratch, boundsCheckingSize, .continuation
     ipintException(OutOfBoundsMemoryAccess)
 .continuation:
-    nop
 end
 
 instructionLabel(_i32_load_mem)
@@ -1147,7 +1322,7 @@ instructionLabel(_i32_load_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 4)
+    ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadi [memoryBase, t0], t1
     pushInt32(t1)
@@ -1163,7 +1338,7 @@ instructionLabel(_i64_load_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 8)
+    ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     loadq [memoryBase, t0], t1
     pushInt64(t1)
@@ -1179,7 +1354,7 @@ instructionLabel(_f32_load_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 4)
+    ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadf [memoryBase, t0], ft0
     pushFloat32FT0()
@@ -1195,7 +1370,7 @@ instructionLabel(_f64_load_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 8)
+    ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     loadd [memoryBase, t0], ft0
     pushFloat64FT0()
@@ -1212,7 +1387,7 @@ instructionLabel(_i32_load8s_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 1)
+    ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
     sxb2i t1, t1
@@ -1229,7 +1404,7 @@ instructionLabel(_i32_load8u_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 1)
+    ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
     pushInt32(t1)
@@ -1245,7 +1420,7 @@ instructionLabel(_i32_load16s_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 2)
+    ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
     sxh2i t1, t1
@@ -1262,7 +1437,7 @@ instructionLabel(_i32_load16u_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 2)
+    ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
     pushInt32(t1)
@@ -1279,7 +1454,7 @@ instructionLabel(_i64_load8s_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 1)
+    ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
     sxb2q t1, t1
@@ -1296,7 +1471,7 @@ instructionLabel(_i64_load8u_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 1)
+    ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
     pushInt64(t1)
@@ -1312,7 +1487,7 @@ instructionLabel(_i64_load16s_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 2)
+    ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
     sxh2q t1, t1
@@ -1329,7 +1504,7 @@ instructionLabel(_i64_load16u_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 2)
+    ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
     pushInt64(t1)
@@ -1345,7 +1520,7 @@ instructionLabel(_i64_load32s_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 4)
+    ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadi [memoryBase, t0], t1
     sxi2q t1, t1
@@ -1362,7 +1537,7 @@ instructionLabel(_i64_load32u_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 4)
+    ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadi [memoryBase, t0], t1
     pushInt64(t1)
@@ -1381,7 +1556,7 @@ instructionLabel(_i32_store_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 4)
+    ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storei t1, [memoryBase, t0]
 
@@ -1398,7 +1573,7 @@ instructionLabel(_i64_store_mem)
     popInt64(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 8)
+    ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     storeq t1, [memoryBase, t0]
 
@@ -1415,7 +1590,7 @@ instructionLabel(_f32_store_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 4)
+    ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storef ft0, [memoryBase, t0]
 
@@ -1432,7 +1607,7 @@ instructionLabel(_f64_store_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 8)
+    ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     stored ft0, [memoryBase, t0]
 
@@ -1449,7 +1624,7 @@ instructionLabel(_i32_store8_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 1)
+    ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     storeb t1, [memoryBase, t0]
 
@@ -1466,7 +1641,7 @@ instructionLabel(_i32_store16_mem)
     popInt32(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 2)
+    ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     storeh t1, [memoryBase, t0]
 
@@ -1483,7 +1658,7 @@ instructionLabel(_i64_store8_mem)
     popInt64(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 1)
+    ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     storeb t1, [memoryBase, t0]
 
@@ -1500,7 +1675,7 @@ instructionLabel(_i64_store16_mem)
     popInt64(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 2)
+    ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     storeh t1, [memoryBase, t0]
 
@@ -1517,7 +1692,7 @@ instructionLabel(_i64_store32_mem)
     popInt64(t0, t2)
     loadi 1[PM, MC], t2
     addq t2, t0
-    ipintCheckMemoryBound(t0, 4)
+    ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storei t1, [memoryBase, t0]
 
@@ -3202,9 +3377,9 @@ reservedOpcode(0xf9)
 reservedOpcode(0xfa)
 reservedOpcode(0xfb)
 instructionLabel(_fc_block)
-    loadb 1[PB, PC], t0
-    biaeq t0, 18, .ipint_fc_nonexistent
+    decodeLEBVarUInt32(1, t0, t1, t2, t3, ws1)
     # Security guarantee: always less than 18 (0x00 -> 0x11)
+    biaeq t0, 18, .ipint_fc_nonexistent
     if ARM64 or ARM64E
         pcrtoaddr _ipint_i32_trunc_sat_f32_s, t1
         emit "add x0, x1, x0, lsl 8"
@@ -3217,12 +3392,12 @@ instructionLabel(_fc_block)
     end
 
 .ipint_fc_nonexistent:
-    ipintException(Unreachable)
+    break
 
 instructionLabel(_simd)
     # TODO: for relaxed SIMD, handle parsing the value.
     # Metadata? Could just hardcode loading two bytes though
-    loadb 1[PB, PC], t0
+    decodeLEBVarUInt32(1, t0, t1, t2, t3, ws1)
     if ARM64 or ARM64E
         pcrtoaddr _ipint_simd_v128_load_mem, t1
         emit "add x0, x1, x0, lsl 8"
@@ -3234,7 +3409,24 @@ instructionLabel(_simd)
         emit "jmp *(%eax)"
     end
 
-reservedOpcode(0xfe)
+instructionLabel(_atomic)
+    decodeLEBVarUInt32(1, t0, t1, t2, t3, ws1)
+    # Security guarantee: always less than 78 (0x00 -> 0x4e)
+    biaeq t0, 0x4f, .ipint_atomic_nonexistent
+    if ARM64 or ARM64E
+        pcrtoaddr _ipint_memory_atomic_notify, t1
+        emit "add x0, x1, x0, lsl 8"
+        emit "br x0"
+    elsif X86_64
+        lshifti 4, t0
+        leap (_ipint_memory_atomic_notify), t1
+        addq t1, t0
+        emit "jmp *(%eax)"
+    end
+
+.ipint_atomic_nonexistent:
+    break
+
 reservedOpcode(0xff)
 
     #######################
@@ -3254,26 +3446,38 @@ instructionLabel(_i32_trunc_sat_f32_s)
 
     truncatef2is ft0, t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f32_s_outOfBoundsTruncSatMinOrNaN:
     bfeq ft0, ft0, .outOfBoundsTruncSatMin
     move 0, t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f32_s_outOfBoundsTruncSatMax:
     move (constexpr INT32_MAX), t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f32_s_outOfBoundsTruncSatMin:
     move (constexpr INT32_MIN), t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_i32_trunc_sat_f32_u)
@@ -3289,19 +3493,28 @@ instructionLabel(_i32_trunc_sat_f32_u)
 
     truncatef2i ft0, t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f32_u_outOfBoundsTruncSatMin:
     move 0, t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f32_u_outOfBoundsTruncSatMax:
     move (constexpr UINT32_MAX), t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_i32_trunc_sat_f64_s)
@@ -3317,26 +3530,38 @@ instructionLabel(_i32_trunc_sat_f64_s)
 
     truncated2is ft0, t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f64_s_outOfBoundsTruncSatMinOrNaN:
     bdeq ft0, ft0, .ipint_i32_trunc_sat_f64_s_outOfBoundsTruncSatMin
     move 0, t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f64_s_outOfBoundsTruncSatMax:
     move (constexpr INT32_MAX), t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f64_s_outOfBoundsTruncSatMin:
     move (constexpr INT32_MIN), t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_i32_trunc_sat_f64_u)
@@ -3352,19 +3577,28 @@ instructionLabel(_i32_trunc_sat_f64_u)
 
     truncated2i ft0, t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f64_u_outOfBoundsTruncSatMin:
     move 0, t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i32_trunc_sat_f64_u_outOfBoundsTruncSatMax:
     move (constexpr UINT32_MAX), t0
     pushInt32(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_i64_trunc_sat_f32_s)
@@ -3380,20 +3614,29 @@ instructionLabel(_i64_trunc_sat_f32_s)
 
     truncatef2qs ft0, t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i64_trunc_sat_f32_s_outOfBoundsTruncSatMinOrNaN:
     bfeq ft0, ft0, .outOfBoundsTruncSatMin
     move 0, t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i64_trunc_sat_f32_s_outOfBoundsTruncSatMax:
     move (constexpr INT64_MAX), t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_i64_trunc_sat_f32_u)
@@ -3409,19 +3652,28 @@ instructionLabel(_i64_trunc_sat_f32_u)
 
     truncatef2q ft0, t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i64_trunc_sat_f32_u_outOfBoundsTruncSatMin:
     move 0, t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i64_trunc_sat_f32_u_outOfBoundsTruncSatMax:
     move (constexpr UINT64_MAX), t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_i64_trunc_sat_f64_s)
@@ -3436,26 +3688,38 @@ instructionLabel(_i64_trunc_sat_f64_s)
 
     truncated2qs ft0, t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .outOfBoundsTruncSatMinOrNaN:
     bdeq ft0, ft0, .outOfBoundsTruncSatMin
     move 0, t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .outOfBoundsTruncSatMax:
     move (constexpr INT64_MAX), t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .outOfBoundsTruncSatMin:
     move (constexpr INT64_MIN), t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_i64_trunc_sat_f64_u)
@@ -3471,19 +3735,28 @@ instructionLabel(_i64_trunc_sat_f64_u)
 
     truncated2q ft0, t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i64_trunc_sat_f64_u_outOfBoundsTruncSatMin:
     move 0, t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 .ipint_i64_trunc_sat_f64_u_outOfBoundsTruncSatMax:
     move (constexpr UINT64_MAX), t0
     pushInt64(t0)
-    advancePC(2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_memory_init)
@@ -3516,7 +3789,10 @@ instructionLabel(_memory_copy)
     popQuad(a2, t0) # s
     popQuad(a1, t0) # d
     operationCallMayThrow(macro() cCall4(_ipint_extern_memory_copy) end)
-    advancePC(4)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_memory_fill)
@@ -3525,7 +3801,10 @@ instructionLabel(_memory_fill)
     popQuad(a2, t0) # val
     popQuad(a1, t0) # d
     operationCallMayThrow(macro() cCall4(_ipint_extern_memory_fill) end)
-    advancePC(3)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
     nextIPIntInstruction()
 
 instructionLabel(_table_init)
@@ -3959,27 +4238,1364 @@ unimplementedInstruction(_simd_i32x4_trunc_sat_f64x2_u_zero)
 unimplementedInstruction(_simd_f64x2_convert_low_i32x4_s)
 unimplementedInstruction(_simd_f64x2_convert_low_i32x4_u)
 
+    #########################
+    ## Atomic instructions ##
+    #########################
+
+macro ipintCheckMemoryBoundWithAlignmentCheck(mem, scratch, size)
+    leap size - 1[mem], scratch
+    bpb scratch, boundsCheckingSize, .continuation
+.throw:
+    ipintException(OutOfBoundsMemoryAccess)
+.continuation:
+    btpnz mem, (size - 1), .throw
+end
+
+macro ipintCheckMemoryBoundWithAlignmentCheck1(mem, scratch)
+    ipintCheckMemoryBound(mem, scratch, 1)
+end
+
+macro ipintCheckMemoryBoundWithAlignmentCheck2(mem, scratch)
+    ipintCheckMemoryBoundWithAlignmentCheck(mem, scratch, 2)
+end
+
+macro ipintCheckMemoryBoundWithAlignmentCheck4(mem, scratch)
+    ipintCheckMemoryBoundWithAlignmentCheck(mem, scratch, 4)
+end
+
+macro ipintCheckMemoryBoundWithAlignmentCheck8(mem, scratch)
+    ipintCheckMemoryBoundWithAlignmentCheck(mem, scratch, 8)
+end
+
+instructionLabel(_memory_atomic_notify)
+    # pop count
+    popInt32(a3, t0)
+    # pop pointer
+    popInt32(a1, t0)
+    # load offset
+    loadi 1[PM, MC], a2
+
+    move wasmInstance, a0
+    operationCall(macro() cCall4(_ipint_extern_memory_atomic_notify) end)
+    bilt r0, 0, .atomic_notify_throw
+
+    pushInt32(r0)
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(5)
+    nextIPIntInstruction()
+
+.atomic_notify_throw:
+    ipintException(OutOfBoundsMemoryAccess)
+
+instructionLabel(_memory_atomic_wait32)
+    # pop timeout
+    popInt32(a3, t0)
+    # pop value
+    popInt32(a2, t0)
+    # pop pointer
+    popInt32(a1, t0)
+    # load offset
+    loadi 1[PM, MC], t0
+    # merge them since the slow path takes the combined pointer + offset.
+    addq t0, a1
+
+    move wasmInstance, a0
+    operationCall(macro() cCall4(_ipint_extern_memory_atomic_wait32) end)
+    bilt r0, 0, .atomic_wait32_throw
+
+    pushInt32(r0)
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(5)
+    nextIPIntInstruction()
+
+.atomic_wait32_throw:
+    ipintException(OutOfBoundsMemoryAccess)
+
+instructionLabel(_memory_atomic_wait64)
+    # pop timeout
+    popInt32(a3, t0)
+    # pop value
+    popInt64(a2, t0)
+    # pop pointer
+    popInt32(a1, t0)
+    # load offset
+    loadi 1[PM, MC], t0
+    # merge them since the slow path takes the combined pointer + offset.
+    addq t0, a1
+
+    move wasmInstance, a0
+    operationCall(macro() cCall4(_ipint_extern_memory_atomic_wait64) end)
+    bilt r0, 0, .atomic_wait64_throw
+
+    pushInt32(r0)
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(5)
+    nextIPIntInstruction()
+
+.atomic_wait64_throw:
+    ipintException(OutOfBoundsMemoryAccess)
+
+instructionLabel(_atomic_fence)
+    fence
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(1)
+    nextIPIntInstruction()
+
+reservedOpcode(_atomic_0x4)
+reservedOpcode(_atomic_0x5)
+reservedOpcode(_atomic_0x6)
+reservedOpcode(_atomic_0x7)
+reservedOpcode(_atomic_0x8)
+reservedOpcode(_atomic_0x9)
+reservedOpcode(_atomic_0xa)
+reservedOpcode(_atomic_0xb)
+reservedOpcode(_atomic_0xc)
+reservedOpcode(_atomic_0xd)
+reservedOpcode(_atomic_0xe)
+reservedOpcode(_atomic_0xf)
+
+macro atomicLoadOp(boundsAndAlignmentCheck, loadAndPush)
+    # pop index
+    popInt32(t0, t2)
+    # load offset
+    loadi 1[PM, MC], t2
+    addq t2, t0
+    boundsAndAlignmentCheck(t0,  t3)
+    addq memoryBase, t0
+    loadAndPush(t0, t2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(5)
+    nextIPIntInstruction()
+end
+
+instructionLabel(_i32_atomic_load)
+    atomicLoadOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, scratch)
+        if ARM64 or ARM64E or X86_64
+            atomicloadi [mem], scratch
+        else
+            error
+        end
+        pushInt32(scratch)
+    end)
+
+instructionLabel(_i64_atomic_load)
+    atomicLoadOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, scratch)
+        if ARM64 or ARM64E or X86_64
+            atomicloadq [mem], scratch
+        else
+            error
+        end
+        pushInt64(scratch)
+    end)
+
+instructionLabel(_i32_atomic_load8_u)
+    atomicLoadOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, scratch)
+        if ARM64 or ARM64E or X86_64
+            atomicloadb [mem], scratch
+        else
+            error
+        end
+        pushInt32(scratch)
+    end)
+
+instructionLabel(_i32_atomic_load16_u)
+    atomicLoadOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, scratch)
+        if ARM64 or ARM64E or X86_64
+            atomicloadh [mem], scratch
+        else
+            error
+        end
+        pushInt32(scratch)
+    end)
+
+instructionLabel(_i64_atomic_load8_u)
+    atomicLoadOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, scratch)
+        if ARM64 or ARM64E or X86_64
+            atomicloadb [mem], scratch
+        else
+            error
+        end
+        pushInt64(scratch)
+    end)
+
+instructionLabel(_i64_atomic_load16_u)
+    atomicLoadOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, scratch)
+        if ARM64 or ARM64E or X86_64
+            atomicloadh [mem], scratch
+        else
+            error
+        end
+        pushInt64(scratch)
+    end)
+
+instructionLabel(_i64_atomic_load32_u)
+    atomicLoadOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, scratch)
+        if ARM64 or ARM64E or X86_64
+            atomicloadi [mem], scratch
+        else
+            error
+        end
+        pushInt64(scratch)
+    end)
+
+macro weakCASLoopByte(mem, value, scratch1AndOldValue, scratch2, fn)
+    if X86_64
+        loadb [mem], scratch1AndOldValue
+    .loop:
+        move scratch1AndOldValue, scratch2
+        fn(value, scratch2)
+        batomicweakcasb scratch1AndOldValue, scratch2, [mem], .loop
+    else
+    .loop:
+        loadlinkacqb [mem], scratch1AndOldValue
+        fn(value, scratch1AndOldValue, scratch2)
+        storecondrelb ws2, scratch2, [mem]
+        bineq ws2, 0, .loop
+    end
+end
+
+macro weakCASLoopHalf(mem, value, scratch1AndOldValue, scratch2, fn)
+    if X86_64
+        loadh [mem], scratch1AndOldValue
+    .loop:
+        move scratch1AndOldValue, scratch2
+        fn(value, scratch2)
+        batomicweakcash scratch1AndOldValue, scratch2, [mem], .loop
+    else
+    .loop:
+        loadlinkacqh [mem], scratch1AndOldValue
+        fn(value, scratch1AndOldValue, scratch2)
+        storecondrelh ws2, scratch2, [mem]
+        bineq ws2, 0, .loop
+    end
+end
+
+macro weakCASLoopInt(mem, value, scratch1AndOldValue, scratch2, fn)
+    if X86_64
+        loadi [mem], scratch1AndOldValue
+    .loop:
+        move scratch1AndOldValue, scratch2
+        fn(value, scratch2)
+        batomicweakcasi scratch1AndOldValue, scratch2, [mem], .loop
+    else
+    .loop:
+        loadlinkacqi [mem], scratch1AndOldValue
+        fn(value, scratch1AndOldValue, scratch2)
+        storecondreli ws2, scratch2, [mem]
+        bineq ws2, 0, .loop
+    end
+end
+
+macro weakCASLoopQuad(mem, value, scratch1AndOldValue, scratch2, fn)
+    if X86_64
+        loadq [mem], scratch1AndOldValue
+    .loop:
+        move scratch1AndOldValue, scratch2
+        fn(value, scratch2)
+        batomicweakcasq scratch1AndOldValue, scratch2, [mem], .loop
+    else
+    .loop:
+        loadlinkacqq [mem], scratch1AndOldValue
+        fn(value, scratch1AndOldValue, scratch2)
+        storecondrelq ws2, scratch2, [mem]
+        bineq ws2, 0, .loop
+    end
+end
+
+macro atomicStoreOp(boundsAndAlignmentCheck, popAndStore)
+    # pop value
+    popInt64(t1, t0)
+    # pop index
+    popInt32(t2, t0)
+    # load offset
+    loadi 1[PM, MC], t0
+    addq t0, t2
+    boundsAndAlignmentCheck(t2, t3)
+    addq memoryBase, t2
+    popAndStore(t2, t1, t0, t3)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(5)
+    nextIPIntInstruction()
+end
+
+instructionLabel(_i32_atomic_store)
+    atomicStoreOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgi value, [mem], value
+        elsif X86_64
+            atomicxchgi value, [mem]
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+    end)
+
+instructionLabel(_i64_atomic_store)
+    atomicStoreOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgq value, [mem], value
+        elsif X86_64
+            atomicxchgq value, [mem]
+        elsif ARM64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+    end)
+
+instructionLabel(_i32_atomic_store8_u)
+    atomicStoreOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgb value, [mem], value
+        elsif X86_64
+            atomicxchgb value, [mem]
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+    end)
+
+instructionLabel(_i32_atomic_store16_u)
+    atomicStoreOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgh value, [mem], value
+        elsif X86_64
+            atomicxchgh value, [mem]
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+    end)
+
+instructionLabel(_i64_atomic_store8_u)
+    atomicStoreOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgb value, [mem], value
+        elsif X86_64
+            atomicxchgb value, [mem]
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+    end)
+
+instructionLabel(_i64_atomic_store16_u)
+    atomicStoreOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgh value, [mem], value
+        elsif X86_64
+            atomicxchgh value, [mem]
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+    end)
+
+instructionLabel(_i64_atomic_store32_u)
+    atomicStoreOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgi value, [mem], value
+        elsif X86_64
+            atomicxchgi value, [mem]
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+    end)
+
+
+macro atomicRMWOp(boundsAndAlignmentCheck, rmw)
+    # pop value
+    popInt64(t1, t0)
+    # pop index
+    popInt32(t2, t0)
+    # load offset
+    loadi 1[PM, MC], t0
+    addq t0, t2
+    boundsAndAlignmentCheck(t2, t3)
+    addq memoryBase, t2
+    rmw(t2, t1, t0, t3)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(5)
+    nextIPIntInstruction()
+end
+
+instructionLabel(_i32_atomic_rmw_add)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgaddi value, [mem], scratch1
+        elsif X86_64
+            atomicxchgaddi value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                addi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw_add)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgaddq value, [mem], scratch1
+        elsif X86_64
+            atomicxchgaddq value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                addq value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw8_add_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgaddb value, [mem], scratch1
+        elsif X86_64
+            atomicxchgaddb value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                addi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw16_add_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgaddh value, [mem], scratch1
+        elsif X86_64
+            atomicxchgaddh value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                addi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw8_add_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgaddb value, [mem], scratch1
+        elsif X86_64
+            atomicxchgaddb value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                addi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw16_add_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgaddh value, [mem], scratch1
+        elsif X86_64
+            atomicxchgaddh value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                addi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw32_add_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgaddi value, [mem], scratch1
+        elsif X86_64
+            atomicxchgaddi value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                addi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw_sub)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            negi value
+            atomicxchgaddi value, [mem], scratch1
+        elsif X86_64
+            negi value
+            atomicxchgaddi value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                subi oldValue, value, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+
+instructionLabel(_i64_atomic_rmw_sub)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            negq value
+            atomicxchgaddq value, [mem], scratch1
+        elsif X86_64
+            negq value
+            atomicxchgaddq value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                subq oldValue, value, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw8_sub_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            negi value
+            atomicxchgaddb value, [mem], scratch1
+        elsif X86_64
+            negi value
+            atomicxchgaddb value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                subi oldValue, value, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw16_sub_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            negi value
+            atomicxchgaddh value, [mem], scratch1
+        elsif X86_64
+            negi value
+            atomicxchgaddh value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                subi oldValue, value, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw8_sub_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            negq value
+            atomicxchgaddb value, [mem], scratch1
+        elsif X86_64
+            negq value
+            atomicxchgaddb value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                subi oldValue, value, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw16_sub_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            negq value
+            atomicxchgaddh value, [mem], scratch1
+        elsif X86_64
+            negq value
+            atomicxchgaddh value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                subi oldValue, value, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw32_sub_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            negq value
+            atomicxchgaddi value, [mem], scratch1
+        elsif X86_64
+            negq value
+            atomicxchgaddi value, [mem]
+            move value, scratch1
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                subi oldValue, value, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw_and)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            noti value
+            atomicxchgcleari value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro (value, dst)
+                andq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                andi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw_and)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            notq value
+            atomicxchgclearq value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro (value, dst)
+                andq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                andq value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw8_and_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            noti value
+            atomicxchgclearb value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro (value, dst)
+                andq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                andi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw16_and_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            noti value
+            atomicxchgclearh value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro (value, dst)
+                andq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                andi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw8_and_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            notq value
+            atomicxchgclearb value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro (value, dst)
+                andq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                andi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw16_and_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            notq value
+            atomicxchgclearh value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro (value, dst)
+                andq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                andi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw32_and_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            notq value
+            atomicxchgcleari value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro (value, dst)
+                andq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                andi value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw_or)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgori value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro (value, dst)
+                ori value, dst
+            end)
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                ori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw_or)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgorq value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro (value, dst)
+                orq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                orq value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw8_or_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgorb value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro (value, dst)
+                orq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                ori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw16_or_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgorh value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro (value, dst)
+                orq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                ori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw8_or_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgorb value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro (value, dst)
+                orq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                ori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw16_or_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgorh value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro (value, dst)
+                orq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                ori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw32_or_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgori value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro (value, dst)
+                orq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                ori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw_xor)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgxori value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro (value, dst)
+                xorq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                xori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw_xor)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgxorq value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro (value, dst)
+                xorq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                xorq value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+
+instructionLabel(_i32_atomic_rmw8_xor_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgxorb value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro (value, dst)
+                xorq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                xori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw16_xor_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgxorh value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro (value, dst)
+                xorq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                xori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw8_xor_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgxorb value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro (value, dst)
+                xorq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                xori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw16_xor_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgxorh value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro (value, dst)
+                xorq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                xori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw32_xor_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgxori value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro (value, dst)
+                xorq value, dst
+            end)
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                xori value, oldValue, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw_xchg)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgi value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro (value, dst)
+                move value, dst
+            end)
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw_xchg)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgq value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro (value, dst)
+                move value, dst
+            end)
+        elsif ARM64
+            weakCASLoopQuad(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw8_xchg_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgb value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro (value, dst)
+                move value, dst
+            end)
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i32_atomic_rmw16_xchg_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgh value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro (value, dst)
+                move value, dst
+            end)
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+        pushInt32(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw8_xchg_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgb value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro (value, dst)
+                move value, dst
+            end)
+        elsif ARM64
+            weakCASLoopByte(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw16_xchg_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgh value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro (value, dst)
+                move value, dst
+            end)
+        elsif ARM64
+            weakCASLoopHalf(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+instructionLabel(_i64_atomic_rmw32_xchg_u)
+    atomicRMWOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, scratch1, scratch2)
+        if ARM64E
+            atomicxchgi value, [mem], scratch1
+        elsif X86_64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro (value, dst)
+                move value, dst
+            end)
+        elsif ARM64
+            weakCASLoopInt(mem, value, scratch1, scratch2, macro(value, oldValue, newValue)
+                move value, newValue
+            end)
+        else
+            error
+        end
+        pushInt64(scratch1)
+    end)
+
+macro atomicCmpxchgOp(boundsAndAlignmentCheck, cmpxchg)
+    # pop value
+    popInt64(t1, t2)
+    # pop expected
+    popInt64(t0, t2)
+    # pop index
+    popInt32(t3, t2)
+    # load offset
+    loadi 1[PM, MC], t2
+    addq t2, t3
+    boundsAndAlignmentCheck(t3, t2)
+    addq memoryBase, t3
+    cmpxchg(t3, t1, t0, t2)
+
+    loadb [PM, MC], t0
+    advancePCByReg(t0)
+    advanceMC(5)
+    nextIPIntInstruction()
+end
+
+macro weakCASExchangeByte(mem, value, expected, scratch)
+    if ARM64
+    .loop:
+        loadlinkacqb [mem], scratch
+        bqneq expected, scratch, .fail
+        storecondrelb scratch, value, [mem]
+        bieq scratch, 0, .done
+        jmp .loop
+    .fail:
+        emit "clrex"
+        move scratch, expected
+    .done:
+    else
+        error
+    end
+end
+
+macro weakCASExchangeHalf(mem, value, expected, scratch)
+    if ARM64
+    .loop:
+        loadlinkacqh [mem], scratch
+        bqneq expected, scratch, .fail
+        storecondrelh scratch, value, [mem]
+        bieq scratch, 0, .done
+        jmp .loop
+    .fail:
+        emit "clrex"
+        move scratch, expected
+    .done:
+    else
+        error
+    end
+end
+
+macro weakCASExchangeInt(mem, value, expected, scratch)
+    if ARM64
+    .loop:
+        loadlinkacqi [mem], scratch
+        bqneq expected, scratch, .fail
+        storecondreli scratch, value, [mem]
+        bieq scratch, 0, .done
+        jmp .loop
+    .fail:
+        emit "clrex"
+        move scratch, expected
+    .done:
+    else
+        error
+    end
+end
+
+macro weakCASExchangeQuad(mem, value, expected, scratch)
+    if ARM64
+    .loop:
+        loadlinkacqq [mem], scratch
+        bqneq expected, scratch, .fail
+        storecondrelq scratch, value, [mem]
+        bieq scratch, 0, .done
+        jmp .loop
+    .fail:
+        emit "clrex"
+        move scratch, expected
+    .done:
+    else
+        error
+    end
+end
+
+instructionLabel(_i32_atomic_rmw_cmpxchg)
+    atomicCmpxchgOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, expected, scratch2)
+        if ARM64E or X86_64
+            atomicweakcasi expected, value, [mem]
+        elsif ARM64
+            weakCASExchangeInt(mem, value, expected, scratch2)
+        else
+            error
+        end
+        pushInt32(expected)
+    end)
+
+instructionLabel(_i64_atomic_rmw_cmpxchg)
+    atomicCmpxchgOp(ipintCheckMemoryBoundWithAlignmentCheck8, macro(mem, value, expected, scratch2)
+        if ARM64E or X86_64
+            atomicweakcasq expected, value, [mem]
+        elsif ARM64
+            weakCASExchangeQuad(mem, value, expected, scratch2)
+        else
+            error
+        end
+        pushInt64(expected)
+    end)
+
+instructionLabel(_i32_atomic_rmw8_cmpxchg_u)
+    atomicCmpxchgOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, expected, scratch2)
+        andq 0xff, expected
+        if ARM64E or X86_64
+            atomicweakcasb expected, value, [mem]
+        elsif ARM64
+            weakCASExchangeByte(mem, value, expected, scratch2)
+        else
+            error
+        end
+        pushInt32(expected)
+    end)
+
+instructionLabel(_i32_atomic_rmw16_cmpxchg_u)
+    atomicCmpxchgOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, expected, scratch2)
+        andq 0xffff, expected
+        if ARM64E or X86_64
+            atomicweakcash expected, value, [mem]
+        elsif ARM64
+            weakCASExchangeHalf(mem, value, expected, scratch2)
+        else
+            error
+        end
+        pushInt32(expected)
+    end)
+
+instructionLabel(_i64_atomic_rmw8_cmpxchg_u)
+    atomicCmpxchgOp(ipintCheckMemoryBoundWithAlignmentCheck1, macro(mem, value, expected, scratch2)
+        andq 0xff, expected
+        if ARM64E or X86_64
+            atomicweakcasb expected, value, [mem]
+        elsif ARM64
+            weakCASExchangeByte(mem, value, expected, scratch2)
+        else
+            error
+        end
+        pushInt64(expected)
+    end)
+
+instructionLabel(_i64_atomic_rmw16_cmpxchg_u)
+    atomicCmpxchgOp(ipintCheckMemoryBoundWithAlignmentCheck2, macro(mem, value, expected, scratch2)
+        andq 0xffff, expected
+        if ARM64E or X86_64
+            atomicweakcash expected, value, [mem]
+        elsif ARM64
+            weakCASExchangeHalf(mem, value, expected, scratch2)
+        else
+            error
+        end
+        pushInt64(expected)
+    end)
+
+instructionLabel(_i64_atomic_rmw32_cmpxchg_u)
+    atomicCmpxchgOp(ipintCheckMemoryBoundWithAlignmentCheck4, macro(mem, value, expected, scratch2)
+        andq 0xffffffff, expected
+        if ARM64E or X86_64
+            atomicweakcasi expected, value, [mem]
+        elsif ARM64
+            weakCASExchangeInt(mem, value, expected, scratch2)
+        else
+            error
+        end
+        pushInt64(expected)
+    end)
+
     ##################################
     ## "Out of line" logic for call ##
     ##################################
-
-_ipint_call_impl:
-    # 0 - 3: function index
-    # 4 - 7: PC post call
-    # 8 - 9: length of mint bytecode
-    # 10 - : mint bytecode
-
-    # function index
-    loadi 1[PM, MC], t0
-
-    loadb [PM, MC], t1
-    advancePCByReg(t1)
-    advanceMC(5)
-
-    # Get function data
-    move t0, a1
-    move wasmInstance, a0
-    operationCall(macro() cCall2(_ipint_extern_call) end)
 
 # FIXME: switch offlineasm unalignedglobal to take alignment and optionally pad with breakpoint instructions (rdar://113594783)
 macro mintAlign()
@@ -4033,6 +5649,24 @@ elsif X86_64
     emit "jmp *(%r13)"
 end
 end
+
+_ipint_call_impl:
+    # 0 - 3: function index
+    # 4 - 7: PC post call
+    # 8 - 9: length of mint bytecode
+    # 10 - : mint bytecode
+
+    # function index
+    loadi 1[PM, MC], t0
+
+    loadb [PM, MC], t1
+    advancePCByReg(t1)
+    advanceMC(5)
+
+    # Get function data
+    move t0, a1
+    move wasmInstance, a0
+    operationCall(macro() cCall2(_ipint_extern_call) end)
 
 .ipint_call_common:
     # wasmInstance = csr0
@@ -4467,10 +6101,10 @@ unimplementedInstruction(_block)
 unimplementedInstruction(_loop)
 unimplementedInstruction(_if)
 unimplementedInstruction(_else)
-reservedOpcode(0x06)
-reservedOpcode(0x07)
-reservedOpcode(0x08)
-reservedOpcode(0x09)
+unimplementedInstruction(_try)
+unimplementedInstruction(_catch)
+unimplementedInstruction(_throw)
+unimplementedInstruction(_rethrow)
 reservedOpcode(0x0a)
 unimplementedInstruction(_end)
 unimplementedInstruction(_br)
@@ -4485,8 +6119,8 @@ reservedOpcode(0x14)
 reservedOpcode(0x15)
 reservedOpcode(0x16)
 reservedOpcode(0x17)
-reservedOpcode(0x18)
-reservedOpcode(0x19)
+unimplementedInstruction(_delegate)
+unimplementedInstruction(_catch_all)
 unimplementedInstruction(_drop)
 unimplementedInstruction(_select)
 unimplementedInstruction(_select_t)
@@ -4715,6 +6349,6 @@ reservedOpcode(0xfa)
 reservedOpcode(0xfb)
 unimplementedInstruction(_fc_block)
 unimplementedInstruction(_simd)
-reservedOpcode(0xfe)
+unimplementedInstruction(_atomic)
 reservedOpcode(0xff)
 end

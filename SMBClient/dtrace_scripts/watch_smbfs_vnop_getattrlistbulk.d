@@ -8,10 +8,26 @@ BEGIN
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_getattrlistbulk:entry
 { 
-	printf("proc <%s> dir <%s> offset <%lld> va_active <0x%llx>",
-            execname,
-            stringof(((struct vnop_getattrlistbulk_args *) arg0)->a_vp->v_name),
-            ((struct vnop_getattrlistbulk_args *) arg0)->a_uio->uio_offset,
-            ((struct vnop_getattrlistbulk_args *) arg0)->a_vap->va_active);
-	ustack(); 
+	self->vnop_getattrlistbulk_arg0 = arg0;
+
+    printf("proc <%s> name <%s> va_active <x%llx>",
+    	   execname,
+    	   stringof(((struct vnop_getattrlistbulk_args *) arg0)->a_vp->v_name),
+     	   ((struct vnop_getattrlistbulk_args *) arg0)->a_vap->va_active
+          );
+	//ustack(15); 
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_getattrlistbulk:return
+/self->vnop_getattrlistbulk_arg0/
+{ 
+    printf("proc <%s> name <%s> va_supported <x%llx> act_count <%d> error <%d>",
+        execname,
+        stringof(((struct vnop_getattrlistbulk_args *) self->vnop_getattrlistbulk_arg0)->a_vp->v_name),
+        ((struct vnop_getattrlistbulk_args *) self->vnop_getattrlistbulk_arg0)->a_vap->va_supported,
+        *(((struct vnop_getattrlistbulk_args *) self->vnop_getattrlistbulk_arg0)->a_actualcount),
+        arg1
+    );
+
+	self->vnop_getattrlistbulk_arg0 = 0;
 }

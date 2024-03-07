@@ -33,6 +33,7 @@ ASAN_DYLIB_PATH := /usr/appleinternal/lib/sanitizers/
 
 OTHER_LDFLAGS := -umbrella System -L/usr/lib/system -lsystem_collections
 
+assumes_fbounds_safety: OTHER_CFLAGS += -fbounds-safety
 abort_tests: OTHER_CFLAGS += -fstack-check
 strtod: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
 strtof: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas

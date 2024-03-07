@@ -29,8 +29,32 @@
 #import <Security/SecCmsBase.h>
 
 
+// A local interface to prevent compilation issues for interfaces not in
+// the SDK yet.
+@interface MSCMSSignerInfo (LocalBuild)
+- (nullable instancetype)initWithCertificate:(SecCertificateRef)certificate
+						  signatureAlgorithm:(MSOID * _Nullable)signatureAlgorithm
+					useIssuerAndSerialNumber:(BOOL)useIssuerAndSerialNumber
+									   error:(NSError * _Nullable __autoreleasing * _Nullable)error;
+@end
+
 namespace Security {
 namespace CodeSigning {
+
+static SecCSDigestAlgorithm
+mapDigestAlgorithm(const MSOIDString msDigestAlgorithm)
+{
+	if ([msDigestAlgorithm isEqualToString:MSDigestAlgorithmSHA1]) {
+		return kSecCodeSignatureHashSHA1;
+	} else if ([msDigestAlgorithm isEqualToString:MSDigestAlgorithmSHA256]) {
+		return kSecCodeSignatureHashSHA256;
+	} else if ([msDigestAlgorithm isEqualToString:MSDigestAlgorithmSHA384]) {
+		return kSecCodeSignatureHashSHA384;
+	} else if ([msDigestAlgorithm isEqualToString:MSDigestAlgorithmSHA512]) {
+		return kSecCodeSignatureHashSHA512;
+	}
+	return kSecCodeSignatureNoHash;
+}
 
 static NSDictionary *
 createHashAgilityV2Dictionary(NSDictionary *hashes)
@@ -102,12 +126,22 @@ doRemoteSigning(const CodeDirectory *cd,
 	firstCert = (SecCertificateRef)CFArrayGetValueAtIndex(certificateChain, 0);
 	MSOID *signingAlgoOID = [MSOID OIDWithString:MSSignatureAlgorithmRSAPKCS1v5SHA256 error:&error];
 	if (!signingAlgoOID) {
-		secerror("Unable to create signer info: %@, %@", firstCert.get(), error);
+		secerror("Unable to create signing algorithm: %@", error);
 		return errSecMemoryError;
 	}
-	signerInfo = [[MSCMSSignerInfo alloc] initWithCertificate:firstCert
-										   signatureAlgorithm:signingAlgoOID
-														error:&error];
+
+	signerInfo = [MSCMSSignerInfo alloc];
+	SEL newInit = @selector(initWithCertificate:signatureAlgorithm:useIssuerAndSerialNumber:error:);
+	if ([signerInfo respondsToSelector:newInit]) {
+		signerInfo = [signerInfo initWithCertificate:firstCert
+								  signatureAlgorithm:signingAlgoOID
+							useIssuerAndSerialNumber:YES
+											   error:&error];
+	} else {
+		secerror("Unable to create signer due to old CMS interfaces");
+		return errSecBadReq;
+	}
+
 	if (!signerInfo || error) {
 		secerror("Unable to create signer info: %@, %@, %@", firstCert.get(), signingAlgoOID.OIDString, error);
 		return errSecCSCMSConstructionFailed;
@@ -152,9 +186,24 @@ doRemoteSigning(const CodeDirectory *cd,
 		return errSecCSCMSConstructionFailed;
 	}
 
+	// Calculate the right digest algorithm type to pass to the caller.
+	MSAlgorithmIdentifier *digestAlgoID = nil;
+	digestAlgoID = [MSAlgorithmIdentifier digestAlgorithmWithSignatureAlgorithm:signerInfo.signatureAlgorithm
+																			  error:&error];
+	if (!digestAlgoID) {
+		secerror("Unable to create digest algorithm: %@, %@", signerInfo, error);
+		return errSecCSCMSConstructionFailed;
+	}
+
+	SecCSDigestAlgorithm digestAlgorithm = mapDigestAlgorithm(digestAlgoID.algorithm.OIDString);
+	if (digestAlgorithm == kSecCodeSignatureNoHash) {
+		secerror("Unable to map digest algorithm: %@", digestAlgoID.algorithm.OIDString);
+		return errSecCSUnsupportedDigestAlgorithm;
+	}
+
 	// Call remote block with message digest, and transfer the ownership to objc ARC object.
-	secinfo("remotesigner", "Passing out external digest: %@", signatureDigest);
-	NSData *externalSignature = (__bridge_transfer NSData *)signHandler((__bridge CFDataRef)signatureDigest, kSecCodeSignatureHashSHA256);
+	secinfo("remotesigner", "Passing out external digest: %d, %@", digestAlgorithm, signatureDigest);
+	NSData *externalSignature = (__bridge_transfer NSData *)signHandler((__bridge CFDataRef)signatureDigest, digestAlgorithm);
 	if (!externalSignature) {
 		secerror("External block did not provide a signature, failing.");
 		return errSecCSRemoteSignerFailed;

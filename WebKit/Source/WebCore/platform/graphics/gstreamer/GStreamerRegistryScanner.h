@@ -28,6 +28,7 @@
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/Noncopyable.h>
 #include <wtf/OptionSet.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
@@ -36,9 +37,12 @@
 namespace WebCore {
 class ContentType;
 
+void teardownGStreamerRegistryScanner();
+
 class GStreamerRegistryScanner {
+    WTF_MAKE_NONCOPYABLE(GStreamerRegistryScanner)
 public:
-    static bool singletonNeedsInitialization();
+    static bool singletonWasInitialized();
     static GStreamerRegistryScanner& singleton();
     static void getSupportedDecodingTypes(HashSet<String>&);
 
@@ -46,6 +50,7 @@ public:
     ~GStreamerRegistryScanner() = default;
 
     void refresh();
+    void teardown();
 
     enum Configuration {
         Decoding = 0,

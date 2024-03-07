@@ -33,6 +33,7 @@
 #include "StackAlignment.h"
 #include <wtf/FunctionTraits.h>
 #include <wtf/ScopedLambda.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace JSC {
 
@@ -49,6 +50,7 @@ class RegisteredStructure;
 };
 
 class CCallHelpers : public AssemblyHelpers {
+    WTF_MAKE_TZONE_ALLOCATED(CCallHelpers);
 public:
     CCallHelpers(CodeBlock* codeBlock = nullptr)
         : AssemblyHelpers(codeBlock)
@@ -858,20 +860,16 @@ public:
         farJump(GPRInfo::regT1, ExceptionHandlerPtrTag);
     }
 
-    void prepareForTailCallSlow(GPRReg preservedGPR1 = InvalidGPRReg, GPRReg preservedGPR2 = InvalidGPRReg)
+    void prepareForTailCallSlow(RegisterSet preserved = { })
     {
-        RegisterSet preserved;
-        if (preservedGPR1 != InvalidGPRReg)
-            preserved.add(preservedGPR1, IgnoreVectors);
-        if (preservedGPR2 != InvalidGPRReg)
-            preserved.add(preservedGPR2, IgnoreVectors);
-
         GPRReg temp1 = selectScratchGPR(preserved);
         preserved.add(temp1, IgnoreVectors);
         GPRReg temp2 = selectScratchGPR(preserved);
         preserved.add(temp2, IgnoreVectors);
+#if CPU(ARM64E)
         GPRReg temp3 = selectScratchGPR(preserved);
-
+        preserved.add(temp3, IgnoreVectors);
+#endif
         ASSERT(!preserved.numberOfSetFPRs());
 
         GPRReg newFramePointer = temp1;
@@ -920,15 +918,14 @@ public:
             mul32(TrustedImm32(sizeof(Register)), newFrameSizeGPR, newFrameSizeGPR);
         }
 
-        GPRReg tempGPR = temp3;
-        ASSERT(tempGPR != newFramePointer && tempGPR != newFrameSizeGPR);
-
         // We don't need the current frame beyond this point. Masquerade as our
         // caller.
 #if CPU(ARM_THUMB2) || CPU(ARM64) || CPU(RISCV64)
         loadPtr(Address(framePointerRegister, CallFrame::returnPCOffset()), linkRegister);
         subPtr(TrustedImm32(2 * sizeof(void*)), newFrameSizeGPR);
 #if CPU(ARM64E)
+        GPRReg tempGPR = temp3;
+        ASSERT(tempGPR != newFramePointer && tempGPR != newFrameSizeGPR);
         addPtr(TrustedImm32(sizeof(CallerFrameAndPC)), MacroAssembler::framePointerRegister, tempGPR);
         untagPtr(tempGPR, linkRegister);
         validateUntaggedPtr(linkRegister, tempGPR);
@@ -937,8 +934,7 @@ public:
         loadPtr(Address(framePointerRegister, sizeof(void*)), returnAddressRegister);
         subPtr(TrustedImm32(2 * sizeof(void*)), newFrameSizeGPR);
 #elif CPU(X86_64)
-        loadPtr(Address(framePointerRegister, sizeof(void*)), tempGPR);
-        push(tempGPR);
+        push(Address(framePointerRegister, sizeof(void*)));
         subPtr(TrustedImm32(sizeof(void*)), newFrameSizeGPR);
 #else
         UNREACHABLE_FOR_PLATFORM();
@@ -946,15 +942,12 @@ public:
         subPtr(newFrameSizeGPR, newFramePointer);
         loadPtr(Address(framePointerRegister), framePointerRegister);
 
-
         // We need to move the newFrameSizeGPR slots above the stack pointer by
         // newFramePointer registers. We use pointer-sized chunks.
         MacroAssembler::Label copyLoop(label());
 
         subPtr(TrustedImm32(sizeof(void*)), newFrameSizeGPR);
-        loadPtr(BaseIndex(stackPointerRegister, newFrameSizeGPR, TimesOne), tempGPR);
-        storePtr(tempGPR, BaseIndex(newFramePointer, newFrameSizeGPR, TimesOne));
-
+        transferPtr(BaseIndex(stackPointerRegister, newFrameSizeGPR, TimesOne), BaseIndex(newFramePointer, newFrameSizeGPR, TimesOne));
         branchTest32(MacroAssembler::NonZero, newFrameSizeGPR).linkTo(copyLoop, this);
 
         // Ready for a jump!
@@ -973,8 +966,6 @@ public:
 
     // Leaves behind a pointer to the Packet we should write to in shadowPacket.
     void ensureShadowChickenPacket(VM&, GPRReg shadowPacket, GPRReg scratch1NonArgGPR, GPRReg scratch2);
-
-    static void emitJITCodeOver(CodePtr<JSInternalPtrTag> where, ScopedLambda<void(CCallHelpers&)>, const char*);
 
     void emitCTIThunkPrologue(bool returnAddressAlreadyTagged = false);
     void emitCTIThunkEpilogue();

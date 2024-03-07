@@ -482,6 +482,17 @@ inline void CheckPrimitiveType(MTLPrimitiveType primitiveType)
 
 }  // namespace
 
+// AtomicSerial implementation
+void AtomicSerial::storeMaxValue(uint64_t value)
+{
+    uint64_t prevValue = load();
+    while (prevValue < value &&
+           !mValue.compare_exchange_weak(prevValue, value, std::memory_order_release,
+                                         std::memory_order_consume))
+    {
+    }
+}
+
 // CommandQueue implementation
 void CommandQueue::reset()
 {
@@ -549,8 +560,7 @@ bool CommandQueue::isResourceBeingUsedByGPU(const Resource *resource) const
         return false;
     }
 
-    return mCompletedBufferSerial.load(std::memory_order_relaxed) <
-           resource->getCommandBufferQueueSerial();
+    return !isSerialCompleted(resource->getCommandBufferQueueSerial());
 }
 
 bool CommandQueue::resourceHasPendingWorks(const Resource *resource) const
@@ -560,8 +570,30 @@ bool CommandQueue::resourceHasPendingWorks(const Resource *resource) const
         return false;
     }
 
-    return mCommittedBufferSerial.load(std::memory_order_relaxed) <
-           resource->getCommandBufferQueueSerial();
+    return mCommittedBufferSerial.load() < resource->getCommandBufferQueueSerial();
+}
+
+bool CommandQueue::isSerialCompleted(uint64_t serial) const
+{
+    return mCompletedBufferSerial.load() >= serial;
+}
+
+bool CommandQueue::waitUntilSerialCompleted(uint64_t serial, uint64_t timeoutNs) const
+{
+    std::unique_lock<std::mutex> lk(mLock);
+    if (isSerialCompleted(serial))
+    {
+        return true;
+    }
+
+    if (timeoutNs == 0 ||
+        !mCompletedBufferSerialCv.wait_for(lk, std::chrono::nanoseconds(timeoutNs),
+                                           [&]() { return isSerialCompleted(serial); }))
+    {
+        return false;
+    }
+
+    return true;
 }
 
 AutoObjCPtr<id<MTLCommandBuffer>> CommandQueue::makeMetalCommandBuffer(uint64_t *queueSerialOut)
@@ -598,13 +630,9 @@ AutoObjCPtr<id<MTLCommandBuffer>> CommandQueue::makeMetalCommandBuffer(uint64_t 
 
 void CommandQueue::onCommandBufferCommitted(id<MTLCommandBuffer> buf, uint64_t serial)
 {
-    std::lock_guard<std::mutex> lg(mLock);
-
     ANGLE_MTL_LOG("Committed MTLCommandBuffer %llu:%p", serial, buf);
 
-    mCommittedBufferSerial.store(
-        std::max(mCommittedBufferSerial.load(std::memory_order_relaxed), serial),
-        std::memory_order_relaxed);
+    mCommittedBufferSerial.storeMaxValue(serial);
 }
 
 void CommandQueue::onCommandBufferCompleted(id<MTLCommandBuffer> buf,
@@ -635,7 +663,7 @@ void CommandQueue::onCommandBufferCompleted(id<MTLCommandBuffer> buf,
         recordCommandBufferTimeElapsed(lg, timeElapsedEntry, [buf GPUEndTime] - [buf GPUStartTime]);
     }
 
-    if (mCompletedBufferSerial >= serial)
+    if (mCompletedBufferSerial.load() >= serial)
     {
         // Already handled.
         return;
@@ -651,9 +679,8 @@ void CommandQueue::onCommandBufferCompleted(id<MTLCommandBuffer> buf,
         mMetalCmdBuffers.pop_front();
     }
 
-    mCompletedBufferSerial.store(
-        std::max(mCompletedBufferSerial.load(std::memory_order_relaxed), serial),
-        std::memory_order_relaxed);
+    mCompletedBufferSerial.storeMaxValue(serial);
+    mCompletedBufferSerialCv.notify_all();
 }
 
 uint64_t CommandQueue::getNextRenderEncoderSerial()
@@ -906,6 +933,12 @@ bool CommandBuffer::needsFlushForDrawCallLimits() const
     return mWorkingResourceSize > kMaximumResidentMemorySizeInBytes;
 }
 
+uint64_t CommandBuffer::getQueueSerial() const
+{
+    std::lock_guard<std::mutex> lg(mLock);
+    return mQueueSerial;
+}
+
 void CommandBuffer::restart()
 {
     uint64_t serial                                  = 0;
@@ -970,7 +1003,8 @@ void CommandBuffer::popDebugGroup()
     }
 }
 
-void CommandBuffer::queueEventSignal(const mtl::SharedEventRef &event, uint64_t value)
+#if ANGLE_MTL_EVENT_AVAILABLE
+void CommandBuffer::queueEventSignal(id<MTLEvent> event, uint64_t value)
 {
     std::lock_guard<std::mutex> lg(mLock);
 
@@ -978,9 +1012,12 @@ void CommandBuffer::queueEventSignal(const mtl::SharedEventRef &event, uint64_t 
 
     if (mActiveCommandEncoder && mActiveCommandEncoder->getType() == CommandEncoder::RENDER)
     {
-        // We cannot set event when there is an active render pass, defer the setting until the
-        // pass end.
-        mPendingSignalEvents.push_back({event, value});
+        // We cannot set event when there is an active render pass, defer the setting until the pass
+        // end.
+        PendingEvent pending;
+        pending.event.retainAssign(event);
+        pending.signalValue = value;
+        mPendingSignalEvents.push_back(std::move(pending));
     }
     else
     {
@@ -988,13 +1025,14 @@ void CommandBuffer::queueEventSignal(const mtl::SharedEventRef &event, uint64_t 
     }
 }
 
-void CommandBuffer::serverWaitEvent(const mtl::SharedEventRef &event, uint64_t value)
+void CommandBuffer::serverWaitEvent(id<MTLEvent> event, uint64_t value)
 {
     std::lock_guard<std::mutex> lg(mLock);
     ASSERT(readyImpl());
 
     waitEventImpl(event, value);
 }
+#endif  // ANGLE_MTL_EVENT_AVAILABLE
 
 /** private use only */
 void CommandBuffer::set(id<MTLCommandBuffer> metalBuffer)
@@ -1081,32 +1119,27 @@ void CommandBuffer::forceEndingCurrentEncoder()
 void CommandBuffer::setPendingEvents()
 {
 #if ANGLE_MTL_EVENT_AVAILABLE
-    for (const std::pair<mtl::SharedEventRef, uint64_t> &eventEntry : mPendingSignalEvents)
+    for (const PendingEvent &eventEntry : mPendingSignalEvents)
     {
-        setEventImpl(eventEntry.first, eventEntry.second);
+        setEventImpl(eventEntry.event, eventEntry.signalValue);
     }
     mPendingSignalEvents.clear();
 #endif
 }
 
-void CommandBuffer::setEventImpl(const mtl::SharedEventRef &event, uint64_t value)
-{
 #if ANGLE_MTL_EVENT_AVAILABLE
+void CommandBuffer::setEventImpl(id<MTLEvent> event, uint64_t value)
+{
     ASSERT(!mActiveCommandEncoder || mActiveCommandEncoder->getType() != CommandEncoder::RENDER);
     // For non-render command encoder, we can safely end it, so that we can encode a signal
     // event.
     forceEndingCurrentEncoder();
 
     [get() encodeSignalEvent:event value:value];
-#else
-    UNIMPLEMENTED();
-    UNREACHABLE();
-#endif  // #if ANGLE_MTL_EVENT_AVAILABLE
 }
 
-void CommandBuffer::waitEventImpl(const mtl::SharedEventRef &event, uint64_t value)
+void CommandBuffer::waitEventImpl(id<MTLEvent> event, uint64_t value)
 {
-#if ANGLE_MTL_EVENT_AVAILABLE
     ASSERT(!mActiveCommandEncoder || mActiveCommandEncoder->getType() != CommandEncoder::RENDER);
 
     forceEndingCurrentEncoder();
@@ -1115,11 +1148,8 @@ void CommandBuffer::waitEventImpl(const mtl::SharedEventRef &event, uint64_t val
     setPendingEvents();
 
     [get() encodeWaitForEvent:event value:value];
-#else
-    UNIMPLEMENTED();
-    UNREACHABLE();
-#endif  // #if ANGLE_MTL_EVENT_AVAILABLE
 }
+#endif  // #if ANGLE_MTL_EVENT_AVAILABLE
 
 void CommandBuffer::pushDebugGroupImpl(const std::string &marker)
 {

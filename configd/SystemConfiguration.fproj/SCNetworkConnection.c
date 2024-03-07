@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -160,6 +160,15 @@ static __inline__ CFTypeRef
 isA_SCNetworkConnection(CFTypeRef obj)
 {
 	return (isA_CFType(obj, SCNetworkConnectionGetTypeID()));
+}
+
+
+static __inline__ void
+dispatch_CFRelease(void * _Nullable cf)
+{
+       if (cf != NULL) {
+               CFRelease(cf);
+       }
 }
 
 
@@ -2367,7 +2376,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 			// the dispatch source, and set the finalizer to release our reference.
 			CFRetain(connection);
 			dispatch_set_context(source, (void *)connection);
-			dispatch_set_finalizer_f(source, (dispatch_function_t)CFRelease);
+			dispatch_set_finalizer_f(source, (dispatch_function_t)dispatch_CFRelease);
 
 			// while scheduled, hold a reference to the notification CFMachPort (that
 			// also holds a reference to the SCNetworkConnection object).

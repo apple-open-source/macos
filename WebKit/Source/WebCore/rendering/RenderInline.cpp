@@ -64,16 +64,18 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderInline);
 
-RenderInline::RenderInline(Element& element, RenderStyle&& style)
-    : RenderBoxModelObject(element, WTFMove(style), RenderInlineFlag)
+RenderInline::RenderInline(Type type, Element& element, RenderStyle&& style)
+    : RenderBoxModelObject(type, element, WTFMove(style), TypeFlag::IsRenderInline, { })
 {
     setChildrenInline(true);
+    ASSERT(isRenderInline());
 }
 
-RenderInline::RenderInline(Document& document, RenderStyle&& style)
-    : RenderBoxModelObject(document, WTFMove(style), RenderInlineFlag)
+RenderInline::RenderInline(Type type, Document& document, RenderStyle&& style)
+    : RenderBoxModelObject(type, document, WTFMove(style), TypeFlag::IsRenderInline, { })
 {
     setChildrenInline(true);
+    ASSERT(isRenderInline());
 }
 
 void RenderInline::willBeDestroyed()
@@ -196,13 +198,14 @@ void RenderInline::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
 
     if (diff >= StyleDifference::Repaint) {
         if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*this)) {
-            auto shouldInvalidateLineLayoutPath = selfNeedsLayout() || !LayoutIntegration::LineLayout::canUseForAfterInlineBoxStyleChange(*this, diff);
-            if (shouldInvalidateLineLayoutPath)
+            if (selfNeedsLayout())
                 lineLayout->flow().invalidateLineLayoutPath();
             else
                 lineLayout->updateStyle(*this, *oldStyle);
         }
     }
+
+    propagateStyleToAnonymousChildren(PropagateToAllChildren);
 }
 
 bool RenderInline::mayAffectLayout() const
@@ -504,15 +507,21 @@ LayoutUnit RenderInline::innerPaddingBoxHeight() const
 
 IntRect RenderInline::linesBoundingBox() const
 {
-    if (auto* layout = LayoutIntegration::LineLayout::containing(*this))
+    if (auto* layout = LayoutIntegration::LineLayout::containing(*this)) {
+        if (!layoutBox() || !layout->contains(*this)) {
+            // Repaint may be issued on subtrees during content mutation with newly inserted renderers
+            // (or we just forgot to initiate layout before querying geometry on stale content after moving inline boxes between blocks).
+            ASSERT(needsLayout());
+            return { };
+        }
         return enclosingIntRect(layout->enclosingBorderBoxRectFor(*this));
+    }
 
-    IntRect result;
-    
     // See <rdar://problem/5289721>, for an unknown reason the linked list here is sometimes inconsistent, first is non-zero and last is zero.  We have been
     // unable to reproduce this at all (and consequently unable to figure ot why this is happening).  The assert will hopefully catch the problem in debug
     // builds and help us someday figure out why.  We also put in a redundant check of lastLineBox() to avoid the crash for now.
     ASSERT(!firstLineBox() == !lastLineBox());  // Either both are null or both exist.
+    IntRect result;
     if (firstLineBox() && lastLineBox()) {
         // Return the width of the minimal left side and the maximal right side.
         float logicalLeftSide = 0;
@@ -644,7 +653,7 @@ LayoutRect RenderInline::clippedOverflowRect(const RenderLayerModelObject* repai
     if (knownEmpty())
         return LayoutRect();
 
-    LayoutRect repaintRect(linesVisualOverflowBoundingBox());
+    auto repaintRect = linesVisualOverflowBoundingBox();
     bool hitRepaintContainer = false;
 
     // We need to add in the in-flow position offsets of any inlines (including us) up to our
@@ -666,10 +675,13 @@ LayoutRect RenderInline::clippedOverflowRect(const RenderLayerModelObject* repai
     if (hitRepaintContainer || !containingBlock)
         return repaintRect;
 
-    if (containingBlock->hasNonVisibleOverflow())
-        containingBlock->applyCachedClipAndScrollPosition(repaintRect, repaintContainer, context);
+    auto rects = RepaintRects { repaintRect };
 
-    repaintRect = containingBlock->computeRect(repaintRect, repaintContainer, context);
+    if (containingBlock->hasNonVisibleOverflow())
+        containingBlock->applyCachedClipAndScrollPosition(rects, repaintContainer, context);
+
+    rects = containingBlock->computeRects(rects, repaintContainer, context);
+    repaintRect = rects.clippedOverflowRect;
 
     if (outlineSize) {
         for (auto& child : childrenOfType<RenderElement>(*this))
@@ -684,6 +696,12 @@ LayoutRect RenderInline::clippedOverflowRect(const RenderLayerModelObject* repai
     return repaintRect;
 }
 
+auto RenderInline::rectsForRepaintingAfterLayout(const RenderLayerModelObject* repaintContainer, RepaintOutlineBounds) const -> RepaintRects
+{
+    // RepaintOutlineBounds is unused for inlines.
+    return { clippedOverflowRect(repaintContainer, visibleRectContextForRepaint()) };
+}
+
 LayoutRect RenderInline::rectWithOutlineForRepaint(const RenderLayerModelObject* repaintContainer, LayoutUnit outlineWidth) const
 {
     LayoutRect r(RenderBoxModelObject::rectWithOutlineForRepaint(repaintContainer, outlineWidth));
@@ -692,64 +710,61 @@ LayoutRect RenderInline::rectWithOutlineForRepaint(const RenderLayerModelObject*
     return r;
 }
 
-LayoutRect RenderInline::computeVisibleRectUsingPaintOffset(const LayoutRect& rect) const
+auto RenderInline::computeVisibleRectsUsingPaintOffset(const RepaintRects& rects) const -> RepaintRects
 {
-    LayoutRect adjustedRect = rect;
+    auto adjustedRects = rects;
     auto* layoutState = view().frameView().layoutContext().layoutState();
     if (style().hasInFlowPosition() && layer())
-        adjustedRect.move(layer()->offsetForInFlowPosition());
-    adjustedRect.move(layoutState->paintOffset());
+        adjustedRects.move(layer()->offsetForInFlowPosition());
+    adjustedRects.move(layoutState->paintOffset());
     if (layoutState->isClipped())
-        adjustedRect.intersect(layoutState->clipRect());
-    return adjustedRect;
+        adjustedRects.clippedOverflowRect.intersect(layoutState->clipRect());
+    return adjustedRects;
 }
 
-std::optional<LayoutRect> RenderInline::computeVisibleRectInContainer(const LayoutRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
+auto RenderInline::computeVisibleRectsInContainer(const RepaintRects& rects, const RenderLayerModelObject* container, VisibleRectContext context) const -> std::optional<RepaintRects>
 {
     // Repaint offset cache is only valid for root-relative repainting
     if (view().frameView().layoutContext().isPaintOffsetCacheEnabled() && !container && !context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
-        return computeVisibleRectUsingPaintOffset(rect);
+        return computeVisibleRectsUsingPaintOffset(rects);
 
     if (container == this)
-        return rect;
+        return rects;
 
     bool containerSkipped;
     RenderElement* localContainer = this->container(container, containerSkipped);
     if (!localContainer)
-        return rect;
+        return rects;
 
-    LayoutRect adjustedRect = rect;
-    LayoutPoint topLeft = adjustedRect.location();
-
+    auto adjustedRects = rects;
     if (style().hasInFlowPosition() && layer()) {
         // Apply the in-flow position offset when invalidating a rectangle. The layer
         // is translated, but the render box isn't, so we need to do this to get the
         // right dirty rect. Since this is called from RenderObject::setStyle, the relative or sticky position
         // flag on the RenderObject has been cleared, so use the one on the style().
-        topLeft += layer()->offsetForInFlowPosition();
+        auto offsetForInFlowPosition = layer()->offsetForInFlowPosition();
+        adjustedRects.move(offsetForInFlowPosition);
     }
-    
-    // FIXME: We ignore the lightweight clipping rect that controls use, since if |o| is in mid-layout,
-    // its controlClipRect will be wrong. For overflow clip we use the values cached by the layer.
-    adjustedRect.setLocation(topLeft);
+
     if (localContainer->hasNonVisibleOverflow()) {
         // FIXME: Respect the value of context.options.
         SetForScope change(context.options, context.options | VisibleRectContextOption::ApplyCompositedContainerScrolls);
-        bool isEmpty = !downcast<RenderLayerModelObject>(*localContainer).applyCachedClipAndScrollPosition(adjustedRect, container, context);
+        bool isEmpty = !downcast<RenderLayerModelObject>(*localContainer).applyCachedClipAndScrollPosition(adjustedRects, container, context);
         if (isEmpty) {
             if (context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
                 return std::nullopt;
-            return adjustedRect;
+            return adjustedRects;
         }
     }
 
     if (containerSkipped) {
         // If the repaintContainer is below o, then we need to map the rect into repaintContainer's coordinates.
-        LayoutSize containerOffset = container->offsetFromAncestorContainer(*localContainer);
-        adjustedRect.move(-containerOffset);
-        return adjustedRect;
+        auto containerOffset = container->offsetFromAncestorContainer(*localContainer);
+        adjustedRects.move(-containerOffset);
+        return adjustedRects;
     }
-    return localContainer->computeVisibleRectInContainer(adjustedRect, container, context);
+
+    return localContainer->computeVisibleRectsInContainer(adjustedRects, container, context);
 }
 
 LayoutSize RenderInline::offsetFromContainer(RenderElement& container, const LayoutPoint&, bool* offsetDependsOnPoint) const
@@ -992,13 +1007,28 @@ void RenderInline::paintOutline(PaintInfo& paintInfo, const LayoutPoint& paintOf
     if (styleToUse.outlineStyleIsAuto() == OutlineIsAuto::On || !styleToUse.hasOutline())
         return;
 
+    if (!containingBlock()) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto isHorizontalWritingMode = this->isHorizontalWritingMode();
+    auto& containingBlock = *this->containingBlock();
+    auto isFlippedBlocksWritingMode = containingBlock.style().isFlippedBlocksWritingMode();
     Vector<LayoutRect> rects;
     for (auto box = InlineIterator::firstInlineBoxFor(*this); box; box.traverseNextInlineBox()) {
         auto lineBox = box->lineBox();
-        auto top = LayoutUnit { std::max(lineBox->contentLogicalTop(), box->logicalTop()) };
-        auto bottom = LayoutUnit { std::min(lineBox->contentLogicalBottom(), box->logicalBottom()) };
-        // FIXME: This is mixing physical and logical coordinates.
-        rects.append({ LayoutUnit(box->visualRectIgnoringBlockDirection().x()), top, LayoutUnit(box->logicalWidth()), bottom - top });
+        auto logicalTop = std::max(lineBox->contentLogicalTop(), box->logicalTop());
+        auto logicalBottom = std::min(lineBox->contentLogicalBottom(), box->logicalBottom());
+        auto enclosingVisualRect = FloatRect { box->logicalLeftIgnoringInlineDirection(), logicalTop, box->logicalWidth(), logicalBottom - logicalTop };
+
+        if (!isHorizontalWritingMode)
+            enclosingVisualRect = enclosingVisualRect.transposedRect();
+
+        if (isFlippedBlocksWritingMode)
+            containingBlock.flipForWritingMode(enclosingVisualRect);
+
+        rects.append(LayoutRect { enclosingVisualRect });
     }
     BorderPainter { *this, paintInfo }.paintOutline(paintOffset, rects);
 }

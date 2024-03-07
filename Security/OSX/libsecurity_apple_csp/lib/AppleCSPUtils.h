@@ -164,8 +164,9 @@ CSSM_KEYBLOB_FORMAT inferFormat(
  */
 CSSM_KEYBLOB_FORMAT requestedKeyFormat(
 	const Context 	&context,
-	const CssmKey	&key);
-	
+	const CssmKey	&key,
+    CSSM_KEYBLOB_FORMAT defaultFormat = CSSM_KEYBLOB_RAW_FORMAT_NONE);
+
 /* stateless function to calculate SHA-1 hash of a blob */
 
 #define SHA1_DIGEST_SIZE	20

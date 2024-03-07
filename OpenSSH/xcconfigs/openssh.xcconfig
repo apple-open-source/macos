@@ -1,0 +1,52 @@
+//  Copyright © 2023 Apple Inc. All rights reserved.
+//
+//  NOTE: We use MixedCase for user-defined settings.
+
+// Customizations from OpenSSH
+AppleSshFeatures = __APPLE_AUDIT_BSM_LOGOUT_FIX__ __APPLE_AUDIT_SESSION_ALWAYS__ __APPLE_CLEAR_LV__ __APPLE_DISPLAY_VAR__ __APPLE_ENDPOINTSECURITY__ __APPLE_KEYCHAIN__ __APPLE_LAUNCHD__ __APPLE_MANAGED_CONFIGURATION__ __APPLE_MEMBERSHIP__ __APPLE_NOHOSTAUTHPROXY__ __APPLE_NW_CONNECTION__ __APPLE_TMPDIR__
+
+// libcrypto
+Uses_Libcrypto = $(Uses_Libcrypto_$(TARGET_NAME:identifier):default=YES)
+Libcrypto_lib_YES = -L/usr/local/libressl/lib -lcrypto
+Libcrypto_lib = $(Libcrypto_lib_$(Uses_Libcrypto))
+Libcrypto_include_YES = /usr/local/libressl/include
+Libcrypto_include = $(Libcrypto_include_$(Uses_Libcrypto))
+Uses_Libcrypto_check_perm = NO
+Uses_Libcrypto_mkdtemp = NO
+Uses_Libcrypto_modpipe = NO
+Uses_Libcrypto_netcat = NO
+Uses_Libcrypto_setuid_allowed = NO
+Uses_Libcrypto_timestamp = NO
+
+// Installation
+libssh_skip_install = YES
+openbsd_compat_skip_install = YES
+remote_login_status_path = lbin
+scp_path = bin
+sftp_path = bin
+sftp_server_path = libexec
+ssh_apple_pkcs11_path = libexec
+ssh_keygen_path = bin
+ssh_keysign_path = libexec
+ssh_path = bin
+ssh_pkcs11_helper_path = libexec
+ssh_sk_helper_path = libexec
+sshd_path = sbin
+
+// Installation: OpenSSH regression test suite
+check_perm_path = regress
+mkdtemp_path = regress
+modpipe_path = regress
+netcat_path = regress
+setuid_allowed_path = regress
+timestamp_path = regress
+
+// OpenSSH version
+Semvers = 9.6.1
+
+// Miscellaneous
+GCC_PREPROCESSOR_DEFINITIONS = $(AppleSshFeatures) $(DebugFlagDefinition)
+HEADER_SEARCH_PATHS = $(Libcrypto_include) $(SRCROOT)/openssh
+INSTALL_PATH_regress = /usr/local/libexec/openssh/regression-tests
+Frameworks = -framework Foundation -framework Kerberos -framework OpenDirectory -weak-lEndpointSecuritySystem -weak-lManagedConfigurationFiles
+OTHER_LDFLAGS = -Wl,-pie $(Frameworks) -lbsm $(Libcrypto_lib) -lpam -lresolv -lz

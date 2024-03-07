@@ -401,6 +401,7 @@ _kSecCertificateDetailSHA1Digest
 _kSecCertificateEscrowFileName
 _kSecCertificateProductionEscrowKey
 _kSecCertificateProductionPCSEscrowKey
+_SecCertificateCopyAppleCorporateRoots
 _SecCertificateCopyAppleExternalRoots
 _SecCertificateCopyAttributeDictionary
 _SecCertificateCopyCommonName
@@ -629,6 +630,8 @@ _SecGenerateCertificateRequestSubject
 //
 _kSecChallengeToken
 _kSecClientIdentifier
+_kSecAttestationChain
+_kSecAttestationKey
 _kSecAttestationIdentity
 _kSecAttestationOids
 _kSecLocalIssuerIdentity
@@ -1657,6 +1660,11 @@ _kSecDataInetExtraClientDefined1
 _kSecDataInetExtraClientDefined2
 _kSecDataInetExtraClientDefined3
 
+_SecItemShareWithGroup
+_SecItemCloneToGroupKitGroup
+_kSecAttrSharingGroup
+_kSecAttrGroupKitGroup
+_kSecAttrSharingGroupNone
 
 _SecDeleteItemsOnSignOut
 

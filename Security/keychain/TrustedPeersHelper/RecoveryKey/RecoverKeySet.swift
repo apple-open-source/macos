@@ -107,8 +107,8 @@ class RecoveryKeySet: NSObject {
 
         let bottleSaltData = Data(bytes: Array(recoverySalt.utf8), count: recoverySalt.utf8.count)
 
-        try derivedKey.withUnsafeMutableBytes { (derivedKeyBytes: UnsafeMutableRawBufferPointer) throws ->Void in
-            try masterSecretMutable.withUnsafeMutableBytes { (masterSecretBytes: UnsafeMutableRawBufferPointer) throws ->Void in
+        try derivedKey.withUnsafeMutableBytes { (derivedKeyBytes: UnsafeMutableRawBufferPointer) throws -> Void in
+            try masterSecretMutable.withUnsafeMutableBytes { (masterSecretBytes: UnsafeMutableRawBufferPointer) throws -> Void in
                 try bottleSaltData.withUnsafeBytes { (bottleSaltBytes: UnsafeRawBufferPointer) throws -> Void in
                     try info.withUnsafeBytes { (infoBytes: UnsafeRawBufferPointer) throws -> Void in
                         status = cchkdf(ccsha384_di(),

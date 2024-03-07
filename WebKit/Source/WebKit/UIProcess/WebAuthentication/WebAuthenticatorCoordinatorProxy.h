@@ -30,8 +30,20 @@
 #include "MessageReceiver.h"
 #include <WebCore/CredentialRequestOptions.h>
 #include <WebCore/FrameIdentifier.h>
+#include <WebCore/MediationRequirement.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+
+#if HAVE(WEB_AUTHN_AS_MODERN)
+OBJC_CLASS _WKASDelegate;
+OBJC_CLASS NSArray;
+OBJC_CLASS NSString;
+OBJC_CLASS ASAuthorization;
+OBJC_CLASS ASAuthorizationController;
+typedef NSString *ASAuthorizationPublicKeyCredentialUserVerificationPreference;
+typedef NSString *ASAuthorizationPublicKeyCredentialAttestationKind;
+#endif
 
 namespace WebCore {
 enum class AuthenticatorAttachment : uint8_t;
@@ -55,6 +67,7 @@ class WebPageProxy;
 struct FrameInfoData;
 struct WebAuthenticationRequestData;
 
+using CapabilitiesCompletionHandler = CompletionHandler<void(Vector<KeyValuePair<String, bool>>&&)>;
 using RequestCompletionHandler = CompletionHandler<void(const WebCore::AuthenticatorResponseData&, WebCore::AuthenticatorAttachment, const WebCore::ExceptionData&)>;
 
 class WebAuthenticatorCoordinatorProxy : public IPC::MessageReceiver {
@@ -64,6 +77,13 @@ public:
     explicit WebAuthenticatorCoordinatorProxy(WebPageProxy&);
     ~WebAuthenticatorCoordinatorProxy();
 
+#if HAVE(WEB_AUTHN_AS_MODERN)
+    static WeakPtr<WebAuthenticatorCoordinatorProxy>& activeConditionalMediationProxy();
+    void pauseConditionalAssertion(CompletionHandler<void()>&&);
+    void unpauseConditionalAssertion();
+    void makeActiveConditionalAssertion();
+#endif
+
 private:
     using QueryCompletionHandler = CompletionHandler<void(bool)>;
 
@@ -71,10 +91,11 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // Receivers.
-    void makeCredential(WebCore::FrameIdentifier, FrameInfoData&&, Vector<uint8_t>&& hash, WebCore::PublicKeyCredentialCreationOptions&&, bool processingUserGesture, RequestCompletionHandler&&);
-    void getAssertion(WebCore::FrameIdentifier, FrameInfoData&&, Vector<uint8_t>&& hash, WebCore::PublicKeyCredentialRequestOptions&&, WebCore::CredentialRequestOptions::MediationRequirement, std::optional<WebCore::SecurityOriginData>, bool processingUserGesture, RequestCompletionHandler&&);
+    void makeCredential(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PublicKeyCredentialCreationOptions&&, RequestCompletionHandler&&);
+    void getAssertion(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PublicKeyCredentialRequestOptions&&, WebCore::MediationRequirement, std::optional<WebCore::SecurityOriginData>, RequestCompletionHandler&&);
     void isUserVerifyingPlatformAuthenticatorAvailable(const WebCore::SecurityOriginData&, QueryCompletionHandler&&);
     void isConditionalMediationAvailable(const WebCore::SecurityOriginData&, QueryCompletionHandler&&);
+    void getClientCapabilities(const WebCore::SecurityOriginData&, CapabilitiesCompletionHandler&&);
     void cancel();
 
     void handleRequest(WebAuthenticationRequestData&&, RequestCompletionHandler&&);
@@ -83,10 +104,29 @@ private:
 
 #if HAVE(UNIFIED_ASC_AUTH_UI)
     bool isASCAvailable();
+
+#if HAVE(WEB_AUTHN_AS_MODERN)
+    RetainPtr<ASAuthorizationController> constructASController(const WebAuthenticationRequestData&);
+    RetainPtr<NSArray> requestsForRegisteration(const WebCore::PublicKeyCredentialCreationOptions&, const WebCore::SecurityOriginData& callerOrigin);
+    RetainPtr<NSArray> requestsForAssertion(const WebCore::PublicKeyCredentialRequestOptions&, const WebCore::SecurityOriginData& callerOrigin, const std::optional<WebCore::SecurityOriginData>& parentOrigin);
+#endif
+
+    void performRequest(WebAuthenticationRequestData&&, RequestCompletionHandler&&);
+
     RetainPtr<ASCCredentialRequestContext> contextForRequest(WebAuthenticationRequestData&&);
-    void performRequest(RetainPtr<ASCCredentialRequestContext>, RequestCompletionHandler&&);
+    void performRequestLegacy(RetainPtr<ASCCredentialRequestContext>, RequestCompletionHandler&&);
+
+#if HAVE(WEB_AUTHN_AS_MODERN)
+    RequestCompletionHandler m_completionHandler;
+    RetainPtr<_WKASDelegate> m_delegate;
+    RetainPtr<ASAuthorizationController> m_controller;
+    bool m_paused { false };
+    bool m_isConditionalAssertion { false };
+#endif
+
     RetainPtr<ASCAuthorizationRemotePresenter> m_presenter;
     RetainPtr<ASCAgentProxy> m_proxy;
+    CompletionHandler<void()> m_cancelHandler;
 #endif // HAVE(UNIFIED_ASC_AUTH_UI)
 };
 

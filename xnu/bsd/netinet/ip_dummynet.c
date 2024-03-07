@@ -108,6 +108,7 @@
 #include <netinet6/ip6_var.h>
 
 #include <stdbool.h>
+#include <net/sockaddr_utils.h>
 
 /*
  * We keep a private variable for the simulation time, but we could
@@ -1625,11 +1626,11 @@ dummynet_io(struct mbuf *m, int pipe_nr, int dir, struct ip_fw_args *fwa)
 			route_copyout(&pkt->dn_ro, fwa->fwa_ro, sizeof(pkt->dn_ro));
 		}
 		if (fwa->fwa_dst) {
-			if (fwa->fwa_dst == (struct sockaddr_in *)(void *)&fwa->fwa_ro->ro_dst) { /* dst points into ro */
-				fwa->fwa_dst = (struct sockaddr_in *)(void *)&(pkt->dn_ro.ro_dst);
+			if (fwa->fwa_dst == SIN(&fwa->fwa_ro->ro_dst)) { /* dst points into ro */
+				fwa->fwa_dst = SIN(&(pkt->dn_ro.ro_dst));
 			}
 
-			bcopy(fwa->fwa_dst, &pkt->dn_dst, sizeof(pkt->dn_dst));
+			SOCKADDR_COPY(fwa->fwa_dst, &pkt->dn_dst, sizeof(pkt->dn_dst));
 		}
 	} else if (dir == DN_TO_IP6_OUT) {
 		if (fwa->fwa_ro6) {
@@ -1641,11 +1642,11 @@ dummynet_io(struct mbuf *m, int pipe_nr, int dir, struct ip_fw_args *fwa)
 			    (struct route *)fwa->fwa_ro6_pmtu, sizeof(pkt->dn_ro6_pmtu));
 		}
 		if (fwa->fwa_dst6) {
-			if (fwa->fwa_dst6 == (struct sockaddr_in6 *)&fwa->fwa_ro6->ro_dst) { /* dst points into ro */
-				fwa->fwa_dst6 = (struct sockaddr_in6 *)&(pkt->dn_ro6.ro_dst);
+			if (fwa->fwa_dst6 == SIN6(&fwa->fwa_ro6->ro_dst)) { /* dst points into ro */
+				fwa->fwa_dst6 = SIN6(&(pkt->dn_ro6.ro_dst));
 			}
 
-			bcopy(fwa->fwa_dst6, &pkt->dn_dst6, sizeof(pkt->dn_dst6));
+			SOCKADDR_COPY(fwa->fwa_dst6, &pkt->dn_dst6, sizeof(pkt->dn_dst6));
 		}
 		pkt->dn_origifp = fwa->fwa_origifp;
 		pkt->dn_mtu = fwa->fwa_mtu;

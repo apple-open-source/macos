@@ -1,0 +1,53 @@
+#freebsd = https://git.FreeBSD.org/src.git
+
+logger/logger.1	freebsd	usr.bin/logger/logger.1	4bbc8ee29e6893d1b15f39b8857ffe45609293b9
+logger/logger.c	freebsd	usr.bin/logger/logger.c	83fd35b3f3fa580d2b99874abd1f67ee61dcb659
+
+talk/ctl.c	freebsd	usr.bin/talk/ctl.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/ctl_transact.c	freebsd	usr.bin/talk/ctl_transact.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/display.c	freebsd	usr.bin/talk/display.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/get_addrs.c	freebsd	usr.bin/talk/get_addrs.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/get_iface.c	freebsd	usr.bin/talk/get_iface.c	3daadfc83361cf4f31017a7fed5a5910cd8c4ce9
+talk/get_names.c	freebsd	usr.bin/talk/get_names.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/init_disp.c	freebsd	usr.bin/talk/init_disp.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/invite.c	freebsd	usr.bin/talk/invite.c	e4478d7e46876142b5f75cfc93ef649a6bde05ae
+talk/io.c	freebsd	usr.bin/talk/io.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/look_up.c	freebsd	usr.bin/talk/look_up.c	e4478d7e46876142b5f75cfc93ef649a6bde05ae
+talk/msgs.c	freebsd	usr.bin/talk/msgs.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/talk.1	freebsd	usr.bin/talk/talk.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+talk/talk.c	freebsd	usr.bin/talk/talk.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/talk.h	freebsd	usr.bin/talk/talk.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talk/talk_ctl.h	freebsd	usr.bin/talk/talk_ctl.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+talkd/announce.c	freebsd	libexec/talkd/announce.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talkd/extern.h	freebsd	libexec/talkd/extern.h	f86e60008bdf690b61af2c18e98ee791ca91433f
+talkd/print.c	freebsd	libexec/talkd/print.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talkd/process.c	freebsd	libexec/talkd/process.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talkd/table.c	freebsd	libexec/talkd/table.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+talkd/talkd.8	freebsd	libexec/talkd/talkd.8	5efaea4cc6095b61e0df2a8bc7fd9912c019d805
+talkd/talkd.c	freebsd	libexec/talkd/talkd.c	e4478d7e46876142b5f75cfc93ef649a6bde05ae
+
+tftp/main.c	freebsd	usr.bin/tftp/main.c	92570f67c7911126ce742a3dfe1b97046091ed0e
+tftp/tftp.1	freebsd	usr.bin/tftp/tftp.1	1c7a40d268e716559ebbdec22f1778a6f75d096f
+tftp/tftp.c	freebsd	usr.bin/tftp/tftp.c	92570f67c7911126ce742a3dfe1b97046091ed0e
+tftp/tftp.h	freebsd	usr.bin/tftp/tftp.h	92570f67c7911126ce742a3dfe1b97046091ed0e
+tftp/tests/tftp_test.sh	freebsd	usr.bin/tftp/tests/tftp_test.sh	fc76ddee9be0d7f98c9f9a162627950f8102964e
+
+tftpd/tftp-file.c	freebsd	libexec/tftpd/tftp-file.c	bacb00ab408a2178d13f33d0cd9c6622913d80a9
+tftpd/tftp-file.h	freebsd	libexec/tftpd/tftp-file.h	bacb00ab408a2178d13f33d0cd9c6622913d80a9
+tftpd/tftp-io.c	freebsd	libexec/tftpd/tftp-io.c	e3b4cb1b32c05ec668b16fe4e858e78b61fe5805
+tftpd/tftp-io.h	freebsd	libexec/tftpd/tftp-io.h	bacb00ab408a2178d13f33d0cd9c6622913d80a9
+tftpd/tftp-options.c	freebsd	libexec/tftpd/tftp-options.c	a6dfd2015c202f3424eb58846d8575a877728881
+tftpd/tftp-options.h	freebsd	libexec/tftpd/tftp-options.h	8576f84bc1d75c2bae0a41ccb6ebe5de08479a06
+tftpd/tftp-transfer.c	freebsd	libexec/tftpd/tftp-transfer.c	e3b4cb1b32c05ec668b16fe4e858e78b61fe5805
+tftpd/tftp-transfer.h	freebsd	libexec/tftpd/tftp-transfer.h	36242fc0e56c5657d5d70e01fd2cfe1d7e7e7123
+tftpd/tftp-utils.c	freebsd	libexec/tftpd/tftp-utils.c	7c21545c46e1290e66fd9e9300165b4a381161b9
+tftpd/tftp-utils.h	freebsd	libexec/tftpd/tftp-utils.h	bacb00ab408a2178d13f33d0cd9c6622913d80a9
+tftpd/tftpd.8	freebsd	libexec/tftpd/tftpd.8	fdf929ff91d432d17c4d7d0aa0f9995fffe6fa8e
+tftpd/tftpd.c	freebsd	libexec/tftpd/tftpd.c	77e83935b7efb0d881fdb77117eb992e807ed9d7
+tftpd/tests/functional.c	freebsd	libexec/tftpd/tests/functional.c	1955ad42b3b71a2083bd6d2aec0d9a10dd78eb21
+
+wall/ttymsg.c	freebsd	usr.bin/wall/ttymsg.c	1a874a126a54fdc188cebd0c58579851c37d1814
+wall/ttymsg.h	freebsd	usr.bin/wall/ttymsg.h	1a874a126a54fdc188cebd0c58579851c37d1814
+wall/wall.1	freebsd	usr.bin/wall/wall.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+wall/wall.c	freebsd	usr.bin/wall/wall.c	e8d2bea9cb59ac6c803ce83865bb37c1ac420c60

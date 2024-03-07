@@ -31,16 +31,14 @@ class ProgramVk : public ProgramImpl
 
     angle::Result load(const gl::Context *context,
                        gl::BinaryInputStream *stream,
-                       std::shared_ptr<LinkTask> *loadTaskOut) override;
+                       std::shared_ptr<LinkTask> *loadTaskOut,
+                       bool *successOut) override;
     void save(const gl::Context *context, gl::BinaryOutputStream *stream) override;
     void setBinaryRetrievableHint(bool retrievable) override;
     void setSeparable(bool separable) override;
 
     angle::Result link(const gl::Context *context, std::shared_ptr<LinkTask> *linkTaskOut) override;
     GLboolean validate(const gl::Caps &caps) override;
-
-    angle::Result syncState(const gl::Context *context,
-                            const gl::Program::DirtyBits &dirtyBits) override;
 
     const ProgramExecutableVk *getExecutable() const
     {

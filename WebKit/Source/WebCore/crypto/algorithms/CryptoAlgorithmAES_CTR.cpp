@@ -27,8 +27,6 @@
 #include "config.h"
 #include "CryptoAlgorithmAES_CTR.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoAlgorithmAesCtrParams.h"
 #include "CryptoAlgorithmAesKeyParams.h"
 #include "CryptoKeyAES.h"
@@ -74,7 +72,7 @@ void CryptoAlgorithmAES_CTR::encrypt(const CryptoAlgorithmParameters& parameters
 {
     auto& aesParameters = downcast<CryptoAlgorithmAesCtrParams>(parameters);
     if (!parametersAreValid(aesParameters)) {
-        exceptionCallback(OperationError);
+        exceptionCallback(ExceptionCode::OperationError);
         return;
     }
 
@@ -88,7 +86,7 @@ void CryptoAlgorithmAES_CTR::decrypt(const CryptoAlgorithmParameters& parameters
 {
     auto& aesParameters = downcast<CryptoAlgorithmAesCtrParams>(parameters);
     if (!parametersAreValid(aesParameters)) {
-        exceptionCallback(OperationError);
+        exceptionCallback(ExceptionCode::OperationError);
         return;
     }
 
@@ -103,13 +101,13 @@ void CryptoAlgorithmAES_CTR::generateKey(const CryptoAlgorithmParameters& parame
     const auto& aesParameters = downcast<CryptoAlgorithmAesKeyParams>(parameters);
 
     if (usagesAreInvalidForCryptoAlgorithmAES_CTR(usages)) {
-        exceptionCallback(SyntaxError);
+        exceptionCallback(ExceptionCode::SyntaxError);
         return;
     }
 
     auto result = CryptoKeyAES::generate(CryptoAlgorithmIdentifier::AES_CTR, aesParameters.length, extractable, usages);
     if (!result) {
-        exceptionCallback(OperationError);
+        exceptionCallback(ExceptionCode::OperationError);
         return;
     }
 
@@ -121,7 +119,7 @@ void CryptoAlgorithmAES_CTR::importKey(CryptoKeyFormat format, KeyData&& data, c
     using namespace CryptoAlgorithmAES_CTRInternal;
 
     if (usagesAreInvalidForCryptoAlgorithmAES_CTR(usages)) {
-        exceptionCallback(SyntaxError);
+        exceptionCallback(ExceptionCode::SyntaxError);
         return;
     }
 
@@ -146,11 +144,11 @@ void CryptoAlgorithmAES_CTR::importKey(CryptoKeyFormat format, KeyData&& data, c
         break;
     }
     default:
-        exceptionCallback(NotSupportedError);
+        exceptionCallback(ExceptionCode::NotSupportedError);
         return;
     }
     if (!result) {
-        exceptionCallback(DataError);
+        exceptionCallback(ExceptionCode::DataError);
         return;
     }
 
@@ -163,7 +161,7 @@ void CryptoAlgorithmAES_CTR::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& 
     const auto& aesKey = downcast<CryptoKeyAES>(key.get());
 
     if (aesKey.key().isEmpty()) {
-        exceptionCallback(OperationError);
+        exceptionCallback(ExceptionCode::OperationError);
         return;
     }
 
@@ -191,7 +189,7 @@ void CryptoAlgorithmAES_CTR::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& 
         break;
     }
     default:
-        exceptionCallback(NotSupportedError);
+        exceptionCallback(ExceptionCode::NotSupportedError);
         return;
     }
 
@@ -315,6 +313,4 @@ auto CryptoAlgorithmAES_CTR::CounterBlockHelper::CounterBlockBits::operator &=(c
     return *this;
 }
 
-}
-
-#endif // ENABLE(WEB_CRYPTO)
+} // namespace WebCore

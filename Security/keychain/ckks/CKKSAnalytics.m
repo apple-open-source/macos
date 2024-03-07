@@ -159,6 +159,7 @@ CKKSAnalyticsFailableEvent* const OctagonEventJoinInheritanceKey = (CKKSAnalytic
 CKKSAnalyticsFailableEvent* const OctagonEventPreflightInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightInheritanceKey";
 CKKSAnalyticsFailableEvent* const OctagonEventRemoveInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventRemoveInheritanceKey";
 CKKSAnalyticsFailableEvent* const OctagonEventCheckInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventCheckInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventReroll = (CKKSAnalyticsFailableEvent*)@"OctagonEventReroll";
 
 CKKSAnalyticsFailableEvent* const OctagonEventFetchAllBottles = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchAllBottles";
 CKKSAnalyticsFailableEvent* const OctagonEventFetchEscrowContents = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchEscrowContents";
@@ -188,6 +189,8 @@ CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithCustodianRecoveryKey = 
 
 CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithInheritanceKey";
 CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithInheritanceKey";
+
+CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithReroll = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithReroll";
 
 CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventSetRecoveryKey";
 
@@ -261,6 +264,7 @@ CKKSAnalyticsActivity* const OctagonActivityJoinWithInheritanceKey = (CKKSAnalyt
 CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithInheritanceKey = (CKKSAnalyticsActivity*)@"OctagonActivityPreflightJoinWithInheritanceKey";
 CKKSAnalyticsActivity* const OctagonActivityRemoveInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveInheritanceKey";
 CKKSAnalyticsActivity* const OctagonActivityCheckInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityCheckInheritanceKey";
+CKKSAnalyticsActivity* const OctagonActivityReroll = (CKKSAnalyticsActivity*)@"OctagonActivityReroll";
 
 CKKSAnalyticsActivity* const OctagonActivityLeaveClique = (CKKSAnalyticsActivity *)@"OctagonActivityLeaveClique";
 CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveFriendsInClique";

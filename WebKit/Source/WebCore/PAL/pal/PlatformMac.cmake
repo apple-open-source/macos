@@ -14,8 +14,10 @@ list(APPEND PAL_PUBLIC_HEADERS
     cocoa/AppSSOSoftLink.h
     cocoa/AVFoundationSoftLink.h
     cocoa/CoreMLSoftLink.h
+    cocoa/CoreTelephonySoftLink.h
     cocoa/CryptoKitPrivateSoftLink.h
     cocoa/DataDetectorsCoreSoftLink.h
+    cocoa/LinkPresentationSoftLink.h
     cocoa/MediaToolboxSoftLink.h
     cocoa/NaturalLanguageSoftLink.h
     cocoa/OpenGLSoftLinkCocoa.h
@@ -59,6 +61,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cocoa/CFNSURLConnectionSPI.h
     spi/cocoa/CommonCryptoSPI.h
     spi/cocoa/CoreServicesSPI.h
+    spi/cocoa/CoreTelephonySPI.h
     spi/cocoa/CryptoKitPrivateSPI.h
     spi/cocoa/DataDetectorsCoreSPI.h
     spi/cocoa/FeatureFlagsSPI.h
@@ -70,6 +73,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cocoa/IOSurfaceSPI.h
     spi/cocoa/IOTypesSPI.h
     spi/cocoa/LaunchServicesSPI.h
+    spi/cocoa/LinkPresentationSPI.h
     spi/cocoa/MediaToolboxSPI.h
     spi/cocoa/MetalSPI.h
     spi/cocoa/NEFilterSourceSPI.h
@@ -172,10 +176,12 @@ list(APPEND PAL_SOURCES
     cocoa/AppSSOSoftLink.mm
     cocoa/AVFoundationSoftLink.mm
     cocoa/CoreMLSoftLink.mm
+    cocoa/CoreTelephonySoftLink.mm
     cocoa/CryptoKitPrivateSoftLink.mm
     cocoa/DataDetectorsCoreSoftLink.mm
     cocoa/FileSizeFormatterCocoa.mm
     cocoa/Gunzip.cpp
+    cocoa/LinkPresentationSoftLink.mm
     cocoa/MediaToolboxSoftLink.cpp
     cocoa/NaturalLanguageSoftLink.mm
     cocoa/OpenGLSoftLinkCocoa.mm

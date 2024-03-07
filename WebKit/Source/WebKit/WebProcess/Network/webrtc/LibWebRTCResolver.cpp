@@ -40,14 +40,24 @@ namespace WebKit {
 void LibWebRTCResolver::sendOnMainThread(Function<void(IPC::Connection&)>&& callback)
 {
     callOnMainRunLoop([callback = WTFMove(callback)]() {
-        callback(WebProcess::singleton().ensureNetworkProcessConnection().connection());
+        Ref networkProcessConnection = WebProcess::singleton().ensureNetworkProcessConnection().connection();
+        callback(networkProcessConnection);
     });
 }
 
-void LibWebRTCResolver::Start(const rtc::SocketAddress& address, int /* family */)
+LibWebRTCResolver::~LibWebRTCResolver()
 {
-    // FIXME: Make use of family parameter.
-    m_isResolving = true;
+    WebProcess::singleton().libWebRTCNetwork().socketFactory().removeResolver(m_identifier);
+    sendOnMainThread([identifier = m_identifier](IPC::Connection& connection) {
+        connection.send(Messages::NetworkRTCProvider::StopResolver(identifier), 0);
+    });
+}
+
+void LibWebRTCResolver::start(const rtc::SocketAddress& address, Function<void()>&& callback)
+{
+    ASSERT(!m_callback);
+
+    m_callback = WTFMove(callback);
     m_addressToResolve = address;
     m_port = address.port();
 
@@ -63,6 +73,11 @@ void LibWebRTCResolver::Start(const rtc::SocketAddress& address, int /* family *
     sendOnMainThread([identifier = m_identifier, name = WTFMove(name).isolatedCopy()](IPC::Connection& connection) {
         connection.send(Messages::NetworkRTCProvider::CreateResolver(identifier, name), 0);
     });
+}
+
+const webrtc::AsyncDnsResolverResult& LibWebRTCResolver::result() const
+{
+    return *this;
 }
 
 bool LibWebRTCResolver::GetResolvedAddress(int family, rtc::SocketAddress* address) const
@@ -82,48 +97,16 @@ bool LibWebRTCResolver::GetResolvedAddress(int family, rtc::SocketAddress* addre
     return false;
 }
 
-void LibWebRTCResolver::Destroy(bool)
+void LibWebRTCResolver::setResolvedAddress(Vector<rtc::IPAddress>&& addresses)
 {
-    if (!isResolving())
-        return;
-
-    if (m_isProvidingResults) {
-        m_shouldDestroy = true;
-        return;
-    }
-
-    sendOnMainThread([identifier = m_identifier](IPC::Connection& connection) {
-        connection.send(Messages::NetworkRTCProvider::StopResolver(identifier), 0);
-    });
-
-    doDestroy();
-}
-
-void LibWebRTCResolver::doDestroy()
-{
-    // Let's take the resolver so that it gets destroyed at the end of this function.
-    auto resolver = WebProcess::singleton().libWebRTCNetwork().socketFactory().takeResolver(m_identifier);
-    ASSERT(resolver);
-}
-
-void LibWebRTCResolver::setResolvedAddress(const Vector<rtc::IPAddress>& addresses)
-{
-    m_addresses = addresses;
-    m_isProvidingResults = true;
-    SignalDone(this);
-    m_isProvidingResults = false;
-    if (m_shouldDestroy)
-        doDestroy();
+    m_addresses = WTFMove(addresses);
+    m_callback();
 }
 
 void LibWebRTCResolver::setError(int error)
 {
     m_error = error;
-    m_isProvidingResults = true;
-    SignalDone(this);
-    m_isProvidingResults = false;
-    if (m_shouldDestroy)
-        doDestroy();
+    m_callback();
 }
 
 } // namespace WebKit

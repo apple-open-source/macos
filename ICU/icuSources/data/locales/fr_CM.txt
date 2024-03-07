@@ -12,20 +12,8 @@ fr_CM{
                 "mat.",
                 "soir",
             }
-            AmPmMarkersNarrow{
-                "mat.",
-                "soir",
-            }
             dayPeriod{
                 stand-alone{
-                    abbreviated{
-                        am{"mat."}
-                        pm{"soir"}
-                    }
-                    narrow{
-                        am{"mat."}
-                        pm{"soir"}
-                    }
                     wide{
                         am{"matin"}
                         pm{"soir"}

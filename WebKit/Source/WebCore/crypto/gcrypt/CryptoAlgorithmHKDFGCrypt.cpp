@@ -28,8 +28,6 @@
 #include "config.h"
 #include "CryptoAlgorithmHKDF.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoAlgorithmHkdfParams.h"
 #include "CryptoKeyRaw.h"
 #include "GCryptUtilities.h"
@@ -156,10 +154,8 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHKDF::platformDeriveBits(const Crypt
 {
     auto output = gcryptDeriveBits(key.key(), parameters.saltVector(), parameters.infoVector(), length / 8, parameters.hashIdentifier);
     if (!output)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     return WTFMove(*output);
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

@@ -83,6 +83,7 @@
 				2A7E40D2297A5227003942C8 /* PBXTargetDependency */,
 				2A7E4104297A5D67003942C8 /* PBXTargetDependency */,
 				2A7E4106297A5D6C003942C8 /* PBXTargetDependency */,
+				2A688B022A46213300F211FD /* PBXTargetDependency */,
 				2A7E4108297A5D70003942C8 /* PBXTargetDependency */,
 				2A9C8A4329C8FAB300416E6B /* PBXTargetDependency */,
 			);
@@ -125,6 +126,7 @@
 		2A51188027E443900059F4ED /* pgrep-t_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184827E442190059F4ED /* pgrep-t_test.sh */; };
 		2A51188227E443900059F4ED /* pgrep-v_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184D27E4421A0059F4ED /* pgrep-v_test.sh */; };
 		2A51188327E443900059F4ED /* pgrep-x_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184327E442190059F4ED /* pgrep-x_test.sh */; };
+		2A688B002A46200A00F211FD /* env_selector_addarg.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A688AFF2A46200A00F211FD /* env_selector_addarg.c */; };
 		2A7E409E297A4ACD003942C8 /* lex.l in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C9129674DB9005099EA /* lex.l */; };
 		2A7E409F297A4ACD003942C8 /* genwrap.y in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C9329674FF3005099EA /* genwrap.y */; };
 		2A7E40A0297A4ACD003942C8 /* genwrap.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A19020F296C04C4008E5A05 /* genwrap.c */; };
@@ -221,6 +223,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2A688AF62A461F0100F211FD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A7E409C297A4ACD003942C8;
+			remoteInfo = genwrap_static;
+		};
+		2A688B012A46213300F211FD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A688AF42A461F0100F211FD;
+			remoteInfo = env_selector_addarg;
+		};
 		2A7E4098297A4741003942C8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
@@ -621,6 +637,15 @@
 			name = "Install Test Files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		2A688AFB2A461F0100F211FD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		2A7E40AF297A4D49003942C8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -929,6 +954,9 @@
 		2A51185E27E442440059F4ED /* locale_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = locale_test.sh; path = tests/locale_test.sh; sourceTree = "<group>"; };
 		2A51185F27E442440059F4ED /* k_flag_posix_messages.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = k_flag_posix_messages.out; path = tests/k_flag_posix_messages.out; sourceTree = "<group>"; };
 		2A51186027E442440059F4ED /* k_flag_posix_time.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = k_flag_posix_time.out; path = tests/k_flag_posix_time.out; sourceTree = "<group>"; };
+		2A688AF32A461EF000F211FD /* env_selector_addarg.wrapper */ = {isa = PBXFileReference; lastKnownFileType = text; name = env_selector_addarg.wrapper; path = genwrap/tests/env_selector_addarg.wrapper; sourceTree = "<group>"; };
+		2A688AFE2A461F0100F211FD /* env_selector_addarg */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = env_selector_addarg; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A688AFF2A46200A00F211FD /* env_selector_addarg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = env_selector_addarg.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A7E408F297A4581003942C8 /* env_selector.wrapper */ = {isa = PBXFileReference; lastKnownFileType = text; name = env_selector.wrapper; path = genwrap/tests/env_selector.wrapper; sourceTree = "<group>"; };
 		2A7E4090297A4581003942C8 /* arg_selector_simple_a.wrapper */ = {isa = PBXFileReference; lastKnownFileType = text; name = arg_selector_simple_a.wrapper; path = genwrap/tests/arg_selector_simple_a.wrapper; sourceTree = "<group>"; };
 		2A7E4091297A4581003942C8 /* arg_selector_simple_b.wrapper */ = {isa = PBXFileReference; lastKnownFileType = text; name = arg_selector_simple_b.wrapper; path = genwrap/tests/arg_selector_simple_b.wrapper; sourceTree = "<group>"; };
@@ -1066,6 +1094,13 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		2A114C7C29674842005099EA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A688AFA2A461F0100F211FD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1347,6 +1382,7 @@
 				2A7E4090297A4581003942C8 /* arg_selector_simple_a.wrapper */,
 				2A7E4091297A4581003942C8 /* arg_selector_simple_b.wrapper */,
 				2A7E408F297A4581003942C8 /* env_selector.wrapper */,
+				2A688AF32A461EF000F211FD /* env_selector_addarg.wrapper */,
 				2A7E4109297A5EA2003942C8 /* genwrap_test.sh */,
 				2A7E4093297A4593003942C8 /* simple_shim.wrapper */,
 			);
@@ -1363,6 +1399,7 @@
 				2A7E40D6297A58EC003942C8 /* arg_selector_simple_a.c */,
 				2A7E40E6297A5A91003942C8 /* arg_selector_simple_b.c */,
 				2A7E40F4297A5CC5003942C8 /* env_selector.c */,
+				2A688AFF2A46200A00F211FD /* env_selector_addarg.c */,
 				2A7E4101297A5D38003942C8 /* simple_shim.c */,
 			);
 			name = "Derived Files";
@@ -1427,6 +1464,7 @@
 				2A7E4127297A6BA1003942C8 /* analytics_redacted */,
 				2A96BE7729839C6200F1705B /* arg_selector_complex_logonly */,
 				2A9C8A3F29C8F8EF00416E6B /* spin_helper */,
+				2A688AFE2A461F0100F211FD /* env_selector_addarg */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1655,6 +1693,25 @@
 			name = genwrap;
 			productName = genwrap;
 			productReference = 2A114C7F29674842005099EA /* genwrap */;
+			productType = "com.apple.product-type.tool";
+		};
+		2A688AF42A461F0100F211FD /* env_selector_addarg */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A688AFC2A461F0100F211FD /* Build configuration list for PBXNativeTarget "env_selector_addarg" */;
+			buildPhases = (
+				2A688AF72A461F0100F211FD /* ShellScript */,
+				2A688AF82A461F0100F211FD /* Sources */,
+				2A688AFA2A461F0100F211FD /* Frameworks */,
+				2A688AFB2A461F0100F211FD /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2A688AF52A461F0100F211FD /* PBXTargetDependency */,
+			);
+			name = env_selector_addarg;
+			productName = arg_selector_complex;
+			productReference = 2A688AFE2A461F0100F211FD /* env_selector_addarg */;
 			productType = "com.apple.product-type.tool";
 		};
 		2A7E409C297A4ACD003942C8 /* genwrap_static */ = {
@@ -2157,6 +2214,7 @@
 				2A7E40BE297A50B7003942C8 /* arg_selector_simple_a */,
 				2A7E40DB297A5A4E003942C8 /* arg_selector_simple_b */,
 				2A7E40E8297A5AC2003942C8 /* env_selector */,
+				2A688AF42A461F0100F211FD /* env_selector_addarg */,
 				2A7E40F6297A5D04003942C8 /* simple_shim */,
 				2A9C8A3529C8F8EF00416E6B /* spin_helper */,
 			);
@@ -2203,6 +2261,25 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = ". ${SRCROOT}/xcodescripts/install-test-files.sh\n";
+		};
+		2A688AF72A461F0100F211FD /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/genwrap/tests/env_selector_addarg.wrapper",
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/env_selector_addarg.c",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/generate-wrapper.sh\n";
 		};
 		2A7E40B7297A4D5D003942C8 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2458,6 +2535,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2A688AF82A461F0100F211FD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A688B002A46200A00F211FD /* env_selector_addarg.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2A7E409D297A4ACD003942C8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2686,6 +2771,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2A688AF52A461F0100F211FD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A7E409C297A4ACD003942C8 /* genwrap_static */;
+			targetProxy = 2A688AF62A461F0100F211FD /* PBXContainerItemProxy */;
+		};
+		2A688B022A46213300F211FD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A688AF42A461F0100F211FD /* env_selector_addarg */;
+			targetProxy = 2A688B012A46213300F211FD /* PBXContainerItemProxy */;
+		};
 		2A7E4099297A4741003942C8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2A114C7E29674842005099EA /* genwrap */;
@@ -2921,6 +3016,34 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/genwrap";
+			};
+			name = Release;
+		};
+		2A688AFD2A461F0100F211FD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/Tests/adv_cmds/genwrap;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -3468,6 +3591,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2A114C8329674842005099EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A688AFC2A461F0100F211FD /* Build configuration list for PBXNativeTarget "env_selector_addarg" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A688AFD2A461F0100F211FD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

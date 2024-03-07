@@ -42,12 +42,6 @@ sec_errstr(int err)
     
     snprintf(buffer, sizeof(buffer), "%d", err);
     errString = buffer;
-#if 0
-    if (IS_SEC_ERROR(err))
-        errString = SECErrorString(err);
-    else
-        errString = cssmErrorString(err);
-#endif
     return errString;
 }
 

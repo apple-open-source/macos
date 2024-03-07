@@ -14,11 +14,11 @@ es_PR{
                 "d 'de' MMMM 'de' y G",
                 "MM/dd/y G",
                 "MM/dd/yy GGGGG",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
             DateTimeSkeletons{
                 "ahmmsszzzz",
@@ -56,10 +56,10 @@ es_PR{
                 "d 'de' MMMM 'de' y",
                 "MM/dd/y",
                 "MM/dd/yy",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
             DateTimeSkeletons{
@@ -73,6 +73,11 @@ es_PR{
                 "yyMMdd",
             }
             availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 MEd{"E, MM/dd"}
@@ -83,6 +88,10 @@ es_PR{
             }
             dayPeriod{
                 stand-alone{
+                    abbreviated{
+                        am{"a. m."}
+                        pm{"p. m."}
+                    }
                     narrow{
                         am{"a. m."}
                         pm{"p. m."}
@@ -104,11 +113,11 @@ es_PR{
                 "d 'de' MMMM 'de' G y",
                 "MM/dd/G y",
                 "MM/dd/GGGGGyy",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
             DateTimeSkeletons{
                 "ahmmsszzzz",

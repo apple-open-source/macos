@@ -103,7 +103,7 @@ void ChildChangeInvalidation::invalidateForChangedElement(Element& changedElemen
         }
     };
 
-    for (auto key : makePseudoClassInvalidationKeys(CSSSelector::PseudoClassType::Has, changedElement))
+    for (auto key : makePseudoClassInvalidationKeys(CSSSelector::PseudoClass::Has, changedElement))
         addHasInvalidation(ruleSets.hasPseudoClassInvalidationRuleSets(key));
 
     Invalidator::invalidateWithMatchElementRuleSets(changedElement, matchElementRuleSets);
@@ -111,6 +111,7 @@ void ChildChangeInvalidation::invalidateForChangedElement(Element& changedElemen
 
 void ChildChangeInvalidation::invalidateForChangeOutsideHasScope()
 {
+    // FIXME: This is a performance footgun. Any mutation will trigger a full document traversal.
     if (auto* invalidationRuleSet = parentElement().styleResolver().ruleSets().scopeBreakingHasPseudoClassInvalidationRuleSet())
         Invalidator::invalidateWithScopeBreakingHasPseudoClassRuleSet(parentElement(), invalidationRuleSet);
 }
@@ -126,6 +127,10 @@ void ChildChangeInvalidation::invalidateForHasBeforeMutation()
     traverseRemovedElements([&](auto& changedElement) {
         invalidateForChangedElement(changedElement, matchingHasSelectors, ChangedElementRelation::SelfOrDescendant);
     });
+
+    // :empty is affected by text changes.
+    if (m_childChange.type == ContainerNode::ChildChange::Type::TextRemoved || m_childChange.type == ContainerNode::ChildChange::Type::AllChildrenRemoved)
+        invalidateForChangedElement(parentElement(), matchingHasSelectors, ChangedElementRelation::SelfOrDescendant);
 
     auto firstChildStateWillStopMatching = [&] {
         if (!m_childChange.nextSiblingElement)
@@ -153,7 +158,7 @@ void ChildChangeInvalidation::invalidateForHasBeforeMutation()
         return false;
     };
 
-    if (parentElement().childrenAffectedByForwardPositionalRules() || parentElement().childrenAffectedByBackwardPositionalRules()) {
+    if (parentElement().affectedByHasWithPositionalPseudoClass()) {
         traverseRemainingExistingSiblings([&](auto& changedElement) {
             invalidateForChangedElement(changedElement, matchingHasSelectors, ChangedElementRelation::Sibling);
         });
@@ -177,6 +182,10 @@ void ChildChangeInvalidation::invalidateForHasAfterMutation()
     traverseAddedElements([&](auto& changedElement) {
         invalidateForChangedElement(changedElement, matchingHasSelectors, ChangedElementRelation::SelfOrDescendant);
     });
+
+    // :empty is affected by text changes.
+    if (m_childChange.type == ContainerNode::ChildChange::Type::TextInserted && m_wasEmpty)
+        invalidateForChangedElement(parentElement(), matchingHasSelectors, ChangedElementRelation::SelfOrDescendant);
 
     auto firstChildStateWillStartMatching = [&](Element* elementAfterChange) {
         if (!elementAfterChange)
@@ -204,7 +213,7 @@ void ChildChangeInvalidation::invalidateForHasAfterMutation()
         return false;
     };
 
-    if (parentElement().childrenAffectedByForwardPositionalRules() || parentElement().childrenAffectedByBackwardPositionalRules()) {
+    if (parentElement().affectedByHasWithPositionalPseudoClass()) {
         traverseRemainingExistingSiblings([&](auto& changedElement) {
             invalidateForChangedElement(changedElement, matchingHasSelectors, ChangedElementRelation::Sibling);
         });

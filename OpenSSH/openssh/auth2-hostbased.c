@@ -211,9 +211,7 @@ hostbased_key_allowed(struct ssh *ssh, struct passwd *pw,
 	debug2_f("access allowed by auth_rhosts2");
 
 	if (sshkey_is_cert(key) &&
-#ifdef __APPLE__
 	    sshkey_cert_check_authority_now(key, 1, 0, 0, lookup, &reason)) {
-#endif
 		error("%s", reason);
 		auth_debug_add("%s", reason);
 		return 0;

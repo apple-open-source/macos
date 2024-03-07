@@ -20,8 +20,6 @@
 #include "config.h"
 #include "CryptoAlgorithmX25519.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyOKP.h"
 #include <pal/spi/cocoa/CoreCryptoSPI.h>
 
@@ -34,10 +32,13 @@ std::optional<Vector<uint8_t>> CryptoAlgorithmX25519::platformDeriveBits(const C
 
     ccec25519pubkey derivedKey;
     static_assert(sizeof(derivedKey) == 32);
+#if HAVE(CORE_CRYPTO_SIGNATURES_INT_RETURN_VALUE)
+    if (cccurve25519(derivedKey, baseKey.platformKey().data(), publicKey.platformKey().data()))
+        return std::nullopt;
+#else
     cccurve25519(derivedKey, baseKey.platformKey().data(), publicKey.platformKey().data());
+#endif
     return Vector<uint8_t>(derivedKey, 32);
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

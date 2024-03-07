@@ -1,7 +1,10 @@
 engineering
 lib2
+fib
 places
 rand
 scientific
 shift
 trunc
+bitfuncs
+leadingzero

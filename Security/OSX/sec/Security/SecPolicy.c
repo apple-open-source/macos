@@ -5128,3 +5128,43 @@ errOut:
     CFReleaseSafe(options);
     return result;
 }
+
+SecPolicyRef SecPolicyCreateEDPSigning(void)
+{
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    SecPolicyAddBasicCertOptions(options);
+
+    /* Anchored to the Apple Roots */
+    require(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameEDPSigning), errOut);
+
+    /* Exactly 3 certs in the chain */
+    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    /* Apple System Integration CA 4 */
+    add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.17"));
+
+    /* Leaf marker OID matches expected OID, with additional allowed OID for QA */
+    if (SecIsInternalRelease()) {
+        add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.12.48"));
+    }
+    add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.12.47"));
+
+    /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
+    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+
+    /* Skip networked revocation checks */
+    CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
+
+    require(result = SecPolicyCreate(kSecPolicyAppleEDPSigning,
+                                     kSecPolicyNameEDPSigning, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
+}

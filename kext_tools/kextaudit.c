@@ -2,7 +2,6 @@
  * kextaudit.c - code for forwarding kext load information to bridgeOS over
  *               SMC to allow for certain system policy decisions.
  *
- * TODO: Move DangerZone code into this file since it does very similar things.
  *
  * Copyright (c) 2018 Apple Computer, Inc. All rights reserved.
  *

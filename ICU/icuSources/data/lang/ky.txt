@@ -48,6 +48,7 @@ ky{
         bem{"бембача"}
         bez{"бенача"}
         bg{"болгарча"}
+        bgc{"харьянвиче"}
         bgn{"чыгыш балучиче"}
         bho{"бхожпуриче"}
         bi{"бисламача"}
@@ -328,6 +329,7 @@ ky{
         pt_PT{"португалча (Европа)"}
         qu{"кечуача"}
         quc{"кичече"}
+        raj{"ражастаниче"}
         rap{"рапаньюча"}
         rar{"раротонгача"}
         rhg{"рохинжача"}
@@ -621,10 +623,11 @@ ky{
     }
     characterLabelPattern{
         all{"{0} — баары"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} — ылайыктуулук"}
         enclosed{"{0} — кашаага/тырмакчага алынган"}
         extended{"{0} — кеңейтилген"}
+        facing-left{"{0} солду карап турат"}
+        facing-right{"{0} оңду карап турат"}
         historic{"{0} — тарыхый"}
         miscellaneous{"{0} — башка"}
         other{"{0} — башкалар"}
@@ -640,10 +643,5 @@ ky{
         language{"Тили: {0}"}
         script{"Жазуусу: {0}"}
         territory{"Аймагы: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

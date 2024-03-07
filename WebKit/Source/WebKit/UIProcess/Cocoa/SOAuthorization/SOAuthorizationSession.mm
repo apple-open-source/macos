@@ -77,11 +77,9 @@ static const char* toString(const SOAuthorizationSession::InitiatingAction& acti
 
 static Vector<WebCore::Cookie> toCookieVector(NSArray<NSHTTPCookie *> *cookies)
 {
-    Vector<WebCore::Cookie> result;
-    result.reserveInitialCapacity(cookies.count);
-    for (id cookie in cookies)
-        result.uncheckedAppend(cookie);
-    return result;
+    return Vector<WebCore::Cookie>(cookies.count, [cookies](size_t i) {
+        return WebCore::Cookie { cookies[i] };
+    });
 }
 
 static bool isSameOrigin(const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response)
@@ -181,8 +179,8 @@ void SOAuthorizationSession::start()
     [m_soAuthorization getAuthorizationHintsWithURL:m_navigationAction->request().url() responseCode:0 completion:makeBlockPtr([this, weakThis = ThreadSafeWeakPtr { *this }] (SOAuthorizationHints *authorizationHints, NSError *error) {
         AUTHORIZATIONSESSION_RELEASE_LOG("start: Receive SOAuthorizationHints (error=%ld)", error ? error.code : 0);
 
-        auto strongThis = weakThis.get();
-        if (!strongThis) {
+        auto protectedThis = weakThis.get();
+        if (!protectedThis) {
             RELEASE_LOG_ERROR(AppSSO, "SOAuthorizationSession::start (getAuthorizationHintsWithURL completion handler): Returning early because weakThis is now null.");
             return;
         }
@@ -209,8 +207,8 @@ void SOAuthorizationSession::continueStartAfterGetAuthorizationHints(const Strin
 
     AUTHORIZATIONSESSION_RELEASE_LOG("continueStartAfterGetAuthorizationHints: Checking page for policy choice.");
     m_page->decidePolicyForSOAuthorizationLoad(hints, [weakThis = ThreadSafeWeakPtr { *this }] (SOAuthorizationLoadPolicy policy) {
-        if (auto strongThis = weakThis.get())
-            strongThis->continueStartAfterDecidePolicy(policy);
+        if (auto protectedThis = weakThis.get())
+            protectedThis->continueStartAfterDecidePolicy(policy);
     });
 }
 
@@ -239,6 +237,18 @@ void SOAuthorizationSession::continueStartAfterDecidePolicy(const SOAuthorizatio
         SOAuthorizationOptionInitiatorOrigin: (NSString *)initiatorOrigin,
         SOAuthorizationOptionInitiatingAction: @(static_cast<NSInteger>(m_action))
     };
+#if PLATFORM(IOS_FAMILY)
+    RetainPtr<WKWebView> webView = m_page->cocoaView();
+    id webViewUIDelegate = [webView UIDelegate];
+    if ([webViewUIDelegate respondsToSelector:@selector(_hostSceneIdentifierForWebView:)]) {
+        NSString *callerSceneID = [webViewUIDelegate _hostSceneIdentifierForWebView:webView.get()];
+        if (callerSceneID) {
+            NSMutableDictionary *mutableAuthorizationOptions = [authorizationOptions mutableCopy];
+            mutableAuthorizationOptions[@"callerSceneIdentifier"] = callerSceneID;
+            authorizationOptions = mutableAuthorizationOptions;
+        }
+    }
+#endif
     [m_soAuthorization setAuthorizationOptions:authorizationOptions];
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
@@ -329,8 +339,8 @@ void SOAuthorizationSession::complete(NSHTTPURLResponse *httpResponse, NSData *d
     }
 
     m_page->websiteDataStore().cookieStore().setCookies(WTFMove(cookies), [this, weakThis = ThreadSafeWeakPtr { *this }, response = WTFMove(response), data = adoptNS([[NSData alloc] initWithData:data])] () mutable {
-        auto strongThis = weakThis.get();
-        if (!strongThis)
+        auto protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
 
         AUTHORIZATIONSESSION_RELEASE_LOG("complete: Cookies are set.");
@@ -364,11 +374,11 @@ void SOAuthorizationSession::presentViewController(SOAuthorizationViewController
     m_sheetWindow = [NSWindow windowWithContentViewController:m_viewController.get()];
 
     m_sheetWindowWillCloseObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowWillCloseNotification object:m_sheetWindow.get() queue:nil usingBlock:[weakThis = ThreadSafeWeakPtr { *this }] (NSNotification *) {
-        auto strongThis = weakThis.get();
-        if (!strongThis)
+        auto protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
         RELEASE_LOG(AppSSO, "presentViewController: Received NSWindowWillCloseNotification. Dismissing the view controller.");
-        strongThis->dismissViewController();
+        protectedThis->dismissViewController();
     }];
     AUTHORIZATIONSESSION_RELEASE_LOG("presentViewController: Added m_sheetWindowWillCloseObserver (%p)", m_sheetWindowWillCloseObserver.get());
 

@@ -174,7 +174,7 @@
 
     // The fetch fails with partial results
     ckzone.limitFetchTo = ck1;
-    ckzone.limitFetchError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}];
+    ckzone.limitFetchError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}];
 
     self.silentFetchesAllowed = false;
     [self expectCKFetch];
@@ -225,7 +225,7 @@
 
     // The fetch fails with partial results
     ckzone.limitFetchTo = ck1;
-    ckzone.limitFetchError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}];
+    ckzone.limitFetchError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}];
 
     self.silentFetchesAllowed = false;
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
@@ -431,9 +431,9 @@
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
 
-    [ckzone failNextFetchWith:[[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
-    [ckzone failNextFetchWith:[[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
-    [ckzone failNextFetchWith:[[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
+    [ckzone failNextFetchWith:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
+    [ckzone failNextFetchWith:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
+    [ckzone failNextFetchWith:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
 
     // Call direct to set our own timeouts
     CKKSResultOperation* fetchOp = [self.defaultCKKS rpcFetchAndProcessIncomingQueue:nil

@@ -590,20 +590,24 @@ const char *ValidateProgramDrawAdvancedBlendState(const Context *context,
     const BlendEquationBitSet &supportedBlendEquations = executable.getAdvancedBlendEquations();
     const DrawBufferMask &enabledDrawBufferMask        = state.getBlendStateExt().getEnabledMask();
 
-    for (size_t blendEnabledBufferIndex : enabledDrawBufferMask)
+    // Zero (default) means everything is BlendEquationType::Add, so check can be skipped
+    if (state.getBlendStateExt().getEquationColorBits() != 0)
     {
-        const gl::BlendEquationType &enabledBlendEquation = gl::FromGLenum<gl::BlendEquationType>(
-            state.getBlendStateExt().getEquationColorIndexed(blendEnabledBufferIndex));
-
-        if (enabledBlendEquation < gl::BlendEquationType::Multiply ||
-            enabledBlendEquation > gl::BlendEquationType::HslLuminosity)
+        for (size_t blendEnabledBufferIndex : enabledDrawBufferMask)
         {
-            continue;
-        }
+            const gl::BlendEquationType enabledBlendEquation =
+                state.getBlendStateExt().getEquationColorIndexed(blendEnabledBufferIndex);
 
-        if (!supportedBlendEquations.test(enabledBlendEquation))
-        {
-            return gl::err::kBlendEquationNotEnabled;
+            if (enabledBlendEquation < gl::BlendEquationType::Multiply ||
+                enabledBlendEquation > gl::BlendEquationType::HslLuminosity)
+            {
+                continue;
+            }
+
+            if (!supportedBlendEquations.test(enabledBlendEquation))
+            {
+                return gl::err::kBlendEquationNotEnabled;
+            }
         }
     }
 
@@ -863,7 +867,8 @@ bool ValidateDrawElementsInstancedBase(const Context *context,
                                        GLsizei count,
                                        DrawElementsType type,
                                        const void *indices,
-                                       GLsizei primcount)
+                                       GLsizei primcount,
+                                       GLuint baseinstance)
 {
     if (primcount <= 0)
     {
@@ -889,7 +894,7 @@ bool ValidateDrawElementsInstancedBase(const Context *context,
         return true;
     }
 
-    return ValidateDrawInstancedAttribs(context, entryPoint, primcount);
+    return ValidateDrawInstancedAttribs(context, entryPoint, primcount, baseinstance);
 }
 
 bool ValidateDrawArraysInstancedBase(const Context *context,
@@ -897,7 +902,8 @@ bool ValidateDrawArraysInstancedBase(const Context *context,
                                      PrimitiveMode mode,
                                      GLint first,
                                      GLsizei count,
-                                     GLsizei primcount)
+                                     GLsizei primcount,
+                                     GLuint baseinstance)
 {
     if (primcount <= 0)
     {
@@ -922,7 +928,7 @@ bool ValidateDrawArraysInstancedBase(const Context *context,
         return true;
     }
 
-    return ValidateDrawInstancedAttribs(context, entryPoint, primcount);
+    return ValidateDrawInstancedAttribs(context, entryPoint, primcount, baseinstance);
 }
 
 bool ValidateDrawInstancedANGLE(const Context *context, angle::EntryPoint entryPoint)
@@ -4248,10 +4254,14 @@ const char *ValidateDrawStates(const Context *context, GLenum *outErrorCode)
         // Imply the strictest spec interpretation to pass on all OpenGL drivers:
         // dual-source blending is considered active if the blend state contains
         // any SRC1 factor no matter what.
-        const DrawBufferMask bufferMask = framebuffer->getDrawBufferMask();
-        if (bufferMask.any() && bufferMask.last() >= context->getCaps().maxDualSourceDrawBuffers)
+        const size_t drawBufferCount = framebuffer->getDrawbufferStateCount();
+        for (size_t drawBufferIndex = context->getCaps().maxDualSourceDrawBuffers;
+             drawBufferIndex < drawBufferCount; ++drawBufferIndex)
         {
-            return kDualSourceBlendingDrawBuffersLimit;
+            if (framebuffer->getDrawBufferState(drawBufferIndex) != GL_NONE)
+            {
+                return kDualSourceBlendingDrawBuffersLimit;
+            }
         }
     }
 
@@ -4532,7 +4542,7 @@ bool ValidateDrawArraysInstancedANGLE(const Context *context,
         return false;
     }
 
-    if (!ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, primcount))
+    if (!ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, primcount, 0))
     {
         return false;
     }
@@ -4553,7 +4563,7 @@ bool ValidateDrawArraysInstancedEXT(const Context *context,
         return false;
     }
 
-    if (!ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, primcount))
+    if (!ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, primcount, 0))
     {
         return false;
     }
@@ -4623,7 +4633,7 @@ bool ValidateDrawElementsInstancedANGLE(const Context *context,
     }
 
     if (!ValidateDrawElementsInstancedBase(context, entryPoint, mode, count, type, indices,
-                                           primcount))
+                                           primcount, 0))
     {
         return false;
     }
@@ -4646,7 +4656,7 @@ bool ValidateDrawElementsInstancedEXT(const Context *context,
     }
 
     if (!ValidateDrawElementsInstancedBase(context, entryPoint, mode, count, type, indices,
-                                           primcount))
+                                           primcount, 0))
     {
         return false;
     }
@@ -7636,12 +7646,6 @@ bool ValidateTexParameterBase(const Context *context,
                 !(pname == GL_TEXTURE_WRAP_R && context->getExtensions().texture3DOES))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kES3Required);
-                return false;
-            }
-            if (target == TextureType::External &&
-                !context->getExtensions().EGLImageExternalEssl3OES)
-            {
-                ANGLE_VALIDATION_ERRORF(GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             if (target == TextureType::VideoImage && !context->getExtensions().videoTextureWEBGL)

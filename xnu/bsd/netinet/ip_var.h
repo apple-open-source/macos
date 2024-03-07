@@ -71,6 +71,7 @@
 #include <sys/appleapiopts.h>
 
 #include <netinet/in.h>
+#include <netinet/in_var.h>
 #include <sys/types.h>
 
 /*

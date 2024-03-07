@@ -6,6 +6,8 @@
 #import <xpc/private.h>
 #endif /* TARGET_OS_WATCH */
 
+#import "keychain/categories/NSError+UsefulConstructors.h"
+
 #import "OTPairingService.h"
 #import "OTPairingConstants.h"
 
@@ -18,6 +20,8 @@ static void ids_retry_init(void);
 static void ids_retry_enable(bool);
 #endif /* TARGET_OS_WATCH */
 
+static _Atomic bool pairing_retry_is_scheduled = false;
+
 int
 main(void)
 {
@@ -28,7 +32,7 @@ main(void)
     }
 
 #if TARGET_OS_WATCH
-    /* Check in; handle a possibly-pending retry. */
+    /* Check in; handle a possibly-pending retry. Blocks until checkin is complete. */
     pairing_retry_register(true);
 
     ids_retry_init();
@@ -37,6 +41,22 @@ main(void)
         xpc_object_t reply;
 
         reply = xpc_dictionary_create_reply(message);
+
+        bool immediate = xpc_dictionary_get_bool(message, OTPairingXPCKeyImmediate);
+        if (!immediate && pairing_retry_is_scheduled) {
+            os_log(OS_LOG_DEFAULT, "pairing retry already scheduled, ignoring request");
+
+            xpc_dictionary_set_bool(reply, OTPairingXPCKeySuccess, false);
+
+            NSError* error = [NSError errorWithDomain:OTPairingErrorDomain code:OTPairingErrorTypeRetryScheduled description:@"pairing retry scheduled"];
+            NSData* errdata = [SecXPCHelper encodedDataFromError:error];
+            xpc_dictionary_set_data(reply, OTPairingXPCKeyError, errdata.bytes, errdata.length);
+
+            xpc_connection_t connection = xpc_dictionary_get_remote_connection(reply);
+            xpc_connection_send_message(connection, reply);
+
+            return;
+        }
 
         /* Received an explicit pairing request; remove retry activity if one exists. */
         pairing_retry_unregister();
@@ -149,13 +169,20 @@ static void
 pairing_retry_register(bool checkin)
 {
     xpc_object_t criteria;
+    dispatch_semaphore_t sema = NULL;
 
     if (checkin) {
         criteria = XPC_ACTIVITY_CHECK_IN;
+        /*
+         * During initial checkin, we must block until checkin is complete. Otherwise.
+         * an XPC request from securityd may be handled before we have determined that
+         * a retry is already scheduled.
+         */
+        sema = dispatch_semaphore_create(0);
     } else {
-        os_log(OS_LOG_DEFAULT, "scheduling pairing retry");
+        pairing_retry_is_scheduled = true;
 
-        pairing_retry_unregister();
+        os_log(OS_LOG_DEFAULT, "scheduling pairing retry");
 
         criteria = xpc_dictionary_create(NULL, NULL, 0);
         xpc_dictionary_set_string(criteria, XPC_ACTIVITY_PRIORITY, XPC_ACTIVITY_PRIORITY_MAINTENANCE);
@@ -168,7 +195,14 @@ pairing_retry_register(bool checkin)
 
     xpc_activity_register(OTPairingXPCActivityIdentifier, criteria, ^(xpc_activity_t activity) {
         xpc_activity_state_t state = xpc_activity_get_state(activity);
-        if (state == XPC_ACTIVITY_STATE_RUN) {
+        if (state == XPC_ACTIVITY_STATE_CHECK_IN) {
+            xpc_object_t ci_criteria = xpc_activity_copy_criteria(activity);
+            /* If activity is not scheduled, ci_criteria should simply be NULL, but paranoia is good. */
+            if (ci_criteria != NULL && xpc_dictionary_get_int64(ci_criteria, XPC_ACTIVITY_INTERVAL) != 0) {
+                pairing_retry_is_scheduled = true;
+            }
+            dispatch_semaphore_signal(sema);
+        } else if (state == XPC_ACTIVITY_STATE_RUN) {
             os_log(OS_LOG_DEFAULT, "triggered pairing attempt via XPC Activity");
             OTPairingService *service = [OTPairingService sharedService];
             [service initiatePairingWithCompletion:^(bool success, NSError *error) {
@@ -182,12 +216,17 @@ pairing_retry_register(bool checkin)
             }];
         }
     });
+
+    if (checkin) {
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+    }
 }
 
 static void
 pairing_retry_unregister(void)
 {
     xpc_activity_unregister(OTPairingXPCActivityIdentifier);
+    pairing_retry_is_scheduled = false;
 }
 
 static void

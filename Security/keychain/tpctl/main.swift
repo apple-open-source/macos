@@ -37,7 +37,6 @@ enum Command {
     case establish
     case localReset
     case prepare
-    case healthInquiry
     case update
     case reset
     case viableBottles // (OTEscrowRecordFetchSource)
@@ -62,7 +61,6 @@ func printUsage() {
     print("  distrust PEERID ...       Distrust one or more peers by peer ID")
     print("  drop PEERID ...           Drop (delete) one or more peers by peer ID (but keep them in excluded/distrust list")
     print("  establish                 Calls Cuttlefish Establish, creating a new account-wide trust arena with a single peer (previously generated with prepare")
-    print("  healthInquiry             Request peers to check in with reportHealth")
     print("  join VOUCHER VOUCHERSIG   Join a circle using this (base64) voucher and voucherSig")
     print("  local-reset               Resets the local cuttlefish database, and ignores all previous information. Does not change anything off-device")
     print("  performATOPRVActions      Call the ATOPRV action in Cuttlefish")
@@ -135,6 +133,7 @@ var configurationData: [String: Any]?
 var accountIsDemo: Bool = false
 
 let store = ACAccountStore()
+
 guard let account = store.aa_primaryAppleAccount() else {
     print("Unable to fetch primary Apple account!")
     abort()
@@ -142,6 +141,7 @@ guard let account = store.aa_primaryAppleAccount() else {
 
 let akManager = AKAccountManager.sharedInstance
 let authKitAccount = akManager.authKitAccount(withAltDSID: account.aa_altDSID)
+
 if let account = authKitAccount {
     accountIsDemo = akManager.demoAccount(for: account)
 }
@@ -293,7 +293,7 @@ while let arg = argIterator.next() {
         while let arg = argIterator.next() {
             peerIDs.insert(arg)
         }
-        guard peerIDs.count != 0 else {
+        guard !peerIDs.isEmpty else {
             print("Error: drop needs at least one peerID")
             exitUsage(EXIT_FAILURE)
         }
@@ -352,9 +352,6 @@ while let arg = argIterator.next() {
 
     case "prepare":
         commands.append(.prepare)
-
-    case "healthInquiry":
-        commands.append(.healthInquiry)
 
     case "reset":
         commands.append(.reset)
@@ -526,6 +523,7 @@ if commands.isEmpty {
 
 // Figure out the specific user to invoke
 let specificUser: TPSpecificUser
+
 do {
     let accounts = OTAccountsActualAdapter()
 
@@ -540,7 +538,7 @@ do {
 
 logger.log("Invoking for \(specificUser)")
 
-// JSONSerialization has no idea how to handle NSData. Help it out.
+// Convert some types that JSONSerialization doesn't know how to serialize.
 func cleanDictionaryForJSON(_ d: [AnyHashable: Any]) -> [AnyHashable: Any] {
     func cleanValue(_ value: Any) -> Any {
         switch value {
@@ -550,6 +548,8 @@ func cleanDictionaryForJSON(_ d: [AnyHashable: Any]) -> [AnyHashable: Any] {
             return subArray.map(cleanValue)
         case let data as Data:
             return data.base64EncodedString()
+        case let date as Date:
+            return date.ISO8601Format()
         default:
             return value
         }
@@ -647,16 +647,6 @@ for command in commands {
                                 return
                             }
                             print("Establish successful. Peer ID:", peerID!)
-        }
-
-    case .healthInquiry:
-        logger.log("healthInquiry (\(container), \(context))")
-        tpHelper.pushHealthInquiry(with: specificUser) { error in
-            guard error == nil else {
-                print("Error healthInquiry: \(String(describing: error))")
-                return
-            }
-            print("healthInquiry successful")
         }
 
     case .localReset:
@@ -868,6 +858,10 @@ for command in commands {
         logger.log("allow-listing (\(container), \(context))")
 
         var idmsDeviceIDs: Set<String> = Set()
+        var userInitiatedRemovedMachineIDs: Set<String>?
+        var evictedMachineIDs: Set<String>?
+        var unknownReasonMachineIDs: Set<String>?
+        var unknowns: Set<String>?
 
         if performIDMS {
             let requestArguments = AKDeviceListRequestContext()
@@ -893,16 +887,34 @@ for command in commands {
                     print("IDMS returned empty device list")
                     return
                 }
+                if let deletedDeviceList = response.deletedDeviceList {
+                    userInitiatedRemovedMachineIDs = Set(deletedDeviceList.filter { $0.removalReason == .userAction }.map { $0.machineId })
+                    evictedMachineIDs = Set(deletedDeviceList.filter { $0.removalReason == .deviceLimitMIDEviction }.map { $0.machineId })
+                    unknownReasonMachineIDs = Set(deletedDeviceList.filter { $0.removalReason == .unknown }.map { $0.machineId })
+
+                    // union 'user initiated' + 'evicted' + 'unknown reason' machineIDs
+                    let unionedResults = userInitiatedRemovedMachineIDs?.union(evictedMachineIDs ?? Set()).union(unknownReasonMachineIDs ?? Set())
+                    // Take the original set and subtract the union
+                    unknowns = Set(deletedDeviceList.map { $0.machineId }).subtracting(unionedResults ?? Set())
+                    // If any machineIDs are left over, add them to the 'unknown reason' pile.
+                    if let unknownUnknowns = unknowns {
+                        unknownReasonMachineIDs = unknownReasonMachineIDs?.union(unknownUnknowns)
+                    }
+                }
 
                 idmsDeviceIDs = Set(deviceList.map { $0.machineId })
                 semaphore.signal()
             }
             semaphore.wait()
         }
+
         let allMachineIDs = machineIDs.union(idmsDeviceIDs)
         print("Setting allowed machineIDs to \(allMachineIDs)")
         tpHelper.setAllowedMachineIDsWith(specificUser,
                                           allowedMachineIDs: allMachineIDs,
+                                          userInitiatedRemovals: userInitiatedRemovedMachineIDs,
+                                          evictedRemovals: evictedMachineIDs,
+                                          unknownReasonRemovals: unknownReasonMachineIDs,
                                           honorIDMSListChanges: accountIsDemo,
                                           version: nil) { listChanged, error in
             guard error == nil else {

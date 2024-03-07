@@ -112,7 +112,7 @@ void LocaleDisplayNamesTest::TestWithKeywordsAndEverything() {
   LocaleDisplayNames *ldn = LocaleDisplayNames::createInstance(Locale::getUS());
   const char *locname = "en_Hant_US_VALLEY@calendar=gregorian;collation=phonebook";
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://16830596 7172297452.. For names combining language and region, always use short region name if available
   const char *target = "English (Traditional, US, VALLEY, "
 #else
   const char *target = "English (Traditional, United States, VALLEY, "
@@ -166,7 +166,7 @@ void LocaleDisplayNamesTest::TestPrivateUse() {
 void LocaleDisplayNamesTest::TestUldnOpen() {
   UErrorCode status = U_ZERO_ERROR;
   const int32_t kMaxResultSize = 150;  // long enough
-  UChar result[150];
+  char16_t result[150];
   ULocaleDisplayNames *ldn = uldn_open(Locale::getGermany().getName(), ULDN_STANDARD_NAMES, &status);
   int32_t len = uldn_localeDisplayName(ldn, "de_DE", result, kMaxResultSize, &status);
   uldn_close(ldn);
@@ -175,11 +175,11 @@ void LocaleDisplayNamesTest::TestUldnOpen() {
   UnicodeString str(result, len, kMaxResultSize);
   test_assert_equal("Deutsch (Deutschland)", str);
 
-  // make sure that NULL gives us the default locale as usual
-  ldn = uldn_open(NULL, ULDN_STANDARD_NAMES, &status);
+  // make sure that nullptr gives us the default locale as usual
+  ldn = uldn_open(nullptr, ULDN_STANDARD_NAMES, &status);
   const char *locale = uldn_getLocale(ldn);
   if(0 != uprv_strcmp(uloc_getDefault(), locale)) {
-    errln("uldn_getLocale(uldn_open(NULL))=%s != default locale %s\n", locale, uloc_getDefault());
+    errln("uldn_getLocale(uldn_open(nullptr))=%s != default locale %s\n", locale, uloc_getDefault());
   }
   uldn_close(ldn);
   test_assert(U_SUCCESS(status));
@@ -188,7 +188,7 @@ void LocaleDisplayNamesTest::TestUldnOpen() {
 void LocaleDisplayNamesTest::TestUldnOpenDialect() {
   UErrorCode status = U_ZERO_ERROR;
   const int32_t kMaxResultSize = 150;  // long enough
-  UChar result[150];
+  char16_t result[150];
   ULocaleDisplayNames *ldn = uldn_open(Locale::getUS().getName(), ULDN_DIALECT_NAMES, &status);
   int32_t len = uldn_localeDisplayName(ldn, "en_GB", result, kMaxResultSize, &status);
   uldn_close(ldn);
@@ -201,7 +201,7 @@ void LocaleDisplayNamesTest::TestUldnOpenDialect() {
 void LocaleDisplayNamesTest::TestUldnWithGarbage() {
   UErrorCode status = U_ZERO_ERROR;
   const int32_t kMaxResultSize = 150;  // long enough
-  UChar result[150];
+  char16_t result[150];
   ULocaleDisplayNames *ldn = uldn_open(Locale::getUS().getName(), ULDN_DIALECT_NAMES, &status);
   int32_t len = uldn_localeDisplayName(ldn, "english (United States) [w", result, kMaxResultSize, &status);
   uldn_close(ldn);
@@ -211,10 +211,10 @@ void LocaleDisplayNamesTest::TestUldnWithGarbage() {
 void LocaleDisplayNamesTest::TestUldnWithKeywordsAndEverything() {
   UErrorCode status = U_ZERO_ERROR;
   const int32_t kMaxResultSize = 150;  // long enough
-  UChar result[150];
+  char16_t result[150];
   const char *locname = "en_Hant_US_VALLEY@calendar=gregorian;collation=phonebook";
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://16830596 7172297452.. For names combining language and region, always use short region name if available
   const char *target = "English (Traditional, US, VALLEY, "
 #else
   const char *target = "English (Traditional, United States, VALLEY, "
@@ -232,7 +232,7 @@ void LocaleDisplayNamesTest::TestUldnWithKeywordsAndEverything() {
 void LocaleDisplayNamesTest::TestUldnComponents() {
   UErrorCode status = U_ZERO_ERROR;
   const int32_t kMaxResultSize = 150;  // long enough
-  UChar result[150];
+  char16_t result[150];
 
   ULocaleDisplayNames *ldn = uldn_open(Locale::getGermany().getName(), ULDN_STANDARD_NAMES, &status);
   test_assert(U_SUCCESS(status));
@@ -307,7 +307,7 @@ typedef struct {
     UDisplayContext capitalization;
     UDisplayContext displayLength;
     const char * localeToBeNamed;
-    const UChar * result;
+    const char16_t * result;
 } LocNameDispContextItem;
 
 static char en[] = "en";
@@ -315,37 +315,37 @@ static char en_cabud[] = "en@calendar=buddhist";
 static char en_GB[] = "en_GB";
 static char uz_Latn[] = "uz_Latn";
 
-static UChar daFor_en[]       = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"engelsk"
-static UChar daFor_en_cabud[] = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x62,0x75,0x64,0x64,0x68,0x69,0x73,0x74,0x69,0x73,0x6B,0x20,
+static char16_t daFor_en[]       = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"engelsk"
+static char16_t daFor_en_cabud[] = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x62,0x75,0x64,0x64,0x68,0x69,0x73,0x74,0x69,0x73,0x6B,0x20,
                                  0x6B,0x61,0x6C,0x65,0x6E,0x64,0x65,0x72,0x29,0}; //"engelsk (buddhistisk kalender)"
-static UChar daFor_en_GB[]    = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"engelsk (Storbritannien)"
-static UChar daFor_en_GB_D[]  = {0x62,0x72,0x69,0x74,0x69,0x73,0x6B,0x20,0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"britisk engelsk"
-static UChar esFor_en[]       = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0}; //"ingles" with acute on the e
+static char16_t daFor_en_GB[]    = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"engelsk (Storbritannien)"
+static char16_t daFor_en_GB_D[]  = {0x62,0x72,0x69,0x74,0x69,0x73,0x6B,0x20,0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"britisk engelsk"
+static char16_t esFor_en[]       = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0}; //"ingles" with acute on the e
 #if APPLE_ICU_CHANGES
-// rdar://
-static UChar esFor_en_GB[]    = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"ingles (RU)" ... // Apple change
+// rdar://16830596 7172297452.. For names combining language and region, always use short region name if available
+static char16_t esFor_en_GB[]    = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"ingles (RU)" ...
 #else
-static UChar esFor_en_GB[]    = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x65,0x69,0x6E,0x6F,0x20,0x55,0x6E,0x69,0x64,0x6F,0x29,0}; //"ingles (Reino Unido)" ...
+static char16_t esFor_en_GB[]    = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x65,0x69,0x6E,0x6F,0x20,0x55,0x6E,0x69,0x64,0x6F,0x29,0}; //"ingles (Reino Unido)" ...
 #endif  // APPLE_ICU_CHANGES
-static UChar esFor_en_GB_S[]  = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"ingles (RU)" ...
-static UChar esFor_en_GB_D[]  = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x62,0x72,0x69,0x74,0xE1,0x6E,0x69,0x63,0x6F,0}; //"ingles britanico" with acute on the e, a
-static UChar ruFor_uz_Latn[]  = {0x0443,0x0437,0x0431,0x0435,0x043A,0x0441,0x043A,0x0438,0x0439,0x20,0x28,0x043B,0x0430,0x0442,0x0438,0x043D,0x0438,0x0446,0x0430,0x29,0}; // all lowercase
+static char16_t esFor_en_GB_S[]  = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"ingles (RU)" ...
+static char16_t esFor_en_GB_D[]  = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x62,0x72,0x69,0x74,0xE1,0x6E,0x69,0x63,0x6F,0}; //"ingles britanico" with acute on the e, a
+static char16_t ruFor_uz_Latn[]  = {0x0443,0x0437,0x0431,0x0435,0x043A,0x0441,0x043A,0x0438,0x0439,0x20,0x28,0x043B,0x0430,0x0442,0x0438,0x043D,0x0438,0x0446,0x0430,0x29,0}; // all lowercase
 #if !UCONFIG_NO_BREAK_ITERATION
-static UChar daFor_en_T[]     = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"Engelsk"
-static UChar daFor_en_cabudT[]= {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x62,0x75,0x64,0x64,0x68,0x69,0x73,0x74,0x69,0x73,0x6B,0x20,
+static char16_t daFor_en_T[]     = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"Engelsk"
+static char16_t daFor_en_cabudT[]= {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x62,0x75,0x64,0x64,0x68,0x69,0x73,0x74,0x69,0x73,0x6B,0x20,
                                  0x6B,0x61,0x6C,0x65,0x6E,0x64,0x65,0x72,0x29,0}; //"Engelsk (buddhistisk kalender)"
-static UChar daFor_en_GB_T[]  = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"Engelsk (Storbritannien)"
-static UChar daFor_en_GB_DT[] = {0x42,0x72,0x69,0x74,0x69,0x73,0x6B,0x20,0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"Britisk engelsk"
-static UChar esFor_en_T[]     = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0}; //"Ingles" with acute on the e
+static char16_t daFor_en_GB_T[]  = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"Engelsk (Storbritannien)"
+static char16_t daFor_en_GB_DT[] = {0x42,0x72,0x69,0x74,0x69,0x73,0x6B,0x20,0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"Britisk engelsk"
+static char16_t esFor_en_T[]     = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0}; //"Ingles" with acute on the e
 #if APPLE_ICU_CHANGES
-// rdar://
-static UChar esFor_en_GB_T[]  = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"Ingles (RU)" ... // Apple change
+// rdar://16830596 7172297452.. For names combining language and region, always use short region name if available
+static char16_t esFor_en_GB_T[]  = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"Ingles (RU)" ...
 #else
-static UChar esFor_en_GB_T[]  = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x65,0x69,0x6E,0x6F,0x20,0x55,0x6E,0x69,0x64,0x6F,0x29,0}; //"Ingles (Reino Unido)" ...
+static char16_t esFor_en_GB_T[]  = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x65,0x69,0x6E,0x6F,0x20,0x55,0x6E,0x69,0x64,0x6F,0x29,0}; //"Ingles (Reino Unido)" ...
 #endif  // APPLE_ICU_CHANGES
-static UChar esFor_en_GB_ST[] = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"Ingles (RU)" ...
-static UChar esFor_en_GB_DT[] = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x62,0x72,0x69,0x74,0xE1,0x6E,0x69,0x63,0x6F,0}; //"Ingles britanico" with acute on the e, a
-static UChar ruFor_uz_Latn_T[]= {0x0423,0x0437,0x0431,0x0435,0x043A,0x0441,0x043A,0x0438,0x0439,0x20,0x28,0x043B,0x0430,0x0442,0x0438,0x043D,0x0438,0x0446,0x0430,0x29,0}; // first char upper
+static char16_t esFor_en_GB_ST[] = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"Ingles (RU)" ...
+static char16_t esFor_en_GB_DT[] = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x62,0x72,0x69,0x74,0xE1,0x6E,0x69,0x63,0x6F,0}; //"Ingles britanico" with acute on the e, a
+static char16_t ruFor_uz_Latn_T[]= {0x0423,0x0437,0x0431,0x0435,0x043A,0x0441,0x043A,0x0438,0x0439,0x20,0x28,0x043B,0x0430,0x0442,0x0438,0x043D,0x0438,0x0446,0x0430,0x29,0}; // first char upper
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */
 
 static const LocNameDispContextItem ctxtItems[] = {
@@ -414,13 +414,50 @@ static const LocNameDispContextItem ctxtItems[] = {
     // Test for rdar://79401338 [Apple-specific]
     { "ain", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "ain_Kana", u"アイヌ・イタㇰ (カタカナ)" },
     { "syr", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "syr_Syrc", u"ܣܘܪܝܝܐ (ܣܘܪܝܬ)" },
+
+    // Test for rdar://115264744 (Sub-TLF: China geopolitical location display via ICU)
+    // Test all the PRC variants for HK, MO, and TW in the languages we have them for (currently en, zh, and zh_Hant)
+    { "en",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_HK", u"Chinese (Hong Kong)" },
+    { "en",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_HK", u"Chinese (Hong Kong [China])" },
+    { "en",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_MO", u"Chinese (Macao)" },
+    { "en",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_MO", u"Chinese (Macao [China])" },
+    { "en",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_TW", u"Chinese (Taiwan)" },
+    { "en",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_TW", u"Chinese (Taiwan [China])" },
+    { "zh",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_HK", u"中文（香港）" },
+    { "zh",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_HK", u"中文（香港［中国］）" },
+    { "zh",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_MO", u"中文（澳门）" },
+    { "zh",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_MO", u"中文（澳门［中国］）" },
+    { "zh",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_TW", u"中文（台湾）" },
+    { "zh",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_TW", u"中文（台湾［中国］）" },
+    { "zh_TW", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_HK", u"中文（香港）" },
+    { "zh_TW", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_HK", u"中文（香港［中國］）" },
+    { "zh_TW", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_MO", u"中文（澳門）" },
+    { "zh_TW", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_MO", u"中文（澳門［中國］）" },
+    { "zh_TW", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_TW", u"中文（台灣）" },
+    { "zh_TW", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_TW", u"中文（台灣［中國］）" },
+    // Test that fallback works correctly in a language that doesn't have PRC variants
+    { "fr",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_HK", u"chinois (Hong Kong)" },
+    { "fr",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_HK", u"chinois (Hong Kong)" },
+    { "fr",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_MO", u"chinois (Macao)" },
+    { "fr",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_MO", u"chinois (Macao)" },
+    { "fr",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_TW", u"chinois (Taïwan)" },
+    { "fr",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_TW", u"chinois (Taïwan)" },
+    // Test the variant names for China itself (we're currently using UDISPCTX_LENGTH_PRC for this, but might need a
+    // different constant)
+    { "en",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_CN", u"Chinese (China mainland)" },
+    { "en",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_CN", u"Chinese (China)" },
+    { "zh",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_CN", u"中文（中国大陆）" },
+    { "zh",    UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_CN", u"中文（中国）" },
+    { "zh_TW", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_FULL,    "zh_CN", u"中文（中國大陸）" },
+    { "zh_TW", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,      UDISPCTX_LENGTH_PRC,     "zh_CN", u"中文（中國）" },
+
 #endif  // APPLE_ICU_CHANGES
-    { NULL, (UDisplayContext)0,      (UDisplayContext)0,                                (UDisplayContext)0,     NULL,  NULL }
+    { nullptr, (UDisplayContext)0,      (UDisplayContext)0,                                (UDisplayContext)0,     nullptr,  nullptr }
 };
 
 void LocaleDisplayNamesTest::TestUldnDisplayContext() {
     const LocNameDispContextItem * ctxtItemPtr;
-    for (ctxtItemPtr = ctxtItems; ctxtItemPtr->displayLocale != NULL; ctxtItemPtr++) {
+    for (ctxtItemPtr = ctxtItems; ctxtItemPtr->displayLocale != nullptr; ctxtItemPtr++) {
         UDisplayContext contexts[3] = {ctxtItemPtr->dialectHandling, ctxtItemPtr->capitalization, ctxtItemPtr->displayLength};
         UErrorCode status = U_ZERO_ERROR;
         ULocaleDisplayNames * uldn = uldn_openForContext(ctxtItemPtr->displayLocale, contexts, 3, &status);
@@ -440,7 +477,7 @@ void LocaleDisplayNamesTest::TestUldnDisplayContext() {
                        displayLength != ctxtItemPtr->displayLength) {
                 errln("FAIL: uldn_getContext retrieved incorrect dialectHandling, capitalization, or displayLength");
             } else {
-                UChar nameBuf[ULOC_FULLNAME_CAPACITY];
+                char16_t nameBuf[ULOC_FULLNAME_CAPACITY];
                 int32_t len = uldn_localeDisplayName(uldn, ctxtItemPtr->localeToBeNamed, nameBuf, ULOC_FULLNAME_CAPACITY, &status);
                 if (U_FAILURE(status)) {
                     dataerrln(UnicodeString("FAIL: uldn_localeDisplayName status: ") + u_errorName(status));
@@ -481,7 +518,7 @@ void LocaleDisplayNamesTest::TestRootEtc() {
 void LocaleDisplayNamesTest::TestNumericRegionID() {
     UErrorCode err = U_ZERO_ERROR;
     ULocaleDisplayNames* ldn = uldn_open("es_MX", ULDN_STANDARD_NAMES, &err);
-    UChar displayName[200];
+    char16_t displayName[200];
     uldn_regionDisplayName(ldn, "019", displayName, 200, &err);
     test_assert(U_SUCCESS(err));
     test_assert_equal(UnicodeString(u"América"), UnicodeString(displayName));

@@ -48,6 +48,7 @@
 + (void)setUp {
     // We don't really want to spin up the whole machinery for the encryption tests
     SecCKKSDisable();
+    KCSharingSetChangeTrackingEnabled(false);
     [super setUp];
 }
 
@@ -61,6 +62,7 @@
 
 + (void)tearDown {
     [super tearDown];
+    KCSharingClearChangeTrackingEnabledOverride();
     SecCKKSResetSyncing();
 }
 

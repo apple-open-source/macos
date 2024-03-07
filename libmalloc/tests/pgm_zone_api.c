@@ -19,9 +19,12 @@ should_sample_counter(uint32_t counter_range)
 	return should_sample_counter_ret_value;
 }
 
-#include "../src/has_section.c"
 #include "../src/pgm_malloc.c"
+// Dependencies
+#include "../src/has_section.c"
+#include "../src/malloc_common.c"
 #include "../src/stack_trace.c"
+#include "../src/wrapper_zones.c"
 
 // Stub out cross-file dependencies.
 void malloc_report(uint32_t flags, const char *fmt, ...) { }
@@ -29,7 +32,7 @@ void malloc_report_simple(const char *fmt, ...) { __builtin_trap(); }
 
 static malloc_zone_t wrapped_zone;
 static pgm_zone_t *zone;
-static size_t size = 5;
+static const size_t size = 5;
 
 #define CALL_(func, args...) zone->malloc_zone.func(args)
 #define CALL(func, args...) CALL_(func, (malloc_zone_t *)zone, ## args)
@@ -53,25 +56,31 @@ static void
 setup(void)
 {
 	T_ATEND(teardown);
-	// rdar://74948496 ([PGM] Drop all requirements for wrapped_zone)
-	wrapped_zone.version = 6;
-	wrapped_zone.batch_malloc = malloc_default_zone()->batch_malloc;
-	wrapped_zone.batch_free = malloc_default_zone()->batch_free;
-	wrapped_zone.memalign = malloc_default_zone()->memalign;
-	wrapped_zone.free_definite_size =  malloc_default_zone()->free_definite_size;
+
+	wrapped_zone.version = 13;
 	wrapped_zone.calloc = malloc_default_zone()->calloc;
 	zone = (pgm_zone_t *)pgm_create_zone(&wrapped_zone);
 	wrapped_zone.calloc = NULL;
-	wrapped_zone.free_definite_size = NULL;
-	wrapped_zone.memalign = NULL;
-	wrapped_zone.batch_free = NULL;
-	wrapped_zone.batch_malloc = NULL;
 }
 
-static uint8_t *wrapped_zone_malloc_ret_value;
+T_DECL(optional_apis, "Restrict zone API to what is supported by wrapped zone")
+{
+	setup();
+
+	malloc_zone_t *z = &zone->malloc_zone;
+	T_EXPECT_NOTNULL(z->batch_malloc, "batch_malloc() is always supported");
+	T_EXPECT_NOTNULL(z->batch_free, "batch_free() is always supported");
+	T_EXPECT_NULL(z->memalign, "memalign() is optional");
+	T_EXPECT_NULL(z->free_definite_size, "free_definite_size() is optional");
+}
+
+static size_t wrapped_zone_malloc_expected_size = size;
+static uint32_t wrapped_zone_malloc_call_count;
 static void *
-wrapped_zone_malloc(malloc_zone_t *zone, size_t size) {
-	return ++wrapped_zone_malloc_ret_value;
+wrapped_zone_malloc(malloc_zone_t *zone, size_t size)
+{
+	T_EXPECT_EQ(size, wrapped_zone_malloc_expected_size, "malloc(size)");
+	return (void *)(uintptr_t)++wrapped_zone_malloc_call_count;
 }
 
 T_DECL(delegate_unsampled, "delegation of unsampled allocations",
@@ -80,8 +89,10 @@ T_DECL(delegate_unsampled, "delegation of unsampled allocations",
 	setup();
 	wrapped_zone.malloc = wrapped_zone_malloc;
 
+	wrapped_zone_malloc_expected_size = PAGE_SIZE + 1;
 	T_EXPECT_EQ(CALL(malloc, PAGE_SIZE + 1), (void *)1, "requested size > page size");
 	T_EXPECT_EQ(should_sample_counter_call_count, 0, "bad size; no call to should_sample_counter()");
+	wrapped_zone_malloc_expected_size = size;
 
 	should_sample_counter_ret_value = FALSE;
 	T_EXPECT_EQ(CALL(malloc, size), (void *)2, "not sampled");
@@ -94,11 +105,13 @@ T_DECL(delegate_unsampled, "delegation of unsampled allocations",
 	T_EXPECT_EQ(should_sample_counter_call_count, 2, "zone full; no call to should_sample_counter()");
 }
 
+static void *wrapped_zone_free_expected_ptrs[3];
 static uint32_t wrapped_zone_free_call_count;
 static void
 wrapped_zone_free(malloc_zone_t *zone, void *ptr)
 {
-	T_EXPECT_EQ(ptr, (void *)1337, "free(): ptr");
+	T_QUIET; T_ASSERT_LT(wrapped_zone_free_call_count, 3, NULL);
+	T_EXPECT_EQ(ptr, wrapped_zone_free_expected_ptrs[wrapped_zone_free_call_count], "free(ptr)");
 	wrapped_zone_free_call_count++;
 }
 
@@ -115,6 +128,7 @@ T_DECL(delegate_unguarded, "delegation of unguarded deallocations")
 	CALL(free, p1);
 	T_EXPECT_EQ(wrapped_zone_free_call_count, 0, "handle guarded");
 
+	wrapped_zone_free_expected_ptrs[0] = p2;
 	CALL(free, p2);
 	T_EXPECT_EQ(wrapped_zone_free_call_count, 1, "delegate unguarded");
 }
@@ -141,7 +155,9 @@ is_aligned(void *ptr, uintptr_t alignment)
 
 T_DECL(alignment, "alignments")
 {
+	wrapped_zone.memalign = malloc_default_zone()->memalign;
 	setup();
+	wrapped_zone.memalign = NULL;
 
 	T_EXPECT_TRUE(is_aligned(CALL(malloc, size), 16), "malloc(): 16-byte aligned");
 	T_EXPECT_TRUE(is_aligned(CALL(valloc, size), PAGE_SIZE), "valloc(): page size aligned");
@@ -160,8 +176,8 @@ wrapped_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size)
 
 T_DECL(memalign_invalid_alignment, "memalign delegates for invalid alignment")
 {
-	setup();
 	wrapped_zone.memalign = wrapped_zone_memalign;
+	setup();
 
 	T_EXPECT_EQ(CALL(memalign, 2 * PAGE_SIZE, size), (void *)1, "alignment > page size");
 	T_EXPECT_EQ(CALL(memalign, 32+16, size), (void *)2, "alignment not a power of 2");
@@ -243,52 +259,38 @@ T_DECL(realloc_unguarded_and_unsampled, "realloc only delegates for old-unguarde
 	T_EXPECT_EQ(CALL(realloc, (void *)8, size), (void *)9, "delegated call");
 }
 
-static void **wrapped_zone_batch_malloc_expected_results;
-static uint32_t wrapped_zone_batch_malloc_call_count;
-static unsigned
-wrapped_zone_batch_malloc(malloc_zone_t *zone, size_t size, void **results, unsigned count)
-{
-	T_EXPECT_EQ(results, wrapped_zone_batch_malloc_expected_results, "batch_malloc(): results");
-	T_EXPECT_EQ(count, 1, "batch_malloc(): count");
-	wrapped_zone_batch_malloc_call_count++;
-	return 10;
-}
-
 T_DECL(batch_malloc, "batch_malloc implementation",
 		T_META_ENVVAR("MallocProbGuardAllocations=2"))
 {
 	setup();
-	wrapped_zone.batch_malloc = wrapped_zone_batch_malloc;
+	wrapped_zone.malloc = wrapped_zone_malloc;
 
-	T_EXPECT_EQ(CALL(batch_malloc, size, NULL, /*count=*/0), 0, "zero count");
+	T_EXPECT_EQ(CALL(batch_malloc, size, NULL, /*num_requested=*/0), 0, "zero count");
 	T_EXPECT_EQ(should_sample_counter_call_count, 0, "early return for zero count");
 
 	void *results[3];
-	wrapped_zone_batch_malloc_expected_results = &results[2];
-	T_EXPECT_EQ(CALL(batch_malloc, size, results, 3), 12, "return sampled plus delegated");
-	T_EXPECT_EQ(should_sample_counter_call_count, 3, "determine sample count");
-	T_EXPECT_EQ(wrapped_zone_batch_malloc_call_count, 1, "delegate unsampled");
-}
-
-static uint32_t wrapped_zone_batch_free_call_count;
-static void
-wrapped_zone_batch_free(malloc_zone_t *zone, void **to_be_freed, unsigned count)
-{
-	T_EXPECT_EQ(count, 3, "batch_free(): count");
-	T_EXPECT_EQ(to_be_freed[0], (void *)1, "batch_free(): to_be_freed[0]");
-	T_EXPECT_EQ(to_be_freed[1], NULL, "batch_free(): to_be_freed[1]");
-	T_EXPECT_EQ(to_be_freed[2], (void *)3, "batch_free(): to_be_freed[2]");
-	wrapped_zone_batch_free_call_count++;
+	T_EXPECT_EQ(CALL(batch_malloc, size, results, 3), 3, "3 allocations");
+	T_EXPECT_EQ(should_sample_counter_call_count, 2, "2 PGM allocations, then quarantine is full");
+	T_EXPECT_EQ(wrapped_zone_malloc_call_count, 1, "3rd allocation from wrapped zone");
+	T_EXPECT_TRUE(is_guarded(zone, (vm_address_t)results[0]), "PGM allocation");
+	T_EXPECT_TRUE(is_guarded(zone, (vm_address_t)results[1]), "PGM allocation");
+	T_EXPECT_EQ(results[2], (void *)1, "Wrapped zone allocation");
 }
 
 T_DECL(batch_free, "batch_free implementation")
 {
 	setup();
-	wrapped_zone.batch_free = wrapped_zone_batch_free;
+	wrapped_zone.free = wrapped_zone_free;
 
 	void *to_be_freed[] = {(void *)1, CALL(malloc, size), (void *)3};
+	// Freed in reverse order
+	wrapped_zone_free_expected_ptrs[0] = (void *)3;
+	wrapped_zone_free_expected_ptrs[1] = (void *)1;
+
+	T_EXPECT_EQ(zone->num_allocations, 1, "1 PGM allocation");
 	CALL(batch_free, to_be_freed, 3);
-	T_EXPECT_EQ(wrapped_zone_batch_free_call_count, 1, "delegate unguarded");
+	T_EXPECT_EQ(zone->num_allocations, 0, "Freed the PGM allocation");
+	T_EXPECT_EQ(wrapped_zone_free_call_count, 2, "delegate unguarded");
 }
 
 static vm_range_t expected_ranges[2];

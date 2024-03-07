@@ -169,7 +169,6 @@ typedef enum {
 
 #if OCTAGON
 - (BOOL)shouldAcceptOctagonRequests {
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     __block BOOL result = NO;
 
     OTOperationConfiguration* configuration = [[OTOperationConfiguration alloc] init];
@@ -188,13 +187,8 @@ typedef enum {
          if (status == CliqueStatusIn) {
              result = YES;
          }
-         dispatch_semaphore_signal(sema);
      }];
 
-    if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
-        secerror("octagon: timed out fetching trust status");
-        return NO;
-    }
     return result;
 }
 #endif
@@ -244,7 +238,6 @@ typedef enum {
 
     if (version == kPiggyV2 && piggyVersionMessage && [piggyVersionMessage isEqualToString:@"o"]) {
         __block NSData* next = nil;
-        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
         //fetch epoch
         [self.otControl rpcEpochWithArguments:self.controlArguments
@@ -265,14 +258,7 @@ typedef enum {
                 responseMessage.supportsOctagon.supported = OTSupportType_supported;
                 next = responseMessage.data;
             }
-            dispatch_semaphore_signal(sema);
         }];
-
-        if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
-            secerror("octagon: timed out fetching epoch");
-            KCJoiningErrorCreate(kTimedoutWaitingForEpochRPC, error, @"Timed out waiting for epoch rpc");
-            return nil;
-        }
 
         if (captureError) {
             if (error) {
@@ -492,7 +478,6 @@ typedef enum {
     if (self.piggy_version == kPiggyV2) {
         __block NSData* next = nil;
         __block NSError* localError = nil;
-        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
         OTPairingMessage *pairingMessage = [self createPairingMessageFromJoiningMessage:message error:error];
         if (!pairingMessage) {
@@ -533,14 +518,8 @@ typedef enum {
                 pairingMessage.supportsOctagon.supported = OTSupportType_supported;
                 next = pairingResponse.data;
             }
-            dispatch_semaphore_signal(sema);
         }];
 
-        if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
-            secerror("octagon: timed out producing octagon voucher");
-            KCJoiningErrorCreate(kTimedOutWaitingForVoucher, error, @"timed out producing octagon voucher");
-            return nil;
-        }
         if (next == NULL) {
             if (error && localError) {
                 *error = localError;

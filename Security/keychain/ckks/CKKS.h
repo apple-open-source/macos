@@ -421,6 +421,8 @@ typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {
     CKKSResultDescriptionPendingKeyHierachyPokeScheduling = 1004,
     CKKSResultDescriptionPendingCloudKitRetryAfter = 1005,
     CKKSResultDescriptionPendingFlag = 1006,
+
+    CKKSResultDescriptionErrorPendingMachineRequestStart = 2000,
 };
 
 // These errors are returned by the CKKS server extension.

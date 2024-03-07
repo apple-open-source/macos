@@ -29,19 +29,21 @@
 #import "DestinationColorSpace.h"
 #import "HostWindow.h"
 #import "IOSurfacePool.h"
+#import "ImageBufferBackend.h"
 #import "Logging.h"
 #import "PlatformScreen.h"
 #import "ProcessCapabilities.h"
 #import "ProcessIdentity.h"
-#import <pal/cocoa/QuartzCoreSoftLink.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/Assertions.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/MathExtras.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/TextStream.h>
 
 #import "CoreVideoSoftLink.h"
 #import <pal/cg/CoreGraphicsSoftLink.h>
+#import <pal/cocoa/QuartzCoreSoftLink.h>
 
 namespace WebCore {
 
@@ -62,6 +64,8 @@ static auto surfaceNameToNSString(IOSurface::Name name)
         return @"WebKit ImageBufferShareableMapped";
     case IOSurface::Name::LayerBacking:
         return @"WebKit LayerBacking";
+    case IOSurface::Name::BitmapOnlyLayerBacking:
+        return @"WebKit LayerBacking (bitmap only)";
     case IOSurface::Name::MediaPainting:
         return @"WebKit MediaPainting";
     case IOSurface::Name::Snapshot:
@@ -675,6 +679,9 @@ IOSurface::Name IOSurface::nameForRenderingPurpose(RenderingPurpose purpose)
 
     case RenderingPurpose::LayerBacking:
         return Name::LayerBacking;
+
+    case RenderingPurpose::BitmapOnlyLayerBacking:
+        return Name::BitmapOnlyLayerBacking;
 
     case RenderingPurpose::Snapshot:
         return Name::Snapshot;

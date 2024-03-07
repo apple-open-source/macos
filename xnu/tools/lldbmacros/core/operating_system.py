@@ -2,12 +2,6 @@
 #
 
 #source of register info is from http://opensource.apple.com/source/gdb/gdb-962/src/gdb/arm-tdep.c
-from __future__ import absolute_import, print_function
-
-from builtins import hex
-from builtins import range
-from builtins import object
-
 import struct
 import lldb
 

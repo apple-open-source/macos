@@ -102,5 +102,6 @@ _backboardd:*:287:_backboardd
 _avphidbridge:*:288:_avphidbridge
 _launchservices:*:290:_launchservices
 _mobilegestalthelper:*:293:_mobilegestalthelper
-systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd,_darwindaemon,_accessoryupdater,_backboardd,_launchservices,_fpsd,_mobilegestalthelper
+_eligibilityd:*:297:_eligibilityd
+systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd,_darwindaemon,_accessoryupdater,_backboardd,_launchservices,_fpsd,_mobilegestalthelper,_eligibilityd
 mobile:*:501:mobile

@@ -39,6 +39,7 @@
 #include <kern/processor.h>
 #include <kern/startup.h>
 #include <kern/debug.h>
+#include <kern/monotonic.h>
 #include <prng/random.h>
 #include <kern/ecc.h>
 #include <machine/machine_routines.h>
@@ -80,9 +81,6 @@
 #if CONFIG_TELEMETRY
 #include <kern/telemetry.h>
 #endif
-#if MONOTONIC
-#include <kern/monotonic.h>
-#endif /* MONOTONIC */
 
 #if KPERF
 #include <kperf/kptimer.h>
@@ -779,9 +777,9 @@ arm_init_cpu(
 		bootprofile_wake_from_sleep();
 #endif /* CONFIG_TELEMETRY */
 	}
-#if MONOTONIC && defined(__arm64__)
+#if CONFIG_CPU_COUNTERS
 	mt_wake_per_core();
-#endif /* MONOTONIC && defined(__arm64__) */
+#endif /* CONFIG_CPU_COUNTERS */
 
 #if defined(KERNEL_INTEGRITY_CTRR)
 	if (ctrr_cluster_locked[cpu_data_ptr->cpu_cluster_id] != CTRR_LOCKED) {

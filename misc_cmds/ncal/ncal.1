@@ -24,7 +24,7 @@
 .\"
 .\" $FreeBSD$
 .\"
-.Dd March 14, 2009
+.Dd March 7, 2019
 .Dt CAL 1
 .Os
 .Sh NAME
@@ -154,15 +154,18 @@ note the year must be fully specified:
 .Dq Li cal 89
 will
 .Em not
-display a calendar for 1989.  Two parameters denote the month and
+display a calendar for 1989.
+Two parameters denote the month and
 year; the month is either a number between 1 and 12, or a full or
-abbreviated name as specified by the current locale.  Month and
+abbreviated name as specified by the current locale.
+Month and
 year default to those of the current system clock and time zone (so
 .Dq Li cal -m 8
 will display a calendar for the month of August in the current
 year).
 .Pp
-Not all options can be used together. For example
+Not all options can be used together.
+For example
 .Dq Li -3 -A 2 -B 3 -y -m 7
 would mean:
 show me the three months around the seventh month, three before
@@ -176,11 +179,29 @@ Highlighting of dates is disabled if stdout is not a tty.
 .Sh SEE ALSO
 .Xr calendar 3 ,
 .Xr strftime 3
+.Sh STANDARDS
+The
+.Nm
+utility is compliant with the
+X/Open System Interfaces option of the
+.St -p1003.1-2008
+specification.
+.Pp
+The flags
+.Op Fl 3hyJeopw ,
+as well as the ability to specify a month name as a single argument,
+are extensions to that specification.
+.Pp
+The week number computed by
+.Fl w
+is compliant with the
+.St -iso8601
+specification.
 .Sh HISTORY
 A
 .Nm
 command appeared in
-.At v5 .
+.At v1 .
 The
 .Nm ncal
 command appeared in
@@ -196,3 +217,6 @@ codes is historically naive for many countries.
 .Pp
 Not all options are compatible and using them in different orders
 will give varying results.
+.Pp
+It is not possible to display Monday as the first day of the week with
+.Nm cal .

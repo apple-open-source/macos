@@ -34,17 +34,11 @@ namespace WebCore {
 class ThemeMac final : public ThemeCocoa {
 public:
     static bool supportsLargeFormControls();
-
-    static NSView *ensuredView(ScrollView*, const ControlStates&, bool useUnparentedView = false);
-    WEBCORE_EXPORT static void setUseFormSemanticContext(bool);
-    static bool useFormSemanticContext();
-    static void setFocusRingClipRect(const FloatRect&);
+    static void inflateControlPaintRect(StyleAppearance, FloatRect&, float, bool);
 
 private:
     friend NeverDestroyed<ThemeMac>;
     ThemeMac() = default;
-
-    int baselinePositionAdjustment(StyleAppearance) const final;
 
     std::optional<FontCascadeDescription> controlFont(StyleAppearance, const FontCascade&, float zoomFactor) const final;
 
@@ -56,10 +50,8 @@ private:
 
     bool controlRequiresPreWhiteSpace(StyleAppearance appearance) const final { return appearance == StyleAppearance::PushButton; }
 
-    void inflateControlPaintRect(StyleAppearance, const ControlStates&, FloatRect&, float zoomFactor) const final;
-
-    bool userPrefersReducedMotion() const final;
     bool userPrefersContrast() const final;
+    bool userPrefersReducedMotion() const final;
 };
 
 } // namespace WebCore

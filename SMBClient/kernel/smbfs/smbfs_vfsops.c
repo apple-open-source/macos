@@ -1220,6 +1220,13 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
     }
 
     if (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
+        /* Is connecting to share disk allowed? */
+        if (smp->sm_args.altflags & SMBFS_MNT_HIFI_DISABLED) {
+            SMBERROR("Connecting to Share Disk is disabled on this client\n");
+            error = EPERM;
+            goto bad;
+        }
+
         /*
          * High Fidelity mounts return vnode attributes directly from server
          *

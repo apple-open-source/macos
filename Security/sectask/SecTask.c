@@ -40,6 +40,9 @@
 #include <CoreEntitlements/CoreEntitlements.h>
 #include <CoreEntitlements/FoundationUtils.h>
 #include <sys/sysctl.h>
+#if !TARGET_OS_SIMULATOR
+#include <libamfi-interface.h>
+#endif
 
 #if TARGET_OS_OSX
 /* These won't exist until we unify codesigning */
@@ -452,3 +455,55 @@ Boolean SecTaskEntitlementsValidated(SecTaskRef task) {
     return (rc != -1) && ((mask & csflags) == mask || (debug_mask & csflags) == debug_mask);
 }
 
+#if !TARGET_OS_SIMULATOR
+static CFErrorRef
+createError(CFErrorDomain domain, int code, CFStringRef message) {
+    CFMutableDictionaryRef errorDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryAddValue(errorDict, kCFErrorDescriptionKey, message);
+    return CFErrorCreate(kCFAllocatorDefault, domain, code, errorDict);
+}
+
+bool
+SecTaskValidateForLightweightCodeRequirementData(SecTaskRef _Nonnull task, CFDataRef _Nonnull requirement, CFErrorRef _Nullable * _Nullable error)
+{
+    bool match = false;
+    if (!check_task(task)) {
+        if (error != NULL) {
+            *error = createError(kCFErrorDomainOSStatus, errSecInvalidPointer, CFSTR("Invalid task reference"));
+        }
+        return false;
+    }
+    if (requirement == NULL || CFDataGetLength(requirement) == 0) {
+        if (error != NULL) {
+            *error = createError(kCFErrorDomainOSStatus, errSecParam, CFSTR("Invalid requirement"));
+        }
+        return false;
+    }
+    amfi_interface_constraint_match_result_t result = {0};
+
+    match = amfi_launch_constraint_matches_process(task->token, CFDataGetBytePtr(requirement), CFDataGetLength(requirement), &result);
+    if (!match && error != NULL) {
+        CFStringRef msg = CFStringCreateWithCString(kCFAllocatorDefault, result.error_msg, kCFStringEncodingUTF8);
+        switch (result.error_code) {
+            case AICMR_MATCH:
+                *error = createError(kCFErrorDomainOSStatus, errSecInternalError, msg);
+                break;
+            case AICMR_NOMATCH:
+                *error = createError(kCFErrorDomainOSStatus, errSecFunctionFailed, msg);
+                break;
+            case AICMR_PARSE_ERROR:
+            case AICMR_EXECUTE_ERROR:
+                *error = createError(kCFErrorDomainOSStatus, errSecBadReq, msg);
+                break;
+            case AICMR_NO_PROCESS:
+                *error = createError(kCFErrorDomainPOSIX, ESRCH, msg);
+                break;
+            case AICMR_INVALID_ARGS:
+                *error = createError(kCFErrorDomainOSStatus, errSecParam, msg);
+                break;
+        }
+        CFRelease(msg);
+    }
+    return match;
+}
+#endif

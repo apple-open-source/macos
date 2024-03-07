@@ -35,6 +35,7 @@ gen/FreeBSD/vis.h	freebsd-src	contrib/libc-vis/vis.h	303477d3253007bb5732deed2da
 gen/NetBSD/rbtree.3	netbsd	share/man/man3/rbtree.3	a6d78d4a28be21d6006d3c609f31967c0e536779
 gen/directory.3	freebsd	lib/libc/gen/directory.3	7cbaa4254c0f10f7c00014ce9591ca60abfa57fb
 gen/fts.c	openbsd	gen/fts.c	9936a0e983044822375a0d5cdebec20c3623866c
+include/arpa/telnet.h	freebsd	contrib/telnet/arpa/telnet.h	83129c0b650734f4ca6c6f9c214aa3110d2f129d
 include/fmtmsg.h	freebsd	include/fmtmsg.h	9b1ae0815414ee59692bab67f726012900b3e143
 include/glob.h	freebsd	include/glob.h	ececcb3d95a00665500a1f799a118fc4eaf6750b
 include/readpassphrase.h	freebsd	include/readpassphrase.h	e0a2d4f15ed9e93fcb62544ed65f7a98e2339c3b
@@ -44,7 +45,7 @@ locale/FreeBSD/none.c	freebsd	lib/libc/locale/ascii.c	93e484e00e1e2dc498a7f4c45c
 locale/FreeBSD/setlocale.3	freebsd	lib/libc/locale/setlocale.3	2131182e401759b74104a541a3b43cf2ee6a7434
 man/FreeBSD/environ.7	freebsd	share/man/man7/environ.7	5b882020081a138285227631c46a406c08e17bc8
 net/FreeBSD/linkaddr.c	freebsd	lib/libc/net/linkaddr.c	9240f72512c0357636b2e19554d6141ee21edc5f
-stdio/FreeBSD/fopen.3	freebsd	lib/libc/stdio/fopen.3	89c1fcc0d088065021703b658ef547f46b5481f0
+stdio/FreeBSD/fopen.3	freebsd	lib/libc/stdio/fopen.3	c9f5889d05b5854be033849a4ff9985699071548
 stdio/FreeBSD/ftell.c	freebsd	lib/libc/stdio/ftell.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 stdio/FreeBSD/fmemopen.c	freebsd	lib/libc/stdio/fmemopen.c	89c1fcc0d088065021703b658ef547f46b5481f0
 stdio/FreeBSD/open_memstream.3	freebsd	lib/libc/stdio/open_memstream.3	89c1fcc0d088065021703b658ef547f46b5481f0
@@ -63,7 +64,6 @@ stdlib/FreeBSD/getopt.c	freebsd-src	lib/libc/stdlib/getopt.c	0348c8fcfaa22d4f2bf
 stdlib/FreeBSD/getopt_long.3	freebsd-src	lib/libc/stdlib/getopt_long.3	d646513e57c9d59a7c0cc27a4d41518110db4359
 stdlib/FreeBSD/getopt_long.c	freebsd-src	lib/libc/stdlib/getopt_long.c	0348c8fcfaa22d4f2bf548ad9c187c09ef90c533
 stdlib/FreeBSD/qsort.c	freebsd	lib/libc/stdlib/qsort.c	4127dd6b50348062f74679dbb43008d0a2985a09
-stdlib/FreeBSD/reallocf.c	freebsd	lib/libc/stdlib/reallocf.c	3dc97c4341b6c5a0163c12badc7f50628cecf4e6
 stdtime/FreeBSD/localtime.c	freebsd	contrib/tzcode/stdtime/localtime.c	a931eab7f4cf8a9614505540fb523b59f693cc6e
 stdtime/FreeBSD/private.h	freebsd	contrib/tzcode/stdtime/private.h	a931eab7f4cf8a9614505540fb523b59f693cc6e
 stdtime/FreeBSD/strptime.c	freebsd	lib/libc/stdtime/strptime.c	52d53d171566c2cd975d2db86a291e516d34d9fe

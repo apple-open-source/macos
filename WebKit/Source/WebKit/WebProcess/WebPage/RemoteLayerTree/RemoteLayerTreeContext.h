@@ -34,6 +34,7 @@
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/LayerPool.h>
 #include <WebCore/PlatformCALayer.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebKit {
@@ -88,12 +89,9 @@ public:
 
     RemoteRenderingBackendProxy& ensureRemoteRenderingBackendProxy();
 
-    bool useCGDisplayListsForDOMRendering() const { return m_useCGDisplayListsForDOMRendering; }
-    void setUseCGDisplayListsForDOMRendering(bool useCGDisplayLists) { m_useCGDisplayListsForDOMRendering = useCGDisplayLists; }
+    bool useDynamicContentScalingDisplayListsForDOMRendering() const { return m_useDynamicContentScalingDisplayListsForDOMRendering; }
+    void setUseDynamicContentScalingDisplayListsForDOMRendering(bool useDynamicContentScalingDisplayLists) { m_useDynamicContentScalingDisplayListsForDOMRendering = useDynamicContentScalingDisplayLists; }
 
-    bool useCGDisplayListImageCache() const { return m_useCGDisplayListImageCache; }
-    void setUseCGDisplayListImageCache(bool useCGDisplayListImageCache) { m_useCGDisplayListImageCache = useCGDisplayListImageCache; }
-    
     void gpuProcessConnectionWasDestroyed();
 
 #if PLATFORM(IOS_FAMILY)
@@ -111,13 +109,13 @@ private:
     HashMap<WebCore::PlatformLayerIdentifier, RemoteLayerTreeTransaction::LayerCreationProperties> m_createdLayers;
     Vector<WebCore::PlatformLayerIdentifier> m_destroyedLayers;
 
-    HashMap<WebCore::PlatformLayerIdentifier, PlatformCALayerRemote*> m_livePlatformLayers;
-    HashMap<WebCore::PlatformLayerIdentifier, PlatformCALayerRemote*> m_layersWithAnimations;
+    HashMap<WebCore::PlatformLayerIdentifier, WeakPtr<PlatformCALayerRemote>> m_livePlatformLayers;
+    HashMap<WebCore::PlatformLayerIdentifier, WeakPtr<PlatformCALayerRemote>> m_layersWithAnimations;
 #if HAVE(AVKIT)
     HashMap<WebCore::PlatformLayerIdentifier, PlaybackSessionContextIdentifier> m_videoLayers;
 #endif
 
-    HashSet<GraphicsLayerCARemote*> m_liveGraphicsLayers;
+    HashSet<WeakRef<GraphicsLayerCARemote>> m_liveGraphicsLayers;
 
     std::unique_ptr<RemoteLayerBackingStoreCollection> m_backingStoreCollection;
 
@@ -126,8 +124,7 @@ private:
     RemoteLayerTreeTransaction* m_currentTransaction { nullptr };
 
     bool m_nextRenderingUpdateRequiresSynchronousImageDecoding { false };
-    bool m_useCGDisplayListsForDOMRendering { false };
-    bool m_useCGDisplayListImageCache { false };
+    bool m_useDynamicContentScalingDisplayListsForDOMRendering { false };
 };
 
 } // namespace WebKit

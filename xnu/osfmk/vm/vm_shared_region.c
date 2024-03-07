@@ -1252,7 +1252,7 @@ vm_shared_region_auth_remap(vm_shared_region_t sr)
 		/* Preserve the TPRO flag if task has TPRO enabled */
 		vmk_flags.vmf_tpro = (vm_map_tpro(task->map) &&
 		    tmp_entry->used_for_tpro &&
-		    task_get_platform_binary(task));
+		    task_is_hardened_binary(task));
 
 		map_addr = si->si_slid_address;
 		kr = vm_map_enter_mem_object(task->map,
@@ -2919,6 +2919,37 @@ vm_shared_region_slide_sanity_check_v4(
 	return KERN_SUCCESS;
 }
 
+static kern_return_t
+vm_shared_region_slide_sanity_check_v5(
+	vm_shared_region_slide_info_entry_v5_t s_info,
+	mach_vm_size_t slide_info_size)
+{
+	if (slide_info_size < sizeof(struct vm_shared_region_slide_info_entry_v5)) {
+		printf("%s bad slide_info_size: %lx\n", __func__, (uintptr_t)slide_info_size);
+		return KERN_FAILURE;
+	}
+	if (s_info->page_size != PAGE_SIZE_FOR_SR_SLIDE_16KB) {
+		printf("vm_shared_region_slide_sanity_check_v5: s_info->page_size != PAGE_SIZE_FOR_SR_SL 0x%llx != 0x%llx\n", (uint64_t)s_info->page_size, (uint64_t)PAGE_SIZE_FOR_SR_SLIDE_16KB);
+		return KERN_FAILURE;
+	}
+
+	uint32_t page_starts_count = s_info->page_starts_count;
+	mach_vm_size_t num_trailing_entries = page_starts_count;
+	mach_vm_size_t trailing_size = num_trailing_entries << 1;
+	mach_vm_size_t required_size = sizeof(*s_info) + trailing_size;
+	if (required_size < sizeof(*s_info)) {
+		printf("vm_shared_region_slide_sanity_check_v5: required_size != sizeof(*s_info) 0x%llx != 0x%llx\n", (uint64_t)required_size, (uint64_t)sizeof(*s_info));
+		return KERN_FAILURE;
+	}
+
+	if (required_size > slide_info_size) {
+		printf("vm_shared_region_slide_sanity_check_v5: required_size != slide_info_size 0x%llx != 0x%llx\n", (uint64_t)required_size, (uint64_t)slide_info_size);
+		return KERN_FAILURE;
+	}
+
+	return KERN_SUCCESS;
+}
+
 
 static kern_return_t
 vm_shared_region_slide_sanity_check(
@@ -2939,6 +2970,9 @@ vm_shared_region_slide_sanity_check(
 		break;
 	case 4:
 		kr = vm_shared_region_slide_sanity_check_v4(&s_info->v4, s_info_size);
+		break;
+	case 5:
+		kr = vm_shared_region_slide_sanity_check_v5(&s_info->v5, s_info_size);
 		break;
 	default:
 		kr = KERN_FAILURE;
@@ -3398,6 +3432,101 @@ vm_shared_region_slide_page_v4(vm_shared_region_slide_info_t si, vm_offset_t vad
 }
 
 
+static kern_return_t
+vm_shared_region_slide_page_v5(
+	vm_shared_region_slide_info_t si,
+	vm_offset_t vaddr,
+	__unused mach_vm_offset_t uservaddr,
+	uint32_t pageIndex,
+#if !__has_feature(ptrauth_calls)
+	__unused
+#endif /* !__has_feature(ptrauth_calls) */
+	uint64_t jop_key)
+{
+	vm_shared_region_slide_info_entry_v5_t s_info = &si->si_slide_info_entry->v5;
+	const uint32_t slide_amount = si->si_slide;
+	const uint64_t value_add = s_info->value_add;
+
+	uint8_t *page_content = (uint8_t *)vaddr;
+	uint16_t page_entry;
+
+	if (pageIndex >= s_info->page_starts_count) {
+		printf("vm_shared_region_slide_page() did not find page start in slide info: pageIndex=%u, count=%u\n",
+		    pageIndex, s_info->page_starts_count);
+		return KERN_FAILURE;
+	}
+	page_entry = s_info->page_starts[pageIndex];
+
+	if (page_entry == DYLD_CACHE_SLIDE_V5_PAGE_ATTR_NO_REBASE) {
+		return KERN_SUCCESS;
+	}
+
+	uint8_t* rebaseLocation = page_content;
+	uint64_t delta = page_entry;
+	do {
+		rebaseLocation += delta;
+		uint64_t value;
+		memcpy(&value, rebaseLocation, sizeof(value));
+		delta = ((value & 0x7FF0000000000000ULL) >> 52) * sizeof(uint64_t);
+
+		// A pointer is one of :
+		// {
+		//   uint64_t    runtimeOffset   : 34,   // offset from the start of the shared cache
+		//               high8           :  8,
+		//               unused          : 10,
+		//               next            : 11,   // 8-byte stide
+		//               auth            :  1;   // == 0
+		// }
+		// {
+		//   uint64_t    runtimeOffset   : 34,   // offset from the start of the shared cache
+		//               diversity       : 16,
+		//               addrDiv         :  1,
+		//               keyIsData       :  1,   // implicitly always the 'A' key.  0 -> IA.  1 -> DA
+		//               next            : 11,   // 8-byte stide
+		//               auth            :  1;   // == 1
+		// }
+
+#if __has_feature(ptrauth_calls)
+		bool        addrDiv = ((value & (1ULL << 50)) != 0);
+		bool        keyIsData = ((value & (1ULL << 51)) != 0);
+		// the key is always A, and the bit tells us if its IA or ID
+		ptrauth_key key = keyIsData ? ptrauth_key_asda : ptrauth_key_asia;
+		uint16_t    diversity = (uint16_t)((value >> 34) & 0xFFFF);
+#endif /* __has_feature(ptrauth_calls) */
+		uint64_t    high8 = (value << 22) & 0xFF00000000000000ULL;
+		bool        isAuthenticated = (value & (1ULL << 63)) != 0;
+
+		// The new value for a rebase is the low 34-bits of the threaded value plus the base plus slide.
+		value = (value & 0x3FFFFFFFFULL) + value_add + slide_amount;
+		if (isAuthenticated) {
+#if __has_feature(ptrauth_calls)
+			uint64_t discriminator = diversity;
+			if (addrDiv) {
+				// First calculate a new discriminator using the address of where we are trying to store the value
+				uintptr_t pageOffset = rebaseLocation - page_content;
+				discriminator = __builtin_ptrauth_blend_discriminator((void*)(((uintptr_t)uservaddr) + pageOffset), discriminator);
+			}
+
+			if (jop_key != 0 && si->si_ptrauth && !arm_user_jop_disabled()) {
+				/*
+				 * these pointers are used in user mode. disable the kernel key diversification
+				 * so we can sign them for use in user mode.
+				 */
+				value = (uintptr_t)pmap_sign_user_ptr((void *)value, key, discriminator, jop_key);
+			}
+#endif /* __has_feature(ptrauth_calls) */
+		} else {
+			// the value already has the correct low bits, so just add in the high8 if it exists
+			value += high8;
+		}
+
+		memcpy(rebaseLocation, &value, sizeof(value));
+	} while (delta != 0);
+
+	return KERN_SUCCESS;
+}
+
+
 
 kern_return_t
 vm_shared_region_slide_page(
@@ -3416,6 +3545,8 @@ vm_shared_region_slide_page(
 		return vm_shared_region_slide_page_v3(si, vaddr, uservaddr, pageIndex, jop_key);
 	case 4:
 		return vm_shared_region_slide_page_v4(si, vaddr, pageIndex);
+	case 5:
+		return vm_shared_region_slide_page_v5(si, vaddr, uservaddr, pageIndex, jop_key);
 	default:
 		return KERN_FAILURE;
 	}

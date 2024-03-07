@@ -44,20 +44,21 @@
 #include <WebCore/GStreamerCommon.h>
 #endif
 
-#if PLATFORM(WAYLAND)
-#include "AcceleratedBackingStoreWayland.h"
-#endif
-
 #if USE(WPE_RENDERER)
 #include <wpe/wpe.h>
 #endif
 
 #if PLATFORM(GTK)
+#if USE(EGL)
 #include "AcceleratedBackingStoreDMABuf.h"
+#endif
 #include "GtkSettingsManager.h"
 #include "ScreenManager.h"
 #endif
 
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
+#include <wpe/wpe-platform.h>
+#endif
 
 namespace WebKit {
 
@@ -76,30 +77,39 @@ void WebProcessPool::platformInitialize(NeedsGlobalStaticInitialization)
 
 void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process, WebProcessCreationParameters& parameters)
 {
-#if PLATFORM(WPE)
-    parameters.isServiceWorkerProcess = process.isRunningServiceWorkers();
-
-    if (!parameters.isServiceWorkerProcess) {
-        parameters.hostClientFileDescriptor = UnixFileDescriptor { wpe_renderer_host_create_client(), UnixFileDescriptor::Adopt };
-        parameters.implementationLibraryName = FileSystem::fileSystemRepresentation(String::fromLatin1(wpe_loader_get_loaded_implementation_library_name()));
-    }
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
+    bool usingWPEPlatformAPI = !!g_type_class_peek(WPE_TYPE_DISPLAY);
 #endif
 
 #if USE(GBM)
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
+    if (usingWPEPlatformAPI)
+        parameters.renderDeviceFile = String::fromUTF8(wpe_render_node_device());
+    else
+        parameters.renderDeviceFile = WebCore::PlatformDisplay::sharedDisplay().drmRenderNodeFile();
+#else
     parameters.renderDeviceFile = WebCore::PlatformDisplay::sharedDisplay().drmRenderNodeFile();
 #endif
-
-#if PLATFORM(GTK)
-    parameters.dmaBufRendererBufferMode = AcceleratedBackingStoreDMABuf::rendererBufferMode();
 #endif
 
-#if PLATFORM(WAYLAND)
-    if (WebCore::PlatformDisplay::sharedDisplay().type() == WebCore::PlatformDisplay::Type::Wayland && parameters.dmaBufRendererBufferMode.isEmpty()) {
-        wpe_loader_init("libWPEBackend-fdo-1.0.so.1");
-        if (AcceleratedBackingStoreWayland::checkRequirements()) {
-            parameters.hostClientFileDescriptor = UnixFileDescriptor { wpe_renderer_host_create_client(), UnixFileDescriptor::Adopt };
-            parameters.implementationLibraryName = FileSystem::fileSystemRepresentation(String::fromLatin1(wpe_loader_get_loaded_implementation_library_name()));
-        }
+#if PLATFORM(GTK) && USE(EGL)
+    parameters.dmaBufRendererBufferMode = AcceleratedBackingStoreDMABuf::rendererBufferMode();
+#elif PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
+    if (usingWPEPlatformAPI) {
+#if USE(GBM)
+        if (!parameters.renderDeviceFile.isEmpty())
+            parameters.dmaBufRendererBufferMode.add(DMABufRendererBufferMode::Hardware);
+#endif
+        parameters.dmaBufRendererBufferMode.add(DMABufRendererBufferMode::SharedMemory);
+    }
+#endif
+
+#if PLATFORM(WPE)
+    parameters.isServiceWorkerProcess = process.isRunningServiceWorkers();
+
+    if (!parameters.isServiceWorkerProcess && parameters.dmaBufRendererBufferMode.isEmpty()) {
+        parameters.hostClientFileDescriptor = UnixFileDescriptor { wpe_renderer_host_create_client(), UnixFileDescriptor::Adopt };
+        parameters.implementationLibraryName = FileSystem::fileSystemRepresentation(String::fromLatin1(wpe_loader_get_loaded_implementation_library_name()));
     }
 #endif
 

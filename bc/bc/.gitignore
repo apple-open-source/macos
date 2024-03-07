@@ -33,7 +33,9 @@ dc_help.c
 config.mak
 timeconst.bc
 Makefile
+bcl.pc
 
+build/*
 tests/fuzzing/bc_outputs1/*
 tests/fuzzing/bc_outputs2/*
 tests/fuzzing/bc_outputs3/*
@@ -51,11 +53,17 @@ print_results.txt
 bessel.txt
 bessel_results.txt
 prime.txt
-stream.txt
+strings2.txt
+strings2_results.txt
 tests/bc/scripts/add.txt
 tests/bc/scripts/divide.txt
 tests/bc/scripts/multiply.txt
 tests/bc/scripts/subtract.txt
+tests/bc/scripts/strings2.txt
+benchmarks/bc/*.txt
+benchmarks/dc/*.txt
+scripts/ministat
+scripts/bitfuncgen
 perf.data
 perf.data.old
 *.gcda
@@ -70,5 +78,12 @@ cscope*.out
 tags
 
 *.vcxproj.user
-Debug/*
-Release/*
+vs/.vs/*
+vs/bin/*
+vs/lib/*
+vs/src2/*
+vs/tests/*.txt
+vs/tests/*.exe
+
+compile_commands.json
+.cache/

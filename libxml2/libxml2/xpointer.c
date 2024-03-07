@@ -49,6 +49,8 @@
 /* Add support of the xmlns() xpointer scheme to initialize the namespaces */
 #define XPTR_XMLNS_SCHEME
 
+#include "private/xpath.h"
+
 /* #define DEBUG_RANGES */
 #ifdef DEBUG_RANGES
 #ifdef LIBXML_DEBUG_ENABLED
@@ -1156,7 +1158,8 @@ xmlXPtrEvalXPtrPart(xmlXPathParserContextPtr ctxt, xmlChar *name) {
 	NEXT;
 	SKIP_BLANKS;
 
-	xmlXPathRegisterNs(ctxt->context, prefix, ctxt->cur);
+	if (xmlXPathRegisterNs(ctxt->context, prefix, ctxt->cur) < 0)
+            xmlXPathPErrMemory(ctxt, NULL);
         ctxt->base = oldBase;
         ctxt->cur = oldCur;
 	xmlFree(prefix);

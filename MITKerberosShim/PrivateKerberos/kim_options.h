@@ -25,11 +25,11 @@
 #ifndef KIM_OPTIONS_H
 #define KIM_OPTIONS_H
 
+#include <Kerberos/kim_types.h>
+    
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
-#include <Kerberos/kim_types.h>
     
 /*!
  * \addtogroup kim_types_reference

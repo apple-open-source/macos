@@ -7,10 +7,6 @@ en_PH{
             "JP¥",
             "Japanese Yen",
         }
-        PHP{
-            "₱",
-            "Philippine Peso",
-        }
         USD{
             "US$",
             "US Dollar",

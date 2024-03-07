@@ -3134,6 +3134,14 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		SMBWARNING("id %d Reconnect is disabled \n", iod->iod_id);
 		smb_reconn_stats.disabled_cnt += 1;
 		error = EINTR;
+        /*
+         * rdar://114017975
+         * We need to reconnect this iod but reconnect is disabled
+         * We should shutdown this iod
+         */
+        SMB_IOD_FLAGSLOCK(iod);
+        iod->iod_flags |= SMBIOD_SHUTDOWN;
+        SMB_IOD_FLAGSUNLOCK(iod);
 		goto exit;
 	}
 	
@@ -4372,9 +4380,15 @@ int smb_iod_rel(struct smbiod *iod, struct smb_rq *rqp, const char *function)
     iod->iod_ref_cnt--;
 
     if (rqp != NULL) {
+#ifdef SMB_DEBUG
         SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d mid %llu flags 0x%x, ref_cnt %u.\n",
                        iod->iod_id, function, rqp, rqp->sr_command,
                        rqp->sr_messageid, iod->iod_flags, iod->iod_ref_cnt);
+#else
+        SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d mid %llu flags 0x%x, ref_cnt %u.\n",
+                       iod->iod_id, function, rqp->sr_command,
+                       rqp->sr_messageid, iod->iod_flags, iod->iod_ref_cnt);
+#endif
     }
     else {
         SMB_LOG_MC_REF("id %u function %s flags 0x%x, ref_cnt %u.\n",

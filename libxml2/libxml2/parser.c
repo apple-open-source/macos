@@ -91,6 +91,7 @@
 
 #include "buf.h"
 #include "enc.h"
+#include "private/parser.h"
 
 const int xmlEntityDecodingDepthMax = 40;
 const int xmlEntityDecodingDepthHugeMax = 1024;
@@ -108,8 +109,6 @@ xmlFatalErr(xmlParserCtxtPtr ctxt, xmlParserErrors error, const char *info);
 static xmlParserCtxtPtr
 xmlCreateEntityParserCtxtInternal(const xmlChar *URL, const xmlChar *ID,
 	                  const xmlChar *base, xmlParserCtxtPtr pctx);
-
-static void xmlHaltParser(xmlParserCtxtPtr ctxt);
 
 static int
 xmlParseElementStart(xmlParserCtxtPtr ctxt);
@@ -5398,8 +5397,8 @@ xmlParseNotationDecl(xmlParserCtxtPtr ctxt) {
 
     if (CMP10(CUR_PTR, '<', '!', 'N', 'O', 'T', 'A', 'T', 'I', 'O', 'N')) {
 	int inputid = ctxt->input->id;
-	SHRINK;
 	SKIP(10);
+	SHRINK;
 	if (SKIP_BLANKS == 0) {
 	    xmlFatalErrMsg(ctxt, XML_ERR_SPACE_REQUIRED,
 			   "Space required after '<!NOTATION'\n");
@@ -5480,8 +5479,8 @@ xmlParseEntityDecl(xmlParserCtxtPtr ctxt) {
     /* GROW; done in the caller */
     if (CMP8(CUR_PTR, '<', '!', 'E', 'N', 'T', 'I', 'T', 'Y')) {
 	int inputid = ctxt->input->id;
-	SHRINK;
 	SKIP(8);
+	SHRINK;
 	if (SKIP_BLANKS == 0) {
 	    xmlFatalErrMsg(ctxt, XML_ERR_SPACE_REQUIRED,
 			   "Space required after '<!ENTITY'\n");
@@ -5995,33 +5994,36 @@ xmlParseEnumeratedType(xmlParserCtxtPtr ctxt, xmlEnumerationPtr *tree) {
  */
 int
 xmlParseAttributeType(xmlParserCtxtPtr ctxt, xmlEnumerationPtr *tree) {
-    SHRINK;
+    int ret = 0;
     if (CMP5(CUR_PTR, 'C', 'D', 'A', 'T', 'A')) {
 	SKIP(5);
-	return(XML_ATTRIBUTE_CDATA);
+	ret = XML_ATTRIBUTE_CDATA;
      } else if (CMP6(CUR_PTR, 'I', 'D', 'R', 'E', 'F', 'S')) {
 	SKIP(6);
-	return(XML_ATTRIBUTE_IDREFS);
+	ret = XML_ATTRIBUTE_IDREFS;
      } else if (CMP5(CUR_PTR, 'I', 'D', 'R', 'E', 'F')) {
 	SKIP(5);
-	return(XML_ATTRIBUTE_IDREF);
+	ret = XML_ATTRIBUTE_IDREF;
      } else if ((RAW == 'I') && (NXT(1) == 'D')) {
         SKIP(2);
-	return(XML_ATTRIBUTE_ID);
+	ret = XML_ATTRIBUTE_ID;
      } else if (CMP6(CUR_PTR, 'E', 'N', 'T', 'I', 'T', 'Y')) {
 	SKIP(6);
-	return(XML_ATTRIBUTE_ENTITY);
+	ret = XML_ATTRIBUTE_ENTITY;
      } else if (CMP8(CUR_PTR, 'E', 'N', 'T', 'I', 'T', 'I', 'E', 'S')) {
 	SKIP(8);
-	return(XML_ATTRIBUTE_ENTITIES);
+	ret = XML_ATTRIBUTE_ENTITIES;
      } else if (CMP8(CUR_PTR, 'N', 'M', 'T', 'O', 'K', 'E', 'N', 'S')) {
 	SKIP(8);
-	return(XML_ATTRIBUTE_NMTOKENS);
+	ret = XML_ATTRIBUTE_NMTOKENS;
      } else if (CMP7(CUR_PTR, 'N', 'M', 'T', 'O', 'K', 'E', 'N')) {
 	SKIP(7);
-	return(XML_ATTRIBUTE_NMTOKEN);
+	ret = XML_ATTRIBUTE_NMTOKEN;
+     } else {
+	ret = xmlParseEnumeratedType(ctxt, tree);
      }
-     return(xmlParseEnumeratedType(ctxt, tree));
+    SHRINK;
+     return(ret);
 }
 
 /**
@@ -12602,41 +12604,6 @@ xmlCreatePushParserCtxt(xmlSAXHandlerPtr sax, void *user_data,
     return(ctxt);
 }
 #endif /* LIBXML_PUSH_ENABLED */
-
-/**
- * xmlHaltParser:
- * @ctxt:  an XML parser context
- *
- * Blocks further parser processing don't override error
- * for internal use
- */
-static void
-xmlHaltParser(xmlParserCtxtPtr ctxt) {
-    if (ctxt == NULL)
-        return;
-    ctxt->instate = XML_PARSER_EOF;
-    ctxt->disableSAX = 1;
-    while (ctxt->inputNr > 1)
-        xmlFreeInputStream(inputPop(ctxt));
-    if (ctxt->input != NULL) {
-        /*
-	 * in case there was a specific allocation deallocate before
-	 * overriding base
-	 */
-        if (ctxt->input->free != NULL) {
-	    ctxt->input->free((xmlChar *) ctxt->input->base);
-	    ctxt->input->free = NULL;
-	}
-        if (ctxt->input->buf != NULL) {
-            xmlFreeParserInputBuffer(ctxt->input->buf);
-            ctxt->input->buf = NULL;
-        }
-	ctxt->input->cur = BAD_CAST"";
-        ctxt->input->length = 0;
-	ctxt->input->base = ctxt->input->cur;
-        ctxt->input->end = ctxt->input->cur;
-    }
-}
 
 /**
  * xmlStopParser:

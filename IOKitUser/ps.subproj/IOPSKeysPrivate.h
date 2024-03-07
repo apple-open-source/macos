@@ -69,11 +69,9 @@
  */
 #define kIOPSPlayChargingChimeKey     "Play Charging Chime"
 
-#if APPLE_FEATURE_LOTX
 #define kIOPSDateOfFirstUse         "Date of first use"
 #define kIOPSDateOfManufacture      "Date of manufacture"
 #define kIOPSCycleCount             "Cycle count"
-#endif // APPLE_FEATURE_LOTX
 
 /*
  * kIOPSAccessoryIdentifierKey -

@@ -131,8 +131,10 @@ struct  ip6_moptions {
 	u_char  im6o_multicast_loop;    /* 1 >= hear sends if a member */
 	u_short im6o_num_memberships;   /* no. memberships this socket */
 	u_short im6o_max_memberships;   /* max memberships this socket */
-	struct  in6_multi **im6o_membership;    /* group memberships */
-	struct  in6_mfilter *im6o_mfilters;     /* source filters */
+	struct  in6_multi **__counted_by(im6o_max_memberships) im6o_membership;
+	/* group memberships */
+	struct  in6_mfilter *__counted_by(im6o_max_memberships) im6o_mfilters;
+	/* source filters */
 	void (*im6o_trace)              /* callback fn for tracing refs */
 	(struct ip6_moptions *, int);
 };

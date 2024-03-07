@@ -46,6 +46,7 @@
 #include <WebCore/SimpleRange.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/VisibleSelection.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 
@@ -56,7 +57,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-using DOMRangeHandleCache = HashMap<Range*, InjectedBundleRangeHandle*>;
+using DOMRangeHandleCache = HashMap<SingleThreadWeakRef<WebCore::Range>, WeakRef<InjectedBundleRangeHandle>>;
 
 static DOMRangeHandleCache& domRangeHandleCache()
 {
@@ -69,29 +70,30 @@ RefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(JSConte
     return getOrCreate(JSRange::toWrapped(toJS(context)->vm(), toJS(object)));
 }
 
-RefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(Range* range)
+RefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(WebCore::Range* range)
 {
     if (!range)
         return nullptr;
-    auto result = domRangeHandleCache().add(range, nullptr);
-    if (!result.isNewEntry)
-        return result.iterator->value;
-    auto rangeHandle = adoptRef(*new InjectedBundleRangeHandle(*range));
-    result.iterator->value = rangeHandle.ptr();
-    return rangeHandle;
+
+    RefPtr<InjectedBundleRangeHandle> newRange;
+    auto result = domRangeHandleCache().ensure(*range, [&] {
+        newRange = adoptRef(*new InjectedBundleRangeHandle(*range));
+        return WeakRef { *newRange };
+    });
+    return newRange ? newRange.releaseNonNull() : Ref { result.iterator->value.get() };
 }
 
-InjectedBundleRangeHandle::InjectedBundleRangeHandle(Range& range)
+InjectedBundleRangeHandle::InjectedBundleRangeHandle(WebCore::Range& range)
     : m_range(range)
 {
 }
 
 InjectedBundleRangeHandle::~InjectedBundleRangeHandle()
 {
-    domRangeHandleCache().remove(m_range.ptr());
+    domRangeHandleCache().remove(m_range.get());
 }
 
-Range& InjectedBundleRangeHandle::coreRange() const
+WebCore::Range& InjectedBundleRangeHandle::coreRange() const
 {
     return m_range.get();
 }
@@ -140,10 +142,10 @@ RefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions option
     backingStoreSize.scale(scaleFactor);
 
     auto snapshot = WebImage::create(backingStoreSize, snapshotOptionsToImageOptions(options | SnapshotOptionsShareable), DestinationColorSpace::SRGB());
-    if (!snapshot)
+    if (!snapshot->context())
         return nullptr;
 
-    auto& graphicsContext = snapshot->context();
+    auto& graphicsContext = *snapshot->context();
     graphicsContext.scale(scaleFactor);
 
     paintRect.move(frameView->frameRect().x(), frameView->frameRect().y());

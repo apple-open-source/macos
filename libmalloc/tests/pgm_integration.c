@@ -10,12 +10,13 @@
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
 		T_META_TAG_XZONE);
 
+#include <mach/mach_vm.h>  // mach_vm_map()
+#include <mach/mach.h>  // mach_task_self()
 #include <mach/vm_page_size.h>
+#include <malloc_private.h>
 #include <malloc/malloc.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <mach/mach.h>
-#include <mach/mach_vm.h>
 
 #include "../src/platform.h"  // CONFIG_PGM_WRAP_CUSTOM_ZONES
 
@@ -26,12 +27,28 @@ T_GLOBAL_META(
 	T_META_ENVVAR("MallocProbGuardAllocations=300")
 );
 
+static malloc_zone_t *
+get_wrapped_zone(malloc_zone_t *zone)
+{
+	malloc_zone_t *wrapped_zone;
+	kern_return_t kr = malloc_get_wrapped_zone(mach_task_self(),
+			/*memory_reader=*/NULL, (vm_address_t)zone, (vm_address_t *)&wrapped_zone);
+	T_QUIET; T_ASSERT_EQ(kr, KERN_SUCCESS, "malloc_get_wrapped_zone() failed");
+	T_EXPECT_NOTNULL(wrapped_zone, "Wrapped zone");
+	return wrapped_zone;
+}
+
 extern int32_t malloc_num_zones;
 extern malloc_zone_t **malloc_zones;
 T_DECL(zone_setup, "ProbGuard zone is default zone and not full")
 {
-	const char *default_zone_name = malloc_get_zone_name(malloc_zones[0]);
-	T_EXPECT_EQ_STR(default_zone_name, "ProbGuardMallocZone", "ProbGuard zone is default zone");
+	// malloc_default_zone() returns virtual zone, which delegates to zone 0.
+	malloc_zone_t *zone0 = malloc_zones[0];
+	T_EXPECT_EQ_STR(malloc_get_zone_name(zone0), "ProbGuardMallocZone",
+			"ProbGuard zone is default zone");
+	T_EXPECT_EQ(zone0->introspect->zone_type, 2, "MALLOC_ZONE_TYPE_PGM");
+	T_EXPECT_EQ(get_wrapped_zone(zone0), malloc_zones[1],
+			"Wrapped zone is registered");
 
 	void *ptr = malloc(5);
 	malloc_zone_t *zone = malloc_zone_from_ptr(ptr);
@@ -354,16 +371,21 @@ T_DECL(introspection_enumerate_blocks, "Block enumeration")
 
 T_DECL(wrap_malloc_create_zone, "Wrap malloc_create_zone()")
 {
-	uint32_t num_zones = malloc_num_zones;
-
-	// Make sure we avoid querying the environemnt.
+	// Make sure we only query the environment during process launch.
 	setenv("MallocProbGuard", "0", /*overwrite=*/true);
 
+	uint32_t num_zones = malloc_num_zones;
 	malloc_zone_t *zone = malloc_create_zone(0, 0);
+
 #if CONFIG_PGM_WRAP_CUSTOM_ZONES
-	T_EXPECT_EQ_STR(malloc_get_zone_name(zone), "ProbGuardMallocZone", "PGM-wrapped zone");
+	T_EXPECT_EQ_STR(malloc_get_zone_name(zone), "ProbGuardMallocZone",
+			"PGM-wrapped zone");
 	T_EXPECT_EQ(zone->introspect->zone_type, 2, "MALLOC_ZONE_TYPE_PGM");
+
 	T_EXPECT_EQ(malloc_num_zones, num_zones + 2, "registered both zones");
+	T_EXPECT_EQ(malloc_zones[num_zones], get_wrapped_zone(zone),
+			"Wrapped zone is registered");
+	T_EXPECT_EQ(malloc_zones[num_zones + 1], zone, "PGM zone is registered");
 
 	malloc_destroy_zone(zone);
 	T_EXPECT_EQ(malloc_num_zones, num_zones, "unregistered both zones");

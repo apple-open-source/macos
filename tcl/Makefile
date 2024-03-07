@@ -52,7 +52,7 @@ include tcl_ext/SubprojActions.make
 ## Targets ##
 
 core                 := install-tcl install-tk ext ext_puretcl
-ext                  := install-tcl_ext
+ext                  := install-tcl_ext cleanup-generated-metadata
 
 install_source:: install_temp_autoconf extract remove_temp_autoconf
 
@@ -117,6 +117,9 @@ addentitlements:
 	CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist --timestamp=none $(DSTROOT)/System/Library/Frameworks/Tcl.framework/Versions/$(TCL_VERSION)/tclsh$(TCL_VERSION)
 	CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist --timestamp=none $(DSTROOT)/System/Library/Frameworks/Tk.framework/Versions/$(TCL_VERSION)/Resources/Wish.app/Contents/MacOS/Wish
 	CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist --timestamp=none $(DSTROOT)/System/Library/Frameworks/Tk.framework/Versions/$(TCL_VERSION)/Resources/Wish.app/Contents/MacOS/Wish\ Shell
+
+cleanup-generated-metadata:
+	find $(DSTROOT)/usr/share/man -exec sed -i '' '/Generated from file/d' {} \;
 
 extract::
 	$(_v) $(FIND) "$(SRCROOT)" $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;

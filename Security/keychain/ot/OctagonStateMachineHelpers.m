@@ -126,7 +126,6 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
 - (instancetype)init:(NSString*)name
         sourceStates:(NSSet<OctagonState*>*)sourceStates
          serialQueue:(dispatch_queue_t)queue
-             timeout:(dispatch_time_t)timeout
         transitionOp:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)transitionOp
 {
     if((self = [super init])) {
@@ -138,8 +137,6 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
         _transitionOperation = transitionOp;
     }
     
-    [self timeout:timeout];
-
     return self;
 }
 
@@ -160,21 +157,20 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
     }
 }
 
-- (instancetype)timeout:(dispatch_time_t)timeout
+- (void)onqueueHandleStartTimeout:(NSError*)stateMachineStateError
 {
-    WEAKIFY(self);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.queue, ^{
-        STRONGIFY(self);
-        if(self.timeoutCanOccur) {
-            self.timeoutCanOccur = false;
+    dispatch_assert_queue(self.queue);
 
-            // The operation will only realize it's finished once added to any operation queue. Fake one up.
-            [self.transitionOperation timeout:0*NSEC_PER_SEC];
-            [[[NSOperationQueue alloc] init] addOperation:self.transitionOperation];
-        }
-    });
+    if(self.timeoutCanOccur) {
+        self.timeoutCanOccur = false;
 
-    return self;
+        // The operation will only realize it's finished once added to any operation queue. Fake one up.
+        self.transitionOperation.descriptionUnderlyingError = stateMachineStateError;
+        self.transitionOperation.descriptionErrorCode = CKKSResultDescriptionErrorPendingMachineRequestStart;
+        [self.transitionOperation timeout:0*NSEC_PER_SEC];
+
+        [[[NSOperationQueue alloc] init] addOperation:self.transitionOperation];
+    }
 }
 
 @end

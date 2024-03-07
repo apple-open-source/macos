@@ -8,41 +8,11 @@
 	<array>
 		<dict>
 			<key>TestName</key>
-			<string>basic_cmds.base64</string>
-			<key>TestOutputType</key>
-			<string>darwintest</string>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/Tests/basic_cmds/test_base64</string>
-			</array>
-			<key>WhenToRun</key>
-			<array>
-				<string>PRESUBMISSION</string>
-				<string>NIGHTLY</string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>basic_cmds.uudecode</string>
+			<string>basic_cmds.mesg</string>
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/basic_cmds/uudecode/legacy_test.sh</string>
-			</array>
-			<key>IgnoreOutput</key><true/>
-			<key>WhenToRun</key>
-			<array>
-				<string>PRESUBMISSION</string>
-				<string>NIGHTLY</string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>basic_cmds.uuencode</string>
-			<key>Command</key>
-			<array>
-				<string>/bin/sh</string>
-				<string>/AppleInternal/Tests/basic_cmds/uuencode/legacy_test.sh</string>
+				<string>/AppleInternal/Tests/basic_cmds/mesg/mesg_test.sh</string>
 			</array>
 			<key>IgnoreOutput</key><true/>
 			<key>WhenToRun</key>

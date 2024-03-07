@@ -32,7 +32,7 @@
 #include <arm/pmap.h>
 #include <arm64/proc_reg.h>
 #include <arm/thread.h>
-#include <arm/trap.h>
+#include <arm/trap_internal.h>
 #include <arm/cpu_data_internal.h>
 #include <kdp/kdp_internal.h>
 #include <kern/debug.h>

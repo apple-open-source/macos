@@ -139,6 +139,7 @@ public:
     
     LocalFrame* frame() const; // Can be null
     Document* document() const { return m_document.get(); } // Can be null
+    RefPtr<Document> protectedDocument() const { return document(); }
     void setDocument(Document* document) { m_document = document; }
     void clearDocumentLoader(); 
     void loadDone(LoadCompletionType, bool shouldPerformPostLoadActions = true);
@@ -179,7 +180,9 @@ private:
 
     ResourceErrorOr<CachedResourceHandle<CachedResource>> requestResource(CachedResource::Type, CachedResourceRequest&&, ForPreload = ForPreload::No, ImageLoading = ImageLoading::Immediate);
     CachedResourceHandle<CachedResource> revalidateResource(CachedResourceRequest&&, CachedResource&);
-    CachedResourceHandle<CachedResource> loadResource(CachedResource::Type, PAL::SessionID, CachedResourceRequest&&, const CookieJar&, const Settings&);
+
+    enum class MayAddToMemoryCache : bool { No, Yes };
+    CachedResourceHandle<CachedResource> loadResource(CachedResource::Type, PAL::SessionID, CachedResourceRequest&&, const CookieJar&, const Settings&, MayAddToMemoryCache);
 
     void prepareFetch(CachedResource::Type, CachedResourceRequest&);
     void updateHTTPRequestHeaders(FrameLoader&, CachedResource::Type, CachedResourceRequest&);
@@ -207,7 +210,7 @@ private:
     MemoryCompactRobinHoodHashSet<URL> m_cachedSVGImagesURLs;
     mutable DocumentResourceMap m_documentResources;
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
-    CheckedPtr<DocumentLoader>  m_documentLoader;
+    SingleThreadWeakPtr<DocumentLoader> m_documentLoader;
 
     int m_requestCount { 0 };
 

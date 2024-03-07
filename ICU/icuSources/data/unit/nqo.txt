@@ -4,10 +4,6 @@
 nqo{
     units{
         duration{
-            century{
-                dnam{"ߝߊ߯ߘߐߞߍ"}
-                other{"ߝߊ߯ߘߐߞߍ {0}"}
-            }
             day{
                 dnam{"ߟߏ߲"}
                 other{"ߟߏ߲ ߜߍ {0}"}
@@ -18,7 +14,6 @@ nqo{
                 other{"ߦߟߍ߬ߘߐ߬ߞߍ {0}"}
             }
             hour{
-                dnam{"ߕߎ߬ߡߊ߬ߙߋ߲"}
                 other{"ߕߎ߬ߡߊ߬ߙߋ߲ {0}"}
                 per{"ߕߎ߬ߡߊ߬ߙߋ߲ ߞߘߐ߫ {0}"}
             }
@@ -54,8 +49,6 @@ nqo{
                 per{"ߞߎ߲߬ߢߐ߮ ߟߊ߫ {0}"}
             }
             year{
-                dnam{"ߛߊ߲߭"}
-                other{"ߛߊ߲߭ {0}"}
                 per{"ߛߊ߲߭ ߠߊ߫ {0}"}
             }
         }
@@ -63,59 +56,41 @@ nqo{
     unitsNarrow{
         duration{
             century{
-                dnam{"ߝߊ߯ߘߐߞߍ"}
                 other{"ߝߊ߯ߘߞ{0}"}
             }
             day{
                 dnam{"ߟߏ߲"}
                 other{"ߟ{0}"}
-                per{"{0}/ߟ"}
             }
             decade{
                 dnam{"ߦߟߍ߬ߘߐ߬ߞߍ"}
                 other{"ߦߟߍ߬ߘߞ{0}"}
             }
             hour{
-                dnam{"ߕߎ߬ߡߊ߬ߙߋ߲"}
                 other{"ߕ{0}"}
-                per{"{0}/ߕ"}
             }
             microsecond{
-                dnam{"ߝߢ"}
                 other{"ߝߢ{0}"}
             }
             millisecond{
-                dnam{"ߝߥ"}
                 other{"ߝߥ{0}"}
             }
             minute{
-                dnam{"ߡߌ߬ߛ"}
                 other{"ߡߌ߬ߛ{0}"}
-                per{"{0}/ߡߌ߬ߛ"}
             }
             month{
                 dnam{"ߞߊߙߏ"}
                 other{"ߞ.{0}"}
-                per{"{0}/ߞ."}
             }
             nanosecond{
                 dnam{"ߝߞ"}
                 other{"ߝߞ{0}"}
             }
             second{
-                dnam{"ߝ"}
                 other{"ߝ{0}"}
-                per{"{0}/ߝ"}
-            }
-            week{
-                dnam{"ߞߎ߲߬ߢ"}
-                other{"ߞߎ߲߬ߢ{0}"}
-                per{"{0}/ߞߎ߲߬ߢ"}
             }
             year{
-                dnam{"ߛߊ߲߭"}
                 other{"ߛߊ߲߭{0}"}
-                per{"{0}/ߛߊ߲߭"}
             }
         }
     }

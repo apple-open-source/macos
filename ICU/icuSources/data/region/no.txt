@@ -70,7 +70,7 @@ no{
         BT{"Bhutan"}
         BV{"Bouvetøya"}
         BW{"Botswana"}
-        BY{"Hviterussland"}
+        BY{"Belarus"}
         BZ{"Belize"}
         CA{"Canada"}
         CC{"Kokosøyene"}
@@ -85,6 +85,7 @@ no{
         CN{"Kina, fastlandet"}
         CO{"Colombia"}
         CP{"Clippertonøya"}
+        CQ{"Sark"}
         CR{"Costa Rica"}
         CU{"Cuba"}
         CV{"Kapp Verde"}

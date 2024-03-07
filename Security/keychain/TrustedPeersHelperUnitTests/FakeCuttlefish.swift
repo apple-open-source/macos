@@ -5,6 +5,7 @@
 //  Created by Ben Williamson on 5/23/18.
 //
 
+@_spi(CloudKitPrivate) import CloudKit
 import CloudKitCode
 import Foundation
 import InternalSwiftProtobuf
@@ -215,15 +216,18 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         }
 
         func model(updating newPeer: Peer?) throws -> TPModel {
-            let model = TPModel(decrypter: Decrypter())
+            let tpmimdb = TPModelInMemoryDb()
+            let model = TPModel(decrypter: Decrypter(), dbAdapter: tpmimdb)
 
             for existingPeer in self.peersByID.values {
                 if let pi = existingPeer.permanentInfoAndSig.toPermanentInfo(peerID: existingPeer.peerID),
                    let si = existingPeer.stableInfoAndSig.toStableInfo(),
                    let di = existingPeer.dynamicInfoAndSig.toDynamicInfo() {
-                    model.registerPeer(with: pi)
-                    try model.update(si, forPeerWithID: existingPeer.peerID)
-                    try model.update(di, forPeerWithID: existingPeer.peerID)
+                    tpmimdb.registerPeer(with: pi)
+                    let peerNewStable = try model.copyPeer(withNewStableInfo: si, forPeerWithID: existingPeer.peerID)
+                    try tpmimdb.update(peerNewStable)
+                    let peerNewDynamic = try model.copyPeer(withNewDynamicInfo: di, forPeerWithID: existingPeer.peerID)
+                    try tpmimdb.update(peerNewDynamic)
                 }
             }
 
@@ -231,8 +235,10 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 // This peer needs to have been in the model before; on pain of throwing here
                 if let si = peerUpdate.stableInfoAndSig.toStableInfo(),
                    let di = peerUpdate.dynamicInfoAndSig.toDynamicInfo() {
-                    try model.update(si, forPeerWithID: peerUpdate.peerID)
-                    try model.update(di, forPeerWithID: peerUpdate.peerID)
+                    let peerNewStable = try model.copyPeer(withNewStableInfo: si, forPeerWithID: peerUpdate.peerID)
+                    try tpmimdb.update(peerNewStable)
+                    let peerNewDynamic = try model.copyPeer(withNewDynamicInfo: di, forPeerWithID: peerUpdate.peerID)
+                    try tpmimdb.update(peerNewDynamic)
                 }
             }
 
@@ -310,17 +316,17 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
     }
 
     static func makeCloudKitCuttlefishError(code: CuttlefishErrorCode, retryAfter: TimeInterval = 5) -> NSError {
-        let cuttlefishError = CKPrettyError(domain: CuttlefishErrorDomain,
-                                            code: code.rawValue,
-                                            userInfo: [CuttlefishErrorRetryAfterKey: retryAfter])
-        let internalError = CKPrettyError(domain: CKInternalErrorDomain,
-                                          code: CKInternalErrorCode.errorInternalPluginError.rawValue,
-                                          userInfo: [NSUnderlyingErrorKey: cuttlefishError, ])
-        let ckError = CKPrettyError(domain: CKErrorDomain,
-                                    code: CKError.serverRejectedRequest.rawValue,
-                                    userInfo: [NSUnderlyingErrorKey: internalError,
-                                               CKErrorServerDescriptionKey: "Fake: FunctionError domain: CuttlefishError, code: \(code),\(code.rawValue)",
-                                               ])
+        let cuttlefishError = NSError(domain: CuttlefishErrorDomain,
+                                      code: code.rawValue,
+                                      userInfo: [CuttlefishErrorRetryAfterKey: retryAfter])
+        let internalError = NSError(domain: CKUnderlyingErrorDomain,
+                                    code: CKUnderlyingError.pluginError.rawValue,
+                                    userInfo: [NSUnderlyingErrorKey: cuttlefishError, ])
+        let ckError = NSError(domain: CKErrorDomain,
+                              code: CKError.serverRejectedRequest.rawValue,
+                              userInfo: [NSUnderlyingErrorKey: internalError,
+                                         CKErrorServerDescriptionKey: "Fake: FunctionError domain: CuttlefishError, code: \(code),\(code.rawValue)",
+                                        ])
         return ckError
     }
 
@@ -724,11 +730,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         do {
             let model = try self.state.model(updating: peer)
 
-            // Is there any non-excluded peer that trusts itself?
-            let nonExcludedPeerIDs = model.allPeerIDs().filter { !model.statusOfPeer(withID: $0).contains(.excluded) }
-            let selfTrustedPeerIDs = nonExcludedPeerIDs.filter { model.statusOfPeer(withID: $0).contains(.selfTrust) }
-
-            guard !selfTrustedPeerIDs.isEmpty else {
+            guard model.hasPotentiallyTrustedPeer() else {
                 completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers)))
                 return
             }
@@ -746,12 +748,10 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
             }
 
             if self.state.custodianRecoveryKeys.isEmpty == false && peer.hasCustodianRecoveryKeyAndSig {
-                for peerID in self.state.custodianRecoveryKeys.keys {
-                    if model.isCustodianRecoveryKeyTrusted(peerID) == false {
-                        guard model.untrustedPeerIDs().contains(peerID) else {
-                            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable)))
-                            return
-                        }
+                for crk in (self.state.custodianRecoveryKeys.values.filter { !model.isCustodianRecoveryKeyTrusted($0.toCustodianRecoveryKey()!) }) {
+                    guard model.untrustedPeerIDs().contains(crk.toCustodianRecoveryKey()!.peerID) else {
+                        completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable)))
+                        return
                     }
                 }
             }
@@ -836,13 +836,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
 
         // Will Cuttlefish reject this due to peer graph issues?
         do {
-            let model = try self.state.model(updating: peer)
-
-            // Is there any non-excluded peer that trusts itself?
-            let nonExcludedPeerIDs = model.allPeerIDs().filter { !model.statusOfPeer(withID: $0).contains(.excluded) }
-            let selfTrustedPeerIDs = nonExcludedPeerIDs.filter { model.statusOfPeer(withID: $0).contains(.selfTrust) }
-
-            guard !selfTrustedPeerIDs.isEmpty else {
+            guard try self.state.model(updating: peer).hasPotentiallyTrustedPeer() else {
                 completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers)))
                 return
             }
@@ -1024,13 +1018,6 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         return assertion.check(peer: self.state.peersByID[assertion.peer], target: self.state.peersByID[assertion.target])
     }
 
-    func reportHealth(_ request: ReportHealthRequest, completion: @escaping (Result<ReportHealthResponse, Error>) -> Void) {
-        completion(.success(ReportHealthResponse()))
-    }
-    func pushHealthInquiry(_ request: PushHealthInquiryRequest, completion: @escaping (Result<PushHealthInquiryResponse, Error>) -> Void) {
-        completion(.success(PushHealthInquiryResponse()))
-    }
-
     func getRepairAction(_ request: GetRepairActionRequest, completion: @escaping (Result<GetRepairActionResponse, Error>) -> Void) {
         print("FakeCuttlefish: getRepairAction called")
 
@@ -1076,16 +1063,8 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         }
     }
 
-    func getClubCertificates(_ request: GetClubCertificatesRequest, completion: @escaping (Result<GetClubCertificatesResponse, Error>) -> Void) {
-        completion(.success(GetClubCertificatesResponse()))
-    }
-
     func getSupportAppInfo(_ request: GetSupportAppInfoRequest, completion: @escaping (Result<GetSupportAppInfoResponse, Error>) -> Void) {
         completion(.success(GetSupportAppInfoResponse()))
-    }
-
-    func fetchSosiCloudIdentity(_ request: FetchSOSiCloudIdentityRequest, completion: @escaping (Result<FetchSOSiCloudIdentityResponse, Error>) -> Void) {
-        completion(.success(FetchSOSiCloudIdentityResponse()))
     }
 
     func resetAccountCdpcontents(_ request: ResetAccountCDPContentsRequest, completion: @escaping (Result<ResetAccountCDPContentsResponse, Error>) -> Void) {

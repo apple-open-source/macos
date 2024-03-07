@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -34,7 +32,7 @@
 #include <sys/cdefs.h>
 
 #ifndef __APPLE__
-__FBSDID("$FreeBSD: src/usr.bin/talk/invite.c,v 1.9 2003/01/01 18:49:00 schweikh Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)invite.c	8.1 (Berkeley) 6/6/93";
@@ -49,6 +47,7 @@ static const char sccsid[] = "@(#)invite.c	8.1 (Berkeley) 6/6/93";
 #include <errno.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include "talk_ctl.h"
 #include "talk.h"
@@ -65,11 +64,11 @@ static const char sccsid[] = "@(#)invite.c	8.1 (Berkeley) 6/6/93";
  * These are used to delete the
  * invitations.
  */
-int	local_id, remote_id;
-jmp_buf invitebuf;
+static int	local_id, remote_id;
+static jmp_buf invitebuf;
 
 void
-invite_remote()
+invite_remote(void)
 {
 	int new_sockt;
 	struct itimerval itimer;
@@ -80,19 +79,15 @@ invite_remote()
 	itimer.it_interval = itimer.it_value;
 	if (listen(sockt, 5) != 0)
 		p_error("Error on attempt to listen for caller");
-#ifdef MSG_EOR
 	/* copy new style sockaddr to old, swap family (short in old) */
-	msg.addr = *(struct osockaddr *)&my_addr;  /* XXX new to old  style*/
+	msg.addr = *(struct tsockaddr *)&my_addr;
 	msg.addr.sa_family = htons(my_addr.sin_family);
-#else
-	msg.addr = *(struct sockaddr *)&my_addr;
-#endif
 	msg.id_num = htonl(-1);		/* an impossible id_num */
 	invitation_waiting = 1;
 	announce_invite();
 	/*
 	 * Shut off the automatic messages for a while,
-	 * so we can use the interupt timer to resend the invitation
+	 * so we can use the interrupt timer to resend the invitation
 	 */
 	end_msgs();
 	setitimer(ITIMER_REAL, &itimer, (struct itimerval *)0);
@@ -122,12 +117,11 @@ invite_remote()
 }
 
 /*
- * Routine called on interupt to re-invite the callee
+ * Routine called on interrupt to re-invite the callee
  */
 /* ARGSUSED */
 void
-re_invite(signo)
-	int signo __unused;
+re_invite(int signo __unused)
 {
 
 	message("Ringing your party again");
@@ -157,7 +151,7 @@ static	const char *answers[] = {
  * Transmit the invitation and process the response
  */
 void
-announce_invite()
+announce_invite(void)
 {
 	CTL_RESPONSE response;
 
@@ -179,7 +173,7 @@ announce_invite()
  * Tell the daemon to remove your invitation
  */
 void
-send_delete()
+send_delete(void)
 {
 
 	msg.type = DELETE;

@@ -38,7 +38,6 @@ namespace WebKit {
 
 class WebKeyboardEvent : public WebEvent {
 public:
-    WebKeyboardEvent();
     ~WebKeyboardEvent();
 
 #if USE(APPKIT)
@@ -78,6 +77,14 @@ public:
     bool isSystemKey() const { return m_isSystemKey; }
 
     static bool isKeyboardEventType(WebEventType);
+
+#if PLATFORM(WPE)
+    static String keyValueStringForWPEKeyval(unsigned);
+    static String keyCodeStringForWPEKeycode(unsigned);
+    static String keyIdentifierForWPEKeyval(unsigned);
+    static int32_t windowsKeyCodeForWPEKeyval(unsigned);
+    static String singleCharacterStringForWPEKeyval(unsigned);
+#endif
 
 private:
     String m_text;

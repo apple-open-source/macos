@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -121,12 +121,24 @@ static void _getAppAttestInternalSymbol(void **sym, const char *name) {
 const CFStringRef kSecChallengeToken = CFSTR("challengeToken");
 const CFStringRef kSecClientIdentifier = CFSTR("clientIdentifier");
 const CFStringRef kSecAttestationIdentity = CFSTR("attestationIdentity"); // deprecated
+const CFStringRef kSecAttestationKey = CFSTR("attestationKey");
+const CFStringRef kSecAttestationChain = CFSTR("attestationChain");
 const CFStringRef kSecAttestationOids = CFSTR("attestationOids");
 const CFStringRef kSecLocalIssuerIdentity = CFSTR("issuerIdentity");
 const CFStringRef kSecUseHardwareBoundKey = CFSTR("hardwareBound");
 const CFStringRef kSecACMEDirectoryURL = CFSTR("acmeDirectory");
 const CFStringRef kSecACMEPermitLocalIssuer = CFSTR("acmeLocalIssuer");
 const CFStringRef kSecACMEServerURL = CFSTR("acmeServerURL"); // deprecated
+
+/* Attestation dictionary constants */
+const NSString *kSecOptionsBAAClientAttestationData = @"ClientAttestationData";
+const NSString *kSecOptionsBAAClientAttestationPublicKey = @"ClientAttestationPublicKey";
+const NSString *kSecOptionsBAAClientAttestationCertificate = @"ClientDirectAttestationCertificate";
+const NSString *kSecOptionsBAAPerformOperationsOverIPC = @"UseXPC";
+const NSString *kSecOptionsBAAValidity = @"Validity";
+const NSString *kSecOptionsBAACACert = @"CACert";
+const NSString *kSecOptionsBAAOIDSToInclude = @"OIDSToInclude";
+const NSString *kSecOptionsBAANonce = @"nonce";
 
 /* Last attestation request time, for rate limiting */
 static CFAbsoluteTime gLastAttestationRequestAbsTime = 0.0;
@@ -156,7 +168,9 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
 @property NSDictionary *parameters;                 // parameters for the requested key and cert
 @property NSDictionary *keyParams;                  // parameters for private key
 @property NSArray *attestationOids;                 // array of OIDs for device attestation request
-@property NSArray *attestationChain;                // array containing attestation cert chain
+@property NSArray *attestationChain;                // array containing our attestation cert chain
+@property (assign) SecKeyRef attestationCRKey;      // co-residency private key used to attest our key
+@property NSArray *attestationCRChain;              // input attestation cert chain for co-residency key
 @property NSData *attestation;                      // attestation we generate for our key
 @property NSData *csr;                              // csr used to request certificate from the CA
 @property NSString *nonce;                          // current nonce obtained from ACME server
@@ -545,6 +559,22 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
             }
             self.attestationOids = oids;
         }
+        /* check attestation key (for co-residency) [optional] */
+        if (!paramErrStr) {
+            SecKeyRef acrkey = (__bridge SecKeyRef)[params objectForKey:(__bridge NSString*)kSecAttestationKey];
+            if (acrkey && (!(CFGetTypeID(acrkey) == SecKeyGetTypeID()))) {
+                paramErrStr = "kSecAttestationKey";
+            }
+            self.attestationCRKey = acrkey;
+        }
+        /* check attestation chain array (for co-residency) [optional] */
+        if (!paramErrStr) {
+            NSArray *chain = (NSArray*)[params objectForKey:(__bridge NSString*)kSecAttestationChain];
+            if (chain && ![chain isKindOfClass:[NSArray class]]) {
+                paramErrStr = "kSecAttestationChain";
+            }
+            self.attestationCRChain = chain;
+        }
 
         if (paramErrStr != NULL) {
             NSString *errorString = [NSString stringWithFormat:@"SecRequestClientIdentity parameters dictionary has missing value or wrong type for %s key", paramErrStr];
@@ -642,9 +672,10 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
     });
     NSData *nonceData = [_token dataUsingEncoding:NSUTF8StringEncoding];
     NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:4];
-    dict[@"Validity"] = @(60*60*24*30*3); // 3 months
-    dict[@"OIDSToInclude"] = _attestationOids;
-    dict[@"UseXPC"] = @YES;
+
+    dict[kSecOptionsBAAValidity] = @(60*60*24*30*3); // 3 months
+    dict[kSecOptionsBAAOIDSToInclude] = _attestationOids;
+    dict[kSecOptionsBAAPerformOperationsOverIPC] = @YES;
     if (nonceData) {
         // AppAttest requires 256 bits (32 bytes) or fewer for the nonce value.
         // Since the token value can be arbitrarily large, we use its SHA256 digest.
@@ -654,7 +685,44 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
         uint8_t digest[CC_SHA256_DIGEST_LENGTH] = {0};
         CC_SHA256([nonceData bytes], (CC_LONG)[nonceData length], digest);
         NSData *digestData = [NSData dataWithBytes:digest length:CC_SHA256_DIGEST_LENGTH];
-        dict[@"nonce"] = digestData;
+        dict[kSecOptionsBAANonce] = digestData;
+    }
+    if (_attestation) {
+        // Add co-residency attestation data
+        dict[kSecOptionsBAAClientAttestationData] = _attestation;
+    }
+    if (_attestationCRKey) {
+        // Add co-residency public key
+        SecKeyRef publicKey = SecKeyCopyPublicKey(_attestationCRKey);
+        if (!publicKey) {
+            secerror("Failed to obtain public key for attestation key, skipping attestation");
+            if (outError) {
+                *outError = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecPublicKeyInconsistent userInfo:nil];
+            }
+            return NULL;
+        }
+        CFErrorRef cfError = NULL;
+        NSData *publicKeyData = (__bridge_transfer NSData *)SecKeyCopyExternalRepresentation(publicKey, &cfError);
+        CFReleaseNull(publicKey);
+        if (cfError || !publicKeyData) {
+            secerror("Failed to copy public key data for co-residency, skipping attestation");
+            if (outError) {
+                *outError = (__bridge_transfer NSError *)cfError;
+            } else {
+                CFReleaseNull(cfError);
+            }
+            return NULL;
+        }
+        dict[kSecOptionsBAAClientAttestationPublicKey] = publicKeyData;
+    }
+    if (_attestationCRChain) {
+        // Add co-residency attestation chain
+        NSMutableData *coresidencyCertsData = [NSMutableData data];
+        for (id cert in _attestationCRChain) {
+            NSData *certData = (__bridge_transfer NSData *)SecCertificateCopyData((__bridge SecCertificateRef)cert);
+            [coresidencyCertsData appendData:certData];
+        }
+        dict[kSecOptionsBAAClientAttestationCertificate] = coresidencyCertsData;
     }
     NSDictionary *requestOptions = [dict copy];
 
@@ -744,44 +812,38 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
     return result;
 }
 
-- (nullable NSError *) createAttestation {
-    CFErrorRef error = NULL;
-    OSStatus status = 0;
-    /*%%% Must be rate-limited here */
-    gLastAttestationRequestAbsTime = CFAbsoluteTimeGetCurrent();
-
-    // generate attestation for our key with the attestation identity's key
-    SecKeyRef attestKey = NULL;
-    SecCertificateRef attestCert = NULL;
-    SecIdentityRef attestIdentity = (__bridge SecIdentityRef)_parameters[(__bridge id)kSecAttestationIdentity];
-    if (!attestIdentity) {
-        status = errSecParam;
-    } else {
-        status = SecIdentityCopyCertificate(attestIdentity, &attestCert);
-        if (status || !attestCert) {
-            secerror("did not obtain attestation certificate (error %ld)", (long)status);
-        }
-        status = SecIdentityCopyPrivateKey(attestIdentity, &attestKey);
+// attempt to generate a local hardware attestation for our private key
+// (assumes we have _privateKey and _attestationCRKey)
+- (nullable NSData *) hardwareAttestationWithError:(NSError **)error {
+    CFErrorRef localError = NULL;
+    if (_attestation) {
+        _attestation = nil;
     }
-    if (status == errSecSuccess && attestKey) {
-        _attestation = (__bridge NSData*)SecKeyCreateAttestation(attestKey, _privateKey, &error);
+    if (_attestationCRKey && _privateKey) {
+        _attestation = (__bridge NSData*)SecKeyCreateAttestation(_attestationCRKey, _privateKey, &localError);
     } else {
-        secerror("did not obtain attestation key (error %ld)", (long)status);
+        secerror("missing %@ for attestation", (_attestationCRKey) ? @"_privateKey" : @"_attestationCRKey");
         CFBooleanRef permitLocal = (__bridge CFBooleanRef)[_parameters objectForKey:(__bridge NSString*)kSecACMEPermitLocalIssuer];
         if (_permitLocalIssuer || (permitLocal &&
             CFGetTypeID(permitLocal) == CFBooleanGetTypeID() &&
             CFEqualSafe(permitLocal, kCFBooleanTrue))) {
+#if PERMIT_LOCAL_TEST
             //%%% testing code path: just make a blob from a UUID
             _attestation = [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
+#endif
         }
     }
-    if (status && !error) {
+    if (!_attestation && !localError) {
         NSString *errorString = [NSString stringWithFormat:@"failed to create attestation"];
-        error = (__bridge CFErrorRef)[NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:@{NSLocalizedDescriptionKey:errorString}];
+        NSError *errorObject = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecParam userInfo:@{NSLocalizedDescriptionKey:errorString}];
+        localError = (CFErrorRef)CFBridgingRetain(errorObject);
     }
-    CFReleaseNull(attestKey);
-    CFReleaseNull(attestCert);
-    return (error) ? (NSError *)CFBridgingRelease(error) : NULL;
+    if (error) {
+        *error = (NSError *)CFBridgingRelease(localError);
+    } else {
+        CFReleaseNull(localError);
+    }
+    return _attestation;
 }
 
 - (nullable NSError *) createCertificate {
@@ -1050,9 +1112,15 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
         // challenge URL is not empty, but contains a payload with the attestation.
         //
         if (_attestationOids) {
-            // attempt to generate an attestation certificate for our key
-            // (assumes we have _privateKey, _attestationOids, and _nonce)
-            _attestationChain = [self requestAttestationChainWithError:&error];
+            if (_attestationCRKey) {
+                // generate local hardware attestation if we have an attestation key
+                _attestation = [self hardwareAttestationWithError:&error];
+            }
+            if (!error) {
+                // attempt to generate an attestation certificate for our key
+                // (assumes we have _privateKey, _attestationOids, _nonce, and optionally _attestation)
+                _attestationChain = [self requestAttestationChainWithError:&error];
+            }
             if (error) {
                 // failure to obtain attestation should not stop the ACME flow;
                 // note the error and let the ACME server decide how to handle it.

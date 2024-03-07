@@ -228,7 +228,7 @@ extern  u_char  inetctlerrmap[];
 	    (ia) = TAILQ_NEXT((ia), ia_link))                           \
 	        continue;                                               \
 	if ((ia) != NULL)                                               \
-	        IFA_ADDREF(&(ia)->ia_ifa);                              \
+	        ifa_addref(&(ia)->ia_ifa);                              \
 	lck_rw_done(&in_ifaddr_rwlock);                                 \
 }
 
@@ -487,7 +487,6 @@ struct in_ifextra {
 
 extern u_int32_t ipv4_ll_arp_aware;
 
-extern void in_ifaddr_init(void);
 extern int imo_multi_filter(const struct ip_moptions *,
     const struct ifnet *, const struct sockaddr_in *,
     const struct sockaddr_in *);
@@ -497,7 +496,6 @@ extern void inm_clear_recorded(struct in_multi *);
 extern void inm_print(const struct in_multi *);
 extern int inm_record_source(struct in_multi *inm, const in_addr_t);
 extern void inm_release(struct in_multi *);
-extern void in_multi_init(void);
 extern struct in_multi *in_addmulti(struct in_addr *, struct ifnet *);
 extern void in_delmulti(struct in_multi *);
 extern int in_leavegroup(struct in_multi *, struct in_mfilter *);

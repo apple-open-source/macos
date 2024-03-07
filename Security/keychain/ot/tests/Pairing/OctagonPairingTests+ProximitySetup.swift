@@ -51,7 +51,7 @@ extension OctagonPairingTests {
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
         clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
             XCTAssertNil(error, "error should be nil")
-            XCTAssertTrue(epoch == 1, "epoch should be 1")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
@@ -160,7 +160,7 @@ extension OctagonPairingTests {
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
         clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
             XCTAssertNil(error, "error should be nil")
-            XCTAssertTrue(epoch == 1, "epoch should be 1")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
@@ -279,7 +279,7 @@ extension OctagonPairingTests {
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
         clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
             XCTAssertNil(error, "error should be nil")
-            XCTAssertTrue(epoch == 1, "epoch should be 1")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
@@ -393,7 +393,7 @@ extension OctagonPairingTests {
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
         clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
             XCTAssertNil(error, "error should be nil")
-            XCTAssertTrue(epoch == 1, "epoch should be 1")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
@@ -575,7 +575,7 @@ extension OctagonPairingTests {
         clientStateMachine.startOctagonStateMachine()
         clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
             XCTAssertNil(error, "error should be nil")
-            XCTAssertTrue(epoch == 1, "epoch should be 1")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
 
@@ -595,7 +595,7 @@ extension OctagonPairingTests {
         clientStateMachine.startOctagonStateMachine()
         clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
             XCTAssertNil(error, "error should be nil")
-            XCTAssertTrue(epoch == 1, "epoch should be 1")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
 

@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "SessionState.h"
 #include "WebPageProxyIdentifier.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/Ref.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
@@ -53,7 +54,7 @@ public:
     virtual ~WebBackForwardListItem();
 
     static WebBackForwardListItem* itemForID(const WebCore::BackForwardItemIdentifier&);
-    static HashMap<WebCore::BackForwardItemIdentifier, WebBackForwardListItem*>& allItems();
+    static HashMap<WebCore::BackForwardItemIdentifier, WeakRef<WebBackForwardListItem>>& allItems();
 
     const WebCore::BackForwardItemIdentifier& itemID() const { return m_itemState.identifier; }
     const BackForwardListItemState& itemState() { return m_itemState; }

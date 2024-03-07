@@ -33,6 +33,8 @@
 #define _CITRUS_ICONV_STD_LOCAL_H_
 
 #ifdef __APPLE__
+#include <limits.h>
+
 #define	_ICONV_STD_PERCVT	32
 #endif
 
@@ -89,6 +91,18 @@ struct _citrus_iconv_std_shared {
  * iconv_std context
  */
 struct _citrus_iconv_std_context {
+#ifdef __APPLE__
+	/*
+	 * This will only be used for conversions to/from wchar_t, which are
+	 * relatively infrequent so we just allocate it once with the context
+	 * since it's not a very large buffer rather than wasting even more
+	 * stack on an infrequently used buffer.
+	 */
+	unsigned short				 sc_wcdelta[_ICONV_STD_PERCVT];
+	char					 sc_wcbuf[MB_LEN_MAX];
+
+	mbstate_t				 sc_mbstate;
+#endif
 	struct _citrus_iconv_std_encoding	 sc_dst_encoding;
 	struct _citrus_iconv_std_encoding	 sc_src_encoding;
 };

@@ -21,8 +21,8 @@
 #include "RenderSVGGradientStop.h"
 
 #include "ElementInlines.h"
+#include "LegacyRenderSVGResourceContainer.h"
 #include "RenderSVGGradientStopInlines.h"
-#include "RenderSVGResourceContainer.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGGradientElement.h"
 #include "SVGNames.h"
@@ -38,8 +38,9 @@ using namespace SVGNames;
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGGradientStop);
 
 RenderSVGGradientStop::RenderSVGGradientStop(SVGStopElement& element, RenderStyle&& style)
-    : RenderElement(element, WTFMove(style), 0)
+    : RenderElement(Type::SVGGradientStop, element, WTFMove(style), { }, { })
 {
+    ASSERT(isRenderSVGGradientStop());
 }
 
 RenderSVGGradientStop::~RenderSVGGradientStop() = default;
@@ -60,7 +61,7 @@ void RenderSVGGradientStop::styleDidChange(StyleDifference diff, const RenderSty
     if (!renderer)
         return;
 
-    downcast<RenderSVGResourceContainer>(*renderer).removeAllClientsFromCache();
+    downcast<LegacyRenderSVGResourceContainer>(*renderer).removeAllClientsFromCache();
 }
 
 void RenderSVGGradientStop::layout()
@@ -71,9 +72,7 @@ void RenderSVGGradientStop::layout()
 
 SVGGradientElement* RenderSVGGradientStop::gradientElement()
 {
-    if (is<SVGGradientElement>(element().parentElement()))
-        return downcast<SVGGradientElement>(element().parentElement());
-    return nullptr;
+    return dynamicDowncast<SVGGradientElement>(element().parentElement());
 }
 
 }

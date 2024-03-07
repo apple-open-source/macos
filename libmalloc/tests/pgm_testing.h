@@ -123,9 +123,12 @@ static malloc_zone_t wrapped_zone = {
 #pragma mark -
 #pragma mark Test Harness
 
-#include "../src/has_section.c"
 #include "../src/pgm_malloc.c"
+// Dependencies
+#include "../src/has_section.c"
+#include "../src/malloc_common.c"
 #include "../src/stack_trace.c"
+#include "../src/wrapper_zones.c"
 
 static slot_t slots[10];
 static metadata_t metadata[10];

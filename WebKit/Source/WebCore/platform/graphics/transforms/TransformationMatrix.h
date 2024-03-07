@@ -274,6 +274,7 @@ public:
 
     // Angle is in degrees.
     WEBCORE_EXPORT TransformationMatrix& rotate(double, RotationSnapping = RotationSnapping::Snap90degRotations);
+    WEBCORE_EXPORT TransformationMatrix& rotateRadians(double, RotationSnapping = RotationSnapping::Snap90degRotations);
     TransformationMatrix& rotateFromVector(double x, double y);
     WEBCORE_EXPORT TransformationMatrix& rotate3d(double rx, double ry, double rz, RotationSnapping = RotationSnapping::Snap90degRotations);
 

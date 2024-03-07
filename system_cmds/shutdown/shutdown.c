@@ -115,7 +115,7 @@ static struct interval {
 
 static time_t offset, shuttime;
 #ifdef __APPLE__
-static int dohalt, doreboot, dosleep, doups, killflg, oflag;
+static int dohalt, doreboot, dosleep, killflg, oflag;
 static size_t mbuflen;
 #else
 static int docycle, dohalt, dopower, doreboot, killflg, mbuflen, oflag;
@@ -182,13 +182,11 @@ main(int argc, char **argv)
 	}
 #endif
 
-	while ((ch = getopt(argc, argv, "-hknopr"
 #ifdef __APPLE__
-		"su"
+	while ((ch = getopt(argc, argv, "-hknoprsu")) != -1)
 #else
-		"c"
+	while ((ch = getopt(argc, argv, "-chknopr")) != -1)
 #endif
-	    )) != -1)
 		switch (ch) {
 		case '-':
 			readstdin = 1;
@@ -225,7 +223,8 @@ main(int argc, char **argv)
 			dosleep = 1;
 			break;
 		case 'u':
-			doups = 1;
+			/* ignored for compatibility */
+			warnx("-%c has no effect", ch);
 			break;
 #endif
 		case '?':
@@ -253,9 +252,6 @@ main(int argc, char **argv)
 
 	if (!(dohalt || doreboot || dosleep || killflg))
 		usage("-h, -r, -s or -k is required");
-
-	if (doups && !dohalt)
-		usage("-u requires -h");
 #endif /* !__APPLE__ */
 
 	getoffset(*argv++);
@@ -468,9 +464,9 @@ die_you_gravy_sucking_pig_dog(void)
 #endif
 
 #ifdef __APPLE__
-	syslog(LOG_NOTICE, "%s%s by %s: %s",
+	syslog(LOG_NOTICE, "%s by %s: %s",
 	    doreboot ? "reboot" : dohalt ? "halt" : dosleep ? "sleep" :
-	    "shutdown", doups ? " with UPS delay":"",
+	    "shutdown",
 	    whom, mbuf);
 #else
 	syslog(LOG_NOTICE, "%s by %s: %s",
@@ -505,18 +501,12 @@ die_you_gravy_sucking_pig_dog(void)
 #else
 #ifdef __APPLE__
 	if (dosleep) {
-		mach_port_t mp;
 		io_connect_t fb;
-		kern_return_t kr = IOMasterPort(bootstrap_port, &mp);
-		if (kr == kIOReturnSuccess) {
-			fb = IOPMFindPowerManagement(mp);
-			if (fb != IO_OBJECT_NULL) {
-				IOReturn err = IOPMSleepSystem(fb);
-				if (err != kIOReturnSuccess) {
-					fprintf(stderr, "shutdown: sleep failed (0x%08x)\n", err);
-					kr = -1;
-				}
-			}
+		fb = IOPMFindPowerManagement(MACH_PORT_NULL);
+		if (fb != IO_OBJECT_NULL) {
+			IOReturn err = IOPMSleepSystem(fb);
+			if (err != kIOReturnSuccess)
+				fprintf(stderr, "shutdown: sleep failed (0x%08x)\n", err);
 		}
 	} else {
 		struct utmpx utx;
@@ -528,7 +518,6 @@ die_you_gravy_sucking_pig_dog(void)
 		pututxline(&utx);
 
 		if (dohalt) howto |= RB_HALT;
-		if (doups) howto |= RB_UPSDELAY;
 		if (nosync) howto |= RB_NOSYNC;
 
 		// launchd(8) handles reboot.  This call returns NULL on success.
@@ -545,7 +534,7 @@ die_you_gravy_sucking_pig_dog(void)
 			      SIGTERM);			/* single-user */
 	} else {
 		if (doreboot) {
-			execle(_PATH_REBOOT, "reboot", "-l", nosync,
+			execle(_PATH_REBOOT, "reboot", "-l", nosync, 
 				(char *)NULL, empty_environ);
 			syslog(LOG_ERR, "shutdown: can't exec %s: %m.",
 				_PATH_REBOOT);
@@ -742,7 +731,7 @@ usage(const char *cp)
 		warnx("%s", cp);
 	(void)fprintf(stderr,
 #ifdef __APPLE__
-	    "usage: shutdown [-] [-h [-u] | -r | -s | -k] [-o [-n]] time [warning-message ...]\n");
+	    "usage: shutdown [-] [-h | -r | -s | -k] [-o [-n]] time [warning-message ...]\n");
 #else
 	    "usage: shutdown [-] [-c | -h | -p | -r | -k] [-o [-n]] time [warning-message ...]\n"
 	    "       poweroff\n");
@@ -764,6 +753,8 @@ audit_shutdown(int exitstatus)
 	token_t *tok;
 	long au_cond;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic warning "-Wdeprecated"
 	/* If we are not auditing, don't cut an audit record; just return */
 	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
 		fprintf(stderr, "shutdown: Could not determine audit condition\n");
@@ -795,6 +786,7 @@ audit_shutdown(int exitstatus)
 		fprintf(stderr, "shutdown: Audit Error: au_close() failed\n");
 		exit(1);
 	}
+#pragma clang diagnostic pop
 	return 1;
 }
 

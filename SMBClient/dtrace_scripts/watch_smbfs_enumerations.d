@@ -3,61 +3,67 @@
 
 BEGIN
 {
-	printf("Watching smbfs_vnop_getattrlistbulkv and smbfs_vnop_readdir - ^C to quit ...\n");
+	printf("Watching smbfs_vnop_getattrlistbulk and smbfs_vnop_readdir - ^C to quit ...\n");
 }
 
 /* 
  * Watch the two main dir enumerators 
  */
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_readdir:entry
-{ 
-	/* Save vnop_readdir_args arg */
-	self->ap = arg0;
-	
-	printf("proc <%s> dir <%s> offset <%u>", 
-	       execname, 
-	       stringof(((struct vnop_readdir_args *) arg0)->a_vp->v_name), 
-	       ((struct vnop_readdir_args *) arg0)->a_uio->uio_offset);
+{
+    self->vnop_readdir_arg0 = arg0;
 
-	/* Print out the user backtrace */
-	ustack();
+    printf("proc <%s> name <%s> ",
+    	   execname,
+    	   stringof(((struct vnop_readdir_args *) arg0)->a_vp->v_name)
+           );
+	//ustack(15); 
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_readdir:return
-/self->ap/
-{ 
-	printf("proc <%s> dir <%s> offset <%u> error <%d> eof <%d> actual_cnt <%d> \n", 
-           execname,
-           stringof(((struct vnop_readdir_args *) self->ap)->a_vp->v_name),
-           ((struct vnop_readdir_args *) self->ap)->a_uio->uio_offset,
-           arg1,
-           *(((struct vnop_readdir_args *) self->ap)->a_eofflag),
-           *(((struct vnop_readdir_args *) self->ap)->a_numdirent));
-			
-	/* Clear ap value */
-	self->ap = 0;
+/self->vnop_readdir_arg0/
+{
+    printf("proc <%s> name <%s> error <%d> ",
+        execname,
+        stringof(((struct vnop_readdir_args *) self->vnop_readdir_arg0)->a_vp->v_name),
+        arg1
+    );
+
+	self->vnop_readdir_arg0 = 0;
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_getattrlistbulk:entry
 { 
-	/* Save vnop_getattrlistbulk_args arg */
-	self->ap = arg0;
+	self->vnop_getattrlistbulk_arg0 = arg0;
 
-	printf("proc <%s> dir <%s> offset <%u>", 
-	       execname, 
-	       stringof(((struct vnop_getattrlistbulk_args *) arg0)->a_vp->v_name), 
-	       ((struct vnop_getattrlistbulk_args *) arg0)->a_uio->uio_offset);
+    printf("proc <%s> name <%s> va_active <x%llx>",
+    	   execname,
+    	   stringof(((struct vnop_getattrlistbulk_args *) arg0)->a_vp->v_name),
+     	   ((struct vnop_getattrlistbulk_args *) arg0)->a_vap->va_active
+          );
+	//ustack(15); 
+}
 
-	/* Print out the user backtrace */
-	ustack();
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_getattrlistbulk:return
+/self->vnop_getattrlistbulk_arg0/
+{ 
+    printf("proc <%s> name <%s> va_supported <x%llx> act_count <%d> error <%d>",
+        execname,
+        stringof(((struct vnop_getattrlistbulk_args *) self->vnop_getattrlistbulk_arg0)->a_vp->v_name),
+        ((struct vnop_getattrlistbulk_args *) self->vnop_getattrlistbulk_arg0)->a_vap->va_supported,
+        *(((struct vnop_getattrlistbulk_args *) self->vnop_getattrlistbulk_arg0)->a_actualcount),
+        arg1
+    );
+
+	self->vnop_getattrlistbulk_arg0 = 0;
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_fetch_new_entries:entry
 { 
 	/* Save args */
-	self->dvp = arg1;
-	self->offset = arg3;
-	self->is_overflow = arg4;
+	self->smbfs_fetch_new_entries_dvp = arg1;
+	self->smbfs_fetch_new_entries_dvpoffset = arg3;
+	self->smbfs_fetch_new_entries_dvpis_overflow = arg4;
 	
 	printf("proc <%s> dir <%s> offset <%u> is_overflow <%d>", 
 	       execname, 
@@ -67,19 +73,19 @@ fbt:com.apple.filesystems.smbfs:smbfs_fetch_new_entries:entry
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_fetch_new_entries:return
-/self->dvp/
+/self->smbfs_fetch_new_entries_dvpdvp/
 { 
 	printf("proc <%s> dir <%s> offset <%u> is_overflow <%d> error <%d> \n", 
 			execname, 
-			stringof(((struct vnode *) self->dvp)->v_name), 
-			self->offset, 
-			self->is_overflow, 
+			stringof(((struct vnode *) self->smbfs_fetch_new_entries_dvpdvp)->v_name), 
+			self->smbfs_fetch_new_entries_dvpoffset, 
+			self->smbfs_fetch_new_entries_dvpis_overflow, 
 			arg1);
 
 	/* Clear arg values */
-	self->dvp = 0;
-	self->offset = 0;
-	self->is_overflow = 0;
+	self->smbfs_fetch_new_entries_dvpdvp = 0;
+	self->smbfs_fetch_new_entries_dvpoffset = 0;
+	self->smbfs_fetch_new_entries_dvpis_overflow = 0;
 }
 
 /* 

@@ -188,7 +188,7 @@ absl::optional<VideoRtpDepacketizer::ParsedRtpPayload> ProcessApOrSingleNalu(
         if (sps) {
           parsed_payload->video_header.width = sps->width;
           parsed_payload->video_header.height = sps->height;
-          nalu.sps_id = sps->id;
+          nalu.sps_id = sps->sps_id;
           nalu.vps_id = sps->vps_id;
         } else {
           RTC_LOG(LS_WARNING)
@@ -351,4 +351,4 @@ VideoRtpDepacketizerH265::Parse(rtc::CopyOnWriteBuffer rtp_payload) {
 }
 
 }  // namespace webrtc
-#endif // WEBRTC_USE_H265
+#endif

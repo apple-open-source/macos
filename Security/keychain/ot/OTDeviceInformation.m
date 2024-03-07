@@ -63,6 +63,19 @@
     return self;
 }
 
++ (bool)isFullPeer:(NSString*)modelID {
+    
+#if TARGET_OS_XR
+    for (NSString* p in @[@"Mac", @"iPhone", @"iPad", @"iPod", @"Watch", @"RealityDevice"]) {
+#else
+    for (NSString* p in @[@"Mac", @"iPhone", @"iPad", @"iPod", @"Watch"]) {
+#endif
+        if ([modelID containsString:p]) {
+            return true;
+        }
+    }
+    return false;
+}
 @end
 
 #endif // OCTAGON

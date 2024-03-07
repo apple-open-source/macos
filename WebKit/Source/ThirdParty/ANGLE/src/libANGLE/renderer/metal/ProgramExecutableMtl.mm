@@ -1051,6 +1051,10 @@ angle::Result ProgramExecutableMtl::getSpecializedShader(
         setConstantValue:&(context->getDisplay()->getFeatures().emulateAlphaToCoverage.enabled)
                     type:MTLDataTypeBool
                 withName:@"ANGLEEmulateAlphaToCoverage"];
+    [funcConstants
+        setConstantValue:&(context->getDisplay()->getFeatures().writeHelperSampleMask.enabled)
+                    type:MTLDataTypeBool
+                withName:@"ANGLEWriteHelperSampleMask"];
     // Create Metal shader object
     ANGLE_MTL_OBJC_SCOPE
     {
@@ -1333,7 +1337,7 @@ angle::Result ProgramExecutableMtl::legalizeUniformBufferOffsets(
             }
             // Calculate offset in new block.
             size_t dstOffsetSource = srcOffset - conversion->initialSrcOffset();
-            assert(dstOffsetSource % conversionInfo.stdSize() == 0);
+            ASSERT(dstOffsetSource % conversionInfo.stdSize() == 0);
             unsigned int numBlocksToOffset =
                 (unsigned int)(dstOffsetSource / conversionInfo.stdSize());
             size_t bytesToOffset = numBlocksToOffset * conversionInfo.metalSize();
@@ -1514,22 +1518,10 @@ void ProgramExecutableMtl::setUniformImpl(GLint location,
                                           GLenum entryPointType)
 {
     const std::vector<gl::VariableLocation> &uniformLocations = mExecutable->getUniformLocations();
-    if (location < 0 || static_cast<size_t>(location) >= uniformLocations.size())
-    {
-        ERR() << "Invalid uniform location " << location << ", expected [0, "
-              << uniformLocations.size() << ")";
-        return;
-    }
-    const gl::VariableLocation &locationInfo = uniformLocations[location];
+    const gl::VariableLocation &locationInfo                  = uniformLocations[location];
 
     const std::vector<gl::LinkedUniform> &linkedUniforms = mExecutable->getUniforms();
-    if (locationInfo.index >= linkedUniforms.size())
-    {
-        ERR() << "Invalid uniform location index " << locationInfo.index << ", expected [0, "
-              << linkedUniforms.size() << ")";
-        return;
-    }
-    const gl::LinkedUniform &linkedUniform = linkedUniforms[locationInfo.index];
+    const gl::LinkedUniform &linkedUniform               = linkedUniforms[locationInfo.index];
 
     if (linkedUniform.isSampler())
     {

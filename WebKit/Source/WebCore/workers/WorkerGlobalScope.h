@@ -94,6 +94,8 @@ public:
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
     void suspend() final;
     void resume() final;
+    GraphicsClient* graphicsClient() final;
+
 
     using EventTarget::weakPtrFactory;
     using EventTarget::WeakValueType;
@@ -105,10 +107,8 @@ public:
     WorkerCacheStorageConnection& cacheStorageConnection();
     MessagePortChannelProvider& messagePortChannelProvider();
 
-#if ENABLE(SERVICE_WORKER)
     WorkerSWClientConnection& swClientConnection();
     void updateServiceWorkerClientData() final;
-#endif
 
     WorkerThread& thread() const;
 
@@ -202,10 +202,8 @@ private:
 
     bool shouldBypassMainWorldContentSecurityPolicy() const final { return m_shouldBypassMainWorldContentSecurityPolicy; }
 
-#if ENABLE(WEB_CRYPTO)
     bool wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey) final;
     bool unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key) final;
-#endif
 
     void stopIndexedDatabase();
 
@@ -241,9 +239,7 @@ private:
 
     RefPtr<WorkerCacheStorageConnection> m_cacheStorageConnection;
     std::unique_ptr<WorkerMessagePortChannelProvider> m_messagePortChannelProvider;
-#if ENABLE(SERVICE_WORKER)
     RefPtr<WorkerSWClientConnection> m_swClientConnection;
-#endif
     std::unique_ptr<CSSValuePool> m_cssValuePool;
     std::unique_ptr<WorkerClient> m_workerClient;
     RefPtr<CSSFontSelector> m_cssFontSelector;

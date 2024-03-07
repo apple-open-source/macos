@@ -651,6 +651,10 @@ static CFTypeRef SecKeyRSACopyEncryptedWithPadding(SecKeyOperationContext *conte
     return result;
 }
 
+// We use this only for a pointer comparison (see below) to tell
+// whether the key handle is a corecrypto structure or not.
+extern SecKeyDescriptor kSecRSAPrivateKeyDescriptor;
+
 static CFTypeRef SecKeyRSACopyDecryptedWithPadding(SecKeyOperationContext *context, const struct ccdigest_info *di,
                                                    CFDataRef in1, CFErrorRef *error) {
     CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit);
@@ -673,9 +677,21 @@ static CFTypeRef SecKeyRSACopyDecryptedWithPadding(SecKeyOperationContext *conte
             err = ccrsa_oaep_decode(di, &size, CFDataGetMutableBytePtr(result),
                                     size, (cc_unit *)CFDataGetBytePtr(cc_result));
         } else {
-            err = ccrsa_eme_pkcs1v15_decode_safe(context->key->key,
-                                                 &size, CFDataGetMutableBytePtr(result),
-                                                 size, (cc_unit *)CFDataGetBytePtr(cc_result));
+            // ccrsa_eme_pkcs1v15_decode_safe uses the private key as
+            // entropy to generate random dummy responses in case of
+            // decryption failures. This is to mitigate the potential
+            // padding oracle attack. In the case of a hardware key,
+            // we do not have access to the private key, so we fall
+            // back to ccrsa_eme_pkcs1v15_decode.
+            bool is_ccrsa_key = (context->key->key_class == &kSecRSAPrivateKeyDescriptor);
+            if (is_ccrsa_key) {
+                err = ccrsa_eme_pkcs1v15_decode_safe(context->key->key,
+                                                     &size, CFDataGetMutableBytePtr(result),
+                                                     size, (cc_unit *)CFDataGetBytePtr(cc_result));
+            } else {
+                err = ccrsa_eme_pkcs1v15_decode(&size, CFDataGetMutableBytePtr(result),
+                                                size, (cc_unit *)CFDataGetBytePtr(cc_result));
+            }
         }
         require_noerr_action_quiet(err, out, (CFReleaseNull(result),
                                               SecError(errSecParam, error, CFSTR("RSAdecrypt wrong input (err %d)"), err)));

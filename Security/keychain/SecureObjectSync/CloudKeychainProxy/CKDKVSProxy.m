@@ -47,7 +47,6 @@
 #include <utilities/SecNSAdditions.h>
 #import "XPCNotificationDispatcher.h"
 
-
 @interface NSSet (CKDLogging)
 - (NSString*) logKeys;
 - (NSString*) logIDs;
@@ -184,17 +183,7 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%s%s%s%s%s%s%s%s%s%s>",
-            [[self lockMonitor] locked] ? "L" : "U",
-            [[self lockMonitor] unlockedSinceBoot] ? "B" : "-",
-            _seenKVSStoreChange ? "K" : "-",
-            [self hasPendingNonShadowSyncIDs] ? "s" : "-",
-            _ensurePeerRegistration ? "e" : "-",
-            [_pendingKeys count] ? "p" : "-",
-            _inCallout ? "C" : "-",
-            [self hasPendingShadowSyncIDs] ? "S" : "-",
-            _shadowEnsurePeerRegistration ? "E" : "-",
-            [_shadowPendingKeys count] ? "P" : "-"];
+    return @"UbiqitousKVSProxy";
 }
 
 //
@@ -530,16 +519,10 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
 - (void)_queue_storeAccountChanged
 {
     dispatch_assert_queue(_ckdkvsproxy_queue);
-
     secnotice("event", "%@", self);
 
-    NSDictionary *changedValues = nil;
-    if(_dsid)
-        changedValues = @{ (__bridge NSString*)kSOSKVSAccountChangedKey: _dsid };
-    else
-        changedValues = @{ (__bridge NSString*)kSOSKVSAccountChangedKey: @"true" };
-
-    [self processKeyChangedEvent:changedValues];
+    self.dsid =  @"";
+    [self processKeyChangedEvent:@{(__bridge NSString*)kSOSKVSAccountChangedKey: @(YES)}];
 }
 
 - (void) doAfterFlush: (dispatch_block_t) block

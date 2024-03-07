@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,6 +34,15 @@
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 #include "SCD.h"
+
+
+static __inline__ void
+dispatch_CFRelease(void * _Nullable cf)
+{
+	if (cf != NULL) {
+	       CFRelease(cf);
+       }
+}
 
 
 __private_extern__
@@ -650,7 +659,7 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 	// the dispatch source, and set the finalizer to release our reference.
 	CFRetain(store);
 	dispatch_set_context(source, (void *)store);
-	dispatch_set_finalizer_f(source, (dispatch_function_t)CFRelease);
+	dispatch_set_finalizer_f(source, (dispatch_function_t)dispatch_CFRelease);
 
 	// because we will exec our callout on the caller provided queue
 	// we need to hold a reference; release in the cancel handler

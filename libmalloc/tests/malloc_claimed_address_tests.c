@@ -13,11 +13,15 @@
 #include <malloc/malloc.h>
 #include <malloc_private.h>
 #include <sys/mman.h>
+#include "base.h"
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 T_DECL(malloc_claimed_address_default_zone_test,
 		"Tests for malloc_claimed_address, default zone only",
+#if TARGET_OS_IPHONE
+		T_META_TAG_XZONE,
+#endif // TARGET_OS_IPHONE
 		T_META_ENVVAR("MallocNanoZone=0"))
 {
 	// NULL is never a possible pointer.
@@ -66,6 +70,9 @@ T_DECL(malloc_claimed_address_default_zone_test,
 
 T_DECL(malloc_zone_claimed_address_test,
 		"Tests for malloc_zone_claimed_address",
+#if TARGET_OS_IPHONE
+		T_META_TAG_XZONE,
+#endif // TARGET_OS_IPHONE
 		T_META_ENVVAR("MallocNanoZone=0"))
 {
 	malloc_zone_t *zone = malloc_create_zone(0, 0);
@@ -141,6 +148,9 @@ T_DECL(malloc_zone_claimed_address_test,
 
 T_DECL(malloc_claimed_address_zone_test,
 		"Tests for malloc_claimed_address with another zone",
+#if TARGET_OS_IPHONE
+		T_META_TAG_XZONE,
+#endif // TARGET_OS_IPHONE
 		T_META_ENVVAR("MallocNanoZone=0"))
 {
 	// Allocate in a custom zone, check that we can still use
@@ -221,6 +231,9 @@ T_DECL(malloc_claimed_address_nanozone_test,
 
 T_DECL(malloc_claimed_address_custom_zone_test,
 		"Tests for malloc_claimed_address in a zone that does not implement it",
+#if TARGET_OS_IPHONE
+		T_META_TAG_XZONE,
+#endif // TARGET_OS_IPHONE
 		T_META_ENVVAR("MallocNanoZone=0"))
 {
 	// Custom zones that do not support claimed_address must always appear
@@ -268,3 +281,18 @@ T_DECL(malloc_claimed_address_custom_zone_test,
 	malloc_destroy_zone(zone);
 }
 
+#if TARGET_OS_IPHONE
+T_DECL(malloc_claimed_address_xzone_test,
+		"Specific xzone malloc tests for malloc_claimed_address",
+		T_META_TAG_XZONE_ONLY,
+		T_META_ENVVAR("MallocProbGuard=0"))
+{
+	// Allocate a HUGE buffer, and then check that both the start and end of it
+	// are claimed by malloc
+	void *ptr = malloc(MiB(6));
+	T_EXPECT_TRUE(malloc_claimed_address(ptr), "start of HUGE allocation");
+	T_EXPECT_TRUE(malloc_claimed_address(ptr + MiB(6) - 1),
+			"end of HUGE allocation");
+	free(ptr);
+}
+#endif // TARGET_OS_IPHONE

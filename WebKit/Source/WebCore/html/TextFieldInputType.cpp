@@ -108,9 +108,9 @@ bool TextFieldInputType::isEmptyValue() const
 {
     auto innerText = innerTextElement();
     if (!innerText) {
-        // Since we always create the shadow subtree if a value is set, we know
-        // that the value is empty.
-        return true;
+        if (element()->shadowRoot())
+            return true; // Shadow tree is empty
+        return visibleValue().isEmpty();
     }
 
     for (Text* text = TextNodeTraversal::firstWithin(*innerText); text; text = TextNodeTraversal::next(*text, innerText.get())) {
@@ -186,6 +186,14 @@ void TextFieldInputType::handleClickEvent(MouseEvent&)
 {
     if (element()->focused() && element()->list())
         displaySuggestions(DataListSuggestionActivationType::ControlClicked);
+}
+
+void TextFieldInputType::showPicker()
+{
+#if !PLATFORM(IOS_FAMILY)
+    if (element()->list())
+        displaySuggestions(DataListSuggestionActivationType::ControlClicked);
+#endif
 }
 #endif
 
@@ -277,10 +285,6 @@ void TextFieldInputType::handleFocusEvent(Node* oldFocusedNode, FocusDirection)
     ASSERT_UNUSED(oldFocusedNode, oldFocusedNode != element());
     if (RefPtr frame = element()->document().frame()) {
         frame->editor().textFieldDidBeginEditing(*element());
-#if ENABLE(DATALIST_ELEMENT)
-        if (shouldOnlyShowDataListDropdownButtonWhenFocusedOrEdited() && element()->list() && m_dataListDropdownIndicator)
-            m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, suggestions().size() ? CSSValueBlock : CSSValueNone, true);
-#endif
     }
 }
 
@@ -289,22 +293,19 @@ void TextFieldInputType::handleBlurEvent()
     InputType::handleBlurEvent();
     ASSERT(element());
     element()->endEditing();
-#if ENABLE(DATALIST_ELEMENT)
-    if (shouldOnlyShowDataListDropdownButtonWhenFocusedOrEdited() && element()->list() && m_dataListDropdownIndicator)
-        m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, true);
-#endif
 }
 
 bool TextFieldInputType::shouldSubmitImplicitly(Event& event)
 {
-    return (event.type() == eventNames().textInputEvent && is<TextEvent>(event) && downcast<TextEvent>(event).data() == "\n"_s)
+    auto* textEvent = dynamicDowncast<TextEvent>(event);
+    return (event.type() == eventNames().textInputEvent && textEvent && textEvent->data() == "\n"_s)
         || InputType::shouldSubmitImplicitly(event);
 }
 
 RenderPtr<RenderElement> TextFieldInputType::createInputRenderer(RenderStyle&& style)
 {
     ASSERT(element());
-    return createRenderer<RenderTextControlSingleLine>(*element(), WTFMove(style));
+    return createRenderer<RenderTextControlSingleLine>(RenderObject::Type::TextControlSingleLine, *element(), WTFMove(style));
 }
 
 bool TextFieldInputType::needsContainer() const
@@ -356,11 +357,13 @@ void TextFieldInputType::createShadowSubtree()
     if (!createsContainer) {
         element()->userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, *m_innerText);
         updatePlaceholderText();
+        updateInnerTextValue();
         return;
     }
 
     createContainer(PreserveSelectionRange::No);
     updatePlaceholderText();
+    updateInnerTextValue();
 
     if (shouldHaveSpinButton) {
         m_innerSpinButton = SpinButtonElement::create(document, *this);
@@ -414,9 +417,9 @@ HTMLElement* TextFieldInputType::placeholderElement() const
     return m_placeholder.get();
 }
 
-void TextFieldInputType::destroyShadowSubtree()
+void TextFieldInputType::removeShadowSubtree()
 {
-    InputType::destroyShadowSubtree();
+    InputType::removeShadowSubtree();
     m_innerText = nullptr;
     m_placeholder = nullptr;
     m_innerBlock = nullptr;
@@ -434,7 +437,7 @@ void TextFieldInputType::destroyShadowSubtree()
 void TextFieldInputType::attributeChanged(const QualifiedName& name)
 {
     if (name == valueAttr || name == placeholderAttr) {
-        if (element())
+        if (element() && element()->shadowRoot())
             updateInnerTextValue();
     }
     InputType::attributeChanged(name);
@@ -487,19 +490,6 @@ void TextFieldInputType::createDataListDropdownIndicator()
     m_container->appendChild(*m_dataListDropdownIndicator);
     m_dataListDropdownIndicator->setPseudo(ShadowPseudoIds::webkitListButton());
     m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, true);
-}
-
-bool TextFieldInputType::shouldOnlyShowDataListDropdownButtonWhenFocusedOrEdited() const
-{
-#if PLATFORM(IOS_FAMILY)
-#if ENABLE(IOS_FORM_CONTROL_REFRESH)
-    return !element()->document().settings().iOSFormControlRefreshEnabled();
-#else
-    return true;
-#endif
-#else
-    return false;
-#endif
 }
 
 #endif // ENABLE(DATALIST_ELEMENT)
@@ -669,7 +659,10 @@ void TextFieldInputType::updatePlaceholderText()
     }
     if (!m_placeholder) {
         m_placeholder = TextControlPlaceholderElement::create(element()->document());
-        element()->userAgentShadowRoot()->insertBefore(*m_placeholder, m_container ? m_container.get() : innerTextElement().get());
+        if (m_container)
+            element()->userAgentShadowRoot()->insertBefore(*m_placeholder, m_container.copyRef());
+        else
+            element()->userAgentShadowRoot()->insertBefore(*m_placeholder, innerTextElement());
     }
     m_placeholder->setInnerText(WTFMove(placeholderText));
 }
@@ -678,9 +671,11 @@ bool TextFieldInputType::appendFormData(DOMFormData& formData) const
 {
     InputType::appendFormData(formData);
     ASSERT(element());
-    auto& dirnameAttrValue = element()->attributeWithoutSynchronization(dirnameAttr);
-    if (!dirnameAttrValue.isNull())
-        formData.append(dirnameAttrValue, element()->directionForFormData());
+    // FIXME: should type=number be TextFieldInputType to begin with?
+    if (element()->isNumberField())
+        return true;
+    if (auto& dirname = element()->attributeWithoutSynchronization(dirnameAttr); !dirname.isNull())
+        formData.append(dirname, element()->directionForFormData());
     return true;
 }
 
@@ -723,9 +718,6 @@ void TextFieldInputType::didSetValueByUserEdit()
     if (RefPtr frame = element()->document().frame())
         frame->editor().textDidChangeInTextField(*element());
 #if ENABLE(DATALIST_ELEMENT)
-    if (shouldOnlyShowDataListDropdownButtonWhenFocusedOrEdited() && element()->list() && m_dataListDropdownIndicator)
-        m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, suggestions().size() ? CSSValueBlock : CSSValueNone, true);
-
     if (element()->list())
         displaySuggestions(DataListSuggestionActivationType::TextChanged);
 #endif
@@ -918,8 +910,7 @@ void TextFieldInputType::dataListMayHaveChanged()
         createDataListDropdownIndicator();
     if (!element())
         return;
-    if (!shouldOnlyShowDataListDropdownButtonWhenFocusedOrEdited())
-        m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, element()->list() ? CSSValueBlock : CSSValueNone, true);
+    m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, element()->list() ? CSSValueBlock : CSSValueNone, true);
 }
 
 HTMLElement* TextFieldInputType::dataListButtonElement() const

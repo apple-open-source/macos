@@ -914,6 +914,15 @@ kern_return_t ucsp_server_getKeyDigest(UCSP_ARGS, KeyHandle key, DATA_OUT(digest
 	END_IPC(CSP)
 }
 
+kern_return_t ucsp_server_getPublicKey(UCSP_ARGS, DATA_IN(context), KeyHandle key, DATA_OUT(pubKey))
+{
+    BEGIN_IPC(getKeyDigest)
+    CopyOutContext ctx(context, contextLength);
+    OutputData pubKeyData(pubKey, pubKeyLength);
+    Server::key(key)->publicKey(*ctx, pubKeyData);
+    END_IPC(CSP)
+}
+
 
 //
 // Signatures and MACs

@@ -298,6 +298,12 @@ zh{
         ZW{"津巴布韦"}
         ZZ{"未知地区"}
     }
+    Countries%prc{
+        CN{"中国"}
+        HK{"香港（中国）"}
+        MO{"澳门（中国）"}
+        TW{"台湾（中国）"}
+    }
     Countries%short{
         PS{"巴勒斯坦"}
     }

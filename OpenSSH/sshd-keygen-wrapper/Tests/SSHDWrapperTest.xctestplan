@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "13EB7056-E243-484A-8C28-2180FA7CDC6E",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:OpenSSH.xcodeproj",
+        "identifier" : "2EE99CB12AF817C70042361E",
+        "name" : "SSHDWrapperTest"
+      }
+    }
+  ],
+  "version" : 1
+}

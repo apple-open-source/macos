@@ -1208,6 +1208,7 @@ sub GeneratePut
     # Temporary quirk for ungap/@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.
     if (!$namedSetterOperation && !$indexedSetterOperation) {
        AddToImplIncludes("Document.h");
+       AddToImplIncludes("DocumentInlines.h");
        AddToImplIncludes("Quirks.h");
        push(@$outputArray, "\n    // Temporary quirk for ungap/\@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.\n");
        push(@$outputArray, "    if (auto* document = dynamicDowncast<Document>(jsDynamicCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext())) {\n");
@@ -1275,7 +1276,12 @@ sub GeneratePut
     }
 
     push(@$outputArray, "    throwScope.assertNoException();\n");
-    if (InstanceOverridesDefineOwnProperty($interface)) {
+    if (InstanceOverridesDefineOwnProperty($interface) && (InstanceOverridesNamedDefineOwnProperty($interface) || !$indexedSetterOperation)) {
+        if (!InstanceOverridesNamedDefineOwnProperty($interface)) {
+            push(@$outputArray, "    if (!parseIndex(propertyName))\n");
+            push(@$outputArray, "        RELEASE_AND_RETURN(throwScope, JSObject::put(thisObject, lexicalGlobalObject, propertyName, value, putPropertySlot));\n\n");
+        }
+
         if (InstanceOverridesGetOwnPropertySlot($interface) && !$interface->extendedAttributes->{CustomGetOwnPropertySlot}) {
             push(@$outputArray, "    PropertyDescriptor ownDescriptor;\n");
             push(@$outputArray, "    PropertySlot slot(thisObject, PropertySlot::InternalMethodType::GetOwnProperty);;\n");
@@ -1313,6 +1319,7 @@ sub GeneratePutByIndex
     # Temporary quirk for ungap/@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.
     if (!$namedSetterOperation && !$indexedSetterOperation) {
        AddToImplIncludes("Document.h");
+       AddToImplIncludes("DocumentInlines.h");
        AddToImplIncludes("Quirks.h");
        push(@$outputArray, "\n    // Temporary quirk for ungap/\@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.\n");
        push(@$outputArray, "    if (auto* document = dynamicDowncast<Document>(jsDynamicCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext())) {\n");
@@ -1604,6 +1611,7 @@ sub GenerateDeleteProperty
     # Temporary quirk for ungap/@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.
     if (!$namedDeleterOperation) {
        AddToImplIncludes("Document.h");
+       AddToImplIncludes("DocumentInlines.h");
        AddToImplIncludes("Quirks.h");
        push(@$outputArray, "\n    // Temporary quirk for ungap/\@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.\n");
        push(@$outputArray, "    if (auto* document = dynamicDowncast<Document>(jsDynamicCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext())) {\n");
@@ -1656,6 +1664,7 @@ sub GenerateDeletePropertyByIndex
     # Temporary quirk for ungap/@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.
     if (!$namedDeleterOperation) {
        AddToImplIncludes("Document.h");
+       AddToImplIncludes("DocumentInlines.h");
        AddToImplIncludes("Quirks.h");
        push(@$outputArray, "\n    // Temporary quirk for ungap/\@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.\n");
        push(@$outputArray, "    if (auto* document = dynamicDowncast<Document>(jsDynamicCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext())) {\n");
@@ -2289,14 +2298,27 @@ sub InstanceOverridesPut
         || GetNamedGetterOperation($interface);
 }
 
-sub InstanceOverridesDefineOwnProperty
+sub InstanceOverridesIndexedDefineOwnProperty
 {
     my $interface = shift;
     return $interface->extendedAttributes->{CustomDefineOwnProperty}
         || GetIndexedSetterOperation($interface)
-        || GetIndexedGetterOperation($interface)
+        || GetIndexedGetterOperation($interface);
+}
+
+sub InstanceOverridesNamedDefineOwnProperty
+{
+    my $interface = shift;
+    return $interface->extendedAttributes->{CustomDefineOwnProperty}
         || GetNamedSetterOperation($interface)
         || GetNamedGetterOperation($interface);
+}
+
+sub InstanceOverridesDefineOwnProperty
+{
+    my $interface = shift;
+    return InstanceOverridesIndexedDefineOwnProperty($interface)
+        || InstanceOverridesNamedDefineOwnProperty($interface);
 }
 
 sub InstanceOverridesDeleteProperty
@@ -4247,6 +4269,7 @@ sub GenerateRuntimeEnableConditionalString
         assert("Must specify value for EnabledByQuirk.") if $context->extendedAttributes->{DisabledByQuirk} eq "VALUE_IS_MISSING";
 
         AddToImplIncludes("Document.h");
+        AddToImplIncludes("DocumentInlines.h");
         AddToImplIncludes("Quirks.h");
 
         assert("EnabledByQuirk can only be used by interfaces only exposed to the Window") if $interface->extendedAttributes->{Exposed} && $interface->extendedAttributes->{Exposed} ne "Window";
@@ -4261,6 +4284,7 @@ sub GenerateRuntimeEnableConditionalString
         assert("Must specify value for DisabledByQuirk.") if $context->extendedAttributes->{DisabledByQuirk} eq "VALUE_IS_MISSING";
 
         AddToImplIncludes("Document.h");
+        AddToImplIncludes("DocumentInlines.h");
         AddToImplIncludes("Quirks.h");
 
         assert("DisabledByQuirk can only be used by interfaces only exposed to the Window") if $interface->extendedAttributes->{Exposed} && $interface->extendedAttributes->{Exposed} ne "Window";
@@ -4975,7 +4999,7 @@ sub GenerateImplementation
         $hasNonTrivialFinishCreation = 1;
     }
     if ($interface->extendedAttributes->{ReportExtraMemoryCost}) {
-        push(@finishCreation, "    vm.heap.reportExtraMemoryAllocated(wrapped().memoryCost());\n");
+        push(@finishCreation, "    vm.heap.reportExtraMemoryAllocated(this, wrapped().memoryCost());\n");
         $hasNonTrivialFinishCreation = 1;
     }
     push(@finishCreation, "}\n");
@@ -6222,7 +6246,6 @@ sub GenerateCallWith
         push(@$outputArray, $indent . "auto* context = ${scriptExecutionContextAccessor}->scriptExecutionContext();\n");
         push(@$outputArray, $indent . "if (UNLIKELY(!context))\n");
         push(@$outputArray, $indent . "    return" . ($contextMissing ? " " . $contextMissing : "") . ";\n");
-        push(@$outputArray, $indent . "ASSERT(context->isDocument());\n");
         push(@$outputArray, $indent . "auto& document = downcast<Document>(*context);\n");
         push(@callWithArgs, "document");
     }
@@ -6232,7 +6255,6 @@ sub GenerateCallWith
         push(@$outputArray, $indent . "auto* context = ${relevantGlobalObjectPointer}->scriptExecutionContext();\n");
         push(@$outputArray, $indent . "if (UNLIKELY(!context))\n");
         push(@$outputArray, $indent . "    return" . ($contextMissing ? " " . $contextMissing : "") . ";\n");
-        push(@$outputArray, $indent . "ASSERT(context->isDocument());\n");
         push(@$outputArray, $indent . "auto& document = downcast<Document>(*context);\n");
         push(@callWithArgs, "document");
     }
@@ -6697,6 +6719,7 @@ sub GenerateCallbackImplementationContent
     my $className = "JS${name}";
 
     $includesRef->{"ScriptExecutionContext.h"} = 1;
+    $includesRef->{"ContextDestructionObserverInlines.h"} = 1;
 
     # Constructor
     push(@$contentRef, "${className}::${className}(JSObject* callback, JSDOMGlobalObject* globalObject)\n");

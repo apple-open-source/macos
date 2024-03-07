@@ -26,11 +26,11 @@ struct Certificate {
     /// Returns the common name of the subject of a given certificate.
     ///
     ///
-    func commonName() throws -> Array<String> { }
+    func commonName() throws -> [String] { }
 
     /// Returns an array of zero or more email addresses for the subject of a given certificate.
     ///
-    func emailAddresses() throws -> Array<String> { }
+    func emailAddresses() throws -> [String] { }
 
     /// Return the certificate's normalized issuer
     ///

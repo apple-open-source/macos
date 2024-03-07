@@ -28,6 +28,7 @@
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
 #include <WebCore/RealtimeMediaSource.h>
+#include <wtf/Deque.h>
 
 namespace IPC {
 class Connection;
@@ -68,10 +69,14 @@ public:
 
     bool isEnded() const { return m_isEnded; }
     void end();
-    void startProducingData();
+    void startProducingData(WebCore::PageIdentifier);
     void stopProducingData();
     void endProducingData();
     void applyConstraints(const WebCore::MediaConstraints&, WebCore::RealtimeMediaSource::ApplyConstraintsHandler&&);
+
+    Ref<WebCore::RealtimeMediaSource::TakePhotoNativePromise> takePhoto(WebCore::PhotoSettings&&);
+    Ref<WebCore::RealtimeMediaSource::PhotoCapabilitiesNativePromise> getPhotoCapabilities();
+    Ref<WebCore::RealtimeMediaSource::PhotoSettingsNativePromise> getPhotoSettings();
 
     void whenReady(CompletionHandler<void(WebCore::CaptureSourceError&&)>&&);
     void setAsReady();
@@ -92,7 +97,7 @@ private:
     bool m_shouldCaptureInGPUProcess { false };
 
     WebCore::MediaConstraints m_constraints;
-    Deque<WebCore::RealtimeMediaSource::ApplyConstraintsHandler> m_pendingApplyConstraintsCallbacks;
+    Deque<std::pair<WebCore::RealtimeMediaSource::ApplyConstraintsHandler, WebCore::MediaConstraints>> m_pendingApplyConstraintsRequests;
     bool m_isReady { false };
     CompletionHandler<void(WebCore::CaptureSourceError&&)> m_callback;
     WebCore::CaptureSourceError m_failureReason;

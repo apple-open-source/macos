@@ -303,8 +303,8 @@ LegacyRootInlineBox* LegacyLineLayout::constructLine(BidiRunList<BidiRun>& bidiR
     for (BidiRun* r = bidiRuns.firstRun(); r; r = r->next()) {
         // Create a box for our object.
         bool isOnlyRun = (runCount == 1);
-        if (runCount == 2 && !r->renderer().isListMarker())
-            isOnlyRun = (!style().isLeftToRightDirection() ? bidiRuns.lastRun() : bidiRuns.firstRun())->renderer().isListMarker();
+        if (runCount == 2 && !r->renderer().isRenderListMarker())
+            isOnlyRun = (!style().isLeftToRightDirection() ? bidiRuns.lastRun() : bidiRuns.firstRun())->renderer().isRenderListMarker();
 
         if (lineInfo.isEmpty())
             continue;
@@ -344,7 +344,7 @@ LegacyRootInlineBox* LegacyLineLayout::constructLine(BidiRunList<BidiRun>& bidiR
     // paint borders/margins/padding. This knowledge will ultimately be used when
     // we determine the horizontal positions and widths of all the inline boxes on
     // the line.
-    bool isLogicallyLastRunWrapped = bidiRuns.logicallyLastRun()->renderer().isText() ? !reachedEndOfTextRenderer(bidiRuns) : !is<RenderInline>(bidiRuns.logicallyLastRun()->renderer());
+    bool isLogicallyLastRunWrapped = bidiRuns.logicallyLastRun()->renderer().isRenderText() ? !reachedEndOfTextRenderer(bidiRuns) : !is<RenderInline>(bidiRuns.logicallyLastRun()->renderer());
     lastRootBox()->determineSpacingForFlowBoxes(lineInfo.isLastLine(), isLogicallyLastRunWrapped, &bidiRuns.logicallyLastRun()->renderer());
 
     // Now mark the line boxes as being constructed.
@@ -458,7 +458,7 @@ void LegacyLineLayout::setMarginsForRubyRun(BidiRun* run, RenderRubyRun& rendere
 static inline void setLogicalWidthForTextRun(LegacyRootInlineBox* lineBox, BidiRun* run, RenderText& renderer, float xPos, const LineInfo& lineInfo,
     GlyphOverflowAndFallbackFontsMap& textBoxDataMap, VerticalPositionCache& verticalPositionCache, WordMeasurements& wordMeasurements)
 {
-    HashSet<const Font*> fallbackFonts;
+    SingleThreadWeakHashSet<const Font> fallbackFonts;
     GlyphOverflow glyphOverflow;
 
     const FontCascade& font = lineStyle(*renderer.parent(), lineInfo).fontCascade();
@@ -528,9 +528,9 @@ static inline void setLogicalWidthForTextRun(LegacyRootInlineBox* lineBox, BidiR
     ASSERT(hyphenWidth >= 0);
 
     run->box()->setLogicalWidth(measuredWidth + hyphenWidth);
-    if (!fallbackFonts.isEmpty()) {
+    if (!fallbackFonts.isEmptyIgnoringNullReferences()) {
         ASSERT(run->box()->behavesLikeText());
-        GlyphOverflowAndFallbackFontsMap::iterator it = textBoxDataMap.add(downcast<LegacyInlineTextBox>(run->box()), std::make_pair(Vector<const Font*>(), GlyphOverflow())).iterator;
+        GlyphOverflowAndFallbackFontsMap::iterator it = textBoxDataMap.add(downcast<LegacyInlineTextBox>(run->box()), std::make_pair(Vector<SingleThreadWeakPtr<const Font>>(), GlyphOverflow())).iterator;
         ASSERT(it->value.first.isEmpty());
         it->value.first = copyToVector(fallbackFonts);
         run->box()->parent()->clearDescendantsHaveSameLineHeightAndBaseline();
@@ -544,7 +544,7 @@ static inline void setLogicalWidthForTextRun(LegacyRootInlineBox* lineBox, BidiR
 
     if (!glyphOverflow.isEmpty()) {
         ASSERT(run->box()->behavesLikeText());
-        GlyphOverflowAndFallbackFontsMap::iterator it = textBoxDataMap.add(downcast<LegacyInlineTextBox>(run->box()), std::make_pair(Vector<const Font*>(), GlyphOverflow())).iterator;
+        GlyphOverflowAndFallbackFontsMap::iterator it = textBoxDataMap.add(downcast<LegacyInlineTextBox>(run->box()), std::make_pair(Vector<SingleThreadWeakPtr<const Font>>(), GlyphOverflow())).iterator;
         it->value.second = glyphOverflow;
         run->box()->clearKnownToHaveNoOverflow();
     }
@@ -1174,14 +1174,12 @@ static inline void constructBidiRunsForSegment(InlineBidiResolver& topResolver, 
     // of the resolver owning the runs.
     ASSERT(&topResolver.runs() == &bidiRuns);
     ASSERT(topResolver.position() != endOfRuns);
-    RenderObject* currentRoot = topResolver.position().root();
     topResolver.createBidiRunsForLine(endOfRuns, override, previousLineBrokeCleanly);
 
     while (!topResolver.isolatedRuns().isEmpty()) {
         // It does not matter which order we resolve the runs as long as we resolve them all.
         auto isolatedRun = WTFMove(topResolver.isolatedRuns().last());
         topResolver.isolatedRuns().removeLast();
-        currentRoot = &isolatedRun.root;
 
         RenderObject& startObject = isolatedRun.object;
 
@@ -1190,7 +1188,7 @@ static inline void constructBidiRunsForSegment(InlineBidiResolver& topResolver, 
         // tree to see which parent inline is the isolate. We could change enterIsolate
         // to take a RenderObject and do this logic there, but that would be a layering
         // violation for BidiResolver (which knows nothing about RenderObject).
-        RenderInline* isolatedInline = downcast<RenderInline>(highestContainingIsolateWithinRoot(startObject, currentRoot));
+        RenderInline* isolatedInline = downcast<RenderInline>(highestContainingIsolateWithinRoot(startObject, &isolatedRun.root));
         ASSERT(isolatedInline);
 
         InlineBidiResolver isolatedResolver;
@@ -1267,7 +1265,7 @@ LegacyRootInlineBox* LegacyLineLayout::createLineBoxesFromBidiRuns(unsigned bidi
     // contains reversed text or not. If we wouldn't do that editing and thus
     // text selection in RTL boxes would not work as expected.
     if (isSVGRootInlineBox) {
-        RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(m_flow.isSVGText());
+        RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(m_flow.isRenderSVGText());
         downcast<SVGRootInlineBox>(*lineBox).computePerCharacterLayoutInformation();
     }
     
@@ -1335,12 +1333,12 @@ void LegacyLineLayout::layoutRunsAndFloats(LineLayoutState& layoutState, bool ha
     // determineStartPosition first will break fast/repaint/line-flow-with-floats-9.html.
     if (layoutState.isFullLayout() && hasInlineChild && !m_flow.selfNeedsLayout()) {
         m_flow.setNeedsLayout(MarkOnlyThis); // Mark as needing a full layout to force us to repaint.
-        if (!layoutContext().needsFullRepaint() && m_flow.layerRepaintRects()) {
+        if (!layoutContext().needsFullRepaint() && m_flow.cachedLayerClippedOverflowRect()) {
             // Because we waited until we were already inside layout to discover
             // that the block really needed a full layout, we missed our chance to repaint the layer
             // before layout started. Luckily the layer has cached the repaint rect for its original
             // position and size, and so we can use that to make a repaint happen now.
-            m_flow.repaintUsingContainer(m_flow.containerForRepaint().renderer, m_flow.layerRepaintRects()->clippedOverflowRect);
+            m_flow.repaintUsingContainer(m_flow.containerForRepaint().renderer.get(), *m_flow.cachedLayerClippedOverflowRect());
         }
     }
 
@@ -1710,10 +1708,6 @@ void LegacyLineLayout::layoutLineBoxes(bool relayoutChildren, LayoutUnit& repain
 {
     m_flow.setLogicalHeight(m_flow.borderAndPaddingBefore());
     
-    // Lay out our hypothetical grid line as though it occurs at the top of the block.
-    if (layoutContext().layoutState() && layoutContext().layoutState()->lineGrid() == &m_flow)
-        m_flow.layoutLineGridBox();
-
     RenderFragmentedFlow* fragmentedFlow = m_flow.enclosingFragmentedFlow();
     bool clearLinesForPagination = firstRootBox() && fragmentedFlow && !fragmentedFlow->hasFragments();
 
@@ -1782,7 +1776,7 @@ void LegacyLineLayout::layoutLineBoxes(bool relayoutChildren, LayoutUnit& repain
                     else
                         box.layoutIfNeeded();
                 }
-            } else if (o.isTextOrLineBreak() || is<RenderInline>(o)) {
+            } else if (o.isRenderTextOrLineBreak() || is<RenderInline>(o)) {
                 if (layoutState.isFullLayout() || o.selfNeedsLayout()) {
                     dirtyLineBoxesForRenderer(o, layoutState.isFullLayout());
                     hasDirtyRenderCounterWithInlineBoxParent = hasDirtyRenderCounterWithInlineBoxParent || (is<RenderCounter>(o) && is<RenderInline>(o.parent()));

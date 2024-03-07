@@ -28,7 +28,6 @@
 #include "APIObject.h"
 #include "ImageOptions.h"
 #include "ShareableBitmap.h"
-#include <WebCore/ImageBufferBackend.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
@@ -37,6 +36,7 @@ class GraphicsContext;
 class ImageBuffer;
 class IntSize;
 class NativeImage;
+struct ImageBufferParameters;
 }
 
 namespace WebKit {
@@ -45,14 +45,19 @@ namespace WebKit {
 
 class WebImage : public API::ObjectImpl<API::Object::Type::Image> {
 public:
-    static RefPtr<WebImage> create(const WebCore::IntSize&, ImageOptions, const WebCore::DestinationColorSpace&, WebCore::ChromeClient* = nullptr);
-    static RefPtr<WebImage> create(const WebCore::ImageBufferBackend::Parameters&, ShareableBitmap::Handle&&);
+    using ParametersAndHandle = std::pair<WebCore::ImageBufferParameters, ShareableBitmap::Handle>;
+
+    static Ref<WebImage> create(const WebCore::IntSize&, ImageOptions, const WebCore::DestinationColorSpace&, WebCore::ChromeClient* = nullptr);
+    static Ref<WebImage> create(std::optional<ParametersAndHandle>&&);
     static Ref<WebImage> create(Ref<WebCore::ImageBuffer>&&);
+    static Ref<WebImage> createEmpty();
 
     WebCore::IntSize size() const;
-    const WebCore::ImageBufferBackend::Parameters& parameters() const;
+    const WebCore::ImageBufferParameters* parameters() const;
+    std::optional<ParametersAndHandle> parametersAndHandle() const;
+    bool isEmpty() const { return !m_buffer; }
 
-    WebCore::GraphicsContext& context() const;
+    WebCore::GraphicsContext* context() const;
 
     RefPtr<WebCore::NativeImage> copyNativeImage(WebCore::BackingStoreCopy = WebCore::CopyBackingStore) const;
     RefPtr<ShareableBitmap> bitmap() const;
@@ -60,12 +65,16 @@ public:
     RefPtr<cairo_surface_t> createCairoSurface();
 #endif
 
-    ShareableBitmap::Handle createHandle(SharedMemory::Protection = SharedMemory::Protection::ReadWrite) const;
+    std::optional<ShareableBitmap::Handle> createHandle(SharedMemory::Protection = SharedMemory::Protection::ReadWrite) const;
 
 private:
-    WebImage(Ref<WebCore::ImageBuffer>&&);
+    WebImage(RefPtr<WebCore::ImageBuffer>&&);
 
-    Ref<WebCore::ImageBuffer> m_buffer;
+    RefPtr<WebCore::ImageBuffer> m_buffer;
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebImage)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::Image; }
+SPECIALIZE_TYPE_TRAITS_END()

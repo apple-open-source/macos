@@ -580,6 +580,23 @@ static WebKit::UnifiedOriginStorageLevel toUnifiedOriginStorageLevel(_WKUnifiedO
     _configuration->setVolumeCapacityOverride(capacity);
 }
 
+- (BOOL)isDeclarativeWebPushEnabled
+{
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+    return _configuration->isDeclarativeWebPushEnabled();
+#else
+    return NO;
+#endif
+}
+
+- (void)setIsDeclarativeWebPushEnabled:(BOOL)enabled
+{
+    UNUSED_PARAM(enabled);
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+    _configuration->setIsDeclarativeWebPushEnabled(enabled);
+#endif
+}
+
 - (NSUInteger)testSpeedMultiplier
 {
     return _configuration->testSpeedMultiplier();
@@ -697,20 +714,12 @@ static WebKit::UnifiedOriginStorageLevel toUnifiedOriginStorageLevel(_WKUnifiedO
 
 - (BOOL)_shouldAcceptInsecureCertificatesForWebSockets
 {
-#if !HAVE(NSURLSESSION_WEBSOCKET)
-    return _configuration->shouldAcceptInsecureCertificatesForWebSockets();
-#else
     return false;
-#endif
 }
 
 - (void)_setShouldAcceptInsecureCertificatesForWebSockets:(BOOL)accept
 {
-#if !HAVE(NSURLSESSION_WEBSOCKET)
-    _configuration->setShouldAcceptInsecureCertificatesForWebSockets(accept);
-#else
     UNUSED_PARAM(accept);
-#endif
 }
 
 - (void)setProxyConfiguration:(NSDictionary *)configuration

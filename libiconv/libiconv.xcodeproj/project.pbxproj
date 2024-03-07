@@ -12,8 +12,10 @@
 			buildConfigurationList = 2A36355D28AB694000D47F6C /* Build configuration list for PBXAggregateTarget "tests" */;
 			buildPhases = (
 				2A36389328C25C9200D47F6C /* ShellScript */,
+				2A5466552B04740A005C5CBB /* Copy libcharset Test Files */,
 			);
 			dependencies = (
+				2A5466542B047403005C5CBB /* PBXTargetDependency */,
 				2A36356028AB695200D47F6C /* PBXTargetDependency */,
 				2A0C0BF02A59113A005B6BED /* PBXTargetDependency */,
 			);
@@ -102,6 +104,9 @@
 		2A17DEB72835F6B900F79BDB /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A17DEB62835F6B900F79BDB /* libiconv.tbd */; };
 		2A32528027A8CD410082673B /* libiconv.plist in OS plist */ = {isa = PBXBuildFile; fileRef = 2A0609CD27A8CD2D00116170 /* libiconv.plist */; };
 		2A32528127A8CD450082673B /* libiconv.txt in OS licenses */ = {isa = PBXBuildFile; fileRef = 2A0609CE27A8CD3200116170 /* libiconv.txt */; };
+		2A5466522B0473D6005C5CBB /* print_charset.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5466502B0473BB005C5CBB /* print_charset.c */; };
+		2A5466562B047425005C5CBB /* test_charset.sh in Copy libcharset Test Files */ = {isa = PBXBuildFile; fileRef = 2A54664F2B0473BB005C5CBB /* test_charset.sh */; };
+		2A5466572B04775A005C5CBB /* libcharset.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A057D66272BAFEF00512A53 /* libcharset.1.dylib */; };
 		2A555227278E9AF500491046 /* citrus_mapper_serial.c in Sources */ = {isa = PBXBuildFile; fileRef = A97198B0267793930095A589 /* citrus_mapper_serial.c */; };
 		2A555229278E9AF500491046 /* libiconv.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5976ACFC1007D6A5000AD30B /* libiconv.2.dylib */; };
 		2A555230278E9B5200491046 /* citrus_mapper_parallel.h in Headers */ = {isa = PBXBuildFile; fileRef = 2A55522F278E9B4000491046 /* citrus_mapper_parallel.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -286,6 +291,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2A36355C28AB694000D47F6C;
 			remoteInfo = tests;
+		};
+		2A5466532B047403005C5CBB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5976A9801007BEBD000AD30B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A5466472B04735D005C5CBB;
+			remoteInfo = print_charset;
 		};
 		2A55522D278E9B1C00491046 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -518,6 +530,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		2A5466462B04735D005C5CBB /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A5466552B04740A005C5CBB /* Copy libcharset Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/libiconv/libcharset;
+			dstSubfolderSpec = 0;
+			files = (
+				2A5466562B047425005C5CBB /* test_charset.sh in Copy libcharset Test Files */,
+			);
+			name = "Copy libcharset Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		594FCA33100BE26E009FDDA8 /* Copy man pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -626,6 +658,9 @@
 		2A17DEB62835F6B900F79BDB /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = usr/lib/libiconv.tbd; sourceTree = SDKROOT; };
 		2A17DEB82835F71200F79BDB /* libatf-c.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libatf-c.tbd"; path = "Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/usr/local/lib/libatf-c.tbd"; sourceTree = DEVELOPER_DIR; };
 		2A36356328AB697E00D47F6C /* libiconv.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = libiconv.plist; path = tests/libiconv.plist; sourceTree = "<group>"; };
+		2A5466482B04735D005C5CBB /* print_charset */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = print_charset; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A54664F2B0473BB005C5CBB /* test_charset.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = test_charset.sh; path = tests/libcharset/test_charset.sh; sourceTree = "<group>"; };
+		2A5466502B0473BB005C5CBB /* print_charset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = print_charset.c; path = tests/libcharset/print_charset.c; sourceTree = "<group>"; };
 		2A55522C278E9AF500491046 /* libmapper_parallel.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libmapper_parallel.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A55522F278E9B4000491046 /* citrus_mapper_parallel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = citrus_mapper_parallel.h; sourceTree = "<group>"; };
 		2A8764592929C83F00D9D285 /* libDECKanji.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libDECKanji.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -825,6 +860,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				2A17DEB72835F6B900F79BDB /* libiconv.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A5466452B04735D005C5CBB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A5466572B04775A005C5CBB /* libcharset.1.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1075,6 +1118,7 @@
 		2A17DEA62835F62600F79BDB /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				2A54664E2B047376005C5CBB /* libcharset */,
 				2A17DEA82835F63B00F79BDB /* libiconv */,
 				2A36356328AB697E00D47F6C /* libiconv.plist */,
 			);
@@ -1088,6 +1132,15 @@
 				2A0C0BEB2A58A132005B6BED /* mbopt_test.c */,
 			);
 			name = libiconv;
+			sourceTree = "<group>";
+		};
+		2A54664E2B047376005C5CBB /* libcharset */ = {
+			isa = PBXGroup;
+			children = (
+				2A5466502B0473BB005C5CBB /* print_charset.c */,
+				2A54664F2B0473BB005C5CBB /* test_charset.sh */,
+			);
+			name = libcharset;
 			sourceTree = "<group>";
 		};
 		2A87645C2929C88C00D9D285 /* DECKanji */ = {
@@ -1165,6 +1218,7 @@
 				2A17DEAF2835F68400F79BDB /* libiconv_test */,
 				2A8764592929C83F00D9D285 /* libDECKanji.dylib */,
 				2A0C0BEA2A58A107005B6BED /* mbopt_test */,
+				2A5466482B04735D005C5CBB /* print_charset */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1837,6 +1891,23 @@
 			productReference = 2A17DEAF2835F68400F79BDB /* libiconv_test */;
 			productType = "com.apple.product-type.tool";
 		};
+		2A5466472B04735D005C5CBB /* print_charset */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A54664D2B04735D005C5CBB /* Build configuration list for PBXNativeTarget "print_charset" */;
+			buildPhases = (
+				2A5466442B04735D005C5CBB /* Sources */,
+				2A5466452B04735D005C5CBB /* Frameworks */,
+				2A5466462B04735D005C5CBB /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = print_charset;
+			productName = print_charset;
+			productReference = 2A5466482B04735D005C5CBB /* print_charset */;
+			productType = "com.apple.product-type.tool";
+		};
 		2A555223278E9AF500491046 /* mapper_parallel */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2A55522A278E9AF500491046 /* Build configuration list for PBXNativeTarget "mapper_parallel" */;
@@ -2333,6 +2404,9 @@
 					2A36355C28AB694000D47F6C = {
 						CreatedOnToolsVersion = 14.0;
 					};
+					2A5466472B04735D005C5CBB = {
+						CreatedOnToolsVersion = 15.0;
+					};
 					A9719861267791070095A589 = {
 						ProvisioningStyle = Automatic;
 					};
@@ -2452,6 +2526,7 @@
 				A9719990267796CA0095A589 /* VIQR */,
 				A971999E267796E10095A589 /* ZW */,
 				2A36355C28AB694000D47F6C /* tests */,
+				2A5466472B04735D005C5CBB /* print_charset */,
 			);
 		};
 /* End PBXProject section */
@@ -2543,6 +2618,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				2A17DEB52835F69800F79BDB /* libiconv_test.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A5466442B04735D005C5CBB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A5466522B0473D6005C5CBB /* print_charset.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2834,6 +2917,11 @@
 			target = 2A36355C28AB694000D47F6C /* tests */;
 			targetProxy = 2A36356128AB695B00D47F6C /* PBXContainerItemProxy */;
 		};
+		2A5466542B047403005C5CBB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A5466472B04735D005C5CBB /* print_charset */;
+			targetProxy = 2A5466532B047403005C5CBB /* PBXContainerItemProxy */;
+		};
 		2A55522E278E9B1C00491046 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2A555223278E9AF500491046 /* mapper_parallel */;
@@ -3046,7 +3134,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME).1";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				SDKROOT = macosx;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = NO;
 			};
 			name = Release;
@@ -3223,6 +3311,63 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		2A54664C2B04735D005C5CBB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/Tests/libiconv/libcharset;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -4788,6 +4933,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2A36355E28AB694000D47F6C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A54664D2B04735D005C5CBB /* Build configuration list for PBXNativeTarget "print_charset" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A54664C2B04735D005C5CBB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

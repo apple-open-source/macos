@@ -518,6 +518,7 @@ DISPATCH_COLD
 size_t _dispatch_object_debug_attr(dispatch_object_t dou, char* buf,
 		size_t bufsiz);
 void *_dispatch_object_alloc(const void *vtable, size_t size);
+void *_dispatch_object_alloc_bridged(const void *vtable, size_t size);
 void _dispatch_object_finalize(dispatch_object_t dou);
 void _dispatch_object_dealloc(dispatch_object_t dou);
 void _dispatch_xref_dispose(dispatch_object_t dou);

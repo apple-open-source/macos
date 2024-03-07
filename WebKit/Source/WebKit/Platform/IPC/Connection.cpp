@@ -27,6 +27,7 @@
 #include "Connection.h"
 
 #include "Encoder.h"
+#include "GeneratedSerializers.h"
 #include "Logging.h"
 #include "MessageFlags.h"
 #include "MessageReceiveQueues.h"
@@ -303,9 +304,9 @@ Ref<Connection> Connection::createClientConnection(Identifier identifier)
     return adoptRef(*new Connection(identifier, false));
 }
 
-HashMap<IPC::Connection::UniqueID, Connection*>& Connection::connectionMap()
+HashMap<IPC::Connection::UniqueID, ThreadSafeWeakPtr<Connection>>& Connection::connectionMap()
 {
-    static NeverDestroyed<HashMap<IPC::Connection::UniqueID, Connection*>> map;
+    static NeverDestroyed<HashMap<IPC::Connection::UniqueID, ThreadSafeWeakPtr<Connection>>> map;
     return map;
 }
 
@@ -338,7 +339,7 @@ RefPtr<Connection> Connection::connection(UniqueID uniqueID)
 {
     // FIXME(https://bugs.webkit.org/show_bug.cgi?id=238493): Removing with lock in destructor is not thread-safe.
     Locker locker { s_connectionMapLock };
-    return connectionMap().get(uniqueID);
+    return connectionMap().get(uniqueID).get();
 
 }
 
@@ -796,8 +797,6 @@ auto Connection::waitForSyncReply(SyncRequestID syncRequestID, MessageName messa
 {
     timeout = timeoutRespectingIgnoreTimeoutsForTesting(timeout);
 
-    willSendSyncMessage(sendSyncOptions);
-
     bool timedOut = false;
     while (!timedOut) {
         // First, check if we have any messages that we need to process.
@@ -813,16 +812,12 @@ auto Connection::waitForSyncReply(SyncRequestID syncRequestID, MessageName messa
             ASSERT_UNUSED(syncRequestID, pendingSyncReply.syncRequestID == syncRequestID);
 
             // We found the sync reply.
-            if (pendingSyncReply.didReceiveReply) {
-                didReceiveSyncReply(sendSyncOptions);
+            if (pendingSyncReply.didReceiveReply)
                 return { WTFMove(pendingSyncReply.replyDecoder) };
-            }
 
             // The connection was closed.
-            if (!m_shouldWaitForSyncReplies) {
-                didReceiveSyncReply(sendSyncOptions);
+            if (!m_shouldWaitForSyncReplies)
                 return Error::InvalidConnection;
-            }
         }
 
         // Processing a sync message could cause the connection to be invalidated.
@@ -831,7 +826,6 @@ auto Connection::waitForSyncReply(SyncRequestID syncRequestID, MessageName messa
         // any more incoming messages.
         if (!isValid()) {
             RELEASE_LOG_ERROR(IPC, "Connection::waitForSyncReply: Connection no longer valid, id=%" PRIu64, syncRequestID.toUInt64());
-            didReceiveSyncReply(sendSyncOptions);
             return Error::InvalidConnection;
         }
 
@@ -846,8 +840,6 @@ auto Connection::waitForSyncReply(SyncRequestID syncRequestID, MessageName messa
 #else
     RELEASE_LOG_ERROR(IPC, "Connection::waitForSyncReply: Timed-out while waiting for reply for %s, id=%" PRIu64, description(messageName), syncRequestID.toUInt64());
 #endif
-
-    didReceiveSyncReply(sendSyncOptions);
 
     return Error::Timeout;
 }
@@ -1041,6 +1033,11 @@ void Connection::connectionDidClose()
     }
     m_waitForMessageCondition.notifyAll();
 
+    {
+        Locker locker { m_outgoingMessagesLock };
+        m_outgoingMessages.clear();
+    }
+
     if (m_didCloseOnConnectionWorkQueueCallback)
         m_didCloseOnConnectionWorkQueueCallback(this);
 
@@ -1112,6 +1109,8 @@ void Connection::dispatchSyncMessage(Decoder& decoder)
 
 #if ENABLE(IPC_TESTING_API)
     ASSERT(decoder.isValid() || m_ignoreInvalidMessageForTesting);
+    if (!decoder.isValid())
+        replyEncoder->setSyncMessageDeserializationFailure();
 #else
     ASSERT(decoder.isValid());
 #endif

@@ -3,6 +3,7 @@
 #include <pthread/qos_private.h>
 #include <dispatch/dispatch.h>
 #include <dispatch/private.h>
+#define CONFIG_X86_64_COMPAT 0
 #include <machine/cpu_capabilities.h>
 #include <sys/time.h>
 #include <sys/sysctl.h>

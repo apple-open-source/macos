@@ -132,13 +132,20 @@ static int getCanvasHeight(const GPUCanvasContext::CanvasType& canvas)
     );
 }
 
+GPUCanvasContextCocoa::CanvasType GPUCanvasContextCocoa::htmlOrOffscreenCanvas() const
+{
+    if (auto* c = htmlCanvas())
+        return c;
+    return &checkedDowncast<OffscreenCanvas>(canvasBase());
+}
+
 GPUCanvasContextCocoa::GPUCanvasContextCocoa(CanvasBase& canvas, GPU& gpu)
     : GPUCanvasContext(canvas)
     , m_layerContentsDisplayDelegate(GPUDisplayBufferDisplayDelegate::create())
     , m_compositorIntegration(gpu.createCompositorIntegration())
     , m_presentationContext(gpu.createPresentationContext(presentationContextDescriptor(m_compositorIntegration)))
-    , m_width(getCanvasWidth(htmlCanvas()))
-    , m_height(getCanvasHeight(htmlCanvas()))
+    , m_width(getCanvasWidth(htmlOrOffscreenCanvas()))
+    , m_height(getCanvasHeight(htmlOrOffscreenCanvas()))
 {
 }
 
@@ -151,7 +158,7 @@ void GPUCanvasContextCocoa::reshape(int width, int height)
     m_height = height;
 
     auto configuration = WTFMove(m_configuration);
-    ASSERT(!isConfigured());
+    m_configuration.reset();
     if (configuration) {
         GPUCanvasConfiguration canvasConfiguration {
             configuration->device.ptr(),
@@ -165,9 +172,20 @@ void GPUCanvasContextCocoa::reshape(int width, int height)
     }
 }
 
+void GPUCanvasContextCocoa::drawBufferToCanvas(SurfaceBuffer)
+{
+    // FIXME(https://bugs.webkit.org/show_bug.cgi?id=263957): WebGPU should support obtaining drawing buffer for Web Inspector.
+    auto& base = canvasBase();
+    base.clearCopiedImage();
+    if (auto buffer = base.buffer()) {
+        buffer->flushDrawingContext();
+        m_compositorIntegration->paintCompositedResultsToCanvas(*buffer, m_configuration->frameCount);
+    }
+}
+
 GPUCanvasContext::CanvasType GPUCanvasContextCocoa::canvas()
 {
-    return htmlCanvas();
+    return htmlOrOffscreenCanvas();
 }
 
 void GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& configuration)
@@ -194,7 +212,7 @@ void GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& configuration)
         configuration.usage,
         configuration.viewFormats,
         configuration.colorSpace,
-        configuration.compositingAlphaMode,
+        configuration.alphaMode,
         WTFMove(renderBuffers),
         0,
     };
@@ -259,28 +277,30 @@ void GPUCanvasContextCocoa::markContextChangedAndNotifyCanvasObservers()
 
     bool canvasIsDirty = false;
 
-    if (auto* canvas = htmlCanvas()) {
-        auto* renderBox = canvas->renderBox();
+    auto canvas = htmlOrOffscreenCanvas();
+    CanvasBase *canvasBase = nullptr;
+    WTF::switchOn(canvas, [&](RefPtr<HTMLCanvasElement>& htmlCanvas) {
+        auto* renderBox = htmlCanvas->renderBox();
+        canvasBase = htmlCanvas.get();
         if (isAccelerated() && renderBox && renderBox->hasAcceleratedCompositing()) {
             canvasIsDirty = true;
-            canvas->clearCopiedImage();
+            htmlCanvas->clearCopiedImage();
             renderBox->contentChanged(CanvasChanged);
         }
-    }
+    }, [&](RefPtr<OffscreenCanvas>& offscreenCanvas) {
+        canvasBase = offscreenCanvas.get();
+    });
 
-    if (!canvasIsDirty) {
-        canvasIsDirty = true;
-        canvasBase().didDraw({ });
-    }
+    if (!canvasIsDirty)
+        this->canvasBase().didDraw({ });
 
     if (!isAccelerated())
         return;
 
-    auto* canvas = htmlCanvas();
-    if (!canvas)
+    if (!canvasBase)
         return;
 
-    canvas->notifyObserversCanvasChanged({ });
+    canvasBase->notifyObserversCanvasChanged({ });
 }
 
 } // namespace WebCore

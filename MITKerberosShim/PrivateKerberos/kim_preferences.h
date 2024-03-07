@@ -25,12 +25,12 @@
 #ifndef KIM_PREFERENCES_H
 #define KIM_PREFERENCES_H
 
+#include <Kerberos/kim_types.h>
+    
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <Kerberos/kim_types.h>
-    
 /*!
  * \page kim_preferences_overview KIM Preferences Overview
  *

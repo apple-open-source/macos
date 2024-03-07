@@ -4,8 +4,8 @@
 //
 //
 
-import Security
 import Foundation
+import Security
 
 @available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
 public class Certificate {
@@ -140,7 +140,6 @@ public class Certificate {
             return serial
         }
     }
-
  }
 
 @available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
@@ -157,7 +156,7 @@ public class DigitalIdentity: Certificate {
     ///   - privateKey: Private key
     /// - Throws: An error occurred while parsing the DER input
     public init(certificate: Certificate, privateKey: SecKey) throws {
-        self.privateKey = privateKey;
+        self.privateKey = privateKey
         try super.init(derRepresentation: certificate.der)
     }
 }

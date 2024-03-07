@@ -41,9 +41,7 @@
 
 @interface WK_RTCLocalVideoH264H265VP9Decoder : NSObject
 - (instancetype)initH264DecoderWithCallback:(webrtc::LocalDecoderCallback)callback;
-#ifdef WEBRTC_USE_H265
 - (instancetype)initH265DecoderWithCallback:(webrtc::LocalDecoderCallback)callback;
-#endif
 - (NSInteger)setFormat:(const uint8_t *)data size:(size_t)size width:(uint16_t)width height:(uint16_t)height;
 - (NSInteger)decodeData:(const uint8_t *)data size:(size_t)size timeStamp:(int64_t)timeStamp;
 - (NSInteger)releaseDecoder;
@@ -52,9 +50,7 @@
 
 @implementation WK_RTCLocalVideoH264H265VP9Decoder {
     RTCVideoDecoderH264 *m_h264Decoder;
-#ifdef WEBRTC_USE_H265
     RTCVideoDecoderH265 *m_h265Decoder;
-#endif
     RTCVideoDecoderVTBVP9 *m_vp9Decoder;
 }
 
@@ -73,7 +69,6 @@
     return self;
 }
 
-#ifdef WEBRTC_USE_H265
 - (instancetype)initH265DecoderWithCallback:(webrtc::LocalDecoderCallback)callback {
     if (self = [super init]) {
         m_h265Decoder = [[RTCVideoDecoderH265 alloc] init];
@@ -88,7 +83,6 @@
     }
     return self;
 }
-#endif
 
 - (instancetype)initVP9DecoderWithCallback:(webrtc::LocalDecoderCallback)callback {
     if (self = [super init]) {
@@ -108,20 +102,16 @@
 - (NSInteger)setFormat:(const uint8_t *)data size:(size_t)size width:(uint16_t)width height:(uint16_t)height {
     if (m_h264Decoder)
         return [m_h264Decoder setAVCFormat:data size:size width:width height:height];
-#ifdef WEBRTC_USE_H265
     if (m_h265Decoder)
-        return [m_h265Decoder setAVCFormat:data size:size width:width height:height];
-#endif
+        return [m_h265Decoder setHVCCFormat:data size:size width:width height:height];
     return 0;
 }
 
 - (NSInteger)decodeData:(const uint8_t *)data size:(size_t)size timeStamp:(int64_t)timeStamp {
     if (m_h264Decoder)
         return [m_h264Decoder decodeData:data size:size timeStamp:timeStamp];
-#ifdef WEBRTC_USE_H265
     if (m_h265Decoder)
         return [m_h265Decoder decodeData:data size:size timeStamp:timeStamp];
-#endif
     if (m_vp9Decoder)
         return [m_vp9Decoder decodeData:data size:size timeStamp:timeStamp];
     return 0;
@@ -136,10 +126,8 @@
 - (NSInteger)releaseDecoder {
     if (m_h264Decoder)
         return [m_h264Decoder releaseDecoder];
-#ifdef WEBRTC_USE_H265
     if (m_h265Decoder)
         return [m_h265Decoder releaseDecoder];
-#endif
     return [m_vp9Decoder releaseDecoder];
 }
 
@@ -148,12 +136,10 @@
         [m_h264Decoder flush];
         return;
     }
-#ifdef WEBRTC_USE_H265
     if (m_h265Decoder) {
         [m_h265Decoder flush];
         return;
     }
-#endif
     [m_vp9Decoder flush];
 }
 
@@ -265,7 +251,7 @@ int32_t RemoteVideoDecoder::Decode(const EncodedImage& input_image, bool missing
     if (m_isVP9 && input_image._frameType == VideoFrameType::kVideoFrameKey && input_image.SpatialIndex() && *input_image.SpatialIndex() > 0)
         return WEBRTC_VIDEO_CODEC_FALLBACK_SOFTWARE;
 
-    return videoDecoderCallbacks().decodeCallback(m_internalDecoder, input_image.Timestamp(), input_image.data(), input_image.size(), encodedWidth, encodedHeight);
+    return videoDecoderCallbacks().decodeCallback(m_internalDecoder, input_image.RtpTimestamp(), input_image.data(), input_image.size(), encodedWidth, encodedHeight);
 }
 
 int32_t RemoteVideoDecoder::RegisterDecodeCompleteCallback(DecodedImageCallback* callback)
@@ -309,12 +295,7 @@ std::unique_ptr<VideoDecoder> RemoteVideoDecoderFactory::CreateVideoDecoder(cons
 
 std::unique_ptr<webrtc::VideoDecoderFactory> createWebKitDecoderFactory(WebKitH265 supportsH265, WebKitVP9 supportsVP9, WebKitVP9VTB supportsVP9VTB, WebKitAv1 supportsAv1)
 {
-#ifdef WEBRTC_USE_H265
-    auto withH265 = supportsH265 == WebKitH265::On;
-#else
-    auto withH265 = false;
-#endif
-    auto internalFactory = ObjCToNativeVideoDecoderFactory([[RTCDefaultVideoDecoderFactory alloc] initWithH265: withH265 vp9Profile0:supportsVP9 > WebKitVP9::Off vp9Profile2:supportsVP9 == WebKitVP9::Profile0And2 vp9VTB: supportsVP9VTB == WebKitVP9VTB::On av1:supportsAv1==WebKitAv1::On]);
+    auto internalFactory = ObjCToNativeVideoDecoderFactory([[RTCDefaultVideoDecoderFactory alloc] initWithH265: supportsH265 == WebKitH265::On vp9Profile0:supportsVP9 > WebKitVP9::Off vp9Profile2:supportsVP9 == WebKitVP9::Profile0And2 vp9VTB: supportsVP9VTB == WebKitVP9VTB::On av1:supportsAv1==WebKitAv1::On]);
     return std::make_unique<RemoteVideoDecoderFactory>(std::move(internalFactory));
 }
 
@@ -324,13 +305,11 @@ void* createLocalH264Decoder(LocalDecoderCallback callback)
     return (__bridge_retained void*)decoder;
 }
 
-#ifdef WEBRTC_USE_H265
 void* createLocalH265Decoder(LocalDecoderCallback callback)
 {
     auto decoder = [[WK_RTCLocalVideoH264H265VP9Decoder alloc] initH265DecoderWithCallback: callback];
     return (__bridge_retained void*)decoder;
 }
-#endif
 
 void* createLocalVP9Decoder(LocalDecoderCallback callback)
 {

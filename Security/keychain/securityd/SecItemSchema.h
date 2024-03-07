@@ -51,6 +51,9 @@ const SecDbClass* identity_class(void);
 // Class with 1 element in it which is the database version.
 const SecDbClass* tversion_class(void);
 
+const SecDbClass* sharingIncomingQueue_class(void);
+const SecDbClass* sharingMirror_class(void);
+const SecDbClass* sharingOutgoingQueue_class(void);
 
 // DbUserVersion, from sqlite `PRAGMA user_version`
 int32_t getDbUserVersion(SecDbConnectionRef dbconn);

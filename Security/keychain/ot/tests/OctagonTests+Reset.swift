@@ -434,7 +434,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.fakeCuttlefishServer.resetListener = {  request in
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.unknown.rawValue, "reset reason should be unknown")
+            XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.unknown.rawValue, "reset reason should be unknown")
             return nil
         }
 
@@ -464,7 +464,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.fakeCuttlefishServer.resetListener = {  request in
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.userInitiatedReset.rawValue, "reset reason should be user initiated reset")
+            XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.userInitiatedReset.rawValue, "reset reason should be user initiated reset")
             return nil
         }
 
@@ -521,7 +521,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.fakeCuttlefishServer.resetListener = {  request in
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.recoveryKey.rawValue, "reset reason should be recovery key")
+            XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.recoveryKey.rawValue, "reset reason should be recovery key")
             return nil
         }
         #else
@@ -573,7 +573,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.fakeCuttlefishServer.resetListener = {  request in
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.noBottleDuringEscrowRecovery.rawValue, "reset reason should be no bottle during escrow recovery")
+            XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.noBottleDuringEscrowRecovery.rawValue, "reset reason should be no bottle during escrow recovery")
             return nil
         }
 
@@ -625,7 +625,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.fakeCuttlefishServer.resetListener = {  request in
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.healthCheck.rawValue, "reset reason should be health check")
+            XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.healthCheck.rawValue, "reset reason should be health check")
             return nil
         }
         self.fakeCuttlefishServer.returnResetOctagonResponse = true
@@ -668,7 +668,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.fakeCuttlefishServer.resetListener = {  request in
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.testGenerated.rawValue, "reset reason should be test generated")
+            XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.testGenerated.rawValue, "reset reason should be test generated")
             return nil
         }
 
@@ -976,10 +976,10 @@ class OctagonResetTests: OctagonTestsBase {
         let resetExpectation = self.expectation(description: "resetExpectation")
 
         let args = OTControlArguments(configuration: recoverykeyotcliqueContext)
-        self.injectedOTManager?.resetAcountData(args, resetReason: CuttlefishResetReason.userInitiatedReset, reply: { resetError in
+        self.injectedOTManager?.resetAcountData(args, resetReason: CuttlefishResetReason.userInitiatedReset) { resetError in
             XCTAssertNil(resetError, "resetError should be nil")
             resetExpectation.fulfill()
-        })
+        }
         self.wait(for: [resetExpectation], timeout: 10)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)

@@ -86,6 +86,7 @@ cs{
         bfd{"bafut"}
         bfq{"badagština"}
         bg{"bulharština"}
+        bgc{"harijánština"}
         bgn{"balúčština (západní)"}
         bho{"bhódžpurština"}
         bi{"bislamština"}
@@ -686,6 +687,7 @@ cs{
         zh{"standardní čínština"}
     }
     Languages%short{
+        az{"azerština"}
         en_GB{"angličtina (VB)"}
     }
     Languages%variant{
@@ -732,6 +734,7 @@ cs{
         Geok{"gruzínské chutsuri"}
         Geor{"gruzínské"}
         Glag{"hlaholice"}
+        Gong{"gundžala gondí"}
         Goth{"gotické"}
         Gran{"grantha"}
         Grek{"řecké"}
@@ -747,6 +750,7 @@ cs{
         Hira{"hiragana"}
         Hluw{"anatolské hieroglyfy"}
         Hmng{"hmongské"}
+        Hmnp{"nyiakeng puachue hmong"}
         Hrkt{"japonské slabičné"}
         Hung{"staromaďarské"}
         Inds{"harappské"}
@@ -857,6 +861,7 @@ cs{
         Xpeo{"staroperské klínové písmo"}
         Xsux{"sumero-akkadské klínové písmo"}
         Yiii{"yi"}
+        Zinh{"zděděné"}
         Zmth{"matematický zápis"}
         Zsye{"emodži"}
         Zsym{"symboly"}
@@ -1027,10 +1032,11 @@ cs{
     }
     characterLabelPattern{
         all{"{0} – vše"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} – kompatibilita"}
         enclosed{"{0} – uzavřené"}
         extended{"{0} – rozšířené"}
+        facing-left{"{0} – směr doleva"}
+        facing-right{"{0} – směr doprava"}
         historic{"{0} – historické"}
         miscellaneous{"{0} – různé"}
         other{"{0} – jiné"}
@@ -1048,10 +1054,5 @@ cs{
         language{"Jazyk: {0}"}
         script{"Písmo: {0}"}
         territory{"Region: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

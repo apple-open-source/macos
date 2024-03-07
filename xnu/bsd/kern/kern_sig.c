@@ -1119,7 +1119,12 @@ __pthread_kill(__unused proc_t p, struct __pthread_kill_args *uap,
 		goto out;
 	}
 
-	if ((thread_get_tag(target_act) & THREAD_TAG_WORKQUEUE) && !uth->uu_workq_pthread_kill_allowed) {
+	/*
+	 * workq threads must have kills enabled through either
+	 * BSDTHREAD_CTL_WORKQ_ALLOW_KILL or BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK
+	 */
+	if ((thread_get_tag(target_act) & THREAD_TAG_WORKQUEUE) &&
+	    !(uth->uu_workq_pthread_kill_allowed || p->p_workq_allow_sigmask)) {
 		error = ENOTSUP;
 		goto out;
 	}
@@ -1855,7 +1860,7 @@ set_thread_extra_flags(task_t task, struct uthread *uth, os_reason_t reason)
 			reason->osr_flags |= OS_REASON_FLAG_SHAREDREGION_FAULT;
 
 #if __has_feature(ptrauth_calls)
-			if (!vm_shared_region_reslide_restrict || csproc_get_platform_binary(current_proc())) {
+			if (!vm_shared_region_reslide_restrict || task_is_hardened_binary(current_task())) {
 				reslide_shared_region = TRUE;
 			}
 #endif /* __has_feature(ptrauth_calls) */
@@ -3553,8 +3558,7 @@ sig_lock_to_exit(proc_t p)
 	p->exit_thread = self;
 	proc_unlock(p);
 
-	task_hold(proc_task(p));
-	task_wait(proc_task(p), FALSE);
+	task_hold_and_wait(proc_task(p));
 
 	proc_lock(p);
 }

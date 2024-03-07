@@ -134,6 +134,11 @@ void PathStream::add(PathArc arc)
     segments().append(arc);
 }
 
+void PathStream::add(PathClosedArc closedArc)
+{
+    segments().append(closedArc);
+}
+
 void PathStream::add(PathRect rect)
 {
     segments().append(rect);
@@ -221,6 +226,11 @@ std::optional<PathArc> PathStream::singleArc() const
     return singleDataType<PathArc>();
 }
 
+std::optional<PathClosedArc> PathStream::singleClosedArc() const
+{
+    return singleDataType<PathClosedArc>();
+}
+
 std::optional<PathDataQuadCurve> PathStream::singleQuadCurve() const
 {
     return singleDataType<PathDataQuadCurve>();
@@ -236,7 +246,7 @@ bool PathStream::isClosed() const
     if (isEmpty())
         return false;
 
-    return m_segments.last().isCloseSubPath();
+    return m_segments.last().closesSubpath();
 }
 
 FloatPoint PathStream::currentPoint() const
@@ -271,6 +281,30 @@ FloatRect PathStream::computeFastBoundingRect(std::span<const PathSegment> segme
         boundingRect.extend(currentPoint);
 
     return boundingRect;
+}
+
+bool PathStream::computeHasSubpaths(std::span<const PathSegment> segments)
+{
+    FloatPoint lastMoveToPoint;
+    FloatPoint currentPoint;
+    FloatRect boundingRect = FloatRect::smallestRect();
+
+    for (auto& segment : segments) {
+        segment.extendFastBoundingRect(currentPoint, lastMoveToPoint, boundingRect);
+        if (!boundingRect.isSmallest() && (boundingRect.height() || boundingRect.width()))
+            return true;
+        currentPoint = segment.calculateEndPoint(currentPoint, lastMoveToPoint);
+    }
+
+    if (boundingRect.isSmallest())
+        boundingRect.extend(currentPoint);
+
+    return boundingRect.height() || boundingRect.width();
+}
+
+bool PathStream::hasSubpaths() const
+{
+    return computeHasSubpaths(m_segments.span());
 }
 
 FloatRect PathStream::fastBoundingRect() const

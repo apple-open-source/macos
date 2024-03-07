@@ -134,10 +134,10 @@ void IPCTester::stopMessageTesting(CompletionHandler<void()>&& completionHandler
     completionHandler();
 }
 
-void IPCTester::createStreamTester(IPCStreamTesterIdentifier identifier, IPC::StreamServerConnection::Handle&& serverConnection)
+void IPCTester::createStreamTester(IPC::Connection& connection, IPCStreamTesterIdentifier identifier, IPC::StreamServerConnection::Handle&& serverConnection)
 {
     auto addResult = m_streamTesters.ensure(identifier, [&] {
-        return IPC::ScopedActiveMessageReceiveQueue<IPCStreamTester> { IPCStreamTester::create(identifier, WTFMove(serverConnection)) };
+        return IPC::ScopedActiveMessageReceiveQueue<IPCStreamTester> { IPCStreamTester::create(identifier, WTFMove(serverConnection), connection.ignoreInvalidMessageForTesting()) };
     });
     ASSERT_UNUSED(addResult, addResult.isNewEntry || IPC::isTestingIPC());
 }
@@ -203,13 +203,19 @@ void IPCTester::releaseConnectionTester(IPCConnectionTesterIdentifier identifier
     completionHandler();
 }
 
-void IPCTester::asyncPing(IPC::Connection&, CompletionHandler<void()>&& completionHandler)
+void IPCTester::asyncPing(IPC::Connection&, uint32_t value, CompletionHandler<void(uint32_t)>&& completionHandler)
 {
-    completionHandler();
+    completionHandler(value + 1);
 }
 
-void IPCTester::syncPing(IPC::Connection&, CompletionHandler<void()>&& completionHandler)
+void IPCTester::syncPing(IPC::Connection&, uint32_t value, CompletionHandler<void(uint32_t)>&& completionHandler)
 {
+    completionHandler(value + 1);
+}
+
+void IPCTester::syncPingEmptyReply(IPC::Connection&, uint32_t value, CompletionHandler<void()>&& completionHandler)
+{
+    UNUSED_PARAM(value);
     completionHandler();
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,25 +20,36 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef __MALLOC_COMMON_H
 #define __MALLOC_COMMON_H
 
+#include <TargetConditionals.h>
+#include <errno.h>
+#include <stddef.h>
+#include <sys/cdefs.h>
+
+#include "base.h"
+
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 MALLOC_NOEXPORT
-const char *
-malloc_common_strstr(const char *src, const char *target, size_t target_len);
+const char * __null_terminated
+malloc_common_strstr(const char * __null_terminated src, const char * __counted_by(target_len) target, size_t target_len);
 
 MALLOC_NOEXPORT
 long
-malloc_common_convert_to_long(const char *ptr, const char **end_ptr);
+malloc_common_convert_to_long(const char * __null_terminated ptr, const char * __null_terminated *end_ptr);
 
 MALLOC_NOEXPORT
-const char *
-malloc_common_value_for_key(const char *src, const char *key);
+const char * __null_terminated
+malloc_common_value_for_key(const char * __null_terminated src, const char * __null_terminated key);
 
 MALLOC_NOEXPORT
-const char *
-malloc_common_value_for_key_copy(const char *src, const char *key,
-		 char *bufp, size_t maxlen);
+const char * __null_terminated
+malloc_common_value_for_key_copy(const char * __null_terminated src, const char * __null_terminated key,
+		 char * __counted_by(maxlen) bufp, size_t maxlen);
 
 __options_decl(malloc_zone_options_t, unsigned, {
 	MZ_NONE  = 0x0,
@@ -50,11 +61,11 @@ static MALLOC_INLINE void
 malloc_set_errno_fast(malloc_zone_options_t mzo, int err)
 {
 	if (mzo & MZ_POSIX) {
-#if TARGET_OS_SIMULATOR
+#if MALLOC_TARGET_EXCLAVES || TARGET_OS_SIMULATOR
 		errno = err;
 #else
 		(*_pthread_errno_address_direct()) = err;
-#endif
+#endif // MALLOC_TARGET_EXCLAVES || TARGET_OS_SIMULATOR
 	}
 }
 
@@ -64,7 +75,7 @@ malloc_slowpath_update(void);
 
 MALLOC_NOEXPORT
 void
-find_zone_and_free(void *ptr, bool known_non_default);
+find_zone_and_free(void * __unsafe_indexable ptr, bool known_non_default);
 
 typedef enum {
 	MALLOC_ZERO_ON_FREE = 0, // this is the 0 case so most checks can be 0-tests
@@ -78,7 +89,7 @@ extern malloc_zero_policy_t malloc_zero_policy;
 MALLOC_NOEXPORT
 unsigned
 malloc_zone_batch_malloc_fallback(malloc_zone_t *zone, size_t size,
-		void **results, unsigned num_requested);
+		void * __unsafe_indexable * __counted_by(num_requested) results, unsigned num_requested);
 
 MALLOC_NOEXPORT
 size_t
@@ -86,7 +97,7 @@ malloc_zone_pressure_relief_fallback(malloc_zone_t *zone, size_t goal);
 
 MALLOC_NOEXPORT
 void
-malloc_zone_batch_free_fallback(malloc_zone_t *zone, void **to_be_freed,
+malloc_zone_batch_free_fallback(malloc_zone_t *zone, void * __unsafe_indexable * __counted_by(num) to_be_freed,
 		unsigned num);
 
 #if CONFIG_MALLOC_PROCESS_IDENTITY
@@ -106,6 +117,7 @@ typedef enum {
 	MALLOC_PROCESS_AUDIOMXD,
 	MALLOC_PROCESS_AVCONFERENCED,
 	MALLOC_PROCESS_MEDIASERVERD,
+	MALLOC_PROCESS_CAMERACAPTURED,
 
 	// Messages
 	MALLOC_PROCESS_BLASTDOOR_MESSAGES,
@@ -118,11 +130,23 @@ typedef enum {
 	MALLOC_PROCESS_QUICKLOOK_PREVIEW,
 	MALLOC_PROCESS_QUICKLOOK_THUMBNAIL,
 
-	// Safari/WebKit
-	MALLOC_PROCESS_WEBKIT_NETWORKING,
-	MALLOC_PROCESS_WEBKIT_GPU,
+	MALLOC_PROCESS_TELNETD,
+	MALLOC_PROCESS_SSHD,
+	MALLOC_PROCESS_SSHD_KEYGEN_WRAPPER,
+	MALLOC_PROCESS_BASH,
+	MALLOC_PROCESS_DASH,
+	MALLOC_PROCESS_SH,
+	MALLOC_PROCESS_ZSH,
+	MALLOC_PROCESS_PYTHON3,
+	MALLOC_PROCESS_PERL,
+	MALLOC_PROCESS_SU,
+	MALLOC_PROCESS_TIME,
+	MALLOC_PROCESS_FIND,
+	MALLOC_PROCESS_XARGS,
+
+	// Browser
+	MALLOC_PROCESS_BROWSER,
 	MALLOC_PROCESS_MTLCOMPILERSERVICE,
-	MALLOC_PROCESS_WEBKIT_WEBCONTENT,
 
 	// Other
 	MALLOC_PROCESS_CALLSERVICESD,
@@ -137,6 +161,8 @@ typedef enum {
 	MALLOC_PROCESS_COMMCENTER,
 	MALLOC_PROCESS_WIFIP2PD,
 	MALLOC_PROCESS_WIFIANALYTICSD,
+	MALLOC_PROCESS_AEGIRPOSTER,
+	MALLOC_PROCESS_COLLECTIONSPOSTER,
 
 	MALLOC_PROCESS_COUNT,
 } malloc_process_identity_t;
@@ -147,6 +173,47 @@ typedef enum : unsigned {
 	MALLOC_ZONE_TYPE_UNKNOWN,
 	MALLOC_ZONE_TYPE_XZONE,
 	MALLOC_ZONE_TYPE_PGM,
+	MALLOC_ZONE_TYPE_SANITIZER,
 } malloc_zone_type_t;
+
+MALLOC_NOEXPORT
+kern_return_t
+get_zone_type(task_t task,
+		memory_reader_t reader,
+		vm_address_t zone_address,
+		unsigned *zone_type) __result_use_check;
+
+MALLOC_NOEXPORT
+malloc_zone_t *
+get_wrapped_zone(malloc_zone_t *zone);
+
+static MALLOC_INLINE
+const char *
+get_wrapper_zone_label(malloc_zone_t *wrapper_zone)
+{
+	// malloc_introspection_t::zone_type availability
+	MALLOC_ASSERT(wrapper_zone->version >= 14);
+
+	unsigned zone_type = wrapper_zone->introspect->zone_type;
+	switch (zone_type) {
+	case MALLOC_ZONE_TYPE_PGM:
+		return "PGM";
+	case MALLOC_ZONE_TYPE_SANITIZER:
+		return "Sanitizer";
+	}
+	__builtin_unreachable();
+}
+
+struct wrapper_zone_layout_s {
+	malloc_zone_t malloc_zone;
+	malloc_zone_t *wrapped_zone;
+};
+
+#define WRAPPED_ZONE_OFFSET offsetof(struct wrapper_zone_layout_s, wrapped_zone)
+#define ASSERT_WRAPPER_ZONE(zone_t) \
+	MALLOC_STATIC_ASSERT(offsetof(zone_t, malloc_zone) == 0, \
+			#zone_t " instances must be usable as regular malloc zones"); \
+	MALLOC_STATIC_ASSERT(offsetof(zone_t, wrapped_zone) == WRAPPED_ZONE_OFFSET, \
+			"malloc_get_wrapped_zone() dependency");
 
 #endif // __MALLOC_COMMON_H

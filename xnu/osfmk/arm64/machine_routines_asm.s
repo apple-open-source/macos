@@ -446,6 +446,29 @@ copyio_error:
 	POP_FRAME
 	ARM64_STACK_EPILOG
 
+#if CONFIG_SPTM
+/*
+ * The copyio fault region is a contiguous set of instructions which are exempt
+ * from fatal panic lockdown events due to data abort exceptions. This region
+ * exists because copyio faults are generally expected to be recoverable.
+ */
+	.globl EXT(copyio_fault_region_begin)
+LEXT(copyio_fault_region_begin)
+#endif /* CONFIG_SPTM */
+
+#if CONFIG_XNUPOST
+/*
+ * Test function for panic lockdown which can cause a data abort from within the
+ * copyio fault region.
+ */
+	.text
+	.align 2
+	.globl EXT(arm64_panic_lockdown_test_copyio)
+LEXT(arm64_panic_lockdown_test_copyio)
+	ldr		x0, [x0]
+	ret
+#endif /* CONFIG_XNUPOST */
+
 /*
  * int _bcopyin(const char *src, char *dst, vm_size_t len)
  */
@@ -784,6 +807,10 @@ Lcopyinframe_done:
 	POP_FRAME
 	ARM64_STACK_EPILOG
 
+#if CONFIG_SPTM
+	.globl EXT(copyio_fault_region_end)
+LEXT(copyio_fault_region_end)
+#endif /* CONFIG_SPTM */
 
 /*
  * hw_lck_ticket_t
@@ -918,6 +945,7 @@ LEXT(arm64_prepare_for_sleep)
 	cbnz		x0, is_deep_sleep                           // Skip if deep_sleep == true
 
 
+#if !NO_CPU_OVRD
 	// Mask FIQ and IRQ to avoid spurious wakeups
 	mrs		x9, CPU_OVRD
 	and		x9, x9, #(~(ARM64_REG_CYC_OVRD_irq_mask | ARM64_REG_CYC_OVRD_fiq_mask))
@@ -925,6 +953,7 @@ LEXT(arm64_prepare_for_sleep)
 	orr		x9, x9, x10
 	msr		CPU_OVRD, x9
 	isb
+#endif
 is_deep_sleep:
 #endif
 
@@ -1129,13 +1158,11 @@ LEXT(monitor_call)
  *
  * Branches to Lintr_enabled_panic if interrupts are in an unexpected state.
  */
-.macro CHECK_THREAD_STATE_INTERRUPTS
-#if DEBUG || DEVELOPMENT
-	mrs		x1, DAIF
-	tbz		x1, #DAIF_IRQF_SHIFT, Lintr_enabled_panic
-	mrs		x1, SPSel
-	tbz		x1, #0, Lintr_enabled_panic
-#endif
+.macro CHECK_THREAD_STATE_INTERRUPTS tmp
+	mrs		\tmp, DAIF
+	tbz		\tmp, #DAIF_IRQF_SHIFT, Lintr_enabled_panic
+	mrs		\tmp, SPSel
+	tbz		\tmp, #0, Lintr_enabled_panic
 .endm
 
 /**
@@ -1152,7 +1179,9 @@ LEXT(monitor_call)
 LEXT(ml_sign_thread_state)
 	COMPUTE_THREAD_STATE_HASH
 	str		x1, [x0, SS64_JOPHASH]
-	CHECK_THREAD_STATE_INTERRUPTS
+#if DEBUG || DEVELOPMENT
+	CHECK_THREAD_STATE_INTERRUPTS tmp=x1
+#endif
 	ret
 
 /**
@@ -1161,17 +1190,17 @@ LEXT(ml_sign_thread_state)
  *							  uint64_t x17)
  *
  * ml_check_signed_state uses a custom calling convention that
- * preserves all registers except x1, x2, and x6.
+ * preserves all registers except x1, x2, and x16.
  */
 	.text
 	.align 2
 	.globl EXT(ml_check_signed_state)
 LEXT(ml_check_signed_state)
-	ldr		x6, [x0, SS64_JOPHASH]
+	CHECK_THREAD_STATE_INTERRUPTS tmp=x16
+	ldr		x16, [x0, SS64_JOPHASH]
 	COMPUTE_THREAD_STATE_HASH
-	cmp		x1, x6
+	cmp		x1, x16
 	b.ne	Lcheck_hash_panic
-	CHECK_THREAD_STATE_INTERRUPTS
 	ret
 Lcheck_hash_panic:
 	/*
@@ -1190,7 +1219,6 @@ Lcheck_hash_panic:
 Lcheck_hash_str:
 	.asciz "JOP Hash Mismatch Detected (PC, CPSR, or LR corruption)"
 
-#if DEBUG || DEVELOPMENT
 	.align 2
 Lintr_enabled_panic:
 	PUSH_FRAME
@@ -1203,7 +1231,6 @@ Lintr_enabled_str:
 	 * for an explanation of why this is bad and how it should be fixed.
 	 */
 	.asciz "Signed thread state manipulated with interrupts enabled"
-#endif /* DEBUG || DEVELOPMENT */
 
 /**
  * void ml_auth_thread_state_invalid_cpsr(arm_saved_state_t *ss)

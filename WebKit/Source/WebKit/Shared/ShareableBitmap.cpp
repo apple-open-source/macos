@@ -102,9 +102,14 @@ RefPtr<ShareableBitmap> ShareableBitmap::create(const ShareableBitmapConfigurati
 
 RefPtr<ShareableBitmap> ShareableBitmap::createFromImageDraw(NativeImage& image)
 {
+    return createFromImageDraw(image, image.colorSpace());
+}
+
+RefPtr<ShareableBitmap> ShareableBitmap::createFromImageDraw(NativeImage& image, const DestinationColorSpace& colorSpace)
+{
     auto imageSize = image.size();
 
-    auto bitmap = ShareableBitmap::create({ imageSize, image.colorSpace() });
+    auto bitmap = ShareableBitmap::create({ imageSize, colorSpace });
     if (!bitmap)
         return nullptr;
 
@@ -112,7 +117,7 @@ RefPtr<ShareableBitmap> ShareableBitmap::createFromImageDraw(NativeImage& image)
     if (!context)
         return nullptr;
 
-    context->drawNativeImage(image, imageSize, FloatRect({ }, imageSize), FloatRect({ }, imageSize), { CompositeOperator::Copy });
+    context->drawNativeImage(image, FloatRect({ }, imageSize), FloatRect({ }, imageSize), { CompositeOperator::Copy });
     return bitmap;
 }
 
@@ -142,21 +147,12 @@ auto ShareableBitmap::createHandle(SharedMemory::Protection protection) const ->
     auto memoryHandle = m_sharedMemory->createHandle(protection);
     if (!memoryHandle)
         return std::nullopt;
-    Handle handle;
-    handle.m_handle = WTFMove(*memoryHandle);
-    handle.m_configuration = m_configuration;
-    return { WTFMove(handle) };
+    return { Handle(WTFMove(*memoryHandle), m_configuration) };
 }
 
 auto ShareableBitmap::createReadOnlyHandle() const -> std::optional<Handle>
 {
-    Handle handle;
-    auto memoryHandle = m_sharedMemory->createHandle(SharedMemory::Protection::ReadOnly);
-    if (!memoryHandle)
-        return std::nullopt;
-    handle.m_handle = WTFMove(*memoryHandle);
-    handle.m_configuration = m_configuration;
-    return handle;
+    return createHandle(SharedMemory::Protection::ReadOnly);
 }
 
 ShareableBitmap::ShareableBitmap(ShareableBitmapConfiguration configuration, Ref<SharedMemory>&& sharedMemory)

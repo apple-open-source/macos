@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005, 2008-2010, 2015-2018, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2005, 2008-2010, 2015-2018, 2021, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -209,7 +209,8 @@ SCNetworkReachabilityRef __nullable
 SCNetworkReachabilityCreateWithAddress		(
 						CFAllocatorRef			__nullable	allocator,
 						const struct sockaddr				*address
-						)				API_AVAILABLE(macos(10.3), ios(2.0));
+						)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.3, 14.4), ios(2.0, 17.4));
 
 /*!
 	@function SCNetworkReachabilityCreateWithAddressPair
@@ -229,7 +230,8 @@ SCNetworkReachabilityCreateWithAddressPair	(
 						CFAllocatorRef			__nullable	allocator,
 						const struct sockaddr		* __nullable	localAddress,
 						const struct sockaddr		* __nullable	remoteAddress
-						)				API_AVAILABLE(macos(10.3), ios(2.0));
+						)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.3, 14.4), ios(2.0, 17.4));
 
 /*!
 	@function SCNetworkReachabilityCreateWithName
@@ -247,7 +249,8 @@ SCNetworkReachabilityRef __nullable
 SCNetworkReachabilityCreateWithName		(
 						CFAllocatorRef			__nullable	allocator,
 						const char					*nodename
-						)				API_AVAILABLE(macos(10.3), ios(2.0));
+						)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.3, 14.4), ios(2.0, 17.4));
 
 /*!
 	@function SCNetworkReachabilityGetTypeID
@@ -255,7 +258,8 @@ SCNetworkReachabilityCreateWithName		(
 		instances.
  */
 CFTypeID
-SCNetworkReachabilityGetTypeID			(void)				API_AVAILABLE(macos(10.3), ios(2.0));
+SCNetworkReachabilityGetTypeID			(void)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.3, 14.4), ios(2.0, 17.4));
 
 
 /*!
@@ -274,7 +278,8 @@ Boolean
 SCNetworkReachabilityGetFlags			(
 						SCNetworkReachabilityRef	target,
 						SCNetworkReachabilityFlags	*flags
-						)				API_AVAILABLE(macos(10.3), ios(2.0));
+						)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.3, 14.4), ios(2.0, 17.4));
 
 /*!
 	@function SCNetworkReachabilitySetCallback
@@ -294,7 +299,8 @@ SCNetworkReachabilitySetCallback		(
 						SCNetworkReachabilityRef			target,
 						SCNetworkReachabilityCallBack	__nullable	callout,
 						SCNetworkReachabilityContext	* __nullable	context
-						)				API_AVAILABLE(macos(10.3), ios(2.0));
+						)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.3, 14.4), ios(2.0, 17.4));
 
 /*!
 	@function SCNetworkReachabilityScheduleWithRunLoop
@@ -313,7 +319,8 @@ SCNetworkReachabilityScheduleWithRunLoop	(
 						SCNetworkReachabilityRef	target,
 						CFRunLoopRef			runLoop,
 						CFStringRef			runLoopMode
-						)				API_AVAILABLE(macos(10.3), ios(2.0));
+						)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.3, 14.4), ios(2.0, 17.4));
 
 /*!
 	@function SCNetworkReachabilityUnscheduleFromRunLoop
@@ -333,7 +340,8 @@ SCNetworkReachabilityUnscheduleFromRunLoop	(
 						SCNetworkReachabilityRef	target,
 						CFRunLoopRef			runLoop,
 						CFStringRef			runLoopMode
-						)				API_AVAILABLE(macos(10.3), ios(2.0));
+						)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.3, 14.4), ios(2.0, 17.4));
 
 /*!
 	@function SCNetworkReachabilitySetDispatchQueue
@@ -350,7 +358,8 @@ Boolean
 SCNetworkReachabilitySetDispatchQueue		(
 						SCNetworkReachabilityRef			target,
 						dispatch_queue_t		__nullable	queue
-						)				API_AVAILABLE(macos(10.6), ios(4.0));
+						)
+API_DEPRECATED_WITH_REPLACEMENT("Use URLSession or NWConnection to create connections that dynamically handle changing networks. Use NWPathMonitor to enumerate available network interfaces.", macos(10.6, 14.4), ios(4.0, 17.4));
 
 __END_DECLS
 

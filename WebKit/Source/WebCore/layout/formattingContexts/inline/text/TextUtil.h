@@ -29,6 +29,8 @@
 #include "InlineItem.h"
 #include "InlineLine.h"
 #include "LayoutUnits.h"
+#include <wtf/Range.h>
+#include <wtf/WeakHashSet.h>
 #include <wtf/text/TextBreakIterator.h>
 
 namespace WebCore {
@@ -38,6 +40,7 @@ class TextRun;
 
 namespace Layout {
 
+struct ExpansionInfo;
 class InlineTextBox;
 class InlineTextItem;
 
@@ -50,7 +53,7 @@ public:
 
     static InlineLayoutUnit trailingWhitespaceWidth(const InlineTextBox&, const FontCascade&, size_t startPosition, size_t endPosition);
 
-    using FallbackFontList = HashSet<const Font*>;
+    using FallbackFontList = SingleThreadWeakHashSet<const Font>;
     enum class IncludeHyphen : bool { No, Yes };
     static FallbackFontList fallbackFontsForText(StringView, const RenderStyle&, IncludeHyphen);
 
@@ -76,6 +79,8 @@ public:
     static bool shouldPreserveNewline(const Box&);
     static bool isWrappingAllowed(const RenderStyle&);
     static bool shouldTrailingWhitespaceHang(const RenderStyle&);
+
+    static bool isStrongDirectionalityCharacter(char32_t);
     static bool containsStrongDirectionalityText(StringView);
 
     static TextRun ellipsisTextRun(bool isHorizontal = true);
@@ -94,6 +99,7 @@ public:
     static float hangableStopOrCommaEndWidth(const InlineTextItem&, const RenderStyle&);
 
     static bool canUseSimplifiedTextMeasuring(StringView, const RenderStyle& style, const RenderStyle* firstLineStyle);
+    static bool hasPositionDependentContentWidth(StringView);
 };
 
 } // namespace Layout

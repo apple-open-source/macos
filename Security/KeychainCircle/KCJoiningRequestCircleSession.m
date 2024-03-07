@@ -144,7 +144,6 @@ typedef enum {
             return nil;
         }
 
-        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
         //giving securityd the epoch, expecting identity message
         [self.otControl rpcPrepareIdentityAsApplicantWithArguments:self.controlArguments
                                                      configuration:self.joiningConfiguration
@@ -175,14 +174,7 @@ typedef enum {
 
                 next = pairingMessage.data;
             }
-            dispatch_semaphore_signal(sema);
         }];
-
-        if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-            secerror("octagon: timed out preparing identity");
-            KCJoiningErrorCreate(kTimedoutWaitingForPrepareRPC, error, @"timed out waiting for rpcPrepareIdentityAsApplicantWithArguments");
-            return nil;
-        }
 
         if (localError) {
             if (error) {
@@ -268,7 +260,6 @@ typedef enum {
     if (self.piggy_version == kPiggyV2 && message.firstData != nil) {
         __block NSData* nextMessage = nil;
         __block NSError* localError = nil;
-        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
         OTPairingMessage* pairingMessage = [[OTPairingMessage alloc] initWithData:message.firstData];
         if (!pairingMessage.hasVoucher) {
@@ -291,14 +282,7 @@ typedef enum {
             }else{
                 secnotice("octagon", "successfully joined octagon");
             }
-            dispatch_semaphore_signal(sema);
         }];
-
-        if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
-            secerror("octagon: timed out joining octagon");
-            KCJoiningErrorCreate(kTimedoutWaitingForJoinRPC, error, @"Timed out waiting for join rpc");
-            return nil;
-        }
 
         if ([self shouldJoinSOS:message pairingMessage:pairingMessage]) {
             secnotice("joining", "doing SOS processCircleJoinData");

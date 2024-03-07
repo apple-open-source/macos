@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,7 +81,7 @@ S_interface_is_tethered(const char * ifname)
 					  kCFStringEncodingUTF8);
     netif = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, 0);
     if (netif != NULL) {
-	is_tethered = _SCNetworkInterfaceIsTethered(netif);
+	is_tethered = _SCNetworkInterfaceIsTetheredHotspot(netif);
 	CFRelease(netif);
     }
     CFRelease(ifname_cf);
@@ -443,8 +443,7 @@ S_build_interface_list(interface_list_t * interfaces)
 			      entry->type_flags |= kInterfaceTypeFlagIsWiFiInfra;
 			  }
 		      }
-		      else if (ifmr.ifm_count == 1
-			       && S_interface_is_tethered(name)) {
+		      else if (S_interface_is_tethered(name)) {
 			  entry->type_flags |= kInterfaceTypeFlagIsTethered;
 		      }
 		  }

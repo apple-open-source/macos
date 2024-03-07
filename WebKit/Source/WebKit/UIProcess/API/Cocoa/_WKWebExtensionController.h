@@ -101,6 +101,16 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
 - (nullable _WKWebExtensionContext *)extensionContextForExtension:(_WKWebExtension *)extension NS_SWIFT_NAME(extensionContext(for:));
 
 /*!
+ @abstract Returns a loaded extension context matching the specified URL.
+ @param URL The URL to lookup.
+ @result An extension context or `nil` if no match was found.
+ @discussion This method is useful for determining the extension context to use when about to navigate to an extension URL. For example,
+ you could use this method to retrieve the appropriate extension context and then use its `webViewConfiguration` property to configure a
+ web view for loading that URL.
+ */
+- (nullable _WKWebExtensionContext *)extensionContextForURL:(NSURL *)URL NS_SWIFT_NAME(extensionContext(for:));
+
+/*!
  @abstract A set of all the currently loaded extensions.
  @seealso extensionContexts
 */
@@ -159,20 +169,28 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
 
 /*!
  @abstract Should be called by the app when a tab is activated to notify all loaded web extensions.
- @param activatedTab The activated tab.
+ @param activatedTab The tab that has become active.
+ @param previousTab The tab that was active before. This parameter can be \c nil if there was no previously active tab.
  @discussion This method informs all loaded extensions of the tab activation, ensuring consistent state awareness across extensions.
  If the intention is to inform only a specific extension, use the respective method on that extension's context instead.
  */
-- (void)didActivateTab:(id <_WKWebExtensionTab>)activatedTab;
+- (void)didActivateTab:(id<_WKWebExtensionTab>)activatedTab previousActiveTab:(nullable id<_WKWebExtensionTab>)previousTab;
 
 /*!
  @abstract Should be called by the app when tabs are selected to fire appropriate events with all loaded web extensions.
- @param selectedTabs The set of tabs that were selected. An empty set indicates that no tabs are currently selected or that the
- selected tabs are not visible to extensions.
- @discussion This method informs all loaded extensions of the selection of tabs, ensuring consistent understanding across extensions.
+ @param selectedTabs The set of tabs that were selected.
+ @discussion This method informs all loaded extensions that tabs have been selected, ensuring consistent understanding across extensions.
  If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
  */
 - (void)didSelectTabs:(NSSet<id <_WKWebExtensionTab>> *)selectedTabs;
+
+/*!
+ @abstract Should be called by the app when tabs are deselected to fire appropriate events with all loaded web extensions.
+ @param deselectedTabs The set of tabs that were deselected.
+ @discussion This method informs all loaded extensions that tabs have been deselected, ensuring consistent understanding across extensions.
+ If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
+ */
+- (void)didDeselectTabs:(NSSet<id <_WKWebExtensionTab>> *)deselectedTabs;
 
 /*!
  @abstract Should be called by the app when a tab is moved to fire appropriate events with all loaded web extensions.

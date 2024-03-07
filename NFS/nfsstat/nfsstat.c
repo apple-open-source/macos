@@ -918,7 +918,9 @@ struct mountargs {
 	uint32_t        nfs_version, nfs_minor_version;         /* NFS version */
 	uint32_t        nfs_min_vers, nfs_max_vers;             /* NFS packed version range */
 	uint32_t        rsize, wsize, readdirsize, readahead;   /* I/O values */
-	struct timespec acregmin, acregmax, acdirmin, acdirmax; /* attrcache values */
+	struct timespec acregmin, acregmax;                     /* attrcache ref values */
+	struct timespec acdirmin, acdirmax;                     /* attrcache dir values */
+	struct timespec acrootdirmin, acrootdirmax;             /* attrcache root dir values */
 	uint32_t        lockmode;                               /* advisory file locking mode */
 	struct nfs_sec  sec;                                    /* security flavors */
 	struct nfs_etype etype;                                 /* Supported kerberos encryption types */
@@ -1329,6 +1331,16 @@ parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 		xb_get_32(error, xb, margs->readlink_nocache);
 	}
 
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN)) {
+		xb_get_32(error, xb, margs->acrootdirmin.tv_sec);
+		xb_get_32(error, xb, margs->acrootdirmin.tv_nsec);
+	}
+
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX)) {
+		xb_get_32(error, xb, margs->acrootdirmax.tv_sec);
+		xb_get_32(error, xb, margs->acrootdirmax.tv_nsec);
+	}
+
 	if (error) {
 		mountargs_cleanup(margs);
 	}
@@ -1632,6 +1644,14 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 		printer->add_array_num(sep, "acdirmax=", margs->acdirmax.tv_sec);
 		SEP;
 	}
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MIN)) {
+		printer->add_array_num(sep, "acrootdirmin=", margs->acrootdirmin.tv_sec);
+		SEP;
+	}
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX)) {
+		printer->add_array_num(sep, "acrootdirmax=", margs->acrootdirmax.tv_sec);
+		SEP;
+	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_DEAD_TIMEOUT)) {
 		printer->add_array_num(sep, "deadtimeout=", margs->dead_timeout.tv_sec);
 		SEP;
@@ -1646,6 +1666,10 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 	}
 	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NFC)) {
 		printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NFC) ? "" : "no", "nfc");
+		SEP;
+	}
+	if (verbose && NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_SKIP_RENEW)) {
+		printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_SKIP_RENEW) ? "" : "no", "skip_renew");
 		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SECURITY)) {

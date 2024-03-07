@@ -5871,19 +5871,21 @@ vm_object_upl_request(
 		upl->map_object = object;
 	} else {
 		upl->map_object = vm_object_allocate(size);
+		vm_object_lock(upl->map_object);
 		/*
 		 * No neeed to lock the new object: nobody else knows
 		 * about it yet, so it's all ours so far.
 		 */
 		upl->map_object->shadow = object;
-		upl->map_object->pageout = TRUE;
-		upl->map_object->can_persist = FALSE;
+		VM_OBJECT_SET_PAGEOUT(upl->map_object, TRUE);
+		VM_OBJECT_SET_CAN_PERSIST(upl->map_object, FALSE);
 		upl->map_object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
 		upl->map_object->vo_shadow_offset = offset;
 		upl->map_object->wimg_bits = object->wimg_bits;
 		assertf(page_aligned(upl->map_object->vo_shadow_offset),
 		    "object %p shadow_offset 0x%llx",
 		    upl->map_object, upl->map_object->vo_shadow_offset);
+		vm_object_unlock(upl->map_object);
 
 		alias_page = vm_page_grab_fictitious(TRUE);
 
@@ -6662,6 +6664,7 @@ vm_map_create_upl(
 	vm_object_offset_t      offset_in_mapped_page;
 	boolean_t               release_map = FALSE;
 
+
 start_with_map:
 
 	original_offset = offset;
@@ -7117,7 +7120,7 @@ REDISCOVER_ENTRY:
 			    btref_get(__builtin_frame_address(0), 0));
 		}
 #endif /* VM_OBJECT_TRACKING_OP_TRUESHARE */
-		local_object->true_share = TRUE;
+		VM_OBJECT_SET_TRUE_SHARE(local_object, TRUE);
 		if (local_object->copy_strategy ==
 		    MEMORY_OBJECT_COPY_SYMMETRIC) {
 			local_object->copy_strategy = MEMORY_OBJECT_COPY_DELAY;
@@ -7265,8 +7268,8 @@ process_upl_to_enter:
 		vm_object_lock(upl->map_object);
 
 		upl->map_object->shadow = object;
-		upl->map_object->pageout = TRUE;
-		upl->map_object->can_persist = FALSE;
+		VM_OBJECT_SET_PAGEOUT(upl->map_object, TRUE);
+		VM_OBJECT_SET_CAN_PERSIST(upl->map_object, FALSE);
 		upl->map_object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
 		upl->map_object->vo_shadow_offset = upl_adjusted_offset(upl, PAGE_MASK) - object->paging_offset;
 		assertf(page_aligned(upl->map_object->vo_shadow_offset),
@@ -9381,7 +9384,7 @@ vm_object_iopl_request(
 #endif /* VM_OBJECT_TRACKING_OP_TRUESHARE */
 
 		vm_object_lock_assert_exclusive(object);
-		object->true_share = TRUE;
+		VM_OBJECT_SET_TRUE_SHARE(object, TRUE);
 
 		if (object->copy_strategy == MEMORY_OBJECT_COPY_SYMMETRIC) {
 			object->copy_strategy = MEMORY_OBJECT_COPY_DELAY;

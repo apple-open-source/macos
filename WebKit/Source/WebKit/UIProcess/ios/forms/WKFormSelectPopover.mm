@@ -415,6 +415,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [self presentPopoverAnimated:NO];
 }
 
+- (void)controlUpdateEditing
+{
+    [[_tableViewController tableView] reloadData];
+}
+
 - (void)controlEndEditing
 {
     [self dismissPopoverAnimated:[_tableViewController shouldDismissWithAnimation]];
@@ -432,7 +437,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 @end
 
-@implementation WKSelectPopover(WKTesting)
+@implementation WKSelectPopover (WKTesting)
 
 - (void)selectRow:(NSInteger)rowIndex inComponent:(NSInteger)componentIndex extendingSelection:(BOOL)extendingSelection
 {

@@ -62,7 +62,7 @@ private:
     void takeFocus(WebCore::FocusDirection) override;
 
     void focusedElementChanged(WebCore::Element*) override;
-    void focusedFrameChanged(WebCore::LocalFrame*) final;
+    void focusedFrameChanged(WebCore::Frame*) final;
 
     WebCore::Page* createWindow(WebCore::LocalFrame&, const WebCore::WindowFeatures&, const WebCore::NavigationAction&) final;
     void show() final;
@@ -90,6 +90,9 @@ private:
     bool runBeforeUnloadConfirmPanel(const String& message, WebCore::LocalFrame&) final;
 
     void closeWindow() final;
+
+    void rootFrameAdded(const WebCore::LocalFrame&) final { }
+    void rootFrameRemoved(const WebCore::LocalFrame&) final { }
 
     void runJavaScriptAlert(WebCore::LocalFrame&, const String&) override;
     bool runJavaScriptConfirm(WebCore::LocalFrame&, const String&) override;
@@ -229,10 +232,8 @@ private:
 
     void wheelEventHandlersChanged(bool) final { }
 
-#if ENABLE(WEB_CRYPTO)
     bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const final;
     bool unwrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const final;
-#endif
 
 #if ENABLE(SERVICE_CONTROLS)
     void handleSelectionServiceClick(WebCore::FrameSelection&, const Vector<String>& telephoneNumbers, const WebCore::IntPoint&) final;
@@ -252,9 +253,9 @@ private:
 #if PLATFORM(MAC)
     void changeUniversalAccessZoomFocus(const WebCore::IntRect&, const WebCore::IntRect&) final;
 #endif
-
+#if HAVE(WEBGPU_IMPLEMENTATION)
     RefPtr<WebCore::WebGPU::GPU> createGPUForWebGPU() const final;
-
+#endif
     RefPtr<WebCore::ShapeDetection::BarcodeDetector> createBarcodeDetector(const WebCore::ShapeDetection::BarcodeDetectorOptions&) const final;
     void getBarcodeDetectorSupportedFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&&) const final;
     RefPtr<WebCore::ShapeDetection::FaceDetector> createFaceDetector(const WebCore::ShapeDetection::FaceDetectorOptions&) const final;

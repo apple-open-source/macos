@@ -17,28 +17,24 @@ mkdir -p ${TMP}
 
 K=uid,uname,gid,gname,flags,md5digest,size,ripemd160digest,sha1digest,sha256digest,cksum
 
-rm -rf _FOO
-mkdir _FOO
-touch _FOO/_uid
-touch _FOO/_size
-touch _FOO/zztype
+mkdir ${TMP}/_FOO
+touch ${TMP}/_FOO/_uid
+touch ${TMP}/_FOO/_size
+touch ${TMP}/_FOO/zztype
+touch ${TMP}/_FOO/_bar
+mtree -c -K $K -p ${TMP}/_FOO > ${TMP}/_r
+mtree -c -K $K -p ${TMP}/_FOO > ${TMP}/_r2
+rm -rf ${TMP}/_FOO/_bar
 
-touch _FOO/_bar
-mtree -c -K $K -p .. > ${TMP}/_r
-mtree -c -K $K -p .. > ${TMP}/_r2
-rm -rf _FOO/_bar 
+rm -rf ${TMP}/_FOO/zztype
+mkdir ${TMP}/_FOO/zztype
 
-rm -rf _FOO/zztype
-mkdir _FOO/zztype
+date > ${TMP}/_FOO/_size
 
-date > _FOO/_size
+touch ${TMP}/_FOO/_foo
+mtree -c -K $K -p ${TMP}/_FOO > ${TMP}/_t
 
-chown nobody _FOO/_uid
-
-touch _FOO/_foo
-mtree -c -K $K -p .. > ${TMP}/_t
-
-rm -fr _FOO
+rm -rf ${TMP}/_FOO
 
 if mtree -f ${TMP}/_r -f ${TMP}/_r2 ; then
 	true
@@ -52,7 +48,7 @@ if mtree -f ${TMP}/_r -f ${TMP}/_t > ${TMP}/_ ; then
 	exit 1
 fi
 
-if [ `wc -l  < ${TMP}/_` -ne 10 ] ; then
+if [ `wc -l  < ${TMP}/_` -ne 8 ] ; then
 	echo "ERROR wrong number of lines: `wc -l  ${TMP}/_`" 1>&2
 	exit 1
 fi

@@ -58,6 +58,13 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 		 */
 		rc_getint(rcfile, sname, "debug_level", &prefs->KernelLogLevel);
 		rc_getint(rcfile, sname, "kloglevel", &prefs->KernelLogLevel);
+
+        if (rc_getbool(rcfile, sname, "connect_to_sharedisk", &altflags) == 0) {
+            if (altflags)
+                prefs->altflags &= ~SMBFS_MNT_HIFI_DISABLED;
+            else
+                prefs->altflags |= SMBFS_MNT_HIFI_DISABLED;
+        }
 	}
 	
 	/* server only preferences */

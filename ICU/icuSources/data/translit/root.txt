@@ -21,6 +21,9 @@ root:table(nofallback){
                 resource:process(transliterator){"Any_Accents.txt"}
             }
         }
+        Amharic-Amharic/Geminate{
+            alias{"am_Ethi-am_Ethi/Geminate"}
+        }
         Amharic-Latin/BGN{
             alias{"am-am_Latn/BGN"}
         }
@@ -182,6 +185,9 @@ root:table(nofallback){
         }
         Bopomofo-Latin{
             alias{"Bopo-Latn"}
+        }
+        Braille-Ethiopic/Amharic{
+            alias{"am_Brai-am_Ethi"}
         }
         Bulgarian-Latin/BGN{
             alias{"bg-bg_Latn/BGN"}
@@ -345,16 +351,34 @@ root:table(nofallback){
                 resource:process(transliterator){"Ethi_Latn_ALALOC.txt"}
             }
         }
+        Ethi-Latn/ALALOC_Geminate{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"Ethi_Latn_ALALOC_Geminate.txt"}
+            }
+        }
         Ethi-Latn/Aethiopi{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"Ethi_Latn_Aethiopi.txt"}
             }
         }
+        Ethi-Latn/Aethiopi_Geminate{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"Ethi_Latn_Aethiopi_Geminate.txt"}
+            }
+        }
         Ethi-Latn/Beta_Metsehaf{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"Ethi_Latn_Beta_Metsehaf.txt"}
+            }
+        }
+        Ethi-Latn/Beta_Metsehaf_Geminate{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"Ethi_Latn_Beta_Metsehaf_Geminate.txt"}
             }
         }
         Ethi-Latn/ES3842{
@@ -367,6 +391,12 @@ root:table(nofallback){
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"Ethi_Latn_IES_JES_1964.txt"}
+            }
+        }
+        Ethi-Latn/IES_JES_1964_Geminate{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"Ethi_Latn_IES_JES_1964_Geminate.txt"}
             }
         }
         Ethi-Latn/Lambdin{
@@ -387,8 +417,20 @@ root:table(nofallback){
                 resource:process(transliterator){"Latn_Ethi_Williamson.txt"}
             }
         }
+        Ethi-sgw_Ethi/Gurage_2013{
+            file{
+                direction{"REVERSE"}
+                resource:process(transliterator){"sgw_Ethi_Ethi_Gurage_2013.txt"}
+            }
+        }
+        Ethiopic-Braille/Amharic{
+            alias{"am_Ethi-am_Brai"}
+        }
         Ethiopic-Cyrillic/Gutgarts{
             alias{"Ethi-Cyrl/Gutgarts"}
+        }
+        Ethiopic-Ethiopic/Gurage{
+            alias{"sgw_Ethi-Ethi/Gurage_2013"}
         }
         Ethiopic-Latin{
             alias{"Ethi-Latn"}
@@ -396,8 +438,17 @@ root:table(nofallback){
         Ethiopic-Latin/ALALOC{
             alias{"Ethi-Latn/ALALOC"}
         }
+        Ethiopic-Latin/ALALOC_Geminate{
+            alias{"Ethi-Latn/ALALOC_Geminate"}
+        }
         Ethiopic-Latin/Aethiopica{
             alias{"Ethi-Latn/Aethiopi"}
+        }
+        Ethiopic-Latin/Aethiopica_Geminate{
+            alias{"Ethi-Latn/Aethiopi_Geminate"}
+        }
+        Ethiopic-Latin/BetaMetsehaf_Geminate{
+            alias{"Ethi-Latn/Beta_Metsehaf_Geminate"}
         }
         Ethiopic-Latin/Beta_Metsehaf{
             alias{"Ethi-Latn/Beta_Metsehaf"}
@@ -407,6 +458,9 @@ root:table(nofallback){
         }
         Ethiopic-Latin/IES_JES_1964{
             alias{"Ethi-Latn/IES_JES_1964"}
+        }
+        Ethiopic-Latin/IES_JES_1964_Geminate{
+            alias{"Ethi-Latn/IES_JES_1964_Geminate"}
         }
         Ethiopic-Latin/Lambdin{
             alias{"Ethi-Latn/Lambdin"}
@@ -428,6 +482,12 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"Fullwidth_Halfwidth.txt"}
             }
+        }
+        Geez-Ethiopic{
+            alias{"Sarb-gz_Ethi"}
+        }
+        Geez-Musnad{
+            alias{"gz_Ethi-Sarb"}
         }
         Geor-Latn{
             file{
@@ -563,6 +623,9 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"Gujr_ur.txt"}
             }
+        }
+        Gurage-Ethiopic{
+            alias{"Ethi-sgw_Ethi/Gurage_2013"}
         }
         Gurmukhi-Arabic{
             alias{"Guru-Arab"}
@@ -1019,6 +1082,9 @@ root:table(nofallback){
         }
         Latin-Ethiopic/Williamson{
             alias{"Latn-Ethi/Williamson"}
+        }
+        Latin-Ethiopic/Xalaget{
+            alias{"byn_Latn-byn_Ethi/Xaleget"}
         }
         Latin-Georgian{
             alias{"Latn-Geor"}
@@ -1542,6 +1608,12 @@ root:table(nofallback){
         Russian-Latin/BGN{
             alias{"ru-ru_Latn/BGN"}
         }
+        Sarb-gz_Ethi{
+            file{
+                direction{"REVERSE"}
+                resource:process(transliterator){"gz_Ethi_Sarb.txt"}
+            }
+        }
         Serbian-Latin/BGN{
             alias{"sr-sr_Latn/BGN"}
         }
@@ -1851,6 +1923,21 @@ root:table(nofallback){
                 resource:process(transliterator){"Zawgyi_my.txt"}
             }
         }
+        am-Brai-t-am-ethi{
+            alias{"am_Ethi-am_Brai"}
+        }
+        am-Ethi-t-am-brai{
+            alias{"am_Brai-am_Ethi"}
+        }
+        am-Ethi-t-am-ethi-m0-geminate{
+            alias{"am_Ethi-am_Ethi/Geminate"}
+        }
+        am-Ethi-t-d0-morse{
+            alias{"am_Ethi-d0_Morse"}
+        }
+        am-Ethi-t-s0-morse{
+            alias{"d0_Morse-am_Ethi"}
+        }
         am-am_FONIPA{
             file{
                 direction{"FORWARD"}
@@ -1881,6 +1968,102 @@ root:table(nofallback){
                 resource:process(transliterator){"am_fa.txt"}
             }
         }
+        am-fonipa-t-am{
+            alias{"am-am_FONIPA"}
+        }
+        am-t-am-fonipa{
+            alias{"am_FONIPA-am"}
+        }
+        am-t-ch{
+            alias{"ch-am"}
+        }
+        am-t-cs{
+            alias{"cs-am"}
+        }
+        am-t-eo{
+            alias{"eo-am"}
+        }
+        am-t-es{
+            alias{"es-am"}
+        }
+        am-t-es-419{
+            alias{"es_419-am"}
+        }
+        am-t-es-fonipa{
+            alias{"es_FONIPA-am"}
+        }
+        am-t-hy{
+            alias{"hy-am"}
+        }
+        am-t-hy-arevmda{
+            alias{"hy_AREVMDA-am"}
+        }
+        am-t-ia{
+            alias{"ia-am"}
+        }
+        am-t-it{
+            alias{"it-am"}
+        }
+        am-t-kk{
+            alias{"kk-am"}
+        }
+        am-t-ky{
+            alias{"ky-am"}
+        }
+        am-t-my{
+            alias{"my-am"}
+        }
+        am-t-pl{
+            alias{"pl-am"}
+        }
+        am-t-rm-sursilv{
+            alias{"rm_SURSILV-am"}
+        }
+        am-t-ro{
+            alias{"ro-am"}
+        }
+        am-t-sat{
+            alias{"sat-am"}
+        }
+        am-t-si{
+            alias{"si-am"}
+        }
+        am-t-sk{
+            alias{"sk-am"}
+        }
+        am-t-tlh{
+            alias{"tlh-am"}
+        }
+        am-t-xh{
+            alias{"xh-am"}
+        }
+        am-t-zu{
+            alias{"zu-am"}
+        }
+        am_Brai-am_Ethi{
+            file{
+                direction{"REVERSE"}
+                resource:process(transliterator){"am_Ethi_am_Brai.txt"}
+            }
+        }
+        am_Ethi-am_Brai{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"am_Ethi_am_Brai.txt"}
+            }
+        }
+        am_Ethi-am_Ethi/Geminate{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"am_Ethi_am_Ethi_Geminate.txt"}
+            }
+        }
+        am_Ethi-d0_Morse{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"am_Ethi_d0_Morse.txt"}
+            }
+        }
         am_FONIPA-am{
             file{
                 direction{"REVERSE"}
@@ -1892,6 +2075,72 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"ar_ar_Latn_BGN.txt"}
             }
+        }
+        ar-t-am{
+            alias{"am-ar"}
+        }
+        ar-t-ch{
+            alias{"ch-ar"}
+        }
+        ar-t-cs{
+            alias{"cs-ar"}
+        }
+        ar-t-eo{
+            alias{"eo-ar"}
+        }
+        ar-t-es{
+            alias{"es-ar"}
+        }
+        ar-t-es-419{
+            alias{"es_419-ar"}
+        }
+        ar-t-hy{
+            alias{"hy-ar"}
+        }
+        ar-t-hy-arevmda{
+            alias{"hy_AREVMDA-ar"}
+        }
+        ar-t-ia{
+            alias{"ia-ar"}
+        }
+        ar-t-kk{
+            alias{"kk-ar"}
+        }
+        ar-t-ky{
+            alias{"ky-ar"}
+        }
+        ar-t-my{
+            alias{"my-ar"}
+        }
+        ar-t-pl{
+            alias{"pl-ar"}
+        }
+        ar-t-rm-sursilv{
+            alias{"rm_SURSILV-ar"}
+        }
+        ar-t-ro{
+            alias{"ro-ar"}
+        }
+        ar-t-sat{
+            alias{"sat-ar"}
+        }
+        ar-t-si{
+            alias{"si-ar"}
+        }
+        ar-t-sk{
+            alias{"sk-ar"}
+        }
+        ar-t-tlh{
+            alias{"tlh-ar"}
+        }
+        ar-t-und-fonipa{
+            alias{"und_FONIPA-ar"}
+        }
+        ar-t-xh{
+            alias{"xh-ar"}
+        }
+        ar-t-zu{
+            alias{"zu-ar"}
         }
         az-Lower{
             file{
@@ -1910,6 +2159,15 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"az_Upper.txt"}
             }
+        }
+        az-t-d0-lower{
+            alias{"az-Lower"}
+        }
+        az-t-d0-title{
+            alias{"az-Title"}
+        }
+        az-t-d0-upper{
+            alias{"az-Upper"}
         }
         az_Cyrl-az/BGN{
             file{
@@ -1935,6 +2193,21 @@ root:table(nofallback){
                 resource:process(transliterator){"blt_blt_FONIPA.txt"}
             }
         }
+        blt-fonipa-t-blt{
+            alias{"blt-blt_FONIPA"}
+        }
+        byn-Ethi-t-byn-latn-m0-tekieali{
+            alias{"byn_Latn-byn_Ethi/Tekie_Alibekit"}
+        }
+        byn-Ethi-t-byn-latn-m0-xaleget{
+            alias{"byn_Latn-byn_Ethi/Xaleget"}
+        }
+        byn-Latn-t-byn-ethi-m0-tekieali{
+            alias{"byn_Ethi-byn_Latn/Tekie_Alibekit"}
+        }
+        byn-Latn-t-byn-ethi-m0-xaleget{
+            alias{"byn_Ethi-byn_Latn/Xaleget"}
+        }
         byn_Ethi-byn_Latn/Tekie_Alibekit{
             file{
                 direction{"FORWARD"}
@@ -1951,6 +2224,12 @@ root:table(nofallback){
             file{
                 direction{"REVERSE"}
                 resource:process(transliterator){"byn_Ethi_byn_Latn_Tekie_Alibekit.txt"}
+            }
+        }
+        byn_Latn-byn_Ethi/Xaleget{
+            file{
+                direction{"REVERSE"}
+                resource:process(transliterator){"byn_Ethi_byn_Latn_Xaleget.txt"}
             }
         }
         ch-am{
@@ -1983,11 +2262,83 @@ root:table(nofallback){
                 resource:process(transliterator){"ch_fa.txt"}
             }
         }
+        ch-fonipa-t-ch{
+            alias{"ch-ch_FONIPA"}
+        }
         chr-chr_FONIPA{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"chr_chr_FONIPA.txt"}
             }
+        }
+        chr-fonipa-t-chr{
+            alias{"chr-chr_FONIPA"}
+        }
+        chr-t-am{
+            alias{"am-chr"}
+        }
+        chr-t-ch{
+            alias{"ch-chr"}
+        }
+        chr-t-cs{
+            alias{"cs-chr"}
+        }
+        chr-t-eo{
+            alias{"eo-chr"}
+        }
+        chr-t-es{
+            alias{"es-chr"}
+        }
+        chr-t-es-419{
+            alias{"es_419-chr"}
+        }
+        chr-t-hy{
+            alias{"hy-chr"}
+        }
+        chr-t-hy-arevmda{
+            alias{"hy_AREVMDA-chr"}
+        }
+        chr-t-ia{
+            alias{"ia-chr"}
+        }
+        chr-t-kk{
+            alias{"kk-chr"}
+        }
+        chr-t-ky{
+            alias{"ky-chr"}
+        }
+        chr-t-my{
+            alias{"my-chr"}
+        }
+        chr-t-pl{
+            alias{"pl-chr"}
+        }
+        chr-t-rm-sursilv{
+            alias{"rm_SURSILV-chr"}
+        }
+        chr-t-ro{
+            alias{"ro-chr"}
+        }
+        chr-t-sat{
+            alias{"sat-chr"}
+        }
+        chr-t-si{
+            alias{"si-chr"}
+        }
+        chr-t-sk{
+            alias{"sk-chr"}
+        }
+        chr-t-tlh{
+            alias{"tlh-chr"}
+        }
+        chr-t-und-fonipa{
+            alias{"und_FONIPA-chr"}
+        }
+        chr-t-xh{
+            alias{"xh-chr"}
+        }
+        chr-t-zu{
+            alias{"zu-chr"}
         }
         cs-am{
             file{
@@ -2019,6 +2370,9 @@ root:table(nofallback){
                 resource:process(transliterator){"cs_fa.txt"}
             }
         }
+        cs-fonipa-t-cs{
+            alias{"cs-cs_FONIPA"}
+        }
         cs-ja{
             file{
                 direction{"FORWARD"}
@@ -2049,11 +2403,23 @@ root:table(nofallback){
                 resource:process(transliterator){"cy_cy_FONIPA.txt"}
             }
         }
+        cy-fonipa-t-cy{
+            alias{"cy-cy_FONIPA"}
+        }
+        d0_Morse-am_Ethi{
+            file{
+                direction{"REVERSE"}
+                resource:process(transliterator){"am_Ethi_d0_Morse.txt"}
+            }
+        }
         de-ASCII{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"de_ASCII.txt"}
             }
+        }
+        de-t-de-d0-ascii{
+            alias{"de-ASCII"}
         }
         dsb-dsb_FONIPA{
             file{
@@ -2061,11 +2427,20 @@ root:table(nofallback){
                 resource:process(transliterator){"dsb_dsb_FONIPA.txt"}
             }
         }
+        dsb-fonipa-t-dsb{
+            alias{"dsb-dsb_FONIPA"}
+        }
+        dv-Latn-t-dv-m0-bgn{
+            alias{"dv-dv_Latn/BGN"}
+        }
         dv-dv_Latn/BGN{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"dv_dv_Latn_BGN.txt"}
             }
+        }
+        el-Latn-t-el-m0-bgn{
+            alias{"el-el_Latn/BGN"}
         }
         el-Lower{
             file{
@@ -2090,6 +2465,15 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"el_el_Latn_BGN.txt"}
             }
+        }
+        el-t-d0-lower{
+            alias{"el-Lower"}
+        }
+        el-t-d0-title{
+            alias{"el-Title"}
+        }
+        el-t-d0-upper{
+            alias{"el-Upper"}
         }
         eo-am{
             file{
@@ -2121,6 +2505,12 @@ root:table(nofallback){
                 resource:process(transliterator){"eo_fa.txt"}
             }
         }
+        eo-fonipa-t-eo{
+            alias{"eo-eo_FONIPA"}
+        }
+        es-419-fonipa-t-es-fonipa{
+            alias{"es_FONIPA-es_419_FONIPA"}
+        }
         es-am{
             file{
                 direction{"FORWARD"}
@@ -2150,6 +2540,9 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"es_fa.txt"}
             }
+        }
+        es-fonipa-t-es{
+            alias{"es-es_FONIPA"}
         }
         es-ja{
             file{
@@ -2223,6 +2616,9 @@ root:table(nofallback){
                 resource:process(transliterator){"es_FONIPA_zh.txt"}
             }
         }
+        fa-Latn-t-fa-m0-bgn{
+            alias{"fa-fa_Latn/BGN"}
+        }
         fa-fa_FONIPA{
             file{
                 direction{"FORWARD"}
@@ -2235,11 +2631,95 @@ root:table(nofallback){
                 resource:process(transliterator){"fa_fa_Latn_BGN.txt"}
             }
         }
+        fa-fonipa-t-fa{
+            alias{"fa-fa_FONIPA"}
+        }
+        fa-t-am{
+            alias{"am-fa"}
+        }
+        fa-t-ch{
+            alias{"ch-fa"}
+        }
+        fa-t-cs{
+            alias{"cs-fa"}
+        }
+        fa-t-eo{
+            alias{"eo-fa"}
+        }
+        fa-t-es{
+            alias{"es-fa"}
+        }
+        fa-t-es-419{
+            alias{"es_419-fa"}
+        }
+        fa-t-hy{
+            alias{"hy-fa"}
+        }
+        fa-t-hy-arevmda{
+            alias{"hy_AREVMDA-fa"}
+        }
+        fa-t-ia{
+            alias{"ia-fa"}
+        }
+        fa-t-kk{
+            alias{"kk-fa"}
+        }
+        fa-t-ky{
+            alias{"ky-fa"}
+        }
+        fa-t-my{
+            alias{"my-fa"}
+        }
+        fa-t-pl{
+            alias{"pl-fa"}
+        }
+        fa-t-rm-sursilv{
+            alias{"rm_SURSILV-fa"}
+        }
+        fa-t-ro{
+            alias{"ro-fa"}
+        }
+        fa-t-sat{
+            alias{"sat-fa"}
+        }
+        fa-t-si{
+            alias{"si-fa"}
+        }
+        fa-t-sk{
+            alias{"sk-fa"}
+        }
+        fa-t-tlh{
+            alias{"tlh-fa"}
+        }
+        fa-t-und-fonipa{
+            alias{"und_FONIPA-fa"}
+        }
+        fa-t-xh{
+            alias{"xh-fa"}
+        }
+        fa-t-zu{
+            alias{"zu-fa"}
+        }
+        gz-Ethi-t-und-sarb{
+            alias{"Sarb-gz_Ethi"}
+        }
+        gz_Ethi-Sarb{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"gz_Ethi_Sarb.txt"}
+            }
+        }
+        ha-NE-t-ha{
+            alias{"ha-ha_NE"}
+        }
         ha-ha_NE{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"ha_ha_NE.txt"}
             }
+        }
+        he-Latn-t-he-m0-bgn{
+            alias{"he-he_Latn/BGN"}
         }
         he-he_Latn/BGN{
             file{
@@ -2259,6 +2739,9 @@ root:table(nofallback){
                 resource:process(transliterator){"hy_ar.txt"}
             }
         }
+        hy-arevmda-fonipa-t-hy-arevmda{
+            alias{"hy_AREVMDA-hy_AREVMDA_FONIPA"}
+        }
         hy-chr{
             file{
                 direction{"FORWARD"}
@@ -2270,6 +2753,9 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"hy_fa.txt"}
             }
+        }
+        hy-fonipa-t-hy{
+            alias{"hy-hy_FONIPA"}
         }
         hy-hy_FONIPA{
             file{
@@ -2337,6 +2823,9 @@ root:table(nofallback){
                 resource:process(transliterator){"ia_fa.txt"}
             }
         }
+        ia-fonipa-t-ia{
+            alias{"ia-ia_FONIPA"}
+        }
         ia-ia_FONIPA{
             file{
                 direction{"FORWARD"}
@@ -2354,6 +2843,48 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"it_ja.txt"}
             }
+        }
+        ja-Latn-t-ja-hrkt-m0-bgn{
+            alias{"ja_Hrkt-ja_Latn/BGN"}
+        }
+        ja-t-cs{
+            alias{"cs-ja"}
+        }
+        ja-t-cs-fonipa{
+            alias{"cs_FONIPA-ja"}
+        }
+        ja-t-es{
+            alias{"es-ja"}
+        }
+        ja-t-es-419{
+            alias{"es_419-ja"}
+        }
+        ja-t-es-fonipa{
+            alias{"es_FONIPA-ja"}
+        }
+        ja-t-it{
+            alias{"it-ja"}
+        }
+        ja-t-pl{
+            alias{"pl-ja"}
+        }
+        ja-t-pl-fonipa{
+            alias{"pl_FONIPA-ja"}
+        }
+        ja-t-ro{
+            alias{"ro-ja"}
+        }
+        ja-t-ro-fonipa{
+            alias{"ro_FONIPA-ja"}
+        }
+        ja-t-ru{
+            alias{"ru-ja"}
+        }
+        ja-t-sk{
+            alias{"sk-ja"}
+        }
+        ja-t-sk-fonipa{
+            alias{"sk_FONIPA-ja"}
         }
         ja_Hrkt-ja_Latn/BGN{
             file{
@@ -2373,6 +2904,15 @@ root:table(nofallback){
                 resource:process(transliterator){"ja_Latn_ru.txt"}
             }
         }
+        ka-Latn-t-ka-m0-bgn{
+            alias{"ka-ka_Latn/BGN"}
+        }
+        ka-Latn-t-ka-m0-bgn-1981{
+            alias{"ka-ka_Latn/BGN_1981"}
+        }
+        ka-Latn-t-ka-m0-bgn-2009{
+            alias{"ka-ka_Latn/BGN"}
+        }
         ka-ka_Latn/BGN{
             file{
                 direction{"FORWARD"}
@@ -2384,6 +2924,9 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"ka_ka_Latn_BGN_1981.txt"}
             }
+        }
+        kk-Latn-t-kk-m0-bgn{
+            alias{"kk-kk_Latn/BGN"}
         }
         kk-am{
             file{
@@ -2409,6 +2952,9 @@ root:table(nofallback){
                 resource:process(transliterator){"kk_fa.txt"}
             }
         }
+        kk-fonipa-t-kk{
+            alias{"kk-kk_FONIPA"}
+        }
         kk-kk_FONIPA{
             file{
                 direction{"FORWARD"}
@@ -2421,11 +2967,26 @@ root:table(nofallback){
                 resource:process(transliterator){"kk_kk_Latn_BGN.txt"}
             }
         }
+        ko-Latn-t-ko-m0-bgn{
+            alias{"ko-ko_Latn/BGN"}
+        }
         ko-ko_Latn/BGN{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"ko_ko_Latn_BGN.txt"}
             }
+        }
+        ko-t-cs{
+            alias{"cs-ko"}
+        }
+        ko-t-cs-fonipa{
+            alias{"cs_FONIPA-ko"}
+        }
+        ko-t-ja-latn{
+            alias{"ja_Latn-ko"}
+        }
+        ky-Latn-t-ky-m0-bgn{
+            alias{"ky-ky_Latn/BGN"}
         }
         ky-am{
             file{
@@ -2451,6 +3012,9 @@ root:table(nofallback){
                 resource:process(transliterator){"ky_fa.txt"}
             }
         }
+        ky-fonipa-t-ky{
+            alias{"ky-ky_FONIPA"}
+        }
         ky-ky_FONIPA{
             file{
                 direction{"FORWARD"}
@@ -2462,6 +3026,9 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"ky_ky_Latn_BGN.txt"}
             }
+        }
+        la-fonipa-t-la{
+            alias{"la-la_FONIPA"}
         }
         la-la_FONIPA{
             file{
@@ -2487,11 +3054,29 @@ root:table(nofallback){
                 resource:process(transliterator){"lt_Upper.txt"}
             }
         }
+        lt-t-d0-lower{
+            alias{"lt-Lower"}
+        }
+        lt-t-d0-title{
+            alias{"lt-Title"}
+        }
+        lt-t-d0-upper{
+            alias{"lt-Upper"}
+        }
+        mk-Latn-t-mk-m0-bgn{
+            alias{"mk-mk_Latn/BGN"}
+        }
         mk-mk_Latn/BGN{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"mk_mk_Latn_BGN.txt"}
             }
+        }
+        mn-Latn-t-mn-m0-bgn{
+            alias{"mn-mn_Latn/BGN"}
+        }
+        mn-Latn-t-mn-m0-mns{
+            alias{"mn-mn_Latn/MNS"}
         }
         mn-mn_Latn/BGN{
             file{
@@ -2504,6 +3089,9 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"mn_mn_Latn_MNS.txt"}
             }
+        }
+        my-Latn-t-my{
+            alias{"my-my_Latn"}
         }
         my-Zawgyi{
             file{
@@ -2535,6 +3123,9 @@ root:table(nofallback){
                 resource:process(transliterator){"my_fa.txt"}
             }
         }
+        my-fonipa-t-my{
+            alias{"my-my_FONIPA"}
+        }
         my-my_FONIPA{
             file{
                 direction{"FORWARD"}
@@ -2547,11 +3138,23 @@ root:table(nofallback){
                 resource:process(transliterator){"my_my_Latn.txt"}
             }
         }
+        my-t-my-d0-zawgyi{
+            alias{"my-Zawgyi"}
+        }
+        my-t-my-s0-zawgyi{
+            alias{"Zawgyi-my"}
+        }
         nl-Title{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"nl_Title.txt"}
             }
+        }
+        nl-t-d0-title{
+            alias{"nl-Title"}
+        }
+        nv-fonipa-t-nv{
+            alias{"nv-nv_FONIPA"}
         }
         nv-nv_FONIPA{
             file{
@@ -2583,6 +3186,9 @@ root:table(nofallback){
                 resource:process(transliterator){"pl_fa.txt"}
             }
         }
+        pl-fonipa-t-pl{
+            alias{"pl-pl_FONIPA"}
+        }
         pl-ja{
             file{
                 direction{"FORWARD"}
@@ -2601,11 +3207,17 @@ root:table(nofallback){
                 resource:process(transliterator){"pl_FONIPA_ja.txt"}
             }
         }
+        ps-Latn-t-ps-m0-bgn{
+            alias{"ps-ps_Latn/BGN"}
+        }
         ps-ps_Latn/BGN{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"ps_ps_Latn_BGN.txt"}
             }
+        }
+        rm-fonipa-sursilv-t-rm-sursilv{
+            alias{"rm_SURSILV-rm_FONIPA_SURSILV"}
         }
         rm_SURSILV-am{
             file{
@@ -2661,6 +3273,9 @@ root:table(nofallback){
                 resource:process(transliterator){"ro_fa.txt"}
             }
         }
+        ro-fonipa-t-ro{
+            alias{"ro-ro_FONIPA"}
+        }
         ro-ja{
             file{
                 direction{"FORWARD"}
@@ -2679,6 +3294,9 @@ root:table(nofallback){
                 resource:process(transliterator){"ro_FONIPA_ja.txt"}
             }
         }
+        ru-Latn-t-ru-m0-bgn{
+            alias{"ru-ru_Latn/BGN"}
+        }
         ru-ja{
             file{
                 direction{"FORWARD"}
@@ -2690,6 +3308,15 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"ru_ru_Latn_BGN.txt"}
             }
+        }
+        ru-t-ja-latn{
+            alias{"ja_Latn-ru"}
+        }
+        ru-t-ru-latn-m0-bgn{
+            alias{"ru_Latn-ru/BGN"}
+        }
+        ru-t-zh-latn-pinyin{
+            alias{"zh_Latn_PINYIN-ru"}
         }
         ru-zh{
             file{
@@ -2727,11 +3354,26 @@ root:table(nofallback){
                 resource:process(transliterator){"sat_fa.txt"}
             }
         }
+        sat-fonipa-t-sat-olck{
+            alias{"sat_Olck-sat_FONIPA"}
+        }
         sat_Olck-sat_FONIPA{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"sat_Olck_sat_FONIPA.txt"}
             }
+        }
+        sgw-Ethi-t-und-ethi-m0-gurage-2013{
+            alias{"Ethi-sgw_Ethi/Gurage_2013"}
+        }
+        sgw_Ethi-Ethi/Gurage_2013{
+            file{
+                direction{"FORWARD"}
+                resource:process(transliterator){"sgw_Ethi_Ethi_Gurage_2013.txt"}
+            }
+        }
+        si-Latn-t-si{
+            alias{"si-si_Latn"}
         }
         si-am{
             file{
@@ -2756,6 +3398,9 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"si_fa.txt"}
             }
+        }
+        si-fonipa-t-si{
+            alias{"si-si_FONIPA"}
         }
         si-si_FONIPA{
             file{
@@ -2793,6 +3438,9 @@ root:table(nofallback){
                 resource:process(transliterator){"sk_fa.txt"}
             }
         }
+        sk-fonipa-t-sk{
+            alias{"sk-sk_FONIPA"}
+        }
         sk-ja{
             file{
                 direction{"FORWARD"}
@@ -2811,17 +3459,26 @@ root:table(nofallback){
                 resource:process(transliterator){"sk_FONIPA_ja.txt"}
             }
         }
+        sr-Latn-t-sr-m0-bgn{
+            alias{"sr-sr_Latn/BGN"}
+        }
         sr-sr_Latn/BGN{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"sr_sr_Latn_BGN.txt"}
             }
         }
+        ta-fonipa-t-ta{
+            alias{"ta-ta_FONIPA"}
+        }
         ta-ta_FONIPA{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"ta_ta_FONIPA.txt"}
             }
+        }
+        tk-t-tk-cyrl-m0-bgn{
+            alias{"tk_Cyrl-tk/BGN"}
         }
         tk_Cyrl-tk/BGN{
             file{
@@ -2853,6 +3510,9 @@ root:table(nofallback){
                 resource:process(transliterator){"tlh_fa.txt"}
             }
         }
+        tlh-fonipa-t-tlh{
+            alias{"tlh-tlh_FONIPA"}
+        }
         tlh-tlh_FONIPA{
             file{
                 direction{"FORWARD"}
@@ -2877,17 +3537,500 @@ root:table(nofallback){
                 resource:process(transliterator){"tr_Upper.txt"}
             }
         }
+        tr-t-d0-lower{
+            alias{"tr-Lower"}
+        }
+        tr-t-d0-title{
+            alias{"tr-Title"}
+        }
+        tr-t-d0-upper{
+            alias{"tr-Upper"}
+        }
+        ug-fonipa-t-ug{
+            alias{"ug-ug_FONIPA"}
+        }
         ug-ug_FONIPA{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"ug_ug_FONIPA.txt"}
             }
         }
+        uk-Latn-t-uk-m0-bgn{
+            alias{"uk-uk_Latn/BGN"}
+        }
         uk-uk_Latn/BGN{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"uk_uk_Latn_BGN.txt"}
             }
+        }
+        und-Arab-t-und-deva{
+            alias{"Deva-Arab"}
+        }
+        und-Arab-t-und-gujr{
+            alias{"Gujr-Arab"}
+        }
+        und-Arab-t-und-guru{
+            alias{"Guru-Arab"}
+        }
+        und-Arab-t-und-knda{
+            alias{"Knda-Arab"}
+        }
+        und-Arab-t-und-mlym{
+            alias{"Mlym-Arab"}
+        }
+        und-Arab-t-und-orya{
+            alias{"Orya-Arab"}
+        }
+        und-Arab-t-und-taml{
+            alias{"Taml-Arab"}
+        }
+        und-Arab-t-und-telu{
+            alias{"Telu-Arab"}
+        }
+        und-Armn-t-und-latn{
+            alias{"Latn-Armn"}
+        }
+        und-Beng-t-und-deva{
+            alias{"Deva-Beng"}
+        }
+        und-Beng-t-und-gujr{
+            alias{"Gujr-Beng"}
+        }
+        und-Beng-t-und-guru{
+            alias{"Guru-Beng"}
+        }
+        und-Beng-t-und-knda{
+            alias{"Knda-Beng"}
+        }
+        und-Beng-t-und-latn{
+            alias{"Latn-Beng"}
+        }
+        und-Beng-t-und-mlym{
+            alias{"Mlym-Beng"}
+        }
+        und-Beng-t-und-orya{
+            alias{"Orya-Beng"}
+        }
+        und-Beng-t-und-taml{
+            alias{"Taml-Beng"}
+        }
+        und-Beng-t-und-telu{
+            alias{"Telu-Beng"}
+        }
+        und-Bopo-t-und-latn{
+            alias{"Latn-Bopo"}
+        }
+        und-Cans-t-und-latn{
+            alias{"Latn-Cans"}
+        }
+        und-Cyrl-t-und-ethi-m0-gutgarts{
+            alias{"Ethi-Cyrl/Gutgarts"}
+        }
+        und-Deva-t-und-gujr{
+            alias{"Gujr-Deva"}
+        }
+        und-Deva-t-und-guru{
+            alias{"Guru-Deva"}
+        }
+        und-Deva-t-und-knda{
+            alias{"Knda-Deva"}
+        }
+        und-Deva-t-und-latn{
+            alias{"Latn-Deva"}
+        }
+        und-Deva-t-und-mlym{
+            alias{"Mlym-Deva"}
+        }
+        und-Deva-t-und-orya{
+            alias{"Orya-Deva"}
+        }
+        und-Deva-t-und-taml{
+            alias{"Taml-Deva"}
+        }
+        und-Deva-t-und-telu{
+            alias{"Telu-Deva"}
+        }
+        und-Ethi-t-sgw-ethi-m0-gurage-2013{
+            alias{"sgw_Ethi-Ethi/Gurage_2013"}
+        }
+        und-Ethi-t-und-cyrl-m0-gutgarts{
+            alias{"Cyrl-Ethi/Gutgarts"}
+        }
+        und-Ethi-t-und-lant{
+            alias{"Latn-Ethi"}
+        }
+        und-Ethi-t-und-latn-m0-aethiopi{
+            alias{"Latn-Ethi/Aethiopi"}
+        }
+        und-Ethi-t-und-latn-m0-alaloc{
+            alias{"Latn-Ethi/ALALOC"}
+        }
+        und-Ethi-t-und-latn-m0-betamets{
+            alias{"Latn-Ethi/Beta_Metsehaf"}
+        }
+        und-Ethi-t-und-latn-m0-iesjes-1964{
+            alias{"Latn-Ethi/IES_JES_1964"}
+        }
+        und-Ethi-t-und-latn-m0-lambdin{
+            alias{"Latn-Ethi/Lambdin"}
+        }
+        und-Ethi-t-und-latn-m0-sera{
+            alias{"Latn-Ethi/SERA"}
+        }
+        und-Ethi-t-und-latn-m0-williams{
+            alias{"Latn-Ethi/Williamson"}
+        }
+        und-Geor-t-und-latn{
+            alias{"Latn-Geor"}
+        }
+        und-Grek-t-und-latn{
+            alias{"Latn-Grek"}
+        }
+        und-Grek-t-und-latn-m0-ungegn{
+            alias{"Latn-Grek/UNGEGN"}
+        }
+        und-Gujr-t-und-deva{
+            alias{"Deva-Gujr"}
+        }
+        und-Gujr-t-und-guru{
+            alias{"Guru-Gujr"}
+        }
+        und-Gujr-t-und-knda{
+            alias{"Knda-Gujr"}
+        }
+        und-Gujr-t-und-latn{
+            alias{"Latn-Gujr"}
+        }
+        und-Gujr-t-und-mlym{
+            alias{"Mlym-Gujr"}
+        }
+        und-Gujr-t-und-orya{
+            alias{"Orya-Gujr"}
+        }
+        und-Gujr-t-und-taml{
+            alias{"Taml-Gujr"}
+        }
+        und-Gujr-t-und-telu{
+            alias{"Telu-Gujr"}
+        }
+        und-Guru-t-und-deva{
+            alias{"Deva-Guru"}
+        }
+        und-Guru-t-und-gujr{
+            alias{"Gujr-Guru"}
+        }
+        und-Guru-t-und-knda{
+            alias{"Knda-Guru"}
+        }
+        und-Guru-t-und-latn{
+            alias{"Latn-Guru"}
+        }
+        und-Guru-t-und-mlym{
+            alias{"Mlym-Guru"}
+        }
+        und-Guru-t-und-orya{
+            alias{"Orya-Guru"}
+        }
+        und-Guru-t-und-taml{
+            alias{"Taml-Guru"}
+        }
+        und-Guru-t-und-telu{
+            alias{"Telu-Guru"}
+        }
+        und-Hang-t-und-latn{
+            alias{"Latn-Hang"}
+        }
+        und-Hans-t-und-hant{
+            alias{"Hant-Hans"}
+        }
+        und-Hant-t-und-hans{
+            alias{"Hans-Hant"}
+        }
+        und-Hebr-t-und-latn{
+            alias{"Latn-Hebr"}
+        }
+        und-Hira-t-und-kana{
+            alias{"Kana-Hira"}
+        }
+        und-Hira-t-und-latn{
+            alias{"Latn-Hira"}
+        }
+        und-Jamo-t-und-latn{
+            alias{"Latn-Jamo"}
+        }
+        und-Kana-t-und-hira{
+            alias{"Hira-Kana"}
+        }
+        und-Kana-t-und-latn{
+            alias{"Latn-Kana"}
+        }
+        und-Knda-t-und-deva{
+            alias{"Deva-Knda"}
+        }
+        und-Knda-t-und-gujr{
+            alias{"Gujr-Knda"}
+        }
+        und-Knda-t-und-guru{
+            alias{"Guru-Knda"}
+        }
+        und-Knda-t-und-latn{
+            alias{"Latn-Knda"}
+        }
+        und-Knda-t-und-mlym{
+            alias{"Mlym-Knda"}
+        }
+        und-Knda-t-und-orya{
+            alias{"Orya-Knda"}
+        }
+        und-Knda-t-und-taml{
+            alias{"Taml-Knda"}
+        }
+        und-Knda-t-und-telu{
+            alias{"Telu-Knda"}
+        }
+        und-Latn-t-s0-ascii{
+            alias{"ASCII-Latin"}
+        }
+        und-Latn-t-und-armn{
+            alias{"Armn-Latn"}
+        }
+        und-Latn-t-und-bopo{
+            alias{"Bopo-Latn"}
+        }
+        und-Latn-t-und-cans{
+            alias{"Cans-Latn"}
+        }
+        und-Latn-t-und-deva{
+            alias{"Deva-Latn"}
+        }
+        und-Latn-t-und-ethi{
+            alias{"Ethi-Latn"}
+        }
+        und-Latn-t-und-ethi-m0-aethiopi{
+            alias{"Ethi-Latn/Aethiopi"}
+        }
+        und-Latn-t-und-ethi-m0-aethiopi-geminate{
+            alias{"Ethi-Latn/Aethiopi_Geminate"}
+        }
+        und-Latn-t-und-ethi-m0-alaloc{
+            alias{"Ethi-Latn/ALALOC"}
+        }
+        und-Latn-t-und-ethi-m0-alaloc-geminate{
+            alias{"Ethi-Latn/ALALOC_Geminate"}
+        }
+        und-Latn-t-und-ethi-m0-betamets{
+            alias{"Ethi-Latn/Beta_Metsehaf"}
+        }
+        und-Latn-t-und-ethi-m0-betamets-geminate{
+            alias{"Ethi-Latn/Beta_Metsehaf_Geminate"}
+        }
+        und-Latn-t-und-ethi-m0-es3842{
+            alias{"Ethi-Latn/ES3842"}
+        }
+        und-Latn-t-und-ethi-m0-iesjes-1964{
+            alias{"Ethi-Latn/IES_JES_1964"}
+        }
+        und-Latn-t-und-ethi-m0-iesjes-1964-geminate{
+            alias{"Ethi-Latn/IES_JES_1964_Geminate"}
+        }
+        und-Latn-t-und-ethi-m0-lambdin{
+            alias{"Ethi-Latn/Lambdin"}
+        }
+        und-Latn-t-und-ethi-m0-sera{
+            alias{"Ethi-Latn/SERA"}
+        }
+        und-Latn-t-und-ethi-m0-williams{
+            alias{"Ethi-Latn/Williamson"}
+        }
+        und-Latn-t-und-geor{
+            alias{"Geor-Latn"}
+        }
+        und-Latn-t-und-grek{
+            alias{"Grek-Latn"}
+        }
+        und-Latn-t-und-grek-m0-ungegn{
+            alias{"Grek-Latn/UNGEGN"}
+        }
+        und-Latn-t-und-gujr{
+            alias{"Gujr-Latn"}
+        }
+        und-Latn-t-und-guru{
+            alias{"Guru-Latn"}
+        }
+        und-Latn-t-und-hang{
+            alias{"Hang-Latn"}
+        }
+        und-Latn-t-und-hani{
+            alias{"Hani-Latn"}
+        }
+        und-Latn-t-und-hani-m0-prprname{
+            alias{"Han-Latin/Names"}
+        }
+        und-Latn-t-und-hebr{
+            alias{"Hebr-Latn"}
+        }
+        und-Latn-t-und-hira{
+            alias{"Hira-Latn"}
+        }
+        und-Latn-t-und-jamo{
+            alias{"Jamo-Latn"}
+        }
+        und-Latn-t-und-kana{
+            alias{"Kana-Latn"}
+        }
+        und-Latn-t-und-knda{
+            alias{"Knda-Latn"}
+        }
+        und-Latn-t-und-mlym{
+            alias{"Mlym-Latn"}
+        }
+        und-Latn-t-und-orya{
+            alias{"Orya-Latn"}
+        }
+        und-Latn-t-und-syrc{
+            alias{"Syrc-Latn"}
+        }
+        und-Latn-t-und-taml{
+            alias{"Taml-Latn"}
+        }
+        und-Latn-t-und-telu{
+            alias{"Telu-Latn"}
+        }
+        und-Latn-t-und-thaa{
+            alias{"Thaa-Latn"}
+        }
+        und-Latn-t-und-thai{
+            alias{"Thai-Latn"}
+        }
+        und-Mlym-t-und-deva{
+            alias{"Deva-Mlym"}
+        }
+        und-Mlym-t-und-gujr{
+            alias{"Gujr-Mlym"}
+        }
+        und-Mlym-t-und-guru{
+            alias{"Guru-Mlym"}
+        }
+        und-Mlym-t-und-knda{
+            alias{"Knda-Mlym"}
+        }
+        und-Mlym-t-und-latn{
+            alias{"Latn-Mlym"}
+        }
+        und-Mlym-t-und-orya{
+            alias{"Orya-Mlym"}
+        }
+        und-Mlym-t-und-taml{
+            alias{"Taml-Mlym"}
+        }
+        und-Mlym-t-und-telu{
+            alias{"Telu-Mlym"}
+        }
+        und-Orya-t-und-deva{
+            alias{"Deva-Orya"}
+        }
+        und-Orya-t-und-gujr{
+            alias{"Gujr-Orya"}
+        }
+        und-Orya-t-und-guru{
+            alias{"Guru-Orya"}
+        }
+        und-Orya-t-und-knda{
+            alias{"Knda-Orya"}
+        }
+        und-Orya-t-und-latn{
+            alias{"Latn-Orya"}
+        }
+        und-Orya-t-und-mlym{
+            alias{"Mlym-Orya"}
+        }
+        und-Orya-t-und-taml{
+            alias{"Taml-Orya"}
+        }
+        und-Orya-t-und-telu{
+            alias{"Telu-Orya"}
+        }
+        und-Sarb-t-gz-ethi{
+            alias{"gz_Ethi-Sarb"}
+        }
+        und-Syrc-t-und-latn{
+            alias{"Latn-Syrc"}
+        }
+        und-Taml-t-und-deva{
+            alias{"Deva-Taml"}
+        }
+        und-Taml-t-und-gujr{
+            alias{"Gujr-Taml"}
+        }
+        und-Taml-t-und-guru{
+            alias{"Guru-Taml"}
+        }
+        und-Taml-t-und-knda{
+            alias{"Knda-Taml"}
+        }
+        und-Taml-t-und-latn{
+            alias{"Latn-Taml"}
+        }
+        und-Taml-t-und-mlym{
+            alias{"Mlym-Taml"}
+        }
+        und-Taml-t-und-orya{
+            alias{"Orya-Taml"}
+        }
+        und-Taml-t-und-telu{
+            alias{"Telu-Taml"}
+        }
+        und-Telu-t-und-deva{
+            alias{"Deva-Telu"}
+        }
+        und-Telu-t-und-gujr{
+            alias{"Gujr-Telu"}
+        }
+        und-Telu-t-und-guru{
+            alias{"Guru-Telu"}
+        }
+        und-Telu-t-und-knda{
+            alias{"Knda-Telu"}
+        }
+        und-Telu-t-und-latn{
+            alias{"Latn-Telu"}
+        }
+        und-Telu-t-und-mlym{
+            alias{"Mlym-Telu"}
+        }
+        und-Telu-t-und-orya{
+            alias{"Orya-Telu"}
+        }
+        und-Telu-t-und-taml{
+            alias{"Taml-Telu"}
+        }
+        und-Thaa-t-und-latn{
+            alias{"Latn-Thaa"}
+        }
+        und-Thai-t-und-latn{
+            alias{"Latn-Thai"}
+        }
+        und-fonipa-t-und-fonxsamp{
+            alias{"und_FONXSAMP-und_FONIPA"}
+        }
+        und-fonxsamp-t-und-fonipa{
+            alias{"und_FONIPA-und_FONXSAMP"}
+        }
+        und-pinyin-t-d0-npinyin{
+            alias{"Latin-NumericPinyin"}
+        }
+        und-pinyin-t-s0-npinyin{
+            alias{"NumericPinyin-Latin"}
+        }
+        und-t-d0-fwidth{
+            alias{"Halfwidth-Fullwidth"}
+        }
+        und-t-d0-hwidth{
+            alias{"Fullwidth-Halfwidth"}
+        }
+        und-t-und-latn-d0-ascii{
+            alias{"Latin-ASCII"}
         }
         und_FONIPA-ar{
             file{
@@ -2919,6 +4062,39 @@ root:table(nofallback){
                 resource:process(transliterator){"und_FONIPA_und_FONXSAMP.txt"}
             }
         }
+        ur-t-und-deva{
+            alias{"Deva-ur"}
+        }
+        ur-t-und-gujr{
+            alias{"Gujr-ur"}
+        }
+        ur-t-und-guru{
+            alias{"Guru-ur"}
+        }
+        ur-t-und-knda{
+            alias{"Knda-ur"}
+        }
+        ur-t-und-mlym{
+            alias{"Mlym-ur"}
+        }
+        ur-t-und-orya{
+            alias{"Orya-ur"}
+        }
+        ur-t-und-taml{
+            alias{"Taml-ur"}
+        }
+        ur-t-und-telu{
+            alias{"Telu-ur"}
+        }
+        uz-Cyrl-t-uz-latn{
+            alias{"uz_Latn-uz_Cyrl"}
+        }
+        uz-Latn-t-uz-cyrl{
+            alias{"uz_Cyrl-uz_Latn"}
+        }
+        uz-t-uz-cyrl-m0-bgn{
+            alias{"uz_Cyrl-uz/BGN"}
+        }
         uz_Cyrl-uz/BGN{
             file{
                 direction{"FORWARD"}
@@ -2936,6 +4112,9 @@ root:table(nofallback){
                 direction{"REVERSE"}
                 resource:process(transliterator){"uz_Cyrl_uz_Latn.txt"}
             }
+        }
+        vec-fonipa-t-vec{
+            alias{"vec-vec_FONIPA"}
         }
         vec-vec_FONIPA{
             file{
@@ -2967,17 +4146,35 @@ root:table(nofallback){
                 resource:process(transliterator){"xh_fa.txt"}
             }
         }
+        xh-fonipa-t-xh{
+            alias{"xh-xh_FONIPA"}
+        }
         xh-xh_FONIPA{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"xh_xh_FONIPA.txt"}
             }
         }
+        yo-BJ-t-yo{
+            alias{"yo-yo_BJ"}
+        }
         yo-yo_BJ{
             file{
                 direction{"FORWARD"}
                 resource:process(transliterator){"yo_yo_BJ.txt"}
             }
+        }
+        zh-t-es{
+            alias{"es-zh"}
+        }
+        zh-t-es-419{
+            alias{"es_419-zh"}
+        }
+        zh-t-es-fonipa{
+            alias{"es_FONIPA-zh"}
+        }
+        zh-t-ru{
+            alias{"ru-zh"}
         }
         zh_Latn_PINYIN-ru{
             file{
@@ -3008,6 +4205,9 @@ root:table(nofallback){
                 direction{"FORWARD"}
                 resource:process(transliterator){"zu_fa.txt"}
             }
+        }
+        zu-fonipa-t-zu{
+            alias{"zu-zu_FONIPA"}
         }
         zu-zu_FONIPA{
             file{

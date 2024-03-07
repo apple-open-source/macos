@@ -1610,10 +1610,10 @@ proc_limitfork(proc_t parent, proc_t child)
 {
 	struct plimit *plim;
 
-	smr_proc_task_enter();
-	plim = smr_entered_load(&parent->p_limit);
+	proc_lock(parent);
+	plim = smr_serialized_load(&parent->p_limit);
 	os_ref_retain(&plim->pl_refcnt);
-	smr_proc_task_leave();
+	proc_unlock(parent);
 
 	smr_init_store(&child->p_limit, plim);
 }

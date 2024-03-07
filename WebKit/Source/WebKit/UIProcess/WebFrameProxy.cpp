@@ -50,8 +50,11 @@
 #include "WebsitePoliciesData.h"
 #include <WebCore/Image.h>
 #include <WebCore/MIMETypeRegistry.h>
+#include <WebCore/NavigationScheduler.h>
 #include <stdio.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/RunLoop.h>
+#include <wtf/WeakRef.h>
 #include <wtf/text/WTFString.h>
 
 #define MESSAGE_CHECK(process, assertion) MESSAGE_CHECK_BASE(assertion, process->connection())
@@ -61,10 +64,10 @@ using namespace WebCore;
 
 class WebPageProxy;
 
-static HashMap<FrameIdentifier, WebFrameProxy*>& allFrames()
+static HashMap<FrameIdentifier, WeakRef<WebFrameProxy>>& allFrames()
 {
     ASSERT(RunLoop::isMain());
-    static NeverDestroyed<HashMap<FrameIdentifier, WebFrameProxy*>> map;
+    static NeverDestroyed<HashMap<FrameIdentifier, WeakRef<WebFrameProxy>>> map;
     return map.get();
 }
 
@@ -88,7 +91,7 @@ WebFrameProxy::WebFrameProxy(WebPageProxy& page, WebProcessProxy& process, Frame
     , m_frameID(frameID)
 {
     ASSERT(!allFrames().contains(frameID));
-    allFrames().set(frameID, this);
+    allFrames().set(frameID, *this);
     WebProcessPool::statistics().wkFrameCount++;
 }
 
@@ -159,21 +162,26 @@ void WebFrameProxy::navigateServiceWorkerClient(WebCore::ScriptExecutionContextI
         return;
     }
 
-    m_page->sendWithAsyncReply(Messages::WebPage::NavigateServiceWorkerClient { documentIdentifier, url }, [this, protectedThis = Ref { *this }, url, callback = WTFMove(callback)](bool result) mutable {
-        if (!result) {
+    m_page->sendWithAsyncReply(Messages::WebPage::NavigateServiceWorkerClient { documentIdentifier, url }, [this, protectedThis = Ref { *this }, url, callback = WTFMove(callback)](auto result) mutable {
+        switch (result) {
+        case WebCore::ScheduleLocationChangeResult::Stopped:
             callback({ }, { });
             return;
-        }
-
-        if (!m_activeListener) {
+        case WebCore::ScheduleLocationChangeResult::Completed:
             callback(pageIdentifier(), frameID());
             return;
+        case WebCore::ScheduleLocationChangeResult::Started:
+            if (!m_activeListener) {
+                callback(pageIdentifier(), frameID());
+                return;
+            }
+
+            if (m_navigateCallback)
+                m_navigateCallback({ }, { });
+
+            m_navigateCallback = WTFMove(callback);
+            return;
         }
-
-        if (m_navigateCallback)
-            m_navigateCallback({ }, { });
-
-        m_navigateCallback = WTFMove(callback);
     });
 }
 
@@ -366,7 +374,7 @@ void WebFrameProxy::disconnect()
         m_parentFrame->m_childFrames.remove(*this);
 }
 
-void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID)
+void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, const String& frameName)
 {
     // The DecidePolicyForNavigationActionSync IPC is synchronous and may therefore get processed before the DidCreateSubframe one.
     // When this happens, decidePolicyForNavigationActionSync() calls didCreateSubframe() and we need to ignore the DidCreateSubframe
@@ -380,8 +388,9 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID)
 
     auto child = WebFrameProxy::create(*m_page, m_process, frameID);
     child->m_parentFrame = *this;
+    child->m_frameName = frameName;
     if (m_page)
-        m_page->createRemoteSubframesInOtherProcesses(child);
+        m_page->createRemoteSubframesInOtherProcesses(child, frameName);
     m_childFrames.add(WTFMove(child));
 }
 
@@ -398,29 +407,28 @@ void WebFrameProxy::prepareForProvisionalNavigationInProcess(WebProcessProxy& pr
         return completionHandler();
     }
 
+    RegistrableDomain navigationDomain(navigation.currentRequest().url());
     if (!m_provisionalFrame || navigation.currentRequestIsCrossSiteRedirect()) {
-        // FIXME: Main resource (of main or subframe) request redirects should go straight from the network to UI process so we don't need to make the processes for each domain in a redirect chain.
-        RegistrableDomain navigationDomain(navigation.currentRequest().url());
+        // FIXME: Main resource (of main or subframe) request redirects should go straight from the network to UI process so we don't need to make the processes for each domain in a redirect chain. <rdar://116202119>
         RefPtr remotePageProxy = m_page->remotePageProxyForRegistrableDomain(navigationDomain);
+        RegistrableDomain mainFrameDomain(m_page->mainFrame()->url());
+
         if (remotePageProxy)
             ASSERT(remotePageProxy->process().coreProcessIdentifier() == process.coreProcessIdentifier());
-        else if (navigationDomain != RegistrableDomain(m_page->mainFrame()->url())) {
+        else if (navigationDomain != mainFrameDomain) {
             remotePageProxy = RemotePageProxy::create(*m_page, process, navigationDomain);
             remotePageProxy->injectPageIntoNewProcess();
         }
 
         m_provisionalFrame = makeUnique<ProvisionalFrameProxy>(*this, process, WTFMove(remotePageProxy));
-        // FIXME: This gives too much cookie access. This should be removed when a RemoteFrame is given a topOrigin member.
-        auto giveAllCookieAccess = LoadedWebArchive::Yes;
-        WebCore::RegistrableDomain domain { };
-        page()->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(process.coreProcessIdentifier(), domain, giveAllCookieAccess), WTFMove(completionHandler));
+        page()->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(process.coreProcessIdentifier(), mainFrameDomain, LoadedWebArchive::No), WTFMove(completionHandler));
     }
 
     if (m_process->processID() != process.processID()) {
         LocalFrameCreationParameters localFrameCreationParameters {
             m_provisionalFrame->layerHostingContextIdentifier()
         };
-        process.send(Messages::WebPage::TransitionFrameToLocal(localFrameCreationParameters, frameID()), page()->webPageID());
+        process.send(Messages::WebPage::TransitionFrameToLocal(localFrameCreationParameters, frameID()), page()->webPageIDInProcessForDomain(navigationDomain));
     }
 
     if (completionHandler)
@@ -431,7 +439,6 @@ void WebFrameProxy::commitProvisionalFrame(FrameIdentifier frameID, FrameInfoDat
 {
     ASSERT(m_page);
     if (m_provisionalFrame) {
-        m_provisionalFrame->process().provisionalFrameCommitted(*this);
         m_process->send(Messages::WebPage::DidCommitLoadInAnotherProcess(frameID, m_provisionalFrame->layerHostingContextIdentifier()), m_page->webPageID());
         m_process = m_provisionalFrame->process();
         m_remotePageProxy = m_provisionalFrame->takeRemotePageProxy();
@@ -451,8 +458,8 @@ void WebFrameProxy::getFrameInfo(CompletionHandler<void(FrameTreeNodeData&&)>&& 
         {
             // FIXME: We currently have to drop child frames that are currently not subframes of this frame
             // (e.g. they are in the back/forward cache). They really should not be part of m_childFrames.
-            auto nonEmptyChildFrameData = WTF::compactMap(WTFMove(m_childFrameData), [](auto&& data) {
-                return WTFMove(data);
+            auto nonEmptyChildFrameData = WTF::compactMap(WTFMove(m_childFrameData), [](std::optional<FrameTreeNodeData>&& data) {
+                return std::forward<decltype(data)>(data);
             });
             m_completionHandler(FrameTreeNodeData {
                 WTFMove(m_currentFrameData),
@@ -497,10 +504,25 @@ FrameTreeCreationParameters WebFrameProxy::frameTreeCreationParameters() const
 {
     return {
         m_frameID,
+        m_frameName,
         WTF::map(m_childFrames, [] (auto& frame) {
             return frame->frameTreeCreationParameters();
         })
     };
+}
+
+RefPtr<RemotePageProxy> WebFrameProxy::remotePageProxy()
+{
+    return m_remotePageProxy;
+}
+
+bool WebFrameProxy::isFocused() const
+{
+    auto* webPage = page();
+    if (!webPage)
+        return false;
+
+    return webPage->focusedFrame() == this;
 }
 
 } // namespace WebKit

@@ -77,7 +77,7 @@ no{
         bax{"bamun"}
         bbc{"batak toba"}
         bbj{"ghomala"}
-        be{"hviterussisk"}
+        be{"belarusisk"}
         bej{"beja"}
         bem{"bemba"}
         ber{"amazigh"}
@@ -86,6 +86,7 @@ no{
         bfd{"bafut"}
         bfq{"badaga"}
         bg{"bulgarsk"}
+        bgc{"haryanvi"}
         bgn{"vestbalutsji"}
         bho{"bhojpuri"}
         bi{"bislama"}
@@ -985,6 +986,7 @@ no{
             brah{"brahmiske tall"}
             cakm{"chakma-sifre"}
             cham{"cham-tall"}
+            cyrl{"kyrilliske tall"}
             deva{"devanagari-sifre"}
             ethi{"etiopiske tall"}
             finance{"Finansielle tall"}
@@ -1004,6 +1006,7 @@ no{
             jpan{"japanske tall"}
             jpanfin{"japanske finanstall"}
             kali{"kayah li-tall"}
+            kawi{"kawi-sifre"}
             khmr{"khmer-sifre"}
             knda{"kannada-sifre"}
             lana{"thai tham hora-tall"}
@@ -1035,6 +1038,8 @@ no{
             telu{"telugu-sifre"}
             thai{"thailandske sifre"}
             tibt{"tibetanske sifre"}
+            tirh{"tirhuta-sifre"}
+            tnsa{"tangsa-sifre"}
             traditional{"Tradisjonelle tall"}
             vaii{"vai-sifre"}
         }
@@ -1066,6 +1071,7 @@ no{
         FONXSAMP{"fonxsamp"}
         HEPBURN{"Hepburn-romanisering"}
         HOGNORSK{"høgnorsk"}
+        HSISTEMO{"h-systemet"}
         IJEKAVSK{"serbisk med ijekavisk uttale"}
         ITIHASA{"itihasa"}
         JAUER{"jauer"}
@@ -1106,13 +1112,15 @@ no{
         VALENCIA{"valensiansk"}
         VALLADER{"vallader"}
         WADEGILE{"Wade-Giles-romanisering"}
+        XSISTEMO{"x-systemet"}
     }
     characterLabelPattern{
         all{"{0} – alt"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} – kompatibilitet"}
         enclosed{"{0} – omsluttet"}
         extended{"{0} – utvidet"}
+        facing-left{"{0} vendt mot venstre"}
+        facing-right{"{0} vendt mot høyre"}
         historic{"{0} – historisk"}
         miscellaneous{"{0} – diverse"}
         other{"{0} – annet"}
@@ -1128,10 +1136,5 @@ no{
         language{"Språk: {0}"}
         script{"Skrift: {0}"}
         territory{"Område: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

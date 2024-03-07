@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * units.c   Copyright (c) 1993 by Adrian Mariano (adrian@cam.cornell.edu)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,22 +19,30 @@
 
 #ifndef lint
 static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/units/units.c,v 1.11.2.1.2.1 2009/10/25 01:10:29 kensmith Exp $";
+  "$FreeBSD$";
 #endif /* not lint */
 
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
+#include <histedit.h>
+#include <getopt.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "pathnames.h"
-
-#define VERSION "1.0"
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
 
 #ifndef UNITSFILE
-#define UNITSFILE _PATH_UNITSLIB
+#ifndef __APPLE__
+#define UNITSFILE "/usr/share/misc/definitions.units"
+#else
+#define UNITSFILE "/usr/share/misc/units.lib"
+#endif
 #endif
 
 #define MAXUNITS 1000
@@ -42,9 +52,10 @@ static const char rcsid[] =
 
 #define PRIMITIVECHAR '!'
 
-const char *powerstring = "^";
+static const char *powerstring = "^";
+static const char *numfmt = "%.8g";
 
-struct {
+static struct {
 	char *uname;
 	char *uval;
 }      unittable[MAXUNITS];
@@ -57,72 +68,81 @@ struct unittype {
 	int quantity;
 };
 
-struct {
+static struct {
 	char *prefixname;
 	char *prefixval;
 }      prefixtable[MAXPREFIXES];
 
 
-char NULLUNIT[] = "";
+static char NULLUNIT[] = "";
 
-#ifdef MSDOS
-#define SEPARATOR      ";"
-#else
 #define SEPARATOR      ":"
-#endif
 
-int unitcount;
-int prefixcount;
+static int unitcount;
+static int prefixcount;
+static bool verbose = false;
+static bool terse = false;
+static const char * outputformat;
+static const char * havestr;
+static const char * wantstr;
 
-char	*dupstr(const char *str);
-void	 readunits(const char *userfile);
-void	 initializeunit(struct unittype * theunit);
-int	 addsubunit(char *product[], char *toadd);
-void	 showunit(struct unittype * theunit);
-void	 zeroerror(void);
-int	 addunit(struct unittype *theunit, char *toadd, int flip, int quantity);
-int	 compare(const void *item1, const void *item2);
-void	 sortunit(struct unittype * theunit);
-void	 cancelunit(struct unittype * theunit);
-char	*lookupunit(const char *unit);
-int	 reduceproduct(struct unittype * theunit, int flip);
-int	 reduceunit(struct unittype * theunit);
-int	 compareproducts(char **one, char **two);
-int	 compareunits(struct unittype * first, struct unittype * second);
-int	 completereduce(struct unittype * unit);
-void	 showanswer(struct unittype * have, struct unittype * want);
-void	 usage(void);
+static int	 addsubunit(char *product[], char *toadd);
+static int	 addunit(struct unittype *theunit, const char *toadd, int flip, int quantity);
+static void	 cancelunit(struct unittype * theunit);
+static int	 compare(const void *item1, const void *item2);
+static int	 compareproducts(char **one, char **two);
+static int	 compareunits(struct unittype * first, struct unittype * second);
+static int	 completereduce(struct unittype * unit);
+static char	*dupstr(const char *str);
+static void	 initializeunit(struct unittype * theunit);
+static char	*lookupunit(const char *unit);
+static void	 readunits(const char *userfile);
+static int	 reduceproduct(struct unittype * theunit, int flip);
+static int	 reduceunit(struct unittype * theunit);
+static void	 showanswer(struct unittype * have, struct unittype * want);
+static void	 showunit(struct unittype * theunit);
+static void	 sortunit(struct unittype * theunit);
+static void	 usage(void);
+static void	 zeroerror(void);
 
-char *
+static const char* promptstr = "";
+
+static const char * prompt(EditLine *e __unused) {
+	return promptstr;
+}
+
+static char *
 dupstr(const char *str)
 {
 	char *ret;
 
-	ret = malloc(strlen(str) + 1);
+	ret = strdup(str);
 	if (!ret)
-		errx(3, "memory allocation error");
-	strcpy(ret, str);
+		err(3, "dupstr");
 	return (ret);
 }
 
 
-void 
+static void 
 readunits(const char *userfile)
 {
 	FILE *unitfile;
 	char line[512], *lineptr;
 	int len, linenum, i;
+#ifndef __APPLE__
+	cap_rights_t unitfilerights;
+#endif
 
 	unitcount = 0;
 	linenum = 0;
 
 	if (userfile) {
-		unitfile = fopen(userfile, "rt");
+		unitfile = fopen(userfile, "r");
 		if (!unitfile)
 			errx(1, "unable to open units file '%s'", userfile);
 	}
 	else {
-		unitfile = fopen(UNITSFILE, "rt");
+		unitfile = fopen(UNITSFILE, "r");
 		if (!unitfile) {
 			char *direc, *env;
 			char filename[1000];
@@ -143,12 +163,17 @@ readunits(const char *userfile)
 				errx(1, "can't find units file '%s'", UNITSFILE);
 		}
 	}
+#ifndef __APPLE__
+	cap_rights_init(&unitfilerights, CAP_READ, CAP_FSTAT);
+	if (caph_rights_limit(fileno(unitfile), &unitfilerights) < 0)
+		err(1, "cap_rights_limit() failed");
+#endif
 	while (!feof(unitfile)) {
 		if (!fgets(line, sizeof(line), unitfile))
 			break;
 		linenum++;
 		lineptr = line;
-		if (*lineptr == '/')
+		if (*lineptr == '/' || *lineptr == '#')
 			continue;
 		lineptr += strspn(lineptr, " \n\t");
 		len = strcspn(lineptr, " \n\t");
@@ -206,7 +231,7 @@ readunits(const char *userfile)
 	fclose(unitfile);
 }
 
-void 
+static void 
 initializeunit(struct unittype * theunit)
 {
 	theunit->numerator[0] = theunit->denominator[0] = NULL;
@@ -216,7 +241,7 @@ initializeunit(struct unittype * theunit)
 }
 
 
-int 
+static int 
 addsubunit(char *product[], char *toadd)
 {
 	char **ptr;
@@ -227,20 +252,20 @@ addsubunit(char *product[], char *toadd)
 		return 1;
 	}
 	if (!*ptr)
-		*(ptr + 1) = 0;
+		*(ptr + 1) = NULL;
 	*ptr = dupstr(toadd);
 	return 0;
 }
 
 
-void 
+static void 
 showunit(struct unittype * theunit)
 {
 	char **ptr;
 	int printedslash;
 	int counter = 1;
 
-	printf("\t%.8g", theunit->factor);
+	printf(numfmt, theunit->factor);
 	if (theunit->offset)
 		printf("&%.8g", theunit->offset);
 	for (ptr = theunit->numerator; *ptr; ptr++) {
@@ -295,8 +320,8 @@ zeroerror(void)
    Returns 0 for successful addition, nonzero on error.
 */
 
-int 
-addunit(struct unittype * theunit, char *toadd, int flip, int quantity)
+static int 
+addunit(struct unittype * theunit, const char *toadd, int flip, int quantity)
 {
 	char *scratch, *savescr;
 	char *item;
@@ -338,6 +363,7 @@ addunit(struct unittype * theunit, char *toadd, int flip, int quantity)
 					num = atof(item);
 					if (!num) {
 						zeroerror();
+						free(savescr);
 						return 1;
 					}
 					if (doingtop ^ flip) {
@@ -350,6 +376,7 @@ addunit(struct unittype * theunit, char *toadd, int flip, int quantity)
 					num = atof(divider + 1);
 					if (!num) {
 						zeroerror();
+						free(savescr);
 						return 1;
 					}
 					if (doingtop ^ flip) {
@@ -364,6 +391,7 @@ addunit(struct unittype * theunit, char *toadd, int flip, int quantity)
 					num = atof(item);
 					if (!num) {
 						zeroerror();
+						free(savescr);
 						return 1;
 					}
 					if (doingtop ^ flip) {
@@ -385,9 +413,12 @@ addunit(struct unittype * theunit, char *toadd, int flip, int quantity)
 					repeat = item[strlen(item) - 1] - '0';
 					item[strlen(item) - 1] = 0;
 				}
-				for (; repeat; repeat--)
-					if (addsubunit(doingtop ^ flip ? theunit->numerator : theunit->denominator, item))
+				for (; repeat; repeat--) {
+					if (addsubunit(doingtop ^ flip ? theunit->numerator : theunit->denominator, item)) {
+						free(savescr);
 						return 1;
+					}
+				}
 			}
 			item = strtok(NULL, " *\t/\n");
 		}
@@ -403,14 +434,14 @@ addunit(struct unittype * theunit, char *toadd, int flip, int quantity)
 }
 
 
-int 
+static int 
 compare(const void *item1, const void *item2)
 {
 	return strcmp(*(const char * const *)item1, *(const char * const *)item2);
 }
 
 
-void 
+static void 
 sortunit(struct unittype * theunit)
 {
 	char **ptr;
@@ -506,7 +537,7 @@ lookupunit(const char *unit)
 	}
 	for (i = 0; i < prefixcount; i++) {
 		size_t len = strlen(prefixtable[i].prefixname);
-		if (len && !strncmp(prefixtable[i].prefixname, unit, len)) {
+		if (!strncmp(prefixtable[i].prefixname, unit, len)) {
 			if (!strlen(unit + len) || lookupunit(unit + len)) {
 				snprintf(buffer, sizeof(buffer), "%s %s",
 				    prefixtable[i].prefixval, unit + len);
@@ -531,7 +562,7 @@ lookupunit(const char *unit)
 
 #define ERROR 4
 
-int 
+static int 
 reduceproduct(struct unittype * theunit, int flip)
 {
 
@@ -574,7 +605,7 @@ reduceproduct(struct unittype * theunit, int flip)
    Returns 0 on success, or 1 on unknown unit error.
 */
 
-int 
+static int 
 reduceunit(struct unittype * theunit)
 {
 	int ret;
@@ -589,7 +620,7 @@ reduceunit(struct unittype * theunit)
 }
 
 
-int 
+static int 
 compareproducts(char **one, char **two)
 {
 	while (*one || *two) {
@@ -603,8 +634,10 @@ compareproducts(char **one, char **two)
 			two++;
 		else if (strcmp(*one, *two))
 			return 1;
-		else
-			one++, two++;
+		else {
+			one++;
+			two++;
+		}
 	}
 	return 0;
 }
@@ -612,7 +645,7 @@ compareproducts(char **one, char **two)
 
 /* Return zero if units are compatible, nonzero otherwise */
 
-int 
+static int 
 compareunits(struct unittype * first, struct unittype * second)
 {
 	return
@@ -621,7 +654,7 @@ compareunits(struct unittype * first, struct unittype * second)
 }
 
 
-int 
+static int 
 completereduce(struct unittype * unit)
 {
 	if (reduceunit(unit))
@@ -631,42 +664,100 @@ completereduce(struct unittype * unit)
 	return 0;
 }
 
-
-void 
+static void 
 showanswer(struct unittype * have, struct unittype * want)
 {
+	double ans;
+	char* oformat;
+
 	if (compareunits(have, want)) {
 		printf("conformability error\n");
+		if (verbose)
+			printf("\t%s = ", havestr);
+		else if (!terse)
+			printf("\t");
 		showunit(have);
-		showunit(want);
+		if (!terse) {
+			if (verbose)
+				printf("\t%s = ", wantstr);
+			else
+				printf("\t");
+			showunit(want);
+		}
 	}
 	else if (have->offset != want->offset) {
 		if (want->quantity)
 			printf("WARNING: conversion of non-proportional quantities.\n");
-		printf("\t");
-		if (have->quantity)
-			printf("%.8g\n",
+		if (have->quantity) {
+			asprintf(&oformat, "\t%s\n", outputformat);
+			printf(oformat,
 			    (have->factor + have->offset-want->offset)/want->factor);
-		else
-			printf(" (-> x*%.8g %+.8g)\n\t (<- y*%.8g %+.8g)\n",
+			free(oformat);
+		}
+		else {
+			asprintf(&oformat, "\t (-> x*%sg %sg)\n\t (<- y*%sg %sg)\n",
+			    outputformat, outputformat, outputformat, outputformat);
+			printf(oformat,
 			    have->factor / want->factor,
 			    (have->offset-want->offset)/want->factor,
 			    want->factor / have->factor,
 			    (want->offset - have->offset)/have->factor);
+		}
 	}
-	else
-		printf("\t* %.8g\n\t/ %.8g\n", have->factor / want->factor,
-		    want->factor / have->factor);
+	else {
+		ans = have->factor / want->factor;
+
+		if (verbose) {
+			printf("\t%s = ", havestr);
+			printf(outputformat, ans);
+			printf(" * %s", wantstr);
+			printf("\n");
+		}
+		else if (terse) {
+			printf(outputformat, ans);
+			printf("\n");
+		}
+		else {
+			printf("\t* ");
+			printf(outputformat, ans);
+			printf("\n");
+		}
+
+		if (verbose) {
+			printf("\t%s = (1 / ", havestr);
+			printf(outputformat, 1/ans);
+			printf(") * %s\n", wantstr);
+		}
+		else if (!terse) {
+			printf("\t/ ");
+			printf(outputformat, 1/ans);
+			printf("\n");
+		}
+	}
 }
 
 
-void 
+static void __dead2
 usage(void)
 {
 	fprintf(stderr,
-		"usage: units [-f unitsfile] [-q] [-v] [from-unit to-unit]\n");
+	    "usage: units [-ehqtUVv] [-f unitsfile] [-o format] [from to]\n");
 	exit(3);
 }
+
+static struct option longopts[] = {
+	{"exponential", no_argument, NULL, 'e'},
+	{"file", required_argument, NULL, 'f'},
+	{"history", required_argument, NULL, 'H'},
+	{"help", no_argument, NULL, 'h'},
+	{"output-format", required_argument, NULL, 'o'},
+	{"quiet", no_argument, NULL, 'q'},
+	{"terse", no_argument, NULL, 't'},
+	{"unitsfile", no_argument, NULL, 'U'},
+	{"version", no_argument, NULL, 'v'},
+	{"verbose", no_argument, NULL, 'V'},
+	{ 0, 0, 0, 0 }
+};
 
 
 int
@@ -674,38 +765,82 @@ main(int argc, char **argv)
 {
 
 	struct unittype have, want;
-	char havestr[81], wantstr[81];
 	int optchar;
-	char *userfile = 0;
-	int quiet = 0;
+	bool quiet;
+	bool readfile;
+	bool quit;
+	History *inhistory;
+	EditLine *el;
+	HistEvent ev;
+	int inputsz;
+	char const * history_file;
 
-	while ((optchar = getopt(argc, argv, "vqf:")) != -1) {
+	quiet = false;
+	readfile = false;
+	history_file = NULL;
+	outputformat = numfmt;
+	quit = false;
+	while ((optchar = getopt_long(argc, argv, "+ehf:o:qtvH:UV", longopts, NULL)) != -1) {
 		switch (optchar) {
+		case 'e':
+			outputformat = "%6e";
+			break;
 		case 'f':
-			userfile = optarg;
+			readfile = true;
+			if (strlen(optarg) == 0)
+				readunits(NULL);
+			else
+				readunits(optarg);
+			break;
+		case 'H':
+			history_file = optarg;
 			break;
 		case 'q':
-			quiet = 1;
+			quiet = true;
+			break;
+		case 't':
+			terse = true;
+			break;
+		case 'o':
+			outputformat = optarg;
+			break;
+		case 'V':
+			verbose = true;
 			break;
 		case 'v':
-			fprintf(stderr, "\n  units version %s  Copyright (c) 1993 by Adrian Mariano\n",
-			    VERSION);
-			fprintf(stderr, "                    This program may be freely distributed\n");
-			usage();
+			fprintf(stderr, "Darwin units\n");
+			/* FALLTHROUGH */
+		case 'U':
+#ifndef __APPLE__
+			if (access(UNITSFILE, F_OK) == 0)
+				printf("%s\n", UNITSFILE);
+			else
+				printf("Units data file not found");
+#else
+			if (fopen(UNITSFILE, "r") == NULL)
+				err(1, "%s", UNITSFILE);
+			printf("%s\n", UNITSFILE);
+#endif
+			exit(0);
+		case 'h':
+			/* FALLTHROUGH */
+
 		default:
 			usage();
-			break;
 		}
 	}
 
-	if (optind != argc - 2 && optind != argc)
-		usage();
-
-	readunits(userfile);
+	if (!readfile)
+		readunits(NULL);
 
 	if (optind == argc - 2) {
-		strlcpy(havestr, argv[optind], sizeof(havestr));
-		strlcpy(wantstr, argv[optind + 1], sizeof(wantstr));
+#ifndef __APPLE__
+		if (caph_enter() < 0)
+			err(1, "unable to enter capability mode");
+#endif
+
+		havestr = argv[optind];
+		wantstr = argv[optind + 1];
 		initializeunit(&have);
 		addunit(&have, havestr, 0, 1);
 		completereduce(&have);
@@ -713,37 +848,67 @@ main(int argc, char **argv)
 		addunit(&want, wantstr, 0, 1);
 		completereduce(&want);
 		showanswer(&have, &want);
-	}
-	else {
+	} else {
+		inhistory = history_init();
+		el = el_init(argv[0], stdin, stdout, stderr);
+		el_set(el, EL_PROMPT, &prompt);
+		el_set(el, EL_EDITOR, "emacs");
+		el_set(el, EL_SIGNAL, 1);
+		el_set(el, EL_HIST, history, inhistory);
+		el_source(el, NULL);
+		history(inhistory, &ev, H_SETSIZE, 800);
+		if (inhistory == 0)
+			err(1, "Could not initialize history");
+
+#ifndef __APPLE__
+		if (caph_enter() < 0)
+			err(1, "unable to enter capability mode");
+#endif
+
 		if (!quiet)
 			printf("%d units, %d prefixes\n", unitcount,
 			    prefixcount);
-		for (;;) {
+		while (!quit) {
 			do {
 				initializeunit(&have);
 				if (!quiet)
-					printf("You have: ");
-				if (!fgets(havestr, sizeof(havestr), stdin)) {
-					if (!quiet)
-						putchar('\n');
-					exit(0);
+					promptstr = "You have: ";
+				havestr = el_gets(el, &inputsz);
+				if (havestr == NULL) {
+					quit = true;
+					break;
 				}
+				if (inputsz > 0)
+					history(inhistory, &ev, H_ENTER,
+					havestr);
 			} while (addunit(&have, havestr, 0, 1) ||
 			    completereduce(&have));
+			if (quit) {
+				break;
+			}
 			do {
 				initializeunit(&want);
 				if (!quiet)
-					printf("You want: ");
-				if (!fgets(wantstr, sizeof(wantstr), stdin)) {
-					if (!quiet)
-						putchar('\n');
-					exit(0);
+					promptstr = "You want: ";
+				wantstr = el_gets(el, &inputsz);
+				if (wantstr == NULL) {
+					quit = true;
+					break;
 				}
+				if (inputsz > 0)
+					history(inhistory, &ev, H_ENTER,
+					wantstr);
 			} while (addunit(&want, wantstr, 0, 1) ||
 			    completereduce(&want));
+			if (quit) {
+				break;
+			}
 			showanswer(&have, &want);
 		}
+
+		history_end(inhistory);
+		el_end(el);
 	}
 
-	return(0);
+	return (0);
 }

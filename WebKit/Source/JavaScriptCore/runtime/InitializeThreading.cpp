@@ -38,7 +38,6 @@
 #include "LLIntData.h"
 #include "NativeCalleeRegistry.h"
 #include "Options.h"
-#include "StructureAlignedMemoryAllocator.h"
 #include "SuperSampler.h"
 #include "VMTraps.h"
 #include "WasmCapabilities.h"
@@ -92,7 +91,6 @@ void initialize()
                 isARM64E_FPAC(); // Call this to initialize g_jscConfig.canUseFPAC.
 #endif
             }
-            StructureAlignedMemoryAllocator::initializeStructureAddressSpace();
         }
         Options::finalize();
 
@@ -118,7 +116,7 @@ void initialize()
         thread.setSavedLastStackTop(thread.stack().origin());
 
         NativeCalleeRegistry::initialize();
-#if ENABLE(WEBASSEMBLY)
+#if ENABLE(WEBASSEMBLY) && ENABLE(JIT)
         if (Wasm::isSupported()) {
             Wasm::Thunks::initialize();
         }
@@ -141,6 +139,9 @@ void initialize()
         WTF::compilerFence();
         RELEASE_ASSERT(!g_jscConfig.initializeHasBeenCalled);
         g_jscConfig.initializeHasBeenCalled = true;
+#if OS(WINDOWS) && ENABLE(WEBASSEMBLY)
+        g_wtfConfigForLLInt = g_wtfConfig;
+#endif
     });
 }
 

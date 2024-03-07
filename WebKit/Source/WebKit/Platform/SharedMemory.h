@@ -70,19 +70,17 @@ public:
         Win32Handle;
 #endif
 
-    SharedMemoryHandle() = default;
     SharedMemoryHandle(SharedMemoryHandle&&) = default;
     explicit SharedMemoryHandle(const SharedMemoryHandle&) = default;
     SharedMemoryHandle(SharedMemoryHandle::Type&&, size_t);
 
     SharedMemoryHandle& operator=(SharedMemoryHandle&&) = default;
 
-    bool isNull() const;
-
     size_t size() const { return m_size; }
 
-    // Take/Set ownership of the memory for jetsam purposes.
+    // Take ownership of the memory for process memory accounting purposes.
     void takeOwnershipOfMemory(MemoryLedger) const;
+    // Transfer ownership of the memory for process memory accounting purposes.
     void setOwnershipOfMemory(const WebCore::ProcessIdentity&, MemoryLedger) const;
 
 #if USE(UNIX_DOMAIN_SOCKETS)

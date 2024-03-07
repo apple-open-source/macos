@@ -38,31 +38,27 @@
 namespace WebCore {
 namespace Layout {
 
-inline bool Line::Run::hasTextCombine() const
-{
-    return m_style.hasTextCombine();
-}
-
 Line::Line(const InlineFormattingContext& inlineFormattingContext)
     : m_inlineFormattingContext(inlineFormattingContext)
     , m_trimmableTrailingContent(m_runs)
 {
 }
 
-void Line::initialize(const Vector<InlineItem>& lineSpanningInlineBoxes, bool isFirstFormattedLine)
+void Line::initialize(const Vector<InlineItem, 1>& lineSpanningInlineBoxes, bool isFirstFormattedLine)
 {
     m_isFirstFormattedLine = isFirstFormattedLine;
     m_inlineBoxListWithClonedDecorationEnd.clear();
     m_clonedEndDecorationWidthForInlineBoxRuns = { };
+    m_rubyAlignContentRightOffset = { };
     m_nonSpanningInlineLevelBoxCount = 0;
     m_hasNonDefaultBidiLevelRun = false;
+    m_hasRubyContent = false;
     m_contentLogicalWidth = { };
     m_inlineBoxLogicalLeftStack.clear();
     m_runs.clear();
     resetTrailingContent();
     auto appendLineSpanningInlineBoxes = [&] {
         for (auto& inlineBoxStartItem : lineSpanningInlineBoxes) {
-#if ENABLE(CSS_BOX_DECORATION_BREAK)
             if (inlineBoxStartItem.style().boxDecorationBreak() != BoxDecorationBreak::Clone)
                 m_runs.append({ inlineBoxStartItem, lastRunLogicalRight(), { } });
             else {
@@ -76,9 +72,6 @@ void Line::initialize(const Vector<InlineItem>& lineSpanningInlineBoxes, bool is
                 m_contentLogicalWidth = std::max(m_contentLogicalWidth, runLogicalLeft + marginBorderAndPaddingStart);
                 m_contentLogicalWidth += addBorderAndPaddingEndForInlineBoxDecorationClone(inlineBoxStartItem);
             }
-#else
-            m_runs.append({ inlineBoxStartItem, lastRunLogicalRight(), { } });
-#endif
         }
     };
     appendLineSpanningInlineBoxes();
@@ -93,7 +86,7 @@ void Line::resetTrailingContent()
 
 Line::Result Line::close()
 {
-    auto contentLogicalRight = this->contentLogicalRight();
+    auto contentLogicalRight = this->contentLogicalRight() + m_rubyAlignContentRightOffset;
     return { WTFMove(m_runs)
         , contentLogicalWidth()
         , contentLogicalRight
@@ -102,97 +95,6 @@ Line::Result Line::close()
         , m_hasNonDefaultBidiLevelRun
         , m_nonSpanningInlineLevelBoxCount
     };
-}
-
-void Line::applyRunExpansion(InlineLayoutUnit horizontalAvailableSpace)
-{
-    ASSERT(formattingContext().root().style().textAlign() == TextAlignMode::Justify || formattingContext().root().style().textAlignLast() == TextAlignLast::Justify);
-    // Text is justified according to the method specified by the text-justify property,
-    // in order to exactly fill the line box. Unless otherwise specified by text-align-last,
-    // the last line before a forced break or the end of the block is start-aligned.
-    if (m_runs.isEmpty() || m_runs.last().isLineBreak())
-        return;
-    auto spaceToDistribute = horizontalAvailableSpace - contentLogicalWidth() + m_hangingContent.trailingWhitespaceWidth();
-    if (spaceToDistribute <= 0)
-        return;
-    // Collect and distribute the expansion opportunities.
-    size_t lineExpansionOpportunities = 0;
-    Vector<size_t> runsExpansionOpportunities(m_runs.size());
-    Vector<ExpansionBehavior> runsExpansionBehaviors(m_runs.size());
-    auto lastRunIndexWithContent = std::optional<size_t> { };
-
-    // Line start behaves as if we had an expansion here (i.e. fist runs should not start with allowing left expansion).
-    auto runIsAfterExpansion = true;
-    auto hangingTrailingWhitespaceLength = m_hangingContent.trailingWhitespaceLength();
-    auto lastTextRunIndexForTrimming = [&]() -> std::optional<size_t> {
-        if (!hangingTrailingWhitespaceLength)
-            return { };
-        for (auto index = m_runs.size(); index--;) {
-            if (m_runs[index].isText())
-                return index;
-        }
-        return { };
-    }();
-    for (size_t runIndex = 0; runIndex < m_runs.size(); ++runIndex) {
-        auto& run = m_runs[runIndex];
-        auto expansionBehavior = ExpansionBehavior::defaultBehavior();
-        size_t expansionOpportunitiesInRun = 0;
-
-        // According to the CSS3 spec, a UA can determine whether or not
-        // it wishes to apply text-align: justify to text with collapsible spaces (and this behavior matches Blink).
-        auto mayAlterSpacingWithinText = !TextUtil::shouldPreserveSpacesAndTabs(run.layoutBox()) || hangingTrailingWhitespaceLength;
-        if (run.isText() && mayAlterSpacingWithinText) {
-            if (run.hasTextCombine())
-                expansionBehavior = ExpansionBehavior::forbidAll();
-            else {
-                expansionBehavior.left = runIsAfterExpansion ? ExpansionBehavior::Behavior::Forbid : ExpansionBehavior::Behavior::Allow;
-                expansionBehavior.right = ExpansionBehavior::Behavior::Allow;
-                auto& textContent = *run.textContent();
-                auto length = textContent.length;
-                if (lastTextRunIndexForTrimming && runIndex == *lastTextRunIndexForTrimming) {
-                    // Trailing hanging whitespace sequence is ignored when computing the expansion opportunities.
-                    length -= hangingTrailingWhitespaceLength;
-                }
-                std::tie(expansionOpportunitiesInRun, runIsAfterExpansion) = FontCascade::expansionOpportunityCount(StringView(downcast<InlineTextBox>(run.layoutBox()).content()).substring(textContent.start, length), run.inlineDirection(), expansionBehavior);
-            }
-        } else if (run.isBox())
-            runIsAfterExpansion = false;
-
-        runsExpansionBehaviors[runIndex] = expansionBehavior;
-        runsExpansionOpportunities[runIndex] = expansionOpportunitiesInRun;
-        lineExpansionOpportunities += expansionOpportunitiesInRun;
-
-        if (run.isText() || run.isBox())
-            lastRunIndexWithContent = runIndex;
-    }
-    // Forbid right expansion in the last run to prevent trailing expansion at the end of the line.
-    if (lastRunIndexWithContent && runsExpansionOpportunities[*lastRunIndexWithContent]) {
-        runsExpansionBehaviors[*lastRunIndexWithContent].right = ExpansionBehavior::Behavior::Forbid;
-        if (runIsAfterExpansion) {
-            // When the last run has an after expansion (e.g. CJK ideograph) we need to remove this trailing expansion opportunity.
-            // Note that this is not about trailing collapsible whitespace as at this point we trimmed them all.
-            ASSERT(lineExpansionOpportunities && runsExpansionOpportunities[*lastRunIndexWithContent]);
-            --lineExpansionOpportunities;
-            --runsExpansionOpportunities[*lastRunIndexWithContent];
-        }
-    }
-    // Anything to distribute?
-    if (!lineExpansionOpportunities)
-        return;
-    // Distribute the extra space.
-    auto expansionToDistribute = spaceToDistribute / lineExpansionOpportunities;
-    auto accumulatedExpansion = InlineLayoutUnit { };
-    for (size_t runIndex = 0; runIndex < m_runs.size(); ++runIndex) {
-        auto& run = m_runs[runIndex];
-        // Expand and move runs by the accumulated expansion.
-        run.moveHorizontally(accumulatedExpansion);
-        auto computedExpansion = expansionToDistribute * runsExpansionOpportunities[runIndex];
-        run.setExpansion({ runsExpansionBehaviors[runIndex], computedExpansion });
-        run.shrinkHorizontally(-computedExpansion);
-        accumulatedExpansion += computedExpansion;
-    }
-    // Content grows as runs expand.
-    m_contentLogicalWidth += accumulatedExpansion;
 }
 
 InlineLayoutUnit Line::handleTrailingTrimmableContent(TrailingContentAction trailingTrimmableContentAction)
@@ -260,6 +162,27 @@ void Line::handleOverflowingNonBreakingSpace(TrailingContentAction trailingConte
     m_contentLogicalWidth -= removedOrCollapsedContentWidth;
 }
 
+const Box* Line::removeOverflowingOutOfFlowContent()
+{
+    auto lastTrailingOpaqueItemIndex = std::optional<size_t> { };
+    for (size_t index = m_runs.size(); index--;) {
+        auto& run = m_runs[index];
+        if (run.isOpaque()) {
+            lastTrailingOpaqueItemIndex = index;
+            continue;
+        }
+        if (!run.logicalWidth() && (run.isInlineBoxStart() || run.isInlineBoxEnd()))
+            continue;
+        break;
+    }
+    if (!lastTrailingOpaqueItemIndex)
+        return { };
+    auto* lastTrailingOpaqueBox = &m_runs[*lastTrailingOpaqueItemIndex].layoutBox();
+    m_runs.remove(*lastTrailingOpaqueItemIndex, m_runs.size() - *lastTrailingOpaqueItemIndex);
+    ASSERT(!m_runs.isEmpty());
+    return lastTrailingOpaqueBox;
+}
+
 void Line::handleTrailingHangingContent(std::optional<IntrinsicWidthMode> intrinsicWidthMode, InlineLayoutUnit horizontalAvailableSpaceForContent, bool isLastFormattedLine)
 {
     // https://drafts.csswg.org/css-text/#hanging
@@ -293,7 +216,6 @@ void Line::handleTrailingHangingContent(std::optional<IntrinsicWidthMode> intrin
         if (*intrinsicWidthMode == IntrinsicWidthMode::Minimum || !hangingTrailingContentIsConditional) {
             ASSERT(m_trimmableTrailingContent.isEmpty());
             m_contentLogicalWidth -= m_hangingContent.trailingWidth();
-            m_hangingContent.resetTrailingContent();
         }
     }
 }
@@ -391,6 +313,7 @@ void Line::appendInlineBoxStart(const InlineItem& inlineItem, const RenderStyle&
     if (mayPullNonInlineBoxContentToLogicalLeft)
         m_inlineBoxLogicalLeftStack.append(logicalLeft);
 
+    m_hasRubyContent = m_hasRubyContent || inlineItem.layoutBox().isRubyBase();
     m_runs.append({ inlineItem, style, logicalLeft, logicalWidth });
 }
 
@@ -673,7 +596,6 @@ void Line::appendOpaqueBox(const InlineItem& inlineItem, const RenderStyle& styl
 InlineLayoutUnit Line::addBorderAndPaddingEndForInlineBoxDecorationClone(const InlineItem& inlineBoxStartItem)
 {
     ASSERT(inlineBoxStartItem.isInlineBoxStart());
-#if ENABLE(CSS_BOX_DECORATION_BREAK)
     if (inlineBoxStartItem.style().boxDecorationBreak() != BoxDecorationBreak::Clone)
         return { };
     // https://drafts.csswg.org/css-break/#break-decoration
@@ -682,14 +604,11 @@ InlineLayoutUnit Line::addBorderAndPaddingEndForInlineBoxDecorationClone(const I
     m_inlineBoxListWithClonedDecorationEnd.add(&inlineBoxStartItem.layoutBox(), borderAndPaddingEnd);
     m_clonedEndDecorationWidthForInlineBoxRuns += borderAndPaddingEnd;
     return borderAndPaddingEnd;
-#endif
-    return { };
 }
 
 InlineLayoutUnit Line::removeBorderAndPaddingEndForInlineBoxDecorationClone(const InlineItem& inlineBoxEndItem)
 {
     ASSERT(inlineBoxEndItem.isInlineBoxEnd());
-#if ENABLE(CSS_BOX_DECORATION_BREAK)
     auto borderAndPaddingEnd = m_inlineBoxListWithClonedDecorationEnd.take(&inlineBoxEndItem.layoutBox());
     if (std::isinf(borderAndPaddingEnd))
         return { };
@@ -697,8 +616,6 @@ InlineLayoutUnit Line::removeBorderAndPaddingEndForInlineBoxDecorationClone(cons
     // it from the side structure where we keep track of the "not-yet placed but space taking" decorations.
     m_clonedEndDecorationWidthForInlineBoxRuns -= borderAndPaddingEnd;
     return borderAndPaddingEnd;
-#endif
-    return { };
 }
 
 void Line::addTrailingHyphen(InlineLayoutUnit hyphenLogicalWidth)
@@ -1020,6 +937,8 @@ bool Line::Run::isContentfulOrHasDecoration(const Run& run, const InlineFormatti
     if (run.isInlineBox()) {
         if (run.logicalWidth())
             return true;
+        if (run.layoutBox().isRubyBase())
+            return true;
         // Even negative horizontal margin makes the line "contentful".
         auto& inlineBoxGeometry = formattingContext.geometryForBox(run.layoutBox());
         if (run.isInlineBoxStart())
@@ -1033,6 +952,11 @@ bool Line::Run::isContentfulOrHasDecoration(const Run& run, const InlineFormatti
         }
     }
     return false;
+}
+
+bool Line::Run::hasTextCombine() const
+{
+    return m_style.hasTextCombine();
 }
 
 }

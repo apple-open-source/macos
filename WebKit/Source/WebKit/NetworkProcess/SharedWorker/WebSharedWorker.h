@@ -32,6 +32,7 @@
 #include <WebCore/WorkerFetchResult.h>
 #include <WebCore/WorkerInitializationData.h>
 #include <WebCore/WorkerOptions.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/WeakPtr.h>
 
@@ -57,7 +58,7 @@ public:
     const WebCore::WorkerOptions& workerOptions() const { return m_workerOptions; }
     const WebCore::ClientOrigin& origin() const { return m_key.origin; }
     const URL& url() const { return m_key.url; }
-    WebCore::RegistrableDomain registrableDomain() const;
+    WebCore::RegistrableDomain topRegistrableDomain() const;
     WebSharedWorkerServerToContextConnection* contextConnection() const;
 
     void addSharedWorkerObject(WebCore::SharedWorkerObjectIdentifier, const WebCore::TransferredMessagePort&);

@@ -24,24 +24,27 @@
 #ifndef __MAGAZINE_RACK_H
 #define __MAGAZINE_RACK_H
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 /*******************************************************************************
  * Definitions for region hash
  ******************************************************************************/
 
-typedef void *region_t;
-typedef region_t *rgnhdl_t; /* A pointer into hashed_regions array. */
+typedef void * __single region_t;
+typedef region_t * __single rgnhdl_t; /* A pointer into hashed_regions array. */
 typedef struct region_trailer region_trailer_t;
 
 #define INITIAL_NUM_REGIONS_SHIFT 6							 // log2(INITIAL_NUM_REGIONS)
 #define INITIAL_NUM_REGIONS (1 << INITIAL_NUM_REGIONS_SHIFT) // Must be a power of 2!
 #define HASHRING_OPEN_ENTRY ((region_t)0)					 // Initial value and sentinel marking end of collision chain
-#define HASHRING_REGION_DEALLOCATED ((region_t)-1)			 // Region at this slot reclaimed by OS
+#define HASHRING_REGION_DEALLOCATED __unsafe_forge_single(void *, ~0UL)			 // Region at this slot reclaimed by OS
 #define HASH_BLOCKS_ALIGN TINY_BLOCKS_ALIGN					 // MIN( TINY_BLOCKS_ALIGN, SMALL_BLOCKS_ALIGN, ... )
 
 typedef struct region_hash_generation {
 	size_t num_regions_allocated;
 	size_t num_regions_allocated_shift; // log2(num_regions_allocated)
-	region_t *hashed_regions;			// hashed by location
+	region_t * __counted_by(num_regions_allocated) hashed_regions;			// hashed by location
 	struct region_hash_generation *nextgen;
 } region_hash_generation_t;
 

@@ -120,10 +120,19 @@ CFArrayRef SOSAccountCopyRetired(SOSAccount* account, CFErrorRef *error) {
     });
 }
 
+CFArrayRef SOSAccountCopyViewUnawareIncludingInvalid(SOSAccount* account, CFErrorRef *error) {
+    return SOSAccountCopySortedPeerArray(account, error, ^(SOSCircleRef circle, CFMutableArrayRef appendPeersTo) {
+        SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
+            if (!SOSPeerInfoVersionHasV2Data(peer)) {
+                sosArrayAppendPeerCopy(appendPeersTo, peer);
+            }        });
+    });
+}
+
 CFArrayRef SOSAccountCopyViewUnaware(SOSAccount* account, CFErrorRef *error) {
     return SOSAccountCopySortedPeerArray(account, error, ^(SOSCircleRef circle, CFMutableArrayRef appendPeersTo) {
         SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
-            if (!SOSPeerInfoVersionHasV2Data(peer) ) {
+            if (!SOSPeerInfoVersionHasV2Data(peer) && SOSPeerInfoApplicationVerify(peer, account.accountKey, NULL)) {
                 sosArrayAppendPeerCopy(appendPeersTo, peer);
             }        });
     });
@@ -211,7 +220,7 @@ CFBooleanRef SOSAccountPeersHaveViewsEnabled(SOSAccount* account, CFArrayRef vie
 bool SOSAccountRemoveV0Clients(SOSAccount *account, CFErrorRef *error) {
     CFErrorRef localError = NULL;
     
-    CFArrayRef v0Peers = SOSAccountCopyViewUnaware(account, &localError);
+    CFArrayRef v0Peers = SOSAccountCopyViewUnawareIncludingInvalid(account, &localError);
     if (error && localError) {
         CFTransferRetained(*error, localError);
     }

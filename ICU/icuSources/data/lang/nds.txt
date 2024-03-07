@@ -8,4 +8,12 @@ nds{
         nds{"Neddersass’sch"}
         nl{"Nedderlandsch"}
     }
+    Scripts{
+        Latn{"Latiensch"}
+    }
+    codePatterns{
+        language{"Spraak: {0}"}
+        script{"Schrift: {0}"}
+        territory{"Regioon: {0}"}
+    }
 }

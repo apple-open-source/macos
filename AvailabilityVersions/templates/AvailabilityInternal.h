@@ -44,9 +44,9 @@
             // Hardcoded these since until compiler fix for rdar://116062344 will land
             #if defined(__VISIONOS_2_0)
                 #define __VISION_OS_VERSION_MAX_ALLOWED __VISIONOS_2_0
-            #elif defined(__VISION_OS_1_1)
+            #elif defined(__VISIONOS_1_1)
                 #define __VISION_OS_VERSION_MAX_ALLOWED __VISIONOS_1_1
-            #elif defined(__VISION_OS_1_0)
+            #elif defined(__VISIONOS_1_0)
                 #define __VISION_OS_VERSION_MAX_ALLOWED __VISIONOS_1_0
             #endif
             /* for compatibility with existing code.  New code should use platform specific checks */
@@ -214,6 +214,14 @@
  
 #ifndef __SPI_AVAILABLE
   #define __SPI_AVAILABLE(...)
+#endif
+
+#ifndef __SPI_AVAILABLE_BEGIN
+  #define __SPI_AVAILABLE_BEGIN(...)
+#endif
+
+#ifndef __SPI_AVAILABLE_END
+  #define __SPI_AVAILABLE_END(...)
 #endif
 
 #endif /* __AVAILABILITY_INTERNAL__ */

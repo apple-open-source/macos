@@ -56,6 +56,7 @@
 
     SecCKKSDisable();
     SecCKKSTestDisableSOS();
+    KCSharingSetChangeTrackingEnabled(false);
 
     // Mock out the SBD layer
     self.escrowRequestServerClassMock = OCMClassMock([EscrowRequestServer class]);
@@ -154,6 +155,7 @@
 
 - (void)tearDown {
     [self.escrowServer.controller.stateMachine haltOperation];
+    KCSharingClearChangeTrackingEnabledOverride();
 }
 
 - (void)allCloudServicesCallsSucceed {

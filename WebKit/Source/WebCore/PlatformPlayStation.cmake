@@ -15,8 +15,12 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
 )
 
 list(APPEND WebCore_SOURCES
+    accessibility/playstation/AXObjectCachePlaystation.cpp
+    accessibility/playstation/AccessibilityObjectPlaystation.cpp
+
     editing/libwpe/EditorLibWPE.cpp
 
+    page/playstation/ChromePlayStation.cpp
     page/playstation/ResourceUsageOverlayPlayStation.cpp
     page/playstation/ResourceUsageThreadPlayStation.cpp
 
@@ -56,8 +60,8 @@ list(APPEND WebCore_SOURCES
     platform/playstation/MIMETypeRegistryPlayStation.cpp
     platform/playstation/PlatformScreenPlayStation.cpp
     platform/playstation/ScrollbarThemePlayStation.cpp
+    platform/playstation/ThemePlayStation.cpp
     platform/playstation/UserAgentPlayStation.cpp
-    platform/playstation/WidgetPlayStation.cpp
 
     platform/text/Hyphenation.cpp
     platform/text/LocaleICU.cpp
@@ -68,18 +72,16 @@ list(APPEND WebCore_SOURCES
 )
 
 list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
-    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsBase.css
     ${WEBCORE_DIR}/css/mediaControls.css
-)
-
-set(WebCore_USER_AGENT_SCRIPTS
-    ${WEBCORE_DIR}/en.lproj/mediaControlsLocalizedStrings.js
-    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsBase.js
 )
 
 list(APPEND WebCore_LIBRARIES
     WPE::libwpe
     WebKitRequirements::WebKitResources
+)
+
+list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+    platform/graphics/libwpe/PlatformDisplayLibWPE.h
 )
 
 if (ENABLE_GAMEPAD)

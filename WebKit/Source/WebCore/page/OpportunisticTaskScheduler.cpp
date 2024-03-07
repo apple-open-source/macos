@@ -29,15 +29,17 @@
 #include "CommonVM.h"
 #include "GCController.h"
 #include "Page.h"
+#include <JavaScriptCore/HeapInlines.h>
 #include <wtf/DataLog.h>
+#include <wtf/SystemTracing.h>
 
 namespace WebCore {
 
 OpportunisticTaskScheduler::OpportunisticTaskScheduler(Page& page)
     : m_page(&page)
     , m_runLoopObserver(makeUnique<RunLoopObserver>(RunLoopObserver::WellKnownOrder::PostRenderingUpdate, [weakThis = WeakPtr { this }] {
-        if (auto strongThis = weakThis.get())
-            strongThis->runLoopObserverFired();
+        if (auto protectedThis = weakThis.get())
+            protectedThis->runLoopObserverFired();
     }, RunLoopObserver::Type::OneShot))
 {
 }
@@ -46,12 +48,7 @@ OpportunisticTaskScheduler::~OpportunisticTaskScheduler() = default;
 
 void OpportunisticTaskScheduler::rescheduleIfNeeded(MonotonicTime deadline)
 {
-#if USE(WEB_THREAD)
-    if (WebThreadIsEnabled())
-        return;
-#endif
-
-    auto* page = m_page.get();
+    RefPtr page = m_page.get();
     if (page->isWaitingForLoadToFinish() || !page->isVisibleAndActive())
         return;
 
@@ -61,7 +58,8 @@ void OpportunisticTaskScheduler::rescheduleIfNeeded(MonotonicTime deadline)
     m_runloopCountAfterBeingScheduled = 0;
     m_currentDeadline = deadline;
     m_runLoopObserver->invalidate();
-    m_runLoopObserver->schedule();
+    if (!m_runLoopObserver->isScheduled())
+        m_runLoopObserver->schedule();
 }
 
 Ref<ImminentlyScheduledWorkScope> OpportunisticTaskScheduler::makeScheduledWorkScope()
@@ -76,10 +74,15 @@ void OpportunisticTaskScheduler::runLoopObserverFired()
     if (!m_currentDeadline)
         return;
 
+#if USE(WEB_THREAD)
+    if (WebThreadIsEnabled())
+        return;
+#endif
+
     if (UNLIKELY(!m_page))
         return;
 
-    auto page = m_page.get();
+    RefPtr page = m_page.get();
     if (page->isWaitingForLoadToFinish())
         return;
 
@@ -189,7 +192,7 @@ OpportunisticTaskScheduler::FullGCActivityCallback::FullGCActivityCallback(JSC::
 void OpportunisticTaskScheduler::FullGCActivityCallback::doCollection(JSC::VM& vm)
 {
     constexpr Seconds delay { 100_ms };
-    constexpr unsigned deferCountThreshold = 5;
+    constexpr unsigned deferCountThreshold = 3;
 
     if (isBusyForTimerBasedGC()) {
         if (!m_version || m_version != vm.heap.objectSpace().markingVersion()) {
@@ -231,8 +234,8 @@ OpportunisticTaskScheduler::EdenGCActivityCallback::EdenGCActivityCallback(JSC::
 
 void OpportunisticTaskScheduler::EdenGCActivityCallback::doCollection(JSC::VM& vm)
 {
-    constexpr Seconds delay { 20_ms };
-    constexpr unsigned deferCountThreshold = 3;
+    constexpr Seconds delay { 10_ms };
+    constexpr unsigned deferCountThreshold = 5;
 
     if (isBusyForTimerBasedGC()) {
         if (!m_version || m_version != vm.heap.objectSpace().edenVersion()) {

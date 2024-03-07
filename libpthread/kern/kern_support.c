@@ -667,9 +667,12 @@ _bsdthread_register(struct proc *p,
 	*retval = PTHREAD_FEATURE_SUPPORTED;
 
 #if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+	if (pthread_kern->proc_get_jit_entitled(p)) {
+		*retval |= PTHREAD_FEATURE_JIT_ENTITLED;
+	}
+
 	bool late = false;
-	if (pthread_kern->proc_get_pthread_jit_allowlist2 &&
-			pthread_kern->proc_get_pthread_jit_allowlist2(p, &late)) {
+	if (pthread_kern->proc_get_pthread_jit_allowlist2(p, &late)) {
 		*retval |= PTHREAD_FEATURE_JIT_ALLOWLIST;
 		if (late) {
 			*retval |= PTHREAD_FEATURE_JIT_FREEZE_LATE;

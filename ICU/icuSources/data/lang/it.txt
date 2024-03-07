@@ -86,6 +86,7 @@ it{
         bfd{"bafut"}
         bfq{"badaga"}
         bg{"bulgaro"}
+        bgc{"haryanvi"}
         bgn{"beluci occidentale"}
         bho{"bhojpuri"}
         bi{"bislama"}
@@ -1086,10 +1087,11 @@ it{
     }
     characterLabelPattern{
         all{"{0} — Tutto"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} — Compatibilità"}
         enclosed{"{0} — Cerchiato"}
         extended{"{0} — Esteso"}
+        facing-left{"{0} a sinistra"}
+        facing-right{"{0} a destra"}
         historic{"{0} — Storico"}
         miscellaneous{"{0} — Vario"}
         other{"{0} — Altro"}
@@ -1105,10 +1107,5 @@ it{
         language{"Lingua: {0}"}
         script{"Scrittura: {0}"}
         territory{"Regione: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

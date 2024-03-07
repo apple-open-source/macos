@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -30,11 +32,11 @@
 #include <sys/cdefs.h>
 
 #ifndef __APPLE__
-__FBSDID("$FreeBSD: src/usr.bin/w/pr_time.c,v 1.19 2002/06/07 01:41:54 jmallett Exp $");
-#endif
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)pr_time.c	8.2 (Berkeley) 4/4/94";
+#endif
 #endif
 
 #include <sys/types.h>
@@ -42,6 +44,8 @@ static const char sccsid[] = "@(#)pr_time.c	8.2 (Berkeley) 4/4/94";
 
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
+#include <libxo/xo.h>
 
 #include "extern.h"
 
@@ -49,13 +53,14 @@ static const char sccsid[] = "@(#)pr_time.c	8.2 (Berkeley) 4/4/94";
  * pr_attime --
  *	Print the time since the user logged in.
  */
-void
+int
 pr_attime(time_t *started, time_t *now)
 {
-	static char buf[256];
+	static wchar_t buf[256];
 	struct tm tp, tm;
 	time_t diff;
-	char fmt[20];
+	const wchar_t *fmt;
+	int len, width, offset = 0;
 
 	tp = *localtime(started);
 	tm = *localtime(now);
@@ -63,7 +68,7 @@ pr_attime(time_t *started, time_t *now)
 
 	/* If more than a week, use day-month-year. */
 	if (diff > 86400 * 7)
-		(void)strcpy(fmt, "%d%b%y");
+		fmt = L"%d%b%y";
 
 	/* If not today, use day-hour-am/pm. */
 	else if (tm.tm_mday != tp.tm_mday ||
@@ -71,16 +76,28 @@ pr_attime(time_t *started, time_t *now)
 		 tm.tm_year != tp.tm_year) {
 	/* The line below does not take DST into consideration */
 	/* else if (*now / 86400 != *started / 86400) { */
-		(void)strcpy(fmt, use_ampm ? "%a%I%p" : "%a%H");
+		fmt = use_ampm ? L"%a%I%p" : L"%a%H";
 	}
 
 	/* Default is hh:mm{am,pm}. */
 	else {
-		(void)strcpy(fmt, use_ampm ? "%l:%M%p" : "%k:%M");
+		fmt = use_ampm ? L"%l:%M%p" : L"%k:%M";
 	}
 
-	(void)strftime(buf, sizeof(buf), fmt, &tp);
-	(void)printf("%-7.7s", buf);
+	(void)wcsftime(buf, sizeof(buf), fmt, &tp);
+	len = wcslen(buf);
+	width = wcswidth(buf, len);
+	xo_attr("since", "%lu", (unsigned long) *started);
+	xo_attr("delta", "%lu", (unsigned long) diff);
+	if (len == width)
+		xo_emit("{:login-time/%-7.7ls/%ls}", buf);
+	else if (width < 7)
+		xo_emit("{:login-time/%ls}%.*s", buf, 7 - width, "      ");
+	else {
+		xo_emit("{:login-time/%ls}", buf);
+		offset = width - 7;
+	}
+	return (offset);
 }
 
 /*
@@ -94,7 +111,7 @@ pr_idle(time_t idle)
 	/* If idle more than 36 hours, print as a number of days. */
 	if (idle >= 36 * 3600) {
 		int days = idle / 86400;
-		(void)printf(" %dday%s ", days, days > 1 ? "s" : " " );
+		xo_emit(" {:idle/%dday%s} ", days, days > 1 ? "s" : " " );
 		if (days >= 100)
 			return (2);
 		if (days >= 10)
@@ -103,15 +120,15 @@ pr_idle(time_t idle)
 
 	/* If idle more than an hour, print as HH:MM. */
 	else if (idle >= 3600)
-		(void)printf(" %2d:%02d ",
+		xo_emit(" {:idle/%2d:%02d/} ",
 		    (int)(idle / 3600), (int)((idle % 3600) / 60));
 
 	else if (idle / 60 == 0)
-		(void)printf("     - ");
+		xo_emit("     - ");
 
 	/* Else print the minutes idle. */
 	else
-		(void)printf("    %2d ", (int)(idle / 60));
+		xo_emit("    {:idle/%2d} ", (int)(idle / 60));
 
 	return (0); /* not idle longer than 9 days */
 }

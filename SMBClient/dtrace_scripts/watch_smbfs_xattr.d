@@ -7,102 +7,143 @@ BEGIN
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_setxattr:entry
 { 
-	/* Save vnop_setxattr_args arg */
-	self->ap = arg0;
+    self->vnop_setxattr_arg0 = arg0;
 
-	printf("proc <%s> name <%s> xattr <%s> options <0x%x>",
-		execname,
-		stringof(((struct vnop_setxattr_args *) arg0)->a_vp->v_name),
-		stringof(((struct vnop_setxattr_args *) arg0)->a_name),
-		((struct vnop_setxattr_args *) arg0)->a_options);
+    printf("proc <%s> name <%s> xattr <%s>",
+    	   execname,
+    	   stringof(((struct vnop_setxattr_args *) arg0)->a_vp->v_name),
+    	   stringof(((struct vnop_setxattr_args *) arg0)->a_name)
+           );
+	//ustack(15); 
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_setxattr:return
-/self->ap/
+/self->vnop_setxattr_arg0/
 {
-	printf("proc <%s> name <%s> xattr <%s> error <%d> \n",
-		execname,
-		stringof(((struct vnop_setxattr_args *) self->ap)->a_vp->v_name),
-		stringof(((struct vnop_setxattr_args *) self->ap)->a_name),
-		arg1);
+    printf("proc <%s> name <%s> xattr <%s> error <%d>",
+    execname,
+        stringof(((struct vnop_setxattr_args *) self->vnop_setxattr_arg0)->a_vp->v_name),
+        stringof(((struct vnop_setxattr_args *) self->vnop_setxattr_arg0)->a_name),
+        arg1
+    );
 
-	/* Clear arg values */
-	self->ap = 0;
+	/* Clear ap value */
+	self->vnop_setxattr_arg0 = 0;
 }
-
-
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_listxattr:entry
-{
-	/* Save smbfs_vnop_listxattr arg */
-	self->ap = arg0;
-
-	printf("proc <%s> name <%s> size <%d>",
-		execname,
-		stringof(((struct vnop_listxattr_args *) arg0)->a_vp->v_name),
-		*((struct vnop_listxattr_args *) arg0)->a_size);
-}
-
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_listxattr:return
-/self->ap/
-{
-	printf("proc <%s> name <%s> error <%d> \n",
-		execname,
-		stringof(((struct vnop_listxattr_args *) self->ap)->a_vp->v_name),
-		arg1);
-
-	/* Clear arg values */
-	self->ap = 0;
-}
-
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_removexattr:entry
-{
-	/* Save smbfs_vnop_removexattr arg */
-	self->ap = arg0;
+{ 
+    self->vnop_removexattr_arg0 = arg0;
 
-	printf("proc <%s> name <%s> xattr <%s> options <0x%x>",
-		execname,
-		stringof(((struct vnop_removexattr_args *) arg0)->a_vp->v_name),
-		stringof(((struct vnop_removexattr_args *) arg0)->a_name),
-		((struct vnop_removexattr_args *) arg0)->a_options);
+    printf("proc <%s> name <%s> xattr <%s>",
+    	   execname,
+    	   stringof(((struct vnop_removexattr_args *) arg0)->a_vp->v_name),
+    	   stringof(((struct vnop_removexattr_args *) arg0)->a_name)
+           );
+	//ustack(15); 
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_removexattr:return
-/self->ap/
+/self->vnop_removexattr_arg0/
 {
-	printf("proc <%s> name <%s> xattr <%s> error <%d> \n",
-		execname,
-		stringof(((struct vnop_removexattr_args *) self->ap)->a_vp->v_name),
-		stringof(((struct vnop_removexattr_args *) self->ap)->a_name),
-		arg1);
+    printf("proc <%s> name <%s> xattr <%s> error <%d>",
+        execname,
+        stringof(((struct vnop_removexattr_args *) self->vnop_removexattr_arg0)->a_vp->v_name),
+        stringof(((struct vnop_removexattr_args *) self->vnop_removexattr_arg0)->a_name),
+        arg1
+    );
 
-	/* Clear arg values */
-	self->ap = 0;
+	self->vnop_removexattr_arg0 = 0;
 }
 
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_listxattr:entry
+{ 
+    self->vnop_listxattr_arg0 = arg0;
 
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_getxattr:entry
-{
-	/* Save smbfs_vnop_getxattr arg */
-	self->ap = arg0;
-
-	printf("proc <%s> name <%s> xattr <%s> options <0x%x> size <%d>",
-		execname,
-		stringof(((struct vnop_getxattr_args *) arg0)->a_vp->v_name),
-		stringof(((struct vnop_getxattr_args *) arg0)->a_name),
-		((struct vnop_getxattr_args *) arg0)->a_options,
-		*((struct vnop_getxattr_args *) arg0)->a_size);
+    printf("proc <%s> name <%s> ",
+    	   execname,
+    	   stringof(((struct vnop_listxattr_args *) arg0)->a_vp->v_name)
+           );
+	//ustack(15); 
 }
 
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_getxattr:return
-/self->ap/
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_listxattr:return
+/self->vnop_listxattr_arg0/
 {
-	printf("proc <%s> name <%s> xattr <%s> error <%d> \n",
-		execname,
-		stringof(((struct vnop_getxattr_args *) self->ap)->a_vp->v_name),
-		stringof(((struct vnop_getxattr_args *) self->ap)->a_name),
-		arg1);
+    printf("proc <%s> name <%s> error <%d> ",
+        execname,
+        stringof(((struct vnop_listxattr_args *) self->vnop_listxattr_arg0)->a_vp->v_name),
+        arg1
+    );
 
-	/* Clear arg values */
-	self->ap = 0;
+	self->vnop_listxattr_arg0 = 0;
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_getnamedstream:entry
+{ 
+    self->vnop_getnamedstream_arg0 = arg0;
+
+    printf("proc <%s> name <%s> ",
+    	   execname,
+    	   stringof(((struct vnop_getnamedstream_args *) arg0)->a_name)
+           );
+	//ustack(15); 
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_getnamedstream:return
+/self->vnop_getnamedstream_arg0/
+{
+    printf("proc <%s> name <%s> error <%d> ",
+        execname,
+        stringof(((struct vnop_getnamedstream_args *) self->vnop_getnamedstream_arg0)->a_name),
+        arg1
+    );
+
+	self->vnop_getnamedstream_arg0 = 0;
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_makenamedstream:entry
+{ 
+    self->vnop_makenamedstream_arg0 = arg0;
+
+    printf("proc <%s> name <%s> ",
+    	   execname,
+    	   stringof(((struct vnop_makenamedstream_args *) arg0)->a_name)
+           );
+	//ustack(15); 
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_makenamedstream:return
+/self->vnop_makenamedstream_arg0/
+{
+    printf("proc <%s> name <%s> error <%d> ",
+        execname,
+        stringof(((struct vnop_makenamedstream_args *) self->vnop_makenamedstream_arg0)->a_name),
+        arg1
+    );
+
+	self->vnop_makenamedstream_arg0 = 0;
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_removenamedstream:entry
+{ 
+    self->vnop_removenamedstream_arg0 = arg0;
+
+    printf("proc <%s> name <%s> ",
+    	   execname,
+    	   stringof(((struct vnop_removenamedstream_args *) arg0)->a_name)
+           );
+	//ustack(15); 
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_removenamedstream:return
+/self->vnop_removenamedstream_arg0/
+{
+    printf("proc <%s> name <%s> error <%d> ",
+        execname,
+        stringof(((struct vnop_removenamedstream_args *) self->vnop_removenamedstream_arg0)->a_name),
+        arg1
+        );
+
+	self->vnop_removenamedstream_arg0 = 0;
 }

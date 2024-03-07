@@ -182,51 +182,22 @@ class Client: TrustedPeersHelperProtocol {
 
     func setAllowedMachineIDsWith(_ user: TPSpecificUser?,
                                   allowedMachineIDs: Set<String>,
+                                  userInitiatedRemovals: Set<String>? = nil,
+                                  evictedRemovals: Set<String>? = nil,
+                                  unknownReasonRemovals unknownReasons: Set<String>? = nil,
                                   honorIDMSListChanges: Bool,
                                   version: String?,
                                   reply: @escaping (Bool, Error?) -> Void) {
         do {
             logger.info("Setting allowed machineIDs for \(String(describing: user), privacy: .public) to \(allowedMachineIDs, privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.setAllowedMachineIDs(allowedMachineIDs, honorIDMSListChanges: honorIDMSListChanges, version: version) { differences, error in
+            container.setAllowedMachineIDs(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasons, honorIDMSListChanges: honorIDMSListChanges, version: version) { differences, error in
                 self.logComplete(function: "Setting allowed machineIDs", container: container.name, error: error)
                 reply(differences, error?.sanitizeForClientXPC())
             }
         } catch {
             logger.error("Setting allowed machineIDs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, error.sanitizeForClientXPC())
-        }
-    }
-
-    func addAllowedMachineIDs(with user: TPSpecificUser?,
-                              machineIDs: [String],
-                              reply: @escaping (Error?) -> Void) {
-        do {
-            logger.info("Adding allowed machineIDs for \(String(describing: user), privacy: .public): \(machineIDs, privacy: .public)")
-            let container = try self.containerMap.findOrCreate(user: user)
-            container.addAllow(machineIDs) { error in
-                self.logComplete(function: "Adding allowed machineIDs", container: container.name, error: error)
-                reply(error?.sanitizeForClientXPC())
-            }
-        } catch {
-            logger.error("Adding allowed machineID failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
-            reply(error.sanitizeForClientXPC())
-        }
-    }
-
-    func removeAllowedMachineIDs(with user: TPSpecificUser?,
-                                 machineIDs: [String],
-                                 reply: @escaping (Error?) -> Void) {
-        do {
-            logger.info("Removing allowed machineIDs for \(String(describing: user), privacy: .public): \(machineIDs, privacy: .public)")
-            let container = try self.containerMap.findOrCreate(user: user)
-            container.removeAllow(machineIDs) { error in
-                self.logComplete(function: "Removing allowed machineIDs", container: container.name, error: error)
-                reply(error?.sanitizeForClientXPC())
-            }
-        } catch {
-            logger.error("Removing allowed machineID failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
-            reply(error.sanitizeForClientXPC())
         }
     }
 
@@ -387,7 +358,7 @@ class Client: TrustedPeersHelperProtocol {
                             altDSID: user?.altDSID,
                             flowID: flowID,
                             deviceSessionID: deviceSessionID,
-                            canSendMetrics:canSendMetrics) { voucher, voucherSig, error in
+                            canSendMetrics: canSendMetrics) { voucher, voucherSig, error in
                                 self.logComplete(function: "Vouching", container: container.name, error: error)
                                 reply(voucher, voucherSig, error?.sanitizeForClientXPC()) }
         } catch {
@@ -505,6 +476,22 @@ class Client: TrustedPeersHelperProtocol {
                 reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
         } catch {
             logger.error("Vouching with Custodian Recovery Key failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func vouchWithReroll(with user: TPSpecificUser?,
+                         oldPeerID: String,
+                         tlkShares: [CKKSTLKShare],
+                         reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
+        do {
+            logger.info("Vouching With Reroll \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.vouchWithReroll(oldPeerID: oldPeerID, tlkShares: tlkShares) { voucher, voucherSig, newTLKShares, recoveryResult, error in
+                self.logComplete(function: "Vouching With Reroll", container: container.name, error: error)
+                reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
+        } catch {
+            logger.error("Vouching with Reroll failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
@@ -695,7 +682,7 @@ class Client: TrustedPeersHelperProtocol {
 
     func fetchViableBottles(with user: TPSpecificUser?, source: OTEscrowRecordFetchSource, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
         do {
-            logger.info("fetchViableBottles in \(String(describing: user), privacy: .public) from source (\(source.rawValue, privacy: .public)")
+            logger.info("fetchViableBottles in \(String(describing: user), privacy: .public) from source (\(source.rawValue, privacy: .public))")
             let container = try self.containerMap.findOrCreate(user: user)
             container.fetchViableBottles(from: source) { sortedBottleIDs, partialBottleIDs, error in
                 reply(sortedBottleIDs, partialBottleIDs, error?.sanitizeForClientXPC())
@@ -708,7 +695,7 @@ class Client: TrustedPeersHelperProtocol {
 
     func fetchViableEscrowRecords(with user: TPSpecificUser?, source: OTEscrowRecordFetchSource, reply: @escaping ([Data]?, Error?) -> Void) {
         do {
-            logger.info("fetchViableEscrowRecords in \(String(describing: user), privacy: .public) from source (\(source.rawValue, privacy: .public)")
+            logger.info("fetchViableEscrowRecords in \(String(describing: user), privacy: .public) from source (\(source.rawValue, privacy: .public))")
             let container = try self.containerMap.findOrCreate(user: user)
             container.fetchEscrowRecords(from: source) { reply($0, $1?.sanitizeForClientXPC()) }
         } catch {
@@ -843,37 +830,6 @@ class Client: TrustedPeersHelperProtocol {
         } catch {
             logger.error("FindCustodianRecoveryKey failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
-        }
-    }
-
-    func reportHealth(with user: TPSpecificUser?, stateMachineState: String, trustState: String, reply: @escaping (Error?) -> Void) {
-        do {
-            logger.info("ReportHealth for \(String(describing: user), privacy: .public)")
-            let container = try self.containerMap.findOrCreate(user: user)
-            let request = ReportHealthRequest.with {
-                $0.stateMachineState = stateMachineState
-            }
-            container.reportHealth(request: request) { error in
-                self.logComplete(function: "reportHealth", container: container.name, error: error)
-                reply(error?.sanitizeForClientXPC())
-            }
-        } catch {
-            logger.error("ReportHealth failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
-            reply(error.sanitizeForClientXPC())
-        }
-    }
-
-    func pushHealthInquiry(with user: TPSpecificUser?, reply: @escaping (Error?) -> Void) {
-        do {
-            logger.info("PushHealthInquiry for \(String(describing: user), privacy: .public)")
-            let container = try self.containerMap.findOrCreate(user: user)
-            container.pushHealthInquiry { error in
-                self.logComplete(function: "pushHealthInquiry", container: container.name, error: error)
-                reply(error?.sanitizeForClientXPC())
-            }
-        } catch {
-            logger.error("PushHealthInquiry failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
-            reply(error.sanitizeForClientXPC())
         }
     }
 

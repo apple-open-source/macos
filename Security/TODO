@@ -172,7 +172,7 @@ The chain builder will look something like
     a port_notify_send_ok (or whatever it's called) is received.
     If async io is done it uses a dispatch_source to run (or it can use a
     plain cfrunloop callback if the callback are low latency).  when the
-    async io operation has completed succesfully a callback is invoked,
+    async io operation has completed successfully a callback is invoked,
     this callback then pushes the new state onto the queue using
     dispatch_async(queue, builder, builder->state);
     so the new state runs after we return from the callback.

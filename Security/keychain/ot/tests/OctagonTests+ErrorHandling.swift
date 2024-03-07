@@ -39,7 +39,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
             self.fakeCuttlefishServer.establishListener = nil
             establishExpectation.fulfill()
 
-            return CKPrettyError(domain: CKErrorDomain,
+            return NSError(domain: CKErrorDomain,
                                  code: CKError.networkFailure.rawValue,
                                  userInfo: [:])
         }
@@ -170,7 +170,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         // Check that we haven't been spinning
         let sameWaitForUnlockStateCondition: CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateWaitForUnlock]!
-        XCTAssert(waitForUnlockStateCondition == sameWaitForUnlockStateCondition, "Conditions should be the same (as the state machine should be halted)")
+        XCTAssertEqual(waitForUnlockStateCondition, sameWaitForUnlockStateCondition, "Conditions should be the same (as the state machine should be halted)")
 
         let pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagCuttlefishNotification))
 
@@ -203,7 +203,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
-        self.mockAuthKit.machineIDFetchErrors.add(CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2]))
+        self.mockAuthKit.machineIDFetchErrors.add(NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.sendContainerChange(context: self.cuttlefishContext)
 
@@ -237,7 +237,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.aksLockState = true
         self.lockStateTracker.recheck()
 
-        self.mockAuthKit.machineIDFetchErrors.add(CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2]))
+        self.mockAuthKit.machineIDFetchErrors.add(NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.sendContainerChange(context: self.cuttlefishContext)
 
@@ -465,7 +465,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         self.mockAuthKit.otherDevices.add(deviceBmockAuthKit.currentMachineID)
 
-        self.cuttlefishContext.incompleteNotificationOfMachineIDListChange()
+        self.cuttlefishContext.notificationOfMachineIDListChange()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
 
         let updateTrustExpectation = self.expectation(description: "updateTrust")

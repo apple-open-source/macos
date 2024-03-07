@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -27,12 +29,15 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-
 #if 0
 #ifndef lint
 static char sccsid[] = "@(#)fmt.c	8.4 (Berkeley) 4/15/94";
 #endif
+#endif
+
+#include <sys/cdefs.h>
+#ifndef __APPLE__
+__FBSDID("$FreeBSD$");
 #endif
 
 #include <sys/types.h>
@@ -40,25 +45,26 @@ static char sccsid[] = "@(#)fmt.c	8.4 (Berkeley) 4/15/94";
 #include <sys/resource.h>
 
 #include <err.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <vis.h>
 
-//#include "ps.h"
+#ifndef __APPLE__
+#include "ps.h"
+#endif
 
 static char *cmdpart(char *);
 static char *shquote(char **);
 
-/*
- * XXX
- * This is a stub until marc does the real one.
- */
 static char *
 shquote(char **argv)
 {
-	static long arg_max = -1;
+	long arg_max;
+	static size_t buf_size;
 	size_t len;
 	char **p, *dst, *src;
 	static char *buf = NULL;
@@ -66,24 +72,27 @@ shquote(char **argv)
 	if (buf == NULL) {
 		if ((arg_max = sysconf(_SC_ARG_MAX)) == -1)
 			errx(1, "sysconf _SC_ARG_MAX failed");
-		if ((buf = malloc((u_int)(4 * arg_max)  +  1)) == NULL)
+		if (arg_max >= LONG_MAX / 4 || arg_max >= (long)(SIZE_MAX / 4))
+			errx(1, "sysconf _SC_ARG_MAX preposterously large");
+		buf_size = 4 * arg_max + 1;
+		if ((buf = malloc(buf_size)) == NULL)
 			errx(1, "malloc failed");
 	}
 
-	if (*argv == 0) {
-		buf[0] = 0;
+	if (*argv == NULL) {
+		buf[0] = '\0';
 		return (buf);
 	}
 	dst = buf;
-	for (p = argv; (src = *p++) != 0; ) {
-		if (*src == 0)
+	for (p = argv; (src = *p++) != NULL; ) {
+		if (*src == '\0')
 			continue;
-		len = (size_t)(4 * arg_max - (dst - buf)) / 4;
+		len = (buf_size - 1 - (dst - buf)) / 4;
 		strvisx(dst, src, strlen(src) < len ? strlen(src) : len,
 		    VIS_NL | VIS_CSTYLE);
-		while (*dst)
+		while (*dst != '\0')
 			dst++;
-		if ((4 * arg_max - (dst - buf)) / 4 > 0)
+		if ((buf_size - 1 - (dst - buf)) / 4 > 0)
 			*dst++ = ' ';
 	}
 	/* Chop off trailing space */
@@ -102,7 +111,7 @@ cmdpart(char *arg0)
 }
 
 const char *
-fmt_argv(char **argv, char *cmd, size_t maxlen)
+fmt_argv(char **argv, char *cmd, char *thread, size_t maxlen)
 {
 	size_t len;
 	char *ap, *cp;
@@ -118,12 +127,17 @@ fmt_argv(char **argv, char *cmd, size_t maxlen)
 	}
 	cp = malloc(len);
 	if (cp == NULL)
-		return (NULL);
-	if (ap == NULL)
-		sprintf(cp, " (%.*s)", (int)maxlen, cmd);
-	else if (strncmp(cmdpart(argv[0]), cmd, maxlen) != 0)
+		errx(1, "malloc failed");
+	if (ap == NULL) {
+		if (thread != NULL) {
+			asprintf(&ap, "%s/%s", cmd, thread);
+			sprintf(cp, "[%.*s]", (int)maxlen, ap);
+			free(ap);
+		} else
+			sprintf(cp, "[%.*s]", (int)maxlen, cmd);
+	} else if (strncmp(cmdpart(argv[0]), cmd, maxlen) != 0)
 		sprintf(cp, "%s (%.*s)", ap, (int)maxlen, cmd);
 	else
-		(void) strcpy(cp, ap);
+		strcpy(cp, ap);
 	return (cp);
 }

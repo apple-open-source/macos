@@ -46,9 +46,7 @@ namespace WebCore {
 
 Crypto::Crypto(ScriptExecutionContext* context)
     : ContextDestructionObserver(context)
-#if ENABLE(WEB_CRYPTO)
     , m_subtle(SubtleCrypto::create(context))
-#endif
 {
 }
 
@@ -57,9 +55,9 @@ Crypto::~Crypto() = default;
 ExceptionOr<void> Crypto::getRandomValues(ArrayBufferView& array)
 {
     if (!isInt(array.getType()) && !isBigInt(array.getType()))
-        return Exception { TypeMismatchError };
+        return Exception { ExceptionCode::TypeMismatchError };
     if (array.byteLength() > 65536)
-        return Exception { QuotaExceededError };
+        return Exception { ExceptionCode::QuotaExceededError };
 #if OS(DARWIN)
     auto rc = CCRandomGenerateBytes(array.baseAddress(), array.byteLength());
     RELEASE_ASSERT(rc == kCCSuccess);
@@ -74,13 +72,9 @@ String Crypto::randomUUID() const
     return createVersion4UUIDString();
 }
 
-#if ENABLE(WEB_CRYPTO)
-
 SubtleCrypto& Crypto::subtle()
 {
     return m_subtle;
 }
 
-#endif
-
-}
+} // namespace WebCore

@@ -46,8 +46,8 @@
 namespace WebCore {
 namespace DisplayList {
 
-Recorder::Recorder(const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM, const DestinationColorSpace& colorSpace, DrawGlyphsMode drawGlyphsMode)
-    : GraphicsContext(state)
+Recorder::Recorder(IsDeferred isDeferred, const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM, const DestinationColorSpace& colorSpace, DrawGlyphsMode drawGlyphsMode)
+    : GraphicsContext(isDeferred, state)
     , m_initialScale(initialCTM.xScale())
     , m_colorSpace(colorSpace)
     , m_drawGlyphsMode(drawGlyphsMode)
@@ -236,7 +236,39 @@ void Recorder::drawGlyphsAndCacheResources(const Font& font, const GlyphBufferGl
     recordDrawGlyphs(font, glyphs, advances, numGlyphs, localAnchor, smoothingMode);
 }
 
-void Recorder::drawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void Recorder::drawDisplayListItems(const Vector<Item>& items, const ResourceHeap& resourceHeap, const FloatPoint& destination)
+{
+    appendStateChangeItemIfNecessary();
+
+    for (auto& resource : resourceHeap.resources().values()) {
+        WTF::switchOn(resource,
+            [](std::monostate) {
+                RELEASE_ASSERT_NOT_REACHED();
+            }, [&](const Ref<ImageBuffer>& imageBuffer) {
+                recordResourceUse(imageBuffer);
+            }, [&](const Ref<RenderingResource>& renderingResource) {
+                if (auto* image = dynamicDowncast<NativeImage>(renderingResource.ptr()))
+                    recordResourceUse(*image);
+                else if (auto* filter = dynamicDowncast<Filter>(renderingResource.ptr()))
+                    recordResourceUse(*filter);
+                else if (auto* decomposedGlyphs = dynamicDowncast<DecomposedGlyphs>(renderingResource.ptr()))
+                    recordResourceUse(*decomposedGlyphs);
+                else if (auto* gradient = dynamicDowncast<Gradient>(renderingResource.ptr()))
+                    recordResourceUse(*gradient);
+                else
+                    RELEASE_ASSERT_NOT_REACHED();
+            }, [&](const Ref<Font>& font) {
+                recordResourceUse(font);
+            }, [&](const Ref<FontCustomPlatformData>&) {
+                RELEASE_ASSERT_NOT_REACHED();
+            }
+        );
+    }
+
+    recordDrawDisplayListItems(items, destination);
+}
+
+void Recorder::drawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     appendStateChangeItemIfNecessary();
 
@@ -247,12 +279,20 @@ void Recorder::drawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRe
 
     recordDrawImageBuffer(imageBuffer, destRect, srcRect, options);
 }
+void Recorder::drawConsumingImageBuffer(RefPtr<ImageBuffer> imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
+{
+    // ImageBuffer draws are recorded as ImageBuffer draws, not as NativeImage draws. So for consistency,
+    // record this too. This should be removed once NativeImages are the only image types drawn from.
+    if (!imageBuffer)
+        return;
+    drawImageBuffer(*imageBuffer, destRect, srcRect, options);
+}
 
-void Recorder::drawNativeImageInternal(NativeImage& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void Recorder::drawNativeImageInternal(NativeImage& image, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     appendStateChangeItemIfNecessary();
     recordResourceUse(image);
-    recordDrawNativeImage(image.renderingResourceIdentifier(), imageSize, destRect, srcRect, options);
+    recordDrawNativeImage(image.renderingResourceIdentifier(), destRect, srcRect, options);
 }
 
 void Recorder::drawSystemImage(SystemImage& systemImage, const FloatRect& destinationRect)
@@ -271,14 +311,14 @@ void Recorder::drawSystemImage(SystemImage& systemImage, const FloatRect& destin
     recordDrawSystemImage(systemImage, destinationRect);
 }
 
-void Recorder::drawPattern(NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void Recorder::drawPattern(NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     appendStateChangeItemIfNecessary();
     recordResourceUse(image);
     recordDrawPattern(image.renderingResourceIdentifier(), destRect, tileRect, patternTransform, phase, spacing, options);
 }
 
-void Recorder::drawPattern(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void Recorder::drawPattern(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     appendStateChangeItemIfNecessary();
 
@@ -474,6 +514,8 @@ void Recorder::fillPath(const Path& path)
             recordFillLine(*line);
         else if (auto arc = path.singleArc())
             recordFillArc(*arc);
+        else if (auto closedArc = path.singleClosedArc())
+            recordFillClosedArc(*closedArc);
         else if (auto curve = path.singleQuadCurve())
             recordFillQuadCurve(*curve);
         else if (auto curve = path.singleBezierCurve())
@@ -521,6 +563,8 @@ void Recorder::strokePath(const Path& path)
             recordStrokeLine(*line);
         else if (auto arc = path.singleArc())
             recordStrokeArc(*arc);
+        else if (auto closedArc = path.singleClosedArc())
+            recordStrokeClosedArc(*closedArc);
         else if (auto curve = path.singleQuadCurve())
             recordStrokeQuadCurve(*curve);
         else if (auto curve = path.singleBezierCurve())
@@ -629,11 +673,6 @@ void Recorder::clipToImageBuffer(ImageBuffer& imageBuffer, const FloatRect& dest
     currentState().clipBounds.intersect(currentState().ctm.mapRect(destRect));
     recordResourceUse(imageBuffer);
     recordClipToImageBuffer(imageBuffer, destRect);
-}
-
-RefPtr<ImageBuffer> Recorder::createImageBuffer(const FloatSize& size, float resolutionScale, const DestinationColorSpace& colorSpace, std::optional<RenderingMode> renderingMode, std::optional<RenderingMethod> renderingMethod) const
-{
-    return GraphicsContext::createImageBuffer(size, resolutionScale, colorSpace, renderingMode, renderingMethod.value_or(RenderingMethod::DisplayList));
 }
 
 #if ENABLE(VIDEO)

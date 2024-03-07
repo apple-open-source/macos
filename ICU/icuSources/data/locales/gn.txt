@@ -4,15 +4,30 @@
 gn{
     AuxExemplarCharacters{"[b c d f q w x z]"}
     ExemplarCharacters{
-        "[a ã {ch} e ẽ g {g\u0303} h i ĩ j k l m {mb} n ñ {nd} {ng} {nt} o õ p r {rr}"
-        " s t u ũ v y ỹ ʼ]"
+        "[aã {ch} eẽ g{g̃} h iĩ j k l m {mb} nñ {nd} {ng} {nt} oõ p r {rr} s t uũ v y"
+        "ỹ ʼ]"
     }
     ExemplarCharactersIndex{
-        "[A Ã {CH} E Ẽ G {G\u0303} H I Ĩ J K L M {MB} N Ñ {ND} {NG} {NT} O Õ P R {RR}"
-        " S T U Ũ V Y Ỹ ʼ]"
+        "[AÃ {CH} EẼ G{G̃} H IĨ J K L M {MB} NÑ {ND} {NG} {NT} OÕ P R {RR} S T UŨ V Y"
+        "Ỹ ʼ]"
     }
     calendar{
         gregorian{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "y MMMM d, EEEE",
+                "y MMMM d",
+                "y MMM d",
+                "y-MM-dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
             dayNames{
                 format{
                     wide{
@@ -45,9 +60,5 @@ gn{
                 }
             }
         }
-    }
-    layout{
-        characters{"left-to-right"}
-        lines{"top-to-bottom"}
     }
 }

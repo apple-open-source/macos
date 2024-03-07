@@ -7,13 +7,15 @@
 # directory if a ~user request is received.  Note that you must also set
 # the default access control for these directories, as in the example below.
 #
-UserDir Sites
+UserDir public_html
 
 #
 # Control access to UserDir directories.  The following is an example
 # for a site where these directories are restricted to read-only.
 #
-#Include @rel_sysconfdir@/users/*.conf
-<IfModule bonjour_module>
-       RegisterUserSite customized-users
-</IfModule>
+<Directory "/home/*/public_html">
+    AllowOverride FileInfo AuthConfig Limit Indexes
+    Options MultiViews Indexes SymLinksIfOwnerMatch IncludesNoExec
+    Require method GET POST OPTIONS
+</Directory>
+

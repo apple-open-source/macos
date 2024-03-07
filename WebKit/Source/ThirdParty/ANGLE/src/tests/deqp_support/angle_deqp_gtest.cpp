@@ -64,16 +64,16 @@ constexpr char kSupportPath[] = "src/tests/deqp_support/";
 #define EGL_CTS_DIR(PATH) "external/openglcts/data/mustpass/egl/" PATH
 
 const char *gCaseListFiles[] = {
-    EGL_CTS_DIR("aosp_mustpass/main/egl-master.txt"),
-    GLES_CTS_DIR("aosp_mustpass/main/gles2-master.txt"),
-    GLES_CTS_DIR("aosp_mustpass/main/gles3-master.txt"),
-    GLES_CTS_DIR("aosp_mustpass/main/gles31-master.txt"),
-    GLES_CTS_DIR("khronos_mustpass/main/gles2-khr-master.txt"),
-    GLES_CTS_DIR("khronos_mustpass/main/gles3-khr-master.txt"),
-    GLES_CTS_DIR("khronos_mustpass/main/gles31-khr-master.txt"),
-    GLES_CTS_DIR("khronos_mustpass/main/gles32-khr-master.txt"),
-    GLES_CTS_DIR("khronos_mustpass_noctx/main/gles2-khr-noctx-master.txt"),
-    GLES_CTS_DIR("khronos_mustpass_noctx/main/gles32-khr-noctx-master.txt"),
+    EGL_CTS_DIR("aosp_mustpass/main/egl-main.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles2-main.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles3-main.txt"),
+    GLES_CTS_DIR("aosp_mustpass/main/gles31-main.txt"),
+    GLES_CTS_DIR("khronos_mustpass/main/gles2-khr-main.txt"),
+    GLES_CTS_DIR("khronos_mustpass/main/gles3-khr-main.txt"),
+    GLES_CTS_DIR("khronos_mustpass/main/gles31-khr-main.txt"),
+    GLES_CTS_DIR("khronos_mustpass/main/gles32-khr-main.txt"),
+    GLES_CTS_DIR("khronos_mustpass_noctx/main/gles2-khr-noctx-main.txt"),
+    GLES_CTS_DIR("khronos_mustpass_noctx/main/gles32-khr-noctx-main.txt"),
     GLES_CTS_DIR("khronos_mustpass_single/main/gles32-khr-single.txt"),
     GLES_CTS_DIR("aosp_mustpass/main/gles3-rotate-landscape.txt"),
     GLES_CTS_DIR("aosp_mustpass/main/gles3-rotate-reverse-portrait.txt"),
@@ -85,7 +85,7 @@ const char *gCaseListFiles[] = {
     GLES_CTS_DIR("aosp_mustpass/main/gles3-565-no-depth-no-stencil.txt"),
     GLES_CTS_DIR("aosp_mustpass/main/gles31-multisample.txt"),
     GLES_CTS_DIR("aosp_mustpass/main/gles31-565-no-depth-no-stencil.txt"),
-    GL_CTS_DIR("khronos_mustpass/main/gl46-master.txt"),
+    GL_CTS_DIR("khronos_mustpass/main/gl46-main.txt"),
 };
 
 const std::vector<const char *> gTestSuiteConfigParameters[] = {
@@ -93,23 +93,23 @@ const std::vector<const char *> gTestSuiteConfigParameters[] = {
     {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles2
     {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3
     {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles2-khr
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3-khr
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31-khr
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles32-khr
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles2-khr-noctx
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles32-khr-noctx
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles32-khr-single
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3-rotate90
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3-rotate180
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3-rotate270
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31-rotate90
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31-rotate180
-    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31-rotate270
-    {"--deqp-gl-config-name=rgba8888d24s8ms4"},  // gles3-multisample
-    {"--deqp-gl-config-name=rgb565d0s0ms0"},     // gles3-rgb565-no-depth-no-stencil
-    {"--deqp-gl-config-name=rgba8888d24s8ms4"},  // gles31-multisample
-    {"--deqp-gl-config-name=rgb565d0s0ms0"},     // gles31-rgb565-no-depth-no-stencil
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles2_khr
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3_khr
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31_khr
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles32_khr
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles2_khr_noctx
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles32_khr_noctx
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles32_khr_single
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3_rotate90
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3_rotate180
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles3_rotate270
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31_rotate90
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31_rotate180
+    {"--deqp-gl-config-name=rgba8888d24s8ms0"},  // gles31_rotate270
+    {"--deqp-gl-config-name=rgba8888d24s8ms4"},  // gles3_multisample
+    {"--deqp-gl-config-name=rgb565d0s0ms0"},     // gles3_rgb565_no_depth_no_stencil
+    {"--deqp-gl-config-name=rgba8888d24s8ms4"},  // gles31_multisample
+    {"--deqp-gl-config-name=rgb565d0s0ms0"},     // gles31_rgb565_no_depth_no_stencil
     {"--deqp-gl-config-name=rgba8888d24s8ms4"},  // gl46
 };
 
@@ -157,15 +157,30 @@ constexpr APIInfo kEGLDisplayAPIs[] = {
     {"x11", GPUTestConfig::kAPIUnknown},
 };
 
-constexpr char kdEQPEGLString[]     = "--deqp-egl-display-type=";
-constexpr char kANGLEEGLString[]    = "--use-angle=";
-constexpr char kANGLEPreRotation[]  = "--emulated-pre-rotation=";
-constexpr char kdEQPCaseString[]    = "--deqp-case=";
-constexpr char kVerboseString[]     = "--verbose";
-constexpr char kRenderDocString[]   = "--renderdoc";
-constexpr char kNoRenderDocString[] = "--no-renderdoc";
-constexpr char kdEQPFlagsPrefix[]   = "--deqp-";
-constexpr char kGTestFilter[]       = "--gtest_filter=";
+constexpr char kdEQPEGLString[]             = "--deqp-egl-display-type=";
+constexpr char kANGLEEGLString[]            = "--use-angle=";
+constexpr char kANGLEPreRotation[]          = "--emulated-pre-rotation=";
+constexpr char kdEQPCaseString[]            = "--deqp-case=";
+constexpr char kVerboseString[]             = "--verbose";
+constexpr char kRenderDocString[]           = "--renderdoc";
+constexpr char kNoRenderDocString[]         = "--no-renderdoc";
+constexpr char kdEQPFlagsPrefix[]           = "--deqp-";
+constexpr char kGTestFilter[]               = "--gtest_filter=";
+constexpr char kdEQPSurfaceWidth[]          = "--deqp-surface-width=";
+constexpr char kdEQPSurfaceHeight[]         = "--deqp-surface-height=";
+constexpr char kdEQPBaseSeed[]              = "--deqp-base-seed";
+constexpr const char gdEQPLogImagesString[] = "--deqp-log-images=";
+
+// Use the config name defined in gTestSuiteConfigParameters by default
+// If gEGLConfigNameFromCmdLine is overwritten by --deqp-gl-config-name passed from command
+// line arguments, for example:
+// out/Debug/angle_deqp_egl_tests --verbose --deqp-gl-config-name=rgba8888d24s8
+// use gEGLConfigNameFromCmdLine (rgba8888d24s8) instead.
+// Invalid --deqp-gl-config-name value passed from command line arguments will be caught by
+// glu::parseConfigBitsFromName() defined in gluRenderConfig.cpp, and it will cause tests
+// to fail
+constexpr const char gdEQPEGLConfigNameString[] = "--deqp-gl-config-name=";
+const char *gEGLConfigNameFromCmdLine           = "";
 
 angle::base::NoDestructor<std::vector<char>> gFilterStringBuffer;
 
@@ -191,19 +206,6 @@ dEQPOptions gOptions    = {
     kDefaultPreRotation,      // preRotation
     kEnableRenderDocCapture,  // enableRenderDocCapture
 };
-
-constexpr const char gdEQPEGLConfigNameString[] = "--deqp-gl-config-name=";
-constexpr const char gdEQPLogImagesString[]     = "--deqp-log-images=";
-
-// Use the config name defined in gTestSuiteConfigParameters by default
-// If gEGLConfigNameFromCmdLine is overwritten by --deqp-gl-config-name passed from command
-// line arguments, for example:
-// out/Debug/angle_deqp_egl_tests --verbose --deqp-gl-config-name=rgba8888d24s8
-// use gEGLConfigNameFromCmdLine (rgba8888d24s8) instead.
-// Invalid --deqp-gl-config-name value passed from command line arguments will be caught by
-// glu::parseConfigBitsFromName() defined in gluRenderConfig.cpp, and it will cause tests
-// to fail
-const char *gEGLConfigNameFromCmdLine = "";
 
 std::vector<const char *> gdEQPForwardFlags;
 
@@ -940,6 +942,18 @@ int RunGLCTSTests(int *argc, char **argv)
             gOptions.enableRenderDocCapture = false;
         }
         else if (strncmp(argv[argIndex], kdEQPFlagsPrefix, strlen(kdEQPFlagsPrefix)) == 0)
+        {
+            gdEQPForwardFlags.push_back(argv[argIndex]);
+        }
+        else if (strncmp(argv[argIndex], kdEQPSurfaceWidth, strlen(kdEQPSurfaceWidth)) == 0)
+        {
+            gdEQPForwardFlags.push_back(argv[argIndex]);
+        }
+        else if (strncmp(argv[argIndex], kdEQPSurfaceHeight, strlen(kdEQPSurfaceHeight)) == 0)
+        {
+            gdEQPForwardFlags.push_back(argv[argIndex]);
+        }
+        else if (strncmp(argv[argIndex], kdEQPBaseSeed, strlen(kdEQPBaseSeed)) == 0)
         {
             gdEQPForwardFlags.push_back(argv[argIndex]);
         }

@@ -32,11 +32,12 @@
 #include <string.h>
 #include <dlfcn.h>
 
+#ifdef __APPLE_CLEAR_LV__
 #include <fcntl.h>
 #include <mach-o/dyld_priv.h>
 #include <System/sys/codesign.h>
 #include <unistd.h>
-
+#endif
 #include "openbsd-compat/sys-queue.h"
 #include "openbsd-compat/openssl-compat.h"
 

@@ -324,6 +324,8 @@ nfstests_options_info_t nfstests_options_infos[NFSTESTS_OPTIONS_NUM_OPTIONS] = {
 	{ NFSTESTS_OPTIONS_AC_REG_MAX, "acregmax", TIMESPEC, offsetof(struct nfs_options_client, acregmax), NFS_MATTR_ATTRCACHE_REG_MAX },
 	{ NFSTESTS_OPTIONS_AC_DIR_MIN, "acdirmin", TIMESPEC, offsetof(struct nfs_options_client, acdirmin), NFS_MATTR_ATTRCACHE_DIR_MIN },
 	{ NFSTESTS_OPTIONS_AC_DIR_MAX, "acdirmax", TIMESPEC, offsetof(struct nfs_options_client, acdirmax), NFS_MATTR_ATTRCACHE_DIR_MAX },
+	{ NFSTESTS_OPTIONS_AC_ROOTDIR_MIN, "acrootdirmin", TIMESPEC, offsetof(struct nfs_options_client, acrootdirmin), NFS_MATTR_ATTRCACHE_ROOTDIR_MIN },
+	{ NFSTESTS_OPTIONS_AC_ROOTDIR_MAX, "acrootdirmax", TIMESPEC, offsetof(struct nfs_options_client, acrootdirmax), NFS_MATTR_ATTRCACHE_ROOTDIR_MAX },
 	{ NFSTESTS_OPTIONS_LOCKS_ENABLED, "locks", UINT32, offsetof(struct nfs_options_client, lockmode), NFS_MATTR_LOCK_MODE },
 	{ NFSTESTS_OPTIONS_LOCKS_LOCAL, "locallocks", UINT32, offsetof(struct nfs_options_client, lockmode), NFS_MATTR_LOCK_MODE },
 	{ NFSTESTS_OPTIONS_LOCKS_DISABLED, "nolocks", UINT32, offsetof(struct nfs_options_client, lockmode), NFS_MATTR_LOCK_MODE },
@@ -371,6 +373,7 @@ nfstests_options_flags_info_t nfstests_options_flags_infos[NFSTESTS_OPTIONS_FLAG
 	{ NFSTESTS_OPTIONS_FLAGS_QUOTA, "quota", 1, NFS_MFLAG_NOQUOTA },
 	{ NFSTESTS_OPTIONS_FLAGS_MNTUDP, "mntudp", 0, NFS_MFLAG_MNTUDP },
 	{ NFSTESTS_OPTIONS_FLAGS_OPAQUE_AUTH, "opaque_auth", 1, NFS_MFLAG_NOOPAQUE_AUTH },
+	{ NFSTESTS_OPTIONS_FLAGS_SKIP_RENEW, "skip_renew", 0, NFS_MFLAG_SKIP_RENEW },
 };
 
 void
@@ -531,6 +534,8 @@ handleTimeout(long seconds, char *value)
 	writeArgToOptions(NFSTESTS_OPTIONS_AC_REG_MAX, NULL, (void *) &ts);
 	writeArgToOptions(NFSTESTS_OPTIONS_AC_DIR_MIN, NULL, (void *) &ts);
 	writeArgToOptions(NFSTESTS_OPTIONS_AC_DIR_MAX, NULL, (void *) &ts);
+	writeArgToOptions(NFSTESTS_OPTIONS_AC_ROOTDIR_MIN, NULL, (void *) &ts);
+	writeArgToOptions(NFSTESTS_OPTIONS_AC_ROOTDIR_MAX, NULL, (void *) &ts);
 
 	writeToBuf(NULL, value);
 

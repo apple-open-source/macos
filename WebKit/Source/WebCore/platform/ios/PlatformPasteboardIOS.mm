@@ -29,7 +29,9 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "ColorCocoa.h"
+#import "CommonAtomStrings.h"
 #import "Image.h"
+#import "NSURLUtilities.h"
 #import "Pasteboard.h"
 #import "RuntimeApplicationChecks.h"
 #import "SharedBuffer.h"
@@ -39,6 +41,7 @@
 #import <UIKit/UIColor.h>
 #import <UIKit/UIImage.h>
 #import <UIKit/UIPasteboard.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <pal/spi/ios/UIKitSPI.h>
 #import <wtf/ListHashSet.h>
 #import <wtf/URL.h>
@@ -50,7 +53,6 @@
 
 #define PASTEBOARD_SUPPORTS_ITEM_PROVIDERS (PLATFORM(IOS_FAMILY) && !(PLATFORM(WATCHOS) || PLATFORM(APPLETV)))
 #define PASTEBOARD_SUPPORTS_PRESENTATION_STYLE_AND_TEAM_DATA (PASTEBOARD_SUPPORTS_ITEM_PROVIDERS && !PLATFORM(MACCATALYST))
-#define NSURL_SUPPORTS_TITLE (!PLATFORM(MACCATALYST))
 
 namespace WebCore {
 
@@ -212,18 +214,18 @@ std::optional<PasteboardItemInfo> PlatformPasteboard::informationForItemAtIndex(
 
         info.pathsForFileUpload.reserveInitialCapacity(urls.count);
         for (NSURL *url in urls)
-            info.pathsForFileUpload.uncheckedAppend(url.path);
+            info.pathsForFileUpload.append(url.path);
 
         info.platformTypesForFileUpload.reserveInitialCapacity(fileTypes.count);
         for (NSString *fileType in fileTypes)
-            info.platformTypesForFileUpload.uncheckedAppend(fileType);
+            info.platformTypesForFileUpload.append(fileType);
     } else {
         NSArray *fileTypes = itemProvider.web_fileUploadContentTypes;
         info.platformTypesForFileUpload.reserveInitialCapacity(fileTypes.count);
         info.pathsForFileUpload.reserveInitialCapacity(fileTypes.count);
         for (NSString *fileType in fileTypes) {
-            info.platformTypesForFileUpload.uncheckedAppend(fileType);
-            info.pathsForFileUpload.uncheckedAppend({ });
+            info.platformTypesForFileUpload.append(fileType);
+            info.pathsForFileUpload.append({ });
         }
     }
 
@@ -244,7 +246,7 @@ std::optional<PasteboardItemInfo> PlatformPasteboard::informationForItemAtIndex(
     NSArray<NSString *> *registeredTypeIdentifiers = itemProvider.registeredTypeIdentifiers;
     info.platformTypesByFidelity.reserveInitialCapacity(registeredTypeIdentifiers.count);
     for (NSString *typeIdentifier in registeredTypeIdentifiers) {
-        info.platformTypesByFidelity.uncheckedAppend(typeIdentifier);
+        info.platformTypesByFidelity.append(typeIdentifier);
         CFStringRef cfTypeIdentifier = (CFStringRef)typeIdentifier;
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (!UTTypeIsDeclared(cfTypeIdentifier))
@@ -357,10 +359,10 @@ int64_t PlatformPasteboard::changeCount() const
 String PlatformPasteboard::platformPasteboardTypeForSafeTypeForDOMToReadAndWrite(const String& domType, IncludeImageTypes includeImageTypes)
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if (domType == "text/plain"_s)
+    if (domType == textPlainContentTypeAtom())
         return kUTTypePlainText;
 
-    if (domType == "text/html"_s)
+    if (domType == textHTMLContentTypeAtom())
         return kUTTypeHTML;
 
     if (domType == "text/uri-list"_s)
@@ -468,15 +470,10 @@ void PlatformPasteboard::write(const PasteboardWebContent& content)
 
     if (content.dataInWebArchiveFormat) {
         auto webArchiveData = content.dataInWebArchiveFormat->createNSData();
-#if PLATFORM(MACCATALYST)
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        NSString *webArchiveType = (__bridge NSString *)kUTTypeWebArchive;
-ALLOW_DEPRECATED_DECLARATIONS_END
-#else
-        // FIXME: We should additionally register "com.apple.webarchive" once <rdar://problem/46830277> is fixed.
-        NSString *webArchiveType = WebArchivePboardType;
+#if !PLATFORM(MACCATALYST)
+        [representationsToRegister addData:webArchiveData.get() forType:WebArchivePboardType];
 #endif
-        [representationsToRegister addData:webArchiveData.get() forType:webArchiveType];
+        [representationsToRegister addData:webArchiveData.get() forType:UTTypeWebArchive.identifier];
     }
 
     if (content.dataInAttributedStringFormat) {
@@ -533,8 +530,8 @@ void PlatformPasteboard::write(const PasteboardImage& pasteboardImage)
     // the URL (i.e. the anchor's href attribute) to be a higher fidelity representation.
     auto& pasteboardURL = pasteboardImage.url;
     if (NSURL *nsURL = pasteboardURL.url) {
-#if NSURL_SUPPORTS_TITLE
-        nsURL._title = pasteboardURL.title.isEmpty() ? WTF::userVisibleString(pasteboardURL.url) : (NSString *)pasteboardURL.title;
+#if HAVE(NSURL_TITLE)
+        [nsURL _web_setTitle:pasteboardURL.title.isEmpty() ? WTF::userVisibleString(pasteboardURL.url) : (NSString *)pasteboardURL.title];
 #endif
         [representationsToRegister addRepresentingObject:nsURL];
     }
@@ -567,9 +564,9 @@ void PlatformPasteboard::write(const PasteboardURL& url)
     [representationsToRegister setPreferredPresentationStyle:WebPreferredPresentationStyleInline];
 
     if (NSURL *nsURL = url.url) {
-#if NSURL_SUPPORTS_TITLE
+#if HAVE(NSURL_TITLE)
         if (!url.title.isEmpty())
-            nsURL._title = url.title;
+            [nsURL _web_setTitle:url.title];
 #endif
         [representationsToRegister addRepresentingObject:nsURL];
         [representationsToRegister addRepresentingObject:(NSString *)url.url.string()];
@@ -742,7 +739,7 @@ Vector<String> PlatformPasteboard::allStringsForType(const String& type) const
     for (int index = 0; index < numberOfItems; ++index) {
         String value = readString(index, type);
         if (!value.isEmpty())
-            strings.uncheckedAppend(WTFMove(value));
+            strings.append(WTFMove(value));
     }
     return strings;
 }
@@ -831,8 +828,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!allowReadingURLAtIndex(url.get(), index))
         return { };
 
-#if PASTEBOARD_SUPPORTS_ITEM_PROVIDERS && NSURL_SUPPORTS_TITLE
-    title = [url _title];
+#if PASTEBOARD_SUPPORTS_ITEM_PROVIDERS && HAVE(NSURL_TITLE)
+    title = [url _web_title];
 #else
     UNUSED_PARAM(title);
 #endif

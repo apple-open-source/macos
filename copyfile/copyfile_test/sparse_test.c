@@ -12,10 +12,12 @@
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 
-#include "../copyfile.h"
-#include "sparse_test.h"
 #include "test_utils.h"
 #include "systemx.h"
+
+REGISTER_TEST(sparse, false, TIMEOUT_MIN(1));
+REGISTER_TEST(sparse_recursive, false, TIMEOUT_MIN(1));
+REGISTER_TEST(fcopyfile_offset, false, 30);
 
 /*
  * Copy the file pointed to by src_fd (and orig_name) to copy_name,
@@ -265,8 +267,6 @@ bool do_sparse_recursive_test(const char *apfs_test_directory, size_t block_size
 	struct stat exterior_file_src_sb, interior_file_src_sb, exterior_file_dst_sb, interior_file_dst_sb;
 	bool success = true;
 
-	printf("START [sparse_recursive]\n");
-
 	// Get ready for the test.
 	memset(&exterior_file_src_sb, 0, sizeof(exterior_file_src_sb));
 	memset(&interior_file_src_sb, 0, sizeof(interior_file_src_sb));
@@ -322,12 +322,6 @@ bool do_sparse_recursive_test(const char *apfs_test_directory, size_t block_size
 	success &= verify_copy_contents(exterior_file_src, exterior_file_dst);
 	success &= verify_copy_contents(interior_file_src, interior_file_dst);
 
-	if (success) {
-		printf("PASS  [sparse_recursive]\n");
-	} else {
-		printf("FAIL  [sparse_recursive]\n");
-	}
-
 	assert_no_err(close(interior_file_src_fd));
 	assert_no_err(close(exterior_file_src_fd));
 	(void)removefile(exterior_dir_src, NULL, REMOVEFILE_RECURSIVE);
@@ -340,8 +334,6 @@ bool do_fcopyfile_offset_test(const char *apfs_test_directory, size_t block_size
 	int src_fd, sparse_copy_fd, full_copy_fd, test_file_id;
 	char out_name[BSIZE_B], sparse_copy_name[BSIZE_B], full_copy_name[BSIZE_B];
 	bool success = true;
-
-	printf("START [fcopyfile_offset]\n");
 
 	// Make new names for this file and its copies.
 	test_file_id = rand() % DEFAULT_NAME_MOD;
@@ -384,12 +376,6 @@ bool do_fcopyfile_offset_test(const char *apfs_test_directory, size_t block_size
 
 	// Check that the source matches the copy at the appropriate region.
 	success &= verify_fd_contents(src_fd, 0, full_copy_fd, block_size, 4 * block_size);
-
-	if (success) {
-		printf("PASS  [fcopyfile_offset]\n");
-	} else {
-		printf("FAIL  [fcopyfile_offset]\n");
-	}
 
 	assert_no_err(close(full_copy_fd));
 	assert_no_err(close(sparse_copy_fd));

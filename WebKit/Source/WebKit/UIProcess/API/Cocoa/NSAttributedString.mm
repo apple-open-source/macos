@@ -27,7 +27,10 @@
 
 #import "NSAttributedStringPrivate.h"
 
+#import "ProcessThrottler.h"
 #import "WKErrorInternal.h"
+#import "WKWebViewInternal.h"
+#import "WebProcessProxy.h"
 #import <WebKit/WKNavigationActionPrivate.h>
 #import <WebKit/WKNavigationDelegate.h>
 #import <WebKit/WKPreferencesPrivate.h>
@@ -35,7 +38,10 @@
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/WKWebsiteDataStore.h>
+#import <WebKit/WKWebsiteDataStorePrivate.h>
 #import <WebKit/_WKProcessPoolConfiguration.h>
+#import <WebKit/_WKWebsiteDataStoreConfiguration.h>
+#import <wtf/Box.h>
 #import <wtf/Deque.h>
 #import <wtf/MemoryPressureHandler.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
@@ -46,7 +52,12 @@
 
 NSString * const NSReadAccessURLDocumentOption = @"ReadAccessURL";
 NSString * const _WKReadAccessFileURLsOption = @"_WKReadAccessFileURLsOption";
+NSString * const _WKAllowNetworkLoadsOption = @"_WKAllowNetworkLoadsOption";
+NSString * const _WKSourceApplicationBundleIdentifierOption = @"_WKSourceApplicationBundleIdentifierOption";
 
+// FIXME (264780): This should ideally default to `NO`, but making this change would break
+// copy/paste from Chrome or Firefox on macOS into TextEdit and other native apps.
+constexpr BOOL shouldAllowNetworkLoadsByDefault = YES;
 constexpr CGRect webViewRect = { { 0, 0 }, { 800, 600 } };
 constexpr NSTimeInterval defaultTimeoutInterval = 60;
 constexpr NSTimeInterval purgeWebViewCacheDelay = 15;
@@ -118,7 +129,7 @@ constexpr NSUInteger maximumReadOnlyAccessPaths = 2;
 
 + (RetainPtr<WKWebView>)retrieveOrCreateWebView;
 + (void)cacheWebView:(WKWebView *)webView;
-+ (void)maybeConsumeBundlePaths:(NSDictionary<NSAttributedStringDocumentReadingOptionKey, id> *)options;
++ (void)invalidateGlobalConfigurationIfNeeded:(NSDictionary<NSAttributedStringDocumentReadingOptionKey, id> *)options;
 + (void)validateEntry:(id)maybeFileURL;
 
 @end
@@ -136,6 +147,14 @@ static RetainPtr<WKWebViewConfiguration>& globalConfiguration()
     static NeverDestroyed<RetainPtr<WKWebViewConfiguration>> configuration;
     return configuration;
 }
+
+static RetainPtr<NSString>& sourceApplicationBundleIdentifier()
+{
+    static NeverDestroyed<RetainPtr<NSString>> identifier;
+    return identifier;
+}
+
+static BOOL shouldAllowNetworkLoads = shouldAllowNetworkLoadsByDefault;
 
 static NSMutableArray<NSURL *> *readOnlyAccessPaths()
 {
@@ -158,8 +177,18 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
         } else
             processPool = adoptNS([[WKProcessPool alloc] init]).get();
 
+        auto dataStore = [] {
+            auto identifier = sourceApplicationBundleIdentifier();
+            if (!identifier)
+                return retainPtr([WKWebsiteDataStore nonPersistentDataStore]);
+
+            auto configuration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initNonPersistentConfiguration]);
+            [configuration setSourceApplicationBundleIdentifier:identifier.get()];
+            return adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:configuration.get()]);
+        }();
+
         [configuration setProcessPool:processPool.get()];
-        [configuration setWebsiteDataStore:[WKWebsiteDataStore nonPersistentDataStore]];
+        [configuration setWebsiteDataStore:dataStore.get()];
         [configuration setMediaTypesRequiringUserActionForPlayback:WKAudiovisualMediaTypeAll];
         [configuration _setAllowsJavaScriptMarkup:NO];
         [configuration _setAllowsMetaRefresh:NO];
@@ -174,6 +203,9 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
 #endif
 
         [configuration preferences]._defaultFontSize = 12;
+
+        if (!shouldAllowNetworkLoads)
+            [configuration _setAllowedNetworkHosts:NSSet.set];
     }
 
     return configuration.get();
@@ -208,12 +240,50 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
     [self clearConfigurationAndRaiseExceptionIfNecessary:errorMessage];
 }
 
-+ (void)maybeConsumeBundlePaths:(NSDictionary<NSAttributedStringDocumentReadingOptionKey, id> *)options
++ (void)maybeUpdateShouldAllowNetworkLoads:(id)allowNetworkLoadsValue
 {
-    id maybeReadAccessFileURLs = options[_WKReadAccessFileURLsOption];
-    if (!maybeReadAccessFileURLs)
+    if (!allowNetworkLoadsValue) {
+        if (shouldAllowNetworkLoads != shouldAllowNetworkLoadsByDefault) {
+            shouldAllowNetworkLoads = shouldAllowNetworkLoadsByDefault;
+            [self clearConfiguration];
+        }
+        return;
+    }
+
+    auto *allowNetworkLoadsAsNumber = dynamic_objc_cast<NSNumber>(allowNetworkLoadsValue);
+    if (!allowNetworkLoadsAsNumber)
+        [self clearConfigurationAndRaiseExceptionIfNecessary:@"The value associated with _WKAllowNetworkLoadsOption must be an NSNumber."];
+
+    if (allowNetworkLoadsAsNumber.boolValue == shouldAllowNetworkLoads)
         return;
 
+    shouldAllowNetworkLoads = allowNetworkLoadsAsNumber.boolValue;
+    [self clearConfiguration];
+}
+
++ (void)maybeUpdateSourceApplicationBundleIdentifier:(id)identifierValue
+{
+    if (!identifierValue) {
+        if (sourceApplicationBundleIdentifier()) {
+            sourceApplicationBundleIdentifier() = nil;
+            [self clearConfiguration];
+        }
+        return;
+    }
+
+    auto identifier = dynamic_objc_cast<NSString>(identifierValue);
+    if (!identifier)
+        [self clearConfigurationAndRaiseExceptionIfNecessary:@"The value associated with _WKSourceApplicationBundleIdentifierOption must be an NSString."];
+
+    if ([sourceApplicationBundleIdentifier() isEqualToString:identifier])
+        return;
+
+    sourceApplicationBundleIdentifier() = identifier;
+    [self clearConfiguration];
+}
+
++ (void)maybeConsumeBundlePaths:(id)maybeReadAccessFileURLs
+{
     NSString *errorMessage = nil;
     auto* readAccessFileURLs = dynamic_objc_cast<NSArray<NSURL *>>(maybeReadAccessFileURLs);
     if (!readAccessFileURLs)
@@ -234,6 +304,15 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
     else
         [readOnlyAccessPaths() removeAllObjects];
     [self clearConfiguration];
+}
+
++ (void)invalidateGlobalConfigurationIfNeeded:(NSDictionary<NSAttributedStringDocumentReadingOptionKey, id> *)options
+{
+    if (id maybeReadAccessFileURLs = options[_WKReadAccessFileURLsOption])
+        [self maybeConsumeBundlePaths:maybeReadAccessFileURLs];
+
+    [self maybeUpdateShouldAllowNetworkLoads:options[_WKAllowNetworkLoadsOption]];
+    [self maybeUpdateSourceApplicationBundleIdentifier:options[_WKSourceApplicationBundleIdentifierOption]];
 }
 
 + (RetainPtr<WKWebView>)retrieveOrCreateWebView
@@ -322,7 +401,7 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
     auto runConversion = ^{
         __block auto finished = NO;
 
-        [_WKAttributedStringWebViewCache maybeConsumeBundlePaths:options];
+        [_WKAttributedStringWebViewCache invalidateGlobalConfigurationIfNeeded:options];
         __block auto webView = [_WKAttributedStringWebViewCache retrieveOrCreateWebView];
         __block auto navigationDelegate = adoptNS([[_WKAttributedStringNavigationDelegate alloc] init]);
 
@@ -335,10 +414,12 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
         else
             webView.get()._textZoomFactor = 1;
 
+        __block Box<UniqueRef<WebKit::ProcessThrottler::Activity>> attributedStringActivity;
         auto finish = ^(NSAttributedString *attributedString, NSDictionary<NSAttributedStringDocumentAttributeKey, id> *attributes, NSError *error) {
             if (finished)
                 return;
 
+            attributedStringActivity = nullptr;
             finished = YES;
 
             webView.get().navigationDelegate = nil;
@@ -414,6 +495,8 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
         });
 
         contentNavigation = loadWebContent(webView.get());
+        if (!finished)
+            attributedStringActivity = Box<UniqueRef<WebKit::ProcessThrottler::Activity>>::create([webView _page]->protectedProcess()->throttler().foregroundActivity("NSAttributedString serialization"_s));
 
         ASSERT(contentNavigation);
         ASSERT(webView.get().loading);

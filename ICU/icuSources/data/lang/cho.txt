@@ -5,8 +5,12 @@ cho{
     Languages{
         cho{"Chahta"}
         cho_Latn{"Chahta"}
+        en{"English"}
     }
     Scripts{
         Latn{"Latin"}
+    }
+    codePatterns{
+        language{"Anumpa: {0}"}
     }
 }

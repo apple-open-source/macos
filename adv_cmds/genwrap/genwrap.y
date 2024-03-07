@@ -7,6 +7,7 @@
 %token	DEFAULT
 %token	NOARGS
 %token	PATH
+%token	ADDARG
 %token	CWDPATH
 %token	FLAG
 %token	ARG
@@ -42,7 +43,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <sys/queue.h>
+
+#include <assert.h>
 #include <err.h>
+#include <string.h>
 
 #include "genwrap.h"
 
@@ -51,6 +56,21 @@ int yyline;
 
 static struct app *current_app;
 static void addflag(const char *first, const char *second, int argument);
+
+struct stringlist {
+	STAILQ_ENTRY(stringlist)	entries;
+	char				*str;
+};
+
+STAILQ_HEAD(stringhead, stringlist);
+
+static int string_count;
+static STAILQ_HEAD(, stringlist) current_stringlist =
+    STAILQ_HEAD_INITIALIZER(current_stringlist);
+
+static void stringlist_init(const char *str);
+static void stringlist_append(const char *str);
+static void stringlist_done(char ***, int *);
 %}
 %%
 
@@ -76,6 +96,14 @@ environment_spec:
 		wrapper_set_envvar($2);
 	}
 
+string_list:
+	ID {
+		stringlist_init($1);
+	} |
+	string_list ID {
+		stringlist_append($2);
+	}
+
 application_specs:
 	application_spec | application_spec application_specs
 
@@ -90,6 +118,25 @@ application_spec:
 	} |
 	PATH ID {
 		app_set_path(current_app, $2, false);
+	} |
+	ADDARG string_list {
+		char **argv;
+		int nargv;
+
+		stringlist_done(&argv, &nargv);
+		app_add_addarg(current_app, argv, nargv);
+
+		/*
+		 * current_app took possession of all of the entries in argv,
+		 * all we need to do is cleanup the array itself; it should just
+		 * be an array of NULLs after the above call.
+		 */
+#ifndef NDEBUG
+		for (int i = 0; i < nargv; i++) {
+			assert(argv[i] == NULL);
+		}
+#endif
+		free(argv);
 	} |
 	ARGMODE LOGONLY {
 		app_set_argmode_logonly(current_app);
@@ -144,4 +191,64 @@ yyerror(const char *s)
 {
 
 	errx(1, "%s:%d: %s", yyfile, yyline + 1, s);
+}
+
+static void
+stringlist_init(const char *str)
+{
+
+	assert(STAILQ_EMPTY(&current_stringlist));
+	string_count = 0;
+
+	stringlist_append(str);
+}
+
+static void
+stringlist_append(const char *str)
+{
+	struct stringlist *next;
+
+	next = malloc(sizeof(*next));
+	if (next == NULL)
+		yyerror("out of memory");
+
+	next->str = strdup(str);
+	if (next->str == NULL)
+		yyerror("out of memory");
+
+	STAILQ_INSERT_TAIL(&current_stringlist, next, entries);
+	string_count++;
+}
+
+static void
+stringlist_done(char ***outlist, int *nelem)
+{
+	struct stringlist *elem;
+	char **out;
+	int n;
+
+	assert(string_count != 0);
+
+	out = malloc(sizeof(*out) * string_count);
+	if (out == NULL)
+		yyerror("out of memory");
+
+	n = 0;
+	while (!STAILQ_EMPTY(&current_stringlist)) {
+		elem = STAILQ_FIRST(&current_stringlist);
+		STAILQ_REMOVE_HEAD(&current_stringlist, entries);
+
+		/*
+		 * Transfer ownership of elem->str here, free the containing
+		 * stringlist entry.
+		 */
+		out[n++] = elem->str;
+		free(elem);
+
+		string_count--;
+	}
+
+	assert(string_count == 0);
+	*outlist = out;
+	*nelem = n;
 }

@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmPBKDF2.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoAlgorithmPbkdf2Params.h"
 #include "CryptoKeyRaw.h"
 #include <CommonCrypto/CommonKeyDerivation.h>
@@ -61,10 +59,8 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmPBKDF2::platformDeriveBits(const Cry
     // CCKeyDerivationPBKDF returns an error if the key pointer is null, even if the key length is 0. For this reason, we need to make sure we pass the empty string
     // instead of a null pointer in this case.
     if (CCKeyDerivationPBKDF(kCCPBKDF2, key.key().data() ? reinterpret_cast<const char *>(key.key().data()) : "", key.key().size(), parameters.saltVector().data(), parameters.saltVector().size(), CryptoAlgorithmPBKDF2MacInternal::commonCryptoHMACAlgorithm(parameters.hashIdentifier), parameters.iterations, result.data(), length / 8))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     return WTFMove(result);
 }
 
-}
-
-#endif // ENABLE(WEB_CRYPTO)
+} // namespace WebCore

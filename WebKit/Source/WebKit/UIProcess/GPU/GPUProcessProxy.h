@@ -30,7 +30,6 @@
 #include "AuxiliaryProcessProxy.h"
 #include "ProcessLauncher.h"
 #include "ProcessThrottler.h"
-#include "ProcessThrottlerClient.h"
 #include "ShareableBitmap.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/IntDegrees.h>
@@ -67,11 +66,12 @@ struct GPUProcessConnectionParameters;
 struct GPUProcessCreationParameters;
 struct GPUProcessPreferencesForWebProcess;
 
-class GPUProcessProxy final : public AuxiliaryProcessProxy, private ProcessThrottlerClient {
+class GPUProcessProxy final : public AuxiliaryProcessProxy {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(GPUProcessProxy);
     friend LazyNeverDestroyed<GPUProcessProxy>;
 public:
+    static void keepProcessAliveTemporarily();
     static Ref<GPUProcessProxy> getOrCreate();
     static GPUProcessProxy* singletonIfCreated();
     ~GPUProcessProxy();
@@ -120,7 +120,7 @@ public:
     void webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&&);
 
 #if ENABLE(VIDEO)
-    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
+    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(std::optional<ShareableBitmap::Handle>&&)>&&);
 #endif
 
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)

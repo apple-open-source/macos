@@ -4110,7 +4110,7 @@ restart:
 	if (vp->v_specflags & SI_ALIASED) {
 		for (vq = *vp->v_hashchain; vq; vq = vq->v_specnext) {
 			if (vq->v_rdev != vp->v_rdev ||
-			    vq->v_type != vp->v_type) {
+			    vq->v_type != vp->v_type || vq == vp) {
 				continue;
 			}
 			if (vq->v_specflags & SI_MOUNTING) {
@@ -6309,6 +6309,7 @@ retry:
 	}
 	vp->v_lflag &= ~VL_NEEDINACTIVE;
 
+	vnode_lock_convert(vp);
 	if ((vp->v_lflag & (VL_MARKTERM | VL_TERMINATE | VL_DEAD)) == VL_MARKTERM) {
 		if (from_pager) {
 			/*
@@ -6318,7 +6319,6 @@ retry:
 			 */
 			vnode_async_list_add(vp);
 		} else {
-			vnode_lock_convert(vp);
 			vnode_reclaim_internal(vp, 1, 1, 0);
 		}
 	}

@@ -607,7 +607,7 @@ exit:
 }
 
 static int
-_forceAddSignatureRemote(const char *path, const char *ident, SecIdentityRef identity)
+_forceAddSignatureRemote(const char *path, const char *ident, SecIdentityRef identity, bool isEC)
 {
     int ret = -1;
     OSStatus status;
@@ -618,6 +618,13 @@ _forceAddSignatureRemote(const char *path, const char *ident, SecIdentityRef ide
     CFRef<CFDictionaryRef> signingInfo = NULL;
     CFRef<CFStringRef> signatureIdentifierRef = NULL;
     CFRef<CFDictionaryRef> lwcrRef = NULL;
+    SecKeyAlgorithm signingAlgorithm = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256;
+    SecCSDigestAlgorithm expectedDigestAlgo = kSecCodeSignatureHashSHA256;
+
+    if (isEC) {
+        expectedDigestAlgo = kSecCodeSignatureHashSHA384;
+        signingAlgorithm = kSecKeyAlgorithmECDSASignatureDigestX962SHA384;
+    }
 
     parameters.take(CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
@@ -637,8 +644,8 @@ _forceAddSignatureRemote(const char *path, const char *ident, SecIdentityRef ide
     require_string(codeRef, exit, "Unable to create SecStaticCode");
 
     status = SecCodeSignerRemoteAddSignature(signerRef, codeRef, kSecCSDefaultFlags, ^CFDataRef(CFDataRef cmsDigestHash, SecCSDigestAlgorithm digestAlgo) {
-        // We only support SHA256 digest algorithm so make sure thats right.
-        if (digestAlgo != kSecCodeSignatureHashSHA256) {
+        // Validate expected digest algorithm.
+        if (digestAlgo != expectedDigestAlgo) {
             INFO("Called with incorrect digest algorithm type: %d", digestAlgo);
             return NULL;
         }
@@ -651,7 +658,7 @@ _forceAddSignatureRemote(const char *path, const char *ident, SecIdentityRef ide
             return NULL;
         }
         CFErrorRef localCFError = NULL;
-        CFDataRef sig = SecKeyCreateSignature(privateKey, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256, cmsDigestHash, &localCFError);
+        CFDataRef sig = SecKeyCreateSignature(privateKey, signingAlgorithm, cmsDigestHash, &localCFError);
         if (localCFError != NULL) {
             CFRef<CFStringRef> errorString;
             errorString.take(CFErrorCopyDescription(localCFError));
@@ -1721,13 +1728,64 @@ CheckAddSignatureRemoteMachO(void)
         goto exit;
     }
 
-    ret = _forceAddSignatureRemote(path, "MachOIdentity", selfSignedIdentity);
+    ret = _forceAddSignatureRemote(path, "MachOIdentity", selfSignedIdentity, false);
     if (ret) {
         FAIL("Unable to add RSA CMS signature to %s", path);
         goto exit;
     }
 
     PASS("Successfully added RSA CMS signature to %s", path);
+    ret = 0;
+
+exit:
+    _deletePath(path);
+    return ret;
+}
+
+static int
+CheckAddECSignatureRemoteMachO(void)
+{
+    BEGIN();
+
+    const char *path = k_ls_TemporaryBinaryPath;
+    const char *copyPath = k_ls_BinaryPath;
+
+    int ret = -1;
+    CFRef<SecKeyRef> privateKey = NULL;
+    CFRef<SecCertificateRef> selfSignedCert = NULL;
+    CFRef<SecIdentityRef> selfSignedIdentity = NULL;
+    CFRef<SecCodeSignerRemoteRef> remoteSigner = NULL;
+
+    privateKey.take(_createECCKey("Test ECC Key"));
+    if (!privateKey) {
+        FAIL("Unable to create an ECC key pair");
+        goto exit;
+    }
+
+    selfSignedCert.take(_createSelfSignedCertificate("Test Self-Signed Certificate", privateKey));
+    if (!selfSignedCert) {
+        FAIL("Unable to create a self signed certificate");
+        goto exit;
+    }
+
+    selfSignedIdentity.take(SecIdentityCreate(kCFAllocatorDefault, selfSignedCert, privateKey));
+    if (!selfSignedIdentity) {
+        FAIL("Unable to create a self signed identity");
+        goto exit;
+    }
+
+    if (_copyPath(path, copyPath)) {
+        FAIL("Unable to create temporary path (%s)", path);
+        goto exit;
+    }
+
+    ret = _forceAddSignatureRemote(path, "MachOIdentity", selfSignedIdentity, true);
+    if (ret) {
+        FAIL("Unable to add ECC CMS signature to %s", path);
+        goto exit;
+    }
+
+    PASS("Successfully added ECC CMS signature to %s", path);
     ret = 0;
 
 exit:
@@ -1772,7 +1830,7 @@ CheckAddSignatureRemoteBundle(void)
         goto exit;
     }
 
-    ret = _forceAddSignatureRemote(path, "BundleIdentity", selfSignedIdentity);
+    ret = _forceAddSignatureRemote(path, "BundleIdentity", selfSignedIdentity, false);
     if (ret) {
         FAIL("Unable to add RSA CMS signature to %s", path);
         goto exit;
@@ -2322,6 +2380,7 @@ int main(int argc, char* argv[])
         // Remote signing.
         CheckRemoteSignatureAPI,
         CheckAddSignatureRemoteMachO,
+        CheckAddECSignatureRemoteMachO,
         CheckAddSignatureRemoteBundle,
 
         // Tests that are only supported on macOS...

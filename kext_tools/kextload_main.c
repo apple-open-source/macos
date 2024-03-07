@@ -627,14 +627,6 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
         }
 #endif // not (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
-#if HAVE_DANGERZONE
-        // Note: This code path is mainly only used in early boot before daemons aren't
-        // available. While it is possible to exercise this code path after fully booting,
-        // it is difficult and should be removed in the future in favor of ensuring
-        // everything goes through kextd. For now, intentionally only logging allowed kexts.
-        dzRecordKextLoadBypass(theKext, TRUE);
-#endif // HAVE_DANGERZONE
-
         /* The codepath from this function will do any error logging
         * and cleanup needed.
         */
@@ -763,14 +755,6 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                 result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
                 goto finish;
             }
-
-#if HAVE_DANGERZONE
-            // Note: This code path is mainly only used in early boot before daemons aren't
-            // available. While it is possible to exercise this code path after fully booting,
-            // it is difficult and should be removed in the future in favor of ensuring
-            // everything goes through kextd. For now, intentionally only logging allowed kexts.
-            dzRecordKextLoadBypass(theKext, TRUE);
-#endif // HAVE_DANGERZONE
 
 #endif // not (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 

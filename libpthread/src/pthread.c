@@ -49,6 +49,7 @@
  * POSIX Pthread Library
  */
 
+#include <mach/port.h>
 #include "internal.h"
 
 #include <stdlib.h>
@@ -107,6 +108,7 @@ static const pthread_attr_t _pthread_attr_default = {
 	// compile time constant for _pthread_default_priority(0)
 	.qosclass  = (1U << (THREAD_QOS_LEGACY - 1 + _PTHREAD_PRIORITY_QOS_CLASS_SHIFT)) |
 			((uint8_t)-1 & _PTHREAD_PRIORITY_PRIORITY_MASK),
+	.work_interval_port = MACH_PORT_NULL,
 };
 
 #if PTHREAD_LAYOUT_SPI
@@ -260,8 +262,16 @@ pthread_attr_destroy(pthread_attr_t *attr)
 {
 	int ret = EINVAL;
 	if (attr->sig == _PTHREAD_ATTR_SIG) {
-		attr->sig = 0;
-		ret = 0;
+		if (MACH_PORT_VALID(attr->work_interval_port)) {
+			ret = mach_port_mod_refs(mach_task_self(), attr->work_interval_port,
+					MACH_PORT_RIGHT_SEND, -1);
+			if (ret == KERN_SUCCESS) {
+				attr->sig = 0;
+			}
+		} else {
+			attr->sig = 0;
+			ret = 0;
+		}
 	}
 	return ret;
 }
@@ -554,6 +564,19 @@ pthread_attr_setcpupercent_np(pthread_attr_t *attr, int percent,
 		attr->refillms = (uint32_t)(refillms & 0x00ffffff);
 		attr->cpupercentset = 1;
 		ret = 0;
+	}
+	return ret;
+}
+
+int
+pthread_attr_setworkinterval_np(pthread_attr_t *attr, mach_port_t work_interval_port)
+{
+	int ret = EINVAL;
+	if (attr->sig == _PTHREAD_ATTR_SIG && MACH_PORT_VALID(work_interval_port)) {
+		ret = mach_port_mod_refs(mach_task_self(), work_interval_port, MACH_PORT_RIGHT_SEND, 1);
+		if (ret == KERN_SUCCESS) {
+			attr->work_interval_port = work_interval_port;
+		}
 	}
 	return ret;
 }
@@ -1175,7 +1198,7 @@ pthread_setname_np(const char *name)
 
 }
 
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX || PTHREAD_TARGET_OS_IOS_ONLY
 
 #if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 
@@ -1206,8 +1229,16 @@ static _pthread_lock _pthread_jit_config_lock = _PTHREAD_LOCK_INITIALIZER;
 static void
 _pthread_jit_write_protect_global_init(void)
 {
+	// On lockdown-default platforms, we lock down the allowlist if the process
+	// is JIT-entitled at all.  Otherwise, we lock down only if the process
+	// specifically has the JIT-allowlist entitlement.
+#if _PTHREAD_CONFIG_JIT_LOCKDOWN_DEFAULT
+	bool allowlist_feature_enabled =
+			(__pthread_supported_features & PTHREAD_FEATURE_JIT_ENTITLED);
+#else
 	bool allowlist_feature_enabled =
 			(__pthread_supported_features & PTHREAD_FEATURE_JIT_ALLOWLIST);
+#endif
 	if (os_thread_self_restrict_rwx_is_supported() &&
 			allowlist_feature_enabled) {
 		union _pthread_jit_config_u *config = &_pthread_jit_config;
@@ -1314,9 +1345,11 @@ _pthread_jit_write_protect_late_init(void)
 {
 	union _pthread_jit_config_u *config = &_pthread_jit_config;
 	if (config->allowlist_enabled) {
-		// Iterate all initial images for allowed functions
-		_dyld_register_for_bulk_image_loads(
-				_pthread_jit_write_protect_bulk_image_load_callback);
+		if (__pthread_supported_features & PTHREAD_FEATURE_JIT_ALLOWLIST) {
+			// Iterate all initial images for allowed functions
+			_dyld_register_for_bulk_image_loads(
+					_pthread_jit_write_protect_bulk_image_load_callback);
+		}
 
 		if (!config->allowlist_freeze_late) {
 			// Since there's no way to un-register the image load callback, just
@@ -1329,6 +1362,7 @@ _pthread_jit_write_protect_late_init(void)
 
 #endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 
+#if TARGET_OS_OSX
 
 void
 pthread_jit_write_protect_np(int enable)
@@ -1356,6 +1390,8 @@ pthread_jit_write_protect_np(int enable)
 	}
 #endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 }
+
+#endif // TARGET_OS_OSX
 
 int
 pthread_jit_write_protect_supported_np()
@@ -1438,7 +1474,7 @@ pthread_jit_write_freeze_callbacks_np(void)
 #endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 }
 
-#endif // TARGET_OS_OSX
+#endif // TARGET_OS_OSX || PTHREAD_TARGET_OS_IOS_ONLY
 
 OS_ALWAYS_INLINE
 static inline void
@@ -2829,6 +2865,15 @@ _pthread_workqueue_set_event_manager_priority(pthread_priority_t priority)
 }
 
 int
+_pthread_workqueue_allow_send_signals(int preserve_signum)
+{
+	// For chroot, the syscall would just return EINVAL until the
+	// build platform moves to SunburstE.
+	sigset_t set = sigmask(preserve_signum);
+	return __bsdthread_ctl(BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK, set, 0, 0);
+}
+
+int
 _pthread_workloop_create(uint64_t workloop_id, uint64_t options, pthread_attr_t *attr)
 {
 	struct kqueue_workloop_params params = {
@@ -2855,6 +2900,11 @@ _pthread_workloop_create(uint64_t workloop_id, uint64_t options, pthread_attr_t 
 		params.kqwlp_flags |= KQ_WORKLOOP_CREATE_CPU_PERCENT;
 		params.kqwlp_cpu_percent = attr->cpupercent;
 		params.kqwlp_cpu_refillms = attr->refillms;
+	}
+
+	if (MACH_PORT_VALID(attr->work_interval_port)) {
+		params.kqwlp_flags |= KQ_WORKLOOP_CREATE_WORK_INTERVAL;
+		params.kqwl_wi_port = attr->work_interval_port;
 	}
 
 	int res = __kqueue_workloop_ctl(KQ_WORKLOOP_CREATE, 0, &params,

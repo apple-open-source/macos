@@ -9,7 +9,7 @@ fr_HT{
                     wide{
                         afternoon1{"de l’après-midi"}
                         evening1{"du soir"}
-                        midnight{"minuit"}
+                        midnight{"min."}
                         morning1{"du matin"}
                         night1{"de la nuit"}
                         noon{"midi"}
@@ -19,9 +19,6 @@ fr_HT{
         }
     }
     fields{
-        day-narrow{
-            dn{"jr."}
-        }
         day-short{
             dn{"jr."}
         }
@@ -32,14 +29,8 @@ fr_HT{
                 "1"{"ven prochain"}
             }
         }
-        hour-narrow{
-            dn{"hr"}
-        }
         hour-short{
             dn{"hr"}
-        }
-        minute-narrow{
-            dn{"min."}
         }
         minute-short{
             dn{"min."}

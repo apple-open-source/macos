@@ -254,7 +254,7 @@
                                         code:CKKSLocalItemChangePending
                                  description:[NSString stringWithFormat:@"New item(%@) is being synced; can't set current pointer.", newItemUUID]];
         }
-        if([oqes containsObject:oldCurrentItemUUID] || [iqes containsObject:oldCurrentItemUUID]) {
+        if (oldCurrentItemUUID && ([oqes containsObject:oldCurrentItemUUID] || [iqes containsObject:oldCurrentItemUUID])) {
             error = [NSError errorWithDomain:CKKSErrorDomain
                                         code:CKKSLocalItemChangePending
                                  description:[NSString stringWithFormat:@"Old item(%@) is being synced; can't set current pointer.", oldCurrentItemUUID]];

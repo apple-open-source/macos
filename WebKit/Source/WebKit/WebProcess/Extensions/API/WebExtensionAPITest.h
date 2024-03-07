@@ -48,7 +48,7 @@ public:
 
     void yield(JSContextRef, NSString *message);
 
-    void log(JSContextRef, NSString *message);
+    void log(JSContextRef, JSValue *);
 
     void fail(JSContextRef, NSString *message);
     void succeed(JSContextRef, NSString *message);
@@ -56,14 +56,16 @@ public:
     void assertTrue(JSContextRef, bool testValue, NSString *message);
     void assertFalse(JSContextRef, bool testValue, NSString *message);
 
-    void assertDeepEq(JSContextRef, JSValue *expectedValue, JSValue *actualValue, NSString *message);
-    void assertEq(JSContextRef, JSValue *expectedValue, JSValue *actualValue, NSString *message);
+    void assertDeepEq(JSContextRef, JSValue *actualValue, JSValue *expectedValue, NSString *message);
+    void assertEq(JSContextRef, JSValue *actualValue, JSValue *expectedValue, NSString *message);
 
     JSValue *assertRejects(JSContextRef, JSValue *promise, JSValue *expectedError, NSString *message);
-    void assertThrows(JSContextRef, JSValue *function, JSValue *expectedError, NSString *message);
+    JSValue *assertResolves(JSContextRef, JSValue *promise, NSString *message);
 
-    WebExtensionAPIWebNavigationEvent& testWebNavigationEvent();
-    void fireTestWebNavigationEvent(NSString *urlString);
+    void assertThrows(JSContextRef, JSValue *function, JSValue *expectedError, NSString *message);
+    JSValue *assertSafe(JSContextRef, JSValue *function, NSString *message);
+
+    JSValue *assertSafeResolve(JSContextRef, JSValue *function, NSString *message);
 
     WebExtensionAPIEvent& testEvent();
     void fireTestEvent();

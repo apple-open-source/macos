@@ -28,7 +28,6 @@
 
 #if PLATFORM(MAC)
 
-#import "DisplayRefreshMonitorMac.h"
 #import "DrawingAreaProxyMessages.h"
 #import "EventDispatcher.h"
 #import "LayerHostingContext.h"
@@ -36,6 +35,7 @@
 #import "Logging.h"
 #import "MessageSenderInlines.h"
 #import "ViewGestureControllerMessages.h"
+#import "WebDisplayRefreshMonitor.h"
 #import "WebFrame.h"
 #import "WebPage.h"
 #import "WebPageCreationParameters.h"
@@ -78,8 +78,6 @@ TiledCoreAnimationDrawingArea::TiledCoreAnimationDrawingArea(WebPage& webPage, c
     : DrawingArea(DrawingAreaType::TiledCoreAnimation, parameters.drawingAreaIdentifier, webPage)
     , m_isPaintingSuspended(!(parameters.activityState & ActivityState::IsVisible))
 {
-    webPage.corePage()->settings().setForceCompositingMode(true);
-
     m_hostingLayer = [CALayer layer];
     [m_hostingLayer setDelegate:[WebActionDisablingCALayerDelegate shared]];
     [m_hostingLayer setFrame:webPage.bounds()];
@@ -97,9 +95,6 @@ TiledCoreAnimationDrawingArea::TiledCoreAnimationDrawingArea(WebPage& webPage, c
     updateLayerHostingContext();
     
     setColorSpace(parameters.colorSpace);
-
-    if (auto viewExposedRect = parameters.viewExposedRect)
-        setViewExposedRect(viewExposedRect);
 
     if (!parameters.isProcessSwap)
         sendEnterAcceleratedCompositingModeIfNeeded();
@@ -233,15 +228,15 @@ void TiledCoreAnimationDrawingArea::triggerRenderingUpdate()
 
 void TiledCoreAnimationDrawingArea::updatePreferences(const WebPreferencesStore& store)
 {
-    Settings& settings = m_webPage->corePage()->settings();
+    Ref settings = m_webPage->corePage()->settings();
 
     // Fixed position elements need to be composited and create stacking contexts
     // in order to be scrolled by the ScrollingCoordinator.
-    settings.setAcceleratedCompositingForFixedPositionEnabled(true);
+    settings->setAcceleratedCompositingForFixedPositionEnabled(true);
 
     DebugPageOverlays::settingsChanged(*m_webPage->corePage());
 
-    bool showTiledScrollingIndicator = settings.showTiledScrollingIndicator();
+    bool showTiledScrollingIndicator = settings->showTiledScrollingIndicator();
     if (showTiledScrollingIndicator == !!m_debugInfoLayer)
         return;
 
@@ -506,7 +501,7 @@ void TiledCoreAnimationDrawingArea::setExposedContentRect(const FloatRect&)
     ASSERT_NOT_REACHED();
 }
 
-void TiledCoreAnimationDrawingArea::updateGeometry(const IntSize& viewSize, const std::optional<VisibleContentRectUpdateInfo>&, bool flushSynchronously, const WTF::MachSendRight& fencePort, CompletionHandler<void()>&& completionHandler)
+void TiledCoreAnimationDrawingArea::updateGeometry(const IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight& fencePort, CompletionHandler<void()>&& completionHandler)
 {
     m_inUpdateGeometry = true;
 
@@ -575,7 +570,7 @@ std::optional<WebCore::DestinationColorSpace> TiledCoreAnimationDrawingArea::dis
 
 RefPtr<WebCore::DisplayRefreshMonitor> TiledCoreAnimationDrawingArea::createDisplayRefreshMonitor(PlatformDisplayID displayID)
 {
-    return DisplayRefreshMonitorMac::create(displayID);
+    return WebDisplayRefreshMonitor::create(displayID);
 }
 
 void TiledCoreAnimationDrawingArea::updateLayerHostingContext()
@@ -704,7 +699,7 @@ void TiledCoreAnimationDrawingArea::applyTransientZoomToLayers(double scale, Flo
     transform.translate(origin.x(), origin.y());
     transform.scale(scale);
 
-    PlatformCALayer* zoomLayer = layerForTransientZoom();
+    RefPtr zoomLayer = layerForTransientZoom();
     zoomLayer->setTransform(transform);
     zoomLayer->setAnchorPoint(FloatPoint3D());
     zoomLayer->setPosition(FloatPoint3D());
@@ -750,7 +745,7 @@ void TiledCoreAnimationDrawingArea::commitTransientZoom(double scale, FloatPoint
     IntSize scaledTotalContentsSize = frameView.totalContentsSize();
     scaledTotalContentsSize.scale(scale / webPage->totalScaleFactor());
 
-    LOG_WITH_STREAM(Scrolling, stream << "TiledCoreAnimationDrawingArea::commitTransientZoom constrainScrollPositionForOverhang - constrainedOrigin: " << constrainedOrigin << " visibleContentRect: " << visibleContentRect << " scaledTotalContentsSize: " << scaledTotalContentsSize << "scrollOrigin :"<<frameView.scrollOrigin() << "headerHeight :" << frameView.headerHeight() << " footerHeight : " << frameView.footerHeight());
+    LOG_WITH_STREAM(ViewGestures, stream << "TiledCoreAnimationDrawingArea::commitTransientZoom constrainScrollPositionForOverhang - constrainedOrigin " << constrainedOrigin << " visibleContentRect " << visibleContentRect << " scaledTotalContentsSize " << scaledTotalContentsSize << " scrollOrigin "<<frameView.scrollOrigin() << " headerHeight " << frameView.headerHeight() << " footerHeight " << frameView.footerHeight());
 
     // Scaling may have exposed the overhang area, so we need to constrain the final
     // layer position exactly like scrolling will once it's committed, to ensure that
@@ -759,7 +754,7 @@ void TiledCoreAnimationDrawingArea::commitTransientZoom(double scale, FloatPoint
     constrainedOrigin.moveBy(-visibleContentRect.location());
     constrainedOrigin = -constrainedOrigin;
 
-    LOG_WITH_STREAM(Scrolling, stream << "TiledCoreAnimationDrawingArea::commitTransientZoom m_transientZoomScale" << m_transientZoomScale << " scale: " << scale << " m_transientZoomOrigin " << m_transientZoomOrigin << " constrainedOrigin " << constrainedOrigin);
+    LOG_WITH_STREAM(ViewGestures, stream << "TiledCoreAnimationDrawingArea::commitTransientZoom - m_transientZoomScale " << m_transientZoomScale << " scale " << scale << " m_transientZoomOrigin " << m_transientZoomOrigin << " constrainedOrigin " << constrainedOrigin);
     if (m_transientZoomScale == scale && roundedIntPoint(m_transientZoomOrigin) == roundedIntPoint(constrainedOrigin)) {
         // We're already at the right scale and position, so we don't need to animate.
         applyTransientZoomToPage(scale, origin);
@@ -835,7 +830,9 @@ void TiledCoreAnimationDrawingArea::applyTransientZoomToPage(double scale, Float
     FloatPoint unscrolledOrigin(origin);
     FloatRect unobscuredContentRect = frameView.unobscuredContentRectIncludingScrollbars();
     unscrolledOrigin.moveBy(-unobscuredContentRect.location());
-    webPage->scalePage(scale / webPage->viewScaleFactor(), roundedIntPoint(-unscrolledOrigin));
+
+    auto scaleOrigin = roundedIntPoint(-unscrolledOrigin);
+    webPage->scalePage(scale / webPage->viewScaleFactor(), scaleOrigin);
     m_transientZoomScale = 1;
     updateRendering(UpdateRenderingType::TransientZoom);
 }

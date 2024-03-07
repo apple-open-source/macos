@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@
 
 namespace JSC {
 
-StackVisitor::StackVisitor(CallFrame* startFrame, VM& vm)
+StackVisitor::StackVisitor(CallFrame* startFrame, VM& vm, bool skipFirstFrame)
 {
     m_frame.m_index = 0;
     m_frame.m_isWasmFrame = false;
@@ -52,7 +52,7 @@ StackVisitor::StackVisitor(CallFrame* startFrame, VM& vm)
         m_frame.m_entryFrame = vm.topEntryFrame;
         topFrame = vm.topCallFrame;
 
-        if (topFrame && topFrame->isStackOverflowFrame()) {
+        if (topFrame && (skipFirstFrame || topFrame->isPartiallyInitializedFrame())) {
             topFrame = topFrame->callerFrame(m_frame.m_entryFrame);
             m_topEntryFrameIsEmpty = (m_frame.m_entryFrame != vm.topEntryFrame);
             if (startFrame == vm.topCallFrame)
@@ -436,10 +436,8 @@ String StackVisitor::Frame::toString() const
     if (sourceURL.isEmpty() || !hasLineAndColumnInfo())
         return makeString(functionName, separator, sourceURL);
 
-    unsigned line = 0;
-    unsigned column = 0;
-    computeLineAndColumn(line, column);
-    return makeString(functionName, separator, sourceURL, ':', line, ':', column);
+    auto lineColumn = computeLineAndColumn();
+    return makeString(functionName, separator, sourceURL, ':', lineColumn.line, ':', lineColumn.column);
 }
 
 SourceID StackVisitor::Frame::sourceID()
@@ -477,34 +475,18 @@ bool StackVisitor::Frame::hasLineAndColumnInfo() const
     return !!codeBlock();
 }
 
-void StackVisitor::Frame::computeLineAndColumn(unsigned& line, unsigned& column) const
+LineColumn StackVisitor::Frame::computeLineAndColumn() const
 {
     CodeBlock* codeBlock = this->codeBlock();
-    if (!codeBlock) {
-        line = 0;
-        column = 0;
-        return;
-    }
+    if (!codeBlock)
+        return { };
 
-    int divot = 0;
-    int unusedStartOffset = 0;
-    int unusedEndOffset = 0;
-    unsigned divotLine = 0;
-    unsigned divotColumn = 0;
-    retrieveExpressionInfo(divot, unusedStartOffset, unusedEndOffset, divotLine, divotColumn);
-
-    line = divotLine + codeBlock->ownerExecutable()->firstLine();
-    column = divotColumn + (divotLine ? 1 : codeBlock->firstLineColumnOffset());
+    auto lineColumn = codeBlock->lineColumnForBytecodeIndex(bytecodeIndex());
 
     if (std::optional<int> overrideLineNumber = codeBlock->ownerExecutable()->overrideLineNumber(codeBlock->vm()))
-        line = overrideLineNumber.value();
-}
+        lineColumn.line = overrideLineNumber.value();
 
-void StackVisitor::Frame::retrieveExpressionInfo(int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column) const
-{
-    CodeBlock* codeBlock = this->codeBlock();
-    codeBlock->unlinkedCodeBlock()->expressionRangeForBytecodeIndex(bytecodeIndex(), divot, startOffset, endOffset, line, column);
-    divot += codeBlock->sourceOffset();
+    return lineColumn;
 }
 
 void StackVisitor::Frame::setToEnd()
@@ -623,11 +605,9 @@ void StackVisitor::Frame::dump(PrintStream& out, Indenter indent, WTF::Function<
                 }
 #endif
             }
-            unsigned line = 0;
-            unsigned column = 0;
-            computeLineAndColumn(line, column);
-            out.print(indent, "line: ", line, "\n");
-            out.print(indent, "column: ", column, "\n");
+            auto lineColumn = computeLineAndColumn();
+            out.print(indent, "line: ", lineColumn.line, "\n");
+            out.print(indent, "column: ", lineColumn.column, "\n");
 
             indent--;
         }

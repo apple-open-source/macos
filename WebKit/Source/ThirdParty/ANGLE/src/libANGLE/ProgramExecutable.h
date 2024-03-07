@@ -232,6 +232,9 @@ class ProgramPipelineState;
 class ProgramExecutable;
 using SharedProgramExecutable = std::shared_ptr<ProgramExecutable>;
 
+using ProgramPipelineUniformBlockIndexMap =
+    angle::FastMap<uint32_t, IMPLEMENTATION_MAX_UNIFORM_BUFFER_BINDINGS>;
+
 class ProgramExecutable final : public angle::Subject
 {
   public:
@@ -623,7 +626,10 @@ class ProgramExecutable final : public angle::Subject
                       std::vector<UnusedUniform> *unusedUniforms);
 
     void copyInputsFromProgram(const ProgramExecutable &executable);
-    void copyShaderBuffersFromProgram(const ProgramExecutable &executable, ShaderType shaderType);
+    void copyUniformBuffersFromProgram(const ProgramExecutable &executable,
+                                       ShaderType shaderType,
+                                       ProgramPipelineUniformBlockIndexMap *ppoUniformBlockMap);
+    void copyStorageBuffersFromProgram(const ProgramExecutable &executable, ShaderType shaderType);
     void clearSamplerBindings();
     void copySamplerBindingsFromProgram(const ProgramExecutable &executable);
     void copyImageBindingsFromProgram(const ProgramExecutable &executable);
@@ -686,6 +692,24 @@ class ProgramExecutable final : public angle::Subject
     void setDrawIDUniform(GLint drawid);
     void setBaseVertexUniform(GLint baseVertex);
     void setBaseInstanceUniform(GLuint baseInstance);
+
+    enum DirtyBitType
+    {
+        DIRTY_BIT_UNIFORM_BLOCK_BINDING_0,
+        DIRTY_BIT_UNIFORM_BLOCK_BINDING_MAX =
+            DIRTY_BIT_UNIFORM_BLOCK_BINDING_0 + IMPLEMENTATION_MAX_COMBINED_SHADER_UNIFORM_BUFFERS,
+
+        DIRTY_BIT_COUNT = DIRTY_BIT_UNIFORM_BLOCK_BINDING_MAX,
+    };
+    static_assert(DIRTY_BIT_UNIFORM_BLOCK_BINDING_0 == 0,
+                  "UniformBlockBindingMask must match DirtyBits because UniformBlockBindingMask is "
+                  "used directly to set dirty bits.");
+
+    using DirtyBits = angle::BitSet<DIRTY_BIT_COUNT>;
+
+    ANGLE_INLINE bool hasAnyDirtyBit() const { return mDirtyBits.any(); }
+
+    DirtyBits getAndResetDirtyBits() const;
 
   private:
     friend class Program;
@@ -936,6 +960,8 @@ class ProgramExecutable final : public angle::Subject
 
     // Cache for sampler validation
     mutable Optional<bool> mCachedValidateSamplersResult;
+
+    mutable DirtyBits mDirtyBits;
 };
 
 void InstallExecutable(const Context *context,

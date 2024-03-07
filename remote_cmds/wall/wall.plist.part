@@ -2,15 +2,13 @@
 		<key>OpenSourceProject</key>
 		<string>wall</string>
 		<key>OpenSourceVersion</key>
-		<string>2008-01-15</string>
+		<string>2018-04-15</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/wall?id=3c58f6ddbdbd50799590aa5ac8ae1909140d52c8</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/wall?id=1a874a126a54fdc188cebd0c58579851c37d1814</string>
 		<key>OpenSourceImportDate</key>
-		<string>2008-03-26</string>
+		<string>2023-05-08</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>wall.c: use utmpx for user look ups</string>
-			<string>ttymsg.c: Account for _PATH_DEV when copying strings (13145432)</string>
 			<string>ttymsg.c: Return NULL on EBUSY or EACCES</string>
 		</array>
 		<key>OpenSourceLicense</key>

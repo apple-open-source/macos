@@ -244,7 +244,7 @@ void WebChromeClient::focusedElementChanged(Element* element)
     CallFormDelegate(m_webView, @selector(didFocusTextField:inFrame:), kit(&inputElement), kit(inputElement.document().frame()));
 }
 
-void WebChromeClient::focusedFrameChanged(LocalFrame*)
+void WebChromeClient::focusedFrameChanged(Frame*)
 {
 }
 
@@ -254,8 +254,12 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& fea
     WebView *newWebView;
 
 #if ENABLE(FULLSCREEN_API)
-    if (frame.document() && frame.document()->fullscreenManager().currentFullscreenElement())
-        frame.document()->fullscreenManager().cancelFullscreen();
+    if (RefPtr document = frame.document()) {
+        if (CheckedPtr fullscreenManager = document->fullscreenManagerIfExists()) {
+            if (fullscreenManager->currentFullscreenElement())
+                fullscreenManager->cancelFullscreen();
+        }
+    }
 #endif
     
     if ([delegate respondsToSelector:@selector(webView:createWebViewWithRequest:windowFeatures:)]) {
@@ -1077,8 +1081,6 @@ void WebChromeClient::exitFullScreenForElement(Element* element)
 
 #endif // ENABLE(FULLSCREEN_API)
 
-#if ENABLE(WEB_CRYPTO)
-
 bool WebChromeClient::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey) const
 {
     SEL selector = @selector(webCryptoMasterKeyForWebView:);
@@ -1110,8 +1112,6 @@ bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<
         return false;
     return unwrapSerializedCryptoKey(WTFMove(*masterKey), wrappedKey, key);
 }
-
-#endif
 
 #if ENABLE(SERVICE_CONTROLS)
 
@@ -1172,16 +1172,14 @@ void WebChromeClient::changeUniversalAccessZoomFocus(const WebCore::IntRect& vie
 }
 #endif
 
+#if HAVE(WEBGPU_IMPLEMENTATION)
 RefPtr<WebCore::WebGPU::GPU> WebChromeClient::createGPUForWebGPU() const
 {
-#if HAVE(WEBGPU_IMPLEMENTATION)
     return WebCore::WebGPU::create([](WebCore::WebGPU::WorkItem&& workItem) {
         callOnMainRunLoop(WTFMove(workItem));
     });
-#else
-    return nullptr;
-#endif
 }
+#endif
 
 RefPtr<WebCore::ShapeDetection::BarcodeDetector> WebChromeClient::createBarcodeDetector(const WebCore::ShapeDetection::BarcodeDetectorOptions& barcodeDetectorOptions) const
 {

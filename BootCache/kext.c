@@ -5935,6 +5935,7 @@ check_cache_mounts:
 							struct discards discards = BC_teardown_mount_and_extents(cm);
 							BC_ADD_SHARED_CACHE_STAT(unsupported_unread, discards.shared_discards);
 							BC_ADD_NON_SHARED_CACHE_STAT(unsupported_unread, discards.nonshared_discards);
+							UNLOCK_MOUNT_W(cm);
 							break;
 						}
 					}

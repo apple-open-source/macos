@@ -55,7 +55,7 @@ private:
     void recordSetLineDash(const DashArray&, float dashOffset) final;
     void recordSetLineJoin(LineJoin) final;
     void recordSetMiterLimit(float) final;
-    void recordClearShadow() final;
+    void recordClearDropShadow() final;
     void recordResetClip() final;
     void recordClip(const FloatRect&) final;
     void recordClipRoundedRect(const FloatRoundedRect&) final;
@@ -67,10 +67,10 @@ private:
     void recordDrawFilteredImageBuffer(ImageBuffer*, const FloatRect& sourceImageRect, Filter&) final;
     void recordDrawGlyphs(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode) final;
     void recordDrawDecomposedGlyphs(const Font&, const DecomposedGlyphs&) final;
-    void recordDrawImageBuffer(ImageBuffer&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) final;
-    void recordDrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) final;
+    void recordDrawImageBuffer(ImageBuffer&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions) final;
+    void recordDrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions) final;
     void recordDrawSystemImage(SystemImage&, const FloatRect&) final;
-    void recordDrawPattern(RenderingResourceIdentifier, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform&, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { }) final;
+    void recordDrawPattern(RenderingResourceIdentifier, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform&, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions = { }) final;
     void recordBeginTransparencyLayer(float) final;
     void recordEndTransparencyLayer() final;
     void recordDrawRect(const FloatRect&, float) final;
@@ -90,6 +90,7 @@ private:
 #if ENABLE(INLINE_PATH_DATA)
     void recordFillLine(const PathDataLine&) final;
     void recordFillArc(const PathArc&) final;
+    void recordFillClosedArc(const PathClosedArc&) final;
     void recordFillQuadCurve(const PathDataQuadCurve&) final;
     void recordFillBezierCurve(const PathDataBezierCurve&) final;
 #endif
@@ -105,6 +106,7 @@ private:
     void recordStrokeLine(const PathDataLine&) final;
     void recordStrokeLineWithColorAndThickness(const PathDataLine&, SetInlineStroke&&) final;
     void recordStrokeArc(const PathArc&) final;
+    void recordStrokeClosedArc(const PathClosedArc&) final;
     void recordStrokeQuadCurve(const PathDataQuadCurve&) final;
     void recordStrokeBezierCurve(const PathDataBezierCurve&) final;
 #endif
@@ -113,6 +115,7 @@ private:
     void recordStrokeEllipse(const FloatRect&) final;
     void recordClearRect(const FloatRect&) final;
     void recordDrawControlPart(ControlPart&, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle&) final;
+    void recordDrawDisplayListItems(const Vector<Item>&, const FloatPoint& destination) final;
 #if USE(CG)
     void recordApplyStrokePattern() final;
     void recordApplyFillPattern() final;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017, 2022-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017, 2022-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -175,8 +175,6 @@ eaptls_compute_session_key(EAPTLSPluginDataRef context)
 					    context->key_data,
 					    sizeof(context->key_data));
     if (status != errSecSuccess) {
-	EAPLOG_FL(LOG_NOTICE, "EAP-TLS session key computation failed, %s (%ld)",
-		  EAPSSLErrorString(status), (long)status);
 	return (FALSE);
     }
     context->key_data_valid = TRUE;
@@ -351,6 +349,19 @@ eaptls_set_negotiated_tls_protocol_version(EAPTLSPluginDataRef context)
     return;
 }
 
+static Boolean
+eaptls_is_handshake_complete(EAPTLSPluginDataRef context)
+{
+    SSLSessionState	ssl_state = kSSLIdle;
+    OSStatus		status = errSecSuccess;
+
+    status = EAPTLSSessionGetState(context->tls_session_context, &ssl_state);
+    if (status == errSecSuccess) {
+	return (ssl_state == kSSLConnected);
+    }
+    return FALSE;
+}
+
 static void
 eaptls_update_tls_session_data(EAPTLSPluginDataRef context)
 {
@@ -411,7 +422,9 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
 	/* handshake again to get past the AuthCompleted status */
 	status = EAPTLSSessionHandshake(context->tls_session_context);
     }
-    eaptls_update_tls_session_data(context);
+    if (eaptls_is_handshake_complete(context)) {
+	eaptls_update_tls_session_data(context);
+    }
     switch (status) {
     case noErr:
 	/* handshake complete */
@@ -667,7 +680,15 @@ eaptls_process(EAPClientPluginDataRef plugin,
 	*out_pkt_p = eaptls_request(plugin, in_pkt, client_status);
 	break;
     case kEAPCodeSuccess:
-	eaptls_update_tls_session_data(context);
+	if (context->key_data_valid == FALSE) {
+	    /* we don't have the key material yet */
+	    if (eaptls_is_handshake_complete(context)) {
+		EAPLOG_FL(LOG_NOTICE, "TLS handshake is complete");
+		eaptls_update_tls_session_data(context);
+	    } else {
+		EAPLOG_FL(LOG_NOTICE, "TLS handshake is not complete yet");
+	    }
+	}
 	/* accept EAP-Success only if key material is computed */
 	if (context->key_data_valid) {
 	    context->plugin_state = kEAPClientStateSuccess;

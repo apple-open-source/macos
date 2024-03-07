@@ -440,8 +440,6 @@ match_principals_command(struct passwd *user_pw, const struct sshkey *key,
 
 	if ((pid = subprocess("AuthorizedPrincipalsCommand", command,
 	    ac, av, &f,
-#ifdef __APPLE__
-#endif
 	    SSH_SUBPROCESS_STDOUT_CAPTURE|SSH_SUBPROCESS_STDERR_DISCARD,
 	    runas_pw, temporarily_use_uid, restore_uid)) == 0)
 		goto out;
@@ -530,8 +528,6 @@ user_cert_trusted_ca(struct passwd *pw, struct sshkey *key,
 	if (use_authorized_principals && principals_opts == NULL)
 		fatal_f("internal error: missing principals_opts");
 	if (sshkey_cert_check_authority_now(key, 0, 1, 0,
-#ifdef __APPLE__
-#endif
 	    use_authorized_principals ? NULL : pw->pw_name, &reason) != 0)
 		goto fail_reason;
 

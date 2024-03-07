@@ -27,6 +27,10 @@ es_UY{
             }
             dayPeriod{
                 stand-alone{
+                    abbreviated{
+                        am{"a. m."}
+                        pm{"p. m."}
+                    }
                     narrow{
                         am{"a. m."}
                         pm{"p. m."}

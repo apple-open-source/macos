@@ -246,6 +246,7 @@ static void populateAdapterParams0Dict (const PwrPortTelemetryLogParams0_t &para
         SMCAdapterParamHelper (mask.nEprPDOs           ,_kAsbPortControllerNEprPDOs           ,params0.nEprPDOs),
         SMCAdapterParamHelper (mask.pdst               ,_kAsbPortControllerPDst               ,params0.pdst),
         SMCAdapterParamHelper (mask.capMismatch        ,_kAsbPortControllerCapMismatch        ,params0.capMismatch),
+        SMCAdapterParamHelper (mask.bootFlags          ,_kAsbPortControllerBootFlags          ,params0.bootFlags),
     };
 
     for (int i = 0; i < ARRAY_SIZE(params); ++i) {

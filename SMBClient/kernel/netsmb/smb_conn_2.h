@@ -51,8 +51,12 @@ int smb2_smb_gss_session_setup(struct smbiod *iod, uint16_t *sess_flags,
                                vfs_context_t context);
 int smb2_smb_ioctl(struct smb_share *share, struct smbiod *iod, struct smb2_ioctl_rq *ioctlp, 
                    struct smb_rq **compound_rqp, vfs_context_t context);
-int smb2_smb_lease_break_ack(struct smb_share *share, struct smbiod *iod, uint64_t lease_key_hi, uint64_t lease_key_low,
-                             uint32_t lease_state, uint32_t *ret_lease_state, vfs_context_t context);
+int smb2_smb_lease_break_ack(struct smb_share *share, struct smbiod *iod,
+                             uint64_t lease_key_hi, uint64_t lease_key_low,
+                             uint32_t lease_state, vfs_context_t context);
+int smb2_smb_lease_break_ack_queue(struct smb_share *share, struct smbiod *iod,
+                                   uint64_t lease_key_hi, uint64_t lease_key_low,
+                                   uint32_t lease_state, vfs_context_t context);
 int smb2_smb_lock(struct smb_share *share, int op, SMBFID fid,
                   off_t offset, uint64_t length, vfs_context_t context);
 int smb2_smb_negotiate(struct smbiod *iod, struct smb_rq *rqp,

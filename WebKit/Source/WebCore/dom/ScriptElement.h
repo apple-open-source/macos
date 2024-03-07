@@ -46,8 +46,9 @@ class ScriptElement {
 public:
     virtual ~ScriptElement() = default;
 
-    Element& element() { return m_element; }
-    const Element& element() const { return m_element; }
+    Element& element() { return m_element.get(); }
+    const Element& element() const { return m_element.get(); }
+    Ref<Element> protectedElement() const { return m_element.get(); }
 
     bool prepareScript(const TextPosition& scriptStartPosition = TextPosition());
 
@@ -80,8 +81,8 @@ public:
 
     JSC::SourceTaintedOrigin sourceTaintedOrigin() const { return m_taintedOrigin; }
 
-    void ref();
-    void deref();
+    void ref() const;
+    void deref() const;
 
     static std::optional<ScriptType> determineScriptType(const String& typeAttribute, const String& languageAttribute, bool isHTMLDocument = true);
 
@@ -127,7 +128,7 @@ private:
 
     virtual bool isScriptPreventedByAttributes() const { return false; }
 
-    Element& m_element;
+    WeakRef<Element, WeakPtrImplWithEventTargetData> m_element;
     OrdinalNumber m_startLineNumber { OrdinalNumber::beforeFirst() };
     JSC::SourceTaintedOrigin m_taintedOrigin;
     ParserInserted m_parserInserted : bitWidthOfParserInserted;

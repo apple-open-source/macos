@@ -73,7 +73,6 @@ namespace WebKit {
 
 class PaymentSetupConfiguration;
 class PaymentSetupFeatures;
-class WebPageProxy;
 
 class WebPaymentCoordinatorProxy
     : public IPC::MessageReceiver
@@ -93,7 +92,7 @@ public:
 #if PLATFORM(IOS_FAMILY)
         virtual UIViewController *paymentCoordinatorPresentingViewController(const WebPaymentCoordinatorProxy&) = 0;
 #if ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
-        virtual void getWindowSceneIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&)>&&) = 0;
+        virtual void getWindowSceneAndBundleIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&, const String&)>&&) = 0;
 #endif
         virtual const String& paymentCoordinatorCTDataConnectionServiceType(const WebPaymentCoordinatorProxy&) = 0;
         virtual std::unique_ptr<PaymentAuthorizationPresenter> paymentCoordinatorAuthorizationPresenter(WebPaymentCoordinatorProxy&, PKPaymentRequest *) = 0;
@@ -106,6 +105,8 @@ public:
     friend class NetworkConnectionToWebProcess;
     explicit WebPaymentCoordinatorProxy(Client&);
     ~WebPaymentCoordinatorProxy();
+
+    void webProcessExited();
 
 private:
     // IPC::MessageReceiver
@@ -170,13 +171,13 @@ private:
     void platformCompletePaymentSession(WebCore::ApplePayPaymentAuthorizationResult&&);
     void platformHidePaymentUI();
 #if PLATFORM(COCOA)
-    RetainPtr<PKPaymentRequest> platformPaymentRequest(const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest&);
+    RetainPtr<PKPaymentRequest> platformPaymentRequest(WebPageProxyIdentifier, const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest&);
 #endif
 
     Client& m_client;
     std::optional<WebCore::PageIdentifier> m_destinationID;
 
-    enum class State {
+    enum class State : uint16_t {
         // Idle - Nothing's happening.
         Idle,
 
@@ -202,6 +203,10 @@ private:
         // CouponCodeChanged - Dispatching the couponcodechanged event and waiting for a reply.
         CouponCodeChanged,
 #endif
+
+        // Deactivating - Could not complete the payment and is about to idle.
+        // Currently only transitions here when the web process terminates while the payment coordinator is active.
+        Deactivating,
 
         // Completing - Completing the payment and waiting for presenterDidFinish to be called.
         Completing,

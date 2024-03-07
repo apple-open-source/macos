@@ -580,6 +580,53 @@ class OctagonPairingTests: OctagonTestsBase {
             return (nil, nil, nil, nil)
         }
     }
+
+    func testClientStateMachineTimeoutIfCalledInWrongOrder() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let joiningConfig = OTJoiningConfiguration(protocolType: "temp",
+                                                   uniqueDeviceID: "deviceID",
+                                                   uniqueClientID: "client",
+                                                   pairingUUID: UUID().uuidString,
+                                                   epoch: 1,
+                                                   isInitiator: true)
+
+        do {
+            let rpcEpochExpectation = self.expectation(description: "rpcEpoch returns")
+            self.manager.rpcEpoch(with: self.otcontrolArgumentsFor(context: self.cuttlefishContext), configuration: joiningConfig) { epoch, error in
+                XCTAssertEqual(epoch, 1, "Epoch should be 1")
+                XCTAssertNil(error, "Should have no error")
+                rpcEpochExpectation.fulfill()
+            }
+
+            self.wait(for: [rpcEpochExpectation], timeout: 10)
+        }
+
+        do {
+            let rpcEpochExpectation = self.expectation(description: "rpcEpoch returns")
+            self.manager.rpcEpoch(with: self.otcontrolArgumentsFor(context: self.cuttlefishContext), configuration: joiningConfig) { epoch, error in
+                XCTAssertEqual(epoch, 0, "Epoch should be 0")
+                XCTAssertNotNil(error, "Should have an error when diverging from the expected join path")
+
+                let error = try! XCTUnwrap(error as? NSError)
+                XCTAssertEqual(error.domain, CKKSResultErrorDomain, "Should be an CKKS error")
+                XCTAssertEqual(error.code, CKKSResultTimedOut, "Should be CKKSResultTimedOut")
+
+                let underlyingError: NSError = try! XCTUnwrap(error.userInfo[NSUnderlyingErrorKey] as? NSError)
+                XCTAssertEqual(underlyingError.domain, CKKSResultDescriptionErrorDomain, "Should be domain for CKKSResultOperationDescriptionError")
+                XCTAssertEqual(underlyingError.code, CKKSResultDescriptionErrorCode.errorPendingMachineRequestStart.rawValue, "Should be the code for 'request never started")
+
+                let stateError: NSError = try! XCTUnwrap(underlyingError.userInfo[NSUnderlyingErrorKey] as? NSError)
+                XCTAssertEqual(stateError.domain, "com.apple.security.octagon.client", "Should be custom-set domain")
+                XCTAssertEqual(stateError.code, 3, "Should be the code set for state 'OctagonStateAcceptorAwaitingIdentity'")
+
+                rpcEpochExpectation.fulfill()
+            }
+
+            self.wait(for: [rpcEpochExpectation], timeout: 10)
+        }
+    }
 }
 
 #endif

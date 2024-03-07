@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "CSSSelector.h"
 #include "CSSSelectorList.h"
 #include "CSSVariableData.h"
 #include "CompiledSelector.h"
@@ -45,6 +46,7 @@ class CSSStyleSheet;
 class MutableStyleProperties;
 class StyleRuleKeyframe;
 class StyleProperties;
+class StyleSheetContents;
 
 using CascadeLayerName = Vector<AtomString>;
     
@@ -67,12 +69,13 @@ public:
     bool isPageRule() const { return type() == StyleRuleType::Page; }
     bool isStyleRule() const { return type() == StyleRuleType::Style || type() == StyleRuleType::StyleWithNesting; }
     bool isStyleRuleWithNesting() const { return type() == StyleRuleType::StyleWithNesting; }
-    bool isGroupRule() const { return type() == StyleRuleType::Media || type() == StyleRuleType::Supports || type() == StyleRuleType::LayerBlock || type() == StyleRuleType::Container; }
+    bool isGroupRule() const { return type() == StyleRuleType::Media || type() == StyleRuleType::Supports || type() == StyleRuleType::LayerBlock || type() == StyleRuleType::Container || type() == StyleRuleType::Scope; }
     bool isSupportsRule() const { return type() == StyleRuleType::Supports; }
     bool isImportRule() const { return type() == StyleRuleType::Import; }
     bool isLayerRule() const { return type() == StyleRuleType::LayerBlock || type() == StyleRuleType::LayerStatement; }
     bool isContainerRule() const { return type() == StyleRuleType::Container; }
     bool isPropertyRule() const { return type() == StyleRuleType::Property; }
+    bool isScopeRule() const { return type() == StyleRuleType::Scope; }
 
     Ref<StyleRuleBase> copy() const;
 
@@ -381,6 +384,35 @@ private:
     Descriptor m_descriptor;
 };
 
+class StyleRuleScope final : public StyleRuleGroup {
+public:
+    static Ref<StyleRuleScope> create(CSSSelectorList&&, CSSSelectorList&&, Vector<Ref<StyleRuleBase>>&&);
+    ~StyleRuleScope();
+    Ref<StyleRuleScope> copy() const;
+
+    const CSSSelectorList& scopeStart() const { return m_scopeStart; }
+    const CSSSelectorList& scopeEnd() const { return m_scopeEnd; }
+    const CSSSelectorList& originalScopeStart() const { return m_originalScopeStart; }
+    const CSSSelectorList& originalScopeEnd() const { return m_originalScopeEnd; }
+    void setScopeStart(CSSSelectorList&& scopeStart) { m_scopeStart = WTFMove(scopeStart); }
+    void setScopeEnd(CSSSelectorList&& scopeEnd) { m_scopeEnd = WTFMove(scopeEnd); }
+    WeakPtr<const StyleSheetContents> styleSheetContents() const;
+    void setStyleSheetContents(const StyleSheetContents&);
+
+private:
+    StyleRuleScope(CSSSelectorList&&, CSSSelectorList&&, Vector<Ref<StyleRuleBase>>&&);
+    StyleRuleScope(const StyleRuleScope&);
+
+    // Resolved selector lists
+    CSSSelectorList m_scopeStart;
+    CSSSelectorList m_scopeEnd;
+    // Author written selector lists
+    CSSSelectorList m_originalScopeStart;
+    CSSSelectorList m_originalScopeEnd;
+    // Pointer to the owner StyleSheetContent to find the implicit scope (when there is no <scope-start>)
+    WeakPtr<const StyleSheetContents> m_styleSheetOwner;
+};
+
 // This is only used by the CSS parser.
 class StyleRuleCharset final : public StyleRuleBase {
 public:
@@ -518,3 +550,6 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleProperty)
     static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isPropertyRule(); }
 SPECIALIZE_TYPE_TRAITS_END()
 
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleScope)
+    static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isScopeRule(); }
+SPECIALIZE_TYPE_TRAITS_END()

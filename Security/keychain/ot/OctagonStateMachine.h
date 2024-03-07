@@ -94,11 +94,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSDictionary<NSString*, NSString*>*)dumpPendingFlags;
 
-- (void)handleExternalRequest:(OctagonStateTransitionRequest<CKKSResultOperation<OctagonStateTransitionOperationProtocol>*>*)request;
+- (void)handleExternalRequest:(OctagonStateTransitionRequest<CKKSResultOperation<OctagonStateTransitionOperationProtocol>*>*)request
+                 startTimeout:(dispatch_time_t)timeout;
 
-- (void)registerStateTransitionWatcher:(OctagonStateTransitionWatcher*)watcher;
-- (void)registerMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher;
-- (void)_onqueueRegisterMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher;
+- (void)registerStateTransitionWatcher:(OctagonStateTransitionWatcher*)watcher
+                          startTimeout:(dispatch_time_t)timeout;
+- (void)registerMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher
+                            startTimeout:(dispatch_time_t)timeout;
+- (void)_onqueueRegisterMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher
+                                    startTimeout:(dispatch_time_t)timeout;
 
 - (void)doSimpleStateMachineRPC:(NSString*)name
                              op:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)op

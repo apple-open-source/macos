@@ -36,28 +36,8 @@ static char rcsid[] = "$Id: inet_pton.c,v 1.3 2003/04/10 18:53:29 majka Exp $";
 
 #define INET6 1
 
-#define IN6ADDRSZ              16
-
-#if 0
-#ifndef HAVE_PORTABLE_PROTOTYPE
-#include "cdecl_ext.h"
-#endif 
-
-#ifndef HAVE_U_INT16_T
-#include "bittypes.h"
-#endif 
-#if !(defined(HAVE_INADDRSZ) && defined(HAVE_IN6ADDRSZ))
-#include "addrsize.h"
-#endif 
-#endif
-#ifndef NS_INADDRSZ
-#define NS_INADDRSZ	INADDRSZ
-#endif
-#ifndef NS_IN6ADDRSZ
-#define NS_IN6ADDRSZ	IN6ADDRSZ
-#endif
-#ifndef NS_INT16SZ
-#define NS_INT16SZ	sizeof(u_int16_t)
+#ifndef IN6ADDRSZ
+#define IN6ADDRSZ	16
 #endif
 
 /*

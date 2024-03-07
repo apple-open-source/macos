@@ -26,6 +26,7 @@
 #include "config.h"
 #include "InlineLineBox.h"
 
+#include "InlineFormattingUtils.h"
 #include "InlineLevelBoxInlines.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutElementBox.h"
@@ -40,6 +41,7 @@ LineBox::LineBox(const Box& rootLayoutBox, InlineLayoutUnit contentLogicalLeft, 
 {
     m_nonRootInlineLevelBoxList.reserveInitialCapacity(nonSpanningInlineLevelBoxCount);
     m_nonRootInlineLevelBoxMap.reserveInitialCapacity(nonSpanningInlineLevelBoxCount);
+    m_rootInlineBox.setTextEmphasis(InlineFormattingUtils::textEmphasisForInlineBox(rootLayoutBox, downcast<ElementBox>(rootLayoutBox)));
 }
 
 void LineBox::addInlineLevelBox(InlineLevelBox&& inlineLevelBox)
@@ -112,10 +114,6 @@ InlineRect LineBox::logicalBorderBoxForAtomicInlineLevelBox(const Box& layoutBox
     logicalRect.moveVertically(boxGeometry.marginBefore());
     auto verticalMargin = boxGeometry.marginBefore() + boxGeometry.marginAfter();
     logicalRect.expandVertically(-verticalMargin);
-
-    // FIXME: The overhang adjustment should be based on the computed value.
-    if (auto* rubyAdjustments = layoutBox.rubyAdjustments())
-        logicalRect.moveHorizontally(-rubyAdjustments->overhang.start);
 
     return logicalRect;
 }

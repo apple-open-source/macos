@@ -34,6 +34,7 @@
 #include "IntRect.h"
 #include "Logging.h"
 #include "PlatformMediaSessionManager.h"
+#include <wtf/NativePromise.h>
 #include <wtf/UUID.h>
 
 #if PLATFORM(COCOA)
@@ -186,6 +187,21 @@ const RealtimeMediaSourceSettings& MediaStreamTrackPrivate::settings() const
 const RealtimeMediaSourceCapabilities& MediaStreamTrackPrivate::capabilities() const
 {
     return m_source->capabilities();
+}
+
+Ref<RealtimeMediaSource::PhotoCapabilitiesNativePromise> MediaStreamTrackPrivate::getPhotoCapabilities()
+{
+    return m_source->getPhotoCapabilities();
+}
+
+Ref<RealtimeMediaSource::PhotoSettingsNativePromise> MediaStreamTrackPrivate::getPhotoSettings()
+{
+    return m_source->getPhotoSettings();
+}
+
+Ref<RealtimeMediaSource::TakePhotoNativePromise> MediaStreamTrackPrivate::takePhoto(PhotoSettings&& settings)
+{
+    return m_source->takePhoto(WTFMove(settings));
 }
 
 void MediaStreamTrackPrivate::applyConstraints(const MediaConstraints& constraints, RealtimeMediaSource::ApplyConstraintsHandler&& completionHandler)

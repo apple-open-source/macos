@@ -241,7 +241,7 @@ copy_file(const FTSENT *entp, int dne)
 		 * -c will have unlinked the file, we can't possibly do the
 		 * conformant behavior.
 		 */
-		if (!cflag && unix2003_compat) {
+		if (!cflag && !lflag && !sflag && unix2003_compat) {
 		    /* first try to overwrite existing destination file name */
 		    to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
 		    if (to_fd == -1) {
@@ -310,42 +310,42 @@ copy_file(const FTSENT *entp, int dne)
 	rval = 0;
 
 #ifdef __APPLE__
-       if (S_ISREG(fs->st_mode)) {
-               struct statfs sfs;
+       if (!lflag && !sflag) {
+	       if (S_ISREG(fs->st_mode)) {
+		       struct statfs sfs;
 
-               /*
-                * Pre-allocate blocks for the destination file if it
-                * resides on Xsan.
-                */
-               if (fstatfs(to_fd, &sfs) == 0 &&
-                   strcmp(sfs.f_fstypename, "acfs") == 0) {
-                       fstore_t fst;
+		       /*
+			* Pre-allocate blocks for the destination file if it
+			* resides on Xsan.
+			*/
+		       if (fstatfs(to_fd, &sfs) == 0 &&
+			   strcmp(sfs.f_fstypename, "acfs") == 0) {
+			       fstore_t fst;
 
-                       fst.fst_flags = 0;
-                       fst.fst_posmode = F_PEOFPOSMODE;
-                       fst.fst_offset = 0;
-                       fst.fst_length = fs->st_size;
+			       fst.fst_flags = 0;
+			       fst.fst_posmode = F_PEOFPOSMODE;
+			       fst.fst_offset = 0;
+			       fst.fst_length = fs->st_size;
 
-                       (void) fcntl(to_fd, F_PREALLOCATE, &fst);
-               }
-       }
-
-       if (fstat(to_fd, &to_stat) != -1) {
-	       mode = to_stat.st_mode;
-	       if ((mode & (S_IRWXG|S_IRWXO))
-		   && fchmod(to_fd, mode & ~(S_IRWXG|S_IRWXO))) {
-		       if (errno != EPERM) /* we have write access but do not own the file */
-			       warn("%s: fchmod failed", to.p_path);
-		       mode = 0;
+			       (void) fcntl(to_fd, F_PREALLOCATE, &fst);
+		       }
 	       }
-       } else {
-	       warn("%s", to.p_path);
-	       rval = 1;
-	       goto done;
-       }
-#endif /* __APPLE__ */
 
-#ifdef __APPLE__
+	       if (fstat(to_fd, &to_stat) == 0) {
+		       mode = to_stat.st_mode;
+		       if ((mode & (S_IRWXG|S_IRWXO)) &&
+			   fchmod(to_fd, mode & ~(S_IRWXG|S_IRWXO)) != 0) {
+			       if (errno != EPERM) /* we have write access but do not own the file */
+				       warn("%s: fchmod failed", to.p_path);
+			       mode = 0;
+		       }
+	       } else {
+		       warn("%s", to.p_path);
+		       rval = 1;
+		       goto done;
+	       }
+       }
+
        /*
 	* If we weren't asked to create a hard or soft link, and both the
 	* source and the destination are regular files, use fcopyfile(3),

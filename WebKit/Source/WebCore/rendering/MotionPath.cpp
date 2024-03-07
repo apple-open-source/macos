@@ -29,7 +29,10 @@
 #include "GeometryUtilities.h"
 #include "PathOperation.h"
 #include "PathTraversalState.h"
+#include "RenderBlock.h"
+#include "RenderStyleInlines.h"
 #include "TransformOperationData.h"
+#include "TransformationMatrix.h"
 
 namespace WebCore {
 

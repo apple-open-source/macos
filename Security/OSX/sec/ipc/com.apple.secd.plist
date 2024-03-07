@@ -17,8 +17,6 @@
 	<dict>
 		<key>com.apple.security.octagon</key>
 		<true/>
-		<key>com.apple.secd</key>
-		<true/>
 		<key>com.apple.securityd.xpc</key>
 		<true/>
 		<key>com.apple.securityd.aps</key>

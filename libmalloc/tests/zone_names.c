@@ -9,7 +9,9 @@
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
+#include <mach/mach.h>  // mach_task_self()
 #include <malloc/malloc.h>
+#include <malloc_private.h> // malloc_get_wrapped_zone()
 #include <stdlib.h>  // free()
 
 #include "../src/platform.h"  // CONFIG_NANOZONE
@@ -115,9 +117,7 @@ check_set_zone_name(malloc_zone_t* zone)
 	const char *copy = zone_name;
 	malloc_set_zone_name(zone, NULL);
 	T_EXPECT_NULL(zone_name, "zone name set to NULL");
-	if (!getenv("MallocSecureAllocator")) {
-		T_EXPECT_EQ(malloc_size(copy), 0ul, "copy freed");
-	}
+	T_EXPECT_EQ(malloc_size(copy), 0ul, "copy freed");
 }
 
 T_DECL(malloc_set_zone_name, "malloc_set_zone_name", T_META_TAG_XZONE)
@@ -131,4 +131,31 @@ T_DECL(malloc_set_zone_name, "malloc_set_zone_name", T_META_TAG_XZONE)
 	for (uint32_t i = 0; i < count; i++) {
 		check_set_zone_name(zones[i]);
 	}
+}
+
+static malloc_zone_t *
+get_wrapped_zone(malloc_zone_t *zone)
+{
+	malloc_zone_t *wrapped_zone;
+	kern_return_t kr = malloc_get_wrapped_zone(mach_task_self(),
+			/*memory_reader=*/NULL, (vm_address_t)zone, (vm_address_t *)&wrapped_zone);
+	T_QUIET; T_ASSERT_EQ(kr, KERN_SUCCESS, "malloc_get_wrapped_zone() failed");
+	T_EXPECT_NOTNULL(wrapped_zone, "Wrapped zone");
+	return wrapped_zone;
+}
+
+T_DECL(malloc_set_zone_name_on_wrapper_zone,
+		"Setting name of wrapper zone delegates to wrapped zone",
+		T_META_ENVVAR("MallocProbGuard=1"),
+		T_META_CHECK_LEAKS(false), // rdar://114740269
+		T_META_TAG_XZONE)
+{
+	malloc_zone_t *zone = malloc_zones[0];
+	malloc_zone_t *wrapped_zone = get_wrapped_zone(zone);
+
+	malloc_set_zone_name(zone, "test");
+
+	T_EXPECT_EQ_STR(malloc_get_zone_name(zone), "test", "Wrapper zone name");
+	T_EXPECT_EQ_STR(malloc_get_zone_name(wrapped_zone), "test-PGM-Wrapped",
+			"Wrapped zone name");
 }

@@ -28,14 +28,13 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #include "APIObject.h"
+#include "CocoaImage.h"
 #include "WebExtensionMatchPattern.h"
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
-
-#import "CocoaImage.h"
 
 OBJC_CLASS NSArray;
 OBJC_CLASS NSBundle;
@@ -47,6 +46,7 @@ OBJC_CLASS NSMutableArray;
 OBJC_CLASS NSMutableDictionary;
 OBJC_CLASS NSString;
 OBJC_CLASS NSURL;
+OBJC_CLASS UTType;
 OBJC_CLASS _WKWebExtension;
 OBJC_CLASS _WKWebExtensionLocalization;
 OBJC_CLASS _WKWebExtensionMatchPattern;
@@ -84,6 +84,7 @@ public:
 
     enum class CacheResult : bool { No, Yes };
     enum class SuppressNotification : bool { No, Yes };
+    enum class SuppressNotFoundErrors : bool { No, Yes };
 
     enum class Error : uint8_t {
         Unknown = 1,
@@ -95,12 +96,15 @@ public:
         InvalidActionIcon,
         InvalidBackgroundContent,
         InvalidBackgroundPersistence,
+        InvalidCommands,
         InvalidContentScripts,
+        InvalidContentSecurityPolicy,
         InvalidDeclarativeNetRequest,
         InvalidDescription,
         InvalidExternallyConnectable,
         InvalidIcon,
         InvalidName,
+        InvalidOptionsPage,
         InvalidURLOverrides,
         InvalidVersion,
         InvalidWebAccessibleResources,
@@ -116,11 +120,38 @@ public:
     using PermissionsSet = HashSet<String>;
     using MatchPatternSet = HashSet<Ref<WebExtensionMatchPattern>>;
 
+    // Needs to match UIKeyModifierFlags and NSEventModifierFlags.
+    enum class ModifierFlags : uint32_t {
+        Shift   = 1 << 17,
+        Control = 1 << 18,
+        Option  = 1 << 19,
+        Command = 1 << 20
+    };
+
+    static constexpr OptionSet<ModifierFlags> allModifierFlags()
+    {
+        return {
+            ModifierFlags::Shift,
+            ModifierFlags::Control,
+            ModifierFlags::Option,
+            ModifierFlags::Command
+        };
+    }
+
+    struct CommandData {
+        String identifier;
+        String description;
+        String activationKey;
+        OptionSet<ModifierFlags> modifierFlags;
+    };
+
     struct InjectedContentData {
         MatchPatternSet includeMatchPatterns;
         MatchPatternSet excludeMatchPatterns;
 
         InjectionTime injectionTime = InjectionTime::DocumentIdle;
+
+        String identifier { ""_s };
 
         bool matchesAboutBlank { false };
         bool injectsIntoAllFrames { false };
@@ -136,7 +167,21 @@ public:
         NSArray *expandedExcludeMatchPatternStrings() const;
     };
 
+    struct WebAccessibleResourceData {
+        MatchPatternSet matchPatterns;
+        Vector<String> resourcePathPatterns;
+    };
+
+    struct DeclarativeNetRequestRulesetData {
+        String rulesetID;
+        bool enabled;
+        String jsonPath;
+    };
+
+    using CommandsVector = Vector<CommandData>;
     using InjectedContentVector = Vector<InjectedContentData>;
+    using WebAccessibleResourcesVector = Vector<WebAccessibleResourceData>;
+    using DeclarativeNetRequestRulesetVector = Vector<DeclarativeNetRequestRulesetData>;
 
     static const PermissionsSet& supportedPermissions();
 
@@ -147,7 +192,7 @@ public:
     Ref<API::Data> serializeManifest();
 
     double manifestVersion();
-    bool supportsManifestVersion(double version) { return manifestVersion() >= version; }
+    bool supportsManifestVersion(double version) { ASSERT(version > 2); return manifestVersion() >= version; }
 
     Ref<API::Data> serializeLocalization();
 
@@ -156,14 +201,14 @@ public:
     bool validateResourceData(NSURL *, NSData *, NSError **);
 #endif
 
-    bool isAccessibleResourcePath(NSString *, NSURL *frameDocumentURL);
+    bool isWebAccessibleResource(const URL& resourceURL, const URL& pageURL);
 
     NSURL *resourceFileURLForPath(NSString *);
 
-    NSString *resourceStringForPath(NSString *, CacheResult = CacheResult::No);
-    NSData *resourceDataForPath(NSString *, CacheResult = CacheResult::No);
+    UTType *resourceTypeForPath(NSString *);
 
-    NSString *webProcessDisplayName();
+    NSString *resourceStringForPath(NSString *, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
+    NSData *resourceDataForPath(NSString *, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
 
     _WKWebExtensionLocalization *localization();
     NSLocale *defaultLocale();
@@ -174,11 +219,17 @@ public:
     NSString *displayDescription();
     NSString *version();
 
+    NSString *contentSecurityPolicy();
+
     CocoaImage *icon(CGSize idealSize);
 
     CocoaImage *actionIcon(CGSize idealSize);
     NSString *displayActionLabel();
     NSString *actionPopupPath();
+
+    bool hasAction();
+    bool hasBrowserAction();
+    bool hasPageAction();
 
     CocoaImage *imageForPath(NSString *);
 
@@ -194,8 +245,21 @@ public:
     NSString *backgroundContentPath();
     NSString *generatedBackgroundContent();
 
+    bool hasOptionsPage();
+    bool hasOverrideNewTabPage();
+
+    NSString *optionsPagePath();
+    NSString *overrideNewTabPagePath();
+
+    const CommandsVector& commands();
+    bool hasCommands();
+
+    DeclarativeNetRequestRulesetVector& declarativeNetRequestRulesets();
+    bool hasContentModificationRules() { return !declarativeNetRequestRulesets().isEmpty(); }
+
     const InjectedContentVector& staticInjectedContents();
     bool hasStaticInjectedContentForURL(NSURL *);
+    bool hasStaticInjectedContent();
 
     // Permissions requested by the extension in their manifest.
     // These are not the currently allowed permissions.
@@ -233,8 +297,18 @@ private:
     void populateBackgroundPropertiesIfNeeded();
     void populateContentScriptPropertiesIfNeeded();
     void populatePermissionsPropertiesIfNeeded();
+    void populatePagePropertiesIfNeeded();
+    void populateContentSecurityPolicyStringsIfNeeded();
+    void populateWebAccessibleResourcesIfNeeded();
+    void populateCommandsIfNeeded();
+    void populateDeclarativeNetRequestPropertiesIfNeeded();
+
+    std::optional<WebExtension::DeclarativeNetRequestRulesetData> parseDeclarativeNetRequestRulesetDictionary(NSDictionary *, NSError **);
 
     InjectedContentVector m_staticInjectedContents;
+    WebAccessibleResourcesVector m_webAccessibleResources;
+    CommandsVector m_commands;
+    DeclarativeNetRequestRulesetVector m_declarativeNetRequestRulesets;
 
     MatchPatternSet m_permissionMatchPatterns;
     MatchPatternSet m_optionalPermissionMatchPatterns;
@@ -269,19 +343,29 @@ private:
     RetainPtr<NSString> m_displayActionLabel;
     RetainPtr<NSString> m_actionPopupPath;
 
+    RetainPtr<NSString> m_contentSecurityPolicy;
+
     RetainPtr<NSArray> m_backgroundScriptPaths;
     RetainPtr<NSString> m_backgroundPagePath;
     RetainPtr<NSString> m_backgroundServiceWorkerPath;
     RetainPtr<NSString> m_generatedBackgroundContent;
-    bool m_backgroundContentIsPersistent = false;
-    bool m_backgroundPageUsesModules = false;
 
-    bool m_parsedManifest = false;
-    bool m_parsedManifestDisplayStrings = false;
-    bool m_parsedManifestActionProperties = false;
-    bool m_parsedManifestBackgroundProperties = false;
-    bool m_parsedManifestContentScriptProperties = false;
-    bool m_parsedManifestPermissionProperties = false;
+    RetainPtr<NSString> m_optionsPagePath;
+    RetainPtr<NSString> m_overrideNewTabPagePath;
+
+    bool m_backgroundContentIsPersistent : 1 { false };
+    bool m_backgroundPageUsesModules : 1 { false };
+    bool m_parsedManifest : 1 { false };
+    bool m_parsedManifestDisplayStrings : 1 { false };
+    bool m_parsedManifestContentSecurityPolicyStrings : 1 { false };
+    bool m_parsedManifestActionProperties : 1 { false };
+    bool m_parsedManifestBackgroundProperties : 1 { false };
+    bool m_parsedManifestContentScriptProperties : 1 { false };
+    bool m_parsedManifestPermissionProperties : 1 { false };
+    bool m_parsedManifestPageProperties : 1 { false };
+    bool m_parsedManifestWebAccessibleResources : 1 { false };
+    bool m_parsedManifestCommands : 1 { false };
+    bool m_parsedManifestDeclarativeNetRequestRulesets : 1 { false };
 };
 
 #ifdef __OBJC__
@@ -290,6 +374,20 @@ NSSet<_WKWebExtensionPermission> *toAPI(const WebExtension::PermissionsSet&);
 NSSet<_WKWebExtensionMatchPattern *> *toAPI(const WebExtension::MatchPatternSet&);
 
 #endif
+
+} // namespace WebKit
+
+namespace WTF {
+
+template<> struct EnumTraits<WebKit::WebExtension::ModifierFlags> {
+    using values = EnumValues<
+        WebKit::WebExtension::ModifierFlags,
+        WebKit::WebExtension::ModifierFlags::Shift,
+        WebKit::WebExtension::ModifierFlags::Control,
+        WebKit::WebExtension::ModifierFlags::Option,
+        WebKit::WebExtension::ModifierFlags::Command
+    >;
+};
 
 } // namespace WebKit
 

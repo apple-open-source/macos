@@ -63,8 +63,8 @@
     return ([self.domain isEqualToString:CKErrorDomain] &&
             self.code == CKErrorServerRejectedRequest &&
             underlyingError &&
-            [underlyingError.domain isEqualToString:CKInternalErrorDomain] &&
-            underlyingError.code == CKErrorInternalPluginError &&
+            [underlyingError.domain isEqualToString:CKUnderlyingErrorDomain] &&
+            underlyingError.code == CKUnderlyingErrorPluginError &&
             thirdLevelError &&
             [thirdLevelError.domain isEqualToString:@"CloudkitKeychainService"] &&
             thirdLevelError.code == code);
@@ -76,10 +76,19 @@
     return [self.domain isEqualToString:CKErrorDomain] &&
         self.code == CKErrorServerRejectedRequest &&
         underlyingError &&
-        [underlyingError.domain isEqualToString:CKInternalErrorDomain] &&
-        underlyingError.code == CKErrorInternalServerInternalError;
+        [underlyingError.domain isEqualToString:CKUnderlyingErrorDomain] &&
+        underlyingError.code == CKUnderlyingErrorServerInternalError;
 }
 
+- (BOOL)isCKInternalServerHTTPError {
+    NSError* underlyingError = self.userInfo[NSUnderlyingErrorKey];
+
+    return [self.domain isEqualToString:CKErrorDomain] &&
+        self.code == CKErrorServerRejectedRequest &&
+        underlyingError &&
+        [underlyingError.domain isEqualToString:CKUnderlyingErrorDomain] &&
+        underlyingError.code == CKUnderlyingErrorServerHTTPError;
+}
 @end
 
 @implementation CKAccountInfo (CKKS)

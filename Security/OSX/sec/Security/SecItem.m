@@ -106,7 +106,7 @@
  * See corresponding definition in SecDbKeychainItemV7. This is the unserialized
  * maximum, so the daemon's limit is not exactly the same.
  */
-#define REASONABLE_DATA_SIZE 4096
+#define REASONABLE_DATA_SIZE (1024*32)
 #define UUID_PERSISTENT_REF_SIZE 20
 #define PERSISTENT_REF_UUID_BYTES_LENGTH (sizeof(uuid_t))
 
@@ -1557,7 +1557,8 @@ static bool SecItemAuthDoQuery(SecCFDictionaryCOW *query, SecCFDictionaryCOW *at
     bool forQuery =
         secItemOperation == SecItemCopyMatching ||
         secItemOperation == SecItemUpdate ||
-        secItemOperation == SecItemDelete;
+        secItemOperation == SecItemDelete ||
+        secItemOperation == SecItemShareWithGroup;
 
     require_quiet(SecItemAttributesPrepare(query, forQuery, error), out);
     if (attributes != NULL)
@@ -1693,6 +1694,18 @@ static bool dict_client_to_error_request(enum SecXPCOperation op, CFDictionaryRe
     return dict_to_error_request(op, query, error);
 }
 
+static CFTypeRef share_with_group_request(enum SecXPCOperation op, CFDictionaryRef query, CFStringRef sharingGroup, SecurityClient *client, CFErrorRef *error) {
+    __block CFTypeRef rawResult = NULL;
+    (void)securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+        if (!SecXPCDictionarySetPList(message, kSecXPCKeyQuery, query, error)) {
+            return false;
+        }
+        return SecXPCDictionarySetString(message, kSecXPCKeySharingGroup, sharingGroup, error);
+    }, ^bool(xpc_object_t response, CFErrorRef *error) {
+        return SecXPCDictionaryCopyPListOptional(response, kSecXPCKeyResult, &rawResult, error);
+    });
+    return rawResult;
+}
 
 static bool SecTokenCreateAccessControlError(CFStringRef operation, CFDataRef access_control, CFErrorRef *error) {
     CFArrayRef ac_pair = CFArrayCreateForCFTypes(NULL, access_control, operation, NULL);
@@ -1893,6 +1906,40 @@ bool SecDeleteItemsOnSignOut(CFErrorRef *error) {
     }
 }
 
+CFTypeRef SecItemCloneToGroupKitGroup(CFDictionaryRef query, CFStringRef groupKitGroup, CFErrorRef *error) {
+    return SecItemShareWithGroup(query, groupKitGroup, error);
+}
+
+CFTypeRef SecItemShareWithGroup(CFDictionaryRef query, CFStringRef sharingGroup, CFErrorRef *error) {
+    @autoreleasepool {
+        __block CFTypeRef result = NULL;
+        __block SecCFDictionaryCOW mutableQuery = { query };
+
+        os_activity_t activity = os_activity_create("SecItemShareWithGroup", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+
+        (void)SecItemAuthDoQuery(&mutableQuery, NULL, SecItemShareWithGroup, error, ^bool(TKClientTokenSession *tokenSession, CFDictionaryRef normalizedQuery, CFDictionaryRef __unused normalizedAttributes, CFDictionaryRef authParams, CFErrorRef *error) {
+
+            countModifyingAPICall();
+
+            if (tokenSession != nil) {
+                return SecError(errSecParam, error, CFSTR("Can't share token-protected items"));
+            }
+
+            CFTypeRef rawResult = SECURITYD_XPC(sec_item_share_with_group, share_with_group_request, normalizedQuery, sharingGroup, SecSecurityClientGet(), error);
+            if (!rawResult) {
+                return false;
+            }
+
+            bool ok = SecItemResultProcess(normalizedQuery, authParams, tokenSession, rawResult, &result, error);
+            CFReleaseNull(rawResult);
+            return ok;
+        });
+
+        CFReleaseSafe(mutableQuery.mutable_dictionary);
+        return result;
+    }
+}
 
 OSStatus SecItemCopyMatching(CFDictionaryRef inQuery, CFTypeRef *result) {
     @autoreleasepool {
@@ -2143,7 +2190,7 @@ OSStatus SecItemDelete(CFDictionaryRef inQuery) {
                             require_action_quiet(isCryptoTokenKitTKErrorDomainAvailable() &&
                                                  [localError.domain isEqual:getTKErrorDomain()] &&
                                                  localError.code == TKErrorCodeObjectNotFound, out,
-                                                 (CFErrorPropagate((__bridge CFErrorRef)localError, error), SecTokenProcessError(kAKSKeyOpDelete, tokenSession, object_id, error)));
+                                                 (CFErrorPropagate((CFErrorRef)CFBridgingRetain(localError), error), SecTokenProcessError(kAKSKeyOpDelete, tokenSession, object_id, error)));
                         }
 
                         // Delete the item from the keychain.

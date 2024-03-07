@@ -20,6 +20,8 @@
 #include <apr_version.h>
 #include <ap_mmn.h>
 
+#include <nghttp2/nghttp2ver.h>
+
 struct h2_session;
 struct h2_stream;
 
@@ -31,6 +33,20 @@ struct h2_stream;
 #define H2_USE_PIPES            0
 #else
 #define H2_USE_PIPES            (APR_FILES_AS_SOCKETS && APR_VERSION_AT_LEAST(1,6,0))
+#endif
+
+#if AP_MODULE_MAGIC_AT_LEAST(20120211, 129)
+#define H2_USE_POLLFD_FROM_CONN 1
+#else
+#define H2_USE_POLLFD_FROM_CONN 0
+#endif
+
+/* WebSockets support requires apr 1.7.0 for apr_encode.h, plus the
+ * WebSockets features of nghttp2 1.34.0 and later. */
+#if H2_USE_PIPES && defined(NGHTTP2_VERSION_NUM) && NGHTTP2_VERSION_NUM >= 0x012200 && APR_VERSION_AT_LEAST(1,7,0)
+#define H2_USE_WEBSOCKETS       1
+#else
+#define H2_USE_WEBSOCKETS       0
 #endif
 
 /**
@@ -62,6 +78,8 @@ extern const char *H2_MAGIC_TOKEN;
 #define H2_HEADER_AUTH_LEN   10
 #define H2_HEADER_PATH       ":path"
 #define H2_HEADER_PATH_LEN   5
+#define H2_HEADER_PROTO      ":protocol"
+#define H2_HEADER_PROTO_LEN  9
 #define H2_CRLF             "\r\n"
 
 /* Size of the frame header itself in HTTP/2 */
@@ -153,6 +171,7 @@ struct h2_request {
     const char *scheme;
     const char *authority;
     const char *path;
+    const char *protocol;
     apr_table_t *headers;
 
     apr_time_t request_time;

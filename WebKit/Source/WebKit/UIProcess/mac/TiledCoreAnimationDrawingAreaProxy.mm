@@ -54,12 +54,13 @@ TiledCoreAnimationDrawingAreaProxy::~TiledCoreAnimationDrawingAreaProxy()
 
 void TiledCoreAnimationDrawingAreaProxy::deviceScaleFactorDidChange()
 {
-    send(Messages::DrawingArea::SetDeviceScaleFactor(m_webPageProxy.deviceScaleFactor()));
+    auto webPageProxy = protectedWebPageProxy();
+    send(Messages::DrawingArea::SetDeviceScaleFactor(webPageProxy->deviceScaleFactor()));
 }
 
 void TiledCoreAnimationDrawingAreaProxy::sizeDidChange()
 {
-    if (!m_webPageProxy.hasRunningProcess())
+    if (!m_webPageProxy->hasRunningProcess())
         return;
 
     // We only want one UpdateGeometry message in flight at once, so if we've already sent one but
@@ -72,12 +73,12 @@ void TiledCoreAnimationDrawingAreaProxy::sizeDidChange()
 
 void TiledCoreAnimationDrawingAreaProxy::colorSpaceDidChange()
 {
-    send(Messages::DrawingArea::SetColorSpace(m_webPageProxy.colorSpace()));
+    send(Messages::DrawingArea::SetColorSpace(m_webPageProxy->colorSpace()));
 }
 
 void TiledCoreAnimationDrawingAreaProxy::minimumSizeForAutoLayoutDidChange()
 {
-    if (!m_webPageProxy.hasRunningProcess())
+    if (!m_webPageProxy->hasRunningProcess())
         return;
 
     // We only want one UpdateGeometry message in flight at once, so if we've already sent one but
@@ -90,7 +91,7 @@ void TiledCoreAnimationDrawingAreaProxy::minimumSizeForAutoLayoutDidChange()
 
 void TiledCoreAnimationDrawingAreaProxy::sizeToContentAutoSizeMaximumSizeDidChange()
 {
-    if (!m_webPageProxy.hasRunningProcess())
+    if (!m_webPageProxy->hasRunningProcess())
         return;
 
     // We only want one UpdateGeometry message in flight at once, so if we've already sent one but
@@ -103,17 +104,17 @@ void TiledCoreAnimationDrawingAreaProxy::sizeToContentAutoSizeMaximumSizeDidChan
 
 void TiledCoreAnimationDrawingAreaProxy::enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext& layerTreeContext)
 {
-    m_webPageProxy.enterAcceleratedCompositingMode(layerTreeContext);
+    protectedWebPageProxy()->enterAcceleratedCompositingMode(layerTreeContext);
 }
 
 void TiledCoreAnimationDrawingAreaProxy::updateAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext& layerTreeContext)
 {
-    m_webPageProxy.updateAcceleratedCompositingMode(layerTreeContext);
+    protectedWebPageProxy()->updateAcceleratedCompositingMode(layerTreeContext);
 }
 
 void TiledCoreAnimationDrawingAreaProxy::didFirstLayerFlush(uint64_t /* backingStoreStateID */, const LayerTreeContext& layerTreeContext)
 {
-    m_webPageProxy.didFirstLayerFlush(layerTreeContext);
+    protectedWebPageProxy()->didFirstLayerFlush(layerTreeContext);
 }
 
 void TiledCoreAnimationDrawingAreaProxy::didUpdateGeometry()
@@ -122,8 +123,8 @@ void TiledCoreAnimationDrawingAreaProxy::didUpdateGeometry()
 
     m_isWaitingForDidUpdateGeometry = false;
 
-    IntSize minimumSizeForAutoLayout = m_webPageProxy.minimumSizeForAutoLayout();
-    IntSize sizeToContentAutoSizeMaximumSize = m_webPageProxy.sizeToContentAutoSizeMaximumSize();
+    IntSize minimumSizeForAutoLayout = protectedWebPageProxy()->minimumSizeForAutoLayout();
+    IntSize sizeToContentAutoSizeMaximumSize = protectedWebPageProxy()->sizeToContentAutoSizeMaximumSize();
 
     // If the WKView was resized while we were waiting for a DidUpdateGeometry reply from the web process,
     // we need to resend the new size here.
@@ -134,20 +135,21 @@ void TiledCoreAnimationDrawingAreaProxy::didUpdateGeometry()
 void TiledCoreAnimationDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy& process)
 {
     Seconds activityStateUpdateTimeout = Seconds::fromMilliseconds(250);
-    process.connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(m_webPageProxy.webPageID(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    process.connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(protectedWebPageProxy()->webPageID(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
 void TiledCoreAnimationDrawingAreaProxy::willSendUpdateGeometry()
 {
-    m_lastSentMinimumSizeForAutoLayout = m_webPageProxy.minimumSizeForAutoLayout();
-    m_lastSentSizeToContentAutoSizeMaximumSize = m_webPageProxy.sizeToContentAutoSizeMaximumSize();
+    auto webPageProxy = protectedWebPageProxy();
+    m_lastSentMinimumSizeForAutoLayout = webPageProxy->minimumSizeForAutoLayout();
+    m_lastSentSizeToContentAutoSizeMaximumSize = webPageProxy->sizeToContentAutoSizeMaximumSize();
     m_lastSentSize = m_size;
     m_isWaitingForDidUpdateGeometry = true;
 }
 
 MachSendRight TiledCoreAnimationDrawingAreaProxy::createFence()
 {
-    RetainPtr<CAContext> rootLayerContext = [m_webPageProxy.acceleratedCompositingRootLayer() context];
+    RetainPtr<CAContext> rootLayerContext = [m_webPageProxy->acceleratedCompositingRootLayer() context];
     if (!rootLayerContext)
         return MachSendRight();
 
@@ -162,14 +164,14 @@ MachSendRight TiledCoreAnimationDrawingAreaProxy::createFence()
 
     // Don't fence if we have incoming synchronous messages, because we may not
     // be able to reply to the message until the fence times out.
-    if (m_webPageProxy.process().connection()->hasIncomingSyncMessage())
+    if (connection->hasIncomingSyncMessage())
         return MachSendRight();
 
     MachSendRight fencePort = MachSendRight::adopt([rootLayerContext createFencePort]);
 
     // Invalidate the fence if a synchronous message arrives while it's installed,
     // because we won't be able to reply during the fence-wait.
-    uint64_t callbackID = m_webPageProxy.process().connection()->installIncomingSyncMessageCallback([rootLayerContext] {
+    uint64_t callbackID = connection->installIncomingSyncMessageCallback([rootLayerContext] {
         [rootLayerContext invalidateFences];
     });
     [CATransaction addCommitHandler:[callbackID, connection = WTFMove(connection)] () mutable {
@@ -184,7 +186,7 @@ void TiledCoreAnimationDrawingAreaProxy::sendUpdateGeometry()
     ASSERT(!m_isWaitingForDidUpdateGeometry);
 
     willSendUpdateGeometry();
-    sendWithAsyncReply(Messages::DrawingArea::UpdateGeometry(m_size, std::nullopt, true /* flushSynchronously */, createFence()), [weakThis = WeakPtr { *this }] {
+    sendWithAsyncReply(Messages::DrawingArea::UpdateGeometry(m_size, true /* flushSynchronously */, createFence()), [weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
         weakThis->didUpdateGeometry();
@@ -211,9 +213,9 @@ void TiledCoreAnimationDrawingAreaProxy::dispatchPresentationCallbacksAfterFlush
 
 std::optional<WebCore::FramesPerSecond> TiledCoreAnimationDrawingAreaProxy::displayNominalFramesPerSecond()
 {
-    if (!m_webPageProxy.displayID())
+    if (!m_webPageProxy->displayID())
         return std::nullopt;
-    return m_webProcessProxy->nominalFramesPerSecondForDisplay(*m_webPageProxy.displayID());
+    return m_webProcessProxy->nominalFramesPerSecondForDisplay(*m_webPageProxy->displayID());
 }
 
 } // namespace WebKit

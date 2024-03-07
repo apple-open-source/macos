@@ -24,6 +24,13 @@ typedef void (*dispatch_apply_function_t)(void *, size_t);
 
 static char const * const _dispatch_apply_key = "apply";
 
+/* Really only useful to this file. */
+typedef struct dispatch_apply_worker_context_s {
+	dispatch_apply_t da;
+	long invoke_flags;
+	uint32_t worker_index;
+} dispatch_apply_worker_context_s, *dispatch_apply_worker_context_t;
+
 #define DISPATCH_APPLY_INVOKE_REDIRECT 0x1
 #define DISPATCH_APPLY_INVOKE_WAIT     0x2
 
@@ -35,19 +42,10 @@ static char const * const _dispatch_apply_key = "apply";
 // contin func is a dispatch_apply_attr_function_t (args: item, worker idx)
 #define DA_FLAG_APPLY_WITH_ATTR			0x02ul
 
-#if __LP64__
-/* Our continuation allocator is a bit more performant than the default system
- * malloc (especially with our per-thread cache), so let's use it if we can.
- * On 32-bit platforms, dispatch_apply_s is bigger than dispatch_continuation_s
- * so we can't use the cont allocator, but we're okay with the slight perf
- * degradation there.
- */
-#define DISPATCH_APPLY_USE_CONTINUATION_ALLOCATOR 1
+#if DISPATCH_APPLY_USE_CONTINUATION_ALLOCATOR
 dispatch_static_assert(sizeof(struct dispatch_apply_s) <= sizeof(struct dispatch_continuation_s),
 		"Apply struct should fit inside continuation struct so we can borrow the continuation allocator");
-#else // __LP64__
-#define DISPATCH_APPLY_USE_CONTINUATION_ALLOCATOR 0
-#endif // __LP64__
+#endif
 
 DISPATCH_ALWAYS_INLINE DISPATCH_MALLOC
 static inline dispatch_apply_t
@@ -105,6 +103,9 @@ _dispatch_apply_destroy(dispatch_apply_t da)
 #if DISPATCH_INTROSPECTION
 	_dispatch_continuation_free(da->da_dc);
 #endif
+	if (da->da_once_gates) {
+		free(da->da_once_gates);
+	}
 	if (da->da_attr) {
 		dispatch_apply_attr_destroy(da->da_attr);
 		free(da->da_attr);
@@ -114,35 +115,24 @@ _dispatch_apply_destroy(dispatch_apply_t da)
 
 DISPATCH_ALWAYS_INLINE
 static inline void
-_dispatch_apply_invoke2(dispatch_apply_t da, long invoke_flags)
+_dispatch_apply_invoke3(void *opaque)
 {
+	dispatch_apply_worker_context_t context = (dispatch_apply_worker_context_t)opaque;
+	dispatch_apply_t da = context->da;
+
 	size_t const iter = da->da_iterations;
 	size_t idx, done = 0;
 
-	/* workers start over time but never quit until the job is done, so
-	 * we can allocate an index simply by incrementing
-	 */
-	uint32_t worker_index = 0;
-	worker_index = os_atomic_inc_orig(&da->da_worker_index, relaxed);
+	idx = os_atomic_inc_orig(&da->da_index, relaxed);
+	if (unlikely(idx >= iter)) return;
 
-	_dispatch_apply_set_attr_behavior(da->da_attr, worker_index);
-
-	idx = os_atomic_inc_orig(&da->da_index, acquire);
-	if (unlikely(idx >= iter)) goto out;
 	/*
-	 * da_dc is only safe to access once the 'index lock' has been acquired
-	 * because it lives on the stack of the thread calling dispatch_apply.
+	 * da_dc lives on the stack of the thread calling dispatch_apply.
 	 *
 	 * da lives until the last worker thread has finished (protected by
-	 * da_thr_cnt), but da_dc only lives until the calling thread returns
-	 * after the last work item is complete, which may be sooner than that.
-	 * (In fact, the calling thread could do all the workitems itself and
-	 * return before the worker threads even start.)
-	 *
-	 * Therefore the increment (reserving a valid workitem index from
-	 * da_index) protects our access to da_dc.
-	 *
-	 * We also need an acquire barrier, and this is a good place to have one.
+	 * da_thr_cnt), but da_dc only lives until the calling thread returns.
+	 * da->da_once_gates[worker_index] guarantees that an individual worker
+	 * should never reach here if the calling thread has already left.
 	 */
 	dispatch_function_t const func = da->da_dc->dc_func;
 	void *const da_ctxt = da->da_dc->dc_ctxt;
@@ -159,7 +149,7 @@ _dispatch_apply_invoke2(dispatch_apply_t da, long invoke_flags)
 
 	dispatch_thread_frame_s dtf;
 	dispatch_priority_t old_dbp = 0;
-	if (invoke_flags & DISPATCH_APPLY_INVOKE_REDIRECT) {
+	if (context->invoke_flags & DISPATCH_APPLY_INVOKE_REDIRECT) {
 		dispatch_queue_t dq = da->da_dc->dc_other;
 		_dispatch_thread_frame_push(&dtf, dq);
 		old_dbp = _dispatch_set_basepri(dq->dq_priority);
@@ -170,9 +160,11 @@ _dispatch_apply_invoke2(dispatch_apply_t da, long invoke_flags)
 	do {
 		dispatch_invoke_with_autoreleasepool(flags, {
 			if (apply_flags & DA_FLAG_APPLY) {
-				_dispatch_client_callout2(da_ctxt, idx, (dispatch_apply_function_t)func);
+				_dispatch_client_callout2(da_ctxt, idx,
+						(dispatch_apply_function_t)func);
 			} else if (apply_flags & DA_FLAG_APPLY_WITH_ATTR) {
-				_dispatch_client_callout3_a(da_ctxt, idx, worker_index, (dispatch_apply_attr_function_t)func);
+				_dispatch_client_callout3_a(da_ctxt, idx, context->worker_index,
+						(dispatch_apply_attr_function_t)func);
 			} else {
 				DISPATCH_INTERNAL_CRASH(apply_flags, "apply continuation has invalid flags");
 			}
@@ -182,27 +174,83 @@ _dispatch_apply_invoke2(dispatch_apply_t da, long invoke_flags)
 		});
 	} while (likely(idx < iter));
 
-	if (invoke_flags & DISPATCH_APPLY_INVOKE_REDIRECT) {
+	if (context->invoke_flags & DISPATCH_APPLY_INVOKE_REDIRECT) {
 		_dispatch_reset_basepri(old_dbp);
 		_dispatch_thread_frame_pop(&dtf);
 	}
-
 	_dispatch_thread_context_pop(&apply_ctxt);
+#if DISPATCH_INTROSPECTION
+	os_atomic_sub(&da->da_todo, done, release);
+#endif
+}
 
-	/* The thread that finished the last workitem wakes up the possibly waiting
-	 * thread that called dispatch_apply. They could be one and the same.
+DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_no_op(void *context DISPATCH_UNUSED)
+{
+	/*
+	 * really a no-op.
+	 * Refer to _dispatch_apply_invoke2 comments for more details.
 	 */
-	if (os_atomic_sub(&da->da_todo, done, release) == 0) {
-		_dispatch_thread_event_signal(&da->da_event);
-	}
-out:
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_apply_invoke2(dispatch_apply_t da, long invoke_flags)
+{
+	int32_t i = 0;
+	/*
+	 * Workers start over time but never quit until
+	 * there are no more work items left, so we can
+	 * allocate an index simply by incrementing.
+	 */
+	uint32_t worker_index = 0;
+	worker_index = os_atomic_inc_orig(&da->da_worker_index, relaxed);
+
+	dispatch_assert(worker_index < (uint32_t)da->da_final_thr_cnt);
+
+	dispatch_apply_worker_context_s context = {da, invoke_flags, worker_index};
+
+	_dispatch_apply_set_attr_behavior(da->da_attr, worker_index);
+
+	/*
+	 * (rdar://34322462)
+	 * da->da_once_gates[worker_index] is meant to coordinate between
+	 * an individual worker thread that this gate belongs to and the
+	 * thread that invoked dispatch_apply.
+	 *
+	 * a. If an individual worker acquires this once-gate, it continues
+	 *    to drain work until the job is done. If the thread that called
+	 *    dispatch_apply finishes early, the once-gate gives it a chance
+	 *    to wait until the worker finishes and propagate priority
+	 *    boosts it might have received.
+	 *
+	 * b. If the thread calling dispatch_apply wins then it avoids the
+	 *    individual worker from draining the work.
+	 *    There is a subtlety here !!! The thread calling dispatch_apply will
+	 *    only start to wait on other worker's once-gates when it knows
+	 *    there is no more work left. So if a worker has not come up by then,
+	 *    we know there is no work left for it to pick up when it eventually
+	 *    arrives. We can thus safely make it avoid draining work.
+	 *
+	 * Finally, memory for da->da_once_gates[] is calloc'd and every call to
+	 * dispatch_once happens-after calloc so fast path for dispatch_once is
+	 * guaranteed to see the zero value. This memory lives until the last worker
+	 * thread has finished which is protected by da->da_thr_cnt.
+	 *
+	 */
+	dispatch_once_f(&da->da_once_gates[worker_index],
+					&context, _dispatch_apply_invoke3);
+
 	_dispatch_apply_clear_attr_behavior(da->da_attr, worker_index);
 
 	if (invoke_flags & DISPATCH_APPLY_INVOKE_WAIT) {
-		_dispatch_thread_event_wait(&da->da_event);
-		_dispatch_thread_event_destroy(&da->da_event);
+		for (i = 0; i < da->da_final_thr_cnt; i++) {
+			if (i == (int32_t)worker_index) continue;
+			dispatch_once_f(&da->da_once_gates[i], NULL, _dispatch_no_op);
+		}
 	}
-	if (os_atomic_dec(&da->da_thr_cnt, release) == 0) {
+	if (os_atomic_dec(&da->da_thr_cnt, relaxed) == 0) {
 		_dispatch_apply_destroy(da);
 	}
 }
@@ -302,7 +350,16 @@ _dispatch_apply_f(dispatch_queue_global_t dq, dispatch_apply_t da,
 		}
 	}
 
-	_dispatch_thread_event_init(&da->da_event);
+	da->da_final_thr_cnt = da->da_thr_cnt;
+	/*
+	 * Technically thread calling dispatch_apply does not need a gate for itself;
+	 * but, we could reuse da->da_worker_index to assign a gate to an individual
+	 * worker with this approach.
+	 * Also, we know da_thr_cnt > 0 so should be safe to do the following conversion.
+	 */
+	da->da_once_gates = _dispatch_calloc((unsigned long)da->da_thr_cnt,
+										sizeof(dispatch_once_t));
+
 	// FIXME: dq may not be the right queue for the priority of `head`
 	_dispatch_trace_item_push_list(dq, head, tail);
 	_dispatch_root_queue_push_inline(dq, head, tail, continuation_cnt);
@@ -548,13 +605,14 @@ _dispatch_apply_with_attr_f(size_t iterations, dispatch_apply_attr_t attr,
 	};
 	dispatch_apply_t da = _dispatch_apply_alloc();
 	os_atomic_init(&da->da_index, 0);
-	os_atomic_init(&da->da_todo, iterations);
 	da->da_iterations = iterations;
 	da->da_nested = new_nested;
 	da->da_thr_cnt = (int32_t)thr_cnt;
 	os_atomic_init(&da->da_worker_index, 0);
 	_dispatch_apply_da_copy_attr(da, attr);
+	da->da_once_gates = NULL;
 #if DISPATCH_INTROSPECTION
+	os_atomic_init(&da->da_todo, iterations);
 	da->da_dc = _dispatch_continuation_alloc();
 	da->da_dc->dc_func = (void *) dc.dc_func;
 	da->da_dc->dc_ctxt = dc.dc_ctxt;

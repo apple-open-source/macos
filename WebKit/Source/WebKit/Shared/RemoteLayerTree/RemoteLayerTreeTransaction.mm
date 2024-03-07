@@ -34,6 +34,7 @@
 #import <WebCore/EventRegion.h>
 #import <WebCore/LengthFunctions.h>
 #import <WebCore/Model.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/TimingFunction.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/TextStream.h>
@@ -290,14 +291,14 @@ String RemoteLayerTreeTransaction::description() const
             TextStream::GroupScope group(ts);
             ts << createdLayer.type <<" " << createdLayer.layerID;
             switch (createdLayer.type) {
-            case WebCore::PlatformCALayer::LayerTypeAVPlayerLayer:
+            case WebCore::PlatformCALayer::LayerType::LayerTypeAVPlayerLayer:
                 ts << " (context-id " << createdLayer.hostingContextID() << ")";
                 break;
-            case WebCore::PlatformCALayer::LayerTypeCustom:
+            case WebCore::PlatformCALayer::LayerType::LayerTypeCustom:
                 ts << " (context-id " << createdLayer.hostingContextID() << ")";
                 break;
 #if ENABLE(MODEL_ELEMENT)
-            case WebCore::PlatformCALayer::LayerTypeModelLayer:
+            case WebCore::PlatformCALayer::LayerType::LayerTypeModelLayer:
                 if (auto* model = std::get_if<Ref<WebCore::Model>>(&createdLayer.additionalData))
                     ts << " (model " << model->get() << ")";
                 break;
@@ -343,13 +344,13 @@ HashSet<Ref<PlatformCALayerRemote>>& RemoteLayerTreeTransaction::changedLayers()
 
 const LayerPropertiesMap& RemoteLayerTreeTransaction::changedLayerProperties() const
 {
-    ASSERT(!isInAuxiliaryProcess());
+    ASSERT(!WebCore::isInAuxiliaryProcess());
     return m_changedLayers.changedLayerProperties;
 }
 
 LayerPropertiesMap& RemoteLayerTreeTransaction::changedLayerProperties()
 {
-    ASSERT(!isInAuxiliaryProcess());
+    ASSERT(!WebCore::isInAuxiliaryProcess());
     return m_changedLayers.changedLayerProperties;
 }
 

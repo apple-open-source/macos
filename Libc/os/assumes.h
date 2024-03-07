@@ -89,14 +89,14 @@ OS_ASSUME_PTR_ABI_SINGLE_BEGIN
 
 #define __os_crash_fmt(fmt, ...) \
 	({ \
-		const char *__fmt_tmp = NULL; \
+		const char *__null_terminated __fmt_tmp = NULL; \
 		char __buf[OS_CRASH_MSG_BUFSZ] = { 0 }; \
-		char *__composed = os_log_send_and_compose( \
+		char *__unsafe_indexable __composed = os_log_send_and_compose( \
 				OS_LOG_F_SEND | OS_LOG_F_COMPOSE, \
 				&__fmt_tmp, __buf, sizeof(__buf), \
 				OS_LOG_DEFAULT, OS_LOG_TYPE_ERROR, \
 				fmt, __VA_ARGS__); \
-		_os_crash_msg(__fmt_tmp, __composed); \
+		_os_crash_msg(__fmt_tmp, __unsafe_forge_single(char *, __composed)); \
 		os_hardware_trap(); \
 	})
 
@@ -561,7 +561,7 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0)
 OS_COLD OS_NOT_TAIL_CALLED
 extern void
-_os_crash(const char *);
+_os_crash(const char *__unsafe_indexable);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 OS_COLD OS_NOT_TAIL_CALLED

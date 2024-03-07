@@ -3982,7 +3982,6 @@ space_inspect_deallocate(
 }
 
 
-#if !defined(XNU_TARGET_OS_OSX)
 static boolean_t
 behavior_is_identity_protected(int new_behavior)
 {
@@ -4053,39 +4052,35 @@ exception_exposes_protected_ports(const ipc_port_t new_port, const task_t except
 		 */
 		return FALSE;
 	} else if (excepting_task) {
-		/*  setting task/thread exception port - protect platform binaries */
-		return task_ro_flags_get(excepting_task) & TFRO_PLATFORM;
+		/*  setting task/thread exception port - protect hardened binaries */
+		return task_is_hardened_binary(excepting_task);
 	}
 
 	/* setting host port exposes all processes - always protect. */
 	return TRUE;
 }
-#endif /* !defined(XNU_TARGET_OS_OSX) */
 
-#if CONFIG_CSR
-#if !defined(XNU_TARGET_OS_OSX)
+#if XNU_TARGET_OS_OSX && CONFIG_CSR
 static bool
 SIP_is_enabled()
 {
-	return csr_check(CSR_ALLOW_UNRESTRICTED_FS) == 0;
+	return csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0;
 }
-#endif /* !defined(XNU_TARGET_OS_OSX) */
-#endif /* CONFIG_CSR */
+#endif /* XNU_TARGET_OS_OSX && CONFIG_CSR*/
 
 boolean_t
 set_exception_behavior_allowed(__unused const ipc_port_t new_port, __unused int new_behavior,
     __unused const task_t excepting_task, __unused const exception_mask_t mask, __unused const char *level)
 {
-#if defined(XNU_TARGET_OS_OSX)
-	/* Third party plugins run in multiple platform binaries on macos, which we can't break */
-	return TRUE;
-#else /* defined(XNU_TARGET_OS_OSX) */
 	if (exception_exposes_protected_ports(new_port, excepting_task)
 	    && !behavior_is_identity_protected(new_behavior)
 	    && !identity_protection_opted_out(new_port) /* Ignore opted out */
+#if XNU_TARGET_OS_OSX
+	    && !task_opted_out_mach_hardening(excepting_task)
 #if CONFIG_CSR
 	    && SIP_is_enabled() /* cannot enforce if SIP is disabled */
-#endif
+#endif /* CONFIG_CSR */
+#endif /* XNU_TARGET_OS_OSX */
 #if CONFIG_ROSETTA
 	    && !task_is_translated(current_task())
 #endif /* CONFIG_ROSETTA */
@@ -4096,7 +4091,6 @@ set_exception_behavior_allowed(__unused const ipc_port_t new_port, __unused int 
 	}
 
 	return TRUE;
-#endif /* defined(XNU_TARGET_OS_OSX) */
 }
 
 /*

@@ -23,7 +23,6 @@
 messages -> DrawingArea NotRefCounted {
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     UpdateGeometry(WebCore::IntSize size) -> ()
-    TargetRefreshRateDidChange(unsigned rate)
     SetDeviceScaleFactor(float deviceScaleFactor)
     ForceUpdate()
     DidDiscardBackingStore()
@@ -32,7 +31,7 @@ messages -> DrawingArea NotRefCounted {
     DisplayDidRefresh()
 
 #if PLATFORM(COCOA)
-    UpdateGeometry(WebCore::IntSize viewSize, std::optional<WebKit::VisibleContentRectUpdateInfo> info, bool flushSynchronously, MachSendRight fencePort) -> ()
+    UpdateGeometry(WebCore::IntSize viewSize, bool flushSynchronously, MachSendRight fencePort) -> ()
     SetDeviceScaleFactor(float deviceScaleFactor)
     SetColorSpace(struct std::optional<WebCore::DestinationColorSpace> colorSpace)
     SetViewExposedRect(std::optional<WebCore::FloatRect> viewExposedRect)

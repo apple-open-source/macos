@@ -71,6 +71,40 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testAddLargeItemFailure {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:200*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
+    
+    // Create ~1 MB worth of random data
+    unsigned long length = 1 << 20;
+    NSMutableData *buffer = [[NSMutableData alloc] initWithLength:length];
+    XCTAssertEqual(SecRandomCopyBytes(kSecRandomDefault, length, buffer.mutableBytes), errSecSuccess);
+    NSString *testData = [buffer base64EncodedStringWithOptions:0];
+    
+    // Tell state machine to pause after entering scanning local items
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateScanLocalItems];
+
+    [self addGenericPassword:testData account:@"test-account"];
+    
+    // Assert that state machine is paused
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateScanLocalItems] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of scanning local items");
+    
+    // Release the pause
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateScanLocalItems];
+    
+    // Assert that operation has finished (no upload happened) and we have entered state ready again
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
+    
+    // Now try adding a password that should be added correctly, to ensure that `addOperation` was only called once, not twice.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self addGenericPassword: @"data" account: @"test-account-2"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    
+}
+
 - (void)testAddKey {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID];
 
@@ -347,7 +381,7 @@
 
     // We expect a single record to be uploaded, but need to hold the operation from finishing until we can modify the item locally
 
-    NSError* greyMode = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
+    NSError* greyMode = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:@{
         CKErrorRetryAfterKey: @(0.2),
     }];
     [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
@@ -362,6 +396,121 @@
     // The cloudkit operation finishes, letting the next OQO proceed (and set up uploading the new item)
     [self releaseCloudKitModificationHold];
 
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self.defaultCKKS waitUntilAllOperationsAreFinished];
+    [self waitForCKModifications];
+}
+
+- (void)testOutgoingQueueRecoverFromCKServerOutage {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID];
+    NSString* account = @"account-delete-me";
+
+    [self startCKKSSubsystem];
+    [self holdCloudKitModifications];
+
+    // Set up error hierarchy to reflect CK Server Internal HTTP Error
+    NSError* underlyingError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain code:CKUnderlyingErrorServerHTTPError userInfo:@{}];
+    NSError* greyMode = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorServerRejectedRequest userInfo:@{
+        NSUnderlyingErrorKey: underlyingError
+    }];
+
+    // Patch record upload to fail with our error
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
+
+    [self addGenericPassword: @"data" account: account];
+
+    // Verify that nothing happens.
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Let's assume that CK Server rectified itself. CKKS should try uploading again after a delay.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+
+    // Release CK Hold.
+    [self releaseCloudKitModificationHold];
+
+    // Item should have been successfully uploaded.
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self.defaultCKKS waitUntilAllOperationsAreFinished];
+    [self waitForCKModifications];
+}
+
+- (void)testOutgoingQueueRecoverFromCKServerLastingOutage {
+   [self createAndSaveFakeKeyHierarchy: self.keychainZoneID];
+   NSString* account = @"account-delete-me";
+
+   [self startCKKSSubsystem];
+   [self holdCloudKitModifications];
+
+   // Set up error hierarchy to reflect CK Server Internal HTTP Error
+   NSError* underlyingError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain code:CKUnderlyingErrorServerHTTPError userInfo:@{}];
+   NSError* greyMode = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorServerRejectedRequest userInfo:@{
+       NSUnderlyingErrorKey: underlyingError
+   }];
+
+   // Patch record upload to fail with our error
+   [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
+
+   [self addGenericPassword: @"data" account: account];
+   OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Let's assume that CK Server is still down. Patch upload to fail with our error and verify that nothing happens again.
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
+    [self releaseCloudKitModificationHold];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+   // Now, let's assume that CK Server is back up. CKKS should try uploading again after a delay.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self releaseCloudKitModificationHold];
+
+    // Item should have been successfully uploaded.
+   OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+   [self.defaultCKKS waitUntilAllOperationsAreFinished];
+   [self waitForCKModifications];
+}
+
+- (void)testOutgoingQueueRecoverFromCKServerLastingOutageWithMultipleItems {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID];
+    NSString* account = @"account-delete-me";
+
+    [self startCKKSSubsystem];
+    [self holdCloudKitModifications];
+
+    // Set up error hierarchy to reflect CK Server Internal HTTP Error
+    NSError* underlyingError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain code:CKUnderlyingErrorServerHTTPError userInfo:@{}];
+    NSError* greyMode = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorServerRejectedRequest userInfo:@{
+       NSUnderlyingErrorKey: underlyingError
+    }];
+
+    // Patch record upload to fail with our error
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
+    [self addGenericPassword: @"data" account: account];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Let's assume that CK Server is still down. Patch upload to fail with our error and verify that nothing happens again.
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
+    [self releaseCloudKitModificationHold];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Add another item.
+    [self holdCloudKitModifications];
+    [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:greyMode];
+    [self addGenericPassword: @"data" account: @"account-delete-me-2"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Now, let's assume that CK Server is back up. CKKS should try uploading again after a delay.
+    [self releaseCloudKitModificationHold];
+
+    // Double expect for two items.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+
+    // Add a delay of 10 seconds to ensure that mock object doesn't check before the retry has taken place.
+    [NSThread sleepForTimeInterval: 10];
+
+    // Items should have been successfully uploaded.
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self.defaultCKKS waitUntilAllOperationsAreFinished];

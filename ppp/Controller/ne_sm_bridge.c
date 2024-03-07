@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2018 Apple Inc.
+ * Copyright (c) 2014, 2018, 2023 Apple Inc.
  * All rights reserved.
  */
 #include <syslog.h>
@@ -110,10 +110,11 @@ ne_sm_bridge_copy_password_from_keychain(ne_sm_bridge_t bridge, CFStringRef type
 void
 ne_sm_bridge_allow_dispose(ne_sm_bridge_t bridge)
 {
-	if (bridge->disposable_callback != NULL) {
-		bridge->disposable_callback();
-		Block_release(bridge->disposable_callback);
-		bridge->disposable_callback = NULL;
+	void (^disposable_callback)(void) = bridge->disposable_callback;
+	bridge->disposable_callback = NULL;
+	if (disposable_callback != NULL) {
+		disposable_callback();
+		Block_release(disposable_callback);
 	}
 }
 

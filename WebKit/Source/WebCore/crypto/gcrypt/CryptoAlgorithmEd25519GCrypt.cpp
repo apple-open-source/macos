@@ -20,8 +20,6 @@
 #include "config.h"
 #include "CryptoAlgorithmEd25519.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyOKP.h"
 #include "GCryptUtilities.h"
 
@@ -45,7 +43,7 @@ static bool extractEDDSASignatureInteger(Vector<uint8_t>& signature, gcry_sexp_t
     } else {
         // If not, prefix the binary data with zero bytes.
         for (size_t paddingSize = keySizeInBytes - dataSize; paddingSize > 0; --paddingSize)
-            signature.uncheckedAppend(0x00);
+            signature.append(0x00);
         signature.appendVector(*integerData);
     }
 
@@ -63,7 +61,7 @@ static ExceptionOr<Vector<uint8_t>> signEd25519(const Vector<uint8_t>& sk, size_
             data.size(), data.data());
         if (error != GPG_ERR_NO_ERROR) {
             PAL::GCrypt::logError(error);
-            return Exception { OperationError };
+            return Exception { ExceptionCode::OperationError };
         }
     }
 
@@ -73,7 +71,7 @@ static ExceptionOr<Vector<uint8_t>> signEd25519(const Vector<uint8_t>& sk, size_
         sk.size(), sk.data());
     if (error != GPG_ERR_NO_ERROR) {
         PAL::GCrypt::logError(error);
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     }
 
     // Perform the PK signing, retrieving a sig-val s-expression of the following form:
@@ -85,7 +83,7 @@ static ExceptionOr<Vector<uint8_t>> signEd25519(const Vector<uint8_t>& sk, size_
     error = gcry_pk_sign(&signatureSexp, dataSexp, keySexp);
     if (error != GPG_ERR_NO_ERROR) {
         PAL::GCrypt::logError(error);
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     }
 
     // Retrieve MPI data of the resulting r and s integers. They are concatenated into
@@ -95,7 +93,7 @@ static ExceptionOr<Vector<uint8_t>> signEd25519(const Vector<uint8_t>& sk, size_
 
     if (!extractEDDSASignatureInteger(signature, signatureSexp, "r", keySizeInBytes)
         || !extractEDDSASignatureInteger(signature, signatureSexp, "s", keySizeInBytes))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     return signature;
 }
@@ -155,5 +153,4 @@ ExceptionOr<bool> CryptoAlgorithmEd25519::platformVerify(const CryptoKeyOKP& key
     return verifyEd25519(key.platformKey(), key.keySizeInBytes(), signature, data);
 }
 
-}
-#endif
+} // namespace WebCore

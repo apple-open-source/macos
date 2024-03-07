@@ -29,6 +29,7 @@
 #include "config.h"
 #include "LegacyWebArchive.h"
 
+#include "CSSImportRule.h"
 #include "CachedResource.h"
 #include "DeprecatedGlobalSettings.h"
 #include "Document.h"
@@ -47,11 +48,14 @@
 #include "Image.h"
 #include "LocalFrame.h"
 #include "Logging.h"
+#include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "Page.h"
 #include "SerializedAttachmentData.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
+#include "StyleSheet.h"
+#include "StyleSheetList.h"
 #include "markup.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/RetainPtr.h>
@@ -61,6 +65,8 @@
 
 namespace WebCore {
 
+static constexpr unsigned maxFileNameSizeInBytes = 255;
+static constexpr char defaultFileName[] = "file";
 static const CFStringRef LegacyWebArchiveMainResourceKey = CFSTR("WebMainResource");
 static const CFStringRef LegacyWebArchiveSubresourcesKey = CFSTR("WebSubresources");
 static const CFStringRef LegacyWebArchiveSubframeArchivesKey = CFSTR("WebSubframeArchives");
@@ -68,9 +74,28 @@ static const CFStringRef LegacyWebArchiveResourceDataKey = CFSTR("WebResourceDat
 static const CFStringRef LegacyWebArchiveResourceFrameNameKey = CFSTR("WebResourceFrameName");
 static const CFStringRef LegacyWebArchiveResourceMIMETypeKey = CFSTR("WebResourceMIMEType");
 static const CFStringRef LegacyWebArchiveResourceURLKey = CFSTR("WebResourceURL");
+static const CFStringRef LegacyWebArchiveResourceFilePathKey = CFSTR("WebResourceFilePath");
 static const CFStringRef LegacyWebArchiveResourceTextEncodingNameKey = CFSTR("WebResourceTextEncodingName");
 static const CFStringRef LegacyWebArchiveResourceResponseKey = CFSTR("WebResourceResponse");
 static const CFStringRef LegacyWebArchiveResourceResponseVersionKey = CFSTR("WebResourceResponseVersion");
+
+static String generateValidFileName(const URL& url, const HashSet<String>& existingFileNames)
+{
+    auto extractedFileName = url.lastPathComponent().toString();
+    auto fileName = extractedFileName.isEmpty() ? String::fromLatin1(defaultFileName) : extractedFileName;
+    fileName = FileSystem::encodeForFileName(fileName);
+
+    unsigned count = 0;
+    do {
+        if (count)
+            fileName = makeString(fileName, '(', count, ')');
+        if (fileName.sizeInBytes() > maxFileNameSizeInBytes)
+            fileName = fileName.substring(fileName.sizeInBytes() - maxFileNameSizeInBytes, maxFileNameSizeInBytes);
+        ++count;
+    } while (existingFileNames.contains(fileName));
+
+    return fileName;
+}
 
 RetainPtr<CFDictionaryRef> LegacyWebArchive::createPropertyListRepresentation(ArchiveResource* resource, MainResourceStatus isMainResource)
 {
@@ -99,6 +124,10 @@ RetainPtr<CFDictionaryRef> LegacyWebArchive::createPropertyListRepresentation(Ar
         LOG(Archives, "LegacyWebArchive - NULL resource URL is invalid - returning null property list");
         return nullptr;
     }
+
+    auto& filePath = resource->relativeFilePath();
+    if (!filePath.isEmpty())
+        CFDictionarySetValue(propertyList.get(), LegacyWebArchiveResourceFilePathKey, filePath.createCFString().get());
 
     // FrameName should be left out if empty for subresources, but always included for main resources
     auto& frameName = resource->frameName();
@@ -225,7 +254,14 @@ RefPtr<ArchiveResource> LegacyWebArchive::createResource(CFDictionaryRef diction
         response = createResourceResponseFromPropertyListData(resourceResponseData, resourceResponseVersion);
     }
 
-    return ArchiveResource::create(SharedBuffer::create(resourceData), URL { url }, mimeType, textEncoding, frameName, response);
+    auto filePathValue = CFDictionaryGetValue(dictionary, LegacyWebArchiveResourceFilePathKey);
+    auto filePath = dynamic_cf_cast<CFStringRef>(filePathValue);
+    if (filePathValue && !filePath) {
+        LOG(Archives, "LegacyWebArchive - File path is not of type CFString, cannot create invalid resource");
+        return nullptr;
+    }
+
+    return ArchiveResource::create(SharedBuffer::create(resourceData), URL { url }, mimeType, textEncoding, frameName, response, filePath);
 }
 
 Ref<LegacyWebArchive> LegacyWebArchive::create()
@@ -410,7 +446,7 @@ RetainPtr<CFDataRef> LegacyWebArchive::createPropertyListRepresentation(const Re
 
 #endif
 
-RefPtr<LegacyWebArchive> LegacyWebArchive::create(Node& node, Function<bool(LocalFrame&)>&& frameFilter)
+RefPtr<LegacyWebArchive> LegacyWebArchive::create(Node& node, Function<bool(LocalFrame&)>&& frameFilter, const Vector<MarkupExclusionRule>& customMarkupExclusionRules, const String& mainResourceFilePath)
 {
     auto* frame = node.document().frame();
     if (!frame)
@@ -419,19 +455,17 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(Node& node, Function<bool(Loca
     // If the page was loaded with JavaScript enabled, we don't want to archive <noscript> tags
     // In practice we don't actually know whether scripting was enabled when the page was originally loaded
     // but we can approximate that by checking if scripting is enabled right now.
-    std::unique_ptr<Vector<QualifiedName>> tagNamesToFilter;
-    if (frame->page() && frame->page()->settings().isScriptEnabled()) {
-        tagNamesToFilter = makeUnique<Vector<QualifiedName>>();
-        tagNamesToFilter->append(HTMLNames::noscriptTag);
-    }
+    auto markupExclusionRules = customMarkupExclusionRules;
+    if (frame->page() && frame->page()->settings().isScriptEnabled())
+        markupExclusionRules.append(MarkupExclusionRule { AtomString { "noscript"_s }, { } });
 
-    Vector<Node*> nodeList;
-    String markupString = serializeFragment(node, SerializedNodes::SubtreeIncludingNode, &nodeList, ResolveURLs::No, tagNamesToFilter.get());
+    Vector<Ref<Node>> nodeList;
+    String markupString = serializeFragment(node, SerializedNodes::SubtreeIncludingNode, &nodeList, ResolveURLs::No, std::nullopt, { }, { }, ShouldIncludeShadowDOM::Yes, markupExclusionRules);
     auto nodeType = node.nodeType();
     if (nodeType != Node::DOCUMENT_NODE && nodeType != Node::DOCUMENT_TYPE_NODE)
         markupString = documentTypeString(node.document()) + markupString;
 
-    return create(markupString, *frame, nodeList, WTFMove(frameFilter));
+    return create(markupString, *frame, WTFMove(nodeList), WTFMove(frameFilter), markupExclusionRules, mainResourceFilePath);
 }
 
 RefPtr<LegacyWebArchive> LegacyWebArchive::create(LocalFrame& frame)
@@ -464,24 +498,24 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const SimpleRange& range)
         return nullptr;
 
     // FIXME: This is always "for interchange". Is that right?
-    Vector<Node*> nodeList;
+    Vector<Ref<Node>> nodeList;
     String markupString = documentTypeString(document) + serializePreservingVisualAppearance(range, &nodeList, AnnotateForInterchange::Yes);
-    return create(markupString, *frame, nodeList, nullptr);
+    return create(markupString, *frame, WTFMove(nodeList), nullptr);
 }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 
-static void addSubresourcesForAttachmentElementsIfNecessary(LocalFrame& frame, const Vector<Node*>& nodes, Vector<Ref<ArchiveResource>>& subresources)
+static void addSubresourcesForAttachmentElementsIfNecessary(LocalFrame& frame, const Vector<Ref<Node>>& nodes, Vector<Ref<ArchiveResource>>& subresources)
 {
     if (!DeprecatedGlobalSettings::attachmentElementEnabled())
         return;
 
     Vector<String> identifiers;
-    for (auto* node : nodes) {
+    for (auto& node : nodes) {
         if (!is<HTMLAttachmentElement>(node))
             continue;
 
-        auto uniqueIdentifier = downcast<HTMLAttachmentElement>(*node).uniqueIdentifier();
+        auto uniqueIdentifier = downcast<HTMLAttachmentElement>(node.get()).uniqueIdentifier();
         if (uniqueIdentifier.isEmpty())
             continue;
 
@@ -505,7 +539,82 @@ static void addSubresourcesForAttachmentElementsIfNecessary(LocalFrame& frame, c
 
 #endif
 
-RefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, LocalFrame& frame, const Vector<Node*>& nodes, Function<bool(LocalFrame&)>&& frameFilter)
+static HashMap<RefPtr<CSSStyleSheet>, String> addSubresourcesForCSSStyleSheetsIfNecessary(LocalFrame& frame, const String& subresourcesDirectoryName, HashSet<String>& uniqueFileNames, HashMap<String, String>& uniqueSubresources, Vector<Ref<ArchiveResource>>& subresources)
+{
+    if (subresourcesDirectoryName.isEmpty())
+        return { };
+
+    RefPtr document = frame.protectedDocument();
+    if (!document)
+        return { };
+
+    HashMap<RefPtr<CSSStyleSheet>, String> uniqueCSSStyleSheets;
+    HashMap<RefPtr<CSSStyleSheet>, String> relativeUniqueCSSStyleSheets;
+    Ref documentStyleSheets = document->styleSheets();
+    for (unsigned index = 0; index < documentStyleSheets->length(); ++index) {
+        RefPtr styleSheet = documentStyleSheets->item(index);
+        if (!is<CSSStyleSheet>(styleSheet))
+            continue;
+
+        auto& cssStyleSheet = downcast<CSSStyleSheet>(*styleSheet);
+        if (uniqueCSSStyleSheets.contains(&cssStyleSheet))
+            continue;
+
+        HashSet<RefPtr<CSSStyleSheet>> cssStyleSheets;
+        cssStyleSheets.add(&cssStyleSheet);
+        cssStyleSheet.getChildStyleSheets(cssStyleSheets);
+        for (auto& currentCSSStyleSheet : cssStyleSheets) {
+            bool isExternalStyleSheet = !currentCSSStyleSheet->href().isEmpty() || currentCSSStyleSheet->ownerRule();
+            if (!isExternalStyleSheet)
+                continue;
+
+            auto url = currentCSSStyleSheet->baseURL();
+            if (url.isNull() || url.isEmpty())
+                continue;
+
+            auto addResult = uniqueCSSStyleSheets.add(currentCSSStyleSheet, emptyString());
+            if (!addResult.isNewEntry)
+                continue;
+
+            // Delete cached resource for this style sheet.
+            auto index = subresources.findIf([&](auto& subresource) {
+                return subresource->url() == url;
+            });
+            if (index != notFound) {
+                auto fileName = FileSystem::lastComponentOfPathIgnoringTrailingSlash(subresources[index]->relativeFilePath());
+                uniqueFileNames.remove(fileName);
+                uniqueSubresources.remove(url.string());
+                subresources.remove(index);
+            }
+
+            String subresourceFileName = generateValidFileName(url, uniqueFileNames);
+            uniqueFileNames.add(subresourceFileName);
+            String subresourceFilePath = FileSystem::pathByAppendingComponent(subresourcesDirectoryName, subresourceFileName);
+            addResult.iterator->value = frame.isMainFrame() ? subresourceFilePath : subresourceFileName;
+            relativeUniqueCSSStyleSheets.add(currentCSSStyleSheet, subresourceFileName);
+        }
+    }
+
+    auto frameName = frame.tree().uniqueName();
+    HashMap<String, String> relativeUniqueSubresources;
+    for (auto& [urlString, path] : uniqueSubresources) {
+        // The style sheet files are stored in the same directory as other subresources.
+        relativeUniqueSubresources.add(urlString, FileSystem::lastComponentOfPathIgnoringTrailingSlash(path));
+    }
+
+    for (auto& [cssStyleSheet, path]  : uniqueCSSStyleSheets) {
+        auto contentString = cssStyleSheet->cssTextWithReplacementURLs(relativeUniqueSubresources, relativeUniqueCSSStyleSheets);
+        if (contentString.isEmpty())
+            continue;
+
+        if (auto newResource = ArchiveResource::create(utf8Buffer(contentString), URL { cssStyleSheet->href() }, "text/css"_s, "UTF-8"_s, frameName, ResourceResponse(), path))
+            subresources.append(newResource.releaseNonNull());
+    }
+
+    return uniqueCSSStyleSheets;
+}
+
+RefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, LocalFrame& frame, Vector<Ref<Node>>&& nodes, Function<bool(LocalFrame&)>&& frameFilter, const Vector<MarkupExclusionRule>& markupExclusionRules, const String& mainFrameFilePath)
 {
     auto& response = frame.loader().documentLoader()->response();
     URL responseURL = response.url();
@@ -521,53 +630,72 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, Lo
 
     Vector<Ref<LegacyWebArchive>> subframeArchives;
     Vector<Ref<ArchiveResource>> subresources;
-    HashSet<URL> uniqueSubresources;
+    HashMap<String, String> uniqueSubresources;
+    HashSet<String> uniqueFileNames;
+    String subresourcesDirectoryName = mainFrameFilePath.isNull() ? String { } : makeString(mainFrameFilePath, "_files");
 
-    for (auto& nodePtr : nodes) {
-        Node& node = *nodePtr;
-        LocalFrame* childFrame;
+    for (auto& node : nodes) {
+        RefPtr<LocalFrame> childFrame;
         if ((is<HTMLFrameElementBase>(node) || is<HTMLObjectElement>(node))
-            && (childFrame = dynamicDowncast<LocalFrame>(downcast<HTMLFrameOwnerElement>(node).contentFrame()))) {
+            && (childFrame = dynamicDowncast<LocalFrame>(downcast<HTMLFrameOwnerElement>(node.get()).contentFrame()))) {
             if (frameFilter && !frameFilter(*childFrame))
                 continue;
-            if (auto subframeArchive = create(*childFrame->document(), WTFMove(frameFilter)))
+            if (auto subframeArchive = create(*childFrame->document(), WTFMove(frameFilter), markupExclusionRules, mainFrameFilePath)) {
+                auto subframeMainResource = subframeArchive->mainResource();
+                auto subframeMainResourceURL = subframeMainResource ? subframeMainResource->url() : URL { };
+                if (!subframeMainResourceURL.isEmpty()) {
+                    auto subframeMainResourceRelativePath = frame.isMainFrame() ? subframeMainResource->relativeFilePath() : FileSystem::lastComponentOfPathIgnoringTrailingSlash(subframeMainResource->relativeFilePath());
+                    uniqueSubresources.add(childFrame->frameID().toString(), subframeMainResourceRelativePath);
+                }
                 subframeArchives.append(subframeArchive.releaseNonNull());
-            else
+            } else
                 LOG_ERROR("Unabled to archive subframe %s", childFrame->tree().uniqueName().string().utf8().data());
 
         } else {
             ListHashSet<URL> subresourceURLs;
-            node.getSubresourceURLs(subresourceURLs);
+            node->getSubresourceURLs(subresourceURLs);
+            node->getCandidateSubresourceURLs(subresourceURLs);
 
             ASSERT(frame.loader().documentLoader());
             auto& documentLoader = *frame.loader().documentLoader();
 
             for (auto& subresourceURL : subresourceURLs) {
-                if (uniqueSubresources.contains(subresourceURL))
+                if (uniqueSubresources.contains(subresourceURL.string()))
                     continue;
 
-                uniqueSubresources.add(subresourceURL);
+                // WebArchive is created for saving, and we don't need to store resources for data URLs.
+                if (!subresourcesDirectoryName.isNull() && subresourceURL.protocolIsData())
+                    continue;
 
-                if (auto resource = documentLoader.subresource(subresourceURL)) {
-                    subresources.append(resource.releaseNonNull());
+                auto addResult = uniqueSubresources.add(subresourceURL.string(), emptyString());
+                RefPtr<ArchiveResource> resource = documentLoader.subresource(subresourceURL);
+                if (!resource) {
+                    ResourceRequest request(subresourceURL);
+                    request.setDomainForCachePartition(frame.document()->domainForCachePartition());
+                    if (auto* cachedResource = MemoryCache::singleton().resourceForRequest(request, frame.page()->sessionID()))
+                        resource = ArchiveResource::create(cachedResource->resourceBuffer(), subresourceURL, cachedResource->response());
+                }
+
+                if (!resource) {
+                    // FIXME: should do something better than spew to console here
+                    LOG_ERROR("Failed to archive subresource for %s", subresourceURL.string().utf8().data());
                     continue;
                 }
 
-                ResourceRequest request(subresourceURL);
-                request.setDomainForCachePartition(frame.document()->domainForCachePartition());
-
-                if (auto* cachedResource = MemoryCache::singleton().resourceForRequest(request, frame.page()->sessionID())) {
-                    if (auto resource = ArchiveResource::create(cachedResource->resourceBuffer(), subresourceURL, cachedResource->response())) {
-                        subresources.append(resource.releaseNonNull());
-                        continue;
-                    }
+                if (!subresourcesDirectoryName.isNull()) {
+                    String subresourceFileName = generateValidFileName(subresourceURL, uniqueFileNames);
+                    uniqueFileNames.add(subresourceFileName);
+                    String subresourceFilePath = FileSystem::pathByAppendingComponent(subresourcesDirectoryName, subresourceFileName);
+                    resource->setRelativeFilePath(subresourceFilePath);
+                    addResult.iterator->value = frame.isMainFrame() ? subresourceFilePath : subresourceFileName;
                 }
 
-                // FIXME: should do something better than spew to console here
-                LOG_ERROR("Failed to archive subresource for %s", subresourceURL.string().utf8().data());
+                subresources.append(resource.releaseNonNull());
             }
         }
     }
+
+    auto uniqueCSSStyleSheets = addSubresourcesForCSSStyleSheetsIfNecessary(frame, subresourcesDirectoryName, uniqueFileNames, uniqueSubresources, subresources);
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     addSubresourcesForAttachmentElementsIfNecessary(frame, nodes, subresources);
@@ -581,6 +709,23 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, Lo
             if (auto resource = documentLoader->subresource(icon.url))
                 subresources.append(resource.releaseNonNull());
         }
+    }
+
+    if (!mainFrameFilePath.isNull()) {
+        auto* document = frame.document();
+        if (!document)
+            return nullptr;
+
+        if (responseURL.isEmpty())
+            return nullptr;
+
+        auto extension = MIMETypeRegistry::preferredExtensionForMIMEType(textHTMLContentTypeAtom());
+        if (!extension.isEmpty())
+            extension = makeString(".", extension);
+        auto mainFrameFilePathWithExtension = mainFrameFilePath.endsWith(extension) ? mainFrameFilePath : makeString(mainFrameFilePath, extension);
+        auto filePathWithExtension = frame.isMainFrame() ? mainFrameFilePathWithExtension : makeString(subresourcesDirectoryName, "/frame_"_s, frame.frameID().toString(), extension);
+        String updatedMarkupString = serializeFragment(*document, SerializedNodes::SubtreeIncludingNode, nullptr, ResolveURLs::No, std::nullopt, WTFMove(uniqueSubresources), WTFMove(uniqueCSSStyleSheets), ShouldIncludeShadowDOM::Yes, markupExclusionRules);
+        mainResource = ArchiveResource::create(utf8Buffer(updatedMarkupString), responseURL, response.mimeType(), "UTF-8"_s, frame.tree().uniqueName(), ResourceResponse(), filePathWithExtension);
     }
 
     return create(mainResource.releaseNonNull(), WTFMove(subresources), WTFMove(subframeArchives));
@@ -598,10 +743,10 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::createFromSelection(LocalFrame* frame
     StringBuilder builder;
     builder.append(documentTypeString(*document));
 
-    Vector<Node*> nodeList;
+    Vector<Ref<Node>> nodeList;
     builder.append(serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::No, SerializeComposedTree::Yes, IgnoreUserSelectNone::Yes, &nodeList));
 
-    auto archive = create(builder.toString(), *frame, nodeList, nullptr);
+    auto archive = create(builder.toString(), *frame, WTFMove(nodeList), nullptr);
     if (!archive)
         return nullptr;
 
@@ -611,7 +756,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::createFromSelection(LocalFrame* frame
     // Wrap the frameset document in an iframe so it can be pasted into
     // another document (which will have a body or frameset of its own). 
     String iframeMarkup = "<iframe frameborder=\"no\" marginwidth=\"0\" marginheight=\"0\" width=\"98%%\" height=\"98%%\" src=\"" + frame->loader().documentLoader()->response().url().string() + "\"></iframe>";
-    auto iframeResource = ArchiveResource::create(utf8Buffer(iframeMarkup), aboutBlankURL(), "text/html"_s, "UTF-8"_s, String());
+    auto iframeResource = ArchiveResource::create(utf8Buffer(iframeMarkup), aboutBlankURL(), textHTMLContentTypeAtom(), "UTF-8"_s, String());
 
     return create(iframeResource.releaseNonNull(), { }, { archive.releaseNonNull() });
 }

@@ -51,7 +51,7 @@ PlatformLayerContainer MediaPlayerPrivateRemote::createVideoFullscreenLayer()
 
 void MediaPlayerPrivateRemote::pushVideoFrameMetadata(WebCore::VideoFrameMetadata&& videoFrameMetadata, RemoteVideoFrameProxy::Properties&& properties)
 {
-    auto videoFrame = RemoteVideoFrameProxy::create(connection(), videoFrameObjectHeapProxy(), WTFMove(properties));
+    auto videoFrame = RemoteVideoFrameProxy::create(protectedConnection(), videoFrameObjectHeapProxy(), WTFMove(properties));
     if (!m_isGatheringVideoFrameMetadata)
         return;
     m_videoFrameMetadata = WTFMove(videoFrameMetadata);
@@ -80,7 +80,7 @@ WebCore::DestinationColorSpace MediaPlayerPrivateRemote::colorSpace()
     return colorSpace;
 }
 
-void MediaPlayerPrivateRemote::layerHostingContextIdChanged(std::optional<WebKit::LayerHostingContextID>&& inlineLayerHostingContextId, const IntSize& presentationSize)
+void MediaPlayerPrivateRemote::layerHostingContextIdChanged(std::optional<WebKit::LayerHostingContextID>&& inlineLayerHostingContextId, const FloatSize& presentationSize)
 {
     RefPtr player = m_player.get();
     if (!player)

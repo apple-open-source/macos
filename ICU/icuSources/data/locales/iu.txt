@@ -29,31 +29,12 @@ iu{
                 "{1} {0}",
                 "{1} {0}",
             }
-            DateTimeSkeletons{
-                "ahmmsszzzz",
-                "ahmmssz",
-                "ahmmss",
-                "ahmm",
-                "GyMMMMEEEEd",
-                "GyMMMMd",
-                "GyMMMd",
-                "GGGGGyMMdd",
-            }
             availableFormats{
                 Ed{"E, d"}
                 Gy{"y G"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-                M{"L"}
                 MEd{"E, MM/dd"}
-                MMM{"LLL"}
                 MMMEd{"E, MMM d"}
-                MMMd{"MMM d"}
                 Md{"MM/dd"}
-                d{"d"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                ms{"mm:ss"}
                 y{"y"}
                 yM{"MM/y"}
                 yMEd{"E, MM/dd/y"}
@@ -106,19 +87,9 @@ iu{
             availableFormats{
                 Ed{"E, d"}
                 Gy{"y G"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-                M{"L"}
                 MEd{"E, MM/dd"}
-                MMM{"LLL"}
                 MMMEd{"E, MMM d"}
-                MMMd{"MMM d"}
                 Md{"MM/dd"}
-                d{"d"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                ms{"mm:ss"}
-                y{"y"}
                 yM{"MM/y"}
                 yMEd{"E, MM/dd/y"}
                 yMMM{"MMM y"}

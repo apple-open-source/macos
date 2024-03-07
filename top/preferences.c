@@ -158,6 +158,7 @@ static struct {
     {"pageins", STATISTIC_PAGEINS},
     {"kprvt", STATISTIC_KPRVT},
     {"kshrd", STATISTIC_KSHRD},
+    {"jetpri", STATISTIC_JETSAM_PRI},
     {"idlew", STATISTIC_IDLEWAKE},
     {"power", STATISTIC_POWERSCORE},
     {NULL, 0}
@@ -250,6 +251,7 @@ void top_prefs_init(void) {
     SPREF(STATISTIC_POWERSCORE);
     SPREF(STATISTIC_INSTRS);
     SPREF(STATISTIC_CYCLES);
+    SPREF(STATISTIC_JETSAM_PRI);
     SPREF(STATISTIC_USER);
 
     /* mmr columns - we hates them */

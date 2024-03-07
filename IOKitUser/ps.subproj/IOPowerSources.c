@@ -121,49 +121,6 @@ CFTimeInterval IOPSGetTimeRemainingEstimate(void)
     return (_kSecondsPerMinute * (CFTimeInterval)(packedBatteryData & 0xFFFF));
 }
 
-IOReturn IOPSGetPercentRemaining(int *percent, bool *isCharging, bool *isFullyCharged)
-{
-    int                 token = 0;
-    uint64_t            packedBatteryBits = 0;
-    int                 status = 0;
-    IOReturn            error = kIOReturnSuccess;
-
-    if (!percent)
-        return kIOReturnBadArgument;
-
-    status = notify_register_check(kIOPSNotifyPercentChange, &token);
-    if (NOTIFY_STATUS_OK != status) {
-        error = kIOReturnInternalError;
-        goto exit;
-    }
-
-    notify_get_state(token, &packedBatteryBits);
-    notify_cancel(token);
-
-    if (!(packedBatteryBits & kPSTimeRemainingNotifyValidBit)) {
-        error = kIOReturnNotReady;
-        goto exit;
-    }
-
-    *percent = MIN((packedBatteryBits & 0xFF), 100);
-    if (isCharging)
-        *isCharging = ((packedBatteryBits & kPSTimeRemainingNotifyChargingBit) != 0);
-    if (isFullyCharged)
-        *isFullyCharged = ((packedBatteryBits & kPSTimeRemainingNotifyFullyChargedBit) != 0);
-
-exit:
-    if (kIOReturnSuccess != error) {
-        // Return consistent values on failure
-        *percent = 100;
-        if (isCharging)
-            *isCharging = false;
-        if (isFullyCharged)
-            *isFullyCharged = true;
-    }
-
-    return error;
-}
-
 bool IOPSDrawingUnlimitedPower(void)
 {
     int                 token = 0;

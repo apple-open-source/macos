@@ -29,7 +29,6 @@
 
 #include "DeprecatedGlobalSettings.h"
 #include "DocumentFragment.h"
-#include "FragmentScriptingPermission.h"
 #include "FrameDestructionObserverInlines.h"
 #include "InternalSettings.h"
 #include "Internals.h"
@@ -233,7 +232,6 @@ void setMockGamepadButtonValue(unsigned gamepadIndex, unsigned buttonIndex, doub
 
 void setupNewlyCreatedServiceWorker(uint64_t serviceWorkerIdentifier)
 {
-#if ENABLE(SERVICE_WORKER)
     auto identifier = AtomicObjectIdentifier<ServiceWorkerIdentifierType>(serviceWorkerIdentifier);
     SWContextManager::singleton().postTaskToServiceWorker(identifier, [identifier] (ServiceWorkerGlobalScope& globalScope) {
         auto* script = globalScope.script();
@@ -246,9 +244,6 @@ void setupNewlyCreatedServiceWorker(uint64_t serviceWorkerIdentifier)
         auto* contextWrapper = script->globalScopeWrapper();
         contextWrapper->putDirect(vm, Identifier::fromString(vm, Internals::internalsId), toJS(&globalObject, contextWrapper, ServiceWorkerInternals::create(globalScope, identifier)));
     });
-#else
-    UNUSED_PARAM(serviceWorkerIdentifier);
-#endif
 }
 
 #if PLATFORM(COCOA)
@@ -302,7 +297,7 @@ bool testDocumentFragmentParseXML(const String& chunk, OptionSet<ParserContentPo
     ProcessWarming::prewarmGlobally();
 
     auto settings = Settings::create(nullptr);
-    auto document = XMLDocument::createXHTML(nullptr, settings, URL());
+    auto document = WebCore::XMLDocument::createXHTML(nullptr, settings, URL());
     auto fragment = document->createDocumentFragment();
 
     return fragment->parseXML(chunk, nullptr, parserContentPolicy);

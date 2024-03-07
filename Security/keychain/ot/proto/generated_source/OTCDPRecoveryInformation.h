@@ -16,12 +16,14 @@
     NSString *_recoveryKey;
     NSString *_recoverySecret;
     BOOL _containsIcdpData;
+    BOOL _nonViableRepair;
     BOOL _silentRecoveryAttempt;
     BOOL _useCachedSecret;
     BOOL _usePreviouslyCachedRecoveryKey;
     BOOL _usesMultipleIcsc;
     struct {
         uint containsIcdpData:1;
+        uint nonViableRepair:1;
         uint silentRecoveryAttempt:1;
         uint useCachedSecret:1;
         uint usePreviouslyCachedRecoveryKey:1;
@@ -50,6 +52,9 @@
 
 @property (nonatomic) BOOL hasUsesMultipleIcsc;
 @property (nonatomic) BOOL usesMultipleIcsc;
+
+@property (nonatomic) BOOL hasNonViableRepair;
+@property (nonatomic) BOOL nonViableRepair;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTCDPRecoveryInformation *)other;

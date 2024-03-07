@@ -34,24 +34,19 @@ namespace API {
 class Object;
 }
 
-namespace IPC {
-class Decoder;
-class Encoder;
-}
-
 namespace WebKit {
 
 class WebContextMenuItemData {
 public:
     WebContextMenuItemData();
     WebContextMenuItemData(const WebCore::ContextMenuItem&);
-    WebContextMenuItemData(WebCore::ContextMenuItemType, WebCore::ContextMenuAction, const String& title, bool enabled, bool checked, unsigned indentationLevel = 0);
-    WebContextMenuItemData(WebCore::ContextMenuAction, const String& title, bool enabled, const Vector<WebContextMenuItemData>& submenu, unsigned indentationLevel = 0);
+    WebContextMenuItemData(WebCore::ContextMenuItemType, WebCore::ContextMenuAction, String&& title, bool enabled, bool checked, unsigned indentationLevel = 0, Vector<WebContextMenuItemData>&& submenu = { });
 
     WebCore::ContextMenuItemType type() const { return m_type; }
     WebCore::ContextMenuAction action() const { return m_action; }
     const String& title() const { return m_title; }
     bool enabled() const { return m_enabled; }
+    void setEnabled(bool enabled) { m_enabled = enabled; }
     bool checked() const { return m_checked; }
     unsigned indentationLevel() const { return m_indentationLevel; }
     const Vector<WebContextMenuItemData>& submenu() const { return m_submenu; }
@@ -60,9 +55,6 @@ public:
     
     API::Object* userData() const;
     void setUserData(API::Object*);
-    
-    void encode(IPC::Encoder&) const;
-    static std::optional<WebContextMenuItemData> decode(IPC::Decoder&);
 
 private:
     WebCore::ContextMenuItemType m_type;

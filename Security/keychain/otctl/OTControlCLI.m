@@ -67,7 +67,7 @@ static NSString * fetch_pet(NSString * appleID, NSString * dsid)
 }
 
 // Mutual recursion to set up an object for jsonification
-static NSDictionary* cleanDictionaryForJSON(NSDictionary* dict);
+static NSDictionary*_Nullable cleanDictionaryForJSON(NSDictionary*_Nullable dict);
 
 static id cleanObjectForJSON(id obj) {
     if(!obj) {
@@ -100,12 +100,15 @@ static id cleanObjectForJSON(id obj) {
         }
         return cleanArray;
 
+    } else if ([obj isKindOfClass:[NSDate class]]) {
+        NSDate *date = (NSDate*)obj;
+        return [[[NSISO8601DateFormatter alloc] init] stringFromDate:date];
     } else {
         return [obj description];
     }
 }
 
-static NSDictionary* cleanDictionaryForJSON(NSDictionary* dict) {
+static NSDictionary*_Nullable cleanDictionaryForJSON(NSDictionary*_Nullable dict) {
     if(!dict) {
         return nil;
     }
@@ -356,15 +359,24 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
         ret = 0;
         NSMutableArray<NSString *>* escrowRecords = [NSMutableArray array];
         for(OTEscrowRecord* record in records){
-            CFErrorRef cfError = NULL;
-            SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, &cfError, (__bridge CFDataRef)record.escrowInformationMetadata.peerInfo);
-            if (peer == NULL) {
-                NSError* nsError = (__bridge_transfer NSError*)cfError;
-                fprintf(stderr, "Failed SOSPeerInfoCreateFromData: %s\n", nsError.description.UTF8String);
-                continue;
+            NSString* peerID = nil;
+            if (record.escrowInformationMetadata.peerInfo && record.escrowInformationMetadata.peerInfo.bytes) {
+                CFErrorRef cfError = NULL;
+                SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault,
+                                                                &cfError,
+                                                                (__bridge CFDataRef)record.escrowInformationMetadata.peerInfo);
+                if (peer == NULL) {
+                    NSError* nsError = (__bridge_transfer NSError*)cfError;
+                    fprintf(stderr, "Failed SOSPeerInfoCreateFromData: %s\n", nsError.description.UTF8String);
+                    continue;
+                } else {
+                    peerID = (__bridge NSString*)SOSPeerInfoGetPeerID(peer);
+                }
+            } else {
+                peerID = record.recordId;
             }
-            CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
-            [escrowRecords addObject:(__bridge NSString *)peerID];
+
+            [escrowRecords addObject:peerID];
         }
         if (json) {
             print_json(@{@"escrowRecords" : escrowRecords});
@@ -384,11 +396,16 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 }
 #endif
 
-- (int)fetchEscrowRecords:(OTControlArguments*)arguments json:(bool)json
+- (int)fetchEscrowRecords:(OTControlArguments*)arguments
+                     json:(bool)json
+      overrideEscrowCache:(BOOL)overrideEscrowCache
 {
 #if OCTAGON
     NSError* error = nil;
-    NSArray<OTEscrowRecord*>* records = [OTClique fetchEscrowRecords:[arguments makeConfigurationContext] error:&error];
+    OTEscrowRecordFetchSource source = overrideEscrowCache ? OTEscrowRecordFetchSourceCuttlefish : OTEscrowRecordFetchSourceDefault;
+    OTConfigurationContext* context = [arguments makeConfigurationContext];
+    context.escrowFetchSource = source;
+    NSArray<OTEscrowRecord*>* records = [OTClique fetchEscrowRecords:context error:&error];
     return [self checkAndPrintEscrowRecords:records error:error json:json];
 #else
     if (json) {
@@ -400,11 +417,16 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 #endif
 }
 
-- (int)fetchAllEscrowRecords:(OTControlArguments*)arguments json:(bool)json
+- (int)fetchAllEscrowRecords:(OTControlArguments*)arguments
+                        json:(bool)json
+         overrideEscrowCache:(BOOL)overrideEscrowCache
 {
 #if OCTAGON
     NSError* error = nil;
-    NSArray<OTEscrowRecord*>* records = [OTClique fetchAllEscrowRecords:[arguments makeConfigurationContext] error:&error];
+    OTEscrowRecordFetchSource source = overrideEscrowCache ? OTEscrowRecordFetchSourceCuttlefish : OTEscrowRecordFetchSourceDefault;
+    OTConfigurationContext* context = [arguments makeConfigurationContext];
+    context.escrowFetchSource = source;
+    NSArray<OTEscrowRecord*>* records = [OTClique fetchAllEscrowRecords:context error:&error];
     return [self checkAndPrintEscrowRecords:records error:error json:json];
 #else
     if (json) {
@@ -438,7 +460,8 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
     cdpContext.authInfo.authenticationPassword = fetch_pet(appleID, nil);
     
     OTConfigurationContext* contextForFetch = [arguments makeConfigurationContext];
-    contextForFetch.overrideEscrowCache = overrideEscrowCache;
+
+    contextForFetch.escrowFetchSource = overrideEscrowCache ? OTEscrowRecordFetchSourceCuttlefish : OTEscrowRecordFetchSourceDefault;
     contextForFetch.overrideForSetupAccountScript = overrideForAccountScript;
 
     NSArray<OTEscrowRecord*>* escrowRecords = [OTClique fetchEscrowRecords:contextForFetch error:&error];
@@ -470,7 +493,7 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
     }
     
     OTConfigurationContext* context = [arguments makeConfigurationContext];
-    context.overrideEscrowCache = YES;
+    context.escrowFetchSource = OTEscrowRecordFetchSourceCuttlefish;
     
     OTClique* clique = [OTClique performEscrowRecovery:context cdpContext:cdpContext escrowRecord:record error:&error];
     if (clique != nil && error == nil) {
@@ -563,22 +586,64 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 #endif
 }
 
++ (NSDictionary* _Nonnull)annotateStatus:(NSDictionary*_Nonnull)status {
+    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithDictionary:status];
+    if (!dict[@"contextDump"]) {
+        return status;
+    }
+    NSMutableDictionary* contextDump = [NSMutableDictionary dictionaryWithDictionary:dict[@"contextDump"]];
+    dict[@"contextDump"] = contextDump;
+    if (!contextDump[@"self"]) {
+        return status;
+    }
+    NSDictionary *egoInformation = contextDump[@"self"];
+    if (!egoInformation[@"dynamicInfo"]) {
+        return status;
+    }
+    NSDictionary* egoDynamicInfo = egoInformation[@"dynamicInfo"];
+    NSSet<NSString *>* includedPeers = egoDynamicInfo[@"included"] ? [[NSSet alloc] initWithArray:egoDynamicInfo[@"included"]] : [[NSSet alloc] init];
+    NSSet<NSString *>* excludedPeers = egoDynamicInfo[@"excluded"] ? [[NSSet alloc] initWithArray:egoDynamicInfo[@"excluded"]] : [[NSSet alloc] init];
+    if (!contextDump[@"custodian_recovery_keys"]) {
+        return status;
+    }
+    NSMutableArray *crks = [NSMutableArray array];
+    for (NSDictionary* ci in contextDump[@"custodian_recovery_keys"]) {
+        NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:ci];
+        NSString *peerID = d[@"peerID"];
+        if ([includedPeers containsObject:peerID]) {
+            d[@"trusted_by_self"] = @YES;
+        }
+        if ([excludedPeers containsObject:peerID]) {
+            d[@"distrusted_by_self"] = @YES;
+        }
+        [crks addObject:d];
+    }
+    contextDump[@"custodian_recovery_keys"] = crks;
+    return dict;
+}
+
 - (int)status:(OTControlArguments*)arguments json:(bool)json {
 #if OCTAGON
     __block int ret = 1;
 
     [self.control status:arguments
-                   reply:^(NSDictionary* result, NSError* _Nullable error) {
+                   reply:^(NSDictionary*_Nullable result, NSError* _Nullable error) {
                        if(error) {
                            if(json) {
                                print_json(@{@"error" : [error description]});
                            } else {
                                fprintf(stderr, "Error fetching status: %s\n", [[error description] UTF8String]);
                            }
+                       } else if (result == nil) {
+                           if(json) {
+                               print_json(@{@"error" : @"No result returned and no data"});
+                           } else {
+                               fprintf(stderr, "Fetching status had no error and gave no result!\n");
+                           }
                        } else {
                            ret = 0;
                            if(json) {
-                               print_json(result);
+                               print_json([OTControlCLI annotateStatus:result]);
                            } else {
                                printf("Status for %s,%s:\n", [result[@"containerName"] UTF8String], [result[@"contextID"] UTF8String]);
                                printf("Active account: %s\n", [result[@"activeAccount"] UTF8String]);
@@ -612,6 +677,7 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 
                                NSDictionary* egoInformation = contextDump[@"self"];
                                NSString * egoPeerID = egoInformation[@"peerID"];
+                               NSDictionary* egoStableInfo = egoInformation[@"stableInfo"];
                                NSDictionary* egoDynamicInfo = egoInformation[@"dynamicInfo"];
 
                                if(egoPeerID) {
@@ -649,6 +715,19 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
                                        printf("    No other peers.\n");
                                    }
                                    printf("\n");
+
+                                   if(egoStableInfo[@"recovery_encryption_public_key"] && egoStableInfo[@"recovery_signing_public_key"]) {
+                                       printf("Recovery Key:\n");
+
+                                       NSData* signingData = [[NSData alloc] initWithData:egoStableInfo[@"recovery_signing_public_key"]];
+                                       NSData* encryptionData = [[NSData alloc] initWithData:egoStableInfo[@"recovery_encryption_public_key"]];
+
+                                       NSString* signingString = [signingData base64EncodedStringWithOptions:0];
+                                       NSString* encryptionString = [encryptionData base64EncodedStringWithOptions:0];
+                                       printf("    Encryption public key: %s\n", [encryptionString UTF8String]);
+                                       printf("    Signing public key: %s\n", [signingString UTF8String]);
+                                       printf("\n");
+                                   }
 
                                } else {
                                    printf("No current identity for this device.\n\n");
@@ -709,7 +788,8 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 }
 
 - (int)fetchAllBottles:(OTControlArguments*)arguments
-               control:(OTControl*)control {
+               control:(OTControl*)control
+   overrideEscrowCache:(BOOL)overrideEscrowCache {
     __block int ret = 1;
 
 #if OCTAGON
@@ -720,7 +800,10 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
+    OTEscrowRecordFetchSource source = overrideEscrowCache ? OTEscrowRecordFetchSourceCuttlefish : OTEscrowRecordFetchSourceDefault;
+
     [control fetchAllViableBottles:arguments
+                            source:source
                              reply:^(NSArray<NSString *>* _Nullable sortedBottleIDs,
                                      NSArray<NSString *>* _Nullable sortedPartialBottleIDs,
                                      NSError* _Nullable controlError) {
@@ -1241,6 +1324,27 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
             ret = 0;
         }
     }];
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)joinWithRecoveryKeyWithArguments:(OTControlArguments*)arguments recoveryKey:(NSString*)recoveryKey
+{
+#if OCTAGON
+    __block int ret = 1;
+
+    [self.control joinWithRecoveryKey:arguments recoveryKey:recoveryKey reply:^(NSError *error) {
+        if (error) {
+            fprintf(stderr, "joining with recovery key failed: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("successfully joined using recovery key %s, in octagon\n", [recoveryKey UTF8String]);
+            ret = 0;
+        }
+    }];
+
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");
@@ -1917,6 +2021,32 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
         }
     }];
     
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)rerollWithArguments:(OTControlArguments*)arguments
+                      json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    
+    [self.control reroll:arguments
+                   reply:^(NSError* _Nullable error) {
+        if(error) {
+            if (json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error rerolling: %s\n", [[error description] UTF8String]);
+            }
+        } else {
+            printf("Reroll successful.\n");
+            ret = 0;
+        }
+    }];
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");

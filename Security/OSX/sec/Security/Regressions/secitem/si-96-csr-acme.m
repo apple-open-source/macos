@@ -45,21 +45,36 @@
 /* kSecOIDDescription constant exists, but is only defined on macOS */
 const CFStringRef kSecOidDescription = CFSTR("2.5.4.13");
 
-static SecIdentityRef createAttestationIdentity(void)
+static SecKeyRef createAttestationKey(void)
 {
-    SecIdentityRef identity = NULL;
-    // %% TBA
-    return identity;
+    SecKeyRef attestationKey = NULL;
+    NSDictionary *params = nil;
+    CFErrorRef cfError = NULL;
+    SecAccessControlRef accessControl = SecAccessControlCreateWithFlags(NULL, kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate, kSecAccessControlPrivateKeyUsage, NULL);
+
+    params = @{(__bridge NSString *)kSecAttrIsPermanent : @NO,
+               (__bridge NSString *)kSecAttrTokenID : (__bridge NSString *)kSecAttrTokenIDAppleKeyStore,
+               (__bridge NSString *)kSecAttrKeyType : (__bridge NSString *)kSecAttrKeyTypeSecureEnclaveAttestation,
+               (__bridge NSString *)kSecAttrAccessControl : (__bridge id)accessControl
+               };
+
+    attestationKey = SecKeyCreateRandomKey((__bridge CFDictionaryRef)params, &cfError);
+    CFReleaseNull(accessControl);
+    if (cfError) {
+        CFShow(cfError);
+        CFReleaseNull(cfError);
+    }
+    return attestationKey;
 }
 
-static SecIdentityRef sharedAttestationIdentity(void)
+static SecKeyRef sharedAttestationKey(void)
 {
-    static SecIdentityRef sAttestationIdentity = NULL;
+    static SecKeyRef sAttestationKey = NULL;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        sAttestationIdentity = createAttestationIdentity();
+        sAttestationKey = createAttestationKey();
     });
-    return sAttestationIdentity;
+    return sAttestationKey;
 }
 
 static void displayKey(SecKeyRef key)
@@ -91,7 +106,7 @@ static NSData* makeApplicationTag(NSNumber* keySize, bool hardwareBound)
     return [[NSString stringWithFormat:@"com.apple.security.test.%@%@", [keySize stringValue], (hardwareBound) ? @".SEP" : @""] dataUsingEncoding:NSUTF8StringEncoding];
 }
 
-static NSArray* makeEDAOids(bool anonymous, bool nonce)
+static NSArray* makeEDAOids(bool anonymous, bool nonce, bool coresidency)
 {
     NSMutableArray *oids = [@[
       // Anonymous OIDs
@@ -105,6 +120,10 @@ static NSArray* makeEDAOids(bool anonymous, bool nonce)
         @"1.2.840.113635.100.8.9.1", /* SerialNumber */
         @"1.2.840.113635.100.8.9.2", /* UDID */
       ]];
+    }
+    if (coresidency) {
+      // Attestation public key OID
+      [oids addObject:@"1.2.840.113635.100.8.9.3"]; /* PublicKey */
     }
     if (nonce) {
       [oids addObject:@"1.2.840.113635.100.8.11.1"]; /* Nonce */
@@ -184,7 +203,7 @@ static NSArray* makeBadEKUArray(void)
 
 static NSDictionary* makeEDAParameters(NSString* label, NSURL* acmeServerURL, CFStringRef keyType, NSNumber* keySize, bool hardwareBound, bool minimalKeyAttrs, bool badValues)
 {
-    SecIdentityRef attestationIdentity = sharedAttestationIdentity(); /* will be used to attest our new hardware-bound key */
+    SecKeyRef attestationKey = sharedAttestationKey(); /* will be used to attest our new hardware-bound key */
     NSString *clientIdentifier = [[NSUUID UUID] UUIDString]; /* random string intended as a single-use token. Does NOT go into the certificate. */
     NSDictionary *altName = (badValues) ? makeBadEDASubjectAltName() : makeEDASubjectAltName();
     NSArray *ekuArray = (badValues) ? makeBadEKUArray() : @[(__bridge NSString*)kSecEKUClientAuth];
@@ -207,11 +226,11 @@ static NSDictionary* makeEDAParameters(NSString* label, NSURL* acmeServerURL, CF
         parameters[(id)kSecACMEDirectoryURL] = (id)acmeServerURL;
         parameters[(id)kSecACMEPermitLocalIssuer] = @YES;
     }
-    if (hardwareBound && attestationIdentity) {
-        parameters[(id)kSecAttestationIdentity] = (id)CFBridgingRelease(attestationIdentity);
+    if (hardwareBound && attestationKey) {
+        parameters[(id)kSecAttestationKey] = (__bridge id)attestationKey;
     }
     if (hardwareBound) {
-        parameters[(id)kSecAttestationOids] = makeEDAOids(false, true);
+        parameters[(id)kSecAttestationOids] = makeEDAOids(false, true, (attestationKey != NULL));
     }
     if (!minimalKeyAttrs) {
         NSData *tag = makeApplicationTag(keySize, hardwareBound); /* non-user-visible tag for the private key */
@@ -243,7 +262,7 @@ static NSDictionary* makeEDAParameters(NSString* label, NSURL* acmeServerURL, CF
 
 static NSDictionary* makeParameters(NSString* label, NSURL* acmeServerURL, CFStringRef keyType, NSNumber* keySize, bool hardwareBound, bool minimalKeyAttrs)
 {
-    SecIdentityRef attestationIdentity = sharedAttestationIdentity(); /* will be used to attest our new hardware-bound key */
+    SecKeyRef attestationKey = sharedAttestationKey(); /* will be used to attest our new hardware-bound key */
     NSString *clientIdentifier = [[NSUUID UUID] UUIDString]; /* random string intended as a single-use identifier */
 
     NSDictionary *baseParams = @{
@@ -263,11 +282,11 @@ static NSDictionary* makeParameters(NSString* label, NSURL* acmeServerURL, CFStr
         parameters[(id)kSecACMEDirectoryURL] = (id)acmeServerURL;
         parameters[(id)kSecACMEPermitLocalIssuer] = @YES;
     }
-    if (hardwareBound && attestationIdentity) {
-        parameters[(id)kSecAttestationIdentity] = (id)CFBridgingRelease(attestationIdentity);
+    if (hardwareBound && attestationKey) {
+        parameters[(id)kSecAttestationKey] = (__bridge id)attestationKey;
     }
     if (hardwareBound) {
-        parameters[(id)kSecAttestationOids] = makeEDAOids(false, true);
+        parameters[(id)kSecAttestationOids] = makeEDAOids(false, true, (attestationKey != NULL));
     }
     if (!minimalKeyAttrs) {
         NSData *tag = makeApplicationTag(keySize, hardwareBound); /* non-user-visible tag for the private key */

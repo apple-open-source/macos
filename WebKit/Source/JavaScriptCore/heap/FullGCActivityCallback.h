@@ -31,7 +31,7 @@ namespace JSC {
 
 class FullGCActivityCallback : public GCActivityCallback {
 public:
-    static RefPtr<FullGCActivityCallback> tryCreate(Heap& heap, Synchronousness synchronousness = Synchronousness::Async)
+    static RefPtr<FullGCActivityCallback> tryCreate(JSC::Heap& heap, Synchronousness synchronousness = Synchronousness::Async)
     {
         return s_shouldCreateGCTimer ? adoptRef(new FullGCActivityCallback(heap, synchronousness)) : nullptr;
     }
@@ -39,6 +39,7 @@ public:
     JS_EXPORT_PRIVATE void doCollection(VM&) override;
 
     JS_EXPORT_PRIVATE FullGCActivityCallback(Heap&, Synchronousness);
+    JS_EXPORT_PRIVATE ~FullGCActivityCallback();
 
 private:
     JS_EXPORT_PRIVATE Seconds lastGCLength(Heap&) final;

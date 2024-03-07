@@ -29553,11 +29553,11 @@ fi
 _ACEOF
 
     cat >>confdefs.h <<_ACEOF
-#define RUBY_ARCH "universal-"RUBY_PLATFORM_OS
+#define RUBY_ARCH "universal-" RUBY_PLATFORM_OS
 _ACEOF
 
     cat >>confdefs.h <<_ACEOF
-#define RUBY_PLATFORM "universal."RUBY_PLATFORM_CPU"-"RUBY_PLATFORM_OS
+#define RUBY_PLATFORM "universal." RUBY_PLATFORM_CPU "-" RUBY_PLATFORM_OS
 _ACEOF
 
 

@@ -91,9 +91,11 @@ struct nfs_options_client {
 	uint32_t        mflags_mask[NFS_MFLAG_BITMAP_LEN];      /* what flags are set */
 	uint32_t        mflags[NFS_MFLAG_BITMAP_LEN];           /* set flag values */
 	uint32_t        nfs_version, nfs_minor_version;         /* NFS version */
-	uint32_t        nfs_max_vers, nfs_min_vers;              /* NFS min and max packed version */
+	uint32_t        nfs_max_vers, nfs_min_vers;             /* NFS min and max packed version */
 	uint32_t        rsize, wsize, readdirsize, readahead;   /* I/O values */
-	struct timespec acregmin, acregmax, acdirmin, acdirmax; /* attrcache values */
+	struct timespec acregmin, acregmax;                     /* attrcache file values */
+	struct timespec acdirmin, acdirmax;                     /* attrcache dir values */
+	struct timespec acrootdirmin, acrootdirmax;             /* attrcache root dir values */
 	uint32_t        lockmode;                               /* advisory file locking mode */
 	struct nfs_sec  sec;                                    /* security flavors */
 	struct nfs_etype etype;                                 /* Kerberos session key encryption types to use */

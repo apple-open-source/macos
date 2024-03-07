@@ -48,8 +48,9 @@ public:
 		AppleCSPSession		&session,
 		const CssmKey		*paramKey,		/* optional, unused here */
 		CSSM_KEYATTR_FLAGS 	&attrFlags);	/* IN/OUT */
-		
-	feePubKey				feeKey() { return mFeeKey; }
+    BinaryKey *getPublicKey() const;
+
+	feePubKey				feeKey() const { return mFeeKey; }
 private:
 	feePubKey				mFeeKey;
 };

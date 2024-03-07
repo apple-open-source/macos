@@ -30,6 +30,7 @@
 
 #import "Color.h"
 #import "ColorMac.h"
+#import "CommonAtomStrings.h"
 #import "LegacyNSPasteboardTypes.h"
 #import "Pasteboard.h"
 #import "SharedBuffer.h"
@@ -194,14 +195,14 @@ static Vector<String> urlStringsFromPasteboard(NSPasteboard *pasteboard)
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (id propertyList = [item propertyListForType:(__bridge NSString *)kUTTypeURL]) {
                 if (auto urlFromItem = adoptNS([[NSURL alloc] initWithPasteboardPropertyList:propertyList ofType:(__bridge NSString *)kUTTypeURL]))
-                    urlStrings.uncheckedAppend([urlFromItem absoluteString]);
+                    urlStrings.append([urlFromItem absoluteString]);
             }
 ALLOW_DEPRECATED_DECLARATIONS_END
         }
     } else if (NSURL *urlFromPasteboard = [NSURL URLFromPasteboard:pasteboard])
-        urlStrings.uncheckedAppend(urlFromPasteboard.absoluteString);
+        urlStrings.append(urlFromPasteboard.absoluteString);
     else if (NSString *urlStringFromPasteboard = [pasteboard stringForType:legacyURLPasteboardType()])
-        urlStrings.uncheckedAppend(urlStringFromPasteboard);
+        urlStrings.append(urlStringFromPasteboard);
 
     bool mayContainFiles = pasteboardMayContainFilePaths(pasteboard);
     urlStrings.removeAllMatching([&] (auto& urlString) {
@@ -343,10 +344,10 @@ int64_t PlatformPasteboard::changeCount() const
 
 String PlatformPasteboard::platformPasteboardTypeForSafeTypeForDOMToReadAndWrite(const String& domType, IncludeImageTypes includeImageTypes)
 {
-    if (domType == "text/plain"_s)
+    if (domType == textPlainContentTypeAtom())
         return legacyStringPasteboardType();
 
-    if (domType == "text/html"_s)
+    if (domType == textHTMLContentTypeAtom())
         return legacyHTMLPasteboardType();
 
     if (domType == "text/uri-list"_s)
@@ -476,9 +477,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 static NSPasteboardType modernPasteboardTypeForWebSafeMIMEType(const String& webSafeType)
 {
-    if (webSafeType == "text/plain"_s)
+    if (webSafeType == textPlainContentTypeAtom())
         return NSPasteboardTypeString;
-    if (webSafeType == "text/html"_s)
+    if (webSafeType == textHTMLContentTypeAtom())
         return NSPasteboardTypeHTML;
     if (webSafeType == "text/uri-list"_s)
         return NSPasteboardTypeURL;
@@ -491,9 +492,9 @@ enum class ContainsFileURL : bool { No, Yes };
 static String webSafeMIMETypeForModernPasteboardType(NSPasteboardType platformType, ContainsFileURL containsFileURL)
 {
     if ([platformType isEqual:NSPasteboardTypeString] && containsFileURL == ContainsFileURL::No)
-        return "text/plain"_s;
+        return textPlainContentTypeAtom();
     if ([platformType isEqual:NSPasteboardTypeHTML] || [platformType isEqual:NSPasteboardTypeRTF] || [platformType isEqual:NSPasteboardTypeRTFD])
-        return "text/html"_s;
+        return textHTMLContentTypeAtom();
     if ([platformType isEqual:NSPasteboardTypeURL] && containsFileURL == ContainsFileURL::No)
         return "text/uri-list"_s;
     if ([platformType isEqual:NSPasteboardTypePNG] || [platformType isEqual:NSPasteboardTypeTIFF])
@@ -602,7 +603,7 @@ std::optional<PasteboardItemInfo> PlatformPasteboard::informationForItemAtIndex(
     ListHashSet<String> webSafeTypes;
     info.platformTypesByFidelity.reserveInitialCapacity(platformTypes.count);
     for (NSPasteboardType type in platformTypes) {
-        info.platformTypesByFidelity.uncheckedAppend(type);
+        info.platformTypesByFidelity.append(type);
         auto webSafeType = webSafeMIMETypeForModernPasteboardType(type, containsFileURL);
         if (webSafeType.isEmpty())
             continue;

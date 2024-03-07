@@ -54,10 +54,7 @@ void WebTextTrackRepresentationCocoa::update()
     if (!m_mediaElement || !is<WebCore::HTMLVideoElement>(m_mediaElement))
         return;
     
-    auto representation = m_client.createTextTrackRepresentationImage();
-    if (!representation)
-        return;
-    auto image = representation->nativeImage();
+    auto image = m_client.createTextTrackRepresentationImage();
     if (!image)
         return;
     auto imageSize = image->size();
@@ -67,7 +64,7 @@ void WebTextTrackRepresentationCocoa::update()
     auto context = bitmap->createGraphicsContext();
     if (!context)
         return;
-    context->drawNativeImage(*image, imageSize, WebCore::FloatRect({ }, imageSize), WebCore::FloatRect({ }, imageSize), { WebCore::CompositeOperator::Copy });
+    context->drawNativeImage(*image, WebCore::FloatRect({ }, imageSize), WebCore::FloatRect({ }, imageSize), { WebCore::CompositeOperator::Copy });
     auto handle = bitmap->createHandle();
     if (!handle)
         return;

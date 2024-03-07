@@ -1,4 +1,4 @@
-; Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+; Copyright (C) 2010-2023 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -306,8 +306,7 @@
         "com.apple.preferences.sounds")
 
     (deny mach-lookup
-        (global-name "com.apple.frontboard.systemappservices")                 ; -[UIViewServiceInterface _createProcessAssertion] -> SBSProcessIDForDisplayIdentifier()
-    )
+        (global-name "com.apple.frontboard.systemappservices"))                 ; -[UIViewServiceInterface _createProcessAssertion] -> SBSProcessIDForDisplayIdentifier()
 
 #if !ENABLE(CARENDERSERVER_BLOCKING_IN_WEBCONTENT)
     (with-filter (require-not (state-flag "EnableExperimentalSandbox"))
@@ -520,16 +519,27 @@
         (literal "/private/var/run/syslog"))
 )
 
-(allow mach-lookup
-    (global-name "com.apple.system.notification_center")
+(define (notifyd-message-numbers) (message-number 1002 1011 1012 1016 1017 1018 1021 1025 1026 1028 1029 1030 1031 1032))
+
+(allow mach-lookup (global-name "com.apple.system.notification_center")
     (apply-message-filter
         (deny mach-message-send)
         (deny mach-message-send (with no-report) (message-number 1023))
-        (allow mach-message-send (message-number
-            1002 1011 1012 1016 1017 1018 1021 1025 1026 1028 1029 1030 1031 1032))))
+        (allow mach-message-send (notifyd-message-numbers))))
 
 (allow ipc-posix-shm-read*
-       (ipc-posix-name "apple.shm.notification_center"))
+    (ipc-posix-name "apple.shm.notification_center"))
+
+(with-filter (webcontent-process-launched)
+    (apply-message-filter
+        (deny mach-message-send)
+        (deny mach-message-send (with no-report) (message-number 1023))
+        (allow mach-message-send (with telemetry-backtrace) (notifyd-message-numbers))))
+
+(with-filter (state-flag "EnableExperimentalSandbox")
+    (allow mach-lookup (global-name "com.apple.system.notification_center")
+        (apply-message-filter (deny mach-message-send))))
+
 
 (managed-configuration-read-public)
 
@@ -722,7 +732,7 @@
     (sysctl-name "vm.task_no_footprint_for_debug"))
 
 #if HAVE(SANDBOX_STATE_FLAGS)
-(with-filter (require-not (state-flag "WebContentProcessLaunched"))
+(with-filter (require-not (webcontent-process-launched))
     (allow sysctl-read (sysctl-name "vm.malloc_ranges"))) ;; <rdar://problem/105161083>
 #else
 (allow sysctl-read (sysctl-name "vm.malloc_ranges")) ;; <rdar://problem/105161083>
@@ -853,7 +863,7 @@
 (deny file-read-xattr file-write-xattr (xattr-prefix "com.apple.security.private."))
 
 ;; Allow loading injected bundles.
-(with-filter (require-not (state-flag "WebContentProcessLaunched"))
+(with-filter (require-not (webcontent-process-launched))
     (allow file-map-executable))
 
 (deny system-necp-client-action)
@@ -922,33 +932,34 @@
         (global-name "com.apple.diagnosticd")
         (global-name "com.apple.osanalytics.osanalyticshelper")))
 
+(define (mach-extension-list)
+    (global-name
+        "com.apple.iconservices"
+        "com.apple.mobileassetd.v2"
+        "com.apple.mobilegestalt.xpc"))
+
+(allow mach-lookup (with telemetry-backtrace)
+    (require-all
+        (extension "com.apple.webkit.extension.mach")
+        (mach-extension-list)))
+
+(with-filter (state-flag "EnableExperimentalSandbox")
+    (deny mach-lookup
+        (require-all
+            (extension "com.apple.webkit.extension.mach")
+            (mach-extension-list))))
+
 (allow mach-lookup
     (require-all
         (extension "com.apple.webkit.extension.mach")
-        (global-name
-            "com.apple.frontboard.systemappservices"
-            "com.apple.iphone.axserver-systemwide"
-            "com.apple.mobileassetd.v2"
-            "com.apple.mobilegestalt.xpc"
-            "com.apple.tccd"
-            "com.apple.webinspector"
-)))
+        (system-attribute apple-internal)
+        (global-name "com.apple.webinspector")))
 
 ;; Silence warnings about these connections if we have decided not to extend access to them:
 (deny mach-lookup (with no-report)
     (require-all
         (require-not (extension "com.apple.webkit.extension.mach"))
-        (global-name
-            "com.apple.audio.AudioComponentRegistrar"
-        )
-    )
-)
-
-(allow mach-lookup
-    (require-all
-        (extension "com.apple.webkit.extension.mach")
-        (global-name
-            "com.apple.iconservices")))
+        (global-name "com.apple.audio.AudioComponentRegistrar")))
 
 #if HAVE(AGX_COMPILER_SERVICE)
 (allow iokit-open-user-client
@@ -1067,6 +1078,7 @@
         SYS_sysctl
         SYS_thread_selfid
         SYS_ulock_wait
+        SYS_ulock_wait2 ;; <rdar://problem/58743778>
         SYS_ulock_wake
         SYS_workq_kernreturn
         SYS_write_nocancel))
@@ -1096,8 +1108,7 @@
     SYS_sem_close
     SYS_sem_open
     SYS_shared_region_map_and_slide_2_np ;; <rdar://problem/60294880>
-    SYS_sysctlbyname
-    SYS_ulock_wait2)) ;; <rdar://problem/58743778>
+    SYS_sysctlbyname))
 
 (define (syscall-unix-rarely-in-use)
     (syscall-number
@@ -1105,6 +1116,9 @@
         SYS_getxattr
         SYS_iopolicysys
         SYS_openat_nocancel
+#if ASAN_ENABLED
+        SYS_sigaltstack
+#endif
         SYS_sigprocmask
         SYS_umask
         SYS_unlink
@@ -1112,6 +1126,7 @@
 
 (define (syscall-unix-rarely-in-use-blocked-in-lockdown-mode)
     (syscall-number
+        SYS___pthread_kill
         SYS___pthread_sigmask
         SYS___semwait_signal
         SYS_fsync
@@ -1124,17 +1139,11 @@
         SYS_rmdir
         SYS_sendto
         SYS_setrlimit
-        SYS_sigaltstack
 #if PLATFORM(WATCHOS)
         SYS_sigreturn
 #endif
         SYS_thread_selfusage
         SYS_write))
-
-(define (syscall-unix-rarely-in-use-need-backtrace)
-    (syscall-number
-        SYS___pthread_kill
-        ))
 
 (deny syscall-unix (with telemetry))
 (allow syscall-unix
@@ -1142,18 +1151,16 @@
     (syscall-unix-in-use-after-launch-blocked-in-lockdown-mode))
 
 #if HAVE(SANDBOX_STATE_FLAGS)
-(with-filter (require-not (state-flag "WebContentProcessLaunched"))
+(with-filter (require-not (webcontent-process-launched))
     (allow syscall-unix (syscall-unix-only-in-use-during-launch)))
 #else
 (allow syscall-unix (syscall-unix-only-in-use-during-launch))
 #endif
 
-(allow syscall-unix
-    (syscall-unix-rarely-in-use)
-    (syscall-unix-rarely-in-use-blocked-in-lockdown-mode))
-
-(allow syscall-unix (with report)
-    (syscall-unix-rarely-in-use-need-backtrace))
+(with-filter (require-not (state-flag "EnableExperimentalSandbox"))
+    (allow syscall-unix (with report) (with telemetry-backtrace)
+        (syscall-unix-rarely-in-use)
+        (syscall-unix-rarely-in-use-blocked-in-lockdown-mode)))
 
 (deny syscall-unix (with no-report) (syscall-number
     SYS_connect
@@ -1161,6 +1168,10 @@
     SYS_sigreturn
 #endif
     SYS_socket))
+
+(when (defined? 'SYS_crossarch_trap)
+    (deny syscall-unix (with no-report) (syscall-number
+        SYS_crossarch_trap)))
 
 (when (defined? 'SYS_map_with_linking_np)
     (allow syscall-unix (syscall-number SYS_map_with_linking_np)))
@@ -1172,9 +1183,7 @@
     (deny syscall-unix (with telemetry) (with message "Lockdown mode")
         (syscall-unix-in-use-after-launch-blocked-in-lockdown-mode))
     (deny syscall-unix (with telemetry) (with message "Lockdown mode")
-        (syscall-unix-rarely-in-use-blocked-in-lockdown-mode))
-    (deny syscall-unix (with telemetry) (with message "Lockdown mode")
-        (syscall-unix-rarely-in-use-need-backtrace)))
+        (syscall-unix-rarely-in-use-blocked-in-lockdown-mode)))
 
 (deny file-ioctl (with telemetry))
 
@@ -1250,11 +1259,11 @@
 
 (when (defined? 'socket-option-set)
     ;; setsockopt
-    (deny socket-option-set (with telemetry))
+    (deny socket-option-set)
 )
 
 (define-once (mach-bootstrap-message-numbers)
-    (message-number 206 207 711 712 718 800 802 803 804 805 904))
+    (message-number 206 207 711 712 716 718 800 802 803 804 805 904))
 
 (define-once (mach-bootstrap-message-numbers-post-launch)
     (message-number 206 207 711 712 800 804 904))
@@ -1276,7 +1285,7 @@
 #else
         (allow mach-message-send (mach-bootstrap-message-numbers-post-launch))
 #endif
-        (with-filter (require-not (state-flag "WebContentProcessLaunched"))
+        (with-filter (require-not (webcontent-process-launched))
             (allow mach-message-send (mach-bootstrap-message-numbers)))))
 #else
 (allow-mach-bootstrap-with-filter)
@@ -1344,10 +1353,10 @@
     (allow syscall-mach (machtrap-number MSC_mach_msg2_trap)))
 
 #if HAVE(SANDBOX_STATE_FLAGS)
-(with-filter (require-not (state-flag "WebContentProcessLaunched"))
+(with-filter (require-not (webcontent-process-launched))
     (allow syscall-mach
         (syscall-mach-only-in-use-during-launch)))
-(with-filter (state-flag "WebContentProcessLaunched")
+(with-filter (webcontent-process-launched)
     (deny syscall-mach
         (with telemetry)
         (with message "Mach syscall used after launch")
@@ -1384,7 +1393,6 @@
         host_get_io_master
         io_registry_entry_from_path
         io_registry_entry_get_property_bin_buf
-        io_service_get_matching_service_bin
         mach_memory_entry_ownership
         mach_port_extract_right
         mach_port_get_context_from_user
@@ -1408,8 +1416,7 @@
     (kernel-mig-routine
         io_iterator_next
         io_registry_entry_get_property_bytes
-        io_registry_entry_get_registry_entry_id
-        io_service_get_matching_services_bin))
+        io_registry_entry_get_registry_entry_id))
 
 (define (kernel-mig-routine-rarely-used-need-backtrace)
     (kernel-mig-routine
@@ -1457,14 +1464,20 @@
 #endif
 
 #if HAVE(SANDBOX_STATE_FLAGS)
-        (with-filter (require-not (state-flag "WebContentProcessLaunched"))
+        (with-filter (require-not (webcontent-process-launched))
             (allow mach-message-send
                 (kernel-mig-routine-only-in-use-during-launch)))
-        (with-filter (state-flag "WebContentProcessLaunched")
+        (with-filter (webcontent-process-launched)
             (deny mach-message-send
                 (with telemetry)
                 (with message "kernel mig routine used after launch")
                 (kernel-mig-routine-only-in-use-during-launch)))
+#if !ENABLE(WEBCONTENT_GPU_SANDBOX_EXTENSIONS_BLOCKING)
+        (with-filter (require-not (state-flag "BlockIOKitInWebContentSandbox"))
+            (allow mach-message-send (kernel-mig-routine
+                io_service_get_matching_service_bin
+                io_service_get_matching_services_bin)))
+#endif
 #endif
 
         (with-filter (require-not (lockdown-mode))
@@ -1501,7 +1514,7 @@
         "com.apple.automation.stringlookupinfoenabled"
         "com.apple.webinspectord.availability_check"))
 
-(with-filter (state-flag "WebContentProcessLaunched")
+(with-filter (webcontent-process-launched)
     (deny mach-task-special-port-get (with telemetry))
     (deny mach-task-special-port-set (with telemetry)))
 

@@ -144,6 +144,7 @@ struct nameidata {
 #define NAMEI_COMPOUND_OP_MASK (NAMEI_COMPOUNDOPEN | NAMEI_COMPOUNDREMOVE | NAMEI_COMPOUNDMKDIR | NAMEI_COMPOUNDRMDIR | NAMEI_COMPOUNDRENAME)
 
 #define NAMEI_NOFOLLOW_ANY      0x1000  /* no symlinks allowed in the path */
+#define NAMEI_ROOTDIR           0x2000  /* Limit lookup to ni_rootdir (similar to chroot) */
 
 #ifdef KERNEL
 /*

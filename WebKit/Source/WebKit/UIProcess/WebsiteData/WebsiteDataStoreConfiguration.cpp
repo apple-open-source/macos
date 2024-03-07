@@ -189,8 +189,8 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     copy->m_modelElementCacheDirectory = this->m_modelElementCacheDirectory;
 #endif
-#if !HAVE(NSURLSESSION_WEBSOCKET)
-    copy->m_shouldAcceptInsecureCertificatesForWebSockets = this->m_shouldAcceptInsecureCertificatesForWebSockets;
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+    copy->m_isDeclarativeWebPushEnabled = this->m_isDeclarativeWebPushEnabled;
 #endif
 
     return copy;

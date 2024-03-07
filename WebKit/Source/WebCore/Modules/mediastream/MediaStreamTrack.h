@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2011, 2015 Ericsson AB. All rights reserved.
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,13 +30,16 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "ActiveDOMObject.h"
-#include "DoubleRange.h"
+#include "Blob.h"
 #include "EventTarget.h"
-#include "LongRange.h"
+#include "IDLTypes.h"
+#include "JSDOMPromiseDeferred.h"
 #include "MediaProducer.h"
 #include "MediaStreamTrackPrivate.h"
 #include "MediaTrackCapabilities.h"
 #include "MediaTrackConstraints.h"
+#include "PhotoCapabilities.h"
+#include "PhotoSettings.h"
 #include "PlatformMediaSession.h"
 #include <wtf/LoggerHelper.h>
 
@@ -46,8 +49,6 @@ class AudioSourceProvider;
 class Document;
 
 struct MediaTrackConstraints;
-
-template<typename IDLType> class DOMPromiseDeferred;
 
 class MediaStreamTrack
     : public RefCounted<MediaStreamTrack>
@@ -117,15 +118,28 @@ public:
         String displaySurface;
         String deviceId;
         String groupId;
+
+        String whiteBalanceMode;
         std::optional<double> zoom;
+        std::optional<bool> torch;
     };
     TrackSettings getSettings() const;
 
     using TrackCapabilities = MediaTrackCapabilities;
     TrackCapabilities getCapabilities() const;
 
+    using TakePhotoPromise = NativePromise<std::pair<Vector<uint8_t>, String>, Exception>;
+    Ref<TakePhotoPromise> takePhoto(PhotoSettings&&);
+
+    using PhotoCapabilitiesPromise = NativePromise<PhotoCapabilities, Exception>;
+    Ref<PhotoCapabilitiesPromise> getPhotoCapabilities();
+
+    using PhotoSettingsPromise = NativePromise<PhotoSettings, Exception>;
+    Ref<PhotoSettingsPromise> getPhotoSettings();
+
     const MediaTrackConstraints& getConstraints() const { return m_constraints; }
     void setConstraints(MediaTrackConstraints&& constraints) { m_constraints = WTFMove(constraints); }
+
     void applyConstraints(const std::optional<MediaTrackConstraints>&, DOMPromiseDeferred<void>&&);
 
     RealtimeMediaSource& source() const { return m_private->source(); }

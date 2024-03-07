@@ -483,7 +483,7 @@ DISPATCH_EXPORT DISPATCH_NOTHROW void dispatch_atfork_child(void);
 #define TRASHIT(x) do {(x) = (void *)-1;} while (0)
 #else // DISPATCH_DEBUG
 #ifndef TRASHIT
-#define TRASHIT(x)
+#define TRASHIT(x) do {(x) = (void *)0;} while (0)
 #endif
 #endif // DISPATCH_DEBUG
 #define _LIST_TRASH_ENTRY(elm, field) do { \
@@ -750,6 +750,14 @@ _dispatch_fork_becomes_unsafe(void)
 #define DISPATCH_USE_COOPERATIVE_WORKQUEUE 0
 #endif
 #endif
+
+#ifndef DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
+#if DISPATCH_MIN_REQUIRED_OSX_AT_LEAST(140300)
+#define DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION 1
+#else
+#define DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION 0
+#endif
+#endif // !defined(DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION)
 
 #ifndef DISPATCH_USE_PTHREAD_ROOT_QUEUES
 #if defined(__BLOCKS__) && defined(__APPLE__)

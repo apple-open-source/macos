@@ -65,6 +65,13 @@ struct application {
 	const char		*app_path;
 
 	/*
+	 * Additional arguments that the wrapper should insert when this
+	 * application is selected.
+	 */
+	const char		 **app_add_argv;
+	int			 app_add_nargv;
+
+	/*
 	 * If optstr is set, we'll use getopt(3) or getopt_long(3) to determine
 	 * if we can use this application as the backend.
 	 */

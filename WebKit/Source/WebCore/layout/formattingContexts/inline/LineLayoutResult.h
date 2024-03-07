@@ -25,16 +25,16 @@
 
 #pragma once
 
-#include "FloatingState.h"
 #include "InlineLine.h"
 #include "InlineLineTypes.h"
 #include "LayoutUnits.h"
+#include "PlacedFloats.h"
 
 namespace WebCore {
 namespace Layout {
 
 struct LineLayoutResult {
-    using PlacedFloatList = FloatingState::FloatList;
+    using PlacedFloatList = PlacedFloats::List;
     using SuspendedFloatList = Vector<const Box*>;
 
     InlineItemRange inlineItemRange;
@@ -85,7 +85,15 @@ struct LineLayoutResult {
         bool isLastLineWithInlineContent { true };
     };
     IsFirstLast isFirstLast { };
+
+    struct Ruby {
+        HashMap<const Box*, InlineLayoutUnit> baseAlignmentOffsetList { };
+        InlineLayoutUnit annotationAlignmentOffset { 0.f };
+    };
+    Ruby ruby { };
+
     // Misc
+    bool endsWithHyphen { false };
     size_t nonSpanningInlineLevelBoxCount { 0 };
     InlineLayoutUnit trimmedTrailingWhitespaceWidth { 0.f }; // only used for line-break: after-white-space currently
     std::optional<InlineLayoutUnit> hintForNextLineTopToAvoidIntrusiveFloat { }; // This is only used for cases when intrusive floats prevent any content placement at current vertical position.

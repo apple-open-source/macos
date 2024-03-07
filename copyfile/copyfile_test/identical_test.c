@@ -13,9 +13,9 @@
 #include <sys/stat.h>
 #include <sys/xattr.h>
 
-#include "../copyfile.h"
-#include "identical_test.h"
 #include "test_utils.h"
+
+REGISTER_TEST(src_dst_identical, false, 30);
 
 #define REGULAR_FILE_NAME	"regular_file"
 #define REGULAR_DIR_NAME 	"regular_dir"
@@ -98,20 +98,12 @@ bool do_src_dst_identical_test(const char *apfs_test_directory, __unused size_t 
 	int test_folder_id;
 	bool success = true;
 
-	printf("START [identical]\n");
-
 	// Get ready for the test.
 	test_folder_id = rand() % DEFAULT_NAME_MOD;
 	create_test_file_name(apfs_test_directory, "identical", test_folder_id, test_dir);
 	assert_no_err(mkdir(test_dir, DEFAULT_MKDIR_PERM));
 
 	success = verify_src_dst_identical(test_dir, block_size);
-
-	if (success) {
-		printf("PASS  [identical]\n");
-	} else {
-		printf("FAIL  [identical]\n");
-	}
 
 	(void)removefile(test_dir, NULL, REMOVEFILE_RECURSIVE);
 

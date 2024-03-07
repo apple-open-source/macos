@@ -833,6 +833,14 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
         SSL_CTX_set_keylog_callback(ctx, modssl_callback_keylog);
     }
 #endif
+
+#ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
+    /* For server-side SSL_CTX, enable ignoring unexpected EOF */
+    /* (OpenSSL 1.1.1 behavioural compatibility).. */
+    if (!mctx->pkp) {
+        SSL_CTX_set_options(ctx, SSL_OP_IGNORE_UNEXPECTED_EOF);
+    }
+#endif
     
     return APR_SUCCESS;
 }
@@ -1680,12 +1688,12 @@ static apr_status_t ssl_init_proxy_certs(server_rec *s,
     STACK_OF(X509) *chain;
     X509_STORE_CTX *sctx;
     X509_STORE *store = SSL_CTX_get_cert_store(mctx->ssl_ctx);
-#warning "No SSL_CTX_set_post_handshake_auth"
+
 #if OPENSSL_VERSION_NUMBER >= 0x1010100fL
     /* For OpenSSL >=1.1.1, turn on client cert support which is
      * otherwise turned off by default (by design).
      * https://github.com/openssl/openssl/issues/6933 */
-//    SSL_CTX_set_post_handshake_auth(mctx->ssl_ctx, 1);
+    SSL_CTX_set_post_handshake_auth(mctx->ssl_ctx, 1);
 #endif
     
     SSL_CTX_set_client_cert_cb(mctx->ssl_ctx,

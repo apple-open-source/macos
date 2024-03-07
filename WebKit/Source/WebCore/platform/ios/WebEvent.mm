@@ -30,20 +30,37 @@
 
 #import "KeyEventCocoa.h"
 #import <wtf/Assertions.h>
+#import <wtf/RetainPtr.h>
 
 #if PLATFORM(IOS_FAMILY)
 
 #import "KeyEventCodesIOS.h"
 #import "WAKAppKitStubs.h"
+#import "WebEventPrivate.h"
+#import "WindowsKeyboardCodes.h"
 #import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/cocoa/IOKitSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <pal/spi/ios/UIKitSPI.h>
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/ServiceExtensionsAdditions.h>
+#endif
+
+#if HAVE(UI_ASYNC_TEXT_INTERACTION) && SERVICE_EXTENSIONS_KEY_ENTRY_IS_AVAILABLE
+@interface WebSEKeyEntry (Staging_121227027)
+@property (nonatomic, readonly) WebSEKeyPressState state;
+@end
+#endif
+
 using WebCore::windowsKeyCodeForKeyCode;
 using WebCore::windowsKeyCodeForCharCode;
 
-@implementation WebEvent
+@implementation WebEvent {
+#if HAVE(UI_ASYNC_TEXT_INTERACTION)
+    RetainPtr<WebSEKeyEntry> _originalKeyEntry;
+#endif
+}
 
 @synthesize type = _type;
 @synthesize timestamp = _timestamp;
@@ -486,5 +503,105 @@ static NSString *normalizedStringWithAppKitCompatibilityMapping(NSString *charac
 }
 
 @end
+
+#if HAVE(UI_ASYNC_TEXT_INTERACTION)
+
+@implementation WebEvent (WebSEKeyEntrySupport)
+
+static inline WebEventType webEventType(WebSEKeyPressState type)
+{
+    switch (type) {
+    case WebSEKeyPressStateKeyDown:
+        return WebEventKeyDown;
+    case WebSEKeyPressStateKeyUp:
+        return WebEventKeyUp;
+    }
+    ASSERT_NOT_REACHED();
+    return WebEventKeyDown;
+}
+
+static inline WebEventFlags webEventModifierFlags(UIKeyModifierFlags flags)
+{
+    WebEventFlags modifiers = 0;
+    if (flags & UIKeyModifierCommand)
+        modifiers |= WebEventFlagMaskCommandKey;
+    if (flags & UIKeyModifierAlternate)
+        modifiers |= WebEventFlagMaskOptionKey;
+    if (flags & UIKeyModifierControl)
+        modifiers |= WebEventFlagMaskControlKey;
+    if (flags & UIKeyModifierShift)
+        modifiers |= WebEventFlagMaskShiftKey;
+    if (flags & UIKeyModifierAlphaShift)
+        modifiers |= WebEventFlagMaskLeftCapsLockKey;
+    return modifiers;
+}
+
+static inline bool isChangingKeyModifiers(WebSEKeyEntry *event)
+{
+#if SERVICE_EXTENSIONS_KEY_ENTRY_IS_AVAILABLE
+    auto keyCode = event.key.keyCode;
+#else
+    auto keyCode = event.keyCode;
+#endif
+    switch (keyCode) {
+    case VK_LWIN:
+    case VK_APPS:
+    case VK_CAPITAL:
+    case VK_LSHIFT:
+    case VK_RSHIFT:
+    case VK_LMENU:
+    case VK_RMENU:
+    case VK_LCONTROL:
+    case VK_RCONTROL:
+        return true;
+    default:
+        return false;
+    }
+}
+
+- (instancetype)initWithKeyEntry:(WebSEKeyEntry *)event
+{
+    if (!(self = [super init]))
+        return nil;
+
+    _type = webEventType([&]() -> WebSEKeyPressState {
+#if SERVICE_EXTENSIONS_KEY_ENTRY_IS_AVAILABLE
+        static bool supportsStateProperty = [event.class instancesRespondToSelector:@selector(state)];
+        if (supportsStateProperty)
+            return event.state;
+#endif
+        return event.type;
+    }());
+    _timestamp = static_cast<CFTimeInterval>(event.timestamp);
+    _keyboardFlags = 0;
+    if (isChangingKeyModifiers(event))
+        _keyboardFlags |= WebEventKeyboardInputModifierFlagsChanged;
+    if (event.keyRepeating)
+        _keyboardFlags |= WebEventKeyboardInputRepeat;
+
+#if SERVICE_EXTENSIONS_KEY_ENTRY_IS_AVAILABLE
+    auto keyInfo = event.key;
+#else
+    auto keyInfo = event;
+#endif
+    _modifierFlags = webEventModifierFlags(keyInfo.modifierFlags);
+    _keyCode = static_cast<uint16_t>(keyInfo.keyCode);
+    _characters = [keyInfo.characters retain];
+    _charactersIgnoringModifiers = [keyInfo.charactersIgnoringModifiers retain];
+    _tabKey = NO; // FIXME: Populate this field appropriately.
+    _keyRepeating = event.keyRepeating;
+    _originalKeyEntry = event;
+
+    return self;
+}
+
+- (WebSEKeyEntry *)originalKeyEntry
+{
+    return _originalKeyEntry.get();
+}
+
+@end
+
+#endif // HAVE(UI_ASYNC_TEXT_INTERACTION)
 
 #endif // PLATFORM(IOS_FAMILY)

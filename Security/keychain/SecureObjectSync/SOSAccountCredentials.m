@@ -197,8 +197,9 @@ void SOSAccountRestartPrivateCredentialTimer(SOSAccount*  account)
 {
     if (account.user_private_timer) {
         // (Re)set the timer's fire time to now + 10 minutes with a 5 second fuzz factor.
-        dispatch_time_t purgeTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * 60 * NSEC_PER_SEC));
-        secnotice("keygen", "Setting private credential purge time to %llu minutes", purgeTime/(60*NSEC_PER_SEC));
+        int64_t purgeMinutes = 10;
+        dispatch_time_t purgeTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(purgeMinutes * 60 * NSEC_PER_SEC));
+        secnotice("keygen", "Setting private credential purge time to %lld minutes", purgeMinutes);
         dispatch_source_set_timer(account.user_private_timer, purgeTime, DISPATCH_TIME_FOREVER, (int64_t)(5 * NSEC_PER_SEC));
     }
 }

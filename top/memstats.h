@@ -44,4 +44,6 @@ struct statistic *top_purg_create(WINDOW *parent, const char *name);
 struct statistic *top_compressed_create(WINDOW *parent, const char *name);
 #endif /* TOP_ANONYMOUS_MEMORY */
 
+struct statistic *top_jetsam_priority_create(WINDOW *parent, const char *name);
+
 #endif /*MEMSTATS_H*/

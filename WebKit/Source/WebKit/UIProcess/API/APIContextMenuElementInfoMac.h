@@ -30,6 +30,11 @@
 #include "APIObject.h"
 #include "ContextMenuContextData.h"
 #include "WebHitTestResultData.h"
+#include <wtf/WeakPtr.h>
+
+namespace WebKit {
+class WebPageProxy;
+}
 
 namespace API {
 
@@ -41,16 +46,19 @@ public:
     }
 
     const WebKit::WebHitTestResultData& hitTestResultData() const { return m_hitTestResultData; }
+    WebKit::WebPageProxy* page() { return m_page.get(); }
     const WTF::String& qrCodePayloadString() const { return m_qrCodePayloadString; }
     bool hasEntireImage() const { return m_hasEntireImage; }
 
 private:
-    ContextMenuElementInfoMac(const WebKit::ContextMenuContextData& data)
+    ContextMenuElementInfoMac(const WebKit::ContextMenuContextData& data, WebKit::WebPageProxy& page)
         : m_hitTestResultData(data.webHitTestResultData().value())
+        , m_page(page)
         , m_qrCodePayloadString(data.qrCodePayloadString())
         , m_hasEntireImage(data.hasEntireImage()) { }
 
     WebKit::WebHitTestResultData m_hitTestResultData;
+    WeakPtr<WebKit::WebPageProxy> m_page;
     WTF::String m_qrCodePayloadString;
     bool m_hasEntireImage { false };
 };

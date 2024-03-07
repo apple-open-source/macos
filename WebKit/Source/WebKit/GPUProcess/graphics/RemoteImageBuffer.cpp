@@ -24,13 +24,13 @@
  */
 
 #include "config.h"
-
 #include "RemoteImageBuffer.h"
 
 #if ENABLE(GPU_PROCESS)
 
 #include "IPCSemaphore.h"
 #include "RemoteImageBufferMessages.h"
+#include "RemoteRenderingBackend.h"
 #include "StreamConnectionWorkQueue.h"
 #include <WebCore/GraphicsContext.h>
 
@@ -61,7 +61,7 @@ RemoteImageBuffer::~RemoteImageBuffer()
     // Volatile image buffers do not have contexts.
     if (m_imageBuffer->volatilityState() == WebCore::VolatilityState::Volatile)
         return;
-    if (!m_imageBuffer->backend())
+    if (!m_imageBuffer->hasBackend())
         return;
     // Unwind the context's state stack before destruction, since calls to restore may not have
     // been flushed yet, or the web process may have terminated.
@@ -86,7 +86,7 @@ void RemoteImageBuffer::getPixelBuffer(WebCore::PixelBufferFormat destinationFor
     assertIsCurrent(workQueue());
     auto memory = m_backend->sharedMemoryForGetPixelBuffer();
     MESSAGE_CHECK(memory, "No shared memory for getPixelBufferForImageBuffer"_s);
-    MESSAGE_CHECK(PixelBuffer::supportedPixelFormat(destinationFormat.pixelFormat), "Pixel format not supported"_s);
+    MESSAGE_CHECK(WebCore::PixelBuffer::supportedPixelFormat(destinationFormat.pixelFormat), "Pixel format not supported"_s);
     auto pixelBuffer = m_imageBuffer->getPixelBuffer(destinationFormat, srcRect);
     if (pixelBuffer) {
         MESSAGE_CHECK(pixelBuffer->sizeInBytes() <= memory->size(), "Shmem for return of getPixelBuffer is too small"_s);
@@ -112,45 +112,47 @@ void RemoteImageBuffer::putPixelBuffer(Ref<WebCore::PixelBuffer> pixelBuffer, We
     m_imageBuffer->putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat);
 }
 
-void RemoteImageBuffer::getShareableBitmap(WebCore::PreserveResolution preserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
+void RemoteImageBuffer::getShareableBitmap(WebCore::PreserveResolution preserveResolution, CompletionHandler<void(std::optional<ShareableBitmap::Handle>&&)>&& completionHandler)
 {
     assertIsCurrent(workQueue());
-    ShareableBitmap::Handle handle;
-    [&]() {
+    std::optional<ShareableBitmap::Handle> handle = [&]() -> std::optional<ShareableBitmap::Handle> {
         auto backendSize = m_imageBuffer->backendSize();
         auto logicalSize = m_imageBuffer->logicalSize();
-        auto resultSize = preserveResolution == PreserveResolution::Yes ? backendSize : m_imageBuffer->truncatedLogicalSize();
+        auto resultSize = preserveResolution == WebCore::PreserveResolution::Yes ? backendSize : m_imageBuffer->truncatedLogicalSize();
         auto bitmap = ShareableBitmap::create({ resultSize, m_imageBuffer->colorSpace() });
         if (!bitmap)
-            return;
+            return std::nullopt;
+        auto handle = bitmap->createHandle();
+        if (m_backend->resourceOwner())
+            handle->setOwnershipOfMemory(m_backend->resourceOwner(), MemoryLedger::Graphics);
         auto context = bitmap->createGraphicsContext();
         if (!context)
-            return;
-        context->drawImageBuffer(m_imageBuffer.get(), WebCore::FloatRect { { }, resultSize }, FloatRect { { }, logicalSize }, { CompositeOperator::Copy });
-        if (auto bitmapHandle = bitmap->createHandle())
-            handle = WTFMove(*bitmapHandle);
+            return std::nullopt;
+        context->drawImageBuffer(m_imageBuffer.get(), WebCore::FloatRect { { }, resultSize }, WebCore::FloatRect { { }, logicalSize }, { WebCore::CompositeOperator::Copy });
+        return handle;
     }();
     completionHandler(WTFMove(handle));
 }
 
-void RemoteImageBuffer::getFilteredImage(Ref<WebCore::Filter> filter, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
+void RemoteImageBuffer::filteredNativeImage(Ref<WebCore::Filter> filter, CompletionHandler<void(std::optional<ShareableBitmap::Handle>&&)>&& completionHandler)
 {
     assertIsCurrent(workQueue());
-    ShareableBitmap::Handle handle;
-    [&]() {
-        auto image = m_imageBuffer->filteredImage(filter);
+    std::optional<ShareableBitmap::Handle> handle = [&]() -> std::optional<ShareableBitmap::Handle> {
+        auto image = m_imageBuffer->filteredNativeImage(filter);
         if (!image)
-            return;
+            return std::nullopt;
         auto imageSize = image->size();
-        auto bitmap = ShareableBitmap::create({ IntSize(imageSize), m_imageBuffer->colorSpace() });
+        auto bitmap = ShareableBitmap::create({ imageSize, m_imageBuffer->colorSpace() });
         if (!bitmap)
-            return;
+            return std::nullopt;
+        auto handle = bitmap->createHandle();
+        if (m_backend->resourceOwner())
+            handle->setOwnershipOfMemory(m_backend->resourceOwner(), MemoryLedger::Graphics);
         auto context = bitmap->createGraphicsContext();
         if (!context)
-            return;
-        context->drawImage(*image, FloatPoint());
-        if (auto bitmapHandle = bitmap->createHandle())
-            handle = WTFMove(*bitmapHandle);
+            return std::nullopt;
+        context->drawNativeImage(*image, WebCore::FloatRect { { }, imageSize }, WebCore::FloatRect { { }, imageSize });
+        return handle;
     }();
     completionHandler(WTFMove(handle));
 }
@@ -167,11 +169,10 @@ void RemoteImageBuffer::transformToColorSpace(const WebCore::DestinationColorSpa
     m_imageBuffer->transformToColorSpace(colorSpace);
 }
 
-void RemoteImageBuffer::flushContext(IPC::Semaphore&& semaphore)
+void RemoteImageBuffer::flushContext()
 {
     assertIsCurrent(workQueue());
     m_imageBuffer->flushDrawingContext();
-    semaphore.signal();
 }
 
 void RemoteImageBuffer::flushContextSync(CompletionHandler<void()>&& completionHandler)
@@ -180,6 +181,15 @@ void RemoteImageBuffer::flushContextSync(CompletionHandler<void()>&& completionH
     m_imageBuffer->flushDrawingContext();
     completionHandler();
 }
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+void RemoteImageBuffer::dynamicContentScalingDisplayList(CompletionHandler<void(std::optional<WebCore::DynamicContentScalingDisplayList>&&)>&& completionHandler)
+{
+    assertIsCurrent(workQueue());
+    auto displayList = m_imageBuffer->dynamicContentScalingDisplayList();
+    completionHandler({ WTFMove(displayList) });
+}
+#endif
 
 IPC::StreamConnectionWorkQueue& RemoteImageBuffer::workQueue() const
 {

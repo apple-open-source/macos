@@ -35,8 +35,10 @@
 #include "UpdateInfo.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
+#include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include <WebCore/Region.h>
+#include <optional>
 
 #if PLATFORM(GTK)
 #include <gtk/gtk.h>
@@ -44,6 +46,10 @@
 
 #if USE(GLIB_EVENT_LOOP)
 #include <wtf/glib/RunLoopSourcePriority.h>
+#endif
+
+#if !PLATFORM(WPE)
+#include "BackingStore.h"
 #endif
 
 namespace WebKit {
@@ -68,7 +74,7 @@ DrawingAreaProxyCoordinatedGraphics::~DrawingAreaProxyCoordinatedGraphics()
 }
 
 #if !PLATFORM(WPE)
-void DrawingAreaProxyCoordinatedGraphics::paint(BackingStore::PlatformGraphicsContext context, const IntRect& rect, Region& unpaintedRegion)
+void DrawingAreaProxyCoordinatedGraphics::paint(cairo_t* cr, const IntRect& rect, Region& unpaintedRegion)
 {
     unpaintedRegion = rect;
 
@@ -78,7 +84,7 @@ void DrawingAreaProxyCoordinatedGraphics::paint(BackingStore::PlatformGraphicsCo
     if (!m_backingStore && !forceUpdateIfNeeded())
         return;
 
-    m_backingStore->paint(context, rect);
+    m_backingStore->paint(cr, rect);
     unpaintedRegion.subtract(IntRect(IntPoint(), m_backingStore->size()));
 
     discardBackingStoreSoon();
@@ -97,7 +103,7 @@ bool DrawingAreaProxyCoordinatedGraphics::forceUpdateIfNeeded()
     if (m_isWaitingForDidUpdateGeometry)
         return false;
 
-    if (!m_webPageProxy.isViewVisible())
+    if (!protectedWebPageProxy()->isViewVisible())
         return false;
 
     SetForScope inForceUpdate(m_inForceUpdate, true);
@@ -114,7 +120,7 @@ void DrawingAreaProxyCoordinatedGraphics::incorporateUpdate(UpdateInfo&& updateI
         return;
 
     if (!m_backingStore || m_backingStore->size() != updateInfo.viewSize || m_backingStore->deviceScaleFactor() != updateInfo.deviceScaleFactor)
-        m_backingStore = makeUnique<BackingStore>(updateInfo.viewSize, updateInfo.deviceScaleFactor, m_webPageProxy);
+        m_backingStore = makeUnique<BackingStore>(updateInfo.viewSize, updateInfo.deviceScaleFactor);
 
     if (m_inForceUpdate) {
         m_backingStore->incorporateUpdate(WTFMove(updateInfo));
@@ -126,16 +132,25 @@ void DrawingAreaProxyCoordinatedGraphics::incorporateUpdate(UpdateInfo&& updateI
         for (const auto& rect : updateInfo.updateRects)
             damageRegion.unite(rect);
     } else
-        damageRegion = IntRect(IntPoint(), m_webPageProxy.viewSize());
+        damageRegion = IntRect(IntPoint(), m_webPageProxy->viewSize());
 
     m_backingStore->incorporateUpdate(WTFMove(updateInfo));
-    m_webPageProxy.setViewNeedsDisplay(damageRegion);
+    protectedWebPageProxy()->setViewNeedsDisplay(damageRegion);
+}
+#endif
+
+#if HAVE(DISPLAY_LINK)
+std::optional<WebCore::FramesPerSecond> DrawingAreaProxyCoordinatedGraphics::displayNominalFramesPerSecond()
+{
+    if (auto displayId = m_webPageProxy->displayID())
+        return m_webPageProxy->process().nominalFramesPerSecondForDisplay(displayId.value());
+    return std::nullopt;
 }
 #endif
 
 void DrawingAreaProxyCoordinatedGraphics::sizeDidChange()
 {
-    if (!m_webPageProxy.hasRunningProcess())
+    if (!m_webPageProxy->hasRunningProcess())
         return;
 
     if (m_isWaitingForDidUpdateGeometry)
@@ -210,14 +225,9 @@ void DrawingAreaProxyCoordinatedGraphics::updateAcceleratedCompositingMode(uint6
     updateAcceleratedCompositingMode(layerTreeContext);
 }
 
-void DrawingAreaProxyCoordinatedGraphics::targetRefreshRateDidChange(unsigned rate)
-{
-    m_webPageProxy.send(Messages::DrawingArea::TargetRefreshRateDidChange(rate), m_identifier);
-}
-
 bool DrawingAreaProxyCoordinatedGraphics::alwaysUseCompositing() const
 {
-    return m_webPageProxy.preferences().acceleratedCompositingEnabled() && m_webPageProxy.preferences().forceCompositingMode();
+    return m_webPageProxy->preferences().acceleratedCompositingEnabled() && m_webPageProxy->preferences().forceCompositingMode();
 }
 
 void DrawingAreaProxyCoordinatedGraphics::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
@@ -227,7 +237,7 @@ void DrawingAreaProxyCoordinatedGraphics::enterAcceleratedCompositingMode(const 
     m_backingStore = nullptr;
 #endif
     m_layerTreeContext = layerTreeContext;
-    m_webPageProxy.enterAcceleratedCompositingMode(layerTreeContext);
+    protectedWebPageProxy()->enterAcceleratedCompositingMode(layerTreeContext);
 }
 
 void DrawingAreaProxyCoordinatedGraphics::exitAcceleratedCompositingMode()
@@ -235,7 +245,7 @@ void DrawingAreaProxyCoordinatedGraphics::exitAcceleratedCompositingMode()
     ASSERT(isInAcceleratedCompositingMode());
 
     m_layerTreeContext = { };
-    m_webPageProxy.exitAcceleratedCompositingMode();
+    protectedWebPageProxy()->exitAcceleratedCompositingMode();
 }
 
 void DrawingAreaProxyCoordinatedGraphics::updateAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
@@ -243,7 +253,7 @@ void DrawingAreaProxyCoordinatedGraphics::updateAcceleratedCompositingMode(const
     ASSERT(isInAcceleratedCompositingMode());
 
     m_layerTreeContext = layerTreeContext;
-    m_webPageProxy.updateAcceleratedCompositingMode(layerTreeContext);
+    protectedWebPageProxy()->updateAcceleratedCompositingMode(layerTreeContext);
 }
 
 void DrawingAreaProxyCoordinatedGraphics::sendUpdateGeometry()
@@ -296,17 +306,9 @@ void DrawingAreaProxyCoordinatedGraphics::discardBackingStore()
 
 DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::DrawingMonitor(WebPageProxy& webPage)
     : m_timer(RunLoop::main(), this, &DrawingMonitor::stop)
-#if PLATFORM(GTK)
-    , m_webPage(webPage)
-#endif
 {
 #if USE(GLIB_EVENT_LOOP)
-#if PLATFORM(GTK)
-    // Give redraws more priority.
-    m_timer.setPriority(GDK_PRIORITY_REDRAW - 10);
-#else
     m_timer.setPriority(RunLoopSourcePriority::RunLoopDispatcher);
-#endif
 #endif
 }
 
@@ -317,60 +319,29 @@ DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::~DrawingMonitor()
     stop();
 }
 
-int DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::webViewDrawCallback(DrawingAreaProxyCoordinatedGraphics::DrawingMonitor* monitor)
-{
-    monitor->didDraw();
-    return false;
-}
-
 void DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::start(CompletionHandler<void()>&& callback)
 {
-    m_startTime = MonotonicTime::now();
     m_callback = WTFMove(callback);
-#if PLATFORM(GTK)
-    gtk_widget_queue_draw(m_webPage.viewWidget());
-#if USE(GTK4)
-    m_timer.startOneShot(16_ms);
-#else
-    g_signal_connect_swapped(m_webPage.viewWidget(), "draw", reinterpret_cast<GCallback>(webViewDrawCallback), this);
-    m_timer.startOneShot(100_ms);
-#endif
-#else
     m_timer.startOneShot(0_s);
-#endif
 }
 
 void DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::stop()
 {
     m_timer.stop();
-#if PLATFORM(GTK) && !USE(GTK4)
-    g_signal_handlers_disconnect_by_func(m_webPage.viewWidget(), reinterpret_cast<gpointer>(webViewDrawCallback), this);
-#endif
-    m_startTime = MonotonicTime();
     if (m_callback)
         m_callback();
 }
 
-void DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::didDraw()
-{
-    // We wait up to 100 milliseconds for draw events. If there are several draw events queued quickly,
-    // we want to wait until all of them have been processed, so after receiving a draw, we wait
-    // for the next frame or stop.
-    if (MonotonicTime::now() - m_startTime > 100_ms)
-        stop();
-    else
-        m_timer.startOneShot(16_ms);
-}
-
 void DrawingAreaProxyCoordinatedGraphics::dispatchAfterEnsuringDrawing(CompletionHandler<void()>&& callbackFunction)
 {
-    if (!m_webPageProxy.hasRunningProcess()) {
+    auto webPageProxy = protectedWebPageProxy();
+    if (!webPageProxy->hasRunningProcess()) {
         callbackFunction();
         return;
     }
 
     if (!m_drawingMonitor)
-        m_drawingMonitor = makeUnique<DrawingAreaProxyCoordinatedGraphics::DrawingMonitor>(m_webPageProxy);
+        m_drawingMonitor = makeUnique<DrawingAreaProxyCoordinatedGraphics::DrawingMonitor>(webPageProxy);
     m_drawingMonitor->start(WTFMove(callbackFunction));
 }
 

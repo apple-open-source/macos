@@ -811,7 +811,10 @@ static PlatformFont *_font(Element& element)
     auto* renderer = element.renderer();
     if (!renderer)
         return nil;
-    return (__bridge PlatformFont *)renderer->style().fontCascade().primaryFont().getCTFont();
+    Ref primaryFont = renderer->style().fontCascade().primaryFont();
+    if (primaryFont->attributes().origin == FontOrigin::Remote)
+        return [PlatformFontClass systemFontOfSize:defaultFontSize];
+    return (__bridge PlatformFont *)primaryFont->getCTFont();
 }
 
 NSDictionary *HTMLConverter::computedAttributesForElement(Element& element)
@@ -1164,7 +1167,7 @@ BOOL HTMLConverter::_addAttachmentForElement(Element& element, NSURL *url, BOOL 
     if (!fileWrapper && dataSource) {
         if (auto resource = dataSource->subresource(url)) {
             auto& mimeType = resource->mimeType();
-            if (!usePlaceholder || mimeType != "text/html"_s) {
+            if (!usePlaceholder || mimeType != textHTMLContentTypeAtom()) {
                 fileWrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:resource->data().makeContiguous()->createNSData().get()]);
                 [fileWrapper setPreferredFilename:suggestedFilenameWithMIMEType(url, mimeType)];
             } else

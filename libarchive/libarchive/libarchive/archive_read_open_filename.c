@@ -50,6 +50,9 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read_open_filename.c 201093 2009
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef HAVE_MAC_QUARANTINE
+#include <quarantine.h>
+#endif // HAVE_MAC_QUARANTINE
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #include <sys/disk.h>
 #elif defined(__NetBSD__) || defined(__OpenBSD__)
@@ -60,6 +63,7 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read_open_filename.c 201093 2009
 #endif
 
 #include "archive.h"
+#include "archive_mac.h"
 #include "archive_private.h"
 #include "archive_string.h"
 
@@ -372,6 +376,10 @@ file_open(struct archive *a, void *client_data)
 	/* Disk-like inputs can use lseek(). */
 	if (is_disk_like)
 		mine->use_lseek = 1;
+
+#ifdef HAVE_MAC_QUARANTINE
+	archive_read_get_quarantine_from_fd(a, fd);
+#endif // HAVE_MAC_QUARANTINE
 
 	return (ARCHIVE_OK);
 fail:

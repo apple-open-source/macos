@@ -67,7 +67,9 @@ public:
 	Key(Database &db);
 	
 	virtual const CssmData &canonicalDigest() = 0;
-	
+
+    virtual void publicKey(const Context &context, CssmData &pubKeyData) = 0;
+
 	Database &database() const { return referent<Database>(); }
 	
 	virtual CSSM_KEYATTR_FLAGS attributes() = 0;

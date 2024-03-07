@@ -24,7 +24,10 @@
 #ifndef __BITARRAY_H
 #define __BITARRAY_H
 
-typedef uint64_t *bitarray_t; // array of bits, assumed to be mostly 0
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
+typedef uint64_t * __unsafe_indexable bitarray_t; // array of bits, assumed to be mostly 0
 typedef uint32_t index_t; // we limit the number of bits to be a 32-bit quantity
 
 /* A bitarray uses a summarization to be able to quickly say what's the first bit that is set to 1;
@@ -56,7 +59,7 @@ MALLOC_NOEXPORT extern unsigned bitarray_zap_first_set_multiple(bitarray_t bits,
     // returns number zapped
 
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE void
-BITARRAY_SET(uint32_t *bits, msize_t index)
+BITARRAY_SET(uint32_t * __unsafe_indexable bits, msize_t index)
 {
 	// index >> 5 identifies the uint32_t to manipulate in the conceptually contiguous bits array
 	// (index >> 5) << 1 identifies the uint32_t allowing for the actual interleaving
@@ -64,13 +67,13 @@ BITARRAY_SET(uint32_t *bits, msize_t index)
 }
 
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE void
-BITARRAY_CLR(uint32_t *bits, msize_t index)
+BITARRAY_CLR(uint32_t * __unsafe_indexable bits, msize_t index)
 {
 	bits[(index >> 5) << 1] &= ~(1 << (index & 31));
 }
 
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE boolean_t
-BITARRAY_BIT(uint32_t *bits, msize_t index)
+BITARRAY_BIT(uint32_t * __unsafe_indexable bits, msize_t index)
 {
 	return ((bits[(index >> 5) << 1]) >> (index & 31)) & 1;
 }

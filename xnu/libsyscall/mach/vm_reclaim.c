@@ -80,11 +80,12 @@ update_accounting(mach_vm_reclaim_ringbuffer_v1_t ring_buffer, int64_t size)
 
 static inline
 mach_vm_reclaim_entry_v1_t
-construct_entry(mach_vm_address_t start_addr, uint32_t size)
+construct_entry(mach_vm_address_t start_addr, uint32_t size, mach_vm_reclaim_behavior_v1_t behavior)
 {
 	mach_vm_reclaim_entry_v1_t entry = {0ULL};
 	entry.address = start_addr;
 	entry.size = size;
+	entry.behavior = behavior;
 	return entry;
 }
 
@@ -122,10 +123,11 @@ mach_vm_reclaim_ringbuffer_init(mach_vm_reclaim_ringbuffer_v1_t ring_buffer)
 uint64_t
 mach_vm_reclaim_mark_free(
 	mach_vm_reclaim_ringbuffer_v1_t ring_buffer, mach_vm_address_t start_addr, uint32_t size,
-	bool *should_update_kernel_accounting)
+	mach_vm_reclaim_behavior_v1_t behavior, bool *should_update_kernel_accounting)
 {
 	uint64_t idx = 0, head = 0;
-	mach_vm_reclaim_entry_v1_t entry = construct_entry(start_addr, size);
+	kern_return_t kr;
+	mach_vm_reclaim_entry_v1_t entry = construct_entry(start_addr, size, behavior);
 	mach_vm_reclaim_indices_v1_t *indices = &ring_buffer->buffer->indices;
 	mach_vm_reclaim_entry_v1_t *buffer = ring_buffer->buffer->entries;
 	mach_vm_size_t buffer_len = ring_buffer->buffer_len;
@@ -139,10 +141,11 @@ mach_vm_reclaim_mark_free(
 		/*
 		 * Buffer is full. Ask the kernel to reap it.
 		 */
-		mach_vm_deferred_reclamation_buffer_synchronize(mach_task_self(), buffer_len - 1);
+		kr = mach_vm_deferred_reclamation_buffer_synchronize(mach_task_self(), buffer_len - 1);
+		_assert("mach_vm_reclaim_mark_free", kr == KERN_SUCCESS, kr);
 		head = os_atomic_load_wide(&indices->head, relaxed);
 		/* kernel had to march head forward at least kNumEntriesToReclaim. We hold the buffer lock so tail couldn't have changed */
-		_assert("mach_vm_reclaim_mark_free", os_atomic_load_wide(&indices->tail, relaxed) % size != head % buffer_len, head);
+		_assert("mach_vm_reclaim_mark_free", (idx + 1) % buffer_len != head % buffer_len, head);
 	}
 
 	/*
@@ -159,7 +162,8 @@ mach_vm_reclaim_mark_free(
 
 bool
 mach_vm_reclaim_mark_used(
-	mach_vm_reclaim_ringbuffer_v1_t ring_buffer, uint64_t id, mach_vm_address_t start_addr, uint32_t size)
+	mach_vm_reclaim_ringbuffer_v1_t ring_buffer, uint64_t id,
+	mach_vm_address_t start_addr, uint32_t size)
 {
 	mach_vm_reclaim_indices_v1_t *indices = &ring_buffer->buffer->indices;
 	mach_vm_reclaim_entry_v1_t *buffer = ring_buffer->buffer->entries;
@@ -214,7 +218,8 @@ mach_vm_reclaim_update_kernel_accounting(const mach_vm_reclaim_ringbuffer_v1_t r
 }
 
 bool
-mach_vm_reclaim_is_available(const mach_vm_reclaim_ringbuffer_v1_t ring_buffer, uint64_t id)
+mach_vm_reclaim_is_available(const mach_vm_reclaim_ringbuffer_v1_t ring_buffer,
+    uint64_t id)
 {
 	const mach_vm_reclaim_indices_v1_t *indices = &ring_buffer->buffer->indices;
 	if (id == VM_RECLAIM_INDEX_NULL) {
@@ -230,6 +235,25 @@ mach_vm_reclaim_is_available(const mach_vm_reclaim_ringbuffer_v1_t ring_buffer, 
 	uint64_t busy = os_atomic_load_wide(&indices->busy, relaxed);
 
 	return id >= busy;
+}
+
+bool
+mach_vm_reclaim_is_reclaimed(const mach_vm_reclaim_ringbuffer_v1_t ring_buffer,
+    uint64_t id)
+{
+	const mach_vm_reclaim_indices_v1_t *indices = &ring_buffer->buffer->indices;
+	if (id == VM_RECLAIM_INDEX_NULL) {
+		// entry was never put in reclaim ring buffer, consider it un-reclaimed
+		return false;
+	}
+
+	/*
+	 * If the kernel has marched its head pointer past this entry, consider it
+	 * reclaimed.
+	 */
+	uint64_t head = os_atomic_load_wide(&indices->head, relaxed);
+
+	return id < head;
 }
 
 kern_return_t

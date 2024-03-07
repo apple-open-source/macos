@@ -43,7 +43,6 @@ es_MX{
         ojw{"ojibwa del oeste"}
         pa{"punyabí"}
         pa_Arab{"punyabí (naskh)"}
-        pqm{"maliseet-passamaquoddy"}
         shu{"árabe chadiano"}
         slh{"lushootseed del sur"}
         ss{"siswati"}

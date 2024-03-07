@@ -1,12 +1,6 @@
 """
 Miscellaneous (Intel) platform-specific commands.
 """
-from __future__ import absolute_import, division, print_function
-
-from builtins import hex
-from builtins import range
-from builtins import memoryview
-
 from core import caching
 from xnu import *
 import xnudefines

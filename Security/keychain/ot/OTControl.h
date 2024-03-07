@@ -203,6 +203,7 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
                           reply:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply;
 
 - (void)fetchAllViableBottles:(OTControlArguments*)arguments
+                       source:(OTEscrowRecordFetchSource)source
                         reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*> * _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply;
 
 - (void)restoreFromBottle:(OTControlArguments*)arguments
@@ -357,10 +358,6 @@ reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError 
                                       source:(OTEscrowRecordFetchSource)source
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
-// Note the lack of arguments: these are global notifications, and don't come in for any particular context/account
-- (void)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
-                           reply:(void (^)(NSError* _Nullable error))reply;
-
 - (void)setMachineIDOverride:(OTControlArguments*)arguments
                    machineID:(NSString*)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply;
@@ -391,6 +388,10 @@ reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError 
 
 - (void)areRecoveryKeysDistrusted:(OTControlArguments*)arguments
                             reply:(void (^)(BOOL distrustedRecoveryKeysExist, NSError* _Nullable error))reply;
+
+- (void)reroll:(OTControlArguments*)arguments
+         reply:(void (^)(NSError *_Nullable error))reply;
+
 @end
 
 NS_ASSUME_NONNULL_END

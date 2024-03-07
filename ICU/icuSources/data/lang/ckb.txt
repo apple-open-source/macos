@@ -473,4 +473,7 @@ ckb{
         script{"نووسە:{0}"}
         territory{"ناوچە: {0}"}
     }
+    localeDisplayPattern{
+        separator{"{0}، {1}"}
+    }
 }

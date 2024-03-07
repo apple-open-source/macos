@@ -68,7 +68,7 @@ private:
     void adjustTransientZoom(double, WebCore::FloatPoint) override;
     void commitTransientZoom(double, WebCore::FloatPoint) override;
 
-    void sendCommitTransientZoom(double, WebCore::FloatPoint);
+    void sendCommitTransientZoom(double, WebCore::FloatPoint, WebCore::ScrollingNodeID);
 
     void applyTransientZoomToLayer();
     void removeTransientZoomFromLayer();

@@ -34,6 +34,7 @@
 #include "CSSSelector.h"
 #include "CSSSelectorList.h"
 #include "CommonAtomStrings.h"
+#include "DocumentInlines.h"
 #include "HTMLNames.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
@@ -129,7 +130,7 @@ static bool computeContainsUncommonAttributeSelector(const CSSSelector& rootSele
             }
         }
 
-        if (selector->relation() != CSSSelector::RelationType::Subselector)
+        if (selector->relation() != CSSSelector::Relation::Subselector)
             matchesRightmostElement = false;
 
         selector = selector->tagHistory();
@@ -141,10 +142,10 @@ static inline PropertyAllowlist determinePropertyAllowlist(const CSSSelector* se
 {
     for (const CSSSelector* component = selector; component; component = component->tagHistory()) {
 #if ENABLE(VIDEO)
-        if (component->match() == CSSSelector::Match::PseudoElement && (component->pseudoElementType() == CSSSelector::PseudoElementCue || component->value() == ShadowPseudoIds::cue()))
+        if (component->match() == CSSSelector::Match::PseudoElement && (component->pseudoElement() == CSSSelector::PseudoElement::Cue || component->value() == ShadowPseudoIds::cue()))
             return PropertyAllowlist::Cue;
 #endif
-        if (component->match() == CSSSelector::Match::PseudoElement && component->pseudoElementType() == CSSSelector::PseudoElementMarker)
+        if (component->match() == CSSSelector::Match::PseudoElement && component->pseudoElement() == CSSSelector::PseudoElement::Marker)
             return propertyAllowlistForPseudoId(PseudoId::Marker);
 
         if (const auto* selectorList = selector->selectorList()) {

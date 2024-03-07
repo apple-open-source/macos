@@ -14,6 +14,12 @@ class OctagonErrorUtilsTest: OctagonTestsBase {
         XCTAssertTrue(error.isRetryable(), "NSURLErrorTimedOut should be retryable")
     }
 
+    func testNotConnectedRetryable() throws {
+        let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+        print(error)
+        XCTAssertTrue(error.isRetryable(), "NSURLErrorNotConnectedToInternet should be retryable")
+    }
+
     func testCKErrorRetryable() throws {
         let urlError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
         let ckError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: urlError])
@@ -48,13 +54,13 @@ class OctagonErrorUtilsTest: OctagonTestsBase {
     }
 
     func testRetryIntervalCuttlefish() throws {
-        let cuttlefishError = CKPrettyError(domain: CuttlefishErrorDomain,
+        let cuttlefishError = NSError(domain: CuttlefishErrorDomain,
                                             code: 17,
                                             userInfo: [CuttlefishErrorRetryAfterKey: 101])
-        let internalError = CKPrettyError(domain: CKInternalErrorDomain,
-                                          code: CKInternalErrorCode.errorInternalPluginError.rawValue,
+        let internalError = NSError(domain: CKUnderlyingErrorDomain,
+                                          code: CKUnderlyingError.pluginError.rawValue,
                                           userInfo: [NSUnderlyingErrorKey: cuttlefishError, ])
-        let ckError = CKPrettyError(domain: CKErrorDomain,
+        let ckError = NSError(domain: CKErrorDomain,
                                     code: CKError.serverRejectedRequest.rawValue,
                                     userInfo: [NSUnderlyingErrorKey: internalError,
                                                CKErrorServerDescriptionKey: "Fake: FunctionError domain: CuttlefishError, 17",

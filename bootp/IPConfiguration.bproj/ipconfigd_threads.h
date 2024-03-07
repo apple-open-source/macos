@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -316,6 +316,9 @@ ServiceDetachIPv4(ServiceRef service_p);
 
 void
 ServiceUnpublishCLAT46(ServiceRef service_p);
+
+boolean_t
+ServiceCanDoIPv6OnlyPreferred(ServiceRef service_p);
 
 void
 service_publish_failure(ServiceRef service_p, ipconfig_status_t status);

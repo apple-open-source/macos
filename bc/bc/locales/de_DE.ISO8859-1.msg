@@ -1,7 +1,7 @@
 $ $
 $ SPDX-License-Identifier: BSD-2-Clause
 $ $
-$ Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+$ Copyright (c) 2018-2023 Gavin D. Howard and contributors.
 $ $
 $ Redistribution and use in source and binary forms, with or without
 $ modification, are permitted provided that the following conditions are met:
@@ -28,13 +28,8 @@ $ $
 
 $quote "
 
-$ Headers for printing errors/warnings.
-$set 1
-
-1 "Funktion:"
-
 $ Error types.
-$set 2
+$set 1
 
 1 "Rechenfehler:"
 2 "Analysefehler:"
@@ -43,7 +38,7 @@ $set 2
 5 "Warnung:"
 
 $ Math errors.
-$set 3
+$set 2
 
 1 "negative Zahl"
 2 "Nicht-Ganzzahl-Wert"
@@ -51,7 +46,7 @@ $set 3
 4 "Division durch 0"
 
 $ Parse errors.
-$set 4
+$set 3
 
 1 "Ende der Datei"
 2 "ungültiges Zeichen: '%c'"
@@ -60,7 +55,7 @@ $set 4
 5 "ungültiges Token"
 6 "ungültiger Ausdruck"
 7 "leerer Ausdruck"
-8 "Ungültige Druckanweisung"
+8 "Ungültige Druck- oder Stream-Anweisung"
 9 "Ungültige Funktionsdefinition"
 10 "Ungültige Zuweisung: Die linke Seite muss \"scale\", \"ibase\", \"obase\", \"seed\", \"last\", \"var\" oder \"array element\" sein"
 11 "keine automatische Variable gefunden"
@@ -77,12 +72,15 @@ $set 4
 22 "POSIX erlaubt keine Vergleichsoperatoren außerhalb von if-Anweisungen oder Schleifen"
 23 "POSIX benötigt 0 oder 1 Vergleichsoperatoren pro Bedingung"
 24 "POSIX erlaubt keinen leeren Ausdruck in einer for-Schleife"
-25 "POSIX erlaubt keine exponentielle Notation"
-26 "POSIX erlaubt keine Feld-Referenzen als Funktionsparameter"
-27 "POSIX erfordert, dass die linke Klammer auf der gleichen Linie wie der Funktionskopf steht"
+25 "POSIX verlangt einen Zeilenumbruch zwischen einem Semikolon und einer Funktionsdefinition"
+26 "POSIX erlaubt keine exponentielle Notation"
+27 "POSIX erlaubt keine Feld-Referenzen als Funktionsparameter"
+28 "POSIX erlaubt keine ungültigen Funktionen"
+29 "POSIX erfordert, dass die linke Klammer auf der gleichen Linie wie der Funktionskopf steht"
+30 "POSIX erlaubt keine Zuweisung von Strings an Variablen oder Arrays"
 
 $ Runtime errors.
-$set 5
+$set 4
 
 1 "ungültige \"ibase\": muss im Intervall [%lu, %lu] liegen"
 2 "ungültige \"obase\": muss im Intervall [%lu, %lu] liegen"
@@ -91,18 +89,20 @@ $set 5
 5 "rekursiver read()-Aufruf"
 6 "Variable oder Feld-Element hat den falschen Typ"
 7 "Stapel hat zu wenig Elemente"
-8 "falsche Anzahl der Parameter: benötigt %zu, hat %zu"
-9 "undefinierte Funktion: %s()"
-10 "kann keinen ungültigen Wert in einem Ausdruck verwenden"
+8 "Stapel für Register \"%s\" hat zu wenig Elemente"
+9 "falsche Anzahl der Parameter: benötigt %zu, hat %zu"
+10 "undefinierte Funktion: %s()"
+11 "kann keinen ungültigen Wert in einem Ausdruck verwenden"
 
 $ Fatal errors.
-$set 6
+$set 5
 
 1 "Speicherzuweisung fehlgeschlagen"
 2 "Ein-Ausgabe-Fehler"
 3 "konnte die Datei nicht öffnen: %s"
-4 "Datei ist nicht ASCII: %s"
+4 "Datei ist nicht Text: %s"
 5 "Pfad ist ein Verzeichnis: %s"
 6 "ungültige Befehlszeilenoption: \"%s\""
 7 "Option erfordert ein Argument: '%c' (\"%s\")"
 8 "Option benutzt keine Argumente: '%c' (\"%s\")"
+9 "ungültiges Argument der Befehlszeilenoption: \"%s\""

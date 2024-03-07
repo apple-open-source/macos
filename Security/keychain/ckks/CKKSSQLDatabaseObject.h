@@ -199,6 +199,10 @@ NSString* CKKSSQLWhereColumnNameAsString(CKKSSQLWhereColumnName columnName);
 + (instancetype)op:(CKKSSQLWhereComparator)op value:(NSString*)value;
 @end
 
+// Allows you to query using a value that could possibly be null
+@interface CKKSSQLWhereNullOrValue : CKKSSQLWhereValue
+@end
+
 @interface CKKSSQLWhereIn : NSObject
 @property NSArray<NSString*>* values;
 - (instancetype)initWithValues:(NSArray<NSString*>*)values;

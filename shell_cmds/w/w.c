@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  * Portions copyright (c) 2007 Apple Inc.  All rights reserved.
@@ -31,8 +33,7 @@
 #include <sys/cdefs.h>
 
 #ifndef __APPLE__
-__FBSDID("$FreeBSD: src/usr.bin/w/w.c,v 1.58 2005/06/04 23:40:09 gad Exp $");
-#endif
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char copyright[] =
@@ -42,6 +43,7 @@ static const char copyright[] =
 
 #ifndef lint
 static const char sccsid[] = "@(#)w.c	8.4 (Berkeley) 4/16/94";
+#endif
 #endif
 
 /*
@@ -57,8 +59,12 @@ static const char sccsid[] = "@(#)w.c	8.4 (Berkeley) 4/16/94";
 #include <sys/proc.h>
 #include <sys/user.h>
 #include <sys/ioctl.h>
+#ifndef __APPLE__
+#include <sys/sbuf.h>
+#endif
 #include <sys/socket.h>
 #include <sys/tty.h>
+#include <sys/types.h>
 
 #ifndef __APPLE__
 #include <machine/cpu.h>
@@ -68,13 +74,13 @@ static const char sccsid[] = "@(#)w.c	8.4 (Berkeley) 4/16/94";
 #include <arpa/nameser.h>
 
 #include <ctype.h>
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #if HAVE_KVM
 #include <kvm.h>
 #endif
 #include <langinfo.h>
+#include <libgen.h>
 #include <libutil.h>
 #include <limits.h>
 #include <locale.h>
@@ -87,113 +93,105 @@ static const char sccsid[] = "@(#)w.c	8.4 (Berkeley) 4/16/94";
 #include <string.h>
 #include <timeconv.h>
 #include <unistd.h>
-#if HAVE_UTMPX
+#ifdef __APPLE__
+#include <usbuf.h>
+#endif
 #include <utmpx.h>
-/* use utmp values so formatting is the same */
-#define UT_NAMESIZE	8
-#define UT_LINESIZE	8
-#else /* HAVE_UTMPX */
-#include <utmp.h>
-#endif /* HAVE_UTMPX */
 #include <vis.h>
+#include <libxo/xo.h>
 
+#ifdef __APPLE__
 #include <TargetConditionals.h>
+#endif
 
 #include "extern.h"
 
-struct timeval	boottime;
-#if !HAVE_UTMPX
-struct utmp	utmp;
+#ifdef __APPLE__
+#ifndef nitems
+#define	nitems(x)	(sizeof((x)) / sizeof((x)[0]))
 #endif
-struct winsize	ws;
+#ifndef CLOCK_UPTIME
+#define CLOCK_UPTIME CLOCK_UPTIME_RAW
+#endif
+#endif
+
+static struct utmpx *utmp;
+static struct winsize ws;
 #if HAVE_KVM
-kvm_t	       *kd;
+static kvm_t   *kd;
 #endif
-time_t		now;		/* the current time of day */
-int		ttywidth;	/* width of tty */
-int		argwidth;	/* width of tty */
-int		header = 1;	/* true if -h flag: don't print heading */
-#if !HAVE_UTMPX
-int		nflag;		/* true if -n flag: don't convert addrs */
-#endif
+static time_t	now;		/* the current time of day */
+static size_t	ttywidth;	/* width of tty */
+static size_t	fromwidth = 0;	/* max width of "from" field */
+static size_t	argwidth;	/* width of arguments */
+static int	header = 1;	/* true if -h flag: don't print heading */
+static int	nflag;		/* true if -n flag: don't convert addrs */
 #ifndef __APPLE__
-int		dflag;		/* true if -d flag: output debug info */
+static int	dflag;		/* true if -d flag: output debug info */
 #endif
-int		sortidle;	/* sort by idle time */
+static int	sortidle;	/* sort by idle time */
 int		use_ampm;	/* use AM/PM time */
-int             use_comma;      /* use comma as floats separator */
-char	      **sel_users;	/* login array of particular users selected */
+static int	use_comma;      /* use comma as floats separator */
+static char   **sel_users;	/* login array of particular users selected */
 
 /*
  * One of these per active utmp entry.
  */
-struct	entry {
+static struct entry {
 	struct	entry *next;
-#if HAVE_UTMPX
 	struct	utmpx utmp;
-#else
-	struct	utmp utmp;
-#endif
 	dev_t	tdev;			/* dev_t of terminal */
 	time_t	idle;			/* idle time of terminal in seconds */
 	struct	kinfo_proc *kp;		/* `most interesting' proc */
 	char	*args;			/* arg list of interesting process */
 	struct	kinfo_proc *dkp;	/* debug option proc list */
+	char	*from;			/* "from": name or addr */
+	char	*save_from;		/* original "from": name or addr */
 } *ep, *ehead = NULL, **nextp = &ehead;
 
 #ifndef __APPLE__
-#define	debugproc(p) *((struct kinfo_proc **)&(p)->ki_udata)
+#define	debugproc(p) *(&((struct kinfo_proc *)p)->ki_udata)
 #else
-#define debugproc(p) *((struct kinfo_proc **)&(p)->ki_spare[0])
+#define	debugproc(p) *((struct kinfo_proc **)&(p)->ki_spare[0])
 #endif
 
-/* W_DISPHOSTSIZE should not be greater than UT_HOSTSIZE */
-#define	W_DISPHOSTSIZE	16
+#define	W_DISPUSERSIZE	10
+#define	W_DISPLINESIZE	8
+#define	W_MAXHOSTSIZE	40
 
 static void		 pr_header(time_t *, int);
-static struct stat	*ttystat(char *, int);
+static struct stat	*ttystat(char *);
 static void		 usage(int);
-static int		 this_is_uptime(const char *s);
 #if !HAVE_KVM
-static void		 w_getargv(void);
+static char		*w_getargv(void);
+static struct kinfo_proc *w_getprocs(int *);
 #endif
 
-char *fmt_argv(char **, char *, int);	/* ../../bin/ps/fmt.c */
+char *fmt_argv(char **, char *, char *, size_t);	/* ../../bin/ps/fmt.c */
 
 int
 main(int argc, char *argv[])
 {
-	struct kinfo_proc *kp;
+#if !HAVE_KVM
 	struct kinfo_proc *kprocbuf;
+#endif
+	struct kinfo_proc *kp;
 	struct kinfo_proc *dkp;
 	struct stat *stp;
-#if HAVE_UTMPX
-	struct utmpx *ux;
-#else
-	FILE *ut;
-#endif
 	time_t touched;
+	size_t width;
+	int ch, i, nentries, nusers, wcmd, longidle, longattime;
 #if HAVE_KVM
-	int ch, i, nentries, nusers, wcmd, longidle, dropgid;
-	const char *memf, *nlistf, *p;
+	const char *memf, *nlistf, *p, *save_p;
 #else
-	int ch, i, nentries, nusers, wcmd, longidle;
-	const char *p;
+	const char *p, *save_p;
 #endif /* HAVE_KVM */
 	char *x_suffix;
-#ifdef __APPLE__
-	char buf[MAXHOSTNAMELEN];
-#else
-	char buf[MAXHOSTNAMELEN], errbuf[_POSIX2_LINE_MAX];
-	char fn[MAXHOSTNAMELEN];
-#endif /* __APPLE__ */
-	char *dot;
-#if !HAVE_KVM
-	int local_error = 0, retry_count = 0;
-	size_t bufSize = 0;
-	size_t orig_bufSize = 0;
-	int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
+#if HAVE_KVM
+	char errbuf[_POSIX2_LINE_MAX];
 #endif
+	char buf[MAXHOSTNAMELEN], fn[MAXHOSTNAMELEN];
+	char *dot;
 
 	(void)setlocale(LC_ALL, "");
 #ifndef __APPLE__
@@ -201,8 +199,12 @@ main(int argc, char *argv[])
 	use_comma = (*nl_langinfo(RADIXCHAR) != ',');
 #endif
 
+	argc = xo_parse_args(argc, argv);
+	if (argc < 0)
+		exit(1);
+
 	/* Are we w(1) or uptime(1)? */
-	if (this_is_uptime(argv[0]) == 0) {
+	if (strcmp(basename(argv[0]), "uptime") == 0) {
 		wcmd = 0;
 		p = "";
 	} else {
@@ -211,8 +213,8 @@ main(int argc, char *argv[])
 	}
 
 #if HAVE_KVM
-	dropgid = 0;
-	memf = nlistf = _PATH_DEVNULL;
+	memf = _PATH_DEVNULL;
+	nlistf = NULL;
 #endif
 	while ((ch = getopt(argc, argv, p)) != -1)
 		switch (ch) {
@@ -231,30 +233,22 @@ main(int argc, char *argv[])
 		case 'M':
 			header = 0;
 			memf = optarg;
-			dropgid = 1;
 			break;
 		case 'N':
 			nlistf = optarg;
-			dropgid = 1;
 			break;
 #endif /* HAVE_KVM */
-#if !HAVE_UTMPX
 		case 'n':
-			nflag = 1;
+			nflag += 1;
 			break;
-#else /* !HAVE_UTMPX */
-		case 'n':
-#endif /* !HAVE_UTMPX */
+#ifdef __APPLE__
+		case 'd':
+#endif
 		case 'f': case 'l': case 's': case 'u': case 'w':
 #if !HAVE_KVM
 		case 'M': case 'N':
 #endif
-#ifdef __APPLE__
-		case 'd':
-			warnx("[-MNdflnsuw] no longer supported");
-#else
-			warnx("[-flsuw] no longer supported");
-#endif
+			xo_warnx("-%c no longer supported", ch);
 			/* FALLTHROUGH */
 		case '?':
 		default:
@@ -271,41 +265,28 @@ main(int argc, char *argv[])
 #endif
 
 #if HAVE_KVM
-	/*
-	 * Discard setgid privileges if not the running kernel so that bad
-	 * guys can't print interesting stuff from kernel memory.
-	 */
-	if (dropgid)
-		setgid(getgid());
-
 	if ((kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, errbuf)) == NULL)
-		errx(1, "%s", errbuf);
+		xo_errx(1, "%s", errbuf);
 #endif
 
 	(void)time(&now);
-#if HAVE_UTMPX
-	setutxent();
-#else
-	if ((ut = fopen(_PATH_UTMP, "r")) == NULL)
-		err(1, "%s", _PATH_UTMP);
-#endif
 
 	if (*argv)
 		sel_users = argv;
 
-#if HAVE_UTMPX
-	for (nusers = 0; (ux = getutxent());) {
-		if (ux->ut_user[0] == '\0' || ux->ut_type != USER_PROCESS)
+	setutxent();
+	for (nusers = 0; (utmp = getutxent()) != NULL;) {
+		struct addrinfo hints, *res;
+		struct sockaddr_storage ss;
+		struct sockaddr *sa = (struct sockaddr *)&ss;
+		struct sockaddr_in *lsin = (struct sockaddr_in *)&ss;
+		struct sockaddr_in6 *lsin6 = (struct sockaddr_in6 *)&ss;
+		int isaddr;
+
+		if (utmp->ut_type != USER_PROCESS)
 			continue;
-		if (!(stp = ttystat(ux->ut_line, sizeof(ux->ut_line))))
+		if (!(stp = ttystat(utmp->ut_line)))
 			continue;	/* corrupted record */
-#else
-	for (nusers = 0; fread(&utmp, sizeof(utmp), 1, ut);) {
-		if (utmp.ut_name[0] == '\0')
-			continue;
-		if (!(stp = ttystat(utmp.ut_line, UT_LINESIZE)))
-			continue;	/* corrupted record */
-#endif
 		++nusers;
 		if (wcmd == 0)
 			continue;
@@ -315,118 +296,134 @@ main(int argc, char *argv[])
 
 			usermatch = 0;
 			for (user = sel_users; !usermatch && *user; user++)
-#if HAVE_UTMPX
-				if (!strncmp(ux->ut_user, *user, sizeof(ux->ut_user)))
-#else
-				if (!strncmp(utmp.ut_name, *user, UT_NAMESIZE))
-#endif
+				if (!strcmp(utmp->ut_user, *user))
 					usermatch = 1;
 			if (!usermatch)
 				continue;
 		}
 		if ((ep = calloc(1, sizeof(struct entry))) == NULL)
-			errx(1, "calloc");
+			xo_errx(1, "calloc");
 		*nextp = ep;
 		nextp = &ep->next;
-#if HAVE_UTMPX
-		memmove(&ep->utmp, ux, sizeof(*ux));
-#else
-		memmove(&ep->utmp, &utmp, sizeof(struct utmp));
-#endif
+		memmove(&ep->utmp, utmp, sizeof *utmp);
 		ep->tdev = stp->st_rdev;
-#ifdef CPU_CONSDEV
+#ifndef __APPLE__
 		/*
 		 * If this is the console device, attempt to ascertain
 		 * the true console device dev_t.
 		 */
 		if (ep->tdev == 0) {
-			int mib[2];
 			size_t size;
 
-			mib[0] = CTL_MACHDEP;
-			mib[1] = CPU_CONSDEV;
 			size = sizeof(dev_t);
-			(void)sysctl(mib, 2, &ep->tdev, &size, NULL, 0);
+			(void)sysctlbyname("machdep.consdev", &ep->tdev, &size, NULL, 0);
 		}
 #endif
 		touched = stp->st_atime;
-#ifdef __APPLE__
 		if (touched < ep->utmp.ut_tv.tv_sec) {
 			/* tty untouched since before login */
 			touched = ep->utmp.ut_tv.tv_sec;
 		}
-#else
-		if (touched < ep->utmp.ut_time) {
-			/* tty untouched since before login */
-			touched = ep->utmp.ut_time;
-		}
-#endif
 		if ((ep->idle = now - touched) < 0)
 			ep->idle = 0;
-	}
-#if HAVE_UTMPX
-	endutxent();
-#else
-	(void)fclose(ut);
-#endif
 
-	if (header || wcmd == 0) {
-		pr_header(&now, nusers);
-		if (wcmd == 0) {
-#if HAVE_KVM
-			(void)kvm_close(kd);
-#endif
-			exit(0);
+		save_p = p = *ep->utmp.ut_host ? ep->utmp.ut_host : "-";
+		if ((x_suffix = strrchr(p, ':')) != NULL) {
+			if ((dot = strchr(x_suffix, '.')) != NULL &&
+			    strchr(dot+1, '.') == NULL)
+				*x_suffix++ = '\0';
+			else
+				x_suffix = NULL;
 		}
+
+		isaddr = 0;
+		memset(&ss, '\0', sizeof(ss));
+		if (inet_pton(AF_INET6, p, &lsin6->sin6_addr) == 1) {
+			lsin6->sin6_len = sizeof(*lsin6);
+			lsin6->sin6_family = AF_INET6;
+			isaddr = 1;
+		} else if (inet_pton(AF_INET, p, &lsin->sin_addr) == 1) {
+			lsin->sin_len = sizeof(*lsin);
+			lsin->sin_family = AF_INET;
+			isaddr = 1;
+		}
+		if (nflag == 0) {
+			/* Attempt to change an IP address into a name */
+			if (isaddr && realhostname_sa(fn, sizeof(fn), sa,
+			    sa->sa_len) == HOSTNAME_FOUND)
+				p = fn;
+		} else if (!isaddr && nflag > 1) {
+			/*
+			 * If a host has only one A/AAAA RR, change a
+			 * name into an IP address
+			 */
+			memset(&hints, 0, sizeof(hints));
+			hints.ai_flags = AI_PASSIVE;
+			hints.ai_family = AF_UNSPEC;
+			hints.ai_socktype = SOCK_STREAM;
+			if (getaddrinfo(p, NULL, &hints, &res) == 0) {
+				if (res->ai_next == NULL &&
+				    getnameinfo(res->ai_addr, res->ai_addrlen,
+					fn, sizeof(fn), NULL, 0,
+					NI_NUMERICHOST) == 0)
+					p = fn;
+				freeaddrinfo(res);
+			}
+		}
+
+		if (x_suffix) {
+			(void)snprintf(buf, sizeof(buf), "%s:%s", p, x_suffix);
+			p = buf;
+		}
+		ep->from = strdup(p);
+		if ((width = strlen(p)) > fromwidth)
+			fromwidth = width;
+		if (save_p != p)
+			ep->save_from = strdup(save_p);
+	}
+	endutxent();
 
 #define HEADER_USER		"USER"
 #define HEADER_TTY		"TTY"
 #define HEADER_FROM		"FROM"
 #define HEADER_LOGIN_IDLE	"LOGIN@  IDLE "
 #define HEADER_WHAT		"WHAT\n"
-#define WUSED  (UT_NAMESIZE + UT_LINESIZE + W_DISPHOSTSIZE + \
-		sizeof(HEADER_LOGIN_IDLE) + 3)	/* header width incl. spaces */ 
-		(void)printf("%-*.*s %-*.*s %-*.*s  %s", 
-				UT_NAMESIZE, UT_NAMESIZE, HEADER_USER,
-				UT_LINESIZE, UT_LINESIZE, HEADER_TTY,
-				W_DISPHOSTSIZE, W_DISPHOSTSIZE, HEADER_FROM,
+#define WUSED  (W_DISPUSERSIZE + W_DISPLINESIZE + fromwidth + \
+		sizeof(HEADER_LOGIN_IDLE) + 3)	/* header width incl. spaces */
+
+	if (sizeof(HEADER_FROM) > fromwidth)
+		fromwidth = sizeof(HEADER_FROM);
+	fromwidth++;
+	if (fromwidth > W_MAXHOSTSIZE)
+		fromwidth = W_MAXHOSTSIZE;
+
+	xo_open_container("uptime-information");
+
+	if (header || wcmd == 0) {
+		pr_header(&now, nusers);
+		if (wcmd == 0) {
+			xo_close_container("uptime-information");
+			if (xo_finish() < 0)
+				xo_err(1, "stdout");
+#if HAVE_KVM
+			(void)kvm_close(kd);
+#endif
+			exit(0);
+		}
+
+		xo_emit("{T:/%-*.*s} {T:/%-*.*s} {T:/%-*.*s}  {T:/%s}",
+				W_DISPUSERSIZE, W_DISPUSERSIZE, HEADER_USER,
+				W_DISPLINESIZE, W_DISPLINESIZE, HEADER_TTY,
+				fromwidth, fromwidth, HEADER_FROM,
 				HEADER_LOGIN_IDLE HEADER_WHAT);
 	}
 
 #if HAVE_KVM
 	if ((kp = kvm_getprocs(kd, KERN_PROC_ALL, 0, &nentries)) == NULL)
-		err(1, "%s", kvm_geterr(kd));
+		xo_err(1, "%s", kvm_geterr(kd));
 #else
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_PROC;
-	mib[2] = KERN_PROC_ALL;
-	mib[3] = 0;
-
-	if (sysctl(mib, 4, NULL, &bufSize, NULL, 0) < 0) {
-		perror("Failure calling sysctl");
-		exit(1);
-	}
-
-	kprocbuf = kp = (struct kinfo_proc *)malloc(bufSize);
-
-	retry_count = 0;
-	orig_bufSize = bufSize;
-	for (retry_count = 0; ; retry_count++) {
-		local_error = 0;
-		bufSize = orig_bufSize;
-		if ((local_error = sysctl(mib, 4, kp, &bufSize, NULL, 0)) < 0) {
-			if (retry_count < 1000) {
-				sleep(1);
-				continue;
-			}
-			perror("Failure calling sysctl");
-			exit(1);
-		} else if (local_error == 0) {
-			break;
-		}
-		sleep(1);
-	}
-	nentries = bufSize / sizeof(struct kinfo_proc);
+	if ((kp = kprocbuf = w_getprocs(&nentries)) == NULL)
+		xo_err(1, "failed to get processes");
 #endif /* !HAVE_KVM */
 
 #if !HAVE_KVM
@@ -436,7 +433,8 @@ main(int argc, char *argv[])
 #define ki_tdev		kp_eproc.e_tdev
 #endif /* !HAVE_KVM */
 	for (i = 0; i < nentries; i++, kp++) {
-		if (kp->ki_stat == SIDL || kp->ki_stat == SZOMB)
+		if (kp->ki_stat == SIDL || kp->ki_stat == SZOMB ||
+		    kp->ki_tdev == NODEV)
 			continue;
 		for (ep = ehead; ep != NULL; ep = ep->next) {
 			if (ep->tdev == kp->ki_tdev) {
@@ -473,6 +471,9 @@ main(int argc, char *argv[])
 	argwidth = ttywidth - WUSED;
 	if (argwidth < 4)
 		argwidth = 8;
+	/* Don't truncate if we're outputting json or XML. */
+	if (xo_get_style(NULL) != XO_STYLE_TEXT)
+		argwidth = ARG_MAX;
 	for (ep = ehead; ep != NULL; ep = ep->next) {
 		if (ep->kp == NULL) {
 			ep->args = strdup("-");
@@ -480,12 +481,12 @@ main(int argc, char *argv[])
 		}
 #if HAVE_KVM
 		ep->args = fmt_argv(kvm_getargv(kd, ep->kp, argwidth),
-		    ep->kp->ki_comm, MAXCOMLEN);
+		    ep->kp->ki_comm, NULL, MAXCOMLEN);
 #else
-		w_getargv();
+		ep->args = w_getargv();
 #endif /* HAVE_KVM */
 		if (ep->args == NULL)
-			err(1, NULL);
+			xo_err(1, "fmt_argv");
 	}
 	/* sort by idle time */
 	if (sortidle && ehead != NULL) {
@@ -505,91 +506,66 @@ main(int argc, char *argv[])
 		}
 	}
 
-	for (ep = ehead; ep != NULL; ep = ep->next) {
-#if HAVE_UTMPX
-		char host_buf[sizeof(ep->utmp.ut_host) + 1];
-		strlcpy(host_buf, ep->utmp.ut_host, sizeof(host_buf));
-#else
-		char host_buf[UT_HOSTSIZE + 1];
-		struct sockaddr_storage ss;
-		struct sockaddr *sa = (struct sockaddr *)&ss;
-		struct sockaddr_in *lsin = (struct sockaddr_in *)&ss;
-		struct sockaddr_in6 *lsin6 = (struct sockaddr_in6 *)&ss;
-		time_t t;
-		int isaddr;
+	xo_open_container("user-table");
+	xo_open_list("user-entry");
 
-		host_buf[UT_HOSTSIZE] = '\0';
-		strncpy(host_buf, ep->utmp.ut_host, UT_HOSTSIZE);
-#endif /* HAVE_UTMPX */
-		p = *host_buf ? host_buf : "-";
-		if ((x_suffix = strrchr(p, ':')) != NULL) {
-			if ((dot = strchr(x_suffix, '.')) != NULL &&
-			    strchr(dot+1, '.') == NULL)
-				*x_suffix++ = '\0';
-			else
-				x_suffix = NULL;
-		}
-#if !HAVE_UTMPX
-		if (!nflag) {
-			/* Attempt to change an IP address into a name */
-			isaddr = 0;
-			memset(&ss, '\0', sizeof(ss));
-			if (inet_pton(AF_INET6, p, &lsin6->sin6_addr) == 1) {
-				lsin6->sin6_len = sizeof(*lsin6);
-				lsin6->sin6_family = AF_INET6;
-				isaddr = 1;
-			} else if (inet_pton(AF_INET, p, &lsin->sin_addr) == 1) {
-				lsin->sin_len = sizeof(*lsin);
-				lsin->sin_family = AF_INET;
-				isaddr = 1;
-			}
-			if (isaddr && realhostname_sa(fn, sizeof(fn), sa,
-			    sa->sa_len) == HOSTNAME_FOUND)
-				p = fn;
-		}
-#endif /* !HAVE_UTMPX */
-		if (x_suffix) {
-			(void)snprintf(buf, sizeof(buf), "%s:%s", p, x_suffix);
-			p = buf;
-		}
+	for (ep = ehead; ep != NULL; ep = ep->next) {
+		time_t t;
+
+		xo_open_instance("user-entry");
+
 #ifndef __APPLE__
 		if (dflag) {
+			xo_open_container("process-table");
+			xo_open_list("process-entry");
+
 			for (dkp = ep->dkp; dkp != NULL; dkp = debugproc(dkp)) {
 				const char *ptr;
 
 				ptr = fmt_argv(kvm_getargv(kd, dkp, argwidth),
-				    dkp->ki_comm, MAXCOMLEN);
+				    dkp->ki_comm, NULL, MAXCOMLEN);
 				if (ptr == NULL)
 					ptr = "-";
-				(void)printf("\t\t%-9d %s\n",
-				    dkp->ki_pid, ptr);
+				xo_open_instance("process-entry");
+				xo_emit("\t\t{:process-id/%-9d/%d} "
+				    "{:command/%hs}\n", dkp->ki_pid, ptr);
+				xo_close_instance("process-entry");
 			}
+			xo_close_list("process-entry");
+			xo_close_container("process-table");
 		}
 #endif /* !__APPLE__ */
-		(void)printf("%-*.*s %-*.*s %-*.*s ",
-#if HAVE_UTMPX
-		    UT_NAMESIZE, (int)sizeof(ep->utmp.ut_user), ep->utmp.ut_user,
-		    UT_LINESIZE, (int)sizeof(ep->utmp.ut_line),
-#else
-		    UT_NAMESIZE, UT_NAMESIZE, ep->utmp.ut_name,
-		    UT_LINESIZE, UT_LINESIZE,
-#endif
-		    strncmp(ep->utmp.ut_line, "tty", 3) &&
-		    strncmp(ep->utmp.ut_line, "cua", 3) ?
-		    ep->utmp.ut_line : ep->utmp.ut_line + 3,
-		    W_DISPHOSTSIZE, W_DISPHOSTSIZE, *p ? p : "-");
-#ifdef __APPLE__
-		pr_attime(&ep->utmp.ut_tv.tv_sec, &now);
-#else
-		t = _time_to_time32(ep->utmp.ut_time);
-		pr_attime(&t, &now);
-#endif
+		xo_emit("{:user/%-*.*s/%@**@s} {:tty/%-*.*s/%@**@s} ",
+			W_DISPUSERSIZE, W_DISPUSERSIZE, ep->utmp.ut_user,
+			W_DISPLINESIZE, W_DISPLINESIZE,
+			*ep->utmp.ut_line ?
+			(strncmp(ep->utmp.ut_line, "tty", 3) &&
+			 strncmp(ep->utmp.ut_line, "cua", 3) ?
+			 ep->utmp.ut_line : ep->utmp.ut_line + 3) : "-");
+
+		if (ep->save_from)
+		    xo_attr("address", "%s", ep->save_from);
+		xo_emit("{:from/%-*.*s/%@**@s} ",
+		    (int)fromwidth, (int)fromwidth, ep->from);
+		t = ep->utmp.ut_tv.tv_sec;
+		longattime = pr_attime(&t, &now);
 		longidle = pr_idle(ep->idle);
-		(void)printf("%.*s\n", argwidth - longidle, ep->args);
-#ifdef __APPLE__
+		xo_emit("{:command/%.*hs/%@*@hs}\n",
+		    (int)argwidth - longidle - longattime,
+		    ep->args);
+#if !HAVE_KVM
 		free(ep->args);
 #endif
+
+		xo_close_instance("user-entry");
 	}
+
+	xo_close_list("user-entry");
+	xo_close_container("user-table");
+	xo_close_container("uptime-information");
+	if (xo_finish() < 0)
+		xo_err(1, "stdout");
+
 #if HAVE_KVM
 	(void)kvm_close(kd);
 #else
@@ -601,116 +577,125 @@ main(int argc, char *argv[])
 static void
 pr_header(time_t *nowp, int nusers)
 {
+	char buf[64];
+	struct sbuf upbuf;
 	double avenrun[3];
-	time_t uptime;
-	int days, hrs, i, mins, secs;
-	int mib[2];
-	size_t size;
-	char buf[256];
+	struct timespec tp;
+	unsigned long days, hrs, mins, secs;
+	unsigned int i;
 
 	/*
 	 * Print time of day.
 	 */
 	if (strftime(buf, sizeof(buf),
 	    use_ampm ? "%l:%M%p" : "%k:%M", localtime(nowp)) != 0)
-		(void)printf("%s ", buf);
+		xo_emit("{:time-of-day/%s} ", buf);
 	/*
 	 * Print how long system has been up.
-	 * (Found by looking getting "boottime" from the kernel)
 	 */
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_BOOTTIME;
-	size = sizeof(boottime);
-	if (sysctl(mib, 2, &boottime, &size, NULL, 0) != -1 &&
-	    boottime.tv_sec != 0) {
-		uptime = now - boottime.tv_sec;
-		if (uptime > 60)
-			uptime += 30;
-		days = uptime / 86400;
-		uptime %= 86400;
-		hrs = uptime / 3600;
-		uptime %= 3600;
-		mins = uptime / 60;
-		secs = uptime % 60;
-		(void)printf(" up");
+	(void)sbuf_new(&upbuf, buf, sizeof(buf), SBUF_FIXEDLEN);
+	if (clock_gettime(CLOCK_UPTIME, &tp) != -1) {
+		xo_emit(" up");
+		secs = tp.tv_sec;
+		xo_emit("{e:uptime/%lu}", secs);
+		mins = secs / 60;
+		secs %= 60;
+		hrs = mins / 60;
+		mins %= 60;
+		days = hrs / 24;
+		hrs %= 24;
+		xo_emit("{e:days/%ld}{e:hours/%ld}{e:minutes/%ld}{e:seconds/%ld}",
+		    days, hrs, mins, secs);
+
+		/* If we've been up longer than 60 s, round to nearest min */
+		if (tp.tv_sec > 60) {
+			secs = tp.tv_sec + 30;
+			mins = secs / 60;
+			secs = 0;
+			hrs = mins / 60;
+			mins %= 60;
+			days = hrs / 24;
+			hrs %= 24;
+		}
+
 		if (days > 0)
-			(void)printf(" %d day%s,", days, days > 1 ? "s" : "");
+			sbuf_printf(&upbuf, " %ld day%s,",
+				days, days > 1 ? "s" : "");
 		if (hrs > 0 && mins > 0)
-			(void)printf(" %2d:%02d,", hrs, mins);
+			sbuf_printf(&upbuf, " %2ld:%02ld,", hrs, mins);
 		else if (hrs > 0)
-			(void)printf(" %d hr%s,", hrs, hrs > 1 ? "s" : "");
+			sbuf_printf(&upbuf, " %ld hr%s,",
+				hrs, hrs > 1 ? "s" : "");
 		else if (mins > 0)
-			(void)printf(" %d min%s,", mins, mins > 1 ? "s" : "");
+			sbuf_printf(&upbuf, " %ld min%s,",
+				mins, mins > 1 ? "s" : "");
 		else
-			(void)printf(" %d sec%s,", secs, secs > 1 ? "s" : "");
+			sbuf_printf(&upbuf, " %ld sec%s,",
+				secs, secs > 1 ? "s" : "");
+		if (sbuf_finish(&upbuf) != 0)
+			xo_err(1, "Could not generate output");
+		xo_emit("{:uptime-human/%s}", sbuf_data(&upbuf));
+		sbuf_delete(&upbuf);
 	}
 
 	/* Print number of users logged in to system */
-	(void)printf(" %d user%s", nusers, nusers == 1 ? "" : "s");
+	xo_emit(" {:users/%d} {Np:user,users}", nusers);
 
 	/*
 	 * Print 1, 5, and 15 minute load averages.
 	 */
-	if (getloadavg(avenrun, sizeof(avenrun) / sizeof(avenrun[0])) == -1)
-		(void)printf(", no load average information available\n");
+	if (getloadavg(avenrun, nitems(avenrun)) == -1)
+		xo_emit(", no load average information available\n");
 	else {
-		(void)printf(", load averages:");
-		for (i = 0; i < (int)(sizeof(avenrun) / sizeof(avenrun[0])); i++) {
+		static const char *format[] = {
+		    " {:load-average-1/%.2f}",
+		    " {:load-average-5/%.2f}",
+		    " {:load-average-15/%.2f}",
+		};
+		xo_emit(", load averages:");
+		for (i = 0; i < nitems(avenrun); i++) {
 			if (use_comma && i > 0)
-				(void)printf(",");
-			(void)printf(" %.2f", avenrun[i]);
+				xo_emit(",");
+			xo_emit(format[i], avenrun[i]);
 		}
-		(void)printf("\n");
+		xo_emit("\n");
 	}
 }
 
 static struct stat *
-ttystat(char *line, int sz)
+ttystat(char *line)
 {
 	static struct stat sb;
 	char ttybuf[MAXPATHLEN];
 
-	(void)snprintf(ttybuf, sizeof(ttybuf), "%s%.*s", _PATH_DEV, sz, line);
-	if (stat(ttybuf, &sb) == 0) {
+	(void)snprintf(ttybuf, sizeof(ttybuf), "%s%s", _PATH_DEV, line);
+	if (stat(ttybuf, &sb) == 0 && S_ISCHR(sb.st_mode))
 		return (&sb);
-	} else {
-		warn("%s", ttybuf);
-		return (NULL);
-	}
+	return (NULL);
 }
 
 static void
 usage(int wcmd)
 {
 	if (wcmd)
-		(void)fprintf(stderr,
-		    "usage: w [hi] [user ...]\n");
+#if HAVE_KVM
+		xo_error("usage: w [-dhin] [-M core] [-N system] [user ...]\n");
+#else
+		xo_error("usage: w [-dhin] [user ...]\n");
+#endif
 	else
-		(void)fprintf(stderr, "usage: uptime\n");
+		xo_error("usage: uptime\n");
+	xo_finish();
 	exit(1);
 }
 
-static int 
-this_is_uptime(const char *s)
-{
-	const char *u;
-
-	if ((u = strrchr(s, '/')) != NULL)
-		++u;
-	else
-		u = s;
-	if (strcmp(u, "uptime") == 0)
-		return (0);
-	return (-1);
-}
-
 #if !HAVE_KVM
-static void
+static char *
 w_getargv(void)
 {
 	int mib[3], argc, c;
 	size_t size;
-	char *procargs, *sp, *np, *cp;
+	char *args, *procargs, *sp, *np, *cp;
 
 	procargs = malloc(size = 4096);
 	if (procargs == NULL) {
@@ -765,19 +750,51 @@ w_getargv(void)
 	for (np = sp; np < procargs + size && *np == ' '; np++)
 		/* nothing */ ;
 
-	ep->args = strdup(np);
+	args = strdup(np);
 	free(procargs);
-	return;
+	return (args);
 
 ERROR_FREE:
 	free(procargs);
 ERROR:
-/*
-	ep->args = malloc(2);
-	ep->args[0] = '-';
-	ep->args[1] = '\0';
-*/
-	asprintf(&ep->args, "%s", KI_PROC(ep)->p_comm);
-	return;
+	args = strdup(KI_PROC(ep)->p_comm);
+	return (args);
+}
+
+static struct kinfo_proc *
+w_getprocs(int *nentriesp)
+{
+	struct kinfo_proc *kp;
+	size_t bufSize = 0, orig_bufSize = 0;
+	int local_error = 0, retry_count = 0;
+	int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
+
+	if (sysctl(mib, 4, NULL, &bufSize, NULL, 0) < 0) {
+		return (NULL);
+	}
+
+	kp = malloc(bufSize);
+	if (kp == NULL) {
+		return (NULL);
+	}
+
+	retry_count = 0;
+	orig_bufSize = bufSize;
+	for (retry_count = 0; ; retry_count++) {
+		local_error = 0;
+		bufSize = orig_bufSize;
+		if ((local_error = sysctl(mib, 4, kp, &bufSize, NULL, 0)) < 0) {
+			if (retry_count < 1000) {
+				sleep(1);
+				continue;
+			}
+			return NULL;
+		} else if (local_error == 0) {
+			break;
+                }
+		sleep(1);
+        }
+	*nentriesp = (int)(bufSize / sizeof(struct kinfo_proc));
+	return (kp);
 }
 #endif /* HAVE_KVM */

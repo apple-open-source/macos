@@ -70,6 +70,7 @@ static void mklargedir(void) {
 	total_len += sizeof(test_top_dir);
 	assert(chdir(test_top_dir) == 0);
 	memset_pattern8(large_dir_buf, "cutiepie", NAME_MAX);
+	large_dir_buf[NAME_MAX - 1] = 0;
 
 	// repeatedly create directories so that the total path
 	// of the depest directory is > PATH_MAX.
@@ -116,6 +117,9 @@ void* threadproc(void* state) {
 	return NULL;
 }
 
+//
+// With no arguments, this is our main automated test suite for removefile.
+//
 int main(int argc, char *argv[]) {
 	removefile_state_t state = NULL;
 	removefile_callback_t callback = NULL;

@@ -80,14 +80,11 @@ static JSObjectRef toJSArray(JSContextRef context, const Vector<T>& data, JSValu
     if (data.isEmpty())
         return JSObjectMakeArray(context, 0, nullptr, exception);
 
-    Vector<JSValueRef, 8> convertedData;
-    convertedData.reserveCapacity(data.size());
-
-    for (auto& originalValue : data) {
+    auto convertedData = WTF::map<8>(data, [&](auto& originalValue) {
         JSValueRef convertedValue = converter(context, originalValue);
         JSValueProtect(context, convertedValue);
-        convertedData.uncheckedAppend(convertedValue);
-    }
+        return convertedValue;
+    });
 
     JSObjectRef array = JSObjectMakeArray(context, convertedData.size(), convertedData.data(), exception);
 
@@ -425,7 +422,7 @@ void WebAutomationSessionProxy::evaluateJavaScriptFunction(WebCore::PageIdentifi
     };
 
     {
-        WebCore::UserGestureIndicator gestureIndicator(WebCore::ProcessingUserGesture, frame->coreLocalFrame()->document());
+        WebCore::UserGestureIndicator gestureIndicator(WebCore::IsProcessingUserGesture::Yes, frame->coreLocalFrame()->document());
         callPropertyFunction(context, scriptObject, "evaluateJavaScriptFunction"_s, std::size(functionArguments), functionArguments, &exception);
     }
 
@@ -486,7 +483,7 @@ void WebAutomationSessionProxy::resolveChildFrameWithOrdinal(WebCore::PageIdenti
         return;
     }
 
-    WebFrame* childFrame = WebFrame::fromCoreFrame(*coreChildFrame);
+    auto childFrame = WebFrame::fromCoreFrame(*coreChildFrame);
     if (!childFrame) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
@@ -525,18 +522,19 @@ void WebAutomationSessionProxy::resolveChildFrameWithNodeHandle(WebCore::PageIde
         return;
     }
 
-    if (!is<WebCore::HTMLFrameElementBase>(coreElement)) {
+    auto* frameElementBase = dynamicDowncast<WebCore::HTMLFrameElementBase>(*coreElement);
+    if (!frameElementBase) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
     }
 
-    auto* coreFrameFromElement = dynamicDowncast<WebCore::LocalFrame>(downcast<WebCore::HTMLFrameElementBase>(*coreElement).contentFrame());
+    auto* coreFrameFromElement = frameElementBase->contentFrame();
     if (!coreFrameFromElement) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
     }
 
-    WebFrame* frameFromElement = WebFrame::fromCoreFrame(*coreFrameFromElement);
+    auto frameFromElement = WebFrame::fromCoreFrame(*coreFrameFromElement);
     if (!frameFromElement) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
@@ -574,7 +572,7 @@ void WebAutomationSessionProxy::resolveChildFrameWithName(WebCore::PageIdentifie
         return;
     }
 
-    WebFrame* childFrame = WebFrame::fromCoreFrame(*coreChildFrame);
+    auto childFrame = WebFrame::fromCoreFrame(*coreChildFrame);
     if (!childFrame) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
@@ -600,7 +598,7 @@ void WebAutomationSessionProxy::resolveParentFrame(WebCore::PageIdentifier pageI
         return;
     }
 
-    WebFrame* parentFrame = frame->parentFrame();
+    auto parentFrame = frame->parentFrame();
     if (!parentFrame) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
@@ -883,9 +881,9 @@ void WebAutomationSessionProxy::setFilesForInputFileUpload(WebCore::PageIdentifi
         if (auto* files = inputElement.files())
             fileObjects.appendVector(files->files());
     }
-    fileObjects.reserveCapacity(fileObjects.size() + filenames.size());
-    for (const auto& path : filenames)
-        fileObjects.uncheckedAppend(WebCore::File::create(&inputElement.document(), path));
+    fileObjects.appendContainerWithMapping(filenames, [&](auto& path) {
+        return WebCore::File::create(&inputElement.document(), path);
+    });
     inputElement.setFiles(WebCore::FileList::create(WTFMove(fileObjects)));
 
     completionHandler(std::nullopt);
@@ -918,7 +916,7 @@ static WebCore::IntRect snapshotElementRectForScreenshot(WebPage& page, WebCore:
 void WebAutomationSessionProxy::takeScreenshot(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String nodeHandle, bool scrollIntoViewIfNeeded, bool clipToViewport, uint64_t callbackID)
 {
     snapshotRectForScreenshot(pageID, frameID, nodeHandle, scrollIntoViewIfNeeded, clipToViewport, [pageID, frameID, callbackID] (std::optional<String> errorString, WebCore::IntRect&& rect) {
-        ShareableBitmap::Handle handle;
+        std::optional<ShareableBitmap::Handle> handle;
         if (errorString) {
             WebProcess::singleton().parentProcessConnection()->send(Messages::WebAutomationSession::DidTakeScreenshot(callbackID, WTFMove(handle), *errorString), 0);
             return;

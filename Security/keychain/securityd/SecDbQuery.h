@@ -114,6 +114,12 @@ typedef struct Query
     // Set to true if we modified any synchronizable item as part of executing this query
     bool q_sync_changed;
 
+    // Set to `true` if we modified any shared items as part of executing this
+    // query.
+    bool q_shared_changed;
+
+    // If this query should not add, return, modify or delete shared items, set this to true. This prevents unentitled clients from meddling with shared items.
+    bool q_skip_shared_items;
     
     /* Keybag handle to use for this item. */
     keybag_handle_t q_keybag;

@@ -237,8 +237,6 @@ int	 sshkey_cert_copy(const struct sshkey *, struct sshkey *);
 int	 sshkey_cert_check_authority(const struct sshkey *, int, int, int,
     uint64_t, const char *, const char **);
 int	 sshkey_cert_check_authority_now(const struct sshkey *, int, int, int,
-#ifdef __APPLE__
-#endif
     const char *, const char **);
 int	 sshkey_cert_check_host(const struct sshkey *, const char *,
     int , const char *, const char **);

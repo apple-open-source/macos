@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, Google Inc. All rights reserved.
+ * Copyright (c) 2012-2017, Google Inc. All rights reserved.
  * Copyright (c) 2012-2023, Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -158,7 +158,7 @@ public:
 
     int round() const
     {
-        return saturatedSum<int>(rawValue(), kFixedPointDenominator / 2) >> kLayoutUnitFractionalBits;
+        return toInt() + ((fraction().rawValue() + (kFixedPointDenominator / 2)) >> kLayoutUnitFractionalBits);
     }
 
     int floor() const
@@ -636,6 +636,10 @@ inline float operator-(const float a, const LayoutUnit& b)
 
 inline LayoutUnit operator-(const LayoutUnit& a)
 {
+    // -min() is saturated to max().
+    if (a == LayoutUnit::min())
+        return LayoutUnit::max();
+
     LayoutUnit returnVal;
     returnVal.setRawValue(-a.rawValue());
     return returnVal;

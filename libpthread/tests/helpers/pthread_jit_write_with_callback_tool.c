@@ -6,6 +6,7 @@
 
 #include <pthread.h>
 #include <dlfcn.h>
+#include <TargetConditionals.h>
 
 static int
 test_callback_should_not_actually_run(void *ctx)
@@ -26,12 +27,14 @@ main(int argc, char *argv[])
 		// misconfiguration we should try to exit with an error code instead
 		return 1;
 	}
-
+#if TARGET_OS_OSX
 	if (!strcmp(argv[1], "pthread_jit_write_protect_np")) {
 		printf("Attempting pthread_jit_write_protect_np\n");
 		pthread_jit_write_protect_np(false);
 		printf("Should not have made it here\n");
-	} else if (!strcmp(argv[1], "pthread_jit_write_with_callback_np")) {
+	} else
+#endif // TARGET_OS_OSX
+	if (!strcmp(argv[1], "pthread_jit_write_with_callback_np")) {
 		printf("Attempting pthread_jit_write_with_callback_np\n");
 		(void)pthread_jit_write_with_callback_np(
 				test_callback_should_not_actually_run, NULL);

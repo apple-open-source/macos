@@ -2637,7 +2637,7 @@ convert_pkt_to_mbuf(struct __kern_packet *pkt)
 	m->m_pkthdr.pkt_flags &= ~PKT_F_COMMON_MASK;
 	m->m_pkthdr.pkt_flags |= (pkt->pkt_pflags & PKT_F_COMMON_MASK);
 	/* set pkt_hdr so that AQM can find IP header and mark ECN bits */
-	m->m_pkthdr.pkt_hdr = m->m_data + pkt->pkt_l2_len;
+	m->m_pkthdr.pkt_hdr = m_mtod_current(m) + pkt->pkt_l2_len;
 
 	if ((pkt->pkt_pflags & PKT_F_START_SEQ) != 0) {
 		m->m_pkthdr.tx_start_seq = ntohl(pkt->pkt_flow_tcp_seq);
@@ -3315,6 +3315,25 @@ dp_tx_log_pkt(uint64_t verb, char *desc, struct __kern_packet *pkt)
 #define dp_tx_log_pkt(...)
 #endif /* !SK_LOG */
 
+static inline struct ifnet *
+fsw_datamov_begin(struct nx_flowswitch *fsw)
+{
+	struct ifnet *ifp;
+
+	ifp = fsw->fsw_ifp;
+	if (!ifnet_datamov_begin(ifp)) {
+		DTRACE_SKYWALK1(ifnet__detached, struct ifnet *, ifp);
+		return NULL;
+	}
+	return ifp;
+}
+
+static inline void
+fsw_datamov_end(struct nx_flowswitch *fsw)
+{
+	ifnet_datamov_end(fsw->fsw_ifp);
+}
+
 static void
 dp_tx_pktq(struct nx_flowswitch *fsw, struct pktq *spktq)
 {
@@ -3324,7 +3343,7 @@ dp_tx_pktq(struct nx_flowswitch *fsw, struct pktq *spktq)
 	struct pktq dropped_pkts, dpktq;
 	struct nexus_adapter *dev_na;
 	struct kern_pbufpool *dev_pp;
-	struct ifnet *ifp;
+	struct ifnet *ifp = NULL;
 	sa_family_t af;
 	uint32_t n_pkts, n_flows = 0;
 	boolean_t do_pacing = FALSE;
@@ -3348,13 +3367,12 @@ dp_tx_pktq(struct nx_flowswitch *fsw, struct pktq *spktq)
 		KPKTQ_CONCAT(&dropped_pkts, spktq);
 		goto done;
 	}
-	/*
-	 * fsw_ifp should still be valid at this point. If fsw is detached
-	 * after fsw_lock is released, this ifp will remain valid and
-	 * netif_transmit() will behave properly even if the ifp is in
-	 * detached state.
-	 */
-	ifp = fsw->fsw_ifp;
+	ifp = fsw_datamov_begin(fsw);
+	if (ifp == NULL) {
+		SK_ERR("ifnet not attached, dropping %d pkts", n_pkts);
+		KPKTQ_CONCAT(&dropped_pkts, spktq);
+		goto done;
+	}
 
 	/* batch allocate enough packets */
 	dev_pp = na_kr_get_pp(dev_na, NR_TX);
@@ -3451,6 +3469,9 @@ done:
 	FSW_RUNLOCK(fsw);
 	if (n_flows > 0) {
 		netif_transmit(ifp, NETIF_XMIT_FLAG_CHANNEL | (do_pacing ? NETIF_XMIT_FLAG_PACING : 0));
+	}
+	if (ifp != NULL) {
+		fsw_datamov_end(fsw);
 	}
 	dp_drop_pktq(fsw, &dropped_pkts);
 	KPKTQ_FINI(&dropped_pkts);
@@ -3717,7 +3738,7 @@ dp_gso_pktq(struct nx_flowswitch *fsw, struct pktq *spktq,
 	struct pktq dpktq;
 	struct nexus_adapter *dev_na;
 	struct kern_pbufpool *dev_pp;
-	struct ifnet *ifp;
+	struct ifnet *ifp = NULL;
 	sa_family_t af;
 	uint32_t n_pkts, n_flows = 0;
 	int err;
@@ -3739,13 +3760,13 @@ dp_gso_pktq(struct nx_flowswitch *fsw, struct pktq *spktq,
 		dp_drop_pktq(fsw, spktq);
 		goto done;
 	}
-	/*
-	 * fsw_ifp should still be valid at this point. If fsw is detached
-	 * after fsw_lock is released, this ifp will remain valid and
-	 * netif_transmit() will behave properly even if the ifp is in
-	 * detached state.
-	 */
-	ifp = fsw->fsw_ifp;
+	ifp = fsw_datamov_begin(fsw);
+	if (ifp == NULL) {
+		SK_ERR("ifnet not attached, dropping %d pkts", n_pkts);
+		dp_drop_pktq(fsw, spktq);
+		goto done;
+	}
+
 	dev_pp = na_kr_get_pp(dev_na, NR_TX);
 
 	/*
@@ -3861,6 +3882,9 @@ done:
 	FSW_RUNLOCK(fsw);
 	if (n_flows > 0) {
 		netif_transmit(ifp, NETIF_XMIT_FLAG_CHANNEL);
+	}
+	if (ifp != NULL) {
+		fsw_datamov_end(fsw);
 	}
 
 	/*

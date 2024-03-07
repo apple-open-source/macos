@@ -103,7 +103,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
-        self.mockAuthKit.machineIDFetchErrors.add(CKPrettyError(domain: CKErrorDomain,
+        self.mockAuthKit.machineIDFetchErrors.add(NSError(domain: CKErrorDomain,
                                                                    code: CKError.networkUnavailable.rawValue,
                                                                    userInfo: [CKErrorRetryAfterKey: 2]))
 
@@ -163,7 +163,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             self.fakeCuttlefishServer.establishListener = nil
             establishExpectation.fulfill()
 
-            return CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2])
+            return NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2])
         }
 
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
@@ -368,6 +368,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSJoin() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         let peer1EscrowRequestNotification = expectation(forNotification: OTMockEscrowRequestNotification,
@@ -686,7 +687,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             }
             updateTrustExpectation1.fulfill()
 
-            return CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2])
+            return NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2])
         }
 
         self.mockSOSAdapter!.trustedPeers.add(peer2SOSMockPeer)
@@ -763,6 +764,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSAcceptJoinEvenIfMachineIDListOutOfDate() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         self.startCKAccountStatusMock()
 
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
@@ -845,7 +848,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.mockAuthKit.otherDevices.add(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSesionID", canSendMetrics: false))
 
-        self.cuttlefishContext.incompleteNotificationOfMachineIDListChange()
+        self.cuttlefishContext.notificationOfMachineIDListChange()
         self.wait(for: [updateTrustExpectation], timeout: 10)
 
         self.verifyDatabaseMocks()
@@ -1719,9 +1722,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
                       "peer 3 should trust peer 2")
 
         let container = try! self.tphClient.getContainer(with: try XCTUnwrap(peer3.activeAccount))
-        container.moc.performAndWait {
-            container.model.deletePeer(withID: peer3ID)
-        }
+        container.removePeer(peerID: peer3ID)
 
         // And we notify peer3 about this, and it should become sad
         self.sendContainerChangeWaitForFetchForStates(context: peer3, states: [OctagonStateReadyUpdated, OctagonStateReady])

@@ -32,6 +32,13 @@ zh_Hans_HK{
             availableFormats{
                 M{"L"}
                 MEd{"M/dE"}
+                MMM{"M月"}
+            }
+            intervalFormats{
+                Hv{
+                    H{"vHH–HH"}
+                }
+                fallback{"{0}–{1}"}
             }
         }
         generic{
@@ -173,7 +180,7 @@ zh_Hans_HK{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "Gd/M/yy",

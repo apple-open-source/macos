@@ -42,10 +42,10 @@ void os_unfair_lock_unlock(os_unfair_lock_t lock)
 
 void os_unfair_lock_assert_owner(const os_unfair_lock *lock)
 {
-	assert(lock != NULL);
+	xrt_sync_mutex_assert_owner((xrt_sync_mutex_t *) &lock->_os_unfair_lock_opaque);
 }
 
 void os_unfair_lock_assert_not_owner(const os_unfair_lock *lock)
 {
-	assert(lock != NULL);
+	xrt_sync_mutex_assert_not_owner((xrt_sync_mutex_t *) &lock->_os_unfair_lock_opaque);
 }

@@ -27,6 +27,8 @@
 #include "GlyphDisplayListCache.h"
 
 #include "DisplayListItems.h"
+#include "InlineDisplayBox.h"
+#include "LegacyInlineTextBox.h"
 
 namespace WebCore {
 
@@ -47,12 +49,13 @@ struct GlyphDisplayListCacheKeyTranslator {
         return computeHash(key);
     }
 
-    static bool equal(GlyphDisplayListCacheEntry* entry, const GlyphDisplayListCacheKey& key)
+    static bool equal(const SingleThreadWeakRef<GlyphDisplayListCacheEntry>& entryRef, const GlyphDisplayListCacheKey& key)
     {
-        return entry->m_textRun == key.textRun
-            && entry->m_scaleFactor == key.context.scaleFactor()
-            && entry->m_fontCascadeGeneration == key.font.generation()
-            && entry->m_shouldSubpixelQuantizeFont == key.context.shouldSubpixelQuantizeFonts();
+        auto& entry = entryRef.get();
+        return entry.m_textRun == key.textRun
+            && entry.m_scaleFactor == key.context.scaleFactor()
+            && entry.m_fontCascadeGeneration == key.font.generation()
+            && entry.m_shouldSubpixelQuantizeFont == key.context.shouldSubpixelQuantizeFonts();
     }
 };
 
@@ -73,7 +76,8 @@ unsigned GlyphDisplayListCache::size() const
     return m_entries.size();
 }
 
-DisplayList::DisplayList* GlyphDisplayListCache::get(const void* run, const FontCascade& font, GraphicsContext& context, const TextRun& textRun)
+template <typename LayoutRun>
+DisplayList::DisplayList* GlyphDisplayListCache::getDisplayList(const LayoutRun* run, const FontCascade& font, GraphicsContext& context, const TextRun& textRun)
 {
     if (MemoryPressureHandler::singleton().isUnderMemoryPressure()) {
         if (!m_entries.isEmpty()) {
@@ -89,17 +93,30 @@ DisplayList::DisplayList* GlyphDisplayListCache::get(const void* run, const Font
     if (auto entry = m_entriesForLayoutRun.get(run))
         return &entry->displayList();
 
-    if (auto entry = m_entries.find<GlyphDisplayListCacheKeyTranslator>(GlyphDisplayListCacheKey { textRun, font, context }); entry != m_entries.end())
-        return &m_entriesForLayoutRun.add(run, Ref { **entry }).iterator->value->displayList();
+    if (auto entry = m_entries.find<GlyphDisplayListCacheKeyTranslator>(GlyphDisplayListCacheKey { textRun, font, context }); entry != m_entries.end()) {
+        const_cast<LayoutRun*>(run)->setIsInGlyphDisplayListCache();
+        return &m_entriesForLayoutRun.add(run, Ref { entry->get() }).iterator->value->displayList();
+    }
 
     if (auto displayList = font.displayListForTextRun(context, textRun)) {
-        auto entry = GlyphDisplayListCacheEntry::create(WTFMove(displayList), textRun, font, context);
+        Ref entry = GlyphDisplayListCacheEntry::create(WTFMove(displayList), textRun, font, context);
         if (canShareDisplayList(entry->displayList()))
-            m_entries.add(entry.ptr());
+            m_entries.add(entry.get());
+        const_cast<LayoutRun*>(run)->setIsInGlyphDisplayListCache();
         return &m_entriesForLayoutRun.add(run, WTFMove(entry)).iterator->value->displayList();
     }
 
     return nullptr;
+}
+
+DisplayList::DisplayList* GlyphDisplayListCache::get(const LegacyInlineTextBox& run, const FontCascade& font, GraphicsContext& context, const TextRun& textRun)
+{
+    return getDisplayList(&run, font, context, textRun);
+}
+
+DisplayList::DisplayList* GlyphDisplayListCache::get(const InlineDisplay::Box& run, const FontCascade& font, GraphicsContext& context, const TextRun& textRun)
+{
+    return getDisplayList(&run, font, context, textRun);
 }
 
 DisplayList::DisplayList* GlyphDisplayListCache::getIfExists(const void* run)

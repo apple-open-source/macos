@@ -22,6 +22,7 @@
  */
 #include "cs.h"
 #include "SecAssessment.h"
+#include "SecAssessmentPriv.h"
 #include "policydb.h"
 #include "policyengine.h"
 #include "xpcengine.h"
@@ -544,7 +545,10 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 	END_CSAPI_ERRORS1(false)
 }
 
-Boolean SecAssessmentTicketRegister(CFDataRef ticketData, CFErrorRef *errors)
+//
+// The standard set of ticket functions that use XPC to talk to syspolicyd.
+//
+static Boolean SecAssessmentTicketRegisterXPC(CFDataRef ticketData, CFErrorRef *errors)
 {
 	BEGIN_CSAPI
 
@@ -552,6 +556,78 @@ Boolean SecAssessmentTicketRegister(CFDataRef ticketData, CFErrorRef *errors)
 	return true;
 
 	END_CSAPI_ERRORS1(false)
+}
+
+static Boolean SecAssessmentTicketLookupXPC(CFDataRef hash, SecCSDigestAlgorithm hashType, SecAssessmentTicketFlags flags, double *date, CFErrorRef *errors)
+{
+	BEGIN_CSAPI
+
+	xpcEngineTicketLookup(hash, hashType, flags, date);
+	return true;
+
+	END_CSAPI_ERRORS1(false)
+}
+
+static Boolean SecAssessmentLegacyCheckXPC(CFDataRef hash, SecCSDigestAlgorithm hashType, CFStringRef teamID, CFErrorRef *errors)
+{
+	BEGIN_CSAPI
+
+	xpcEngineLegacyCheck(hash, hashType, teamID);
+	return true;
+
+	END_CSAPI_ERRORS1(false)
+}
+
+
+// A small set of SecAssessment ticket functions can be overridden within syspolicyd to improve performance by skipping the XPC layer.
+// A global structure holds PAC'd pointers for all 3 functions, which are initialized to the normal XPC functions for all processes.
+// A single registration function can be used to override these, but only by syspolicyd.
+
+#if __has_feature(ptrauth_calls)
+#define SECASC_PTRAUTH(op) __ptrauth(ptrauth_key_process_independent_code, true, ptrauth_string_discriminator("secasc." #op)) op
+#else
+#define SECASC_PTRAUTH(op) op
+#endif
+
+typedef struct SecAssessmentLocalFunctions {
+	Boolean (* SECASC_PTRAUTH(ticketRegistration))(CFDataRef, CFErrorRef *);
+	Boolean (* SECASC_PTRAUTH(ticketLookup))(CFDataRef, SecCSDigestAlgorithm, SecAssessmentTicketFlags, double *, CFErrorRef *);
+	Boolean (* SECASC_PTRAUTH(legacyCheck))(CFDataRef, SecCSDigestAlgorithm, CFStringRef, CFErrorRef *);
+} SecAssessmentLocalFunctions_t;
+
+static SecAssessmentFunctions_t sImplementation = {
+	.ticketRegistration = SecAssessmentTicketRegisterXPC,
+	.ticketLookup = SecAssessmentTicketLookupXPC,
+	.legacyCheck = SecAssessmentLegacyCheckXPC,
+};
+
+Boolean
+SecAssessmentRegisterFunctions(SecAssessmentFunctions_t *overrides)
+{
+	// This is only intended to be used from syspolicyd, so prevent all other callers here.
+	CFRef<SecTaskRef> task = SecTaskCreateFromSelf(NULL);
+	if (task.get() == NULL) {
+		return false;
+	}
+
+	uint32_t flags = SecTaskGetCodeSignStatus(task);
+	if ((flags & kSecCodeStatusPlatform) != kSecCodeStatusPlatform) {
+		return false;
+	}
+
+	CFRef<CFStringRef> signingID = SecTaskCopySigningIdentifier(task, NULL);
+	if (signingID.get() == NULL) {
+		return false;
+	}
+
+	if (CFEqual(signingID, CFSTR("com.apple.syspolicyd"))) {
+		sImplementation.ticketLookup = overrides->ticketLookup;
+		sImplementation.ticketRegistration = overrides->ticketRegistration;
+		sImplementation.legacyCheck = overrides->legacyCheck;
+		return true;
+	}
+
+	return false;
 }
 
 Boolean SecAssessmentRegisterPackageTicket(CFURLRef packageURL, CFErrorRef* errors)
@@ -571,23 +647,17 @@ Boolean SecAssessmentRegisterPackageTicket(CFURLRef packageURL, CFErrorRef* erro
 	END_CSAPI_ERRORS1(false)
 }
 
+Boolean SecAssessmentTicketRegister(CFDataRef ticketData, CFErrorRef *errors)
+{
+	return sImplementation.ticketRegistration(ticketData, errors);
+}
+
 Boolean SecAssessmentTicketLookup(CFDataRef hash, SecCSDigestAlgorithm hashType, SecAssessmentTicketFlags flags, double *date, CFErrorRef *errors)
 {
-	BEGIN_CSAPI
-
-	xpcEngineTicketLookup(hash, hashType, flags, date);
-	return true;
-
-	END_CSAPI_ERRORS1(false)
+	return sImplementation.ticketLookup(hash, hashType, flags, date, errors);
 }
 
 Boolean SecAssessmentLegacyCheck(CFDataRef hash, SecCSDigestAlgorithm hashType, CFStringRef teamID, CFErrorRef *errors)
 {
-	BEGIN_CSAPI
-
-	xpcEngineLegacyCheck(hash, hashType, teamID);
-	return true;
-
-	END_CSAPI_ERRORS1(false)
+	return sImplementation.legacyCheck(hash, hashType, teamID, errors);
 }
-

@@ -37,6 +37,7 @@
 #include <arm64/proc_reg.h>
 #include <machine/machine_cpuid.h>
 #include <machine/machine_routines.h>
+#include <vm/vm_protos.h>
 
 
 #if __arm64__
@@ -68,6 +69,11 @@ static bool
 cpu_needs_throttle_tunable(uint32_t midr_pnum)
 {
 	switch (midr_pnum) {
+#if defined(APPLEAVALANCHE)
+	/* ACCP only */
+	case MIDR_RHODES_DIE_AVALANCHE:
+		return true;
+#endif /* APPLEAVALANCHE */
 
 	default:
 		return false;
@@ -106,6 +112,8 @@ configure_late_apple_regs(bool cold_boot)
 		}
 	}
 
+#if defined(APPLEAVALANCHE)
+#endif /* APPLEAVALANCHE */
 
 }
 #endif /* APPLE_ARM64_ARCH_FAMILY */
@@ -170,6 +178,20 @@ ml_default_jop_pid(void)
 #if HAS_PARAVIRTUALIZED_PAC
 	vmapple_pac_get_default_keys();
 	return vmapple_default_jop_pid;
+#else
+	return 0;
+#endif /* HAS_PARAVIRTUALIZED_PAC */
+}
+
+/**
+ * Returns an appropriate JOP key for non-arm64e userspace processes.  The
+ * return value may vary from call to call.
+ */
+uint64_t
+ml_non_arm64e_user_jop_pid(void)
+{
+#if HAS_PARAVIRTUALIZED_PAC
+	return generate_jop_key();
 #else
 	return 0;
 #endif /* HAS_PARAVIRTUALIZED_PAC */

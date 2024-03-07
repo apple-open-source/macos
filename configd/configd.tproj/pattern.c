@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, 2006-2009, 2011, 2012, 2015, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006-2009, 2011, 2012, 2015, 2021, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -115,7 +115,7 @@ keyMatchesPattern(CFStringRef key, CFDataRef pRegex)
 
 
 static void
-identifyKeyForPattern(const void *key, void *val, void *context)
+identifyKeyForPattern(const void *key, const void *val, void *context)
 {
 	CFStringRef		storeKey	= (CFStringRef)key;
 	CFDictionaryRef		storeValue	= (CFDictionaryRef)val;
@@ -458,7 +458,7 @@ patternRemoveSession(CFStringRef pattern, CFNumberRef sessionNum)
 
 
 static void
-addKeyForPattern(const void *key, void *val, void *context)
+addKeyForPattern(const void *key, const void *val, void *context)
 {
 	CFStringRef		pattern		= (CFStringRef)key;
 	CFArrayRef		pInfo		= (CFArrayRef)val;
@@ -543,7 +543,7 @@ patternAddKey(CFStringRef key)
 
 
 static void
-removeKeyFromPattern(const void *key, void *val, void *context)
+removeKeyFromPattern(const void *key, const void *val, void *context)
 {
 	CFStringRef		pattern		= (CFStringRef)key;
 	CFArrayRef		pInfo		= (CFArrayRef)val;

@@ -82,6 +82,15 @@
     [_interaction _updateMouseTouches:touches];
 }
 
+#if PLATFORM(MACCATALYST)
+
+- (UIEventButtonMask)_defaultAllowedMouseButtons
+{
+    return UIEventButtonMaskPrimary | UIEventButtonMaskSecondary;
+}
+
+#endif
+
 @end
 
 @implementation WKMouseInteraction {
@@ -201,9 +210,12 @@ inline static String pointerType(UITouchType type)
     return WebCore::mousePointerEventType();
 }
 
-- (WebKit::NativeWebMouseEvent)createMouseEventWithType:(WebKit::WebEventType)type wasCancelled:(BOOL)cancelled
+- (std::optional<WebKit::NativeWebMouseEvent>)createMouseEventWithType:(std::optional<WebKit::WebEventType>)type wasCancelled:(BOOL)cancelled
 {
-    auto modifiers = WebIOSEventFactory::webEventModifiersForUIKeyModifierFlags(self._activeGesture.modifierFlags);
+    if (!type)
+        return std::nullopt;
+
+    auto modifiers = WebKit::WebIOSEventFactory::webEventModifiersForUIKeyModifierFlags(self._activeGesture.modifierFlags);
     BOOL isRightButton = modifiers.contains(WebKit::WebEventModifier::ControlKey) || (_pressedButtonMask.value_or(0) & UIEventButtonMaskSecondary);
 
     auto button = [&] {
@@ -227,8 +239,8 @@ inline static String pointerType(UITouchType type)
     WebCore::IntPoint point { [self locationInView:self.view] };
     auto delta = point - WebCore::IntPoint { [currentTouch previousLocationInView:self.view] };
     // UITouch's timestamp uses mach_absolute_time as its timebase, same as MonotonicTime.
-    return {
-        type,
+    return WebKit::NativeWebMouseEvent {
+        *type,
         button,
         static_cast<unsigned short>(buttons),
         point,
@@ -320,7 +332,9 @@ inline static String pointerType(UITouchType type)
         return;
 
     _lastLocation = location;
-    [_delegate mouseInteraction:self changedWithEvent:[self createMouseEventWithType:WebKit::WebEventType::MouseMove wasCancelled:isCancelled]];
+    auto mouseEvent = [self createMouseEventWithType:WebKit::WebEventType::MouseMove wasCancelled:isCancelled];
+    if (mouseEvent)
+        [_delegate mouseInteraction:self changedWithEvent:*mouseEvent];
 }
 
 - (void)_updateMouseTouches:(NSSet<UITouch *> *)touches
@@ -328,7 +342,7 @@ inline static String pointerType(UITouchType type)
     _currentMouseTouch = touches.anyObject;
     _lastLocation = [_mouseTouchGestureRecognizer locationInView:_view];
 
-    auto eventType = WebKit::WebEventType::NoType;
+    std::optional<WebKit::WebEventType> eventType;
     auto phase = [_currentMouseTouch phase];
     switch (phase) {
     case UITouchPhaseBegan:
@@ -352,8 +366,12 @@ inline static String pointerType(UITouchType type)
         break;
     }
 
-    if (eventType != WebKit::WebEventType::NoType)
-        [_delegate mouseInteraction:self changedWithEvent:[self createMouseEventWithType:eventType wasCancelled:phase == UITouchPhaseCancelled]];
+    auto mouseEvent = [self createMouseEventWithType:eventType wasCancelled:phase == UITouchPhaseCancelled];
+    if (!mouseEvent)
+        return;
+
+    if (eventType)
+        [_delegate mouseInteraction:self changedWithEvent:*mouseEvent];
 
     if (eventType == WebKit::WebEventType::MouseUp) {
         _touching = NO;

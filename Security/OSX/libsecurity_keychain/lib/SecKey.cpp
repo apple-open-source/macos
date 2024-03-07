@@ -32,6 +32,7 @@
 #include <libDER/DER_Keys.h>
 #include <Security/SecAsn1Types.h>
 #include <Security/SecAsn1Coder.h>
+#include <Security/SecCFAllocator.h>
 #include <security_keychain/KeyItem.h>
 #include <security_utilities/casts.h>
 #include <CommonCrypto/CommonKeyDerivation.h>
@@ -185,22 +186,6 @@ SecCDSAKeyGetAlgorithmId(SecKeyRef key) {
     END_SECKEYAPI
 }
 
-static CFDataRef SecCDSAKeyCopyPublicKeyDataFromSubjectInfo(CFDataRef pubKeyInfo) {
-    // First of all, consider x509 format and try to strip SubjPubKey envelope.  If it fails, do not panic
-    // and export data as is.
-    DERItem keyItem = { (DERByte *)CFDataGetBytePtr(pubKeyInfo), int_cast<CFIndex, DERSize>(CFDataGetLength(pubKeyInfo)) }, pubKeyItem;
-    DERByte numUnused;
-    DERSubjPubKeyInfo subjPubKey;
-    if (DERParseSequence(&keyItem, DERNumSubjPubKeyInfoItemSpecs,
-                         DERSubjPubKeyInfoItemSpecs,
-                         &subjPubKey, sizeof(subjPubKey)) == DR_Success &&
-        DERParseBitString(&subjPubKey.pubKey, &pubKeyItem, &numUnused) == DR_Success) {
-        return CFDataCreate(kCFAllocatorDefault, pubKeyItem.data, pubKeyItem.length);
-    }
-
-    return CFDataRef(CFRetain(pubKeyInfo));
-}
-
 static CFDataRef SecCDSAKeyCopyPublicKeyDataWithSubjectInfo(CSSM_ALGORITHMS algorithm, uint32 keySizeInBits, CFDataRef pubKeyInfo) {
     // First check, whether X509 pubkeyinfo is already present.  If not, add it according to the key type.
     DERItem keyItem = { (DERByte *)CFDataGetBytePtr(pubKeyInfo), int_cast<CFIndex, DERSize>(CFDataGetLength(pubKeyInfo)) };
@@ -262,68 +247,9 @@ static CFDataRef SecCDSAKeyCopyPublicKeyDataWithSubjectInfo(CSSM_ALGORITHMS algo
     return keyData.yield();
 }
 
-static OSStatus SecCDSAKeyCopyPublicBytes(SecKeyRef key, CFDataRef *serialization) {
-
-    CFErrorRef *error = NULL;
-    BEGIN_SECKEYAPI(OSStatus, errSecSuccess)
-
-    const CssmKey::Header &header = CDSASecKey::keyItem(key)->key().header();
-    switch (header.algorithm()) {
-        case CSSM_ALGID_RSA: {
-            switch (header.keyClass()) {
-                case CSSM_KEYCLASS_PRIVATE_KEY: {
-                    CFRef<CFDataRef> privKeyData;
-                    result = SecItemExport(key, kSecFormatOpenSSL, 0, NULL, privKeyData.take());
-                    if (result == errSecSuccess) {
-                        DERItem keyItem = { (DERByte *)CFDataGetBytePtr(privKeyData), int_cast<CFIndex, DERSize>(CFDataGetLength(privKeyData)) };
-                        DERRSAKeyPair keyPair;
-                        if (DERParseSequence(&keyItem, DERNumRSAKeyPairItemSpecs, DERRSAKeyPairItemSpecs,
-                                             &keyPair, sizeof(keyPair)) == DR_Success) {
-                            DERRSAPubKeyPKCS1 pubKey = { keyPair.n, keyPair.e };
-                            DERSize size = DERLengthOfEncodedSequence(ASN1_SEQUENCE, &pubKey,
-                                                                      DERNumRSAPubKeyPKCS1ItemSpecs, DERRSAPubKeyPKCS1ItemSpecs);
-                            CFRef<CFMutableDataRef> keyData = CFDataCreateMutable(kCFAllocatorDefault, size);
-                            CFDataSetLength(keyData, size);
-                            UInt8 *data = CFDataGetMutableBytePtr(keyData);
-                            if (DEREncodeSequence(ASN1_SEQUENCE, &pubKey,
-                                                  DERNumRSAPubKeyPKCS1ItemSpecs, DERRSAPubKeyPKCS1ItemSpecs,
-                                                  data, &size) == DR_Success) {
-                                CFDataSetLength(keyData, size);
-                                *data = ONE_BYTE_ASN1_CONSTR_SEQUENCE;
-                                *serialization = keyData.yield();
-                            } else {
-                                *serialization = NULL;
-                                result = errSecParam;
-                            }
-                        }
-                    }
-                    break;
-                }
-                case CSSM_KEYCLASS_PUBLIC_KEY:
-                    result = SecItemExport(key, kSecFormatBSAFE, 0, NULL, serialization);
-                    break;
-            }
-            break;
-        }
-        case CSSM_ALGID_ECDSA: {
-            *serialization = NULL;
-            CFRef<CFDataRef> tempPublicData;
-            result = SecItemExport(key, kSecFormatOpenSSL, 0, NULL, tempPublicData.take());
-            if (result == errSecSuccess) {
-                *serialization = SecCDSAKeyCopyPublicKeyDataFromSubjectInfo(tempPublicData);
-            }
-            break;
-        }
-        default:
-            result = errSecUnimplemented;
-    }
-
-    END_SECKEYAPI
-}
-
 typedef struct {
-    DERItem	privateKey;
-    DERItem	publicKey;
+    DERItem    privateKey;
+    DERItem    publicKey;
 } DERECPrivateKey;
 
 static const DERItemSpec DERECPrivateKeyItemSpecs[] =
@@ -357,55 +283,163 @@ static const DERItemSpec DERECPrivateKeyPublicKeyItemSpecs[] =
 static const DERSize DERNumECPrivateKeyPublicKeyItemSpecs =
 sizeof(DERECPrivateKeyPublicKeyItemSpecs) / sizeof(DERItemSpec);
 
-static CFDataRef
-SecCDSAKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
+static void
+SecCDSAKeyGetPublicKeyDataFromPrivateKey(KeyItem *keyItem, CssmOwnedData &keyData) {
+    Key &key = keyItem->key();
+    try {
+        PassThrough passThrough(key->csp());
+        passThrough.key(key);
+        switch (key->algorithm()) {
+            case CSSM_ALGID_RSA:
+                passThrough.add(CSSM_ATTRIBUTE_PUBLIC_KEY_FORMAT, uint32(CSSM_KEYBLOB_RAW_FORMAT_PKCS1));
+                break;
+            case CSSM_ALGID_ECDSA:
+                passThrough.add(CSSM_ATTRIBUTE_PUBLIC_KEY_FORMAT, uint32(CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING));
+                break;
+            default:
+                CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+        }
+        CssmData *pubKeyData;
+        passThrough(CSSM_APPLECSP_PUBKEY, (const void *)NULL, &pubKeyData);
+        keyData.set(*pubKeyData);
+        passThrough.allocator().free(pubKeyData);
+    } catch (const CssmError &error) {
+        // We need to handle the case when running against old securityd which does not implement new getPublicKey() MIG IPC.
+        if (error.error != CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED) {
+            // Some other failure, propagate further.
+            throw;
+        }
 
-    BEGIN_SECKEYAPI(CFDataRef, NULL)
-
-    result = NULL;
-    const CssmKey::Header header = CDSASecKey::keyItem(key)->unverifiedKeyHeader();
-    CFRef<CFDataRef> keyData;
-    switch (header.algorithm()) {
-        case CSSM_ALGID_RSA:
-            MacOSError::check(SecItemExport(key, kSecFormatOpenSSL, 0, NULL, keyData.take()));
-            break;
-        case CSSM_ALGID_ECDSA: {
-            MacOSError::check(SecItemExport(key, kSecFormatOpenSSL, 0, NULL, keyData.take()));
-            if (header.keyClass() == CSSM_KEYCLASS_PRIVATE_KEY) {
+        WrapKey wrapKey(key->csp(), CSSM_ALGID_NONE);
+        wrapKey.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_DECRYPT, kSecCredentialTypeDefault));
+        switch (key->algorithm()) {
+            case CSSM_ALGID_RSA: {
+                wrapKey.add(CSSM_ATTRIBUTE_PRIVATE_KEY_FORMAT, uint32(CSSM_KEYBLOB_RAW_FORMAT_PKCS1));
+                Key wrappedKey = wrapKey(key);
+                DERItem keyItem = { (DERByte *)wrappedKey->data(), int_cast<size_t, DERSize>(wrappedKey->length()) };
+                DERRSAKeyPair keyPair;
+                if (DERParseSequence(&keyItem, DERNumRSAKeyPairItemSpecs, DERRSAKeyPairItemSpecs,
+                                     &keyPair, sizeof(keyPair)) != DR_Success) {
+                    CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_FORMAT);
+                }
+                DERRSAPubKeyPKCS1 pubKey = { keyPair.n, keyPair.e };
+                DERSize size = DERLengthOfEncodedSequence(ASN1_SEQUENCE, &pubKey,
+                                                          DERNumRSAPubKeyPKCS1ItemSpecs, DERRSAPubKeyPKCS1ItemSpecs);
+                keyData.length(size);
+                if (DEREncodeSequence(ASN1_SEQUENCE, &pubKey,
+                                      DERNumRSAPubKeyPKCS1ItemSpecs, DERRSAPubKeyPKCS1ItemSpecs,
+                                      static_cast<DERByte *>(keyData.data()), &size) != DR_Success) {
+                    CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_FORMAT);
+                }
+                keyData.length(size);
+                *static_cast<DERByte *>(keyData.data()) = ONE_BYTE_ASN1_CONSTR_SEQUENCE;
+                break;
+            }
+            case CSSM_ALGID_ECDSA: {
                 // Convert DER format into x9.63 format, which is expected for exported key.
-                DERItem keyItem = { (DERByte *)CFDataGetBytePtr(keyData), int_cast<CFIndex, DERSize>(CFDataGetLength(keyData)) };
+                Key wrappedKey = wrapKey(key);
+                DERItem keyItem = { (DERByte *)wrappedKey->data(), int_cast<size_t, DERSize>(wrappedKey->length()) };
                 DERECPrivateKey privateKey;
                 DERECPrivateKeyPublicKey privateKeyPublicKey;
                 DERByte numUnused;
                 DERItem pubKeyItem;
                 if (DERParseSequence(&keyItem, DERNumECPrivateKeyItemSpecs, DERECPrivateKeyItemSpecs,
-                                     &privateKey, sizeof(privateKey)) == DR_Success &&
+                                     &privateKey, sizeof(privateKey)) != DR_Success ||
                     DERParseSequenceContent(&privateKey.publicKey, DERNumECPrivateKeyPublicKeyItemSpecs,
                                             DERECPrivateKeyPublicKeyItemSpecs,
-                                            &privateKeyPublicKey, sizeof(privateKeyPublicKey)) == DR_Success &&
-                    DERParseBitString(&privateKeyPublicKey.bitString, &pubKeyItem, &numUnused) == DR_Success) {
-                    CFRef<CFMutableDataRef> key = CFDataCreateMutable(kCFAllocatorDefault,
-                                                                      pubKeyItem.length + privateKey.privateKey.length);
-                    CFDataSetLength(key, pubKeyItem.length + privateKey.privateKey.length);
-                    CFDataReplaceBytes(key, CFRangeMake(0, pubKeyItem.length), pubKeyItem.data, pubKeyItem.length);
-                    CFDataReplaceBytes(key, CFRangeMake(pubKeyItem.length, privateKey.privateKey.length),
-                                       privateKey.privateKey.data, privateKey.privateKey.length);
-                    keyData = key.as<CFDataRef>();
+                                            &privateKeyPublicKey, sizeof(privateKeyPublicKey)) != DR_Success ||
+                    DERParseBitString(&privateKeyPublicKey.bitString, &pubKeyItem, &numUnused) != DR_Success) {
+                    CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_FORMAT);
                 }
+                keyData.copy(pubKeyItem.data, pubKeyItem.length);
+                break;
+            }
+            default:
+                CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+        }
+    }
+}
+
+static CFDataRef
+SecCDSAKeyCopyExternalRepresentation(SecKeyRef keyRef, CFErrorRef *error) {
+    BEGIN_SECKEYAPI(CFDataRef, NULL)
+
+    KeychainCore::KeyItem *keyItem = CDSASecKey::keyItem(keyRef);
+    Key &key = keyItem->key();
+    WrapKey wrapKey(key->csp(), CSSM_ALGID_NONE);
+    if (key->keyClass() == CSSM_KEYCLASS_PRIVATE_KEY) {
+        // Creds are needed for wrapping private keys.
+        wrapKey.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_DECRYPT, kSecCredentialTypeDefault));
+    }
+    switch (key->algorithm()) {
+        case CSSM_ALGID_RSA: {
+            wrapKey.add((key->keyClass() == CSSM_KEYCLASS_PUBLIC_KEY) ? CSSM_ATTRIBUTE_PUBLIC_KEY_FORMAT : CSSM_ATTRIBUTE_PRIVATE_KEY_FORMAT, uint32(CSSM_KEYBLOB_RAW_FORMAT_PKCS1));
+            Key wrappedKey = wrapKey(key);
+            result = CFDataCreate(SecCFAllocatorZeroize(), static_cast<const UInt8 *>(wrappedKey->data()), int_cast<size_t, CFIndex>(wrappedKey->length()));
+            break;
+        }
+        case CSSM_ALGID_ECDSA: {
+            switch (key->keyClass()) {
+                case CSSM_KEYCLASS_PUBLIC_KEY: {
+                    wrapKey.add(CSSM_ATTRIBUTE_PUBLIC_KEY_FORMAT, uint32(CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING));
+                    Key wrappedKey = wrapKey(key);
+                    result = CFDataCreate(SecCFAllocatorZeroize(), static_cast<const UInt8 *>(wrappedKey->data()), int_cast<size_t, CFIndex>(wrappedKey->length()));
+                    break;
+                }
+                case CSSM_KEYCLASS_PRIVATE_KEY: {
+                    // First, get public key.
+                    CssmAutoData pubKeyData(key.allocator());
+                    SecCDSAKeyGetPublicKeyDataFromPrivateKey(keyItem, pubKeyData);
+                    CFRef<CFMutableDataRef> keyData = CFDataCreateMutable(SecCFAllocatorZeroize(), 0);
+                    CFDataAppendBytes(keyData, static_cast<const UInt8 *>(pubKeyData.data()), int_cast<CFIndex, size_t>(pubKeyData.length()));
+
+                    // Use wrap to get private key part and append it after public key.
+                    wrapKey.add(CSSM_ATTRIBUTE_PRIVATE_KEY_FORMAT, uint32(CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING));
+                    Key wrappedKey = wrapKey(key);
+                    CFDataAppendBytes(keyData, static_cast<const UInt8 *>(wrappedKey->data()), int_cast<CFIndex, size_t>(wrappedKey->length()));
+                    result = keyData.yield();
+                    break;
+                }
+                default:
+                    CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
             }
             break;
         }
         default:
-            MacOSError::throwMe(errSecUnimplemented);
-    }
-
-    if (header.keyClass() == CSSM_KEYCLASS_PUBLIC_KEY) {
-        result = SecCDSAKeyCopyPublicKeyDataFromSubjectInfo(keyData);
-    } else {
-        result = keyData.yield();
+            CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
     }
 
     END_SECKEYAPI
+}
+
+static CFDataRef SecCDSAKeyCreatePublicBytes(SecKeyRef keyRef, CFErrorRef *error) {
+    BEGIN_SECKEYAPI(CFDataRef, NULL)
+
+    KeychainCore::KeyItem *keyItem = CDSASecKey::keyItem(keyRef);
+    CssmClient::Key &key = keyItem->key();
+    switch (key->keyClass()) {
+        case CSSM_KEYCLASS_PRIVATE_KEY: {
+            CssmAutoData pubKeyData(key.allocator());
+            SecCDSAKeyGetPublicKeyDataFromPrivateKey(keyItem, pubKeyData);
+            result = CFDataCreate(SecCFAllocatorZeroize(), static_cast<const UInt8 *>(pubKeyData.data()), int_cast<CFIndex, size_t>(pubKeyData.length()));
+            break;
+        }
+        case CSSM_KEYCLASS_PUBLIC_KEY: {
+            // Just forward to getting external representation of the public key.
+            result = SecCDSAKeyCopyExternalRepresentation(keyRef, error);
+            break;
+        }
+        default:
+            CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+    }
+
+    END_SECKEYAPI
+}
+
+static OSStatus SecCDSAKeyCopyPublicBytes(SecKeyRef keyRef, CFDataRef *serialization) {
+    CFRef<CFErrorRef> error;
+    *serialization = SecCDSAKeyCreatePublicBytes(keyRef, error.take());
+    return *serialization != NULL ? errSecSuccess : (OSStatus)CFErrorGetCode(error);
 }
 
 static CFDataRef SecCDSAKeyCopyLabel(SecKeyRef key) {
@@ -489,29 +523,26 @@ SecCDSAKeyCopyAttributeDictionary(SecKeyRef key) {
             CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeRSA);
             break;
         case CSSM_ALGID_ECDSA:
-            CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeECDSA);
+            CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
             break;
     }
 
-    CFRef<CFDataRef> keyData;
-    if (SecItemExport(key, kSecFormatOpenSSL, 0, NULL, keyData.take()) == errSecSuccess) {
+    CFRef<CFDataRef> keyData = SecCDSAKeyCopyExternalRepresentation(key, NULL);
+    if (keyData) {
         CFDictionarySetValue(dict, kSecValueData, keyData);
-    }
-
-    if (header.algorithm() == CSSM_ALGID_RSA && header.keyClass() == CSSM_KEYCLASS_PUBLIC_KEY &&
-        header.blobType() == CSSM_KEYBLOB_RAW) {
-        const CssmData &keyData = CDSASecKey::keyItem(key)->key()->keyData();
-        DERItem keyItem = { static_cast<DERByte *>(keyData.data()), keyData.length() };
-        DERRSAPubKeyPKCS1 decodedKey;
-        if (DERParseSequence(&keyItem, DERNumRSAPubKeyPKCS1ItemSpecs,
-                             DERRSAPubKeyPKCS1ItemSpecs,
-                             &decodedKey, sizeof(decodedKey)) == DR_Success) {
-            CFRef<CFDataRef> modulus = CFDataCreate(kCFAllocatorDefault, decodedKey.modulus.data,
-                                                    decodedKey.modulus.length);
-            CFDictionarySetValue(dict, CFSTR("_rsam"), modulus);
-            CFRef<CFDataRef> exponent = CFDataCreate(kCFAllocatorDefault, decodedKey.pubExponent.data,
-                                                     decodedKey.pubExponent.length);
-            CFDictionarySetValue(dict, CFSTR("_rsae"), exponent);
+        if (header.algorithm() == CSSM_ALGID_RSA && header.keyClass() == CSSM_KEYCLASS_PUBLIC_KEY) {
+            DERItem keyItem = { const_cast<DERByte *>(static_cast<const DERByte *>(CFDataGetBytePtr(keyData))), int_cast<CFIndex, DERSize>(CFDataGetLength(keyData)) };
+            DERRSAPubKeyPKCS1 decodedKey;
+            if (DERParseSequence(&keyItem, DERNumRSAPubKeyPKCS1ItemSpecs,
+                                 DERRSAPubKeyPKCS1ItemSpecs,
+                                 &decodedKey, sizeof(decodedKey)) == DR_Success) {
+                CFRef<CFDataRef> modulus = CFDataCreate(kCFAllocatorDefault, decodedKey.modulus.data,
+                                                        decodedKey.modulus.length);
+                CFDictionarySetValue(dict, CFSTR("_rsam"), modulus);
+                CFRef<CFDataRef> exponent = CFDataCreate(kCFAllocatorDefault, decodedKey.pubExponent.data,
+                                                         decodedKey.pubExponent.length);
+                CFDictionarySetValue(dict, CFSTR("_rsae"), exponent);
+            }
         }
     }
 
@@ -820,8 +851,8 @@ const SecKeyDescriptor kSecCDSAKeyDescriptor = {
     .copyDictionary = SecCDSAKeyCopyAttributeDictionary,
     .getAlgorithmID = SecCDSAKeyGetAlgorithmId,
     .copyPublic = SecCDSAKeyCopyPublicBytes,
-    .copyExternalRepresentation = SecCDSAKeyCopyExternalRepresentation,
     .copyPublicKey = SecCDSAKeyCopyPublicKey,
+    .copyExternalRepresentation = SecCDSAKeyCopyExternalRepresentation,
     .copyOperationResult = SecCDSAKeyCopyOperationResult,
     .isEqual = SecCDSAKeyIsEqual,
     .setParameter = SecCDSAKeySetParameter,

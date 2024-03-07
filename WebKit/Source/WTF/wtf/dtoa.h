@@ -41,6 +41,7 @@ WTF_EXPORT_PRIVATE const char* numberToFixedPrecisionString(float, unsigned sign
 WTF_EXPORT_PRIVATE const char* numberToFixedWidthString(float, unsigned decimalPlaces, NumberToStringBuffer&);
 
 WTF_EXPORT_PRIVATE const char* numberToString(double, NumberToStringBuffer&);
+WTF_EXPORT_PRIVATE const char* numberToStringWithTrailingPoint(double, NumberToStringBuffer&);
 WTF_EXPORT_PRIVATE const char* numberToFixedPrecisionString(double, unsigned significantFigures, NumberToStringBuffer&, bool truncateTrailingZeros = false);
 WTF_EXPORT_PRIVATE const char* numberToFixedWidthString(double, unsigned decimalPlaces, NumberToStringBuffer&);
 
@@ -58,6 +59,7 @@ inline double parseDouble(StringView string, size_t& parsedLength)
 
 using WTF::NumberToStringBuffer;
 using WTF::numberToString;
+using WTF::numberToStringWithTrailingPoint;
 using WTF::numberToFixedPrecisionString;
 using WTF::numberToFixedWidthString;
 using WTF::parseDouble;

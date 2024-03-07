@@ -45,7 +45,12 @@ namespace
 
 const char *GetString(const FunctionsGL *functions, GLenum name)
 {
-    return reinterpret_cast<const char *>(functions->getString(name));
+    const char *cStr = reinterpret_cast<const char *>(functions->getString(name));
+    if (cStr == nullptr)
+    {
+        return "";
+    }
+    return cStr;
 }
 
 bool IsMesa(const FunctionsGL *functions, std::array<int, 3> *version)
@@ -79,6 +84,22 @@ int getAdrenoNumber(const FunctionsGL *functions)
         }
     }
     return number;
+}
+
+int GetQualcommVersion(const FunctionsGL *functions)
+{
+    static int version = -1;
+    if (version == -1)
+    {
+        const std::string nativeVersionString(GetString(functions, GL_VERSION));
+        const size_t pos = nativeVersionString.find("V@");
+        if (pos == std::string::npos ||
+            std::sscanf(nativeVersionString.c_str() + pos, "V@%d", &version) < 1)
+        {
+            version = 0;
+        }
+    }
+    return version;
 }
 
 int getMaliTNumber(const FunctionsGL *functions)
@@ -1489,8 +1510,25 @@ void GenerateCaps(const FunctionsGL *functions,
                                 functions->hasGLESExtension("GL_EXT_depth_clamp");
     extensions->polygonOffsetClampEXT = functions->hasExtension("GL_EXT_polygon_offset_clamp");
 
-    // Not currently exposed on native OpenGL ES due to driver bugs.
-    extensions->polygonModeNV    = functions->standard == STANDARD_GL_DESKTOP;
+    if (functions->standard == STANDARD_GL_DESKTOP)
+    {
+        extensions->polygonModeNV = true;
+    }
+    else if (functions->hasGLESExtension("GL_NV_polygon_mode"))
+    {
+        // Some drivers expose the extension string without supporting its caps.
+        ANGLE_GL_CLEAR_ERRORS();
+        functions->isEnabled(GL_POLYGON_OFFSET_LINE_NV);
+        if (functions->getError() != GL_NO_ERROR)
+        {
+            WARN() << "Not enabling GL_NV_polygon_mode because "
+                      "its native driver support is incomplete.";
+        }
+        else
+        {
+            extensions->polygonModeNV = true;
+        }
+    }
     extensions->polygonModeANGLE = extensions->polygonModeNV;
 
     // This functionality is provided by Shader Model 5 and should be available in GLSL 4.00
@@ -2209,6 +2247,12 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
     std::array<int, 3> mesaVersion = {0, 0, 0};
     bool isMesa                    = IsMesa(functions, &mesaVersion);
 
+    int qualcommVersion = -1;
+    if (!isMesa && isQualcomm)
+    {
+        qualcommVersion = GetQualcommVersion(functions);
+    }
+
     // Don't use 1-bit alpha formats on desktop GL with AMD drivers.
     ANGLE_FEATURE_CONDITION(features, avoid1BitAlphaTextureFormats,
                             functions->standard == STANDARD_GL_DESKTOP && isAMD);
@@ -2541,6 +2585,11 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
     // https://anglebug.com/7880
     ANGLE_FEATURE_CONDITION(features, emulateClipDistanceState, isQualcomm);
 
+    // https://anglebug.com/8392
+    ANGLE_FEATURE_CONDITION(features, emulateClipOrigin,
+                            !isMesa && isQualcomm && qualcommVersion < 490 &&
+                                functions->hasGLESExtension("GL_EXT_clip_control"));
+
     // https://anglebug.com/8308
     ANGLE_FEATURE_CONDITION(features, explicitFragmentLocations, isQualcomm);
 
@@ -2576,6 +2625,9 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
     // https://crbug.com/1434317
     ANGLE_FEATURE_CONDITION(features, disableClipControl, IsMaliG72OrG76OrG51(functions));
 
+    // https://anglebug.com/8381
+    ANGLE_FEATURE_CONDITION(features, resyncDepthRangeOnClipControl, !isMesa && isQualcomm);
+
     // https://anglebug.com/8315
     ANGLE_FEATURE_CONDITION(features, disableRenderSnorm,
                             isMesa && (mesaVersion < (std::array<int, 3>{21, 3, 0}) ||
@@ -2594,6 +2646,9 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
 
     // http://crbug.com/1456243
     ANGLE_FEATURE_CONDITION(features, ensureNonEmptyBufferIsBoundForDraw, IsApple() || IsAndroid());
+
+    // https://anglebug.com/8433
+    ANGLE_FEATURE_CONDITION(features, preTransformTextureCubeGradDerivatives, isApple);
 }
 
 void InitializeFrontendFeatures(const FunctionsGL *functions, angle::FrontendFeatures *features)
@@ -2610,13 +2665,14 @@ void InitializeFrontendFeatures(const FunctionsGL *functions, angle::FrontendFea
     // Disable shader program cache to workaround PowerVR Rogue issues.
     ANGLE_FEATURE_CONDITION(features, disableProgramBinary, IsPowerVrRogue(functions));
 
-    // The link job needs a context, and previous experiments showed setting up temp contexts in
-    // threads for the sake of program link triggers too many driver bugs.  See
+    // The compile and link jobs need a context, and previous experiments showed setting up temp
+    // contexts in threads for the sake of program link triggers too many driver bugs.  See
     // https://chromium-review.googlesource.com/c/angle/angle/+/4774785 for context.
     //
-    // As a result, the link job is done in the same thread as the link call.  If the native driver
-    // supports parallel link, it's still done internally by the driver, and ANGLE supports delaying
-    // post-link operations until that is done.
+    // As a result, the compile and link jobs are done in the same thread as the call.  If the
+    // native driver supports parallel compile/link, it's still done internally by the driver, and
+    // ANGLE supports delaying post-compile and post-link operations until that is done.
+    ANGLE_FEATURE_CONDITION(features, compileJobIsThreadSafe, false);
     ANGLE_FEATURE_CONDITION(features, linkJobIsThreadSafe, false);
 }
 

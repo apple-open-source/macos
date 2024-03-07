@@ -63,6 +63,8 @@ struct app {
 	const char	*app_name;
 	const char	*app_path;
 	struct appflag	*app_lastflag;
+	const char	**app_add_argv;
+	int		 app_add_nargv;
 	unsigned int	 app_shortflags;
 	unsigned int	 app_longflags;
 	bool		 app_default;
@@ -212,6 +214,36 @@ app_set_argmode_logonly(struct app *app)
 }
 
 void
+app_add_addarg(struct app *app, const char **argv, int nargv)
+{
+	int total_args;
+
+	/*
+	 * We'll extend addargs as needed; capturing everything in order that
+	 * it's specified.
+	 */
+	total_args = app->app_add_nargv + nargv;
+	app->app_add_argv = realloc(app->app_add_argv,
+	    sizeof(*app->app_add_argv) * total_args);
+	if (app->app_add_argv == NULL)
+		err(1, "realloc");
+
+	for (int i = app->app_add_nargv; i < total_args; i++) {
+		int idx = i - app->app_add_nargv;
+
+		/*
+		 * The caller won't be needing this anymore, just take it rather
+		 * than making our own copy.  NULL out the caller's copy so that
+		 * it can't free it out from underneath us.
+		 */
+		app->app_add_argv[i] = argv[idx];
+		argv[idx] = NULL;
+	}
+
+	app->app_add_nargv = total_args;
+}
+
+void
 app_set_path(struct app *app, const char *path, bool relcwd)
 {
 
@@ -287,6 +319,16 @@ app_longopt_name(struct app *app)
 	static char namebuf[PATH_MAX];
 
 	snprintf(namebuf, sizeof(namebuf), "%s_longopts", app->app_name);
+	return (namebuf);
+}
+
+static const char *
+app_addarg_name(struct app *app)
+{
+	/* Single threaded; kludgy but OK. */
+	static char namebuf[PATH_MAX];
+
+	snprintf(namebuf, sizeof(namebuf), "%s_add_args", app->app_name);
 	return (namebuf);
 }
 
@@ -379,6 +421,17 @@ wrapper_write_long_args(FILE *outfile, struct app *app)
 }
 
 static void
+wrapper_write_addargs(FILE *outfile, struct app *app)
+{
+
+	fprintf(outfile, "static const char *%s[] = {\n", app_addarg_name(app));
+	for (int i = 0; i < app->app_add_nargv; i++) {
+		fprintf(outfile, "\t\"%s\",\n", app->app_add_argv[i]);
+	}
+	fprintf(outfile, "};\n");
+}
+
+static void
 wrapper_write_args(FILE *outfile, struct app *app)
 {
 	struct appflag *af;
@@ -449,19 +502,32 @@ wrapper_write(FILE *outfile)
 	wrapper_output_file(outfile, _PATH_SKELDIR "wrapper-head.c");
 	fprintf(outfile, "\n/* START OF SPEC @" "generated CONTENTS */\n\n");
 
-	fprintf(outfile, "/* Long Option Declarations */\n");
+	fprintf(outfile, "/* Long Option Definitions */\n");
 	empty = true;
 	LIST_FOREACH(app, &apps, app_entries) {
 		if (app->app_longflags == 0)
 			continue;
 
-		fprintf(outfile, "static const struct option	%s[];\n",
-		    app_longopt_name(app));
+		wrapper_write_long_args(outfile, app);
 		empty = false;
 	}
 
 	if (empty)
 		fprintf(outfile, "\n");
+
+	fprintf(outfile, "/* Additional Arg Definitions */\n");
+	empty = true;
+	LIST_FOREACH(app, &apps, app_entries) {
+		if (app->app_add_nargv == 0)
+			continue;
+
+		wrapper_write_addargs(outfile, app);
+		empty = false;
+	}
+
+	if (empty)
+		fprintf(outfile, "\n");
+
 	fprintf(outfile, "\n/* Application Definitions */\n");
 	fprintf(outfile, "static const struct application wrapper_apps[] = {\n");
 
@@ -475,6 +541,13 @@ wrapper_write(FILE *outfile)
 		    app->app_path_relcwd ? "true" : "false");
 		fprintf(outfile, "		.app_opts_logonly = %s,\n",
 		    app->app_argmode_logonly ? "true" : "false");
+		if (app->app_add_nargv != 0) {
+			fprintf(outfile, "		.app_add_argv = %s,\n",
+			    app_addarg_name(app));
+			fprintf(outfile,
+			    "		.app_add_nargv = nitems(%s),\n",
+			    app_addarg_name(app));
+		}
 		if (!LIST_EMPTY(&app->app_flags))
 			wrapper_write_args(outfile, app);
 
@@ -483,18 +556,6 @@ wrapper_write(FILE *outfile)
 
 	fprintf(outfile, "};\n\n");
 
-	fprintf(outfile, "/* Long Option Definitions */\n");
-	empty = true;
-	LIST_FOREACH(app, &apps, app_entries) {
-		if (app->app_longflags == 0)
-			continue;
-
-		wrapper_write_long_args(outfile, app);
-		empty = false;
-	}
-
-	if (empty)
-		fprintf(outfile, "\n");
 	fprintf(outfile, "\n/* END OF SPEC @" "generated CONTENTS */\n\n");
 	wrapper_output_file(outfile, _PATH_SKELDIR "wrapper-tail.c");
 }

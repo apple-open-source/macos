@@ -59,6 +59,7 @@ public:
 	size_t signingLimit();
 	size_t execSegBase(const Architecture *arch);
 	size_t execSegLimit(const Architecture *arch);
+	uint32_t platformType(const Architecture *arch);
 	std::string format();
     CFDictionaryRef copyDiskRepInformation();
 

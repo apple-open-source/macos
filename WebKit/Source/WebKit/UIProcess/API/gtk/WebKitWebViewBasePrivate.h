@@ -54,12 +54,18 @@ void webkitWebViewBaseSetMouseIsOverScrollbar(WebKitWebViewBase*, WebKit::WebHit
 void webkitWebViewBasePropagateKeyEvent(WebKitWebViewBase*, GdkEvent*);
 void webkitWebViewBasePropagateWheelEvent(WebKitWebViewBase*, GdkEvent*);
 void webkitWebViewBaseChildMoveResize(WebKitWebViewBase*, GtkWidget*, const WebCore::IntRect&);
+#if ENABLE(FULLSCREEN_API)
+void webkitWebViewBaseWillEnterFullScreen(WebKitWebViewBase*);
 void webkitWebViewBaseEnterFullScreen(WebKitWebViewBase*);
+void webkitWebViewBaseWillExitFullScreen(WebKitWebViewBase*);
 void webkitWebViewBaseExitFullScreen(WebKitWebViewBase*);
 bool webkitWebViewBaseIsFullScreen(WebKitWebViewBase*);
+#endif
 void webkitWebViewBaseSetInspectorViewSize(WebKitWebViewBase*, unsigned size);
+#if ENABLE(CONTEXT_MENUS)
 void webkitWebViewBaseSetActiveContextMenuProxy(WebKitWebViewBase*, WebKit::WebContextMenuProxyGtk*);
 WebKit::WebContextMenuProxyGtk* webkitWebViewBaseGetActiveContextMenuProxy(WebKitWebViewBase*);
+#endif // ENABLE(CONTEXT_MENUS)
 
 #if USE(GTK4)
 GRefPtr<GdkEvent> webkitWebViewBaseTakeContextMenuEvent(WebKitWebViewBase*);
@@ -114,10 +120,6 @@ void webkitWebViewBaseDidRestoreScrollPosition(WebKitWebViewBase*);
 
 void webkitWebViewBaseShowEmojiChooser(WebKitWebViewBase*, const WebCore::IntRect&, CompletionHandler<void(String)>&&);
 
-#if USE(WPE_RENDERER)
-int webkitWebViewBaseRenderHostFileDescriptor(WebKitWebViewBase*);
-#endif
-
 void webkitWebViewBaseRequestPointerLock(WebKitWebViewBase*);
 void webkitWebViewBaseDidLosePointerLock(WebKitWebViewBase*);
 
@@ -129,3 +131,9 @@ void webkitWebViewBaseSynthesizeWheelEvent(WebKitWebViewBase*, const GdkEvent*, 
 void webkitWebViewBaseMakeBlank(WebKitWebViewBase*, bool);
 void webkitWebViewBasePageGrabbedTouch(WebKitWebViewBase*);
 void webkitWebViewBaseSetShouldNotifyFocusEvents(WebKitWebViewBase*, bool);
+
+void webkitWebViewBaseToplevelWindowIsActiveChanged(WebKitWebViewBase*, bool);
+void webkitWebViewBaseToplevelWindowStateChanged(WebKitWebViewBase*, uint32_t, uint32_t);
+void webkitWebViewBaseToplevelWindowMonitorChanged(WebKitWebViewBase*, GdkMonitor*);
+
+void webkitWebViewBaseCallAfterNextPresentationUpdate(WebKitWebViewBase*, CompletionHandler<void()>&&);

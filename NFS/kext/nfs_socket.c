@@ -108,13 +108,22 @@ static int
 nfs_sendmbuf(__unused struct sockaddr *saddr, socket_t sock, const struct msghdr *msg, mbuf_t data,
     int flags, size_t *sentlen)
 {
-#ifdef HAS_SOCK_SENDMBUF_CAN_WAIT
-	if (saddr && saddr->sa_family == AF_LOCAL) {
-		return sock_sendmbuf_can_wait(sock, msg, data, flags, sentlen);
-	}
-#endif /* HAS_SOCK_SENDMBUF_CAN_WAIT */
+	int error;
+	int wait = saddr && (saddr->sa_family == AF_LOCAL);
 
-	return sock_sendmbuf(sock, msg, data, flags, sentlen);
+	NFS_KDBG_ENTRY(NFSDBG_OP_SEND_SENDMBUF, saddr, sock, flags, wait);
+
+#ifdef HAS_SOCK_SENDMBUF_CAN_WAIT
+	if (wait) {
+		error = sock_sendmbuf_can_wait(sock, msg, data, flags, sentlen);
+	} else
+#endif /* HAS_SOCK_SENDMBUF_CAN_WAIT */
+	{
+		error = sock_sendmbuf(sock, msg, data, flags, sentlen);
+	}
+
+	NFS_KDBG_EXIT(NFSDBG_OP_SEND_SENDMBUF, saddr, sock, sentlen, error);
+	return error;
 }
 
 /*
@@ -354,13 +363,16 @@ nfs_connect_upcall(socket_t so, void *arg, __unused int waitflag)
 	mbuf_t m;
 	int error = 0, recv = 1;
 
+	lck_mtx_lock(&nso->nso_lock);
 	if (nso->nso_flags & NSO_CONNECTING) {
 		NFS_SOCK_DBG("nfs connect - socket %p upcall - connecting flags = %8.8x\n", nso, nso->nso_flags);
-		wakeup(nso->nso_wake);
+		if (nso->nso_wake) {
+			wakeup(nso->nso_wake);
+		}
+		lck_mtx_unlock(&nso->nso_lock);
 		return;
 	}
 
-	lck_mtx_lock(&nso->nso_lock);
 	if ((nso->nso_flags & (NSO_UPCALL | NSO_DISCONNECTING | NSO_DEAD)) || !(nso->nso_flags & NSO_PINGING)) {
 		NFS_SOCK_DBG("nfs connect - socket %p upcall - nevermind\n", nso);
 		lck_mtx_unlock(&nso->nso_lock);
@@ -654,6 +666,7 @@ nfs_socket_destroy(struct nfs_socket *nso)
 		msleep(&nso->nso_flags, &nso->nso_lock, PZERO - 1, "nfswaitupcall", &ts);
 	}
 	lck_mtx_unlock(&nso->nso_lock);
+	sock_setupcall(nso->nso_so, NULL, NULL);
 	sock_shutdown(nso->nso_so, SHUT_RDWR);
 	sock_close(nso->nso_so);
 	if (nso->nso_sotype == SOCK_STREAM) {
@@ -873,14 +886,6 @@ nfs_connect_search_new_socket(struct nfsmount *nmp, struct nfs_socket_search *ns
 
 		nso->nso_location = nss->nss_nextloc;
 		nso->nso_wake = nss;
-		error = sock_setupcall(nso->nso_so, nfs_connect_upcall, nso);
-		if (error) {
-			NFS_SOCK_DBG("sock_setupcall failed for socket %p setting nfs_connect_upcall error = %d\n", nso, error);
-			lck_mtx_lock(&nso->nso_lock);
-			nso->nso_error = error;
-			nso->nso_flags |= NSO_DEAD;
-			lck_mtx_unlock(&nso->nso_lock);
-		}
 
 		TAILQ_INSERT_TAIL(&nss->nss_socklist, nso, nso_link);
 		nss->nss_sockcnt++;
@@ -939,6 +944,18 @@ nfs_connect_search_socket_connect(struct nfsmount *nmp, struct nfs_socket *nso, 
 		if (sock_isconnected(nso->nso_so)) {
 			NFS_SOCK_DBG("nfs connect %s socket %p is connected\n",
 			    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso);
+
+			/* set connect upcall once socket is connected */
+			lck_mtx_unlock(&nso->nso_lock);
+			error = sock_setupcall(nso->nso_so, nfs_connect_upcall, nso);
+			lck_mtx_lock(&nso->nso_lock);
+			if (error) {
+				NFS_SOCK_DBG("sock_setupcall failed for socket %p setting nfs_connect_upcall error = %d\n", nso, error);
+				nso->nso_error = error;
+				nso->nso_flags |= NSO_DEAD;
+				return 0;
+			}
+
 			nso->nso_flags &= ~NSO_CONNECTING;
 			nso->nso_flags |= NSO_CONNECTED;
 			nfs_socket_options(nmp, nso);
@@ -1086,7 +1103,7 @@ nfs_connect_search_socket_reap(struct nfsmount *nmp __unused, struct nfs_socket_
 int
 nfs_connect_search_check(struct nfsmount *nmp, struct nfs_socket_search *nss, struct timeval *now)
 {
-	int error;
+	int error, timeo;
 
 	/* log a warning if connect is taking a while */
 	if (((now->tv_sec - nss->nss_timestamp) >= 8) && ((nss->nss_flags & (NSS_VERBOSE | NSS_WARNED)) == NSS_VERBOSE)) {
@@ -1102,7 +1119,8 @@ nfs_connect_search_check(struct nfsmount *nmp, struct nfs_socket_search *nss, st
 
 	/* If we were succesfull at sending a ping, wait up to a second for a reply  */
 	if (nss->nss_last >= 0) {
-		tsleep(nss, PSOCK, "nfs_connect_search_wait", hz);
+		timeo = (nmp->nm_sockflags & NMSOCK_HASCONNECTED) ? hz : hz / 100;
+		tsleep(nss, PSOCK, "nfs_connect_search_wait", timeo);
 	}
 
 	return 0;
@@ -1513,14 +1531,6 @@ keepsearching:
 		}
 		nsonfs->nso_location = nso->nso_location;
 		nsonfs->nso_wake = &nss;
-		error = sock_setupcall(nsonfs->nso_so, nfs_connect_upcall, nsonfs);
-		if (error) {
-			nfs_socket_search_update_error(&nss, error);
-			nfs_socket_destroy(nsonfs);
-			nfs_socket_destroy(nso);
-			NFS_SOCK_DBG("Could not nfs_connect_upcall: %d", error);
-			goto keepsearching;
-		}
 		TAILQ_INSERT_TAIL(&nss.nss_socklist, nsonfs, nso_link);
 		nss.nss_sockcnt++;
 		if ((nfsvers < NFS_VER4) && !(nmp->nm_sockflags & NMSOCK_HASCONNECTED) && !NM_OMATTR_GIVEN(nmp, FH)) {
@@ -3340,6 +3350,21 @@ nfs_send(struct nfsreq *req, int wait)
 	struct timespec ts = { .tv_sec = 2, .tv_nsec = 0 };
 
 again:
+	error = mbuf_copym(req->r_mhead, 0, MBUF_COPYALL,
+	    wait ? MBUF_WAITOK : MBUF_DONTWAIT, &mreqcopy);
+
+	if (error) {
+		if (wait) {
+			log(LOG_INFO, "nfs_send: mbuf copy failed %d\n", error);
+		}
+		lck_mtx_lock(&req->r_mtx);
+		req->r_flags &= ~R_SENDING;
+		req->r_flags |= R_MUSTRESEND;
+		req->r_rtt = 0;
+		lck_mtx_unlock(&req->r_mtx);
+		return 0;
+	}
+
 	error = nfs_sndlock(req);
 	if (error) {
 		lck_mtx_lock(&req->r_mtx);
@@ -3509,21 +3534,6 @@ again:
 
 	req->r_flags &= ~R_MUSTRESEND;
 	lck_mtx_unlock(&req->r_mtx);
-
-	error = mbuf_copym(req->r_mhead, 0, MBUF_COPYALL,
-	    wait ? MBUF_WAITOK : MBUF_DONTWAIT, &mreqcopy);
-	if (error) {
-		if (wait) {
-			log(LOG_INFO, "nfs_send: mbuf copy failed %d\n", error);
-		}
-		nfs_sndunlock(req);
-		lck_mtx_lock(&req->r_mtx);
-		req->r_flags &= ~R_SENDING;
-		req->r_flags |= R_MUSTRESEND;
-		req->r_rtt = 0;
-		lck_mtx_unlock(&req->r_mtx);
-		return 0;
-	}
 
 	bzero(&msg, sizeof(msg));
 	if ((sotype != SOCK_STREAM) && !sock_isconnected(nso->nso_so) && ((sendnam = nmp->nm_saddr))) {
@@ -3831,6 +3841,7 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 {
 	struct nfsreq *req = NULL;
 	struct nfsm_chain nmrep;
+	vnode_t vp = NULLVP;
 	u_int32_t reply = 0, rxid = 0;
 	int error = 0, asyncioq, t1;
 
@@ -3865,6 +3876,7 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 		}
 		/* Found it.. */
 		req->r_nmrep = nmrep;
+		vp = NFSTOV(req->r_np);
 		lck_mtx_lock(&nmp->nm_lock);
 		if (nmp->nm_sotype == SOCK_DGRAM) {
 			/*
@@ -3944,7 +3956,7 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_OP_REQ_MATCH_REPLY, nmp, req, rxid, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_MATCH_REPLY, vp, req, rxid, error);
 }
 
 /*
@@ -4877,7 +4889,7 @@ nfs_request2(
 		req->r_secinfo = *si;
 	}
 
-	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_2, np, req, R_XID32(req->r_xid), procnum);
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_2, NFSTOV(np), req, R_XID32(req->r_xid), procnum);
 
 	do {
 		req->r_error = 0;
@@ -4897,7 +4909,7 @@ nfs_request2(
 		}
 	} while (req->r_flags & R_RESTART);
 
-	NFS_KDBG_EXIT(NFSDBG_OP_REQ_2, np, R_XID32(req->r_xid), procnum, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_2, NFSTOV(np), R_XID32(req->r_xid), procnum, error);
 
 	nfs_request_rele(req);
 out_free:
@@ -4949,7 +4961,7 @@ nfs_request_gss(
 		wait = 0;
 	}
 
-	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_GSS, req, R_XID32(req->r_xid), flags);
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_GSS, NFSTOV(req->r_np), req, R_XID32(req->r_xid), flags);
 
 	do {
 		req->r_error = 0;
@@ -4971,7 +4983,7 @@ nfs_request_gss(
 		}
 	} while (req->r_flags & R_RESTART);
 
-	NFS_KDBG_EXIT(NFSDBG_OP_REQ_GSS, req, R_XID32(req->r_xid), flags, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_GSS, NFSTOV(req->r_np), req, R_XID32(req->r_xid), error);
 
 	nfs_gss_clnt_ctx_unref(req);
 	nfs_request_rele(req);
@@ -5003,7 +5015,7 @@ nfs_request_async(
 
 	error = nfs_request_create(np, mp, nmrest, procnum, thd, cred, reqp);
 	req = *reqp;
-	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_ASYNC, (req ? R_XID32(req->r_xid) : 0), np, procnum, error);
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_ASYNC, NFSTOV(np), (req ? R_XID32(req->r_xid) : 0), procnum, error);
 	if (error) {
 		goto out_return;
 	}
@@ -5072,7 +5084,7 @@ nfs_request_async(
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_OP_REQ_ASYNC, (req ? R_XID32(req->r_xid) : 0), np, procnum, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_ASYNC, NFSTOV(np), (req ? R_XID32(req->r_xid) : 0), procnum, error);
 	if (release) {
 		nfs_request_rele(req);
 	}
@@ -5092,7 +5104,7 @@ nfs_request_async_finish(
 	int error = 0, release = 0, asyncio = req->r_callback.rcb_func ? 1 : 0;
 	struct nfsmount *nmp;
 
-	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_ASYNC_FINISH, req, R_XID32(req->r_xid), req->r_np, req->r_procnum);
+	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_ASYNC_FINISH, NFSTOV(req->r_np), req, R_XID32(req->r_xid), req->r_procnum);
 
 	lck_mtx_lock(&req->r_mtx);
 	if (!asyncio) {
@@ -5168,7 +5180,7 @@ nfs_request_async_finish(
 	release = 1;
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_OP_REQ_ASYNC_FINISH, R_XID32(req->r_xid), req->r_np, req->r_procnum, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_REQ_ASYNC_FINISH, NFSTOV(req->r_np), R_XID32(req->r_xid), req->r_procnum, error);
 	if (release) {
 		nfs_request_rele(req);
 	}
@@ -5181,7 +5193,7 @@ out_return:
 void
 nfs_request_async_cancel(struct nfsreq *req)
 {
-	NFS_KDBG_INFO(NFSDBG_OP_REQ_ASYNC_CANCEL, 0xabc001, R_XID32(req->r_xid), req->r_np, req->r_procnum);
+	NFS_KDBG_INFO(NFSDBG_OP_REQ_ASYNC_CANCEL, 0xabc001, NFSTOV(req->r_np), R_XID32(req->r_xid), req->r_procnum);
 	nfs_request_rele(req);
 }
 
@@ -5689,6 +5701,7 @@ nfs_sndlock(struct nfsreq *req)
 		return ENXIO;
 	}
 
+	NFS_KDBG_ENTRY(NFSDBG_OP_SEND_SNDLOCK_TRY, nmp, req, req->r_thread, nmp->nm_sndstate);
 	lck_mtx_lock(&nmp->nm_sndstate_lock);
 	statep = &nmp->nm_sndstate;
 
@@ -5710,9 +5723,11 @@ nfs_sndlock(struct nfsreq *req)
 		}
 	}
 	if (!error) {
+		NFS_KDBG_ENTRY(NFSDBG_OP_SEND_SNDLOCK_LOCK, nmp, req, req->r_thread, nmp->nm_sndstate);
 		*statep |= NFSSENDSTA_SNDLOCK;
 	}
 	lck_mtx_unlock(&nmp->nm_sndstate_lock);
+	NFS_KDBG_EXIT(NFSDBG_OP_SEND_SNDLOCK_TRY, req, req->r_thread, nmp->nm_sndstate, error);
 	return error;
 }
 
@@ -5733,6 +5748,7 @@ nfs_sndunlock(struct nfsreq *req)
 	if ((*statep & NFSSENDSTA_SNDLOCK) == 0) {
 		panic("nfs sndunlock");
 	}
+	NFS_KDBG_EXIT(NFSDBG_OP_SEND_SNDLOCK_LOCK, nmp, req, req->r_thread, nmp->nm_sndstate);
 	*statep &= ~(NFSSENDSTA_SNDLOCK | NFSSENDSTA_SENDING);
 	if (*statep & NFSSENDSTA_WANTSND) {
 		*statep &= ~NFSSENDSTA_WANTSND;
@@ -6134,8 +6150,14 @@ nfs_msg(thread_t thd,
 #define NFS_SQUISH_SHUTDOWN             0x1000          /* Squish all mounts on shutdown. Currently not implemented */
 
 uint32_t nfs_squishy_flags = NFS_SQUISH_MOBILE_ONLY | NFS_SQUISH_AUTOMOUNTED_ONLY | NFS_SQUISH_QUICK;
-uint32_t nfs_tcp_sockbuf = 128 * 1024;          /* Default value of tcp_sendspace and tcp_recvspace */
 int32_t nfs_is_mobile;
+
+/* Default value of tcp_sendspace and tcp_recvspace */
+#if TARGET_OS_OSX
+uint32_t nfs_tcp_sockbuf = 6 * 1024 * 1024; /* 6MB */
+#else
+uint32_t nfs_tcp_sockbuf = 128 * 1024;      /* 128K */
+#endif /* TARGET_OS_OSX */
 
 #define NFS_SQUISHY_DEADTIMEOUT         8       /* Dead time out for squishy mounts */
 #define NFS_SQUISHY_QUICKTIMEOUT        4       /* Quicker dead time out when nfs_squish_flags NFS_SQUISH_QUICK bit is set*/

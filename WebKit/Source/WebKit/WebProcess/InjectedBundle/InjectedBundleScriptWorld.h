@@ -29,6 +29,7 @@
 #include "APIObject.h"
 #include <wtf/Ref.h>
 #include <wtf/RefPtr.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -37,7 +38,7 @@ namespace WebCore {
 
 namespace WebKit {
 
-class InjectedBundleScriptWorld : public API::ObjectImpl<API::Object::Type::BundleScriptWorld> {
+class InjectedBundleScriptWorld : public API::ObjectImpl<API::Object::Type::BundleScriptWorld>, public CanMakeWeakPtr<InjectedBundleScriptWorld> {
 public:
     enum class Type { User, Internal };
     static Ref<InjectedBundleScriptWorld> create(Type = Type::Internal);

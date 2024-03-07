@@ -89,6 +89,9 @@ extern uint32_t vm_compressor_pool_size(void);
 extern uint32_t vm_compressor_fragmentation_level(void);
 extern uint32_t vm_compression_ratio(void);
 
+pid_t memorystatus_freeze_last_pid_thawed = 0;
+uint64_t memorystatus_freeze_last_pid_thawed_ts = 0;
+
 int block_corpses = 0; /* counter to block new corpses if jetsam purges them */
 
 /* For logging clarity */
@@ -858,7 +861,7 @@ static int memorystatus_cmd_set_jetsam_memory_limit(pid_t pid, int32_t high_wate
 
 int32_t max_kill_priority = JETSAM_PRIORITY_MAX;
 
-char        memorystatus_jetsam_proc_name_panic[MAXCOMLEN + 1]; /* Panic when we are about to jetsam this process. */
+proc_name_t memorystatus_jetsam_proc_name_panic; /* Panic when we are about to jetsam this process. */
 uint32_t    memorystatus_jetsam_proc_cause_panic = 0; /* If specified, panic only when we are about to jetsam the process above for this cause. */
 uint32_t    memorystatus_jetsam_proc_size_panic = 0; /* If specified, panic only when we are about to jetsam the process above and its footprint is more than this in MB. */
 
@@ -1406,8 +1409,8 @@ memorystatus_init(void)
 	nanoseconds_to_absolutetime((uint64_t)DEFERRED_IDLE_EXIT_TIME_SECS * NSEC_PER_SEC, &memorystatus_apps_idle_delay_time);
 
 #if CONFIG_JETSAM
-	bzero(memorystatus_jetsam_proc_name_panic, MAXCOMLEN + 1);
-	if (PE_parse_boot_argn("jetsam_proc_name_panic", &memorystatus_jetsam_proc_name_panic, MAXCOMLEN + 1)) {
+	bzero(memorystatus_jetsam_proc_name_panic, sizeof(memorystatus_jetsam_proc_name_panic));
+	if (PE_parse_boot_argn("jetsam_proc_name_panic", &memorystatus_jetsam_proc_name_panic, sizeof(memorystatus_jetsam_proc_name_panic))) {
 		/*
 		 * No bounds check to see if this is a valid cause.
 		 * This is a debugging aid. The callers should know precisely which cause they wish to track.
@@ -3471,6 +3474,9 @@ memorystatus_on_resume(proc_t p)
 		p->p_memstat_last_thaw_interval = memorystatus_freeze_current_interval;
 		p->p_memstat_thaw_count++;
 
+		memorystatus_freeze_last_pid_thawed = p->p_pid;
+		memorystatus_freeze_last_pid_thawed_ts = mach_absolute_time();
+
 		memorystatus_thaw_count++;
 		memorystatus_thaw_count_since_boot++;
 	}
@@ -5375,6 +5381,17 @@ memorystatus_init_jetsam_snapshot_locked(memorystatus_jetsam_snapshot_t *od_snap
 		if (++i == snapshot_max) {
 			break;
 		}
+	}
+
+	/* Log launchd and kernel_task as well to see more context, even though jetsam doesn't apply to them. */
+	if (i < snapshot_max) {
+		memorystatus_init_jetsam_snapshot_entry_locked(initproc, &snapshot_list[i], snapshot->js_gencount);
+		i++;
+	}
+
+	if (i < snapshot_max) {
+		memorystatus_init_jetsam_snapshot_entry_locked(kernproc, &snapshot_list[i], snapshot->js_gencount);
+		i++;
 	}
 
 	snapshot->entry_count = i;

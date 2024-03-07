@@ -289,12 +289,7 @@ std::optional<DestinationColorSpace> HTMLVideoElement::colorSpace() const
 RefPtr<ImageBuffer> HTMLVideoElement::createBufferForPainting(const FloatSize& size, RenderingMode renderingMode, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat) const
 {
     auto* hostWindow = document().view() && document().view()->root() ? document().view()->root()->hostWindow() : nullptr;
-
-    auto bufferOptions = bufferOptionsForRendingMode(renderingMode);
-    if (document().settings().displayListDrawingEnabled())
-        bufferOptions.add(ImageBufferOptions::UseDisplayList);
-
-    return ImageBuffer::create(size, RenderingPurpose::MediaPainting, 1, colorSpace, pixelFormat, bufferOptions, hostWindow);
+    return ImageBuffer::create(size, RenderingPurpose::MediaPainting, 1, colorSpace, pixelFormat, bufferOptionsForRendingMode(renderingMode), hostWindow);
 }
 
 void HTMLVideoElement::paintCurrentFrameInContext(GraphicsContext& context, const FloatRect& destRect)
@@ -344,7 +339,7 @@ ExceptionOr<void> HTMLVideoElement::webkitEnterFullscreen()
     // Generate an exception if this isn't called in response to a user gesture, or if the 
     // element does not support fullscreen, or the element is changing fullscreen mode.
     if (!mediaSession().fullscreenPermitted() || !supportsFullscreen(HTMLMediaElementEnums::VideoFullscreenModeStandard) || isChangingVideoFullscreenMode())
-        return Exception { InvalidStateError };
+        return Exception { ExceptionCode::InvalidStateError };
 
     enterFullscreen();
     return { };

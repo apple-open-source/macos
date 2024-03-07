@@ -28,6 +28,7 @@
 
 #include "ActiveDOMObject.h"
 #include "ErrorEvent.h"
+#include "EventNames.h"
 #include "Logging.h"
 #include "ScriptBuffer.h"
 #include "SharedWorker.h"
@@ -61,7 +62,7 @@ void SharedWorkerObjectConnection::fetchScriptInClient(URL&& url, WebCore::Share
     auto loaderPtr = loader.ptr();
     m_loaders.add(loaderIdentifier, WTFMove(loader));
 
-    loaderPtr->load([this, loaderIdentifier, completionHandler = WTFMove(completionHandler)](auto&& fetchResult, auto&& initializationData) mutable {
+    loaderPtr->load([this, loaderIdentifier, completionHandler = WTFMove(completionHandler)](WorkerFetchResult&& fetchResult, WorkerInitializationData&& initializationData) mutable {
         CONNECTION_RELEASE_LOG("fetchScriptInClient: finished script load, success=%d", fetchResult.error.isNull());
         auto loader = m_loaders.take(loaderIdentifier);
         ASSERT(loader);

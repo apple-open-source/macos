@@ -564,6 +564,9 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	fnip->fi_rwlock = lck_rw_alloc_init(autofs_lck_grp, NULL);
 #endif
 
+	fnip->fi_busy_shared = 0;
+	fnip->fi_busy_exclusive = 0;
+	fnip->fi_busy_mtx = lck_mtx_alloc_init(autofs_lck_grp, NULL);
 	if (args.direct == 1) {
 		/*
 		 * For subtriggers, mark this not just as a trigger,
@@ -662,6 +665,8 @@ errout:
 
 	if (fnip->fi_rwlock != NULL)
 		lck_rw_free(fnip->fi_rwlock, autofs_lck_grp);
+	if (fnip->fi_busy_mtx)
+		lck_mtx_free(fnip->fi_busy_mtx, autofs_lck_grp);
 	if (fnip->fi_path != NULL)
 		kfree_data(fnip->fi_path, fnip->fi_pathlen);
 	if (fnip->fi_opts != NULL)
@@ -891,6 +896,11 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	 * Lock the fninfo, so that no mounts get started until we
 	 * release it.
 	 */
+	error = autofs_mount_set_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
+	if (error) {
+		/* looks like we won't be able to grab the lock */
+		return (error);
+	}
 	lck_rw_lock_exclusive(fnip->fi_rwlock);
 
 	/*
@@ -901,6 +911,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	error = vflush(mp, rvp, 0);
 	if (error) {
 		lck_rw_unlock_exclusive(fnip->fi_rwlock);
+		autofs_mount_clear_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
 		return (error);
 	}
 
@@ -913,6 +924,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 		 * Yes - drop the lock and fail.
 		 */
 		lck_rw_unlock_exclusive(fnip->fi_rwlock);
+		autofs_mount_clear_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
 		return (EBUSY);
 	}
 
@@ -935,6 +947,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 			if (vnode_isinuse(rvp, 1) || rfnp->fn_dirents != NULL) {
 				lck_rw_unlock_exclusive(myrootfnnodep->fn_rwlock);
 				lck_rw_unlock_exclusive(fnip->fi_rwlock);
+				autofs_mount_clear_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
 				return (EBUSY);
 			}
 			if (pfnp)
@@ -960,6 +973,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	 */
 	fnip->fi_flags |= MF_UNMOUNTING;
 	lck_rw_unlock_exclusive(fnip->fi_rwlock);
+	autofs_mount_clear_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
 
 	assert(vnode_isinuse(rvp, 0) && !vnode_isinuse(rvp, 1));
 	assert(rfnp->fn_direntcnt == 0);
@@ -992,6 +1006,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	vflush(mp, NULLVP, 0);
 
 	lck_rw_free(fnip->fi_rwlock, autofs_lck_grp);
+	lck_mtx_free(fnip->fi_busy_mtx, autofs_lck_grp);
 	kfree_data(fnip->fi_path, fnip->fi_pathlen);
 	kfree_data(fnip->fi_map, fnip->fi_maplen);
 	kfree_data(fnip->fi_subdir, fnip->fi_subdirlen);

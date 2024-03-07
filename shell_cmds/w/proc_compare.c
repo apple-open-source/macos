@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -35,13 +37,10 @@ static char sccsid[] = "@(#)proc_compare.c	8.2 (Berkeley) 9/23/93";
 
 #include <sys/cdefs.h>
 #ifndef __APPLE__
-__FBSDID("$FreeBSD: src/usr.bin/w/proc_compare.c,v 1.9 2004/04/14 09:34:17 bde Exp $");
+__FBSDID("$FreeBSD$");
 #endif
 
 #include <sys/param.h>
-#ifdef __APPLE__
-#include <sys/time.h>
-#endif
 #include <sys/proc.h>
 #include <sys/time.h>
 #include <sys/user.h>
@@ -68,18 +67,18 @@ __FBSDID("$FreeBSD: src/usr.bin/w/proc_compare.c,v 1.9 2004/04/14 09:34:17 bde E
  */
 
 #if !HAVE_KVM
-#define ki_estcpu	p_estcpu
-#define ki_pid		p_pid
-#define ki_slptime	p_slptime
-#define ki_stat		p_stat
-#define ki_tdflags	p_tdflags
+#define	ki_estcpu	p_estcpu
+#define	ki_pid		p_pid
+#define	ki_slptime	p_slptime
+#define	ki_stat		p_stat
+#define	ki_tdflags	p_tdflags
 #endif
 
-#define ISRUN(p)	(((p)->ki_stat == SRUN) || ((p)->ki_stat == SIDL))
-#define TESTAB(a, b)    ((a)<<1 | (b))
-#define ONLYA   2
-#define ONLYB   1
-#define BOTH    3
+#define	ISRUN(p)	(((p)->ki_stat == SRUN) || ((p)->ki_stat == SIDL))
+#define	TESTAB(a, b)    ((a)<<1 | (b))
+#define	ONLYA   2
+#define	ONLYB   1
+#define	BOTH    3
 
 #if HAVE_KVM
 int
@@ -114,7 +113,7 @@ proc_compare(struct kinfo_proc *arg1, struct kinfo_proc *arg2)
 		return (p2->ki_pid > p1->ki_pid); /* tie - return highest pid */
 	}
 	/*
- 	 * weed out zombies
+	 * weed out zombies
 	 */
 	switch (TESTAB(p1->ki_stat == SZOMB, p2->ki_stat == SZOMB)) {
 	case ONLYA:

@@ -24,6 +24,9 @@
 #ifndef __MAGAZINE_ZONE_H
 #define __MAGAZINE_ZONE_H
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 /*********************	DEFINITIONS	************************/
 
 // Out-of-band free list entry. Out-of-band free list entries are used
@@ -42,7 +45,7 @@ typedef struct {
 
 // In-place free list entry. Unlike the out-of-band entry, the in-place entries
 // are stored at the start of the range that has been freed.
-typedef struct _inplace_free_entry_s *inplace_free_entry_t;
+typedef struct _inplace_free_entry_s * __single inplace_free_entry_t;
 
 typedef struct {
 	void *ptr;
@@ -57,7 +60,7 @@ typedef union {
 typedef struct _inplace_free_entry_s {
 	inplace_union previous;
 	inplace_union next;
-} inplace_free_entry_s, *inplace_free_entry_t;
+} inplace_free_entry_s, * __single inplace_free_entry_t;
 
 #ifdef __LP64__
 MALLOC_STATIC_ASSERT(sizeof(inplace_free_entry_s) == 16, "inplace free list must be 16-bytes long");
@@ -89,10 +92,6 @@ typedef struct {
 } tiny_free_list_t;
 
 typedef unsigned int grain_t; // N.B. wide enough to index all free slots
-
-#define CHECK_REGIONS (1 << 31)
-#define DISABLE_ASLR (1 << 30)
-#define DISABLE_LARGE_ASLR (1 << 29)
 
 #define MAX_RECORDER_BUFFER 256
 
@@ -190,12 +189,12 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
  * Beginning and end pointers for a region's heap.
  */
 #define TINY_REGION_HEAP_BASE(region) ((void *)(((tiny_region_t)region)->blocks))
-#define TINY_REGION_HEAP_END(region) ((void *)(((uintptr_t)TINY_REGION_HEAP_BASE(region)) + TINY_HEAP_SIZE))
+#define TINY_REGION_HEAP_END(region) __unsafe_forge_single(void *, ((uintptr_t)TINY_REGION_HEAP_BASE(region)) + TINY_HEAP_SIZE)
 
 /*
  * Locate the region for a pointer known to be within a tiny region.
  */
-#define TINY_REGION_FOR_PTR(ptr) ((tiny_region_t)((uintptr_t)(ptr) & ~((1 << TINY_BLOCKS_ALIGN) - 1)))
+#define TINY_REGION_FOR_PTR(ptr) __unsafe_forge_single(tiny_region_t, (uintptr_t)(ptr) & ~((1 << TINY_BLOCKS_ALIGN) - 1))
 
 /*
  * Convert between byte and msize units.
@@ -420,7 +419,7 @@ MALLOC_STATIC_ASSERT(sizeof(struct tiny_region) == TINY_REGION_SIZE, "incorrect 
 /*
  * Locate the heap base for a pointer known to be within a small region.
  */
-#define SMALL_REGION_FOR_PTR(ptr) ((small_region_t)((uintptr_t)(ptr) & ~((1 << SMALL_BLOCKS_ALIGN) - 1)))
+#define SMALL_REGION_FOR_PTR(ptr) __unsafe_forge_single(small_region_t, (uintptr_t)(ptr) & ~((1 << SMALL_BLOCKS_ALIGN) - 1))
 #define SMALL_REGION_OFFSET_FOR_PTR(ptr) ((uintptr_t)(ptr) & ((1 << SMALL_BLOCKS_ALIGN) - 1))
 
 /*
@@ -624,7 +623,7 @@ MALLOC_STATIC_ASSERT(NUM_MEDIUM_BLOCKS <= (uint16_t)(~MEDIUM_IS_FREE),
 /*
  * Locate the heap base for a pointer known to be within a medium region.
  */
-#define MEDIUM_REGION_FOR_PTR(ptr) ((void *)((uintptr_t)(ptr) & ~((1ull << MEDIUM_BLOCKS_ALIGN) - 1)))
+#define MEDIUM_REGION_FOR_PTR(ptr) __unsafe_forge_single(void *, (uintptr_t)(ptr) & ~((1ull << MEDIUM_BLOCKS_ALIGN) - 1))
 #define MEDIUM_REGION_OFFSET_FOR_PTR(ptr) ((uintptr_t)(ptr) & ((1ull << MEDIUM_BLOCKS_ALIGN) - 1))
 
 /*

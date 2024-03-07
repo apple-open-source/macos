@@ -58,10 +58,11 @@ public:
     const Vector<std::pair<String, String>>& varyingRequestHeaders() const { return m_varyingRequestHeaders; }
 
     WebCore::FragmentedSharedBuffer* buffer() const;
+    RefPtr<WebCore::FragmentedSharedBuffer> protectedBuffer() const;
     const std::optional<WebCore::ResourceRequest>& redirectRequest() const { return m_redirectRequest; }
 
 #if ENABLE(SHAREABLE_RESOURCE)
-    ShareableResource::Handle& shareableResourceHandle() const;
+    std::optional<ShareableResource::Handle> shareableResourceHandle() const;
 #endif
 
     bool needsValidation() const;
@@ -71,16 +72,11 @@ public:
 
     void asJSON(StringBuilder&, const Storage::RecordInfo&) const;
 
-#if ENABLE(TRACKING_PREVENTION)
     bool hasReachedPrevalentResourceAgeCap() const;
     void capMaxAge(const Seconds);
-#endif
 
 private:
     void initializeBufferFromStorageRecord() const;
-#if ENABLE(SHAREABLE_RESOURCE)
-    void initializeShareableResourceHandleFromStorageRecord() const;
-#endif
 
     Key m_key;
     WallTime m_timeStamp;
@@ -90,7 +86,7 @@ private:
     std::optional<WebCore::ResourceRequest> m_redirectRequest;
     mutable RefPtr<WebCore::FragmentedSharedBuffer> m_buffer;
 #if ENABLE(SHAREABLE_RESOURCE)
-    mutable ShareableResource::Handle m_shareableResourceHandle;
+    mutable RefPtr<ShareableResource> m_shareableResource;
 #endif
 
     Storage::Record m_sourceStorageRecord { };

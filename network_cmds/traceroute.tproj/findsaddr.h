@@ -20,4 +20,4 @@
  *
  * @(#) $Id: findsaddr.h,v 1.2 2004/08/08 00:27:54 lindak Exp $ (LBL)
  */
-const char *findsaddr(const struct sockaddr_in *, struct sockaddr_in *);
+const char *findsaddr(const struct sockaddr_in *, struct sockaddr_in *, u_short *if_index);

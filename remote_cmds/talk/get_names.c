@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -34,7 +32,7 @@
 #include <sys/cdefs.h>
 
 #ifndef __APPLE__
-__FBSDID("$FreeBSD: src/usr.bin/talk/get_names.c,v 1.9 2004/06/14 22:34:13 bms Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)get_names.c	8.1 (Berkeley) 6/6/93";
@@ -47,6 +45,7 @@ static const char sccsid[] = "@(#)get_names.c	8.1 (Berkeley) 6/6/93";
 #include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "talk.h"
 
@@ -63,13 +62,11 @@ usage(void)
  * Determine the local and remote user, tty, and machines
  */
 void
-get_names(argc, argv)
-	int argc;
-	char *argv[];
+get_names(int argc, char *argv[])
 {
 	char hostname[MAXHOSTNAMELEN];
 	char *his_name, *my_name;
-	char *my_machine_name, *his_machine_name;
+	const char *my_machine_name, *his_machine_name;
 	const char *his_tty;
 	char *cp;
 
@@ -87,8 +84,7 @@ get_names(argc, argv)
 	gethostname(hostname, sizeof (hostname));
 	my_machine_name = hostname;
 	/* check for, and strip out, the machine name of the target */
-	for (cp = argv[1]; *cp && !index("@:!", *cp); cp++)
-		;
+	cp = argv[1] + strcspn(argv[1], "@:!");
 	if (*cp == '\0') {
 		/* this is a local to local talk */
 		his_name = argv[1];
@@ -117,10 +113,7 @@ get_names(argc, argv)
 	msg.addr.sa_family = htons(AF_INET);
 	msg.ctl_addr.sa_family = htons(AF_INET);
 	msg.id_num = htonl(0);
-	strncpy(msg.l_name, my_name, NAME_SIZE);
-	msg.l_name[NAME_SIZE - 1] = '\0';
-	strncpy(msg.r_name, his_name, NAME_SIZE);
-	msg.r_name[NAME_SIZE - 1] = '\0';
-	strncpy(msg.r_tty, his_tty, TTY_SIZE);
-	msg.r_tty[TTY_SIZE - 1] = '\0';
+	strlcpy(msg.l_name, my_name, NAME_SIZE);
+	strlcpy(msg.r_name, his_name, NAME_SIZE);
+	strlcpy(msg.r_tty, his_tty, TTY_SIZE);
 }

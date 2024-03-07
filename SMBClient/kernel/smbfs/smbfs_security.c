@@ -390,8 +390,7 @@ smb_printsid(struct ntsid *sidptr, char *sidendptr, const char *printstr,
 	
 	if (subauthendptr > sidendptr) {
 		len = MAX_SID_PRINTBUFFER - (s - sidprintbuf);
-		(void)snprintf(s, len, " buffer overflow prevented: %p > %p", 
-					   subauthendptr, sidendptr); 
+		(void)snprintf(s, len, " buffer overflow prevented: subauthendptr > sidendptr");
 		return;		
 	}
 	
@@ -551,8 +550,8 @@ smb_sid2sid16(struct ntsid *sidptr, ntsid_t *sid16ptr, char *sidendptr)
 	subauthendptr = (char *)((char *)subauthptr + 
 							 (sidptr->sid_subauthcount * sizeof(uint32_t)));
 	if (subauthendptr > sidendptr) {
-		SMBERROR("Too many sid authorities: %p %p\n", subauthendptr, sidendptr);
-		return;		
+		SMBERROR("Too many sid authorities: subauthendptr > sidendptr \n");
+		return;
 	}
 	sid16ptr->sid_kind = sidptr->sid_revision;
 	sid16ptr->sid_authcount = sidptr->sid_subauthcount;
@@ -591,8 +590,8 @@ smb_sid_endianize(struct ntsid *sidptr, size_t len)
 	subauthendptr = (char *)((char *)subauthptr + 
 							 (sidptr->sid_subauthcount * sizeof(uint32_t)));	
 	if (subauthendptr > sidendptr) {
-		SMBERROR("Too many sid authorities: %p %p\n", subauthendptr, sidendptr);
-		return;		
+		SMBERROR("Too many sid authorities: subauthendptr > sidendptr \n");
+		return;
 	}
 	
 	n = sidptr->sid_subauthcount;

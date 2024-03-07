@@ -12,9 +12,9 @@
 #include <sys/stat.h>
 #include <sys/xattr.h>
 
-#include "../copyfile.h"
-#include "revert_writable_test.h"
 #include "test_utils.h"
+
+REGISTER_TEST(revert_writable, true, TIMEOUT_MIN(2));
 
 #define SOURCE_FILE_NAME     	"revert_writable_source"
 #define DESTINATION_FILE_NAME	"revert_writable_destination"
@@ -176,11 +176,6 @@ bool do_revert_writable_test(const char *apfs_test_directory, __unused size_t bl
 	char test_dir[BSIZE_B] = {0}, test_src[BSIZE_B], test_dst[BSIZE_B];
 	int test_folder_id;
 	bool success = true, sub_test_success;
-
-	if (geteuid() != 0) {
-		printf("Skipping revert_writable tests, because we are not root.\n");
-		return EXIT_SUCCESS;
-	}
 
 	test_folder_id = rand() % DEFAULT_NAME_MOD;
 	create_test_file_name(apfs_test_directory, "revert_writable", test_folder_id, test_dir);

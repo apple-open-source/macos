@@ -31,13 +31,14 @@
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
+#include <wtf/WeakRef.h>
 
 namespace WebKit {
 
-static HashMap<WebCore::SharedWorkerIdentifier, WebSharedWorker*>& allWorkers()
+static HashMap<WebCore::SharedWorkerIdentifier, WeakRef<WebSharedWorker>>& allWorkers()
 {
     ASSERT(RunLoop::isMain());
-    static NeverDestroyed<HashMap<WebCore::SharedWorkerIdentifier, WebSharedWorker*>> allWorkers;
+    static NeverDestroyed<HashMap<WebCore::SharedWorkerIdentifier, WeakRef<WebSharedWorker>>> allWorkers;
     return allWorkers;
 }
 
@@ -48,7 +49,7 @@ WebSharedWorker::WebSharedWorker(WebSharedWorkerServer& server, const WebCore::S
     , m_workerOptions(workerOptions)
 {
     ASSERT(!allWorkers().contains(m_identifier));
-    allWorkers().add(m_identifier, this);
+    allWorkers().add(m_identifier, *this);
 }
 
 WebSharedWorker::~WebSharedWorker()
@@ -67,9 +68,9 @@ WebSharedWorker* WebSharedWorker::fromIdentifier(WebCore::SharedWorkerIdentifier
     return allWorkers().get(identifier);
 }
 
-WebCore::RegistrableDomain WebSharedWorker::registrableDomain() const
+WebCore::RegistrableDomain WebSharedWorker::topRegistrableDomain() const
 {
-    return WebCore::RegistrableDomain { url() };
+    return WebCore::RegistrableDomain { m_key.origin.topOrigin };
 }
 
 void WebSharedWorker::setFetchResult(WebCore::WorkerFetchResult&& fetchResult)
@@ -172,7 +173,7 @@ std::optional<WebCore::ProcessIdentifier> WebSharedWorker::firstSharedWorkerObje
 
 WebSharedWorkerServerToContextConnection* WebSharedWorker::contextConnection() const
 {
-    return m_server.contextConnectionForRegistrableDomain(registrableDomain());
+    return m_server.contextConnectionForRegistrableDomain(topRegistrableDomain());
 }
 
 } // namespace WebKit

@@ -91,14 +91,14 @@ namespace WebKit {
 using namespace WebCore;
 using namespace JSC;
 
-RefPtr<InjectedBundle> InjectedBundle::create(WebProcessCreationParameters& parameters, API::Object* initializationUserData)
+RefPtr<InjectedBundle> InjectedBundle::create(WebProcessCreationParameters& parameters, RefPtr<API::Object>&& initializationUserData)
 {
     TraceScope scope(TracePointCode::CreateInjectedBundleStart, TracePointCode::CreateInjectedBundleEnd);
     
     auto bundle = adoptRef(*new InjectedBundle(parameters));
 
     bundle->m_sandboxExtension = SandboxExtension::create(WTFMove(parameters.injectedBundlePathExtensionHandle));
-    if (!bundle->initialize(parameters, initializationUserData))
+    if (!bundle->initialize(parameters, WTFMove(initializationUserData)))
         return nullptr;
 
     return bundle;
@@ -125,9 +125,7 @@ void InjectedBundle::setClient(std::unique_ptr<API::InjectedBundle::Client>&& cl
 
 void InjectedBundle::setServiceWorkerProxyCreationCallback(void (*callback)(uint64_t))
 {
-#if ENABLE(SERVICE_WORKER)
     SWContextManager::singleton().setServiceWorkerCreationCallback(callback);
-#endif
 }
 
 void InjectedBundle::postMessage(const String& messageName, API::Object* messageBody)
@@ -192,11 +190,11 @@ int InjectedBundle::numberOfPages(WebFrame* frame, double pageWidthInPixels, dou
 
 int InjectedBundle::pageNumberForElementById(WebFrame* frame, const String& id, double pageWidthInPixels, double pageHeightInPixels)
 {
-    auto* coreFrame = frame ? frame->coreLocalFrame() : nullptr;
+    RefPtr coreFrame = frame ? frame->coreLocalFrame() : nullptr;
     if (!coreFrame)
         return -1;
 
-    auto* element = coreFrame->document()->getElementById(id);
+    RefPtr element = coreFrame->document()->getElementById(id);
     if (!element)
         return -1;
 
@@ -205,7 +203,7 @@ int InjectedBundle::pageNumberForElementById(WebFrame* frame, const String& id, 
     if (!pageHeightInPixels)
         pageHeightInPixels = coreFrame->view()->height();
 
-    return PrintContext::pageNumberForElement(element, FloatSize(pageWidthInPixels, pageHeightInPixels));
+    return PrintContext::pageNumberForElement(element.get(), FloatSize(pageWidthInPixels, pageHeightInPixels));
 }
 
 String InjectedBundle::pageSizeAndMarginsInPixels(WebFrame* frame, int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft)
@@ -262,24 +260,24 @@ void InjectedBundle::reportException(JSContextRef context, JSValueRef exception)
     WebCore::reportException(globalObject, toJS(globalObject, exception));
 }
 
-void InjectedBundle::didCreatePage(WebPage* page)
+void InjectedBundle::didCreatePage(WebPage& page)
 {
-    m_client->didCreatePage(*this, *page);
+    m_client->didCreatePage(*this, page);
 }
 
-void InjectedBundle::willDestroyPage(WebPage* page)
+void InjectedBundle::willDestroyPage(WebPage& page)
 {
-    m_client->willDestroyPage(*this, *page);
+    m_client->willDestroyPage(*this, page);
 }
 
-void InjectedBundle::didReceiveMessage(const String& messageName, API::Object* messageBody)
+void InjectedBundle::didReceiveMessage(const String& messageName, RefPtr<API::Object>&& messageBody)
 {
-    m_client->didReceiveMessage(*this, messageName, messageBody);
+    m_client->didReceiveMessage(*this, messageName, WTFMove(messageBody));
 }
 
-void InjectedBundle::didReceiveMessageToPage(WebPage* page, const String& messageName, API::Object* messageBody)
+void InjectedBundle::didReceiveMessageToPage(WebPage& page, const String& messageName, RefPtr<API::Object>&& messageBody)
 {
-    m_client->didReceiveMessageToPage(*this, *page, messageName, messageBody);
+    m_client->didReceiveMessageToPage(Ref { *this }, page, messageName, WTFMove(messageBody));
 }
 
 void InjectedBundle::setUserStyleSheetLocation(const String& location)
@@ -336,7 +334,7 @@ InjectedBundle::DocumentIDToURLMap InjectedBundle::liveDocumentURLs(bool exclude
 {
     DocumentIDToURLMap result;
 
-    for (const auto* document : Document::allDocuments())
+    for (auto& document : Document::allDocuments())
         result.add(document->identifier().object(), document->url().string());
 
     if (excludeDocumentsInPageGroupPages) {

@@ -7,28 +7,21 @@ hi_Latn{
         AX{"Aland Islands"}
         BL{"St. Barthelemy"}
         CI{"Cote d’Ivoire"}
-        CN{"China"}
         CW{"Curacao"}
-        GS{"South Georgia & South Sandwich Islands"}
-        HK{"Hong Kong SAR China"}
-        IO{"British Indian Ocean Territory"}
         KN{"St. Kitts & Nevis"}
         LC{"St. Lucia"}
         MF{"St. Martin"}
-        MO{"Macao SAR China"}
         PM{"St. Pierre & Miquelon"}
         RE{"Reunion"}
         SH{"St. Helena"}
         ST{"Sao Tome & Principe"}
-        TR{"Turkey"}
+        TR{"Turkiye"}
         UM{"U.S. Outlying Islands"}
         VC{"St. Vincent & Grenadines"}
         VI{"U.S. Virgin Islands"}
         XB{"Pseudo-Bidirectional"}
     }
     Countries%short{
-        HK{"Hong Kong"}
-        MO{"Macao"}
         US{"America"}
     }
     Countries%variant{

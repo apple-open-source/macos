@@ -32,11 +32,11 @@
 #ifndef	_PKINIT_CERT_STORE_H_
 #define _PKINIT_CERT_STORE_H_
 
+#include <krb5/krb5.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-#include <krb5/krb5.h>
 
 /*
  * Opaque reference to a machine-dependent representation of a certificate

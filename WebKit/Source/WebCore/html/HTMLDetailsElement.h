@@ -62,7 +62,6 @@ private:
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;
 
     void didAddUserAgentShadowRoot(ShadowRoot&) final;
-    bool hasCustomFocusLogic() const final { return true; }
     bool isInteractiveContent() const final { return true; }
 
     WeakPtr<HTMLSlotElement, WeakPtrImplWithEventTargetData> m_summarySlot;

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Apple Inc.  All rights reserved.
+// Copyright (c) 2021-2023 Apple Inc.  All rights reserved.
 
 #include <darwintest.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 
 T_GLOBAL_META(
 	T_META_RADAR_COMPONENT_NAME("xnu"),
-	T_META_RADAR_COMPONENT_VERSION("RM"),
+	T_META_RADAR_COMPONENT_VERSION("cpu counters"),
     T_META_OWNER("mwidmann"),
     T_META_CHECK_LEAKS(false));
 
@@ -133,11 +133,16 @@ T_DECL(thread_selfcounts_cpi_sanity, "check the current thread's CPI",
 T_DECL(thread_selfcounts_perf_level_sanity,
     "check per-perf level time, energy, and CPI",
     REQUIRE_RECOUNT_PMCS,
-    REQUIRE_MULTIPLE_PERF_LEVELS,
+    // REQUIRE_MULTIPLE_PERF_LEVELS, disabled due to rdar://111297938
     SET_THREAD_BIND_BOOTARG,
     T_META_ASROOT(true))
 {
 	unsigned int level_count = perf_level_count();
+
+	// Until rdar://111297938, manually skip the test if there aren't multiple perf levels.
+	if (level_count < 2) {
+		T_SKIP("device is not eligible for checking perf levels because it is SMP");
+	}
 	struct thsc_time_energy_cpi *before = calloc(level_count, sizeof(*before));
 	struct thsc_time_energy_cpi *after = calloc(level_count, sizeof(*after));
 
@@ -206,11 +211,16 @@ _expect_no_counts_on_perf_level(const char *name,
 T_DECL(thread_selfcounts_perf_level_correct,
     "check that runtimes on each perf level match binding request",
     REQUIRE_RECOUNT_PMCS,
-    REQUIRE_MULTIPLE_PERF_LEVELS,
+    // REQUIRE_MULTIPLE_PERF_LEVELS, disabled due to rdar://111297938
     SET_THREAD_BIND_BOOTARG,
     T_META_ASROOT(true))
 {
 	unsigned int level_count = perf_level_count();
+
+	// Until rdar://111297938, manually skip the test if there aren't multiple perf levels.
+	if (level_count < 2) {
+		T_SKIP("device is not eligible for checking perf levels because it is SMP");
+	}
 	for (unsigned int i = 0; i < level_count; i++) {
 		T_LOG("Level %d: %s", i, perf_level_name(i));
 	}

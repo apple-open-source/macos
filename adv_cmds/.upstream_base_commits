@@ -17,6 +17,12 @@ finger/pathnames.h	freebsd	usr.bin/finger/pathnames.h	1de7b4b805ddbf2429da511c05
 finger/sprint.c	freebsd	usr.bin/finger/sprint.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 finger/util.c	freebsd	usr.bin/finger/util.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
+mklocale/extern.h	freebsd	usr.bin/mklocale/extern.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+mklocale/ldef.h	freebsd	usr.bin/mklocale/ldef.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+mklocale/lex.l	freebsd	usr.bin/mklocale/lex.l	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+mklocale/mklocale.1	freebsd	usr.bin/mklocale/mklocale.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+mklocale/yacc.y	freebsd	usr.bin/mklocale/yacc.y	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 pkill/pkill.1	freebsd	bin/pkill/pkill.1	3d17b350e5c949d0d5a42aa907034a2a22f7312b
 pkill/pkill.c	freebsd	bin/pkill/pkill.c	3610bffd2888b65389a46e8d075ce8e1fc83af4c
 pkill/tests/pgrep-_f_test.sh	freebsd	bin/pkill/tests/pgrep-_f_test.sh	822057bfbbbcdb722a7ccd0e40d6b7e82b1d83f7

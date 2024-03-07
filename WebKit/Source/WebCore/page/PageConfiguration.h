@@ -63,6 +63,7 @@ class DatabaseProvider;
 class DiagnosticLoggingClient;
 class DragClient;
 class EditorClient;
+class HistoryItemClient;
 class InspectorClient;
 class LocalFrameLoaderClient;
 class MediaRecorderProvider;
@@ -82,7 +83,6 @@ class UserContentProvider;
 class UserContentURLPattern;
 class ValidationMessageClient;
 class VisitedLinkStore;
-class WebGLStateTracker;
 class WebRTCProvider;
 
 class PageConfiguration {
@@ -108,6 +108,7 @@ public:
         UniqueRef<StorageProvider>&&,
         UniqueRef<ModelPlayerProvider>&&,
         Ref<BadgeClient>&&,
+        Ref<HistoryItemClient>&&,
 #if ENABLE(CONTEXT_MENUS)
         UniqueRef<ContextMenuClient>&&,
 #endif
@@ -154,9 +155,6 @@ public:
     FrameIdentifier mainFrameIdentifier;
     std::unique_ptr<DiagnosticLoggingClient> diagnosticLoggingClient;
     std::unique_ptr<PerformanceLoggingClient> performanceLoggingClient;
-#if ENABLE(WEBGL)
-    std::unique_ptr<WebGLStateTracker> webGLStateTracker;
-#endif
 #if ENABLE(SPEECH_SYNTHESIS)
     std::unique_ptr<SpeechSynthesisClient> speechSynthesisClient;
 #endif
@@ -194,6 +192,7 @@ public:
 #endif
 
     Ref<BadgeClient> badgeClient;
+    Ref<HistoryItemClient> historyItemClient;
 
     ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 };

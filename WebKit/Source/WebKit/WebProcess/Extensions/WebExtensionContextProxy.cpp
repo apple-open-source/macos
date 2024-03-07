@@ -30,69 +30,92 @@
 
 #include "JSWebExtensionAPINamespace.h"
 #include "JSWebExtensionWrapper.h"
-#include "WebExtensionContextMessages.h"
-#include "WebExtensionContextProxyMessages.h"
 #include "WebFrame.h"
 #include "WebPage.h"
-#include <wtf/HashMap.h>
-#include <wtf/NeverDestroyed.h>
+#include "WebProcess.h"
 
 namespace WebKit {
 
 using namespace WebCore;
-
-static HashMap<WebExtensionContextIdentifier, WeakPtr<WebExtensionContextProxy>>& webExtensionContextProxies()
-{
-    static MainThreadNeverDestroyed<HashMap<WebExtensionContextIdentifier, WeakPtr<WebExtensionContextProxy>>> contexts;
-    return contexts;
-}
-
-RefPtr<WebExtensionContextProxy> WebExtensionContextProxy::get(WebExtensionContextIdentifier identifier)
-{
-    return webExtensionContextProxies().get(identifier).get();
-}
-
-Ref<WebExtensionContextProxy> WebExtensionContextProxy::getOrCreate(const WebExtensionContextParameters& parameters)
-{
-    auto updateProperties = [&](WebExtensionContextProxy& context) {
-        context.m_baseURL = parameters.baseURL;
-        context.m_uniqueIdentifier = parameters.uniqueIdentifier;
-        context.m_localization = parseLocalization(parameters.localizationJSON.get());
-        context.m_manifest = parseJSON(parameters.manifestJSON.get());
-        context.m_manifestVersion = parameters.manifestVersion;
-        context.m_testingMode = parameters.testingMode;
-    };
-
-    if (auto context = webExtensionContextProxies().get(parameters.identifier)) {
-        updateProperties(*context);
-        return *context;
-    }
-
-    auto result = adoptRef(new WebExtensionContextProxy(parameters));
-    updateProperties(*result);
-    return result.releaseNonNull();
-}
-
-WebExtensionContextProxy::WebExtensionContextProxy(const WebExtensionContextParameters& parameters)
-    : m_identifier(parameters.identifier)
-{
-    ASSERT(!webExtensionContextProxies().contains(m_identifier));
-    webExtensionContextProxies().add(m_identifier, this);
-
-    WebProcess::singleton().addMessageReceiver(Messages::WebExtensionContextProxy::messageReceiverName(), m_identifier, *this);
-}
-
-WebExtensionContextProxy::~WebExtensionContextProxy()
-{
-    WebProcess::singleton().removeMessageReceiver(Messages::WebExtensionContextProxy::messageReceiverName(), m_identifier);
-}
 
 void WebExtensionContextProxy::addFrameWithExtensionContent(WebFrame& frame)
 {
     m_extensionContentFrames.add(frame);
 }
 
-void WebExtensionContextProxy::enumerateNamespaceObjects(const Function<void(WebExtensionAPINamespace&)>& function, DOMWrapperWorld& world)
+RefPtr<WebPage> WebExtensionContextProxy::backgroundPage() const
+{
+    return m_backgroundPage.get();
+}
+
+void WebExtensionContextProxy::setBackgroundPage(WebPage& page)
+{
+    m_backgroundPage = page;
+}
+
+Vector<Ref<WebPage>> WebExtensionContextProxy::popupPages(std::optional<WebExtensionTabIdentifier> tabIdentifier, std::optional<WebExtensionWindowIdentifier> windowIdentifier) const
+{
+    Vector<Ref<WebPage>> result;
+
+    for (auto entry : m_popupPageMap) {
+        if (tabIdentifier && entry.value.first && entry.value.first.value() != tabIdentifier.value())
+            continue;
+
+        if (windowIdentifier && entry.value.second && entry.value.second.value() != windowIdentifier.value())
+            continue;
+
+        result.append(entry.key);
+    }
+
+    return result;
+}
+
+void WebExtensionContextProxy::addPopupPage(WebPage& page, std::optional<WebExtensionTabIdentifier> tabIdentifier, std::optional<WebExtensionWindowIdentifier> windowIdentifier)
+{
+    m_popupPageMap.set(page, TabWindowIdentifierPair { tabIdentifier, windowIdentifier });
+}
+
+Vector<Ref<WebPage>> WebExtensionContextProxy::tabPages(std::optional<WebExtensionTabIdentifier> tabIdentifier, std::optional<WebExtensionWindowIdentifier> windowIdentifier) const
+{
+    Vector<Ref<WebPage>> result;
+
+    for (auto entry : m_tabPageMap) {
+        if (tabIdentifier && entry.value.first && entry.value.first.value() != tabIdentifier.value())
+            continue;
+
+        if (windowIdentifier && entry.value.second && entry.value.second.value() != windowIdentifier.value())
+            continue;
+
+        result.append(entry.key);
+    }
+
+    return result;
+}
+
+void WebExtensionContextProxy::addTabPage(WebPage& page, std::optional<WebExtensionTabIdentifier> tabIdentifier, std::optional<WebExtensionWindowIdentifier> windowIdentifier)
+{
+    m_tabPageMap.set(page, TabWindowIdentifierPair { tabIdentifier, windowIdentifier });
+}
+
+void WebExtensionContextProxy::setBackgroundPageIdentifier(WebCore::PageIdentifier pageIdentifier)
+{
+    if (auto* page = WebProcess::singleton().webPage(pageIdentifier))
+        setBackgroundPage(*page);
+}
+
+void WebExtensionContextProxy::addPopupPageIdentifier(WebCore::PageIdentifier pageIdentifier, std::optional<WebExtensionTabIdentifier> tabIdentifier, std::optional<WebExtensionWindowIdentifier> windowIdentifier)
+{
+    if (auto* page = WebProcess::singleton().webPage(pageIdentifier))
+        addPopupPage(*page, tabIdentifier, windowIdentifier);
+}
+
+void WebExtensionContextProxy::addTabPageIdentifier(WebCore::PageIdentifier pageIdentifier, WebExtensionTabIdentifier tabIdentifier, std::optional<WebExtensionWindowIdentifier> windowIdentifier)
+{
+    if (auto* page = WebProcess::singleton().webPage(pageIdentifier))
+        addTabPage(*page, tabIdentifier, windowIdentifier);
+}
+
+void WebExtensionContextProxy::enumerateFramesAndNamespaceObjects(const Function<void(WebFrame&, WebExtensionAPINamespace&)>& function, DOMWrapperWorld& world)
 {
     for (auto& frame : m_extensionContentFrames) {
         auto* page = frame.page() ? frame.page()->corePage() : nullptr;
@@ -109,7 +132,7 @@ void WebExtensionContextProxy::enumerateNamespaceObjects(const Function<void(Web
         if (!namespaceObjectImpl)
             continue;
 
-        function(*namespaceObjectImpl);
+        function(frame, *namespaceObjectImpl);
     }
 }
 

@@ -1,17 +1,17 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2021-02-03</string>
+	<string>2023-09-01</string>
 	<key>OpenSourceProject</key>
 	<string>perl</string>
 	<key>OpenSourceVersion</key>
-	<string>5.30.3</string>
+	<string>5.34.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>https://www.perl.com/</string>
 	<key>OpenSourceURL</key>
-	<string>https://www.cpan.org/src/5.0/perl-5.30.3.tar.gz</string>
-	<key>OpenSourceSHA512256</key>
-	<string>dc768a124e2a31e6d6182b7a95560785a6c9047ee426df63dbdcc17d9b566850</string>
+	<string>https://www.cpan.org/src/5.0/perl-5.34.1.tar.gz</string>
+	<key>OpenSourceSHA256</key>
+	<string>357951a491b0ba1ce3611263922feec78ccd581dddc24a446b033e25acf242a1</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>changes to build under XBS</string>

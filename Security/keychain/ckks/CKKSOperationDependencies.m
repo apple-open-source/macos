@@ -496,7 +496,7 @@
             ckksnotice("ckks", recordID.zoneID, "Examining 'write failed' error: %@ %@ %@", error, underlyingError, thirdLevelError);
 
             if([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorServerRejectedRequest &&
-               underlyingError && [underlyingError.domain isEqualToString:CKInternalErrorDomain] && underlyingError.code == CKErrorInternalPluginError &&
+               underlyingError && [underlyingError.domain isEqualToString:CKUnderlyingErrorDomain] && underlyingError.code == CKUnderlyingErrorPluginError &&
                thirdLevelError && [thirdLevelError.domain isEqualToString:@"CloudkitKeychainService"]) {
 
                 if(thirdLevelError.code == CKKSServerUnexpectedSyncKeyInChain) {

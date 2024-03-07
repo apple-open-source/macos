@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -34,6 +34,7 @@
 				FDF2775F0FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF2775D0FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF277570FC6102600D7A3C6 /* PBXTargetDependency */,
+				CB49D51D29B80FFE00D6B9B6 /* PBXTargetDependency */,
 				FDF277530FC6102600D7A3C6 /* PBXTargetDependency */,
 			);
 			name = Desktop;
@@ -44,6 +45,20 @@
 /* Begin PBXBuildFile section */
 		2E859FEF29971BE6000E6212 /* password_enabled.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E859FEE29971BE6000E6212 /* password_enabled.c */; };
 		CB2171E629758BAF00A9CD7F /* tftp_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CB2171E529758BAF00A9CD7F /* tftp_test.sh */; };
+		CB38454A2A097C0100D75E32 /* talkd.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = CB3845492A097BED00D75E32 /* talkd.8 */; };
+		CB49D51829B80DED00D6B9B6 /* libatf-c.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB49D51729B80DB700D6B9B6 /* libatf-c.tbd */; };
+		CB49D51B29B80F6800D6B9B6 /* functional.c in Sources */ = {isa = PBXBuildFile; fileRef = CB49D51929B80F6200D6B9B6 /* functional.c */; };
+		CB49D51F29B8135C00D6B9B6 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB49D51E29B8135C00D6B9B6 /* libutil.tbd */; };
+		CB976D522910605300635EB1 /* tftp-file.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE3B2910535800A5EB93 /* tftp-file.c */; };
+		CB976D532910605300635EB1 /* tftp-io.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE3D2910535800A5EB93 /* tftp-io.c */; };
+		CB976D542910605300635EB1 /* tftp-options.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE362910535800A5EB93 /* tftp-options.c */; };
+		CB976D552910605300635EB1 /* tftp-transfer.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE3A2910535800A5EB93 /* tftp-transfer.c */; };
+		CB976D562910605300635EB1 /* tftp-utils.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE352910535800A5EB93 /* tftp-utils.c */; };
+		CBC9CE3E2910535900A5EB93 /* tftp-utils.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE352910535800A5EB93 /* tftp-utils.c */; };
+		CBC9CE3F2910535900A5EB93 /* tftp-options.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE362910535800A5EB93 /* tftp-options.c */; };
+		CBC9CE402910535900A5EB93 /* tftp-transfer.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE3A2910535800A5EB93 /* tftp-transfer.c */; };
+		CBC9CE412910535900A5EB93 /* tftp-file.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE3B2910535800A5EB93 /* tftp-file.c */; };
+		CBC9CE422910535900A5EB93 /* tftp-io.c in Sources */ = {isa = PBXBuildFile; fileRef = CBC9CE3D2910535800A5EB93 /* tftp-io.c */; };
 		D3D4D1162601859700C8FE88 /* logger.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1132601859000C8FE88 /* logger.c */; };
 		D3D4D1292601859D00C8FE88 /* logger.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = D3D4D1152601859000C8FE88 /* logger.1 */; };
 		D3D4D1F12601867400C8FE88 /* msgs.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1D92601861600C8FE88 /* msgs.c */; };
@@ -110,15 +125,10 @@
 		D3D4D44226018F0E00C8FE88 /* libncurses.5.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D4D2372601874300C8FE88 /* libncurses.5.tbd */; };
 		D3D4D47A26018F6200C8FE88 /* telnetd.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = D3D4D1A52601861600C8FE88 /* telnetd.8 */; };
 		D3D4D4C326018FE300C8FE88 /* ext.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1A62601861600C8FE88 /* ext.h */; };
-		D3D4D57A260192FE00C8FE88 /* tftpsubs.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1C12601861600C8FE88 /* tftpsubs.h */; };
 		D3D4D57B260192FE00C8FE88 /* tftp.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1C22601861600C8FE88 /* tftp.c */; };
 		D3D4D57C260192FE00C8FE88 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1C42601861600C8FE88 /* main.c */; };
-		D3D4D57D260192FE00C8FE88 /* tftpsubs.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1C52601861600C8FE88 /* tftpsubs.c */; };
-		D3D4D57E260192FE00C8FE88 /* extern.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1C72601861600C8FE88 /* extern.h */; };
 		D3D4D5922601930C00C8FE88 /* libedit.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D4D5912601930C00C8FE88 /* libedit.tbd */; };
 		D3D4D5B72601931500C8FE88 /* tftp.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = D3D4D1C62601861600C8FE88 /* tftp.1 */; };
-		D3D4D60B2601938D00C8FE88 /* tftpsubs.h in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1EA2601861600C8FE88 /* tftpsubs.h */; };
-		D3D4D60C2601938D00C8FE88 /* tftpsubs.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1EF2601861600C8FE88 /* tftpsubs.c */; };
 		D3D4D60D2601938D00C8FE88 /* tftpd.c in Sources */ = {isa = PBXBuildFile; fileRef = D3D4D1F02601861600C8FE88 /* tftpd.c */; };
 		D3D4D61E2601939B00C8FE88 /* tftpd.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = D3D4D1EB2601861600C8FE88 /* tftpd.8 */; };
 		D3D4D650260193E700C8FE88 /* tftp.plist in Install launchd plist */ = {isa = PBXBuildFile; fileRef = D3D4D1EC2601861600C8FE88 /* tftp.plist */; };
@@ -129,6 +139,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		CB49D51C29B80FFE00D6B9B6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CB49D50C29B80B4E00D6B9B6;
+			remoteInfo = tftpd_test;
+		};
 		D3D4D6A72601949B00C8FE88 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
@@ -204,6 +221,15 @@
 				CB2171E629758BAF00A9CD7F /* tftp_test.sh in Copy Test Files */,
 			);
 			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		CB49D50B29B80B4E00D6B9B6 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		D3D4D2AE2601889000C8FE88 /* Install launchd plist */ = {
@@ -311,6 +337,7 @@
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
+				CB38454A2A097C0100D75E32 /* talkd.8 in Install man8 */,
 				D3D4D25D260187FA00C8FE88 /* ntalkd.8 in Install man8 */,
 			);
 			name = "Install man8";
@@ -321,6 +348,22 @@
 /* Begin PBXFileReference section */
 		2E859FEE29971BE6000E6212 /* password_enabled.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = password_enabled.c; sourceTree = "<group>"; };
 		CB2171E529758BAF00A9CD7F /* tftp_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = tftp_test.sh; path = tftp/tests/tftp_test.sh; sourceTree = "<group>"; };
+		CB3845492A097BED00D75E32 /* talkd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = talkd.8; sourceTree = "<group>"; };
+		CB49D50D29B80B4E00D6B9B6 /* tftpd_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tftpd_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		CB49D51729B80DB700D6B9B6 /* libatf-c.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libatf-c.tbd"; path = "usr/local/lib/libatf-c.tbd"; sourceTree = SDKROOT; };
+		CB49D51929B80F6200D6B9B6 /* functional.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = functional.c; path = tests/functional.c; sourceTree = "<group>"; };
+		CB49D51E29B8135C00D6B9B6 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = usr/lib/libutil.tbd; sourceTree = SDKROOT; };
+		CB976D5129105F4D00635EB1 /* tftp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tftp.h; sourceTree = "<group>"; };
+		CBC9CE342910535800A5EB93 /* tftp-file.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "tftp-file.h"; sourceTree = "<group>"; };
+		CBC9CE352910535800A5EB93 /* tftp-utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "tftp-utils.c"; sourceTree = "<group>"; };
+		CBC9CE362910535800A5EB93 /* tftp-options.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "tftp-options.c"; sourceTree = "<group>"; };
+		CBC9CE372910535800A5EB93 /* tftp-utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "tftp-utils.h"; sourceTree = "<group>"; };
+		CBC9CE382910535800A5EB93 /* tftp-io.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "tftp-io.h"; sourceTree = "<group>"; };
+		CBC9CE392910535800A5EB93 /* tftp-options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "tftp-options.h"; sourceTree = "<group>"; };
+		CBC9CE3A2910535800A5EB93 /* tftp-transfer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "tftp-transfer.c"; sourceTree = "<group>"; };
+		CBC9CE3B2910535800A5EB93 /* tftp-file.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "tftp-file.c"; sourceTree = "<group>"; };
+		CBC9CE3C2910535800A5EB93 /* tftp-transfer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "tftp-transfer.h"; sourceTree = "<group>"; };
+		CBC9CE3D2910535800A5EB93 /* tftp-io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "tftp-io.c"; sourceTree = "<group>"; };
 		D3343E8D26095DF1005A89FC /* generate_plist.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = generate_plist.sh; sourceTree = "<group>"; };
 		D3343ED226095FC0005A89FC /* install_plist.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = install_plist.sh; sourceTree = "<group>"; };
 		D3D4D1132601859000C8FE88 /* logger.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = logger.c; sourceTree = "<group>"; };
@@ -359,10 +402,8 @@
 		D3D4D1BD2601861600C8FE88 /* tn3270.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tn3270.c; sourceTree = "<group>"; };
 		D3D4D1BE2601861600C8FE88 /* authenc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = authenc.c; sourceTree = "<group>"; };
 		D3D4D1BF2601861600C8FE88 /* commands.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = commands.c; sourceTree = "<group>"; };
-		D3D4D1C12601861600C8FE88 /* tftpsubs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tftpsubs.h; sourceTree = "<group>"; };
 		D3D4D1C22601861600C8FE88 /* tftp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tftp.c; sourceTree = "<group>"; };
 		D3D4D1C42601861600C8FE88 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
-		D3D4D1C52601861600C8FE88 /* tftpsubs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tftpsubs.c; sourceTree = "<group>"; };
 		D3D4D1C62601861600C8FE88 /* tftp.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = tftp.1; sourceTree = "<group>"; };
 		D3D4D1C72601861600C8FE88 /* extern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
 		D3D4D1C92601861600C8FE88 /* ntalkd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ntalkd.8; sourceTree = "<group>"; };
@@ -392,10 +433,8 @@
 		D3D4D1E62601861600C8FE88 /* ctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ctl.c; sourceTree = "<group>"; };
 		D3D4D1E72601861600C8FE88 /* talk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = talk.h; sourceTree = "<group>"; };
 		D3D4D1E82601861600C8FE88 /* talk.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = talk.1; sourceTree = "<group>"; };
-		D3D4D1EA2601861600C8FE88 /* tftpsubs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tftpsubs.h; sourceTree = "<group>"; };
 		D3D4D1EB2601861600C8FE88 /* tftpd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tftpd.8; sourceTree = "<group>"; };
 		D3D4D1EC2601861600C8FE88 /* tftp.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = tftp.plist; sourceTree = "<group>"; };
-		D3D4D1EF2601861600C8FE88 /* tftpsubs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tftpsubs.c; sourceTree = "<group>"; };
 		D3D4D1F02601861600C8FE88 /* tftpd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tftpd.c; sourceTree = "<group>"; };
 		D3D4D2372601874300C8FE88 /* libncurses.5.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libncurses.5.tbd; path = usr/lib/libncurses.5.tbd; sourceTree = SDKROOT; };
 		D3D4D2F926018A2900C8FE88 /* libkrb5.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libkrb5.tbd; path = usr/lib/libkrb5.tbd; sourceTree = SDKROOT; };
@@ -413,6 +452,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		CB49D50A29B80B4E00D6B9B6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB49D51829B80DED00D6B9B6 /* libatf-c.tbd in Frameworks */,
+				CB49D51F29B8135C00D6B9B6 /* libutil.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FDF276730FC60F2100D7A3C6 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -480,6 +528,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CB49D51529B80B6700D6B9B6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				CB49D51929B80F6200D6B9B6 /* functional.c */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
 		D3D4D1122601859000C8FE88 /* logger */ = {
 			isa = PBXGroup;
 			children = (
@@ -542,12 +598,11 @@
 		D3D4D1C02601861600C8FE88 /* tftp */ = {
 			isa = PBXGroup;
 			children = (
+				CB976D5129105F4D00635EB1 /* tftp.h */,
 				D3D4D1C72601861600C8FE88 /* extern.h */,
 				D3D4D1C42601861600C8FE88 /* main.c */,
 				D3D4D1C62601861600C8FE88 /* tftp.1 */,
 				D3D4D1C22601861600C8FE88 /* tftp.c */,
-				D3D4D1C52601861600C8FE88 /* tftpsubs.c */,
-				D3D4D1C12601861600C8FE88 /* tftpsubs.h */,
 			);
 			path = tftp;
 			sourceTree = "<group>";
@@ -555,6 +610,7 @@
 		D3D4D1C82601861600C8FE88 /* talkd */ = {
 			isa = PBXGroup;
 			children = (
+				CB3845492A097BED00D75E32 /* talkd.8 */,
 				D3D4D1CD2601861600C8FE88 /* announce.c */,
 				D3D4D1CF2601861600C8FE88 /* extern.h */,
 				D3D4D1D02601861600C8FE88 /* ntalk.plist */,
@@ -603,11 +659,20 @@
 		D3D4D1E92601861600C8FE88 /* tftpd */ = {
 			isa = PBXGroup;
 			children = (
-				D3D4D1EA2601861600C8FE88 /* tftpsubs.h */,
-				D3D4D1EB2601861600C8FE88 /* tftpd.8 */,
 				D3D4D1EC2601861600C8FE88 /* tftp.plist */,
-				D3D4D1EF2601861600C8FE88 /* tftpsubs.c */,
+				CBC9CE3B2910535800A5EB93 /* tftp-file.c */,
+				CBC9CE342910535800A5EB93 /* tftp-file.h */,
+				CBC9CE3D2910535800A5EB93 /* tftp-io.c */,
+				CBC9CE382910535800A5EB93 /* tftp-io.h */,
+				CBC9CE362910535800A5EB93 /* tftp-options.c */,
+				CBC9CE392910535800A5EB93 /* tftp-options.h */,
+				CBC9CE3A2910535800A5EB93 /* tftp-transfer.c */,
+				CBC9CE3C2910535800A5EB93 /* tftp-transfer.h */,
+				CBC9CE352910535800A5EB93 /* tftp-utils.c */,
+				CBC9CE372910535800A5EB93 /* tftp-utils.h */,
+				D3D4D1EB2601861600C8FE88 /* tftpd.8 */,
 				D3D4D1F02601861600C8FE88 /* tftpd.c */,
+				CB49D51529B80B6700D6B9B6 /* tests */,
 			);
 			path = tftpd;
 			sourceTree = "<group>";
@@ -615,6 +680,8 @@
 		D3D4D2362601874300C8FE88 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CB49D51E29B8135C00D6B9B6 /* libutil.tbd */,
+				CB49D51729B80DB700D6B9B6 /* libatf-c.tbd */,
 				D3D4D5912601930C00C8FE88 /* libedit.tbd */,
 				D3D4D33426018AA600C8FE88 /* libtelnet.a */,
 				D3D4D30D26018A3100C8FE88 /* libipsec.tbd */,
@@ -645,6 +712,7 @@
 				FDF276990FC60F5000D7A3C6 /* logger */,
 				FDF276A50FC60F5E00D7A3C6 /* tftpd */,
 				FDF276B10FC60F7600D7A3C6 /* wall */,
+				CB49D50D29B80B4E00D6B9B6 /* tftpd_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -668,6 +736,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		CB49D50C29B80B4E00D6B9B6 /* tftpd_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CB49D51229B80B4F00D6B9B6 /* Build configuration list for PBXNativeTarget "tftpd_test" */;
+			buildPhases = (
+				CB49D50929B80B4E00D6B9B6 /* Sources */,
+				CB49D50A29B80B4E00D6B9B6 /* Frameworks */,
+				CB49D50B29B80B4E00D6B9B6 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = tftpd_test;
+			productName = tftpd_functional_tests;
+			productReference = CB49D50D29B80B4E00D6B9B6 /* tftpd_test */;
+			productType = "com.apple.product-type.tool";
+		};
 		FDF276740FC60F2100D7A3C6 /* talk */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDF276C80FC60F9700D7A3C6 /* Build configuration list for PBXNativeTarget "talk" */;
@@ -819,6 +904,12 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 1240;
+				TargetAttributes = {
+					CB49D50C29B80B4E00D6B9B6 = {
+						CreatedOnToolsVersion = 14.3;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = FDF276460FC60E9000D7A3C6 /* Build configuration list for PBXProject "remote_cmds" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -843,6 +934,7 @@
 				FDF276920FC60F4B00D7A3C6 /* tftp */,
 				FDF276A40FC60F5E00D7A3C6 /* tftpd */,
 				FDF276B00FC60F7600D7A3C6 /* wall */,
+				CB49D50C29B80B4E00D6B9B6 /* tftpd_test */,
 			);
 		};
 /* End PBXProject section */
@@ -850,7 +942,8 @@
 /* Begin PBXShellScriptBuildPhase section */
 		3247F2CE282E8E9000230C0A /* Install OpenSource plist */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
 			files = (
 			);
 			inputFileListPaths = (
@@ -862,12 +955,13 @@
 			);
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh\n";
 		};
 		CB2171E829758BEF00A9CD7F /* Install test files */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 8;
 			files = (
 			);
@@ -1000,6 +1094,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		CB49D50929B80B4E00D6B9B6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB49D51B29B80F6800D6B9B6 /* functional.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FDF276720FC60F2100D7A3C6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1085,11 +1187,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D3D4D57A260192FE00C8FE88 /* tftpsubs.h in Sources */,
-				D3D4D57B260192FE00C8FE88 /* tftp.c in Sources */,
 				D3D4D57C260192FE00C8FE88 /* main.c in Sources */,
-				D3D4D57D260192FE00C8FE88 /* tftpsubs.c in Sources */,
-				D3D4D57E260192FE00C8FE88 /* extern.h in Sources */,
+				D3D4D57B260192FE00C8FE88 /* tftp.c in Sources */,
+				CB976D522910605300635EB1 /* tftp-file.c in Sources */,
+				CB976D532910605300635EB1 /* tftp-io.c in Sources */,
+				CB976D542910605300635EB1 /* tftp-options.c in Sources */,
+				CB976D552910605300635EB1 /* tftp-transfer.c in Sources */,
+				CB976D562910605300635EB1 /* tftp-utils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1105,8 +1209,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D3D4D60B2601938D00C8FE88 /* tftpsubs.h in Sources */,
-				D3D4D60C2601938D00C8FE88 /* tftpsubs.c in Sources */,
+				CBC9CE412910535900A5EB93 /* tftp-file.c in Sources */,
+				CBC9CE422910535900A5EB93 /* tftp-io.c in Sources */,
+				CBC9CE3F2910535900A5EB93 /* tftp-options.c in Sources */,
+				CBC9CE402910535900A5EB93 /* tftp-transfer.c in Sources */,
+				CBC9CE3E2910535900A5EB93 /* tftp-utils.c in Sources */,
 				D3D4D60D2601938D00C8FE88 /* tftpd.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1124,6 +1231,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		CB49D51D29B80FFE00D6B9B6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CB49D50C29B80B4E00D6B9B6 /* tftpd_test */;
+			targetProxy = CB49D51C29B80FFE00D6B9B6 /* PBXContainerItemProxy */;
+		};
 		D3D4D6A82601949B00C8FE88 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FDF2768C0FC60F3D00D7A3C6 /* telnetd */;
@@ -1172,6 +1284,35 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		CB49D51129B80B4F00D6B9B6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/Tests/remote_cmds/tftpd;
+				MACOSX_DEPLOYMENT_TARGET = 13.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
 		FDF276450FC60E9000D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1323,6 +1464,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
+				HEADER_SEARCH_PATHS = tftpd;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = tftp;
 			};
@@ -1362,6 +1504,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		CB49D51229B80B4F00D6B9B6 /* Build configuration list for PBXNativeTarget "tftpd_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CB49D51129B80B4F00D6B9B6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FDF276460FC60E9000D7A3C6 /* Build configuration list for PBXProject "remote_cmds" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmHMAC.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyHMAC.h"
 #include "CryptoUtilitiesCocoa.h"
 #include <CommonCrypto/CommonHMAC.h>
@@ -57,7 +55,7 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHMAC::platformSign(const CryptoKeyHM
 {
     auto algorithm = commonCryptoHMACAlgorithm(key.hashAlgorithmIdentifier());
     if (!algorithm)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     return calculateHMACSignature(*algorithm, key.key(), data.data(), data.size());
 }
@@ -66,13 +64,11 @@ ExceptionOr<bool> CryptoAlgorithmHMAC::platformVerify(const CryptoKeyHMAC& key, 
 {
     auto algorithm = commonCryptoHMACAlgorithm(key.hashAlgorithmIdentifier());
     if (!algorithm)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto expectedSignature = calculateHMACSignature(*algorithm, key.key(), data.data(), data.size());
     // Using a constant time comparison to prevent timing attacks.
     return signature.size() == expectedSignature.size() && !constantTimeMemcmp(expectedSignature.data(), signature.data(), expectedSignature.size());
 }
 
-}
-
-#endif // ENABLE(WEB_CRYPTO)
+} // namespace WebCore

@@ -66,6 +66,10 @@ static void *test_thread(void *ptr) {
 }
 
 T_DECL(mutex, "pthread_mutex",
+#if TARGET_OS_VISION
+	// rdar://89838865
+	T_META_BOOTARGS_SET("sched_preemption_disable_debug_mode=0"),
+#endif
 	T_META_ALL_VALID_ARCHS(YES))
 {
 	struct context context = {

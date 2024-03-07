@@ -38,12 +38,12 @@ WebDocumentLoader::WebDocumentLoader(const ResourceRequest& request, const Subst
 {
 }
 
-void WebDocumentLoader::detachFromFrame()
+void WebDocumentLoader::detachFromFrame(LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     if (auto navigationID = std::exchange(m_navigationID, 0))
-        WebFrame::fromCoreFrame(*frame())->documentLoaderDetached(navigationID);
+        WebFrame::fromCoreFrame(*frame())->documentLoaderDetached(navigationID, loadWillContinueInAnotherProcess == LoadWillContinueInAnotherProcess::Yes);
 
-    DocumentLoader::detachFromFrame();
+    DocumentLoader::detachFromFrame(loadWillContinueInAnotherProcess);
 }
 
 void WebDocumentLoader::setNavigationID(uint64_t navigationID)
@@ -55,11 +55,12 @@ void WebDocumentLoader::setNavigationID(uint64_t navigationID)
 
 RefPtr<WebDocumentLoader> WebDocumentLoader::loaderForWebsitePolicies(const LocalFrame& frame, CanIncludeCurrentDocumentLoader canIncludeCurrentDocumentLoader)
 {
-    RefPtr loader = static_cast<WebDocumentLoader*>(frame.loader().policyDocumentLoader());
+    Ref protectedFrame { frame };
+    RefPtr loader = static_cast<WebDocumentLoader*>(protectedFrame->loader().policyDocumentLoader());
     if (!loader)
-        loader = static_cast<WebDocumentLoader*>(frame.loader().provisionalDocumentLoader());
+        loader = static_cast<WebDocumentLoader*>(protectedFrame->loader().provisionalDocumentLoader());
     if (!loader && canIncludeCurrentDocumentLoader == CanIncludeCurrentDocumentLoader::Yes)
-        loader = static_cast<WebDocumentLoader*>(frame.loader().documentLoader());
+        loader = static_cast<WebDocumentLoader*>(protectedFrame->loader().documentLoader());
     return loader;
 }
 

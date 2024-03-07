@@ -104,11 +104,13 @@
 #include "SamplingProfiler.h"
 #include "ScopedArguments.h"
 #include "ShadowChicken.h"
+#include "SideDataRepository.h"
 #include "SimpleTypedArrayController.h"
 #include "SourceProviderCache.h"
 #include "StrongInlines.h"
 #include "StructureChainInlines.h"
 #include "StructureInlines.h"
+#include "StructureStubInfo.h"
 #include "SymbolInlines.h"
 #include "SymbolTableInlines.h"
 #include "TestRunnerUtils.h"
@@ -209,7 +211,8 @@ void VM::computeCanUseJIT()
 static bool vmCreationShouldCrash = false;
 
 VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
-    : m_identifier(VMIdentifier::generate())
+    : topCallFrame(CallFrame::noCaller())
+    , m_identifier(VMIdentifier::generate())
     , m_apiLock(adoptRef(new JSLock(this)))
     , m_runLoop(runLoop ? *runLoop : WTF::RunLoop::current())
     , m_random(Options::seedOfVMRandomForFuzzer() ? Options::seedOfVMRandomForFuzzer() : cryptographicallyRandomNumber<uint32_t>())
@@ -218,7 +221,6 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     , heap(*this, heapType)
     , clientHeap(heap)
     , vmType(vmType)
-    , topCallFrame(CallFrame::noCaller())
     , deferredWorkTimer(DeferredWorkTimer::create(*this))
     , m_atomStringTable(vmType == Default ? Thread::current().atomStringTable() : new AtomStringTable)
     , emptyList(new ArgList)
@@ -235,6 +237,35 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
         CRASH_WITH_EXTRA_SECURITY_IMPLICATION_AND_INFO(VMCreationDisallowed, "VM creation disallowed"_s, 0x4242424220202020, 0xbadbeef0badbeef, 0x1234123412341234, 0x1337133713371337);
 
     VMInspector::instance().add(this);
+
+    // Set up lazy initializers.
+    {
+        m_hasOwnPropertyCache.initLater([](VM&, auto& ref) {
+            ref.set(HasOwnPropertyCache::create());
+        });
+
+        m_megamorphicCache.initLater([](VM&, auto& ref) {
+            ref.set(makeUniqueRef<MegamorphicCache>());
+        });
+
+        m_shadowChicken.initLater([](VM&, auto& ref) {
+            ref.set(makeUniqueRef<ShadowChicken>());
+        });
+
+        m_heapProfiler.initLater([](VM& vm, auto& ref) {
+            ref.set(makeUniqueRef<HeapProfiler>(vm));
+        });
+
+        m_stringSearcherTables.initLater([](VM&, auto& ref) {
+            ref.set(makeUniqueRef<AdaptiveStringSearcherTables>());
+        });
+
+        m_watchdog.initLater([](VM& vm, auto& ref) {
+            ref.set(adoptRef(*new Watchdog(&vm)));
+            vm.ensureTerminationException();
+            vm.requestEntryScopeService(EntryScopeService::Watchdog);
+        });
+    }
 
     updateSoftReservedZoneSize(Options::softReservedZoneSize());
     setLastStackTop(Thread::current());
@@ -385,11 +416,10 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     // Make sure that any stubs that the JIT is going to use are initialized in non-compilation threads.
     if (Options::useJIT()) {
         jitStubs = makeUnique<JITThunks>();
+        jitStubs->initialize(*this);
 #if ENABLE(FTL_JIT)
         ftlThunks = makeUnique<FTL::Thunks>();
 #endif // ENABLE(FTL_JIT)
-        getCTIInternalFunctionTrampolineFor(CodeForCall);
-        getCTIInternalFunctionTrampolineFor(CodeForConstruct);
         m_sharedJITStubs = makeUnique<SharedJITStubSet>();
         getBoundFunction(/* isJSFunction */ true);
     }
@@ -431,11 +461,14 @@ VM::~VM()
     if (Wasm::Worklist* worklist = Wasm::existingWorklistOrNull())
         worklist->stopAllPlansForContext(*this);
 #endif
-    if (UNLIKELY(m_watchdog))
-        m_watchdog->willDestroyVM(this);
+    if (auto* watchdog = this->watchdog(); UNLIKELY(watchdog))
+        watchdog->willDestroyVM(this);
     m_traps.willDestroyVM();
     m_isInService = false;
     WTF::storeStoreFence();
+
+    if (m_hasSideData)
+        sideDataRepository().deleteAll(this);
 
     // Never GC, ever again.
     heap.incrementDeferralDepth();
@@ -561,23 +594,6 @@ VM*& VM::sharedInstanceInternal()
     return sharedInstance;
 }
 
-Watchdog& VM::ensureWatchdog()
-{
-    if (!m_watchdog) {
-        m_watchdog = adoptRef(new Watchdog(this));
-        ensureTerminationException();
-        requestEntryScopeService(EntryScopeService::Watchdog);
-    }
-    return *m_watchdog;
-}
-
-HeapProfiler& VM::ensureHeapProfiler()
-{
-    if (!m_heapProfiler)
-        m_heapProfiler = makeUnique<HeapProfiler>(*this);
-    return *m_heapProfiler;
-}
-
 #if ENABLE(SAMPLING_PROFILER)
 SamplingProfiler& VM::ensureSamplingProfiler(Ref<Stopwatch>&& stopwatch)
 {
@@ -665,10 +681,12 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
         return imulThunkGenerator;
     case RandomIntrinsic:
         return randomThunkGenerator;
+#if !OS(WINDOWS)
     case BoundFunctionCallIntrinsic:
         return boundFunctionCallGenerator;
     case RemoteFunctionCallIntrinsic:
         return remoteFunctionCallGenerator;
+#endif
     case NumberConstructorIntrinsic:
         return numberConstructorCallThunkGenerator;
     case StringConstructorIntrinsic:
@@ -681,6 +699,11 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
 MacroAssemblerCodeRef<JITThunkPtrTag> VM::getCTIStub(ThunkGenerator generator)
 {
     return jitStubs->ctiStub(*this, generator);
+}
+
+MacroAssemblerCodeRef<JITThunkPtrTag> VM::getCTIStub(CommonJITThunkID thunkID)
+{
+    return jitStubs->ctiStub(thunkID);
 }
 
 #endif // ENABLE(JIT)
@@ -787,20 +810,11 @@ CodePtr<JSEntryPtrTag> VM::getCTIInternalFunctionTrampolineFor(CodeSpecializatio
     return LLInt::getCodePtr<JSEntryPtrTag>(llint_internal_function_construct_trampoline);
 }
 
-MacroAssemblerCodeRef<JSEntryPtrTag> VM::getCTILinkCall()
-{
-#if ENABLE(JIT)
-    if (Options::useJIT())
-        return getCTIStub(linkCallThunkGenerator).template retagged<JSEntryPtrTag>();
-#endif
-    return LLInt::getCodeRef<JSEntryPtrTag>(llint_link_call_trampoline);
-}
-
 MacroAssemblerCodeRef<JSEntryPtrTag> VM::getCTIThrowExceptionFromCallSlowPath()
 {
 #if ENABLE(JIT)
     if (Options::useJIT())
-        return getCTIStub(throwExceptionFromCallSlowPathGenerator).template retagged<JSEntryPtrTag>();
+        return getCTIStub(CommonJITThunkID::ThrowExceptionFromCallSlowPath).template retagged<JSEntryPtrTag>();
 #endif
     return LLInt::callToThrow(*this).template retagged<JSEntryPtrTag>();
 }
@@ -808,8 +822,17 @@ MacroAssemblerCodeRef<JSEntryPtrTag> VM::getCTIThrowExceptionFromCallSlowPath()
 MacroAssemblerCodeRef<JITStubRoutinePtrTag> VM::getCTIVirtualCall(CallMode callMode)
 {
 #if ENABLE(JIT)
-    if (Options::useJIT())
-        return virtualThunkFor(*this, callMode);
+    if (Options::useJIT()) {
+        switch (callMode) {
+        case CallMode::Regular:
+            return getCTIStub(CommonJITThunkID::VirtualThunkForRegularCall).template retagged<JITStubRoutinePtrTag>();
+        case CallMode::Tail:
+            return getCTIStub(CommonJITThunkID::VirtualThunkForTailCall).template retagged<JITStubRoutinePtrTag>();
+        case CallMode::Construct:
+            return getCTIStub(CommonJITThunkID::VirtualThunkForConstruct).template retagged<JITStubRoutinePtrTag>();
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
 #endif
     switch (callMode) {
     case CallMode::Regular:
@@ -1458,13 +1481,6 @@ Ref<Waiter> VM::syncWaiter()
     return m_syncWaiter;
 }
 
-void VM::ensureShadowChicken()
-{
-    if (m_shadowChicken)
-        return;
-    m_shadowChicken = makeUnique<ShadowChicken>();
-}
-
 JSCell* VM::sentinelSetBucketSlow()
 {
     ASSERT(!m_sentinelSetBucket);
@@ -1748,16 +1764,10 @@ void MicrotaskQueue::visitAggregateImpl(Visitor& visitor)
 }
 DEFINE_VISIT_AGGREGATE(MicrotaskQueue);
 
-void VM::ensureMegamorphicCacheSlow()
-{
-    ASSERT(!m_megamorphicCache);
-    m_megamorphicCache = makeUnique<MegamorphicCache>();
-}
-
 void VM::invalidateStructureChainIntegrity(StructureChainIntegrityEvent)
 {
-    if (m_megamorphicCache)
-        m_megamorphicCache->bumpEpoch();
+    if (auto* megamorphicCache = this->megamorphicCache())
+        megamorphicCache->bumpEpoch();
 }
 
 #if ENABLE(WEBASSEMBLY)

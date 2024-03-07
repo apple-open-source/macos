@@ -6,7 +6,7 @@ hi{
         calendar{"कैलेंडर"}
         cf{"मुद्रा प्रारूप"}
         colAlternate{"चिह्न वर्गीकरण पर ध्यान न दें"}
-        colBackwards{"विपरीत उच्‍चारण वर्गीकरण"}
+        colBackwards{"विपरीत उच्चारण वर्गीकरण"}
         colCaseFirst{"अपरकेस/लोअरकेस क्रमांकन"}
         colCaseLevel{"केस संवेदी वर्गीकरण"}
         colNormalization{"सामान्यीकृत वर्गीकरण"}
@@ -39,7 +39,7 @@ hi{
         ale{"अलेउत"}
         alt{"दक्षिणी अल्ताई"}
         am{"अम्हेरी"}
-        an{"अर्गोनी"}
+        an{"अरागोनी"}
         ang{"पुरानी अंग्रेज़ी"}
         ann{"ओबोलो"}
         anp{"अंगिका"}
@@ -70,6 +70,7 @@ hi{
         ber{"अमाज़िघ"}
         bez{"बेना"}
         bg{"बुल्गारियाई"}
+        bgc{"हरियाणवी"}
         bgn{"पश्चिमी बलोची"}
         bho{"भोजपुरी"}
         bi{"बिस्लामा"}
@@ -311,6 +312,7 @@ hi{
         li{"लिंबर्गिश"}
         lil{"लिलोएट"}
         lkt{"लैकोटा"}
+        lmo{"लॉमबर्ड"}
         ln{"लिंगाला"}
         lo{"लाओ"}
         lol{"मोंगो"}
@@ -916,10 +918,11 @@ hi{
     }
     characterLabelPattern{
         all{"{0} — सभी"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} — संगतता"}
         enclosed{"{0} — संलग्न"}
         extended{"{0} — विस्तारित"}
+        facing-left{"{0} बाईं ओर चेहरा घुमाए"}
+        facing-right{"{0} दाईं ओर चेहरा घुमाए"}
         historic{"{0} — ऐतिहासिक"}
         miscellaneous{"{0} — विविध"}
         other{"{0} — अन्य"}
@@ -935,10 +938,5 @@ hi{
         language{"भाषा: {0}"}
         script{"लिपि: {0}"}
         territory{"क्षेत्र: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

@@ -92,6 +92,7 @@ enum cfInternalFlags {
 	cfDstSupportsCProtect     = 1 << 6, /* set if dst supports MNT_CPROTECT */
 	cfSrcFdOpenedByUs         = 1 << 7, /* set if src_fd opened by copyfile_open() */
 	cfDstFdOpenedByUs         = 1 << 8, /* set if dst_fd opened by copyfile_open() */
+	cfCheckFtsInfo            = 1 << 17, /* set if we should check our source file type against an FTSENT * */
 };
 
 #define COPYFILE_MNT_CPROTECT_MASK (cfSrcProtSupportValid | cfSrcSupportsCProtect | cfDstProtSupportValid | cfDstSupportsCProtect)
@@ -122,6 +123,7 @@ struct _copyfile_state
 	qtn_file_t qinfo;	/* Quarantine information -- probably NULL */
 	filesec_t original_fsec;
 	filesec_t permissive_fsec;
+	FTSENT *recurse_entry;
 	off_t totalCopied;
 	int err;
 	char *xattr_name;
@@ -768,6 +770,8 @@ copytree(copyfile_state_t s)
 			retval = -1;
 			break;
 		}
+		tstate->recurse_entry = ftsent;
+		tstate->internal_flags |= cfCheckFtsInfo;
 		switch (ftsent->fts_info) {
 			case FTS_D:
 				tstate->internal_flags |= cfDelayAce;
@@ -1814,6 +1818,53 @@ static int copyfile_open(copyfile_state_t s)
 		}
 		copyfile_debug(2, "open successful on source (%s)", s->src);
 		s->internal_flags |= cfSrcFdOpenedByUs;
+
+		if (s->internal_flags & cfCheckFtsInfo) {
+			/*
+			 * We are requested to make sure the source file's type
+			 * has not changed since it was provided to us.
+			 * This is useful for COPYFILE_RECURSIVE, where arbitrarily
+			 * long periods of time can pass between a file was initially
+			 * discovered by our FTS iteration and when it arrives here.
+			 */
+			struct stat repeat_sb;
+
+			if (!s->recurse_entry) {
+				s->err = errno = ENOENT;
+				copyfile_warn("missing FTS entry during recursive copy\n");
+				return -1;
+			} else if (fstat(s->src_fd, &repeat_sb)) {
+				copyfile_warn("repeat stat on %s\n", s->src);
+				return -1;
+			}
+
+			mode_t expected_type = 0;
+			switch (s->recurse_entry->fts_info) {
+				case FTS_SL:
+				case FTS_SLNONE:
+					expected_type = S_IFLNK;
+					break;
+				case FTS_D:
+				case FTS_DP:
+					expected_type = S_IFDIR;
+					break;
+				case FTS_F:
+					expected_type = S_IFREG;
+					break;
+				case FTS_DEFAULT:
+				default:
+					/* No verification possible. */
+					break;
+			}
+
+			if (expected_type && ((repeat_sb.st_mode & S_IFMT) != expected_type)) {
+				s->err = errno = EBADF;
+				copyfile_warn("file type (%u) does not match expected %u on %s\n",
+					(uint32_t)(repeat_sb.st_mode & S_IFMT), (uint32_t)expected_type,
+					s->src);
+				return -1;
+			}
+		}
 
 		(void)copyfile_quarantine(s);
 	}
@@ -3388,6 +3439,10 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 			break;
 		case COPYFILE_STATE_FORBID_CROSS_MOUNT:
 			*(bool *)ret = s->forbid_cross_mount;
+			break;
+		case COPYFILE_STATE_RECURSIVE_SRC_FTSENT:
+			*(const FTSENT **)ret = s->recurse_entry;
+			break;
 		default:
 			errno = EINVAL;
 			ret = NULL;

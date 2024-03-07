@@ -23,6 +23,7 @@ system_notify
 system_sim_platform system_platform
 system_sim_pthread system_pthread
 system_sandbox
+system_sanitizers
 system_trace
 unwind
 xpc

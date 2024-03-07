@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -201,8 +201,6 @@ void MediaTrackConstraintSetMap::filter(const Function<bool(const MediaConstrain
 
     if (m_aspectRatio && !m_aspectRatio->isEmpty() && callback(*m_aspectRatio))
         return;
-    if (m_zoom && !m_zoom->isEmpty() && callback(*m_zoom))
-        return;
     if (m_frameRate && !m_frameRate->isEmpty() && callback(*m_frameRate))
         return;
     if (m_volume && !m_volume->isEmpty() && callback(*m_volume))
@@ -216,6 +214,13 @@ void MediaTrackConstraintSetMap::filter(const Function<bool(const MediaConstrain
     if (m_deviceId && !m_deviceId->isEmpty() && callback(*m_deviceId))
         return;
     if (m_groupId && !m_groupId->isEmpty() && callback(*m_groupId))
+        return;
+
+    if (m_whiteBalanceMode && !m_whiteBalanceMode->isEmpty() && callback(*m_whiteBalanceMode))
+        return;
+    if (m_zoom && !m_zoom->isEmpty() && callback(*m_zoom))
+        return;
+    if (m_torch && !m_torch->isEmpty() && callback(*m_torch))
         return;
 }
 
@@ -245,7 +250,9 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
     case MediaConstraintType::DisplaySurface:
     case MediaConstraintType::LogicalSurface:
     case MediaConstraintType::FocusDistance:
+    case MediaConstraintType::WhiteBalanceMode:
     case MediaConstraintType::Zoom:
+    case MediaConstraintType::Torch:
     case MediaConstraintType::Unknown:
         ASSERT_NOT_REACHED();
         break;
@@ -279,6 +286,8 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
     case MediaConstraintType::DisplaySurface:
     case MediaConstraintType::LogicalSurface:
     case MediaConstraintType::FocusDistance:
+    case MediaConstraintType::WhiteBalanceMode:
+    case MediaConstraintType::Torch:
     case MediaConstraintType::Unknown:
         ASSERT_NOT_REACHED();
         break;
@@ -298,6 +307,10 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
         m_logicalSurface = WTFMove(constraint);
         break;
 
+    case MediaConstraintType::Torch:
+        m_torch = WTFMove(constraint);
+        break;
+
     case MediaConstraintType::Width:
     case MediaConstraintType::Height:
     case MediaConstraintType::SampleRate:
@@ -310,6 +323,7 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
     case MediaConstraintType::GroupId:
     case MediaConstraintType::FocusDistance:
     case MediaConstraintType::Zoom:
+    case MediaConstraintType::WhiteBalanceMode:
     case MediaConstraintType::Unknown:
         ASSERT_NOT_REACHED();
         break;
@@ -330,6 +344,9 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
     case MediaConstraintType::GroupId:
         m_groupId = WTFMove(constraint);
         break;
+    case MediaConstraintType::WhiteBalanceMode:
+        m_whiteBalanceMode = WTFMove(constraint);
+        break;
 
     case MediaConstraintType::Width:
     case MediaConstraintType::Height:
@@ -343,6 +360,7 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
     case MediaConstraintType::LogicalSurface:
     case MediaConstraintType::FocusDistance:
     case MediaConstraintType::Zoom:
+    case MediaConstraintType::Torch:
     case MediaConstraintType::Unknown:
         ASSERT_NOT_REACHED();
         break;

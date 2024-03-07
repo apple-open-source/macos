@@ -38,7 +38,6 @@
 #import <WebCore/HTMLCollection.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/JSExecState.h>
-#import <WebCore/NameNodeList.h>
 #import <WebCore/NodeList.h>
 #import <WebCore/ScrollIntoViewOptions.h>
 #import <WebCore/StyleProperties.h>
@@ -165,7 +164,7 @@ DOMElement *kit(WebCore::Element* value)
 - (DOMElement *)offsetParent
 {
     WebCore::JSMainThreadNullState state;
-    return kit(unwrap(*self).offsetParentForBindings());
+    return kit(unwrap(*self).offsetParentForBindings().get());
 }
 
 - (NSString *)innerHTML

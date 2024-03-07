@@ -3,13 +3,6 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_TT{
     %%Parent{"es_419"}
-    NumberElements{
-        latn{
-            patterns{
-                percentFormat{"#,##0%"}
-            }
-        }
-    }
     calendar{
         gregorian{
             DateTimePatterns{
@@ -21,10 +14,10 @@ es_TT{
                 "d 'de' MMMM 'de' y",
                 "d MMM y",
                 "d/M/yy",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1}, {0}",
             }
         }

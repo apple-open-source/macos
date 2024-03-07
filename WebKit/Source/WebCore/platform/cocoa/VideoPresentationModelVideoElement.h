@@ -34,6 +34,7 @@
 #include "MediaPlayerIdentifier.h"
 #include "PlatformLayer.h"
 #include "VideoPresentationModel.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
@@ -119,7 +120,7 @@ private:
     RefPtr<HTMLVideoElement> m_videoElement;
     RetainPtr<PlatformLayer> m_videoFullscreenLayer;
     bool m_isListening { false };
-    HashSet<VideoPresentationModelClient*> m_clients;
+    HashSet<CheckedPtr<VideoPresentationModelClient>> m_clients;
     bool m_hasVideo { false };
     FloatSize m_videoDimensions;
     FloatRect m_videoFrame;

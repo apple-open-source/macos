@@ -48,7 +48,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/spi/cocoa/IOSurfaceSPI.h>
 
-#if PLATFORM(IOS) || PLATFORM(VISION)
+#if HAVE(REPLAYKIT)
 #include "ReplayKitCaptureSource.h"
 #endif
 
@@ -65,7 +65,7 @@ CaptureSourceOrError DisplayCaptureSourceCocoa::create(const CaptureDevice& devi
 {
     switch (device.type()) {
     case CaptureDevice::DeviceType::Screen:
-#if PLATFORM(IOS) || PLATFORM(VISION)
+#if HAVE(REPLAYKIT)
         return create(ReplayKitCaptureSource::create(device.persistentId()), device, WTFMove(hashSalts), constraints, pageIdentifier);
 #else
 #if HAVE(SCREEN_CAPTURE_KIT)
@@ -125,9 +125,9 @@ const RealtimeMediaSourceCapabilities& DisplayCaptureSourceCocoa::capabilities()
         RealtimeMediaSourceCapabilities capabilities(settings().supportedConstraints());
 
         auto intrinsicSize = m_capturer->intrinsicSize();
-        capabilities.setWidth(CapabilityValueOrRange(1, intrinsicSize.width()));
-        capabilities.setHeight(CapabilityValueOrRange(1, intrinsicSize.height()));
-        capabilities.setFrameRate(CapabilityValueOrRange(.01, 30.0));
+        capabilities.setWidth(CapabilityRange(1, intrinsicSize.width()));
+        capabilities.setHeight(CapabilityRange(1, intrinsicSize.height()));
+        capabilities.setFrameRate(CapabilityRange(.01, 30.0));
 
         m_capabilities = WTFMove(capabilities);
     }
@@ -195,7 +195,7 @@ void DisplayCaptureSourceCocoa::stopProducingData()
 
 Seconds DisplayCaptureSourceCocoa::elapsedTime()
 {
-    if (std::isnan(m_startTime))
+    if (m_startTime.isNaN())
         return m_elapsedTime;
 
     return m_elapsedTime + (MonotonicTime::now() - m_startTime);
@@ -309,6 +309,11 @@ void DisplayCaptureSourceCocoa::emitFrame()
     VideoFrameTimeMetadata metadata;
     metadata.captureTime = MonotonicTime::now().secondsSinceEpoch();
     videoFrameAvailable(*videoFrame.get(), metadata);
+}
+
+double DisplayCaptureSourceCocoa::observedFrameRate() const
+{
+    return frameRate();
 }
 
 void DisplayCaptureSourceCocoa::capturerConfigurationChanged()

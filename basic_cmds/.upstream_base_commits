@@ -3,23 +3,5 @@
 mesg/mesg.1	freebsd	usr.bin/mesg/mesg.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 mesg/mesg.c	freebsd	usr.bin/mesg/mesg.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
-uudecode/tests/legacy_test.sh	freebsd	usr.bin/uudecode/tests/legacy_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uudecode/tests/regress.153276.in	freebsd	usr.bin/uudecode/tests/regress.153276.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uudecode/tests/regress.153276.out	freebsd	usr.bin/uudecode/tests/regress.153276.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uudecode/tests/regress.base64.in	freebsd	usr.bin/uudecode/tests/regress.base64.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uudecode/tests/regress.out	freebsd	usr.bin/uudecode/tests/regress.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uudecode/tests/regress.sh	freebsd	usr.bin/uudecode/tests/regress.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uudecode/tests/regress.traditional.in	freebsd	usr.bin/uudecode/tests/regress.traditional.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uudecode/uudecode.c	freebsd	usr.bin/uudecode/uudecode.c	9f3203c003144a4ef6309435036f985afe549ff0
-
-uuencode/tests/legacy_test.sh	freebsd	usr.bin/uuencode/tests/legacy_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uuencode/tests/regress.base64.out	freebsd	usr.bin/uuencode/tests/regress.base64.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uuencode/tests/regress.in	freebsd	usr.bin/uuencode/tests/regress.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uuencode/tests/regress.sh	freebsd	usr.bin/uuencode/tests/regress.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uuencode/tests/regress.traditional.out	freebsd	usr.bin/uuencode/tests/regress.traditional.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
-uuencode/uuencode.1	freebsd	usr.bin/uuencode/uuencode.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
-uuencode/uuencode.5	freebsd	usr.bin/uuencode/uuencode.format.5	fbbd9655e5107c68e4e0146ff22b73d7350475bc
-uuencode/uuencode.c	freebsd	usr.bin/uuencode/uuencode.c	d5d3f5dab209a4643dd189b2012b60329c220662
-
 write/write.1	freebsd	usr.bin/write/write.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 write/write.c	freebsd	usr.bin/write/write.c	27ed53c3117c6d937c9f55e94a2354345a42a604

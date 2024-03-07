@@ -5550,10 +5550,15 @@ smbfs_smb_trans2find2(struct smbfs_fctx *ctx, vfs_context_t context)
 	 */
      m_fixhdr(mdp->md_top);
 	 if (mbuf_get_chain_len(mdp->md_top) == 0) {
-		SMBERROR("bug: ecnt = %d, but m_len = 0 and m_next = %p (please report)\n", 
-				 ctx->f_ecnt, mbuf_next(mbp->mb_top));
+#ifdef SMB_DEBUG
+         SMBERROR("bug: ecnt = %d, but m_len = 0 and m_next = %p (please report)\n",
+                  ctx->f_ecnt, mbuf_next(mbp->mb_top));
+#else
+         SMBERROR("bug: ecnt = %d, but m_len = 0 and m_next = <private> (please report)\n",
+                  ctx->f_ecnt);
+#endif
 		/*
-		 * Something bad has happened we did not get all the data. We 
+		 * Something bad has happened we did not get all the data. We
 		 * need to close the directory listing, otherwise we may cause 
 		 * the calling process to hang in an infinite loop. 
 		 */

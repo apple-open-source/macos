@@ -1043,10 +1043,14 @@ CFStringRef SOSPeerInfoInspectRetirementTicket(SOSPeerInfoRef pi, CFErrorRef *er
     CFStringRef retval = NULL;
     CFDateRef now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
     CFDateRef retirement = NULL;
-    
+    CFDataRef dateData = NULL;
+
     require_quiet(SOSPeerInfoVerify(pi, error), err);
 
-    retirement = sosCreateCFDate(CFDictionaryGetValue(pi->description, sRetirementDate));
+    dateData = CFDictionaryGetValue(pi->description, sRetirementDate);
+    require_action_quiet(dateData, err, SOSCreateError(kSOSErrorUnexpectedType, CFSTR("PeerInfo doesn't have a retirement date"), NULL, error));
+
+    retirement = sosCreateCFDate(dateData);
     require_action_quiet(retirement, err,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Peer is not retired"), NULL, error));
 

@@ -114,7 +114,6 @@
 @property NSOperationQueue* operationQueue;
 
 @property (nullable) OctagonStateTransitionRequest* initialRequest;
-@property (nullable) CKKSResultOperation* initialTimeoutListenerOp;
 
 @property NSDictionary<OctagonState*, NSNumber*>* stateNumberMap;
 @property NSString* unexpectedStateErrorDomain;
@@ -145,27 +144,6 @@
 
         _timeoutCanOccur = true;
         _initialRequest = initialRequest;
-        if(initialRequest) {
-            WEAKIFY(self);
-            _initialTimeoutListenerOp = [CKKSResultOperation named:[NSString stringWithFormat:@"watcher-timeout-%@", name] withBlock:^{
-                STRONGIFY(self);
-                if(!self) {
-                    return;
-                }
-
-                NSError* opError = initialRequest.transitionOperation.error;
-
-                if(opError &&
-                   [opError.domain isEqualToString:CKKSResultErrorDomain] &&
-                   opError.code == CKKSResultTimedOut) {
-                    dispatch_sync(self.queue, ^{
-                        [self _onqueuePerformTimeoutWithUnderlyingError:opError];
-                    });
-                }
-            }];
-            [_initialTimeoutListenerOp addDependency:initialRequest.transitionOperation];
-            [_operationQueue addOperation:_initialTimeoutListenerOp];
-        }
 
         _active = NO;
         _completed = NO;
@@ -200,7 +178,7 @@
     }
 }
 
-- (void)_onqueuePerformTimeoutWithUnderlyingError:(NSError* _Nullable)underlyingError
+- (void)onqueueHandleStartTimeout:(NSError*)stateMachineStateError
 {
     dispatch_assert_queue(self.queue);
 
@@ -214,20 +192,9 @@
         self.result.error = [NSError errorWithDomain:CKKSResultErrorDomain
                                                 code:CKKSResultTimedOut
                                          description:description
-                                          underlying:underlyingError];
+                                          underlying:stateMachineStateError];
         [self onqueueStartFinishOperation];
     }
-}
-
-- (instancetype)timeout:(dispatch_time_t)timeout
-{
-    WEAKIFY(self);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.queue, ^{
-        STRONGIFY(self);
-        [self _onqueuePerformTimeoutWithUnderlyingError:nil];
-    });
-
-    return self;
 }
 
 - (void)onqueueProcessTransition:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)attempt
@@ -295,8 +262,6 @@
 @property BOOL completed;
 @property NSOperationQueue* operationQueue;
 
-@property (nullable) CKKSResultOperation* initialTimeoutListenerOp;
-
 @property bool timeoutCanOccur;
 @property dispatch_queue_t queue;
 @end
@@ -359,7 +324,7 @@
     }
 }
 
-- (void)_onqueuePerformTimeoutWithUnderlyingError
+- (void)onqueueHandleStartTimeout:(NSError*)stateMachineStateError
 {
     dispatch_assert_queue(self.queue);
 
@@ -372,19 +337,9 @@
 
         [self onqueueStartFinishOperation:[NSError errorWithDomain:CKKSResultErrorDomain
                                                               code:CKKSResultTimedOut
-                                                       description:description]];
+                                                       description:description
+                                                        underlying:stateMachineStateError]];
     }
-}
-
-- (instancetype)timeout:(dispatch_time_t)timeout
-{
-    WEAKIFY(self);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.queue, ^{
-        STRONGIFY(self);
-        [self _onqueuePerformTimeoutWithUnderlyingError];
-    });
-
-    return self;
 }
 
 - (void)onqueueStartFinishOperation:(NSError* _Nullable)resultError

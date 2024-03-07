@@ -324,6 +324,7 @@ struct IOPCIConfigEntry
     uint8_t             clean64;
     uint8_t             powerController;
     uint8_t             commandCompleted;
+    uint8_t             isMFD;
 
 	// bridge only:
     uint8_t             secBusNum;

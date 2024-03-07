@@ -1,6 +1,8 @@
 
 #if OCTAGON
 
+#import <TargetConditionals.h>
+
 #import "keychain/ot/OTUpdateTrustedDeviceListOperation.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
@@ -9,6 +11,10 @@
 #import <Security/SecKey.h>
 #import <Security/SecKeyPriv.h>
 #import <SecurityFoundation/SFKey_Private.h>
+
+#if TARGET_OS_WATCH
+#import <os/feature_private.h>
+#endif /* TARGET_OS_WATCH */
 
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CloudKitCategories.h"
@@ -125,9 +131,20 @@
     }
 
     [self.deps.authKitAdapter fetchCurrentDeviceListByAltDSID:altDSID reply:^(NSSet<NSString *> * _Nullable machineIDs,
+                                                                              NSSet<NSString*>* _Nullable userInitiatedRemovals,
+                                                                              NSSet<NSString*>* _Nullable evictedRemovals,
+                                                                              NSSet<NSString*>* _Nullable unknownReasonRemovals,
                                                                               NSString* _Nullable version,
                                                                               NSError * _Nullable error) {
         STRONGIFY(self);
+
+#if TARGET_OS_WATCH
+        if (error == nil && os_feature_enabled(Security, WatchForceDeviceListFailure)) {
+            error = [NSError errorWithDomain:OctagonErrorDomain
+                                        code:OctagonErrorInjectedError
+                                 description:@"forced device list failure"];
+        }
+#endif /* TARGET_OS_WATCH */
 
         if (error) {
             secerror("octagon-authkit: Unable to fetch machine ID list: %@", error);
@@ -158,22 +175,34 @@
             if (self.logForUpgrade) {
                 [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventUpgradeFetchDeviceIDs];
             }
-            [self afterAuthKitFetch:machineIDs accountIsDemo:isAccountDemo version:version];
+            [self afterAuthKitFetch:machineIDs 
+              userInitiatedRemovals:userInitiatedRemovals
+                    evictedRemovals:evictedRemovals
+              unknownReasonRemovals:unknownReasonRemovals
+                      accountIsDemo:isAccountDemo
+                            version:version];
         }
     }];
 }
 
-- (void)afterAuthKitFetch:(NSSet<NSString *>*)allowedMachineIDs accountIsDemo:(BOOL)accountIsDemo version:(NSString* _Nullable)version
+- (void)afterAuthKitFetch:(NSSet<NSString *>*)allowedMachineIDs
+    userInitiatedRemovals:(NSSet<NSString *>*)userInitiatedRemovals
+          evictedRemovals:(NSSet<NSString *>*)evictedRemovals
+    unknownReasonRemovals:(NSSet<NSString *>*)unknownReasonRemovals
+            accountIsDemo:(BOOL)accountIsDemo version:(NSString* _Nullable)version
 {
     WEAKIFY(self);
     BOOL honorIDMSListChanges = accountIsDemo ? NO : YES;
-    
+
     if ([self.deps.deviceInformationAdapter isMachineIDOverridden]) {
         honorIDMSListChanges = NO;
     }
-    
+
     [self.deps.cuttlefishXPCWrapper setAllowedMachineIDsWithSpecificUser:self.deps.activeAccount
                                                        allowedMachineIDs:allowedMachineIDs
+                                                   userInitiatedRemovals:userInitiatedRemovals
+                                                         evictedRemovals:evictedRemovals
+                                                   unknownReasonRemovals:unknownReasonRemovals
                                                     honorIDMSListChanges:honorIDMSListChanges
                                                                  version:version
                                                                    reply:^(BOOL listDifferences, NSError * _Nullable error) {

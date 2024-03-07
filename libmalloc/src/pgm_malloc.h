@@ -34,7 +34,7 @@ pgm_init_config(bool internal_build);
 
 MALLOC_NOEXPORT
 bool
-pgm_should_enable();
+pgm_should_enable(void);
 
 MALLOC_NOEXPORT
 malloc_zone_t *

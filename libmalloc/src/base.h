@@ -24,6 +24,12 @@
 #ifndef __BASE_H
 #define __BASE_H
 
+#include <stddef.h>
+#include "platform.h"
+
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 #ifndef __has_extension
 #define __has_extension(x) 0
 #endif
@@ -52,7 +58,7 @@
 		MALLOC_FATAL_ERROR((cause), message); \
 })
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__)
+#if __has_include(<machine/cpu_capabilities.h>) && (defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__))
 #   define __APPLE_API_PRIVATE
 #   include <machine/cpu_capabilities.h>
 #   if defined(__i386__) || defined(__x86_64__)
@@ -61,7 +67,7 @@
 #      define _COMM_PAGE_VERSION_REQD 3
 #   endif
 #   undef __APPLE_API_PRIVATE
-#else
+#elif __has_include(<sys/sysctl.h>)
 #   include <sys/sysctl.h>
 #endif
 
@@ -91,6 +97,7 @@
 #define MALLOC_NORETURN __attribute__((noreturn))
 #define MALLOC_COLD __attribute__((cold))
 #define MALLOC_NOESCAPE __attribute__((noescape))
+#define MALLOC_PRESERVE_MOST __attribute__((preserve_most))
 #define CHECK_MAGAZINE_PTR_LOCKED(szone, mag_ptr, fun) {}
 
 #define SCRIBBLE_BYTE 0xaa /* allocated scribble */
@@ -126,6 +133,37 @@
 #define trunc_large_page_quanta(x) ((x) & (~large_vm_page_quanta_mask))
 #define round_large_page_quanta(x) (trunc_large_page_quanta((x) + large_vm_page_quanta_mask))
 
+/*
+ * MALLOC_ABSOLUTE_MAX_SIZE - There are many instances of addition to a
+ * user-specified size_t, which can cause overflow (and subsequent crashes)
+ * for values near SIZE_T_MAX.  Rather than add extra "if" checks everywhere
+ * this occurs, it is easier to just set an absolute maximum request size,
+ * and immediately return an error if the requested size exceeds this maximum.
+ * Of course, values less than this absolute max can fail later if the value
+ * is still too large for the available memory.  The largest value added
+ * seems to be large_vm_page_quanta_size (in the macro round_large_page_quanta()), so to be safe, we set
+ * the maximum to be 2 * PAGE_SIZE less than SIZE_T_MAX.
+ *
+ * This value needs to be calculated at runtime, so we'll cache it rather than
+ * recalculate on each use.
+ */
+#define _MALLOC_ABSOLUTE_MAX_SIZE (SIZE_T_MAX - (2 * large_vm_page_quanta_size))
+
+#if defined(MALLOC_BUILDING_XCTESTS)
+#define malloc_absolute_max_size _MALLOC_ABSOLUTE_MAX_SIZE
+#else
+extern size_t malloc_absolute_max_size; // caches the definition above
+#endif
+
+#if !MALLOC_TARGET_EXCLAVES
+#define malloc_too_large(n) ((n) > malloc_absolute_max_size)
+#else
+#define malloc_too_large(n) (0)
+#endif // !MALLOC_TARGET_EXCLAVES
+
+#if MALLOC_TARGET_EXCLAVES && !defined(MAX)
+#define MAX(a, b) (((a)>(b))?(a):(b))
+#endif // MALLOC_TARGET_EXCLAVES && !defined(MAX)
 
 // add a guard page before each VM region to help debug
 #define MALLOC_ADD_PRELUDE_GUARD_PAGE (1 << 0)
@@ -149,6 +187,20 @@
 #define MALLOC_PURGEABLE (1 << 7)
 // call abort() on malloc errors, but not on out of memory.
 #define MALLOC_ABORT_ON_CORRUPTION (1 << 8)
+// don't populate the mapping for the allocation
+#define MALLOC_NO_POPULATE (1 << 9)
+
+/*
+ * These commpage routines provide fast access to the logical cpu number
+ * of the calling processor assuming no pre-emption occurs.
+ */
+
+extern unsigned int hyper_shift;
+extern unsigned int logical_ncpus;
+extern unsigned int phys_ncpus;
+#if CONFIG_MAGAZINE_PER_CLUSTER
+extern unsigned int ncpuclusters;
+#endif // CONFIG_MAGAZINE_PER_CLUSTER
 
 /*
  * msize - a type to refer to the number of quanta of a tiny or small
@@ -163,6 +215,6 @@ typedef struct szone_s szone_t;
 typedef struct rack_s rack_t;
 typedef struct magazine_s magazine_t;
 typedef int mag_index_t;
-typedef void *region_t;
+typedef void * __single region_t;
 
 #endif // __BASE_H

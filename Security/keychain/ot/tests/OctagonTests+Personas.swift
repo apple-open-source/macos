@@ -904,7 +904,7 @@ class OctagonPersonaTests: OctagonTestsBase {
                                                       allowNonPrimaryAccounts: true)
 
         XCTAssertNotNil(primaryContext, "primary account's context should not be nil")
-        XCTAssertTrue(primaryContext.contextID == OTDefaultContext, "primary account contextID should be equal to OTDefaultContext")
+        XCTAssertEqual(primaryContext.contextID, OTDefaultContext, "primary account contextID should be equal to OTDefaultContext")
     }
 
     func testAccountStoreRetryDueToXPCInvalidationError() throws {

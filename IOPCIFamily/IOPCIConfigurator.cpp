@@ -1828,6 +1828,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 
 		for (scanDevice = bridge->subDeviceNum; scanDevice <= bridge->endDeviceNum; scanDevice++)
 		{
+			bool isMFD = false;
 			lastFunction = 0;
 			for (scanFunction = 0; scanFunction <= lastFunction; scanFunction++)
 			{
@@ -1846,6 +1847,11 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 					}
 				}
 
+				if (child && 0 != scanFunction)
+				{
+                    isMFD = true;
+				}
+
 				if (lastFunction > 0 && child)
 				{
 					// Disable the MFD's UR reporting while scanning the bus, since it will
@@ -1862,6 +1868,8 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 					{
 						maskUR(child, false);
 					}
+
+                    child->isMFD = isMFD;
 				}
 			}
 		}

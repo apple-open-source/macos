@@ -32,6 +32,9 @@ cc -o nvram nvram.c -framework CoreFoundation -framework IOKit -Wall
 #include <err.h>
 #include <mach/mach_error.h>
 #include <sys/stat.h>
+#include <sys/csr.h>
+
+#define NVRAM_BYTE_LEN 3
 
 // Prototypes
 static void UsageMessage(const char *message);
@@ -42,6 +45,7 @@ static kern_return_t GetOFVariable(const char *name, CFStringRef *nameRef,
                                    CFTypeRef *valueRef);
 static kern_return_t SetOFVariable(const char *name, const char *value);
 static void DeleteOFVariable(const char *name);
+static kern_return_t DeleteWRetOFVariable(const char *name);
 static void PrintOFVariables(void);
 static void PrintOFLargestVariables(void);
 static void PrintOFVariable(const void *key,const void *value,void *context);
@@ -49,6 +53,7 @@ static void SetOFVariableFromFile(const void *key, const void *value, void *cont
 static int ClearOFVariables(void);
 static void ClearOFVariable(const void *key,const void *value,void *context);
 static CFTypeRef ConvertValueToCFTypeRef(CFTypeID typeID, const char *value);
+static void SetVarViaBinFile(const char *name, const char *fileName);
 
 static void NVRamSyncNow(void);
 
@@ -59,6 +64,7 @@ static io_registry_entry_t gSelectedOptionsRef;
 static bool                gUseXML;
 static bool                gPrintInHex;
 static bool                gUseForceSync;
+static bool                gInternalBuild;
 
 #if TARGET_OS_BRIDGE /* Stuff for nvram bridge -> intel */
 #include <dlfcn.h>
@@ -90,6 +96,8 @@ int main(int argc, char **argv)
   kern_return_t       result;
   mach_port_t         mainPort;
   int                 argcount = 0;
+
+  gInternalBuild = (csr_check(CSR_ALLOW_APPLE_INTERNAL) == 0);
 
   result = IOMainPort(bootstrap_port, &mainPort);
   if (result != KERN_SUCCESS) {
@@ -133,7 +141,18 @@ int main(int argc, char **argv)
             }
             gUseXML = true;
             break;
-                
+
+          case 'b' :
+            if (argc != 4) {
+              UsageMessage("missing arguments");
+            } else {
+              cnt++;
+              if (cnt < argc && *argv[cnt] != '-') {
+                SetVarViaBinFile(argv[cnt], argv[++cnt]);
+              }
+            }
+            break;
+
           case 'X' :
             if (gUseXML) {
                 fprintf(stderr, "-X hex mode not supported with -x XMLmode.\n");
@@ -177,6 +196,29 @@ int main(int argc, char **argv)
             }
             break;
 
+          case 'r':
+            cnt++;
+            if (cnt < argc && *argv[cnt] != '-') {
+#if TARGET_OS_BRIDGE
+              if (gBridgeToIntel) {
+                if ((result = DeleteMacOFVariable(argv[cnt])) != KERN_SUCCESS) {
+                  errx(1, "Error deleting variable - '%s': %s (0x%08x)", argv[cnt],
+                          mach_error_string(result), result);
+                }
+              }
+              else
+#endif
+              {
+                if ((result = DeleteWRetOFVariable(argv[cnt])) != KERN_SUCCESS) {
+                  errx(1, "Error deleting variable - '%s': %s (0x%08x)", argv[cnt],
+                          mach_error_string(result), result);
+                }
+              }
+            } else {
+                UsageMessage("missing name");
+            }
+            break;
+
           case 'c':
 #if TARGET_OS_BRIDGE
             if (gBridgeToIntel) {
@@ -203,13 +245,17 @@ int main(int argc, char **argv)
 #endif
 
           case 'z':
-            // -z option is unadvertised -- attempts to use the options-system node
+            // -z option is for internal builds only -- attempts to use the options-system node
             // to write to the system NVRAM region if available
-            if (gSystemOptionsRef) {
-              fprintf(stderr, "Selecting options-system node.\n");
-              gSelectedOptionsRef = gSystemOptionsRef;
+            if (gInternalBuild) {
+              if (gSystemOptionsRef) {
+                fprintf(stderr, "Selecting options-system node.\n");
+                gSelectedOptionsRef = gSystemOptionsRef;
+              } else {
+                fprintf(stderr, "No options-system node, using options.\n");
+              }
             } else {
-              fprintf(stderr, "No options-system node, using options.\n");
+              UsageMessage("unsupported option -z");
             }
             break;
 
@@ -259,11 +305,16 @@ static void UsageMessage(const char *message)
   printf("\t           (must appear before -p or -f)\n");
   printf("\t-p         print all firmware variables\n");
   printf("\t-f         set firmware variables from a text file\n");
-  printf("\t-d         delete the named variable\n");
+  printf("\t-d         delete the named variable(does not return error code)\n");
+  printf("\t-r         delete the named variable(returns error code if any)\n");
   printf("\t-c         delete all variables\n");
+  printf("\t-b         set variable using binary file. invoked with the following format: nvram -b <variable name> <binary file>\n");
 #if TARGET_OS_BRIDGE
   printf("\t-m         set nvram variables on macOS from bridgeOS\n");
 #endif
+  if (gInternalBuild) {
+    printf("\t-z         use system-options node if available (internal builds only)\n");
+  }
   printf("\tname=value set named variable\n");
   printf("\tname       print variable\n");
   printf("Note that arguments and options are executed in order.\n");
@@ -287,6 +338,44 @@ enum {
   kMaxNameSize = 0x100
 };
 
+static void SetVarViaBinFile(const char *name, const char *binFile)
+{
+  char value[kMaxStringSize];
+  long vi = 0;
+  int tc;
+  long sz = 0;
+  kern_return_t kret;
+
+  if (name == NULL) {
+    err(1, "Name of variable not passed in");
+  }
+
+  FILE *fp = fopen(binFile, "r");
+  if (fp == 0) {
+    err(1, "Couldn't open binary file - '%s'", binFile);
+  }
+
+  while ((tc = getc(fp)) != EOF) {
+    if (vi >= kMaxStringSize) {
+      errx(1, "Value exceeded max length of %d", kMaxStringSize);
+    }
+    if (isprint(tc) && (tc != '%')) {
+      value[vi++] = tc;
+    } else {
+      vi += sprintf(value + vi, "%%%02x", tc);
+    }
+  }
+
+  if (vi <= 0) {
+    err(1, "Invalid file size %d", sz);
+  }
+
+  value[vi] = 0;
+  if ((kret = SetOFVariable(name, value)) != KERN_SUCCESS) {
+    errx(1, "Error setting variable - '%s': %s", name,
+        mach_error_string(kret));
+  }
+}
 
 // ParseFile(fileName)
 //
@@ -511,7 +600,7 @@ static void SetOrGetOFVariable(char *str)
       *str++ = '\0';
       break;
     }
-      
+
     if (*str == '-' && *(str+1) == '=') {
       remove = 1;
       *str++ = '\0';
@@ -567,13 +656,13 @@ static void SetOrGetOFVariable(char *str)
         || (CFStringGetCString(valueRef, tmp, len, kCFStringEncodingUTF8) == false)) {
         errx(1, "allocation failed");
       }
-      
+
       value = tmp;
       strcpy(value + strlen(value), str);
     } else if(CFGetTypeID(valueRef) == CFDataGetTypeID()) {
-      mutableValueRef = CFDataCreateMutableCopy(kCFAllocatorDefault, 
-                                                CFDataGetLength(valueRef) + 
-                                                strlen(str) + 1, 
+      mutableValueRef = CFDataCreateMutableCopy(kCFAllocatorDefault,
+                                                CFDataGetLength(valueRef) +
+                                                strlen(str) + 1,
                                                 valueRef);
       CFDataAppendBytes(mutableValueRef, (const UInt8 *)str, strlen(str) + 1);
       value = (char *)CFDataGetBytePtr(mutableValueRef);
@@ -593,7 +682,7 @@ static void SetOrGetOFVariable(char *str)
         || (CFStringGetCString(valueRef, tmp, len, kCFStringEncodingUTF8) == false)) {
         errx(1, "failed to allocate string");
       }
-    
+
       value = tmp;
     } else if(CFGetTypeID(valueRef) == CFDataGetTypeID()) {
       value = (char *)CFDataGetBytePtr(valueRef);
@@ -644,7 +733,7 @@ static void SetOrGetOFVariable(char *str)
 }
 
 #if TARGET_OS_BRIDGE
-static kern_return_t LinkMacNVRAMSymbols()
+static kern_return_t LinkMacNVRAMSymbols(void)
 {
   gDL_handle = dlopen("libMacEFIHostInterface.dylib", RTLD_LAZY);
   if (gDL_handle == NULL) {
@@ -750,15 +839,24 @@ static kern_return_t SetOFVariable(const char *name, const char *value)
     }
     result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
   } else {
-    // In the default case, try data, string, number, then boolean.
-    CFTypeID types[] = {CFDataGetTypeID(),
-    CFStringGetTypeID(), CFNumberGetTypeID(),CFBooleanGetTypeID() };
-    for (int i = 0; i < sizeof(types)/sizeof(types[0]); i++) {
-      valueRef = ConvertValueToCFTypeRef(types[i], value);
+    // if it's one of the delete keys, it has to be an OSString since the "value" will be the variable name.
+    if (strncmp(name, kIONVRAMDeletePropertyKeyWRet, strlen(kIONVRAMDeletePropertyKeyWRet)) == 0 ||
+          strncmp(name, kIONVRAMDeletePropertyKey, strlen(kIONVRAMDeletePropertyKey)) == 0) {
+      valueRef = ConvertValueToCFTypeRef(CFStringGetTypeID(), value);
       if (valueRef != 0) {
         result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
-        if (result == KERN_SUCCESS || result == kIOReturnNoMemory || result ==  kIOReturnNoSpace) {
-          break;
+      }
+    } else {
+      // In the default case, try data, string, number, then boolean.
+      CFTypeID types[] = {CFDataGetTypeID(),
+      CFStringGetTypeID(), CFNumberGetTypeID(),CFBooleanGetTypeID() };
+      for (int i = 0; i < sizeof(types)/sizeof(types[0]); i++) {
+        valueRef = ConvertValueToCFTypeRef(types[i], value);
+        if (valueRef != 0) {
+          result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
+          if (result == KERN_SUCCESS || result == kIOReturnNoMemory || result ==  kIOReturnNoSpace) {
+            break;
+          }
         }
       }
     }
@@ -783,6 +881,15 @@ static kern_return_t SetMacOFVariable(char *name, char *value)
 static void DeleteOFVariable(const char *name)
 {
   SetOFVariable(kIONVRAMDeletePropertyKey, name);
+}
+
+// DeleteWRetOFVariable(name)
+//
+//   Delete the named firmware variable and return an error code if any.
+//
+static kern_return_t DeleteWRetOFVariable(const char *name)
+{
+  return SetOFVariable(kIONVRAMDeletePropertyKeyWRet, name);
 }
 
 #if TARGET_OS_BRIDGE
@@ -984,24 +1091,21 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
     length = CFDataGetLength(value);
     if (length == 0) valueString = "";
     else {
-      dataBuffer = malloc(length * 3 + 3);
+      dataBuffer = malloc(length * NVRAM_BYTE_LEN + NVRAM_BYTE_LEN);
       if (dataBuffer != 0) {
         dataPtr = CFDataGetBytePtr(value);
         cnt = cnt2 = 0;
         if (gPrintInHex) {
-            sprintf(dataBuffer, "0x");
-            cnt2 += 2;
+            cnt2 += sprintf(dataBuffer, "0x");
         }
         for (; cnt < length; cnt++) {
           dataChar = dataPtr[cnt];
           if (gPrintInHex) {
-              sprintf(dataBuffer + cnt2, "%02x", dataChar);
-              cnt2 += 2;
+              cnt2 += sprintf(dataBuffer + cnt2, "%02x", dataChar);
           } else if (!gPrintInHex && isprint(dataChar) && dataChar != '%') {
             dataBuffer[cnt2++] = dataChar;
           } else {
-            sprintf(dataBuffer + cnt2, "%%%02x", dataChar);
-            cnt2 += 3;
+            cnt2 += sprintf(dataBuffer + cnt2, "%%%02x", dataChar);
           }
         }
         dataBuffer[cnt2] = '\0';

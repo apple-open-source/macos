@@ -75,7 +75,7 @@
         TPPBPolicyKeyViewMapping* mapping = [[TPPBPolicyKeyViewMapping alloc] init];
         mapping.view = viewName;
 
-        // The real passwords view is on com.appple.cfnetwork, but for these tests, let's just use the sbd agrp (because of how the entitlements are specified)
+        // The real passwords view is on com.apple.cfnetwork, but for these tests, let's just use the sbd agrp (because of how the entitlements are specified)
         if([viewName isEqualToString:@"Passwords"]) {
             mapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"agrp"
                                                              fieldRegex:[NSString stringWithFormat:@"^com\\.apple\\.sbd$"]];
@@ -1169,11 +1169,11 @@
     // This reset should _not_ reset the external views. Check that!
     self.ptaZone.flag = true;
 
-    self.nextModifyRecordZonesError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+    self.nextModifyRecordZonesError = [[NSError alloc] initWithDomain:CKErrorDomain
                                                                        code:CKErrorZoneBusy
                                                                    userInfo:@{
                                                                               CKErrorRetryAfterKey: @(0.2),
-                                                                              NSUnderlyingErrorKey: [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                                              NSUnderlyingErrorKey: [[NSError alloc] initWithDomain:CKErrorDomain
                                                                                                                                      code:2029
                                                                                                                                  userInfo:nil],
                                                                               }];

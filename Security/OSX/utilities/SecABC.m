@@ -6,20 +6,20 @@
 #import <SoftLinking/SoftLinking.h>
 #import <os/log.h>
 
-#import "SecABC.h"
-
 /*
  * This is using soft linking since we need upward (to workaround BNI build dependencies)
  * and weak linking since SymptomDiagnosticReporter is not available on base and darwinOS.
  */
+#if ABC_BUGCAPTURE
+#import <SymptomDiagnosticReporter/SDRDiagnosticReporter.h>
 
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, SymptomDiagnosticReporter);
 SOFT_LINK_CLASS(SymptomDiagnosticReporter, SDRDiagnosticReporter);
 
-
-#if ABC_BUGCAPTURE
-#import <SymptomDiagnosticReporter/SDRDiagnosticReporter.h>
 #endif
+
+#import "SecABC.h"
+
 
 void SecABCTrigger(CFStringRef type,
                    CFStringRef subtype,

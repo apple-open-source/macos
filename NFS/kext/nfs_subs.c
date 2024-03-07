@@ -1351,7 +1351,7 @@ nfs_parsefattr(
 	enum vtype vtype;
 	nfstype nvtype;
 	uint32_t vmode, val, val2;
-	dev_t rdev;
+	nfs_specdata sd;
 
 	val = val2 = 0;
 	NVATTR_INIT(nvap);
@@ -1410,19 +1410,18 @@ nfs_parsefattr(
 	if (nfsvers == NFS_VER3) {
 		nfsm_chain_get_64(error, nmc, nvap->nva_size);
 		nfsm_chain_get_64(error, nmc, nvap->nva_bytes);
-		nfsm_chain_get_32(error, nmc, nvap->nva_rawdev.specdata1);
-		nfsm_chain_get_32(error, nmc, nvap->nva_rawdev.specdata2);
+		nfsm_chain_get_32(error, nmc, sd.specdata1);
+		nfsm_chain_get_32(error, nmc, sd.specdata2);
 		nfsmout_if(error);
+		nvap->nva_rawdev = makedev(sd.specdata1, sd.specdata2);
 		nfsm_chain_get_64(error, nmc, nvap->nva_fsid.major);
 		nvap->nva_fsid.minor = 0;
 		nfsm_chain_get_64(error, nmc, nvap->nva_fileid);
 	} else {
 		nfsm_chain_get_32(error, nmc, nvap->nva_size);
 		nfsm_chain_adv(error, nmc, NFSX_UNSIGNED);
-		nfsm_chain_get_32(error, nmc, rdev);
+		nfsm_chain_get_32(error, nmc, nvap->nva_rawdev);
 		nfsmout_if(error);
-		nvap->nva_rawdev.specdata1 = major(rdev);
-		nvap->nva_rawdev.specdata2 = minor(rdev);
 		nfsm_chain_get_32(error, nmc, val); /* blocks */
 		nfsmout_if(error);
 		nvap->nva_bytes = val * NFS_FABLKSIZE;
@@ -1434,7 +1433,7 @@ nfs_parsefattr(
 		nfsmout_if(error);
 		nvap->nva_fileid = (uint64_t)val;
 		/* Really ugly NFSv2 kludge. */
-		if ((vtype == VCHR) && (rdev == (dev_t)0xffffffff)) {
+		if ((vtype == VCHR) && (nvap->nva_rawdev == (dev_t)0xffffffff)) {
 			nvap->nva_type = VFIFO;
 		}
 	}
@@ -1488,10 +1487,10 @@ nfs_loadattrcache(
 	}
 	monitored = vp ? vnode_ismonitored(vp) : 0;
 
-	NFS_KDBG_ENTRY(NFSDBG_OP_LOADATTRCACHE, np, vp, *xidp >> 32, *xidp);
+	NFS_KDBG_ENTRY(NFSDBG_OP_LOADATTRCACHE, NFSNODE_FILEID(np), vp, *xidp >> 32, *xidp);
 
 	if (!((nmp = VFSTONFS(mp)))) {
-		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc001, np, *xidp, ENXIO);
+		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc001, vp, *xidp, ENXIO);
 		error = ENXIO;
 		goto out_return;
 	}
@@ -1508,7 +1507,7 @@ nfs_loadattrcache(
 		 * cares - it needs to retry the rpc.
 		 */
 		NATTRINVALIDATE(np);
-		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc002, np, np->n_xid, *xidp);
+		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc002, vp, np->n_xid, *xidp);
 		*xidp = 0;
 		error = 0;
 		goto out_return;
@@ -1600,8 +1599,7 @@ nfs_loadattrcache(
 			events |= VNODE_EVENT_ATTRIB | VNODE_EVENT_WRITE;
 		}
 		if (!events && NFS_BITMAP_ISSET(nvap->nva_bitmap, NFS_FATTR_RAWDEV) &&
-		    ((nvap->nva_rawdev.specdata1 != npnvap->nva_rawdev.specdata1) ||
-		    (nvap->nva_rawdev.specdata2 != npnvap->nva_rawdev.specdata2))) {
+		    (nvap->nva_rawdev != npnvap->nva_rawdev)) {
 			events |= VNODE_EVENT_ATTRIB;
 		}
 		if (!events && NFS_BITMAP_ISSET(nvap->nva_bitmap, NFS_FATTR_FILEID) &&
@@ -1706,15 +1704,15 @@ nfs_loadattrcache(
 	if (!vp || (nvap->nva_type != VREG)) {
 		np->n_size = nvap->nva_size;
 	} else if (nvap->nva_size != np->n_size) {
-		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc003, np, nvap->nva_size, np->n_size);
+		NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc003, vp, nvap->nva_size, np->n_size);
 		if (!UBCINFOEXISTS(vp) || (dontshrink && (nvap->nva_size < np->n_size))) {
 			/* asked not to shrink, so stick with current size */
-			NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc004, np, np->n_size, np->n_vattr.nva_size);
+			NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc004, vp, np->n_size, np->n_vattr.nva_size);
 			nvap->nva_size = np->n_size;
 			NATTRINVALIDATE(np);
 		} else if ((np->n_flag & NMODIFIED) && (nvap->nva_size < np->n_size)) {
 			/* if we've modified, stick with larger size */
-			NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc005, np, np->n_size, np->n_vattr.nva_size);
+			NFS_KDBG_INFO(NFSDBG_OP_LOADATTRCACHE, 0xabc005, vp, np->n_size, np->n_vattr.nva_size);
 			nvap->nva_size = np->n_size;
 			npnvap->nva_size = np->n_size;
 		} else {
@@ -1749,7 +1747,7 @@ out:
 	}
 
 out_return:
-	NFS_KDBG_EXIT(NFSDBG_OP_LOADATTRCACHE, np, np->n_size, *xidp, error);
+	NFS_KDBG_EXIT(NFSDBG_OP_LOADATTRCACHE, NFSNODE_FILEID(np), vp, *xidp, error);
 	return error;
 }
 
@@ -1762,42 +1760,48 @@ nfs_attrcachetimeout(nfsnode_t np)
 {
 	struct nfsmount *nmp;
 	struct timeval now;
-	int isdir;
 	long timeo;
+	time_t min, max;
 
 	nmp = NFSTONMP(np);
 	if (nfs_mount_gone(nmp)) {
 		return 0;
 	}
 
-	isdir = vnode_isdir(NFSTOV(np));
+	/* init min/max timeouts */
+	if (np == nmp->nm_dnp) {
+		/* root dir timeouts */
+		min = nmp->nm_acrootdirmin;
+		max = nmp->nm_acrootdirmax;
+	} else if (vnode_isdir(NFSTOV(np))) {
+		/* dir timeouts */
+		min = nmp->nm_acdirmin;
+		max = nmp->nm_acdirmax;
+	} else {
+		/* reg files timeouts */
+		min = nmp->nm_acregmin;
+		max = nmp->nm_acregmax;
+	}
+
 #if CONFIG_NFS4
 	if ((nmp->nm_vers >= NFS_VER4) && (np->n_openflags & N_DELEG_MASK)) {
 		/* If we have a delegation, we always use the max timeout. */
-		timeo = isdir ? nmp->nm_acdirmax : nmp->nm_acregmax;
+		timeo = max;
 	} else
 #endif
 	if ((np)->n_flag & NMODIFIED) {
 		/* If we have modifications, we always use the min timeout. */
-		timeo = isdir ? nmp->nm_acdirmin : nmp->nm_acregmin;
+		timeo = min;
 	} else {
 		/* Otherwise, we base the timeout on how old the file seems. */
 		/* Note that if the client and server clocks are way out of sync, */
 		/* timeout will probably get clamped to a min or max value */
 		microtime(&now);
 		timeo = (now.tv_sec - (np)->n_vattr.nva_timesec[NFSTIME_MODIFY]) / 10;
-		if (isdir) {
-			if (timeo < nmp->nm_acdirmin) {
-				timeo = nmp->nm_acdirmin;
-			} else if (timeo > nmp->nm_acdirmax) {
-				timeo = nmp->nm_acdirmax;
-			}
-		} else {
-			if (timeo < nmp->nm_acregmin) {
-				timeo = nmp->nm_acregmin;
-			} else if (timeo > nmp->nm_acregmax) {
-				timeo = nmp->nm_acregmax;
-			}
+		if (timeo < min) {
+			timeo = min;
+		} else if (timeo > max) {
+			timeo = max;
 		}
 	}
 

@@ -2081,6 +2081,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 {
     if (![[self.connection valueForEntitlement:@"com.apple.private.trustd.FileHelp"] boolValue]) {
         reply(NO, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil]);
+        return;
     }
 #if TARGET_OS_IPHONE
     TrustdFileHelper *helper = [[TrustdFileHelper alloc] init];

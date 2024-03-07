@@ -44,7 +44,7 @@ class ResourceHeap;
 class ApplyDeviceScaleFactor;
 class BeginTransparencyLayer;
 class ClearRect;
-class ClearShadow;
+class ClearDropShadow;
 class Clip;
 class ClipRoundedRect;
 class ClipOut;
@@ -61,6 +61,7 @@ class DrawFocusRingPath;
 class DrawFocusRingRects;
 class DrawGlyphs;
 class DrawDecomposedGlyphs;
+class DrawDisplayListItems;
 class DrawImageBuffer;
 class DrawLine;
 class DrawLinesForText;
@@ -101,9 +102,11 @@ class Translate;
 #if ENABLE(INLINE_PATH_DATA)
 class FillLine;
 class FillArc;
+class FillClosedArc;
 class FillQuadCurve;
 class FillBezierCurve;
 class StrokeArc;
+class StrokeClosedArc;
 class StrokeQuadCurve;
 class StrokeBezierCurve;
 #endif
@@ -119,7 +122,7 @@ using Item = std::variant
     < ApplyDeviceScaleFactor
     , BeginTransparencyLayer
     , ClearRect
-    , ClearShadow
+    , ClearDropShadow
     , Clip
     , ClipRoundedRect
     , ClipOut
@@ -136,6 +139,7 @@ using Item = std::variant
     , DrawFocusRingRects
     , DrawGlyphs
     , DrawDecomposedGlyphs
+    , DrawDisplayListItems
     , DrawImageBuffer
     , DrawLine
     , DrawLinesForText
@@ -176,9 +180,11 @@ using Item = std::variant
 #if ENABLE(INLINE_PATH_DATA)
     , FillLine
     , FillArc
+    , FillClosedArc
     , FillQuadCurve
     , FillBezierCurve
     , StrokeArc
+    , StrokeClosedArc
     , StrokeQuadCurve
     , StrokeBezierCurve
 #endif

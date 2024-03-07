@@ -207,7 +207,10 @@ void SincResampler::processBuffer(std::span<const float> source, std::span<float
     SincResampler resampler(scaleFactor, AudioUtilities::renderQuantumSize, [&source](std::span<float> buffer, size_t framesToProcess) mutable {
         // Clamp to number of frames available and zero-pad.
         size_t framesToCopy = std::min(source.size(), framesToProcess);
+
+        IGNORE_WARNINGS_BEGIN("restrict")
         memcpySpan(buffer.subspan(0, framesToCopy), source.subspan(0, framesToCopy));
+        IGNORE_WARNINGS_END
 
         // Zero-pad if necessary.
         if (framesToCopy < framesToProcess)

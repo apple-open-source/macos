@@ -26,6 +26,27 @@
 /* Make TAPI happy by declaring things that other projects forward-declare. */
 /* This header is not installed anywhere. */
 
+#include <malloc/malloc.h>
+
+typedef malloc_zone_t *xzm_malloc_zone_t;
+typedef uint8_t xzm_segment_group_id_t;
+typedef uint8_t xzm_xzone_bucket_t;
+extern malloc_zone_t **malloc_zones;
+
+#if defined(__LP64__)
+extern const struct malloc_introspection_t xzm_malloc_zone_introspect;
+
+bool
+xzm_ptr_lookup_4test(xzm_malloc_zone_t zone, void *ptr,
+		xzm_segment_group_id_t *sgid_out, xzm_xzone_bucket_t *bucket_out);
+#endif // defined(__LP64__)
+
+#if __is_target_environment(exclavecore) || __is_target_environment(exclavekit)
+
+extern unsigned malloc_num_zones;
+
+#else
+
 /* For Libsystem */
 void _malloc_fork_child(void);
 void _malloc_fork_parent(void);
@@ -54,7 +75,6 @@ typedef void(malloc_logger_t)(uint32_t type,
 		uint32_t num_hot_frames_to_skip);
 extern int32_t malloc_num_zones;
 extern int32_t malloc_num_zones_allocated;
-extern malloc_zone_t **malloc_zones;
 extern malloc_logger_t *malloc_logger;
 extern unsigned malloc_check_start;
 extern unsigned malloc_check_counter;
@@ -76,16 +96,6 @@ void zeroify_scalable_zone(malloc_zone_t *zone);
 /* Maybe we can change it to a symbol-alias of free? */
 void vfree(void *ptr);
 
-typedef malloc_zone_t *xzm_malloc_zone_t;
-typedef uint8_t xzm_segment_group_id_t;
-typedef uint8_t xzm_xzone_bucket_t;
-
-#if defined(__LP64__)
-bool
-xzm_ptr_lookup_4test(xzm_malloc_zone_t zone, void *ptr,
-		xzm_segment_group_id_t *sgid_out, xzm_xzone_bucket_t *bucket_out);
-#endif
-
 /* Obsolete entry points. They don't work, don't use them. */
 void set_malloc_singlethreaded(boolean_t);
 void malloc_singlethreaded(void);
@@ -97,3 +107,4 @@ extern int stack_logging_enable_logging;
 /* For debugging */
 void tiny_print_region_free_list(void *ptr, unsigned int slot);
 
+#endif // !__is_target_environment(exclavekit)

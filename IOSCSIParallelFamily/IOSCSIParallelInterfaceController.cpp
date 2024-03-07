@@ -2485,7 +2485,7 @@ IOSCSIParallelInterfaceController::GetTargetIdentifier (
 	
 	if ( tempTask == NULL )
 	{
-		return NULL;
+		return 0;
 	}
 	
 	return tempTask->GetTargetIdentifier ( );

@@ -42,6 +42,7 @@
 #include <atf-c.h>
 #include <iconv.h>
 #include <libcharset.h>
+#include <locale.h>
 
 /*
  * rdar://problem/89097907 - Stripping invalid UTF-8 sequences is failing.
@@ -98,6 +99,55 @@ ATF_TC_BODY(test_utf16, tc)
 
 	ATF_REQUIRE_INTEQ(0, outsz);
 	ATF_REQUIRE_STREQ("Test", outbuf);
+
+	iconv_close(cd);
+}
+
+/*
+ * rdar://problem/120338891 - Test BOM consumption
+ */
+ATF_TC_WITHOUT_HEAD(test_utf16_bom);
+ATF_TC_BODY(test_utf16_bom, tc)
+{
+	iconv_t cd;
+	char outbuf[16];
+	char str16be[] = "\xfe\xff\x00T\x00o\xff\xfe\x00s\x00s";
+	char str16[] = "\xfe\xff\x00T\x00o\xff\xfes\x00s\x00";
+	char *inptr, *outptr;
+	size_t insz, outsz, res;
+
+	/*
+	 * BOMs in a UTF-16BE data stream should be interpreted literally.
+	 */
+	cd = iconv_open("UTF-8", "UTF-16BE");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	inptr = &str16be[0];
+	insz = sizeof(str16be) - 1;
+	outptr = &outbuf[0];
+	outsz = sizeof(outbuf);
+	res = iconv(cd, &inptr, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res != (size_t)-1);
+	ATF_REQUIRE(memcmp("\xef\xbb\xbfTo\xef\xbf\xbess", outbuf,
+	    sizeof(outbuf) - outsz) == 0);
+
+	iconv_close(cd);
+
+	/*
+	 * Make sure we didn't regress the UTF-16 case; a BOM may be included
+	 * internally to flip the byte order in the remainder of the string.
+	 */
+	cd = iconv_open("UTF-8", "UTF-16");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	inptr = &str16[0];
+	insz = sizeof(str16) - 1;
+	outptr = &outbuf[0];
+	outsz = sizeof(outbuf);
+	res = iconv(cd, &inptr, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res != (size_t)-1);
+	ATF_REQUIRE(memcmp("Toss", outbuf,
+	    sizeof(outbuf) - outsz) == 0);
 
 	iconv_close(cd);
 }
@@ -206,8 +256,8 @@ ATF_TC_BODY(test_libcharset, tc)
 
 /*
  * rdar://problem/104607349 - wchar_t was not previously implemented, but it
- * should effectively be an alias for whichever of UCS-4LE or UCS-4BE that match
- * the native endianness.
+ * should effectively be an alias for the currently set codeset, and the
+ * respective buffers are instead treated as wchar_t arrays.
  *
  * rdar://problem/10633939 is also tested here, where wchar_t was implemented in
  * GNU libiconv but our build of it meant that the implementation would provide
@@ -216,33 +266,171 @@ ATF_TC_BODY(test_libcharset, tc)
 ATF_TC_WITHOUT_HEAD(test_wchar_t);
 ATF_TC_BODY(test_wchar_t, tc)
 {
-	static const char result_buf[] =
-#ifdef __LITTLE_ENDIAN__
-	    "T\x00\00\00\xfc\x00\x00\x00T\x00\x00\x00";
-#else
-	    "\x00\00\00T\x00\x00\x00\xfc\x00\x00\x00T";
-#endif
+	const char utf8buf[] = "T\xe2\x82\xacT";
+	const wchar_t wstr[] = { L'T', 0x20ac, L'T' };
+	char tmpbuf[sizeof(wstr)];
 	iconv_t cd;
-	char str[] = "T\xc3\xbcT";
-	char *inbuf = str, *outbuf, *outptr;
+	char *inbuf, *outbuf;
 	size_t insz, outsz, res;
 
-	insz = sizeof(str) - 1;
-	outsz = sizeof(result_buf) - 1;
-	outptr = outbuf = malloc(outsz + 1);
-	ATF_REQUIRE(outbuf != NULL);
+	setlocale(LC_ALL, "en_US.UTF-8");
 
 	cd = iconv_open("WCHAR_T", "UTF-8");
 	ATF_REQUIRE(cd != (iconv_t)-1);
 
-	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
-	ATF_REQUIRE(res != (size_t)(iconv_t)-1);
+	inbuf = (char *)&utf8buf[0];
+	insz = sizeof(utf8buf) - 1;
+	outbuf = &tmpbuf[0];
+	outsz = sizeof(tmpbuf);
+
+	res = iconv(cd, &inbuf, &insz, &outbuf, &outsz);
+	ATF_REQUIRE(res != (size_t)-1);
 
 	ATF_REQUIRE_INTEQ(0, outsz);
-	ATF_REQUIRE(memcmp(outbuf, result_buf, sizeof(result_buf)) == 0);
+	ATF_REQUIRE(memcmp(wstr, tmpbuf, sizeof(tmpbuf)) == 0);
 
 	iconv_close(cd);
 
+	/* Test the other way around now */
+	cd = iconv_open("UTF-8", "WCHAR_T");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	inbuf = (char *)&wstr[0];
+	insz = sizeof(wstr);
+	outbuf = &tmpbuf[0];
+	outsz = sizeof(tmpbuf);
+
+	res = iconv(cd, &inbuf, &insz, &outbuf, &outsz);
+	ATF_REQUIRE(res != (size_t)-1);
+
+	ATF_REQUIRE_INTEQ(sizeof(tmpbuf) - (sizeof(utf8buf) - 1), outsz);
+	ATF_REQUIRE(memcmp(utf8buf, tmpbuf, sizeof(tmpbuf) - outsz) == 0);
+
+	iconv_close(cd);
+}
+
+ATF_TC_WITHOUT_HEAD(test_wchar_t_gb2312);
+ATF_TC_BODY(test_wchar_t_gb2312, tc)
+{
+	const char gb2312buf[] = "T\xb5\xa2T";
+	const wchar_t wstr[] = { L'T', 0xb5a2, L'T' };
+	char tmpbuf[sizeof(wstr)];
+	iconv_t cd;
+	char *inbuf, *outbuf;
+	size_t insz, outsz, res;
+
+	setlocale(LC_ALL, "zh_CN.GB2312");
+
+	cd = iconv_open("WCHAR_T", "GB2312");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	inbuf = (char *)&gb2312buf[0];
+	insz = sizeof(gb2312buf) - 1;
+	outbuf = &tmpbuf[0];
+	outsz = sizeof(tmpbuf);
+
+	res = iconv(cd, &inbuf, &insz, &outbuf, &outsz);
+	ATF_REQUIRE_MSG(res != (size_t)-1, "errno %d", errno);
+
+	ATF_REQUIRE_INTEQ(0, outsz);
+	ATF_REQUIRE(memcmp(wstr, tmpbuf, sizeof(tmpbuf)) == 0);
+
+	iconv_close(cd);
+
+	/* Test the other way around now */
+	cd = iconv_open("GB2312", "WCHAR_T");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	inbuf = (char *)&wstr[0];
+	insz = sizeof(wstr);
+	outbuf = &tmpbuf[0];
+	outsz = sizeof(tmpbuf);
+
+	res = iconv(cd, &inbuf, &insz, &outbuf, &outsz);
+	ATF_REQUIRE(res != (size_t)-1);
+
+	ATF_REQUIRE_INTEQ(sizeof(tmpbuf) - (sizeof(gb2312buf) - 1), outsz);
+	ATF_REQUIRE(memcmp(gb2312buf, tmpbuf, sizeof(tmpbuf) - outsz) == 0);
+
+	iconv_close(cd);
+}
+
+struct test_wchar_1t1_data {
+	const wchar_t	*wdata;
+	size_t		 idx;
+	size_t		 maxidx;
+};
+
+static void
+test_wchar_1t1_wchook(wchar_t wc, void *data)
+{
+	struct test_wchar_1t1_data *d1 = data;
+
+	ATF_REQUIRE(d1->idx < d1->maxidx);
+	ATF_REQUIRE_EQ(d1->wdata[d1->idx++], wc);
+}
+
+/*
+ * rdar://problem/117243934 - wchar_t can just iconv_none and wc_hook should
+ * still be invoked on every character.
+ */
+ATF_TC_WITHOUT_HEAD(test_wchar_1t1);
+ATF_TC_BODY(test_wchar_1t1, tc)
+{
+	iconv_t cd;
+	wchar_t wstr[] = { L'T', 0x20ac, L'T' };
+	wchar_t outbuf[sizeof(wstr) / sizeof(wchar_t)];
+	char *inbuf, *outptr;
+	struct test_wchar_1t1_data d1 = {
+	    .wdata = &wstr[0],
+	    .idx = 0,
+	    .maxidx = sizeof(wstr) / sizeof(wstr[0]),
+	};
+	struct iconv_hooks hooks = {
+	    .wc_hook = &test_wchar_1t1_wchook,
+	    .data = &d1,
+	};
+	size_t insz, outsz, res;
+
+	setlocale(LC_ALL, "en_US.UTF-8");
+
+	cd = iconv_open("WCHAR_T", "WCHAR_T");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	inbuf = (char *)&wstr[0];
+	insz = sizeof(wstr);
+	outptr = (char *)&outbuf[0];
+	outsz = sizeof(outbuf);
+
+	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res != (size_t)-1);
+
+	ATF_REQUIRE_INTEQ(0, outsz);
+	ATF_REQUIRE(memcmp(wstr, outbuf, sizeof(outbuf)) == 0);
+
+	/*
+	 * We take a slightly different path through iconv_none when hooks are
+	 * set, so let's make sure that's still correct and that the hooks are
+	 * getting called when we expect and on the correct data.
+	 */
+	iconvctl(cd, ICONV_SET_HOOKS, &hooks);
+
+	inbuf = (char *)&wstr[0];
+	insz = sizeof(wstr);
+	outptr = (char *)&outbuf[0];
+	outsz = sizeof(outbuf);
+
+	memset(&outbuf[0], 0, sizeof(outbuf));
+
+	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
+	ATF_REQUIRE(res != (size_t)-1);
+
+	ATF_REQUIRE_INTEQ(0, outsz);
+	ATF_REQUIRE(memcmp(wstr, outbuf, sizeof(outbuf)) == 0);
+
+	ATF_REQUIRE_EQ(d1.maxidx, d1.idx);
+
+	iconv_close(cd);
 }
 
 /*
@@ -715,11 +903,14 @@ ATF_TP_ADD_TCS(tp)
 
 	ATF_TP_ADD_TC(tp, test_sanitize);
 	ATF_TP_ADD_TC(tp, test_utf16);
+	ATF_TP_ADD_TC(tp, test_utf16_bom);
 	ATF_TP_ADD_TC(tp, test_mutt);
 	ATF_TP_ADD_TC(tp, test_ucs4int);
 	ATF_TP_ADD_TC(tp, test_ucs2int);
 	ATF_TP_ADD_TC(tp, test_libcharset);
 	ATF_TP_ADD_TC(tp, test_wchar_t);
+	ATF_TP_ADD_TC(tp, test_wchar_t_gb2312);
+	ATF_TP_ADD_TC(tp, test_wchar_1t1);
 	ATF_TP_ADD_TC(tp, test_char);
 	ATF_TP_ADD_TC(tp, test_utf8mac);
 	ATF_TP_ADD_TC(tp, test_utf8mac_short);

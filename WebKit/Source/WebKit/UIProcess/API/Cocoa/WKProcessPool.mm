@@ -140,7 +140,7 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 - (_WKProcessPoolConfiguration *)_configuration
 {
-    return wrapper(_processPool->configuration().copy());
+    return wrapper(_processPool->configuration().copy()).autorelease();
 }
 
 - (API::Object&)_apiObject
@@ -173,7 +173,7 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 + (NSArray<WKProcessPool *> *)_allProcessPoolsForTesting
 {
-    return createNSArray(WebKit::WebProcessPool::allProcessPools(), [] (auto& pool) {
+    return createNSArray(WebKit::WebProcessPool::allProcessPools(), [] (auto&& pool) {
         return wrapper(pool.get());
     }).autorelease();
 }
@@ -389,7 +389,7 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 - (BOOL)_requestWebProcessTermination:(pid_t)pid
 {
-    for (auto& process : _processPool->processes()) {
+    for (Ref process : _processPool->processes()) {
         if (process->processID() == pid)
             process->requestTermination(WebKit::ProcessTerminationReason::RequestedByClient);
         return YES;
@@ -399,7 +399,7 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 - (BOOL)_isWebProcessSuspended:(pid_t)pid
 {
-    for (auto& process : _processPool->processes()) {
+    for (Ref process : _processPool->processes()) {
         if (process->processID() == pid)
             return process->throttler().isSuspended();
     }
@@ -413,7 +413,7 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 - (BOOL)_hasPrewarmedWebProcess
 {
-    for (auto& process : _processPool->processes()) {
+    for (Ref process : _processPool->processes()) {
         if (process->isPrewarmed())
             return YES;
     }
@@ -428,7 +428,7 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 - (size_t)_webProcessCountIgnoringPrewarmedAndCached
 {
     size_t count = 0;
-    for (auto& process : _processPool->processes()) {
+    for (Ref process : _processPool->processes()) {
         if (!process->isInProcessCache() && !process->isPrewarmed())
             ++count;
     }
@@ -438,10 +438,8 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 - (size_t)_webPageContentProcessCount
 {
     auto result = _processPool->processes().size();
-#if ENABLE(SERVICE_WORKER)
     if (_processPool->useSeparateServiceWorkerProcess())
         result -= _processPool->serviceWorkerProxiesCount();
-#endif
     return result;
 }
 
@@ -471,11 +469,14 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 - (size_t)_serviceWorkerProcessCount
 {
-#if ENABLE(SERVICE_WORKER)
     return _processPool->serviceWorkerProxiesCount();
-#else
-    return 0;
-#endif
+}
+
+- (void)_isJITDisabledInAllRemoteWorkerProcesses:(void(^)(BOOL))completionHandler
+{
+    _processPool->isJITDisabledInAllRemoteWorkerProcesses([completionHandler = makeBlockPtr(completionHandler)] (bool result) {
+        completionHandler(result);
+    });
 }
 
 + (void)_forceGameControllerFramework
@@ -542,12 +543,12 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 - (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request websiteDataStore:(WKWebsiteDataStore *)dataStore originatingWebView:(WKWebView *)webView
 {
-    return [_WKDownload downloadWithDownload:wrapper(_processPool->download(*dataStore->_websiteDataStore, [webView _page], request))];
+    return [_WKDownload downloadWithDownload:wrapper(_processPool->download(*dataStore->_websiteDataStore, [webView _page], request)).get()];
 }
 
 - (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData websiteDataStore:(WKWebsiteDataStore *)dataStore  path:(NSString *)path originatingWebView:(WKWebView *)webView
 {
-    return [_WKDownload downloadWithDownload:wrapper(_processPool->resumeDownload(*dataStore->_websiteDataStore, [webView _page], API::Data::createWithoutCopying(resumeData).get(), path, WebKit::CallDownloadDidStart::No))];
+    return [_WKDownload downloadWithDownload:wrapper(_processPool->resumeDownload(*dataStore->_websiteDataStore, [webView _page], API::Data::createWithoutCopying(resumeData).get(), path, WebKit::CallDownloadDidStart::No)).get()];
 }
 
 - (void)_getActivePagesOriginsInWebProcessForTesting:(pid_t)pid completionHandler:(void(^)(NSArray<NSString *> *))completionHandler
@@ -564,16 +565,9 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 - (void)_seedResourceLoadStatisticsForTestingWithFirstParty:(NSURL *)firstPartyURL thirdParty:(NSURL *)thirdPartyURL shouldScheduleNotification:(BOOL)shouldScheduleNotification completionHandler:(void(^)(void))completionHandler
 {
-#if ENABLE(TRACKING_PREVENTION)
     _processPool->seedResourceLoadStatisticsForTesting(WebCore::RegistrableDomain { firstPartyURL }, WebCore::RegistrableDomain { thirdPartyURL }, shouldScheduleNotification, [completionHandler = makeBlockPtr(completionHandler)] () {
         completionHandler();
     });
-#else
-    UNUSED_PARAM(firstPartyURL);
-    UNUSED_PARAM(thirdPartyURL);
-    UNUSED_PARAM(shouldScheduleNotification);
-    UNUSED_PARAM(completionHandler);
-#endif
 }
 
 + (void)_setWebProcessCountLimit:(unsigned)limit

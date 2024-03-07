@@ -3,6 +3,7 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_419{
     Countries{
+        001{"mundo"}
         011{"África del Oeste"}
         014{"África del Este"}
         015{"África del Norte"}
@@ -20,10 +21,12 @@ es_419{
         BA{"Bosnia-Herzegovina"}
         CG{"República del Congo"}
         EZ{"Eurozona"}
+        GS{"Islas Georgia del Sur y Sándwich del Sur"}
         HK{"Hong-Kong"}
         IC{"Islas Canarias"}
         QO{"Islas Ultramarinas"}
-        TA{"Tristán da Cunha"}
+        RO{"Rumania"}
+        SA{"Arabia Saudita"}
         UM{"Islas Ultramarinas de EE.UU."}
     }
     Countries%short{

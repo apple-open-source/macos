@@ -298,6 +298,9 @@ fr{
         ZW{"Zimbabwe"}
         ZZ{"région indéterminée"}
     }
+    Countries%biot{
+        IO{"Territoire britannique de l’océan Indien"}
+    }
     Countries%short{
         GB{"R.-U."}
         PS{"Palestine"}

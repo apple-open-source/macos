@@ -39,10 +39,9 @@ RefPtr<WebMResourceClient> WebMResourceClient::create(WebMResourceClientParent& 
     auto resource = loader.requestResource(WTFMove(request), PlatformMediaResourceLoader::LoadOption::DisallowCaching);
     if (!resource)
         return nullptr;
-    auto* resourcePointer = resource.get();
-    auto client = adoptRef(*new WebMResourceClient { parent, resource.releaseNonNull() });
+    auto client = adoptRef(*new WebMResourceClient { parent, Ref { *resource } });
     auto result = client.copyRef();
-    resourcePointer->setClient(WTFMove(client));
+    resource->setClient(WTFMove(client));
     return result;
 }
 
@@ -84,7 +83,7 @@ void WebMResourceClient::loadFinished(PlatformMediaResource&, const NetworkLoadM
     if (!m_parent)
         return;
     
-    m_parent->loadFinished(*m_buffer.get());
+    m_parent->loadFinished();
 }
 
 } // namespace WebCore

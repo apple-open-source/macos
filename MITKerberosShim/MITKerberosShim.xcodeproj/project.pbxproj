@@ -2189,6 +2189,7 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "Kerberos-Info.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/Kerberos.modulemap;
@@ -2221,6 +2222,7 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "Kerberos-Info.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/Kerberos.modulemap;

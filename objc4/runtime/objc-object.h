@@ -170,6 +170,15 @@ objc_object::isExtTaggedPointer() const
 inline void
 isa_t::setClass(Class newCls, UNUSED_WITHOUT_PTRAUTH objc_object *obj)
 {
+#ifdef ISA_MASK
+    // Make sure the class pointer doesn't have any bits set outside the isa
+    // mask bits.
+    uintptr_t newClsBits = (uintptr_t)newCls;
+    if (slowpath((newClsBits & ISA_MASK) != newClsBits)) {
+        _objc_fatal("Invalid class pointer %p has bits set outside of ISA_MASK", newCls);
+    }
+#endif
+
     // Match the conditional in isa.h.
 #if __has_feature(ptrauth_calls) || TARGET_OS_SIMULATOR
 #   if ISA_SIGNING_SIGN_MODE == ISA_SIGNING_SIGN_NONE

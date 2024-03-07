@@ -30,9 +30,8 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)fopen.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD$
 .\"
-.Dd January 30, 2013
+.Dd September 1, 2023
 .Dt FOPEN 3
 .Os
 .Sh NAME
@@ -52,7 +51,7 @@
 .Ft FILE *
 .Fn freopen "const char *path" "const char *mode" "FILE *stream"
 .Ft FILE *
-.Fn fmemopen "void *restrict *buf" "size_t size" "const char * restrict mode"
+.Fn fmemopen "void * restrict buf" "size_t size" "const char * restrict mode"
 .Sh DESCRIPTION
 The
 .Fn fopen
@@ -72,7 +71,7 @@ Fail if the file does not exist.
 .It Dq Li w
 Open for writing.
 The stream is positioned at the beginning of the file.
-Create the file if it does not exist.
+Truncate the file to zero length if it exists or create the file if it does not exist.
 .It Dq Li a
 Open for writing.
 The stream is positioned at the end of the file.
@@ -119,8 +118,8 @@ or the first letter.
 This is strictly for compatibility with
 .St -isoC
 and has effect only for
-.Fn fmemopen
-; otherwise
+.Fn fmemopen ;
+otherwise
 .Dq Li b
 is ignored.
 .Pp
@@ -141,9 +140,16 @@ as modified by the process'
 umask value (see
 .Xr umask 2 ) .
 .Pp
-Reads and writes may be intermixed on read/write streams in any order; however, 
-a file positioning function must be called when switching between output and
-input, unless an input operation encounters end-of-file.
+Reads and writes may be intermixed on read/write streams in any order,
+and do not require an intermediate seek as in previous versions of
+.Em stdio .
+This is not portable to other systems, however;
+.St -isoC
+and
+.St -p1003.1
+both require that
+a file positioning function intervene between output and input, unless
+an input operation encounters end-of-file.
 .Pp
 The
 .Fn fdopen
@@ -215,7 +221,7 @@ and
 arguments with a stream.
 The
 .Fa buf
-argument is either a null pointer or a pointer to a buffer that
+argument is either a null pointer or point to a buffer that
 is at least
 .Fa size
 bytes long.
@@ -225,8 +231,8 @@ argument,
 .Fn fmemopen
 allocates
 .Fa size
-bytes of memory, and this allocation is automatically freed when the stream is
-closed.
+bytes of memory.
+This buffer is automatically freed when the stream is closed.
 If a non-null pointer is specified, the caller retains ownership of
 the buffer and is responsible for disposing of it after the stream has been
 closed.
@@ -235,9 +241,13 @@ Buffers can be opened in text-mode (default) or binary-mode
 .Dq Li b
 is present in the second or third position of the
 .Fa mode
-argument). Buffers opened in text-mode make sure that writes are terminated with
-a NULL byte, if the last write hasn't filled up the whole buffer. Buffers
-opened in binary-mode never append a NULL byte.
+argument).
+Buffers opened in text-mode make sure that writes are terminated with a
+.Dv NULL
+byte, if the last write hasn't filled up the whole buffer.
+Buffers opened in binary-mode never append a
+.Dv NULL
+byte.
 .Pp
 Input and output against the opened stream will be fully buffered, unless
 it refers to an interactive terminal device, or a different kind of buffering
@@ -358,3 +368,8 @@ The
 .Dq Li b
 mode does not conform to any standard
 but is also supported by glibc.
+.Sh HISTORY
+An
+.Fn fopen
+function appeared in
+.At v1 .

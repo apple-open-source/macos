@@ -72,7 +72,7 @@ public:
     WEBCORE_EXPORT void addChildBelow(Ref<GraphicsLayer>&&, GraphicsLayer* sibling) override;
     WEBCORE_EXPORT bool replaceChild(GraphicsLayer* oldChild, Ref<GraphicsLayer>&& newChild) override;
 
-    WEBCORE_EXPORT void removeFromParent() override;
+    WEBCORE_EXPORT void willModifyChildren() override;
 
     WEBCORE_EXPORT void setMaskLayer(RefPtr<GraphicsLayer>&&) override;
     WEBCORE_EXPORT void setReplicatedLayer(GraphicsLayer*) override;
@@ -117,6 +117,7 @@ public:
 
     WEBCORE_EXPORT bool setBackdropFilters(const FilterOperations&) override;
     WEBCORE_EXPORT void setBackdropFiltersRect(const FloatRoundedRect&) override;
+    WEBCORE_EXPORT void setIsBackdropRoot(bool) override;
 
 #if ENABLE(CSS_COMPOSITING)
     WEBCORE_EXPORT void setBlendMode(BlendMode) override;
@@ -477,6 +478,7 @@ private:
     void updateFilters();
     void updateBackdropFilters(CommitState&);
     void updateBackdropFiltersRect();
+    void updateBackdropRoot();
 
 #if ENABLE(CSS_COMPOSITING)
     void updateBlendMode();
@@ -607,6 +609,7 @@ private:
 #endif
         ContentsScalingFiltersChanged           = 1LLU << 43,
         VideoGravityChanged                     = 1LLU << 44,
+        BackdropRootChanged                     = 1LLU << 45,
     };
     typedef uint64_t LayerChangeFlags;
     static const char* layerChangeAsString(LayerChange);

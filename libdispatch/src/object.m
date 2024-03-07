@@ -91,10 +91,19 @@ _os_object_init(void)
 }
 
 _os_object_t
+_os_object_alloc_bridged(const void *cls, size_t size)
+{
+	return _os_objc_alloc(cls, size);
+}
+
+_os_object_t
 _os_object_alloc_realized(const void *cls, size_t size)
 {
 	dispatch_assert(size >= sizeof(struct _os_object_s));
-	return _os_objc_alloc(cls, size);
+	_os_object_t obj = _os_objc_alloc(cls, size);
+	((struct _os_object_s *)obj)->os_obj_ref_cnt = 1;
+	((struct _os_object_s *)obj)->os_obj_xref_cnt = 1;
+	return obj;
 }
 
 _os_object_t
@@ -102,7 +111,7 @@ _os_object_alloc(const void *_cls, size_t size)
 {
 	dispatch_assert(size >= sizeof(struct _os_object_s));
 	Class cls = _cls ? [(id)_cls class] : [OS_OBJECT_CLASS(object) class];
-	return _os_objc_alloc(cls, size);
+	return _os_object_alloc_realized(cls, size);
 }
 
 void
@@ -200,6 +209,12 @@ DISPATCH_UNAVAILABLE_INIT()
 #pragma mark _dispatch_objc
 #if OS_OBJECT_HAVE_OBJC2
 
+/*
+ * We should not set any fields following isa for objects
+ * that require toll-free bridging as they could be literally
+ * anything. DISPATCH_OBJECT_TFB takes care re-routing the
+ * relevant retain/release calls for ref counting.
+ */
 id
 _dispatch_objc_alloc(Class cls, size_t size)
 {

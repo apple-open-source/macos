@@ -53,6 +53,7 @@ TRACE_CODE(realloc, DBG_UMALLOC_EXTERNAL, 0x03);
 TRACE_CODE(memalign, DBG_UMALLOC_EXTERNAL, 0x04);
 TRACE_CODE(calloc, DBG_UMALLOC_EXTERNAL, 0x05);
 TRACE_CODE(valloc, DBG_UMALLOC_EXTERNAL, 0x06);
+TRACE_CODE(malloc_options, DBG_UMALLOC_EXTERNAL, 0x07);
 
 // "internal" trace points
 TRACE_CODE(nano_malloc, DBG_UMALLOC_INTERNAL, 0x1);
@@ -72,5 +73,16 @@ TRACE_CODE(medium_free, DBG_UMALLOC_INTERNAL, 0xd);
 TRACE_CODE(nanov2_region_allocation, DBG_UMALLOC_INTERNAL, 0x10);
 TRACE_CODE(nanov2_region_reservation, DBG_UMALLOC_INTERNAL, 0x20);
 TRACE_CODE(nanov2_region_protection, DBG_UMALLOC_INTERNAL, 0x30);
+
+TRACE_CODE(xzone_malloc_install_skip, DBG_UMALLOC_INTERNAL, 0x100);
+TRACE_CODE(xzone_malloc_full_skip, DBG_UMALLOC_INTERNAL, 0x200);
+TRACE_CODE(xzone_malloc_success, DBG_UMALLOC_INTERNAL, 0x300);
+TRACE_CODE(xzone_malloc_from_empty, DBG_UMALLOC_INTERNAL, 0x400);
+TRACE_CODE(xzone_malloc_from_fresh, DBG_UMALLOC_INTERNAL, 0x500);
+TRACE_CODE(xzone_free, DBG_UMALLOC_INTERNAL, 0x600);
+TRACE_CODE(xzone_free_madvise, DBG_UMALLOC_INTERNAL, 0x700);
+TRACE_CODE(xzone_slot_upgrade, DBG_UMALLOC_INTERNAL, 0x800);
+TRACE_CODE(xzone_walk_lock, DBG_UMALLOC_INTERNAL, 0x900);
+TRACE_CODE(xzone_walk_unlock, DBG_UMALLOC_INTERNAL, 0xa00);
 
 #endif // __TRACE_H

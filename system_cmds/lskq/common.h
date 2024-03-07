@@ -143,6 +143,7 @@ filt_strs[] = {
 	"EXCEPT",
 	"CHANNEL",
 	"WORKLOOP",
+	"EXCLAVES",
 };
 
 /*

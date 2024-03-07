@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,8 +37,11 @@
 #include "VMEntryRecord.h"
 #include <mutex>
 #include <wtf/Expected.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace JSC {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(VMInspector);
 
 VM* VMInspector::m_recentVM { nullptr };
 
@@ -508,10 +511,8 @@ SUPPRESS_ASAN void VMInspector::dumpRegisters(CallFrame* callFrame)
     
     StackVisitor::visit(callFrame, vm, [&] (StackVisitor& visitor) {
         if (visitor->callFrame() == callFrame) {
-            unsigned line = 0;
-            unsigned unusedColumn = 0;
-            visitor->computeLineAndColumn(line, unusedColumn);
-            dataLogF("% 2d.1  ReturnVPC        : %10p  %d (line %d)\n", registerNumber, it, visitor->bytecodeIndex().offset(), line);
+            auto lineColumn = visitor->computeLineAndColumn();
+            dataLogF("% 2d.1  ReturnVPC        : %10p  %d (line %d)\n", registerNumber, it, visitor->bytecodeIndex().offset(), lineColumn.line);
             return IterationStatus::Done;
         }
         return IterationStatus::Continue;

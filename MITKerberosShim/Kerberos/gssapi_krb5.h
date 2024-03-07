@@ -97,7 +97,13 @@ GSS_DLLIMP extern const gss_OID_desc krb5_gss_oid_array[];
 #if defined(_WIN32)
 typedef  unsigned __int64 gss_uint64;
 #else /*windows*/
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 #include <inttypes.h>
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 typedef  uint64_t gss_uint64;
 #endif
 

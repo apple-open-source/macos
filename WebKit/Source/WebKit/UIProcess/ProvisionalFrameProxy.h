@@ -28,7 +28,6 @@
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/PageIdentifier.h>
-#include <wtf/CheckedRef.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
@@ -36,7 +35,6 @@ namespace WebKit {
 class RemotePageProxy;
 class VisitedLinkStore;
 class WebFrameProxy;
-class WebPageProxy;
 class WebProcessProxy;
 
 class ProvisionalFrameProxy : public CanMakeWeakPtr<ProvisionalFrameProxy> {
@@ -45,14 +43,14 @@ public:
     ProvisionalFrameProxy(WebFrameProxy&, WebProcessProxy&, RefPtr<RemotePageProxy>&&);
     ~ProvisionalFrameProxy();
 
-    WebProcessProxy& process() { return m_process.get(); }
+    WebProcessProxy& process() const { return m_process.get(); }
+    Ref<WebProcessProxy> protectedProcess() const;
     RefPtr<RemotePageProxy> takeRemotePageProxy();
-    WebPageProxy* page();
 
     WebCore::LayerHostingContextIdentifier layerHostingContextIdentifier() const { return m_layerHostingContextIdentifier; }
 
 private:
-    CheckedRef<WebFrameProxy> m_frame;
+    WeakRef<WebFrameProxy> m_frame;
     Ref<WebProcessProxy> m_process;
     RefPtr<RemotePageProxy> m_remotePageProxy;
     Ref<VisitedLinkStore> m_visitedLinkStore;

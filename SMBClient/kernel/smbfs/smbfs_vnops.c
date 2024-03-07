@@ -1057,12 +1057,8 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
 
                 smbnode_dur_handle_unlock(&temp_dur_hndl);
 
-                /* We are downgrading the open, flush out any data */
-                SMB_LOG_UBC_LOCK(np, "UBC_PUSHDIRTY, UBC_INVALIDATE on <%s> due to downgrading open\n",
-                                 np->n_name);
-                
-                np->n_flag &= ~(NNEEDS_UBC_INVALIDATE | NNEEDS_UBC_PUSHDIRTY);
-                ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
+                /* We are downgrading the open, flush out data if necessary */
+                smbfs_check_for_ubc_invalidate(vp, "smbfs_close");
                 
                 /*
                  * Close the shared file first and use this new one now

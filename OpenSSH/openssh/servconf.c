@@ -1,4 +1,4 @@
-/* $OpenBSD: servconf.c,v 1.396 2023/07/17 05:26:38 djm Exp $ */
+/* $OpenBSD: servconf.c,v 1.403 2023/10/11 22:42:26 djm Exp $ */
 /*
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  *                    All rights reserved
@@ -197,8 +197,6 @@ initialize_server_options(ServerOptions *options)
 	options->channel_timeouts = NULL;
 	options->num_channel_timeouts = 0;
 	options->unused_connection_timeout = -1;
-#ifdef __APPLE__
-#endif
 }
 
 /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
@@ -449,8 +447,6 @@ fill_default_server_options(ServerOptions *options)
 		options->required_rsa_size = SSH_RSA_MINIMUM_MODULUS_SIZE;
 	if (options->unused_connection_timeout == -1)
 		options->unused_connection_timeout = 0;
-#ifdef __APPLE__
-#endif
 
 	assemble_algorithms(options);
 
@@ -536,8 +532,6 @@ typedef enum {
 	sExposeAuthInfo, sRDomain, sPubkeyAuthOptions, sSecurityKeyProvider,
 	sRequiredRSASize, sChannelTimeout, sUnusedConnectionTimeout,
 	sDeprecated, sIgnore, sUnsupported
-#ifdef __APPLE__
-#endif
 } ServerOpCodes;
 
 #define SSHCFG_GLOBAL		0x01	/* allowed in main section of config */
@@ -649,7 +643,7 @@ static struct {
 	{ "macs", sMacs, SSHCFG_GLOBAL },
 	{ "protocol", sIgnore, SSHCFG_GLOBAL },
 	{ "gatewayports", sGatewayPorts, SSHCFG_ALL },
-	{ "subsystem", sSubsystem, SSHCFG_GLOBAL },
+	{ "subsystem", sSubsystem, SSHCFG_ALL },
 	{ "maxstartups", sMaxStartups, SSHCFG_GLOBAL },
 	{ "persourcemaxstartups", sPerSourceMaxStartups, SSHCFG_GLOBAL },
 	{ "persourcenetblocksize", sPerSourceNetBlockSize, SSHCFG_GLOBAL },
@@ -699,8 +693,6 @@ static struct {
 	{ "requiredrsasize", sRequiredRSASize, SSHCFG_ALL },
 	{ "channeltimeout", sChannelTimeout, SSHCFG_ALL },
 	{ "unusedconnectiontimeout", sUnusedConnectionTimeout, SSHCFG_ALL },
-#ifdef __APPLE__
-#endif
 	{ NULL, sBadOption, 0 }
 };
 
@@ -964,39 +956,6 @@ process_permitopen(struct ssh *ssh, ServerOptions *options)
 	    options->num_permitted_listens);
 }
 
-/* Parse a ChannelTimeout clause "pattern=interval" */
-static int
-parse_timeout(const char *s, char **typep, int *secsp)
-{
-	char *cp, *sdup;
-	int secs;
-
-	if (typep != NULL)
-		*typep = NULL;
-	if (secsp != NULL)
-		*secsp = 0;
-	if (s == NULL)
-		return -1;
-	sdup = xstrdup(s);
-
-	if ((cp = strchr(sdup, '=')) == NULL || cp == sdup) {
-		free(sdup);
-		return -1;
-	}
-	*cp++ = '\0';
-	if ((secs = convtime(cp)) < 0) {
-		free(sdup);
-		return -1;
-	}
-	/* success */
-	if (typep != NULL)
-		*typep = xstrdup(sdup);
-	if (secsp != NULL)
-		*secsp = secs;
-	free(sdup);
-	return 0;
-}
-
 void
 process_channel_timeouts(struct ssh *ssh, ServerOptions *options)
 {
@@ -1007,7 +966,7 @@ process_channel_timeouts(struct ssh *ssh, ServerOptions *options)
 	debug3_f("setting %u timeouts", options->num_channel_timeouts);
 	channel_clear_timeouts(ssh);
 	for (i = 0; i < options->num_channel_timeouts; i++) {
-		if (parse_timeout(options->channel_timeouts[i],
+		if (parse_pattern_interval(options->channel_timeouts[i],
 		    &type, &secs) != 0) {
 			fatal_f("internal error: bad timeout %s",
 			    options->channel_timeouts[i]);
@@ -1941,39 +1900,54 @@ process_server_config_line_depth(ServerOptions *options, char *line,
 		break;
 
 	case sSubsystem:
-		if (options->num_subsystems >= MAX_SUBSYSTEMS) {
-			fatal("%s line %d: too many subsystems defined.",
-			    filename, linenum);
-		}
 		arg = argv_next(&ac, &av);
 		if (!arg || *arg == '\0')
 			fatal("%s line %d: %s missing argument.",
 			    filename, linenum, keyword);
 		if (!*activep) {
-			arg = argv_next(&ac, &av);
+			argv_consume(&ac);
 			break;
 		}
-		for (i = 0; i < options->num_subsystems; i++)
-			if (strcmp(arg, options->subsystem_name[i]) == 0)
-				fatal("%s line %d: Subsystem '%s' "
-				    "already defined.", filename, linenum, arg);
+		found = 0;
+		for (i = 0; i < options->num_subsystems; i++) {
+			if (strcmp(arg, options->subsystem_name[i]) == 0) {
+				found = 1;
+				break;
+			}
+		}
+		if (found) {
+			debug("%s line %d: Subsystem '%s' already defined.",
+			    filename, linenum, arg);
+			argv_consume(&ac);
+			break;
+		}
+		options->subsystem_name = xrecallocarray(
+		    options->subsystem_name, options->num_subsystems,
+		    options->num_subsystems + 1,
+		    sizeof(*options->subsystem_name));
+		options->subsystem_command = xrecallocarray(
+		    options->subsystem_command, options->num_subsystems,
+		    options->num_subsystems + 1,
+		    sizeof(*options->subsystem_command));
+		options->subsystem_args = xrecallocarray(
+		    options->subsystem_args, options->num_subsystems,
+		    options->num_subsystems + 1,
+		    sizeof(*options->subsystem_args));
 		options->subsystem_name[options->num_subsystems] = xstrdup(arg);
 		arg = argv_next(&ac, &av);
-		if (!arg || *arg == '\0')
+		if (!arg || *arg == '\0') {
 			fatal("%s line %d: Missing subsystem command.",
 			    filename, linenum);
-		options->subsystem_command[options->num_subsystems] = xstrdup(arg);
-
-		/* Collect arguments (separate to executable) */
-		p = xstrdup(arg);
-		len = strlen(p) + 1;
-		while ((arg = argv_next(&ac, &av)) != NULL) {
-			len += 1 + strlen(arg);
-			p = xreallocarray(p, 1, len);
-			strlcat(p, " ", len);
-			strlcat(p, arg, len);
 		}
-		options->subsystem_args[options->num_subsystems] = p;
+		options->subsystem_command[options->num_subsystems] =
+		    xstrdup(arg);
+		/* Collect arguments (separate to executable) */
+		arg = argv_assemble(1, &arg); /* quote command correctly */
+		arg2 = argv_assemble(ac, av); /* rest of command */
+		xasprintf(&options->subsystem_args[options->num_subsystems],
+		    "%s %s", arg, arg2);
+		free(arg2);
+		argv_consume(&ac);
 		options->num_subsystems++;
 		break;
 
@@ -2038,7 +2012,7 @@ process_server_config_line_depth(ServerOptions *options, char *line,
 				fatal("%s line %d: %s integer value %s.",
 				    filename, linenum, keyword, errstr);
 		}
-		if (*activep)
+		if (*activep && options->per_source_max_startups == -1)
 			options->per_source_max_startups = value;
 		break;
 
@@ -2542,7 +2516,8 @@ process_server_config_line_depth(ServerOptions *options, char *line,
 					    filename, linenum, keyword);
 					goto out;
 				}
-			} else if (parse_timeout(arg, NULL, NULL) != 0) {
+			} else if (parse_pattern_interval(arg,
+			    NULL, NULL) != 0) {
 				fatal("%s line %d: invalid channel timeout %s",
 				    filename, linenum, arg);
 			}
@@ -2576,8 +2551,6 @@ process_server_config_line_depth(ServerOptions *options, char *line,
 		argv_consume(&ac);
 		break;
 
-#ifdef __APPLE__
-#endif
 	default:
 		fatal("%s line %d: Missing handler for opcode %s (%d)",
 		    filename, linenum, keyword, opcode);
@@ -2689,6 +2662,47 @@ int parse_server_match_testspec(struct connection_info *ci, char *spec)
 	return 0;
 }
 
+void
+servconf_merge_subsystems(ServerOptions *dst, ServerOptions *src)
+{
+	u_int i, j, found;
+
+	for (i = 0; i < src->num_subsystems; i++) {
+		found = 0;
+		for (j = 0; j < dst->num_subsystems; j++) {
+			if (strcmp(src->subsystem_name[i],
+			    dst->subsystem_name[j]) == 0) {
+				found = 1;
+				break;
+			}
+		}
+		if (found) {
+			debug_f("override \"%s\"", dst->subsystem_name[j]);
+			free(dst->subsystem_command[j]);
+			free(dst->subsystem_args[j]);
+			dst->subsystem_command[j] =
+			    xstrdup(src->subsystem_command[i]);
+			dst->subsystem_args[j] =
+			    xstrdup(src->subsystem_args[i]);
+			continue;
+		}
+		debug_f("add \"%s\"", src->subsystem_name[i]);
+		dst->subsystem_name = xrecallocarray(
+		    dst->subsystem_name, dst->num_subsystems,
+		    dst->num_subsystems + 1, sizeof(*dst->subsystem_name));
+		dst->subsystem_command = xrecallocarray(
+		    dst->subsystem_command, dst->num_subsystems,
+		    dst->num_subsystems + 1, sizeof(*dst->subsystem_command));
+		dst->subsystem_args = xrecallocarray(
+		    dst->subsystem_args, dst->num_subsystems,
+		    dst->num_subsystems + 1, sizeof(*dst->subsystem_args));
+		j = dst->num_subsystems++;
+		dst->subsystem_name[j] = xstrdup(src->subsystem_name[i]);
+		dst->subsystem_command[j] = xstrdup(src->subsystem_command[i]);
+		dst->subsystem_args[j] = xstrdup(src->subsystem_args[i]);
+	}
+}
+
 /*
  * Copy any supported values that are set.
  *
@@ -2795,6 +2809,9 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 		free(dst->chroot_directory);
 		dst->chroot_directory = NULL;
 	}
+
+	/* Subsystems require merging. */
+	servconf_merge_subsystems(dst, src);
 }
 
 #undef M_CP_INTOPT
@@ -3066,8 +3083,6 @@ dump_config(ServerOptions *o)
 	dump_cfg_fmtint(sStreamLocalBindUnlink, o->fwd_opts.streamlocal_bind_unlink);
 	dump_cfg_fmtint(sFingerprintHash, o->fingerprint_hash);
 	dump_cfg_fmtint(sExposeAuthInfo, o->expose_userauth_info);
-#ifdef __APPLE__
-#endif
 
 	/* string arguments */
 	dump_cfg_string(sPidFile, o->pid_file);

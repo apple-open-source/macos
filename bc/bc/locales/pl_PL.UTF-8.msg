@@ -1,7 +1,7 @@
 $ $
 $ SPDX-License-Identifier: BSD-2-Clause
 $ $
-$ Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+$ Copyright (c) 2018-2023 Gavin D. Howard and contributors.
 $ $
 $ Redistribution and use in source and binary forms, with or without
 $ modification, are permitted provided that the following conditions are met:
@@ -28,13 +28,8 @@ $ $
 
 $quote "
 
-$ Różne wiadomości.
-$set 1
-
-1 "Funkcja:"
-
 $ Typy błędów.
-$set 2
+$set 1
 
 1 "Błąd matematyczny:"
 2 "Błąd parse'a:"
@@ -43,7 +38,7 @@ $set 2
 5 "Ostrzeżenie:"
 
 $ Błędy matematyczne.
-$set 3
+$set 2
 
 1 "liczba ujemna"
 2 "numer nieintegracyjny"
@@ -51,7 +46,7 @@ $set 3
 4 "dzielenie przez 0"
 
 $ Błędy Parse'a.
-$set 4
+$set 3
 
 1 "koniec akt"
 2 "nieważny znak '%c'"
@@ -60,7 +55,7 @@ $set 4
 5 "nieważny token"
 6 "nieważne wyrażenie"
 7 "puste wyrażenie"
-8 "nieważny wyciąg z wydruku"
+8 "nieprawidłowe polecenie drukowania lub przesyłania strumienia"
 9 "nieprawidłowa definicja funkcji"
 10 "nieprawidłowe przyporządkowanie: lewa strona musi być elementem scale, ibase, obase, last, var lub element array"
 11 "nie znaleziono zmiennej automatycznej"
@@ -77,12 +72,15 @@ $set 4
 22 "POSIX nie pozwala na porównywanie operatorów na zewnątrz, jeśli deklaracje lub pętle"
 23 "POSIX wymaga 0 lub 1 operatora porównawczego na jeden warunek"
 24 "POSIX wymaga, aby wszystkie 3 części pętli nie były puste"
-25 "POSIX nie pozwala na notację wykładniczą"
-26 "POSIX nie zezwala na odniesienia do tablicy jako parametrów funkcji"
-27 "POSIX wymaga, aby lewe usztywnienie znajdowało się na tej samej linii co nagłówek funkcji"
+25 "POSIX wymaga nowej linii pomiędzy średnikiem a definicją funkcji"
+26 "POSIX nie pozwala na notację wykładniczą"
+27 "POSIX nie zezwala na odniesienia do tablicy jako parametrów funkcji"
+28 "POSIX nie dopuszcza funkcji void"
+29 "POSIX wymaga, aby lewe usztywnienie znajdowało się na tej samej linii co nagłówek funkcji"
+30 "POSIX nie pozwala na przypisywanie ciągów znaków do zmiennych lub tablic"
 
 $ Błędy Runtime'u.
-$set 5
+$set 4
 
 1 "nieprawidłowa ibase: musi być [%lu, %lu]"
 2 "nieprawidłowa obase: musi być [%lu, %lu]"
@@ -91,21 +89,20 @@ $set 5
 5 "powtarzalne wywołanie read()"
 6 "element zmienny lub tablicowy jest niewłaściwym typem"
 7 "stos ma zbyt mało elementów"
-8 "niewłaściwa liczba parametrów; potrzeba %zu, mają %zu"
-9 "niezdefiniowana funkcja: %s()"
-10 "nie może użyć wartości pustej w wyrażeniu"
+8 "stos dla rejestru \"%s\" ma zbyt mało elementów"
+9 "niewłaściwa liczba parametrów; potrzeba %zu, mają %zu"
+10 "niezdefiniowana funkcja: %s()"
+11 "nie może użyć wartości pustej w wyrażeniu"
 
 $ Fatalne błędy.
-$set 6
+$set 5
 
 1 "Alokacja pamięci nie powiodła się"
 2 "Błąd we/wy"
 3 "nie mógł otworzyć pliku: %s"
-4 "plik nie jest ASCII: %s"
+4 "plik nie jest tekstem: %s"
 5 "ścieżka to katalog: %s"
-6 "nieprawidłowa opcja wiersza poleceń: '%c' (\"%s\")"
-
-$set 7
-
-1 "opcja wymaga argumentu: '%c' (\"%s\")"
-2 "opcja nie wymaga żadnych argumentów: '%c' (\"%s\")"
+6 "nieprawidłowa opcja wiersza poleceń: \"%s\""
+7 "opcja wymaga argumentu: '%c' (\"%s\")"
+8 "opcja nie wymaga żadnych argumentów: '%c' (\"%s\")"
+9 "nieprawidłowa argument opcja wiersza poleceń: \"%s\""

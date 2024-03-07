@@ -126,7 +126,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
         _name = @"zone-change-fetcher";
         _queue = dispatch_queue_create([_name UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _operationQueue = [[NSOperationQueue alloc] init];
-        _successfulFetchDependency = [self createSuccesfulFetchDependency];
+        _successfulFetchDependency = [self createSuccessfulFetchDependency];
 
         _inflightFetchDependencies = [NSMutableSet set];
         _inflightFetchDependency = nil;
@@ -316,7 +316,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 
     // create a new fetch dependency, for all those who come in while this operation is executing
     self.newRequests = false;
-    self.successfulFetchDependency = [self createSuccesfulFetchDependency];
+    self.successfulFetchDependency = [self createSuccessfulFetchDependency];
 
     NSMutableSet<CKKSFetchBecause*>* lastFetchReasons = self.currentFetchReasons;
     self.currentFetchReasons = [[NSMutableSet alloc] init];
@@ -438,7 +438,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
     [self.operationQueue addOperation:self.currentFetch];
 }
 
--(CKKSZoneChangeFetchDependencyOperation*)createSuccesfulFetchDependency {
+-(CKKSZoneChangeFetchDependencyOperation*)createSuccessfulFetchDependency {
     CKKSZoneChangeFetchDependencyOperation* dep = [[CKKSZoneChangeFetchDependencyOperation alloc] init];
 
     dep.name = @"successful-fetch-dependency";

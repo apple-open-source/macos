@@ -75,6 +75,9 @@ SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRemainingAttemptsKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupCoolOffEndKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecoveryStatusKey, NSString*);
 
+SOFT_LINK_CONSTANT(CloudServices, kSecureBackupSilentRecoveryAttemptKey, NSString*);
+SOFT_LINK_CONSTANT(CloudServices, kSecureBackupNonViableRepairKey, NSString*);
+
 static NSString * const kCliqueSecureBackupTimestampKey                = @"com.apple.securebackup.timestamp";
 static NSString * const kCliqueEscrowServiceRecordMetadataKey          = @"metadata";
 static NSString * const kCliqueSecureBackupEncodedMetadataKey          = @"encodedMetadata";
@@ -161,9 +164,10 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     info.useCachedSecret = [dictionary[getkSecureBackupUseCachedPassphraseKey()] boolValue];
     info.recoveryKey = dictionary[getkSecureBackupRecoveryKeyKey()];
     info.usePreviouslyCachedRecoveryKey = [dictionary[getkSecureBackupUsesRecoveryKeyKey()] boolValue];
-    info.silentRecoveryAttempt = [dictionary[@"SecureBackupSilentRecoveryAttempt"] boolValue];
+    info.silentRecoveryAttempt = [dictionary[getkSecureBackupSilentRecoveryAttemptKey()] boolValue];
     info.containsIcdpData =[dictionary[getkSecureBackupContainsiCDPDataKey()] boolValue];
     info.usesMultipleIcsc = [dictionary[getkSecureBackupUsesMultipleiCSCKey()] boolValue];
+    info.nonViableRepair = [dictionary[getkSecureBackupNonViableRepairKey()] boolValue];
     return info;
 }
 
@@ -178,9 +182,10 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     dictionary[getkSecureBackupUseCachedPassphraseKey()] = info.useCachedSecret ? @YES : @NO;
     dictionary[getkSecureBackupRecoveryKeyKey()] = info.recoveryKey;
     dictionary[getkSecureBackupUsesRecoveryKeyKey()] = info.usePreviouslyCachedRecoveryKey ? @YES : @NO;
-    dictionary[@"SecureBackupSilentRecoveryAttempt"] = info.silentRecoveryAttempt ? @YES : @NO;
+    dictionary[getkSecureBackupSilentRecoveryAttemptKey()] = info.silentRecoveryAttempt ? @YES : @NO;
     dictionary[getkSecureBackupContainsiCDPDataKey()] = info.containsIcdpData ? @YES : @NO;
     dictionary[getkSecureBackupUsesMultipleiCSCKey()] = info.usesMultipleIcsc ? @YES : @NO;
+    dictionary[getkSecureBackupNonViableRepairKey()] = info.nonViableRepair ? @YES : @NO;
     
     return dictionary;
 }

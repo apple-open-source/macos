@@ -41,6 +41,8 @@ The type for new variables is always binary data.
 .Bl -tag -width ".Fl f Ar filename"
 .It Fl d Ar name
 Deletes the named firmware variable.
+.It Fl r Ar name
+Deletes the named firmware variable and returns error code if any.
 .It Fl f Ar filename
 Set firmware variables from a text file.
 The file must be a list of "name value" statements.
@@ -67,13 +69,13 @@ Set the boot-args variable to "-s rd=*hd:10".
 This would specify single user mode with the root device in hard
 drive partition 10.
 .Pp
-.ti +8n
+.ti
 example% nvram my-variable="String One%00String Two%00%00"
 .Pp
 Create a new variable, my-variable, containing a list of two
 C-strings that is terminated by a NUL.
 .Pp
-.ti +8n
+.ti
 example% nvram -d my-variable
 .Pp
 Deletes the variable named my-variable.

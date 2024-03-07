@@ -37,10 +37,13 @@
 #include "RemoteRenderingBackend.h"
 #include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
+#include <WebCore/NativeImage.h>
+#include <WebCore/RenderingResourceIdentifier.h>
 #include <WebCore/WebGPU.h>
 #include <WebCore/WebGPUAdapter.h>
 #include <WebCore/WebGPUPresentationContext.h>
 #include <WebCore/WebGPUPresentationContextDescriptor.h>
+#include <wtf/threads/BinarySemaphore.h>
 
 #if HAVE(WEBGPU_IMPLEMENTATION)
 #import <WebCore/WebGPUCreateImpl.h>
@@ -48,12 +51,11 @@
 
 namespace WebKit {
 
-RemoteGPU::RemoteGPU(PerformWithMediaPlayerOnMainThread&& performWithMediaPlayerOnMainThread, WebGPUIdentifier identifier, GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackend& renderingBackend, Ref<IPC::StreamServerConnection>&& streamConnection)
+RemoteGPU::RemoteGPU(WebGPUIdentifier identifier, GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackend& renderingBackend, Ref<IPC::StreamServerConnection>&& streamConnection)
     : m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_workQueue(IPC::StreamConnectionWorkQueue::create("WebGPU work queue"))
     , m_streamConnection(WTFMove(streamConnection))
     , m_objectHeap(WebGPU::ObjectHeap::create())
-    , m_performWithMediaPlayerOnMainThread(WTFMove(performWithMediaPlayerOnMainThread))
     , m_identifier(identifier)
     , m_renderingBackend(renderingBackend)
 {
@@ -125,13 +127,13 @@ void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, Web
         return;
     }
 
-    m_backing->requestAdapter(*convertedOptions, [callback = WTFMove(callback), objectHeap = m_objectHeap.copyRef(), streamConnection = Ref { *m_streamConnection }, identifier, &performWithMediaPlayerOnMainThread = m_performWithMediaPlayerOnMainThread] (RefPtr<WebCore::WebGPU::Adapter>&& adapter) mutable {
+    m_backing->requestAdapter(*convertedOptions, [callback = WTFMove(callback), objectHeap = m_objectHeap.copyRef(), streamConnection = Ref { *m_streamConnection }, identifier, &gpuConnectionToWebProcess = m_gpuConnectionToWebProcess] (RefPtr<WebCore::WebGPU::Adapter>&& adapter) mutable {
         if (!adapter) {
             callback(std::nullopt);
             return;
         }
 
-        auto remoteAdapter = RemoteAdapter::create(performWithMediaPlayerOnMainThread, *adapter, objectHeap, WTFMove(streamConnection), identifier);
+        auto remoteAdapter = RemoteAdapter::create(gpuConnectionToWebProcess, *adapter, objectHeap, WTFMove(streamConnection), identifier);
         objectHeap->addObject(identifier, remoteAdapter);
 
         auto name = adapter->name();
@@ -143,6 +145,7 @@ void RemoteGPU::requestAdapter(const WebGPU::RequestAdapterOptions& options, Web
             limits.maxTextureDimension3D(),
             limits.maxTextureArrayLayers(),
             limits.maxBindGroups(),
+            limits.maxBindGroupsPlusVertexBuffers(),
             limits.maxBindingsPerBindGroup(),
             limits.maxDynamicUniformBuffersPerPipelineLayout(),
             limits.maxDynamicStorageBuffersPerPipelineLayout(),
@@ -194,8 +197,24 @@ void RemoteGPU::createCompositorIntegration(WebGPUIdentifier identifier)
     ASSERT(m_backing);
 
     auto compositorIntegration = m_backing->createCompositorIntegration();
-    auto remoteCompositorIntegration = RemoteCompositorIntegration::create(compositorIntegration, m_objectHeap, *m_streamConnection, identifier);
+    auto remoteCompositorIntegration = RemoteCompositorIntegration::create(compositorIntegration, m_objectHeap, *m_streamConnection, *this, identifier);
     m_objectHeap->addObject(identifier, remoteCompositorIntegration);
+}
+
+void RemoteGPU::paintNativeImageToImageBuffer(WebCore::NativeImage& nativeImage, WebCore::RenderingResourceIdentifier imageBufferIdentifier)
+{
+    assertIsCurrent(workQueue());
+    BinarySemaphore semaphore;
+
+    auto* gpu = m_backing.get();
+    m_renderingBackend->dispatch([&]() mutable {
+        if (auto imageBuffer = m_renderingBackend->imageBuffer(imageBufferIdentifier)) {
+            gpu->paintToCanvas(nativeImage, imageBuffer->backendSize(), imageBuffer->context());
+            imageBuffer->flushDrawingContext();
+        }
+        semaphore.signal();
+    });
+    semaphore.wait();
 }
 
 } // namespace WebKit

@@ -281,21 +281,21 @@ bool GetCompressedBufferSizeAndRowLengthForTextureWithFormat(const TextureRef &t
                                                              size_t *bytesPerImageOut)
 {
     gl::Extents size = texture->size(index);
-    GLuint bufferSizeInBytes;
+    ASSERT(size.depth == 1);
     GLuint bufferRowInBytes;
-    if (!textureObjFormat.intendedInternalFormat().computeCompressedImageSize(size,
-                                                                              &bufferSizeInBytes))
+    if (!textureObjFormat.intendedInternalFormat().computeCompressedImageRowPitch(
+            size.width, &bufferRowInBytes))
     {
         return false;
     }
-    size.height = 1;
-    if (!textureObjFormat.intendedInternalFormat().computeCompressedImageSize(size,
-                                                                              &bufferRowInBytes))
+    GLuint bufferSizeInBytes;
+    if (!textureObjFormat.intendedInternalFormat().computeCompressedImageDepthPitch(
+            size.height, bufferRowInBytes, &bufferSizeInBytes))
     {
         return false;
     }
-    *bytesPerImageOut = bufferSizeInBytes;
     *bytesPerRowOut   = bufferRowInBytes;
+    *bytesPerImageOut = bufferSizeInBytes;
     return true;
 }
 static angle::Result InitializeCompressedTextureContents(const gl::Context *context,
@@ -317,6 +317,12 @@ static angle::Result InitializeCompressedTextureContents(const gl::Context *cont
     gl::Extents extents    = texture->size(index);
     if (texture->isCPUAccessible())
     {
+        if (textureObjFormat.isPVRTC())
+        {
+            // Replace Region Validation: rowBytes must be 0
+            bytesPerRow = 0;
+        }
+
         angle::MemoryBuffer buffer;
         if (!buffer.resize(bytesPerImage))
         {
@@ -1027,15 +1033,8 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(id<MTLDevice> metalDevice,
                                                  freeWhenDone:NO];
         auto options  = [[[MTLCompileOptions alloc] init] ANGLE_MTL_AUTORELEASE];
 
-        auto *platform   = ANGLEPlatformCurrent();
-        double startTime = platform->currentTime(platform);
-
         NSError *nsError = nil;
         auto library = [metalDevice newLibraryWithSource:nsSource options:options error:&nsError];
-
-        double endTime = platform->currentTime(platform);
-        ERR() << "CreateShaderLibrary newLibraryWithSource duration: "
-              << (endTime - startTime) * 1000.0 << "ms";
 
         [nsSource ANGLE_MTL_AUTORELEASE];
 
@@ -1142,47 +1141,47 @@ MTLSamplerAddressMode GetSamplerAddressMode(GLenum wrap)
     }
 }
 
-MTLBlendFactor GetBlendFactor(GLenum factor)
+MTLBlendFactor GetBlendFactor(gl::BlendFactorType factor)
 {
     switch (factor)
     {
-        case GL_ZERO:
+        case gl::BlendFactorType::Zero:
             return MTLBlendFactorZero;
-        case GL_ONE:
+        case gl::BlendFactorType::One:
             return MTLBlendFactorOne;
-        case GL_SRC_COLOR:
+        case gl::BlendFactorType::SrcColor:
             return MTLBlendFactorSourceColor;
-        case GL_ONE_MINUS_SRC_COLOR:
+        case gl::BlendFactorType::OneMinusSrcColor:
             return MTLBlendFactorOneMinusSourceColor;
-        case GL_SRC_ALPHA:
+        case gl::BlendFactorType::SrcAlpha:
             return MTLBlendFactorSourceAlpha;
-        case GL_ONE_MINUS_SRC_ALPHA:
+        case gl::BlendFactorType::OneMinusSrcAlpha:
             return MTLBlendFactorOneMinusSourceAlpha;
-        case GL_DST_COLOR:
+        case gl::BlendFactorType::DstColor:
             return MTLBlendFactorDestinationColor;
-        case GL_ONE_MINUS_DST_COLOR:
+        case gl::BlendFactorType::OneMinusDstColor:
             return MTLBlendFactorOneMinusDestinationColor;
-        case GL_DST_ALPHA:
+        case gl::BlendFactorType::DstAlpha:
             return MTLBlendFactorDestinationAlpha;
-        case GL_ONE_MINUS_DST_ALPHA:
+        case gl::BlendFactorType::OneMinusDstAlpha:
             return MTLBlendFactorOneMinusDestinationAlpha;
-        case GL_SRC_ALPHA_SATURATE:
+        case gl::BlendFactorType::SrcAlphaSaturate:
             return MTLBlendFactorSourceAlphaSaturated;
-        case GL_CONSTANT_COLOR:
+        case gl::BlendFactorType::ConstantColor:
             return MTLBlendFactorBlendColor;
-        case GL_ONE_MINUS_CONSTANT_COLOR:
+        case gl::BlendFactorType::OneMinusConstantColor:
             return MTLBlendFactorOneMinusBlendColor;
-        case GL_CONSTANT_ALPHA:
+        case gl::BlendFactorType::ConstantAlpha:
             return MTLBlendFactorBlendAlpha;
-        case GL_ONE_MINUS_CONSTANT_ALPHA:
+        case gl::BlendFactorType::OneMinusConstantAlpha:
             return MTLBlendFactorOneMinusBlendAlpha;
-        case GL_SRC1_COLOR_EXT:
+        case gl::BlendFactorType::Src1Color:
             return MTLBlendFactorSource1Color;
-        case GL_ONE_MINUS_SRC1_COLOR_EXT:
+        case gl::BlendFactorType::OneMinusSrc1Color:
             return MTLBlendFactorOneMinusSource1Color;
-        case GL_SRC1_ALPHA_EXT:
+        case gl::BlendFactorType::Src1Alpha:
             return MTLBlendFactorSource1Alpha;
-        case GL_ONE_MINUS_SRC1_ALPHA_EXT:
+        case gl::BlendFactorType::OneMinusSrc1Alpha:
             return MTLBlendFactorOneMinusSource1Alpha;
         default:
             UNREACHABLE();
@@ -1190,19 +1189,19 @@ MTLBlendFactor GetBlendFactor(GLenum factor)
     }
 }
 
-MTLBlendOperation GetBlendOp(GLenum op)
+MTLBlendOperation GetBlendOp(gl::BlendEquationType op)
 {
     switch (op)
     {
-        case GL_FUNC_ADD:
+        case gl::BlendEquationType::Add:
             return MTLBlendOperationAdd;
-        case GL_FUNC_SUBTRACT:
+        case gl::BlendEquationType::Subtract:
             return MTLBlendOperationSubtract;
-        case GL_FUNC_REVERSE_SUBTRACT:
+        case gl::BlendEquationType::ReverseSubtract:
             return MTLBlendOperationReverseSubtract;
-        case GL_MIN:
+        case gl::BlendEquationType::Min:
             return MTLBlendOperationMin;
-        case GL_MAX:
+        case gl::BlendEquationType::Max:
             return MTLBlendOperationMax;
         default:
             UNREACHABLE();

@@ -121,7 +121,10 @@ class ProgramExecutableVk : public ProgramExecutableImpl
     void destroy(const gl::Context *context) override;
 
     void save(ContextVk *contextVk, bool isSeparable, gl::BinaryOutputStream *stream);
-    angle::Result load(ContextVk *contextVk, bool isSeparable, gl::BinaryInputStream *stream);
+    angle::Result load(ContextVk *contextVk,
+                       bool isSeparable,
+                       gl::BinaryInputStream *stream,
+                       bool *successOut);
 
     void setUniform1fv(GLint location, GLsizei count, const GLfloat *v) override;
     void setUniform2fv(GLint location, GLsizei count, const GLfloat *v) override;
@@ -326,7 +329,7 @@ class ProgramExecutableVk : public ProgramExecutableImpl
     {
         return mTextureWriteDescriptorDescs;
     }
-    const gl::Program::DirtyBits &getDirtyBits() const { return mDirtyBits; }
+    const gl::ProgramExecutable::DirtyBits &getDirtyBits() const { return mDirtyBits; }
     void resetUniformBufferDirtyBits() { mDirtyBits.reset(); }
 
     // The following functions are for internal use of programs, including from a threaded link job:
@@ -529,7 +532,7 @@ class ProgramExecutableVk : public ProgramExecutableImpl
     vk::DescriptorSetLayoutDesc mTextureSetDesc;
     vk::DescriptorSetLayoutDesc mDefaultUniformAndXfbSetDesc;
 
-    gl::Program::DirtyBits mDirtyBits;
+    gl::ProgramExecutable::DirtyBits mDirtyBits;
 };
 
 }  // namespace rx

@@ -21,10 +21,8 @@ enum VideoCodecType {
   kVideoCodecVP9,
   kVideoCodecAV1,
   kVideoCodecH264,
-#ifdef WEBRTC_USE_H265
-  kVideoCodecH265,
-#endif
   kVideoCodecMultiplex,
+  kVideoCodecH265,
 };
 
 }  // namespace webrtc

@@ -59,7 +59,7 @@ private:
 
 inline std::optional<StreamServerConnectionBuffer> StreamServerConnectionBuffer::map(Handle&& handle)
 {
-    auto sharedMemory = WebKit::SharedMemory::map(WTFMove(handle.memory), WebKit::SharedMemory::Protection::ReadWrite);
+    auto sharedMemory = WebKit::SharedMemory::map(WTFMove(handle), WebKit::SharedMemory::Protection::ReadWrite);
     if (UNLIKELY(!sharedMemory))
         return std::nullopt;
     return StreamServerConnectionBuffer { sharedMemory.releaseNonNull() };
@@ -73,7 +73,7 @@ inline std::optional<std::span<uint8_t>> StreamServerConnectionBuffer::tryAcquir
 
     auto result = alignedSpan(m_serverOffset, clampedLimit(serverLimit));
     if (result.size() < minimumMessageSize) {
-        serverLimit = sharedServerLimit().compareExchangeStrong(serverLimit, ServerLimit::serverIsSleepingTag, std::memory_order_acq_rel, std::memory_order_acq_rel);
+        serverLimit = sharedServerLimit().compareExchangeStrong(serverLimit, ServerLimit::serverIsSleepingTag, std::memory_order_acq_rel, std::memory_order_acquire);
         result = alignedSpan(m_serverOffset, clampedLimit(serverLimit));
     }
 

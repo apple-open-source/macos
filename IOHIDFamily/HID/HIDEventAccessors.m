@@ -476,12 +476,36 @@
     IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonL4, (IOHIDFloat)gameControllerButtonL4);
 }
 
-- (double)gameControllerButtonL5 {
-    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonL5);
+- (double)gameControllerButtonM1 {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonM1);
 }
 
-- (void)setGameControllerButtonL5:(double)gameControllerButtonL5 {
-    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonL5, (IOHIDFloat)gameControllerButtonL5);
+- (void)setGameControllerButtonM1:(double)gameControllerButtonM1 {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonM1, (IOHIDFloat)gameControllerButtonM1);
+}
+
+- (double)gameControllerButtonM2 {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonM2);
+}
+
+- (void)setGameControllerButtonM2:(double)gameControllerButtonM2 {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonM2, (IOHIDFloat)gameControllerButtonM2);
+}
+
+- (double)gameControllerButtonM3 {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonM3);
+}
+
+- (void)setGameControllerButtonM3:(double)gameControllerButtonM3 {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonM3, (IOHIDFloat)gameControllerButtonM3);
+}
+
+- (double)gameControllerButtonM4 {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonM4);
+}
+
+- (void)setGameControllerButtonM4:(double)gameControllerButtonM4 {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonM4, (IOHIDFloat)gameControllerButtonM4);
 }
 
 - (double)gameControllerButtonR4 {
@@ -490,14 +514,6 @@
 
 - (void)setGameControllerButtonR4:(double)gameControllerButtonR4 {
     IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonR4, (IOHIDFloat)gameControllerButtonR4);
-}
-
-- (double)gameControllerButtonR5 {
-    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonR5);
-}
-
-- (void)setGameControllerButtonR5:(double)gameControllerButtonR5 {
-    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonR5, (IOHIDFloat)gameControllerButtonR5);
 }
 
 - (double)gameControllerDirectionPadDown {

@@ -25,14 +25,14 @@
 #ifndef KIM_IDENTITY_H
 #define KIM_IDENTITY_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <Kerberos/kim_types.h>
 #include <Kerberos/krb5.h>
 #include <Kerberos/gssapi.h>
     
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*!
  * \ingroup kim_types_reference
  * Constant to specify any Kerberos identity is acceptable.

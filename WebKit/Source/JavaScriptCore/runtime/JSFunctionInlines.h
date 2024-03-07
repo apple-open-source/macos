@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -82,6 +82,11 @@ inline bool JSFunction::isHostFunction() const
 {
     ASSERT(executable());
     return executable()->isHostFunction();
+}
+
+inline bool JSFunction::isNonBoundHostFunction() const
+{
+    return isHostFunction() && !inherits<JSBoundFunction>();
 }
 
 inline Intrinsic JSFunction::intrinsic() const
@@ -199,14 +204,6 @@ inline JSString* JSFunction::originalName(JSGlobalObject* globalObject)
     else
         name = ecmaName.string();
 
-    if (globalObject->needsSiteSpecificQuirks()) {
-        auto illegalCharMatcher = [] (UChar ch) -> bool {
-            return ch == ' ' || ch == '|';
-        };
-        if (name.find(illegalCharMatcher) != notFound)
-            name = String();
-    }
-
     if (jsExecutable()->isGetter()) {
         name = makeNameWithOutOfMemoryCheck(globalObject, scope, "Getter ", "get ", name);
         RETURN_IF_EXCEPTION(scope, { });
@@ -219,12 +216,10 @@ inline JSString* JSFunction::originalName(JSGlobalObject* globalObject)
 
 inline bool JSFunction::canAssumeNameAndLengthAreOriginal(VM&)
 {
-    if (isHostFunction()) {
-        // Bound functions are not eagerly generating name and length.
-        // Thus, we can use FunctionRareData's tracking. This is useful to optimize func.bind().bind() case.
-        if (!inherits<JSBoundFunction>())
-            return false;
-    }
+    // Bound functions are not eagerly generating name and length.
+    // Thus, we can use FunctionRareData's tracking. This is useful to optimize func.bind().bind() case.
+    if (isNonBoundHostFunction())
+        return false;
     FunctionRareData* rareData = this->rareData();
     if (!rareData)
         return true;

@@ -1634,15 +1634,31 @@ _os_object_init(void)
 	return;
 }
 
-inline _os_object_t
-_os_object_alloc_realized(const void *cls, size_t size)
+static inline _os_object_t
+_os_objc_alloc(const void *cls, size_t size)
 {
+	dispatch_assert(size >= sizeof(((_os_object_t)NULL)->os_obj_isa));
 	_os_object_t obj;
-	dispatch_assert(size >= sizeof(struct _os_object_s));
 	while (unlikely(!(obj = calloc(1u, size)))) {
 		_dispatch_temporary_resource_shortage();
 	}
 	obj->os_obj_isa = cls;
+	return obj;
+}
+
+inline _os_object_t
+_os_object_alloc_bridged(const void *cls, size_t size)
+{
+	return _os_objc_alloc(cls, size);
+}
+
+inline _os_object_t
+_os_object_alloc_realized(const void *cls, size_t size)
+{
+	dispatch_assert(size >= sizeof(struct _os_object_s));
+	_os_object_t obj = _os_objc_alloc(cls, size);
+	obj->os_obj_ref_cnt = 1;
+	obj->os_obj_xref_cnt = 1;
 	return obj;
 }
 

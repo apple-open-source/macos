@@ -164,7 +164,7 @@ IDBRequest::~IDBRequest()
 ExceptionOr<IDBRequest::Result> IDBRequest::result() const
 {
     if (!isDone())
-        return Exception { InvalidStateError, "Failed to read the 'result' property from 'IDBRequest': The request has not finished."_s };
+        return Exception { ExceptionCode::InvalidStateError, "Failed to read the 'result' property from 'IDBRequest': The request has not finished."_s };
 
     return IDBRequest::Result { m_result };
 }
@@ -174,7 +174,7 @@ ExceptionOr<DOMException*> IDBRequest::error() const
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
 
     if (!isDone())
-        return Exception { InvalidStateError, "Failed to read the 'error' property from 'IDBRequest': The request has not finished."_s };
+        return Exception { ExceptionCode::InvalidStateError, "Failed to read the 'error' property from 'IDBRequest': The request has not finished."_s };
 
     return m_domError.get();
 }
@@ -339,7 +339,7 @@ void IDBRequest::dispatchEvent(Event& event)
         return;
 
     if (m_hasUncaughtException)
-        m_transaction->abortDueToFailedRequest(DOMException::create(AbortError, "IDBTransaction will abort due to uncaught exception in an event handler"_s));
+        m_transaction->abortDueToFailedRequest(DOMException::create(ExceptionCode::AbortError, "IDBTransaction will abort due to uncaught exception in an event handler"_s));
     else if (!event.defaultPrevented() && event.type() == eventNames().errorEvent && !m_transaction->isFinishedOrFinishing()) {
         ASSERT(m_domError);
         m_transaction->abortDueToFailedRequest(*m_domError);
@@ -363,15 +363,15 @@ void IDBRequest::uncaughtExceptionInEventHandler()
         m_hasUncaughtException = true;
         return;
     }
-    if (m_transaction && m_idbError.code() != AbortError)
-        m_transaction->abortDueToFailedRequest(DOMException::create(AbortError, "IDBTransaction will abort due to uncaught exception in an event handler"_s));
+    if (m_transaction && m_idbError.code() != ExceptionCode::AbortError)
+        m_transaction->abortDueToFailedRequest(DOMException::create(ExceptionCode::AbortError, "IDBTransaction will abort due to uncaught exception in an event handler"_s));
 }
 
 void IDBRequest::setResult(const IDBKeyData& keyData)
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -385,7 +385,7 @@ void IDBRequest::setResult(const Vector<IDBKeyData>& keyDatas)
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -399,7 +399,7 @@ void IDBRequest::setResult(const IDBGetAllResult& result)
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -413,7 +413,7 @@ void IDBRequest::setResult(uint64_t number)
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -429,7 +429,7 @@ void IDBRequest::setResultToStructuredClone(const IDBGetResult& result)
 
     LOG(IndexedDB, "IDBRequest::setResultToStructuredClone");
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -443,7 +443,7 @@ void IDBRequest::setResultToUndefined()
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
     
@@ -475,7 +475,7 @@ void IDBRequest::willIterateCursor(IDBCursor& cursor)
     m_pendingCursor = &cursor;
     m_result = NullResultType::Undefined;
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -489,7 +489,7 @@ void IDBRequest::didOpenOrIterateCursor(const IDBResultData& resultData)
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
     ASSERT(m_pendingCursor);
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -546,7 +546,7 @@ void IDBRequest::setResult(Ref<IDBDatabase>&& database)
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
 
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -559,7 +559,7 @@ void IDBRequest::setResult(Ref<IDBDatabase>&& database)
 
 void IDBRequest::clearWrappers()
 {
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
     VM& vm = context->vm();

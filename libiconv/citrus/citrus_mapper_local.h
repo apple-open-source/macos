@@ -113,6 +113,12 @@ struct _citrus_mapper_traits {
 	size_t					 mt_dst_max;
 };
 
+#ifdef __APPLE__
+#define	MDIR_UCS_SRC			0x0001
+#define	MDIR_UCS_DST			0x0002
+#define	MDIR_UCS_BOTH			(MDIR_UCS_SRC | MDIR_UCS_DST)
+#endif
+
 struct _citrus_mapper {
 	struct _citrus_mapper_ops		*cm_ops;
 	void					*cm_closure;

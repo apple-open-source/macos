@@ -277,6 +277,7 @@ agent_run(agent_t agent, auth_items_t hints, auth_items_t context, auth_items_t 
     xpc_object_t immutableHintsArray = auth_items_export_xpc(immutable_hints);
     
     dispatch_semaphore_t replyWaiter = dispatch_semaphore_create(0);
+    CFRetain(agent);
     dispatch_sync(agent->actionQueue, ^{
         if (agent->pluginState != mechinterrupting) {
             agent->pluginState = current;
@@ -313,6 +314,7 @@ agent_run(agent_t agent, auth_items_t hints, auth_items_t context, auth_items_t 
             });
             xpc_release(requestObject);
         }
+        CFRelease(agent);
     });
 
     if (agent->pluginState == current) {
@@ -350,7 +352,8 @@ agent_get_mechanism(agent_t agent)
 void
 agent_deactivate(agent_t agent)
 {
-    dispatch_sync(agent->actionQueue, ^{       
+    CFRetain(agent);
+    dispatch_sync(agent->actionQueue, ^{
         if (agent->pluginState != dead) {
             xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
             xpc_dictionary_set_string(requestObject, AUTH_XPC_REQUEST_METHOD_KEY, AUTH_XPC_REQUEST_METHOD_DEACTIVATE);
@@ -372,11 +375,13 @@ agent_deactivate(agent_t agent)
             
             xpc_release(requestObject);
         }
+        CFRelease(agent);
     });
 }
 
 void agent_destroy(agent_t agent)
 {
+    CFRetain(agent);
     dispatch_sync(agent->actionQueue, ^{
         if (agent->pluginState != dead) {
             xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
@@ -384,6 +389,7 @@ void agent_destroy(agent_t agent)
             xpc_connection_send_message(agent->agentConnection, requestObject);
             xpc_release(requestObject);
         }
+        CFRelease(agent);
     });
 }
 
@@ -396,6 +402,7 @@ agent_get_state(agent_t agent)
 void
 agent_notify_interrupt(agent_t agent)
 {
+    CFRetain(agent);
     dispatch_sync(agent->actionQueue, ^{
         if (agent->pluginState == current) {
             xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
@@ -405,16 +412,19 @@ agent_notify_interrupt(agent_t agent)
         } else if (agent->pluginState == active) {
             agent->pluginState = mechinterrupting;
         }
+        CFRelease(agent);
     });
 }
 
 void
 agent_clear_interrupt(agent_t agent)
 {
+    CFRetain(agent);
     dispatch_sync(agent->actionQueue, ^{
         if (agent->pluginState == mechinterrupting) {
             agent->pluginState = active;
         }
+        CFRelease(agent);
     });
 }
 

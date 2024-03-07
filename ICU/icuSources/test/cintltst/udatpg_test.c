@@ -64,6 +64,7 @@ static void TestAdlam(void);    // rdar://80593890
 static void TestForce24(void); // rdar://96019833
 static void TestCloneAllowedHourFormats(void); // rdar://97391281
 static void TestRgSubtag(void); // rdar://106566783
+static void TestISO8601(void); // rdar://121454761
 #endif  // APPLE_ICU_CHANGES
 
 void addDateTimePatternGeneratorTest(TestNode** root) {
@@ -85,6 +86,7 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestForce24);
     TESTCASE(TestCloneAllowedHourFormats);
     TESTCASE(TestRgSubtag);
+    TESTCASE(TestISO8601); // rdar://121454761
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -428,6 +430,7 @@ static const UChar skel_hhmm[]    = u"hhmm";
 // rdar://
 static const UChar skel_mmss[]    = u"mmss";
 static const UChar skel_mmssSS[]  = u"mmssSS";
+static const UChar skel_yMdjm[]   = u"yMdjm"; // rdar://122117069
 #endif  // APPLE_ICU_CHANGES
 static const UChar patn_hcmm_a[]  = u"h:mm\u202Fa";
 static const UChar patn_HHcmm[]   = u"HH:mm";
@@ -440,6 +443,7 @@ static const UChar patn_hhpmm_a[] = u"hh.mm\u202Fa";
 // rdar://
 static const UChar patn_mmcss[]   = u"mm:ss";
 static const UChar patn_mmcsspSS[]= u"mm:ss.SS";
+static const UChar patn_Mdrhmm_a[] = u"M/d/r, h:mm\u202Fa"; // rdar://122117069
 #endif  // APPLE_ICU_CHANGES
 
 static void TestOptions() {
@@ -457,10 +461,24 @@ static void TestOptions() {
         { "da", skel_Hmm,  UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_Hpmm    },
         { "da", skel_HHmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHpmm   },
         { "da", skel_hhmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_hhpmm_a },
+        { "da", skel_Hmm,  UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_Hpmm    },
+        { "da", skel_HHmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHpmm   },
+        { "da", skel_hhmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_hhpmm_a },
 #if APPLE_ICU_CHANGES
 // rdar://
         { "en_JP@calendar=japanese", skel_mmss, UDATPG_MATCH_NO_OPTIONS, patn_mmcss },
         { "en_JP@calendar=japanese", skel_mmssSS, UDATPG_MATCH_NO_OPTIONS, patn_mmcsspSS },
+        { "en@calendar=chinese", skel_yMdjm, UDATPG_MATCH_NO_OPTIONS, patn_Mdrhmm_a }, // rdar://122117069
+        // additional tests for rdar://121284009
+        { "zh_TW",           u"jjm",  UDATPG_MATCH_NO_OPTIONS,        u"ah:mm" },
+        { "zh_TW",           u"jjm",  UDATPG_MATCH_ALL_FIELDS_LENGTH, u"ahh:mm" },
+        { "zh_TW",           u"jjms", UDATPG_MATCH_NO_OPTIONS,        u"ah:mm:ss" },
+        { "zh_TW",           u"jjms", UDATPG_MATCH_ALL_FIELDS_LENGTH, u"ahh:mm:ss" },
+        { "zh_TW@hours=h23", u"jjm",  UDATPG_MATCH_NO_OPTIONS,        u"HH:mm" },
+        { "zh_TW@hours=h23", u"jjm",  UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH:mm" },
+        { "zh_TW@hours=h23", u"jjms", UDATPG_MATCH_NO_OPTIONS,        u"HH:mm:ss" },
+        { "zh_TW@hours=h23", u"jjms", UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH:mm:ss" },
+        { "da",              u"jm",   UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH.mm" },
 #endif  // APPLE_ICU_CHANGES
     };
 
@@ -701,7 +719,14 @@ static void TestDateTimePatterns(void) {
         { "ha", { u"EEEE d MMMM, y 'da' HH:mm",
                   u"d MMMM, y 'da' HH:mm",
                   u"d MMM, y, HH:mm",
+#if APPLE_ICU_CHANGES
+// rdar://116151591 I think the change to the unit test in OSICU is wrong-- there's been no change in CLDR to justify it--
+// and is an example of a bug in DateTimePatternGenerator that prevents inheriting <availableFormats> entries from root.
+// Reverting this change (on the Apple side for now) to the value we were previously getting before the last CLDR update.
                   u"y-MM-dd, HH:mm" } },
+#else
+                  u"d/M/y, HH:mm" } },
+#endif  // APPLE_ICU_CHANGES
         { NULL, { NULL, NULL, NULL, NULL } } // terminator
     };
 
@@ -961,7 +986,7 @@ static void TestCountryFallback(void) {
         u"en_LI", u"yMEd", u"EEE d.M.y",    // rdar://problem/29299919
         u"en_MC", u"yMEd", u"EEE dd/MM/y",  // rdar://problem/29299919
         u"en_MD", u"yMEd", u"EEE, dd.MM.y", // rdar://problem/29299919
-        u"en_VA", u"yMEd", u"EEE d/M/y",    // rdar://problem/29299919
+        u"en_VA", u"yMEd", u"EEE dd/MM/y",  // rdar://problem/29299919
         u"fr_GB", u"yMEd", u"EEE, dd/MM/y", // rdar://problem/36020946
         u"fr_CN", u"yMEd", u"y/M/dEEE",     // rdar://problem/50083902
         u"es_IE", u"yMEd", u"EEE, d/M/y",   // rdar://problem/58733843
@@ -1017,6 +1042,21 @@ static void TestCountryFallback(void) {
         u"th_TH@calendar=gregorian", u"y", u"y",
         u"th_US", u"Gy", u"G y",
         u"th_US", u"y", u"y",
+        
+        // Tests for rdar://111224415 (DateTimePattern skeleton for locale with different numbering system should be
+        // fine with country fallback)
+        u"ar-SA@rg=uszzzz",              u"GyMMMM",  u"MMMM y G",
+        u"ar-SA@rg=uszzzz;numbers=latn", u"GyMMMM",  u"MMMM y G",
+        u"ar-SA@rg=uszzzz",              u"GyMMMMd", u"d MMMM، y G",
+        u"ar-SA@rg=uszzzz;numbers=latn", u"GyMMMMd", u"d MMMM، y G",
+        u"ar-SA@rg=uszzzz",              u"GyM",     u"M y G",
+        u"ar-SA@rg=uszzzz;numbers=latn", u"GyM",     u"M y G",
+        u"ar-SA@rg=uszzzz",              u"GyMd",    u"dd-MM-y GGGGG",
+        u"ar-SA@rg=uszzzz;numbers=latn", u"GyMd",    u"M/d/y GGGGG",
+        u"ar-SA@rg=uszzzz",              u"yM",      u"M\u200f/y",
+        u"ar-SA@rg=uszzzz;numbers=latn", u"yM",      u"M/y",
+        u"ar-SA@rg=uszzzz",              u"yMd",     u"d\u200F/M\u200F/y",
+        u"ar-SA@rg=uszzzz;numbers=latn", u"yMd",     u"M/d/y",
 
         // Piggybacking on here, some tests that are not actually about region fallback
         u"uk",    u"yMMMd", u"d MMM y\u202F'р'.", // rdar://70781056
@@ -1024,6 +1064,12 @@ static void TestCountryFallback(void) {
         u"en_SI", u"yMMMd", u"d MMM y",           // rdar://101993266
         u"en_SI", u"Md",    u"d. M.",             // rdar://101993266
         u"en_SI", u"MMMd",  u"d MMM",             // rdar://101993266
+ 
+        // Another piggybacking, using this test for rdar://100811562
+        // Testing that es_JP is falling back to es_419 and not to es
+        u"es_JP",  u"GyMMMd", u"d 'de' MMM 'de' y G", // rdar://100811562
+        u"es_419", u"GyMMMd", u"d 'de' MMM 'de' y G", // rdar://100811562
+        u"es",     u"GyMMMd", u"d MMM y G", // rdar://100811562
     };
     
     for (int32_t i = 0; i < (sizeof(testData) / sizeof(UChar*)); i += 3) {
@@ -1137,7 +1183,7 @@ static void TestCloneAllowedHourFormats(void) {
 }
 
 static void TestRgSubtag(void) {
-    typedef struct Force24Test {
+    typedef struct RgSubtagTest {
         const char* locale;
         const UChar* skeleton;
         const UChar* expectedPattern;
@@ -1145,7 +1191,6 @@ static void TestRgSubtag(void) {
     
     const RgSubtagTest testCases[] = {
         { "es_MX",           u"yMdjmm", u"d/M/y, h:mm a" }, // rdar://17705154
-        { "es_CL",           u"yMdjmm", u"dd-MM-y, HH:mm" }, // rdar://17705154
         { "es_419@rg=MX",    u"yMdjmm", u"d/M/y, h:mm a" }, // rdar://17705154
         { "en_MX",           u"yMdjmm", u"d/M/y, h:mm a" }, // rdar://17705154
         { "es_ES",           u"yMdjmm", u"d/M/y, H:mm" },
@@ -1173,6 +1218,50 @@ static void TestRgSubtag(void) {
         udatpg_close(dtpg);
     }
 }
+
+// Test for rdar://121454761
+static void TestISO8601(void) {
+    typedef struct TestCase {
+        const char* locale;
+        const UChar* skeleton;
+        const UChar* expectedPattern;
+    } TestCase;
+    
+    const TestCase testCases[] = {
+        { "en_GB@calendar=iso8601;rg=uszzzz", u"EEEEyMMMMdjmm", u"EEEE d MMMM y 'at' h:mm a" },
+        { "en_GB@calendar=iso8601;rg=uszzzz", u"EEEEyMMMMdHmm", u"EEEE d MMMM y 'at' HH:mm" },
+        { "en_GB@calendar=iso8601;rg=uszzzz", u"Edjmm",         u"EEE d, h:mm a" },
+        { "en_GB@calendar=iso8601;rg=uszzzz", u"EdHmm",         u"EEE d, HH:mm" },
+
+        { "en_US@calendar=iso8601",           u"EEEEyMMMMdjmm", u"EEEE, MMMM d, y 'at' h:mm a" },
+        { "en_US@calendar=iso8601",           u"EEEEyMMMMdHmm", u"EEEE, MMMM d, y 'at' HH:mm" },
+        { "en_US@calendar=iso8601",           u"Edjmm",         u"EEE d, h:mm a" },
+        { "en_US@calendar=iso8601",           u"EdHmm",         u"EEE d, HH:mm" },
+
+        { "en_US",                            u"EEEEyMMMMdjmm", u"EEEE, MMMM d, y 'at' h:mm a" },
+        { "en_US",                            u"EEEEyMMMMdHmm", u"EEEE, MMMM d, y 'at' HH:mm" },
+        { "en_US",                            u"Edjmm",         u"EEE d, h:mm a" },
+        { "en_US",                            u"EdHmm",         u"EEE d, HH:mm" },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UDateTimePatternGenerator* dtpg = udatpg_open(testCases[i].locale, &err);
+        
+        if (assertSuccess("Error creating dtpg", &err)) {
+            UChar actualPattern[200];
+            
+            udatpg_getBestPatternWithOptions(dtpg, testCases[i].skeleton, -1, 0, actualPattern, 200, &err);
+            if (assertSuccess("Error getting best pattern", &err)) {
+                char errorMessage[200];
+                snprintf(errorMessage, 200, "Wrong pattern for %s and %s", testCases[i].locale, austrdup(testCases[i].skeleton));
+                assertUEquals(errorMessage, testCases[i].expectedPattern, actualPattern);
+            }
+        }
+        udatpg_close(dtpg);
+    }
+}
+
 #endif  // APPLE_ICU_CHANGES
 
 #endif

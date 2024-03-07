@@ -194,7 +194,7 @@ _internal_client_new(notify_state_t *ns, pid_t pid, int token, name_info_t *n)
 static void
 _internal_client_release(notify_state_t *ns, client_t *c)
 {
-	_nc_table_delete_64(&ns->client_table, c->cid.hash_key);
+	_nc_table_delete_64(&ns->client_table, c->cid.hash_key, &c->cid.hash_key);
 
 	if (notify_is_type(c->state_and_type, NOTIFY_TYPE_FILE)) {
 		if (c->deliver.fd >= 0) close(c->deliver.fd);
@@ -631,8 +631,9 @@ _internal_release_name_info(notify_state_t *ns, name_info_t *n)
 	if (n->refcount == 0)
 	{
 		_internal_remove_controlled_name(ns, n);
-		_nc_table_delete(&ns->name_table, n->name);
-		_nc_table_delete_64(&ns->name_id_table, n->name_id);
+		_nc_table_delete(&ns->name_table, n->name, &n->name);
+		n->name = NULL;
+		_nc_table_delete_64(&ns->name_id_table, n->name_id, &n->name_id);
 		free(n);
 		ns->stat_name_free++;
 	}

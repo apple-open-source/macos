@@ -35,6 +35,8 @@
 #import "CocoaHelpers.h"
 #import "JSWebExtensionWrapper.h"
 #import "Logging.h"
+#import "WebExtensionAPITabs.h"
+#import "WebExtensionMessageSenderParameters.h"
 #import <objc/runtime.h>
 
 namespace WebKit {
@@ -47,17 +49,19 @@ static NSString *classToClassString(Class classType, bool plural = false)
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         classTypeToSingularClassString = [NSMapTable strongToStrongObjectsMapTable];
-        [classTypeToSingularClassString setObject:@"a boolean value" forKey:@YES.class];
-        [classTypeToSingularClassString setObject:@"a number value" forKey:NSNumber.class];
-        [classTypeToSingularClassString setObject:@"a string value" forKey:NSString.class];
+        [classTypeToSingularClassString setObject:@"a boolean" forKey:@YES.class];
+        [classTypeToSingularClassString setObject:@"a number" forKey:NSNumber.class];
+        [classTypeToSingularClassString setObject:@"a string" forKey:NSString.class];
+        [classTypeToSingularClassString setObject:@"a value" forKey:JSValue.class];
         [classTypeToSingularClassString setObject:@"null" forKey:NSNull.class];
         [classTypeToSingularClassString setObject:@"an array" forKey:NSArray.class];
         [classTypeToSingularClassString setObject:@"an object" forKey:NSDictionary.class];
 
         classTypeToPluralClassString = [NSMapTable strongToStrongObjectsMapTable];
-        [classTypeToPluralClassString setObject:@"boolean values" forKey:@YES.class];
-        [classTypeToPluralClassString setObject:@"number values" forKey:NSNumber.class];
-        [classTypeToPluralClassString setObject:@"string values" forKey:NSString.class];
+        [classTypeToPluralClassString setObject:@"booleans" forKey:@YES.class];
+        [classTypeToPluralClassString setObject:@"numbers" forKey:NSNumber.class];
+        [classTypeToPluralClassString setObject:@"strings" forKey:NSString.class];
+        [classTypeToPluralClassString setObject:@"values" forKey:JSValue.class];
         [classTypeToPluralClassString setObject:@"null values" forKey:NSNull.class];
         [classTypeToPluralClassString setObject:@"arrays" forKey:NSArray.class];
         [classTypeToPluralClassString setObject:@"objects" forKey:NSDictionary.class];
@@ -77,10 +81,40 @@ static NSString *classToClassString(Class classType, bool plural = false)
     return @"unknown";
 }
 
-static NSString *constructExpectedMessage(NSString *key, NSString *expected, NSString *found)
+static NSString *valueToTypeString(NSObject *value, bool plural = false)
+{
+    if (auto *number = dynamic_objc_cast<NSNumber>(value)) {
+        if (std::isnan(number.doubleValue))
+            return plural ? @"NaN values" : @"NaN";
+
+        if (std::isinf(number.doubleValue))
+            return plural ? @"Infinity values" : @"Infinity";
+    } else if (auto *scriptValue = dynamic_objc_cast<JSValue>(value)) {
+        if (scriptValue.isUndefined)
+            return plural ? @"undefined values" : @"undefined";
+
+        if (scriptValue._isRegularExpression)
+            return plural ? @"regular expressions" : @"a regular expression";
+
+        if (scriptValue._isThenable)
+            return plural ? @"promises" : @"a promise";
+
+        if (scriptValue._isFunction)
+            return plural ? @"functions" : @"a function";
+    }
+
+    return classToClassString(value.class, plural);
+}
+
+static NSString *constructExpectedMessage(NSString *key, NSString *expected, NSString *found, bool inArray = false)
 {
     ASSERT(expected);
     ASSERT(found);
+
+    if (inArray && key.length)
+        return [NSString stringWithFormat:@"'%@' is expected to be %@, but %@ was provided in the array", key, expected, found];
+    if (inArray && !key.length)
+        return [NSString stringWithFormat:@"%@ is expected, but %@ was provided in the array", expected, found];
 
     if (key.length)
         return [NSString stringWithFormat:@"'%@' is expected to be %@, but %@ was provided", key, expected, found];
@@ -95,25 +129,25 @@ static bool validateSingleObject(NSString *key, NSObject *value, id expectedValu
 
     if (number && std::isnan(number.doubleValue)) {
         if (outExceptionString)
-            *outExceptionString = constructExpectedMessage(key, classToClassString(expectedValueType), @"NaN");
+            *outExceptionString = constructExpectedMessage(key, classToClassString(expectedValueType), valueToTypeString(value));
         return false;
     }
 
     if (number && std::isinf(number.doubleValue)) {
         if (outExceptionString)
-            *outExceptionString = constructExpectedMessage(key, classToClassString(expectedValueType), @"Infinity");
+            *outExceptionString = constructExpectedMessage(key, classToClassString(expectedValueType), valueToTypeString(value));
         return false;
     }
 
     if (![value isKindOfClass:expectedValueType]) {
         if (outExceptionString)
-            *outExceptionString = constructExpectedMessage(key, classToClassString(expectedValueType), classToClassString(value.class));
+            *outExceptionString = constructExpectedMessage(key, classToClassString(expectedValueType), valueToTypeString(value));
         return false;
     }
 
     if (number && expectedValueType != @YES.class && [number isKindOfClass:@YES.class]) {
         if (outExceptionString)
-            *outExceptionString = constructExpectedMessage(key, classToClassString(expectedValueType), classToClassString(@YES.class));
+            *outExceptionString = constructExpectedMessage(key, classToClassString(expectedValueType), valueToTypeString(value));
         return false;
     }
 
@@ -128,17 +162,14 @@ static bool validateArray(NSString *key, NSObject *value, NSArray<Class> *validC
     NSArray *arrayValue = dynamic_objc_cast<NSArray>(value);
     if (!arrayValue) {
         if (outExceptionString)
-            *outExceptionString = constructExpectedMessage(key, classToClassString(NSArray.class), classToClassString(value.class));
+            *outExceptionString = constructExpectedMessage(key, [NSString stringWithFormat:@"an array of %@", classToClassString(expectedElementType, true)], valueToTypeString(value));
         return false;
     }
 
     for (NSObject *element in arrayValue) {
         if (!validateSingleObject(nil, element, expectedElementType, nullptr)) {
-            if (outExceptionString) {
-                auto *foundString = [element isKindOfClass:NSArray.class] ? @"an array with other values" : classToClassString(element.class);
-                *outExceptionString = constructExpectedMessage(key, [NSString stringWithFormat:@"%@ in an array", classToClassString(expectedElementType, true)], foundString);
-            }
-
+            if (outExceptionString)
+                *outExceptionString = constructExpectedMessage(key, [NSString stringWithFormat:@"an array of %@", classToClassString(expectedElementType, true)], valueToTypeString(element), true);
             return false;
         }
     }
@@ -188,7 +219,7 @@ static bool validateSet(NSString *key, NSObject *value, NSOrderedSet *validClass
     }
 
     if (outExceptionString) {
-        auto *foundString = arrayIsValid && [value isKindOfClass:NSArray.class] ? @"an array with other values" : classToClassString(value.class);
+        auto *foundString = arrayIsValid && [value isKindOfClass:NSArray.class] ? @"an array of other values" : valueToTypeString(value);
         *outExceptionString = constructExpectedMessage(key, expectedValuesString, foundString);
     }
 
@@ -223,11 +254,15 @@ static NSString *formatList(NSArray<NSString *> *list)
     return [NSString stringWithFormat:@"'%@', and '%@'", formattedInitialItems, list.lastObject];
 }
 
-bool validateDictionary(NSDictionary<NSString *, id> *dictionary, NSString *sourceKey, NSArray<NSString *> *requiredKeys, NSArray<NSString *> *optionalKeys, NSDictionary<NSString *, id> *keyTypes, NSString **outExceptionString)
+bool validateDictionary(NSDictionary<NSString *, id> *dictionary, NSString *sourceKey, NSArray<NSString *> *requiredKeys, NSDictionary<NSString *, id> *keyTypes, NSString **outExceptionString)
 {
+    ASSERT(keyTypes.count);
+
     NSMutableSet<NSString *> *remainingRequiredKeys = [[NSMutableSet alloc] initWithArray:requiredKeys];
     NSSet<NSString *> *requiredKeysSet = [[NSSet alloc] initWithArray:requiredKeys];
-    NSSet<NSString *> *optionalKeysSet = [[NSSet alloc] initWithArray:optionalKeys];
+
+    NSMutableSet<NSString *> *optionalKeysSet = [[NSMutableSet alloc] initWithArray:keyTypes.allKeys];
+    [optionalKeysSet minusSet:requiredKeysSet];
 
     __block NSString *errorString;
 
@@ -262,6 +297,8 @@ bool validateDictionary(NSDictionary<NSString *, id> *dictionary, NSString *sour
 
 bool validateObject(NSObject *object, NSString *sourceKey, id expectedValueType, NSString **outExceptionString)
 {
+    ASSERT(expectedValueType);
+
     NSString *errorString;
     validate(nil, object, expectedValueType, &errorString);
 
@@ -319,6 +356,16 @@ NSString *toErrorString(NSString *callingAPIName, NSString *sourceKey, NSString 
 JSObjectRef toJSError(JSContextRef context, NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString)
 {
     return toJSError(context, toErrorString(callingAPIName, sourceKey, underlyingErrorString));
+}
+
+NSString *toWebAPI(NSLocale *locale)
+{
+    if (!locale.languageCode)
+        return nil;
+
+    if (locale.countryCode.length)
+        return [NSString stringWithFormat:@"%@-%@", locale.languageCode, locale.countryCode];
+    return locale.languageCode;
 }
 
 } // namespace WebKit

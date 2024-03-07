@@ -65,7 +65,7 @@ OBJC_EXTERN const uint32_t objc_debug_autoreleasepoolpage_depth_offset  = __buil
 OBJC_EXTERN const uint32_t objc_debug_autoreleasepoolpage_hiwat_offset  = __builtin_offsetof(AutoreleasePoolPageData, hiwat);
 OBJC_EXTERN const uint32_t objc_debug_autoreleasepoolpage_begin_offset  = sizeof(AutoreleasePoolPageData);
 #if SUPPORT_AUTORELEASEPOOL_DEDUP_PTRS
-OBJC_EXTERN const uintptr_t objc_debug_autoreleasepoolpage_ptr_mask = (AutoreleasePoolPageData::AutoreleasePoolEntry){ .ptr = ~(uintptr_t)0 }.ptr;
+OBJC_EXTERN const uintptr_t objc_debug_autoreleasepoolpage_ptr_mask = AutoreleasePoolPageData::AutoreleasePoolEntry::pointerMask;
 #else
 OBJC_EXTERN const uintptr_t objc_debug_autoreleasepoolpage_ptr_mask = ~(uintptr_t)0;
 #endif
@@ -102,7 +102,12 @@ explicit_atomic<id(*)(id)> swiftRetain{&_initializeSwiftRefcountingThenCallRetai
 explicit_atomic<void(*)(id)> swiftRelease{&_initializeSwiftRefcountingThenCallRelease};
 
 static void _initializeSwiftRefcounting() {
-    void *const token = dlopen("/usr/lib/swift/libswiftCore.dylib", RTLD_LAZY | RTLD_LOCAL);
+#if TARGET_OS_EXCLAVEKIT
+#   define LIBSWIFTCORE_PATH "/System/ExclaveKit/usr/lib/swift/libswiftCore.dylib"
+#else
+#   define LIBSWIFTCORE_PATH "/usr/lib/swift/libswiftCore.dylib"
+#endif
+    void *const token = dlopen(LIBSWIFTCORE_PATH, RTLD_LAZY | RTLD_LOCAL);
     ASSERT(token);
     swiftRetain.store((id(*)(id))dlsym(token, "swift_retain"), memory_order_relaxed);
     ASSERT(swiftRetain.load(memory_order_relaxed));
@@ -202,32 +207,10 @@ void SideTableForceResetAll() {
     SideTables().forceResetAll();
 }
 
-void SideTableDefineLockOrder() {
-    SideTables().defineLockOrder();
-}
-
-void SideTableLocksPrecedeLock(const void *newlock) {
-    SideTables().precedeLock(newlock);
-}
-
-void SideTableLocksSucceedLock(const void *oldlock) {
-    SideTables().succeedLock(oldlock);
-}
-
-void SideTableLocksPrecedeLocks(StripedMap<spinlock_t>& newlocks) {
-    int i = 0;
-    const void *newlock;
-    while ((newlock = newlocks.getLock(i++))) {
-        SideTables().precedeLock(newlock);
-    }
-}
-
-void SideTableLocksSucceedLocks(StripedMap<spinlock_t>& oldlocks) {
-    int i = 0;
-    const void *oldlock;
-    while ((oldlock = oldlocks.getLock(i++))) {
-        SideTables().succeedLock(oldlock);
-    }
+spinlock_t *SideTableGetLock(unsigned n) {
+    if (auto *entry = SideTables().getLock(n))
+        return &entry->slock;
+    return nullptr;
 }
 
 // Call out to the _setWeaklyReferenced method on obj, if implemented.
@@ -844,13 +827,13 @@ private:
                         if (offsetEntry <= (AutoreleasePoolEntry*)begin() || *(id *)offsetEntry == POOL_BOUNDARY) {
                             break;
                         }
-                        if (offsetEntry->ptr == (uintptr_t)obj && offsetEntry->count < AutoreleasePoolEntry::maxCount) {
+                        if (offsetEntry->getPointer() == (uintptr_t)obj && offsetEntry->getCount() < AutoreleasePoolEntry::maxCount) {
                             if (offset > 0) {
                                 AutoreleasePoolEntry found = *offsetEntry;
                                 memmove(offsetEntry, offsetEntry + 1, offset * sizeof(*offsetEntry));
                                 *topEntry = found;
                             }
-                            topEntry->count++;
+                            topEntry->incrementCount();
                             ret = (id *)topEntry;  // need to reset ret
                             goto done;
                         }
@@ -859,8 +842,8 @@ private:
             } else {
                 if (!empty() && (obj != POOL_BOUNDARY)) {
                     AutoreleasePoolEntry *prevEntry = (AutoreleasePoolEntry *)next - 1;
-                    if (prevEntry->ptr == (uintptr_t)obj && prevEntry->count < AutoreleasePoolEntry::maxCount) {
-                        prevEntry->count++;
+                    if (prevEntry->getPointer() == (uintptr_t)obj && prevEntry->getCount() < AutoreleasePoolEntry::maxCount) {
+                        prevEntry->incrementCount();
                         ret = (id *)prevEntry;  // need to reset ret
                         goto done;
                     }
@@ -872,7 +855,7 @@ private:
         *next++ = obj;
 #if SUPPORT_AUTORELEASEPOOL_DEDUP_PTRS
         // Make sure obj fits in the bits available for it
-        ASSERT(((AutoreleasePoolEntry *)ret)->ptr == (uintptr_t)obj);
+        ASSERT(((AutoreleasePoolEntry *)ret)->getPointer() == (uintptr_t)obj);
 #endif
      done:
         protect();
@@ -919,8 +902,8 @@ private:
                 AutoreleasePoolEntry* entry = (AutoreleasePoolEntry*) --page->next;
 
                 // create an obj with the zeroed out top byte and release that
-                id obj = (id)entry->ptr;
-                int count = (int)entry->count;  // grab these before memset
+                id obj = (id)entry->getPointer();
+                int count = (int)entry->getCount();  // grab these before memset
 #else
                 id obj = *--page->next;
 #endif
@@ -1142,7 +1125,7 @@ public:
         ASSERT(!_objc_isTaggedPointerOrNil(obj));
         id *dest __unused = autoreleaseFast(obj);
 #if SUPPORT_AUTORELEASEPOOL_DEDUP_PTRS
-        ASSERT(!dest  ||  dest == (id *)EMPTY_POOL_PLACEHOLDER  ||  (id)((AutoreleasePoolEntry *)dest)->ptr == obj);
+        ASSERT(!dest  ||  dest == (id *)EMPTY_POOL_PLACEHOLDER  ||  (id)((AutoreleasePoolEntry *)dest)->getPointer() == obj);
 #else
         ASSERT(!dest  ||  dest == (id *)EMPTY_POOL_PLACEHOLDER  ||  *dest == obj);
 #endif
@@ -1314,11 +1297,11 @@ public:
             } else {
 #if SUPPORT_AUTORELEASEPOOL_DEDUP_PTRS
                 AutoreleasePoolEntry *entry = (AutoreleasePoolEntry *)p;
-                if (entry->count > 0) {
-                    id obj = (id)entry->ptr;
-                    _objc_inform("[%p]  %#16lx  %s  autorelease count %u",
+                if (entry->getCount() > 0) {
+                    id obj = (id)entry->getPointer();
+                    _objc_inform("[%p]  %#16lx  %s  autorelease count %lu",
                                  p, (unsigned long)obj, object_getClassName(obj),
-                                 entry->count + 1);
+                                 (unsigned long)entry->getCount() + 1);
                     goto done;
                 }
 #endif
@@ -1364,7 +1347,7 @@ public:
         unsigned sumOfExtraReleases = 0;
         for (id *p = begin(); p < next; p++) {
             if (*p != POOL_BOUNDARY) {
-                sumOfExtraReleases += ((AutoreleasePoolEntry *)p)->count;
+                sumOfExtraReleases += ((AutoreleasePoolEntry *)p)->getCount();
             }
         }
         return sumOfExtraReleases;

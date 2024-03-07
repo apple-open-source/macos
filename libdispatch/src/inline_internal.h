@@ -229,7 +229,7 @@ static inline _os_object_t
 _os_object_retain_internal_n_inline(_os_object_t obj, int n)
 {
 	int ref_cnt = _os_object_refcnt_add_orig(obj, n);
-	if (unlikely(ref_cnt < 0)) {
+	if (unlikely(ref_cnt < 1)) {
 		_OS_OBJECT_CLIENT_CRASH("Resurrection of an object");
 	}
 	return obj;
@@ -240,7 +240,7 @@ static inline void
 _os_object_release_internal_n_no_dispose_inline(_os_object_t obj, int n)
 {
 	int ref_cnt = _os_object_refcnt_sub(obj, n);
-	if (likely(ref_cnt >= 0)) {
+	if (likely(ref_cnt >= 1)) {
 		return;
 	}
 	_OS_OBJECT_CLIENT_CRASH("Over-release of an object");
@@ -251,15 +251,15 @@ static inline void
 _os_object_release_internal_n_inline(_os_object_t obj, int n)
 {
 	int ref_cnt = _os_object_refcnt_sub(obj, n);
-	if (likely(ref_cnt >= 0)) {
+	if (likely(ref_cnt >= 1)) {
 		return;
 	}
-	if (unlikely(ref_cnt < -1)) {
+	if (unlikely(ref_cnt < 0)) {
 		_OS_OBJECT_CLIENT_CRASH("Over-release of an object");
 	}
 #if DISPATCH_DEBUG
 	int xref_cnt = obj->os_obj_xref_cnt;
-	if (unlikely(xref_cnt >= 0)) {
+	if (unlikely(xref_cnt >= 1)) {
 		DISPATCH_INTERNAL_CRASH(xref_cnt,
 				"Release while external references exist");
 	}

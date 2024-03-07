@@ -80,7 +80,6 @@ Shared/CoordinatedGraphics/SimpleViewportController.cpp
 
 Shared/CoordinatedGraphics/threadedcompositor/CompositingRunLoop.cpp
 Shared/CoordinatedGraphics/threadedcompositor/ThreadedCompositor.cpp
-Shared/CoordinatedGraphics/threadedcompositor/ThreadedDisplayRefreshMonitor.cpp
 
 Shared/cairo/ShareableBitmapCairo.cpp
 
@@ -104,6 +103,14 @@ Shared/soup/WebCoreArgumentCodersSoup.cpp
 Shared/soup/WebErrorsSoup.cpp
 
 Shared/unix/AuxiliaryProcessMain.cpp
+
+Shared/wpe/GRefPtrWPE.cpp @no-unify
+Shared/wpe/NativeWebKeyboardEventWPE.cpp
+Shared/wpe/NativeWebMouseEventWPE.cpp
+Shared/wpe/NativeWebTouchEventWPE.cpp
+Shared/wpe/NativeWebWheelEventWPE.cpp
+Shared/wpe/WebEventFactoryWPE.cpp
+Shared/wpe/WebKeyboardEventWPE.cpp
 
 UIProcess/DefaultUndoController.cpp
 UIProcess/LegacySessionStateCodingNone.cpp
@@ -208,7 +215,7 @@ UIProcess/API/wpe/WebKitWebViewBackend.cpp @no-unify
 UIProcess/API/wpe/WebKitWebViewWPE1.cpp @no-unify
 UIProcess/API/wpe/WebKitWebViewWPE2.cpp @no-unify
 UIProcess/API/wpe/WebKitWebViewWPE.cpp @no-unify
-UIProcess/API/wpe/WPEView.cpp @no-unify
+UIProcess/API/wpe/WPEWebView.cpp @no-unify
 
 UIProcess/Automation/cairo/WebAutomationSessionCairo.cpp
 
@@ -220,6 +227,10 @@ UIProcess/Gamepad/libwpe/UIGamepadProviderLibWPE.cpp
 
 UIProcess/geoclue/GeoclueGeolocationProvider.cpp
 
+UIProcess/glib/DisplayLinkGLib.cpp
+UIProcess/glib/DisplayVBlankMonitor.cpp
+UIProcess/glib/DisplayVBlankMonitorDRM.cpp
+UIProcess/glib/DisplayVBlankMonitorTimer.cpp
 UIProcess/glib/WebPageProxyGLib.cpp
 UIProcess/glib/WebProcessPoolGLib.cpp
 UIProcess/glib/WebProcessProxyGLib.cpp
@@ -248,6 +259,7 @@ UIProcess/linux/MemoryPressureMonitor.cpp
 
 UIProcess/soup/WebProcessPoolSoup.cpp
 
+UIProcess/wpe/AcceleratedBackingStoreDMABuf.cpp
 UIProcess/wpe/WebPageProxyWPE.cpp
 
 WebProcess/GPU/graphics/gbm/RemoteGraphicsContextGLProxyGBM.cpp
@@ -277,6 +289,8 @@ WebProcess/WebPage/AcceleratedSurface.cpp
 WebProcess/WebPage/CoordinatedGraphics/CompositingCoordinator.cpp
 WebProcess/WebPage/CoordinatedGraphics/DrawingAreaCoordinatedGraphics.cpp
 WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp
+
+WebProcess/WebPage/dmabuf/AcceleratedSurfaceDMABuf.cpp @no-unify
 
 WebProcess/WebPage/glib/WebPageGLib.cpp
 

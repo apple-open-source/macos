@@ -29,8 +29,6 @@
 #include "config.h"
 #include "CryptoAlgorithmHMAC.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyHMAC.h"
 #include <pal/crypto/gcrypt/Handle.h>
 #include <wtf/CryptographicUtilities.h>
@@ -86,11 +84,11 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHMAC::platformSign(const CryptoKeyHM
 {
     auto algorithm = getGCryptDigestAlgorithm(key.hashAlgorithmIdentifier());
     if (algorithm == GCRY_MAC_NONE)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto result = calculateSignature(algorithm, key.key(), data.data(), data.size());
     if (!result)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     return WTFMove(*result);
 }
 
@@ -98,15 +96,13 @@ ExceptionOr<bool> CryptoAlgorithmHMAC::platformVerify(const CryptoKeyHMAC& key, 
 {
     auto algorithm = getGCryptDigestAlgorithm(key.hashAlgorithmIdentifier());
     if (algorithm == GCRY_MAC_NONE)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto expectedSignature = calculateSignature(algorithm, key.key(), data.data(), data.size());
     if (!expectedSignature)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     // Using a constant time comparison to prevent timing attacks.
     return signature.size() == expectedSignature->size() && !constantTimeMemcmp(expectedSignature->data(), signature.data(), expectedSignature->size());
 }
 
-}
-
-#endif // ENABLE(WEB_CRYPTO)
+} // namespace WebCore

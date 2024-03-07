@@ -25,6 +25,8 @@
 #ifndef KIM_UI_PLUGIN_H
 #define KIM_UI_PLUGIN_H
 
+#include <Kerberos/kim_types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

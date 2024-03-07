@@ -669,7 +669,7 @@ extern const CFStringRef kSecImportExportAccess
         the SHA-1 digest of the public key.
     @constant kSecImportItemIdentity a SecIdentityRef representing the identity.
     @constant kSecImportItemTrust a SecTrustRef set up with all relevant
-        certificates.  Not guaranteed to succesfully evaluate.
+        certificates.  Not guaranteed to successfully evaluate.
     @constant kSecImportItemCertChain a CFArrayRef holding all relevant
         certificates for this item's identity
 */

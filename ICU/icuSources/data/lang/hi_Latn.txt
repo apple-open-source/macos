@@ -18,33 +18,20 @@ hi_Latn{
     }
     Languages{
         af{"Afreeki"}
-        ars{"Najdi Arabic"}
-        bla{"Siksika"}
+        bgc{"Hariyaanvi"}
         bo{"Tibbati"}
         crh{"Crimean Turkish"}
-        dv{"Divehi"}
         fa{"Faarsi"}
         ff{"Fulah"}
-        ii{"Sichuan Yi"}
         lah{"Lahnda"}
         nan{"Min Nan"}
         nb{"Norwegian Bokmal"}
         nds_NL{"Low Saxon"}
-        sah{"Yakut"}
-        syr{"Syriac"}
         ug{"Uighur"}
         wal{"walamo"}
-        wuu{"Wu Chinese"}
-        zgh{"Standard Moroccan Tamazight"}
-        zh_Hans{"Simplified Chinese"}
-        zh_Hant{"Traditional Chinese"}
-    }
-    Languages%menu{
-        ars{"Arabic, Najdi"}
     }
     Scripts{
         Bali{"Baali"}
-        Hmng{"Pahawh Hmong"}
         Inds{"Sindhu"}
         Mymr{"Burmese"}
         Talu{"Naya Tai Lue"}

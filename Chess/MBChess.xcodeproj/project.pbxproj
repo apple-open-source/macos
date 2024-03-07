@@ -53,7 +53,16 @@
 		72527B4E229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B4F229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B51229F544500070CBF /* Tuner.xib in Resources */ = {isa = PBXBuildFile; fileRef = 72527B50229F544500070CBF /* Tuner.xib */; };
+		903CEAA62B5205A300D2B51F /* MBCSharePlayDelegates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CF31A22707D14200815825 /* MBCSharePlayDelegates.swift */; };
+		903CEAA72B5205AC00D2B51F /* MBCSharePlayMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59F261B26FE44C600F7A5E8 /* MBCSharePlayMessages.swift */; };
+		903CEAA92B52060700D2B51F /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 903CEAA82B52060700D2B51F /* MetalKit.framework */; };
+		903CEAAB2B52060C00D2B51F /* GameKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 903CEAAA2B52060C00D2B51F /* GameKit.framework */; };
+		903CEAAD2B52061400D2B51F /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 903CEAAC2B52061400D2B51F /* MetalPerformanceShaders.framework */; };
+		903CEAAE2B52061C00D2B51F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */; };
+		903CEAAF2B52063200D2B51F /* MBCDebug.cp in Sources */ = {isa = PBXBuildFile; fileRef = 95459B761492B9160083FCE3 /* MBCDebug.cp */; };
 		906D235A244F6F800061834A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 906D2359244F6F800061834A /* Images.xcassets */; };
+		90B7C76E2B52021E00A117C2 /* MBChess-InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 90B7C76B2B52021E00A117C2 /* MBChess-InfoPlist.strings */; };
+		90B7C76F2B52026600A117C2 /* ChessTuner-InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 90B7C7692B52021E00A117C2 /* ChessTuner-InfoPlist.strings */; };
 		950BD1140A1E582B00395116 /* MBCBoard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */; };
 		950BD1150A1E582B00395116 /* MBCEngineCommands.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */; };
 		950BD1160A1E582B00395116 /* MBCPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */; };
@@ -75,7 +84,6 @@
 		950BD1260A1E582B00395116 /* MBCAbout.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C4075B04B2B8500015A26B /* MBCAbout.h */; };
 		950BD1270A1E582B00395116 /* MBCLanguageModel.h in Headers */ = {isa = PBXBuildFile; fileRef = 95D2026204C2247A00590F98 /* MBCLanguageModel.h */; };
 		950BD1280A1E582B00395116 /* MBCBoardViewAccessibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */; };
-		950BD12B0A1E582B00395116 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
 		950BD12C0A1E582B00395116 /* bug.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1C02F917A901D8996C /* bug.opn */; };
 		950BD12D0A1E582B00395116 /* losers.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1D02F917A901D8996C /* losers.opn */; };
 		950BD12E0A1E582B00395116 /* nbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1E02F917A901D8996C /* nbook.db */; };
@@ -176,7 +184,6 @@
 		95844CAB0A670C280068CA82 /* MBCAbout.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C4075B04B2B8500015A26B /* MBCAbout.h */; };
 		95844CAC0A670C280068CA82 /* MBCLanguageModel.h in Headers */ = {isa = PBXBuildFile; fileRef = 95D2026204C2247A00590F98 /* MBCLanguageModel.h */; };
 		95844CAD0A670C280068CA82 /* MBCBoardViewAccessibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */; };
-		95844CB00A670C280068CA82 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
 		95844CB10A670C280068CA82 /* bug.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1C02F917A901D8996C /* bug.opn */; };
 		95844CB20A670C280068CA82 /* losers.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1D02F917A901D8996C /* losers.opn */; };
 		95844CB30A670C280068CA82 /* nbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1E02F917A901D8996C /* nbook.db */; };
@@ -319,18 +326,23 @@
 
 /* Begin PBXFileReference section */
 		088506B723F30F480047C095 /* sjeng_host */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sjeng_host; sourceTree = BUILT_PRODUCTS_DIR; };
-		089C165DFE840E0CC02AAC07 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Chess_128x128.png; path = Resources/Icons/Chess_128x128.png; sourceTree = "<group>"; };
 		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		72527B4D229F534100070CBF /* COPYING */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = COPYING; path = sjeng/COPYING; sourceTree = "<group>"; };
 		72527B50229F544500070CBF /* Tuner.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = Tuner.xib; sourceTree = "<group>"; };
+		903CEAA82B52060700D2B51F /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		903CEAAA2B52060C00D2B51F /* GameKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameKit.framework; path = System/Library/Frameworks/GameKit.framework; sourceTree = SDKROOT; };
+		903CEAAC2B52061400D2B51F /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = SDKROOT; };
 		906D2359244F6F800061834A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = MBChess/Images.xcassets; sourceTree = "<group>"; };
 		90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Chess.xcconfig; sourceTree = "<group>"; };
+		90B7C7652B5201B800A117C2 /* ChessTuner-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "ChessTuner-Info.plist"; path = "Resources/ChessTuner-Info.plist"; sourceTree = "<group>"; };
+		90B7C76A2B52021E00A117C2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = "en.lproj/ChessTuner-InfoPlist.strings"; sourceTree = "<group>"; };
+		90B7C76C2B52021E00A117C2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = "en.lproj/MBChess-InfoPlist.strings"; sourceTree = "<group>"; };
 		950B5942049D8C73000001C9 /* MBCMoveGenerator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCMoveGenerator.h; path = Sources/MBCMoveGenerator.h; sourceTree = "<group>"; };
 		950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveGenerator.mm; path = Sources/MBCMoveGenerator.mm; sourceTree = "<group>"; };
-		950BD16F0A1E582B00395116 /* Info-MBChess.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-MBChess.plist"; path = "Resources/Info-MBChess.plist"; sourceTree = "<group>"; };
+		950BD16F0A1E582B00395116 /* MBChess-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "MBChess-Info.plist"; path = "Resources/MBChess-Info.plist"; sourceTree = "<group>"; };
 		950BD1700A1E582B00395116 /* Chess.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chess.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		950EE08807769701004ED524 /* Chess.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Chess.plist; path = Resources/Chess.plist; sourceTree = "<group>"; };
 		950EE08907769701004ED524 /* Chess.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Chess.txt; path = Resources/Chess.txt; sourceTree = "<group>"; };
@@ -348,7 +360,6 @@
 		9575D07F14254A8100E65579 /* MBCBoardWin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCBoardWin.h; path = Sources/MBCBoardWin.h; sourceTree = "<group>"; };
 		9575D08014254A8100E65579 /* MBCBoardWin.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardWin.mm; path = Sources/MBCBoardWin.mm; sourceTree = "<group>"; };
 		95844C900A670C1E0068CA82 /* sjeng.ChessEngine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sjeng.ChessEngine; sourceTree = BUILT_PRODUCTS_DIR; };
-		95844CF10A670C280068CA82 /* Info-ChessTuner.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-ChessTuner.plist"; sourceTree = "<group>"; };
 		95844CF20A670C280068CA82 /* Chess Tuner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Chess Tuner.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9594A40504C76CA4005DC0DD /* SpeechHelp.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = SpeechHelp.plist; path = Resources/SpeechHelp.plist; sourceTree = "<group>"; };
 		9595B6C00458E2CD00A8D2EE /* sjeng.rc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sjeng.rc; path = sjeng/sjeng.rc; sourceTree = "<group>"; };
@@ -492,6 +503,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				903CEAAE2B52061C00D2B51F /* SystemConfiguration.framework in Frameworks */,
+				903CEAAD2B52061400D2B51F /* MetalPerformanceShaders.framework in Frameworks */,
+				903CEAAB2B52060C00D2B51F /* GameKit.framework in Frameworks */,
+				903CEAA92B52060700D2B51F /* MetalKit.framework in Frameworks */,
 				95844CEA0A670C280068CA82 /* Cocoa.framework in Frameworks */,
 				95844CEB0A670C280068CA82 /* OpenGL.framework in Frameworks */,
 				95844CEC0A670C280068CA82 /* Carbon.framework in Frameworks */,
@@ -584,12 +599,13 @@
 				95D8521613E710B80045366C /* MainMenu.xib */,
 				956195E80EB12AD70097627D /* selected_piece_texture.png */,
 				9556A24414FC15F4000219D4 /* selected_piece_texture@2x.png */,
-				95844CF10A670C280068CA82 /* Info-ChessTuner.plist */,
-				950BD16F0A1E582B00395116 /* Info-MBChess.plist */,
+				950BD16F0A1E582B00395116 /* MBChess-Info.plist */,
+				90B7C76B2B52021E00A117C2 /* MBChess-InfoPlist.strings */,
+				90B7C7652B5201B800A117C2 /* ChessTuner-Info.plist */,
+				90B7C7692B52021E00A117C2 /* ChessTuner-InfoPlist.strings */,
 				950EE08807769701004ED524 /* Chess.plist */,
 				950EE08907769701004ED524 /* Chess.txt */,
 				72527B4D229F534100070CBF /* COPYING */,
-				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
 				F5775A1C02F917A901D8996C /* bug.opn */,
 				95D6CE62045BBDBE0045D5FC /* Localizable.strings */,
 				95D4D5191327E29E0063FA06 /* Spoken.strings */,
@@ -610,6 +626,9 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				903CEAAC2B52061400D2B51F /* MetalPerformanceShaders.framework */,
+				903CEAAA2B52060C00D2B51F /* GameKit.framework */,
+				903CEAA82B52060700D2B51F /* MetalKit.framework */,
 				A5CF31A6270D062800815825 /* UserNotifications.framework */,
 				D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */,
 				D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */,
@@ -1062,7 +1081,6 @@
 			files = (
 				95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */,
 				906D235A244F6F800061834A /* Images.xcassets in Resources */,
-				950BD12B0A1E582B00395116 /* InfoPlist.strings in Resources */,
 				950BD12C0A1E582B00395116 /* bug.opn in Resources */,
 				950BD12D0A1E582B00395116 /* losers.opn in Resources */,
 				950BD12E0A1E582B00395116 /* nbook.db in Resources */,
@@ -1083,6 +1101,7 @@
 				95261CDD1478580E004EF501 /* background.pdf in Resources */,
 				95ECDE271491C5B100DFD47B /* container-migration.plist in Resources */,
 				9556A24514FC15F4000219D4 /* selected_piece_texture@2x.png in Resources */,
+				90B7C76E2B52021E00A117C2 /* MBChess-InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1090,7 +1109,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				95844CB00A670C280068CA82 /* InfoPlist.strings in Resources */,
+				90B7C76F2B52026600A117C2 /* ChessTuner-InfoPlist.strings in Resources */,
 				95844CB10A670C280068CA82 /* bug.opn in Resources */,
 				95844CB20A670C280068CA82 /* losers.opn in Resources */,
 				95844CB30A670C280068CA82 /* nbook.db in Resources */,
@@ -1221,7 +1240,9 @@
 				95844CD20A670C280068CA82 /* main.mm in Sources */,
 				95844CD30A670C280068CA82 /* MBCBoard.mm in Sources */,
 				95844CD40A670C280068CA82 /* MBCEngineCommands.l in Sources */,
+				903CEAA62B5205A300D2B51F /* MBCSharePlayDelegates.swift in Sources */,
 				95844CD50A670C280068CA82 /* MBCPlayer.mm in Sources */,
+				903CEAAF2B52063200D2B51F /* MBCDebug.cp in Sources */,
 				95844CD60A670C280068CA82 /* MBCEngine.mm in Sources */,
 				95844CD70A670C280068CA82 /* MBCBoardViewModels.mm in Sources */,
 				95844CD80A670C280068CA82 /* MBCBoardViewDraw.mm in Sources */,
@@ -1234,6 +1255,7 @@
 				95844CDF0A670C280068CA82 /* MBCInteractivePlayer.mm in Sources */,
 				95844CE00A670C280068CA82 /* MBCDocument.mm in Sources */,
 				95844CE10A670C280068CA82 /* MBCBoardAnimation.mm in Sources */,
+				903CEAA72B5205AC00D2B51F /* MBCSharePlayMessages.swift in Sources */,
 				95844CE20A670C280068CA82 /* MBCGameInfo.mm in Sources */,
 				95844CE30A670C280068CA82 /* MBCTuner.mm in Sources */,
 				95844CE40A670C280068CA82 /* MBCFloatingBoardWindow.mm in Sources */,
@@ -1286,12 +1308,20 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		089C165CFE840E0CC02AAC07 /* InfoPlist.strings */ = {
+		90B7C7692B52021E00A117C2 /* ChessTuner-InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				089C165DFE840E0CC02AAC07 /* en */,
+				90B7C76A2B52021E00A117C2 /* en */,
 			);
-			name = InfoPlist.strings;
+			name = "ChessTuner-InfoPlist.strings";
+			sourceTree = "<group>";
+		};
+		90B7C76B2B52021E00A117C2 /* MBChess-InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				90B7C76C2B52021E00A117C2 /* en */,
+			);
+			name = "MBChess-InfoPlist.strings";
 			sourceTree = "<group>";
 		};
 		95D4D5191327E29E0063FA06 /* Spoken.strings */ = {
@@ -1459,7 +1489,7 @@
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
+				INFOPLIST_FILE = "Resources/MBChess-Info.plist";
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
@@ -1501,7 +1531,7 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
+				INFOPLIST_FILE = "Resources/MBChess-Info.plist";
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
@@ -1541,7 +1571,7 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
+				INFOPLIST_FILE = "Resources/MBChess-Info.plist";
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
@@ -1741,7 +1771,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Resources/ChessTuner-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
@@ -1772,7 +1802,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Resources/ChessTuner-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
@@ -1801,7 +1831,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Resources/ChessTuner-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";

@@ -16,6 +16,8 @@
     T_META_REQUIRES_SYSTCL_EQ("kern.pervasive_energy", 1)
 #define REQUIRE_MULTIPLE_PERF_LEVELS \
     T_META_REQUIRES_SYSCTL_EQ("hw.nperflevels", 2)
+#define REQUIRE_EXCLAVES \
+    T_META_REQUIRES_SYSCTL_EQ("kern.exclaves_status", 1)
 #define SET_THREAD_BIND_BOOTARG \
     T_META_BOOTARGS_SET("enable_skstb=1")
 
@@ -41,8 +43,12 @@ const char *perf_level_name(unsigned int perf_level);
 // Returns the index of the named perf-level.
 unsigned int perf_level_index(const char *name);
 
-// Run periodically on all perf levels -- must have `SET_THREAD_BIND_BOOTARG`.
+// Run temporarily on all perf levels -- must have `SET_THREAD_BIND_BOOTARG`.
 void run_on_all_perf_levels(void);
+
+// Run temporarily in exclaves on all perf levels -- must have
+// `SET_THREAD_BIND_BOOTARG` and
+void run_in_exclaves_on_all_perf_levels(void);
 
 // Return the nanoseconds represented by a Mach time.
 uint64_t ns_from_mach(uint64_t mach_time);

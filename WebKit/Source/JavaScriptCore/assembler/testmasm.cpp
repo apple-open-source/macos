@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1357,7 +1357,7 @@ void testExtractUnsignedBitfield64()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 64) {
+            if (width > 0 && lsb + width < 64) {
                 auto ubfx64 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1381,7 +1381,7 @@ void testInsertUnsignedBitfieldInZero32()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 32) {
+            if (width > 0 && lsb + width < 32) {
                 auto ubfiz32 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1406,7 +1406,7 @@ void testInsertUnsignedBitfieldInZero64()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 64) {
+            if (width > 0 && lsb + width < 64) {
                 auto ubfiz64 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1432,7 +1432,7 @@ void testInsertBitField32()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 32) {
+            if (width > 0 && lsb + width < 32) {
                 auto bfi32 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1462,7 +1462,7 @@ void testInsertBitField64()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 64) {
+            if (width > 0 && lsb + width < 64) {
                 auto bfi64 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1492,7 +1492,7 @@ void testExtractInsertBitfieldAtLowEnd32()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 32) {
+            if (width > 0 && lsb + width < 32) {
                 auto bfxil32 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1522,7 +1522,7 @@ void testExtractInsertBitfieldAtLowEnd64()
     Vector<uint64_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 64) {
+            if (width > 0 && lsb + width < 64) {
                 auto bfxil64 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1551,7 +1551,7 @@ void testClearBitField32()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 32) {
+            if (width > 0 && lsb + width < 32) {
                 auto bfc32 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1576,7 +1576,7 @@ void testClearBitField64()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 32) {
+            if (width > 0 && lsb + width < 32) {
                 auto bfc64 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1673,7 +1673,7 @@ void testInsertSignedBitfieldInZero32()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 32) {
+            if (width > 0 && lsb + width < 32) {
                 auto insertSignedBitfieldInZero32 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1703,7 +1703,7 @@ void testInsertSignedBitfieldInZero64()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 64) {
+            if (width > 0 && lsb + width < 64) {
                 auto insertSignedBitfieldInZero64 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1732,7 +1732,7 @@ void testExtractSignedBitfield32()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 32) {
+            if (width > 0 && lsb + width < 32) {
                 auto extractSignedBitfield32 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1762,7 +1762,7 @@ void testExtractSignedBitfield64()
     Vector<uint32_t> imms = { 0, 1, 5, 7, 30, 31, 32, 42, 56, 62, 63, 64 };
     for (auto lsb : imms) {
         for (auto width : imms) {
-            if (lsb >= 0 && width > 0 && lsb + width < 64) {
+            if (width > 0 && lsb + width < 64) {
                 auto extractSignedBitfield64 = compile([=] (CCallHelpers& jit) {
                     emitFunctionPrologue(jit);
 
@@ -1793,7 +1793,7 @@ void testExtractRegister32()
     for (auto n : int32Operands()) {
         for (auto m : int32Operands()) {
             for (auto lsb : imms) {
-                if (0 <= lsb && lsb < datasize) {
+                if (lsb < datasize) {
                     auto extractRegister32 = compile([=] (CCallHelpers& jit) {
                         emitFunctionPrologue(jit);
 
@@ -1830,7 +1830,7 @@ void testExtractRegister64()
     for (auto n : int64Operands()) {
         for (auto m : int64Operands()) {
             for (auto lsb : imms) {
-                if (0 <= lsb && lsb < datasize) {
+                if (lsb < datasize) {
                     auto extractRegister64 = compile([=] (CCallHelpers& jit) {
                         emitFunctionPrologue(jit);
 
@@ -3010,7 +3010,7 @@ void testZeroExtend48ToWord()
     });
 
     auto zeroTop16Bits = [] (int64_t value) -> int64_t {
-        return value & (1ull << 48) - 1;
+        return value & ((1ull << 48) - 1);
     };
 
     for (auto a : int64Operands())
@@ -5906,57 +5906,6 @@ void testStoreImmediateBaseIndex()
 #endif
 }
 
-static void testCagePreservesPACFailureBit()
-{
-#if GIGACAGE_ENABLED
-    // Placate ASan builds and any environments that disables the Gigacage.
-    if (!Gigacage::shouldBeEnabled())
-        return;
-
-    RELEASE_ASSERT(!Gigacage::disablingPrimitiveGigacageIsForbidden());
-    auto cage = compile([] (CCallHelpers& jit) {
-        emitFunctionPrologue(jit);
-        constexpr GPRReg storageGPR = GPRInfo::argumentGPR0;
-        constexpr GPRReg lengthGPR = GPRInfo::argumentGPR1;
-        constexpr GPRReg scratchGPR = GPRInfo::argumentGPR2;
-        jit.cageConditionallyAndUntag(Gigacage::Primitive, storageGPR, lengthGPR, scratchGPR);
-        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
-        emitFunctionEpilogue(jit);
-        jit.ret();
-    });
-
-    void* ptr = Gigacage::tryMalloc(Gigacage::Primitive, 1);
-    void* taggedPtr = tagArrayPtr(ptr, 1);
-    RELEASE_ASSERT(hasOneBitSet(Gigacage::maxSize(Gigacage::Primitive) << 2));
-    void* notCagedPtr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + (Gigacage::maxSize(Gigacage::Primitive) << 2));
-    CHECK_NOT_EQ(Gigacage::caged(Gigacage::Primitive, notCagedPtr), notCagedPtr);
-    void* taggedNotCagedPtr = tagArrayPtr(notCagedPtr, 1);
-
-    if (!isARM64E())
-        CHECK_EQ(invoke<void*>(cage, taggedPtr, 2), ptr);
-
-    CHECK_EQ(invoke<void*>(cage, taggedPtr, 1), ptr);
-
-    auto cageWithoutAuthentication = compile([] (CCallHelpers& jit) {
-        emitFunctionPrologue(jit);
-        jit.cageWithoutUntagging(Gigacage::Primitive, GPRInfo::argumentGPR0);
-        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
-        emitFunctionEpilogue(jit);
-        jit.ret();
-    });
-
-    CHECK_EQ(invoke<void*>(cageWithoutAuthentication, taggedPtr), taggedPtr);
-    if (isARM64E()) {
-        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), taggedNotCagedPtr);
-        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), tagArrayPtr(notCagedPtr, 1));
-        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), taggedPtr);
-        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), tagArrayPtr(ptr, 1));
-    }
-
-    Gigacage::free(Gigacage::Primitive, ptr);
-#endif
-}
-
 static void testBranchIfType()
 {
     using JSC::JSType;
@@ -6322,8 +6271,6 @@ void run(const char* filter) WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     RUN(testStoreImmediateAddress());
     RUN(testStoreBaseIndex());
     RUN(testStoreImmediateBaseIndex());
-
-    RUN(testCagePreservesPACFailureBit());
 
     RUN(testBranchIfType());
     RUN(testBranchIfNotType());

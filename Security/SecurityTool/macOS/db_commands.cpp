@@ -130,7 +130,7 @@ loser:
 int
 db_create(int argc, char * const *argv)
 {
-	int free_dbname = 0;
+	char *dbname_to_free = NULL;
 	char *dbname = NULL;
 	int ch, result = 0;
 	bool do_autocommit = true, do_mode = false;
@@ -186,7 +186,7 @@ db_create(int argc, char * const *argv)
 			goto loser;
 		}
 
-		free_dbname = 1;
+		dbname_to_free = dbname;
 		if (*dbname == '\0')
 			goto loser;
 	}
@@ -203,8 +203,9 @@ db_create(int argc, char * const *argv)
 	} while (argc > 0);
 
 loser:
-	if (free_dbname)
-		free(dbname);
+	if (dbname_to_free) {
+		free(dbname_to_free);
+	}
 
 	return result;
 }

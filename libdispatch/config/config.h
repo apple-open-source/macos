@@ -141,6 +141,9 @@
 /* Define to 1 if you have the `pthread_attr_setcpupercent_np' function. */
 #define HAVE_PTHREAD_ATTR_SETCPUPERCENT_NP 1
 
+/* Define to 1 if you have the `_pthread_workqueue_allow_send_signals' function. */
+#define HAVE__PTHREAD_WORKQUEUE_ALLOW_SEND_SIGNALS 1
+
 /* Define to 1 if you have the <pthread_machdep.h> header file. */
 #define HAVE_PTHREAD_MACHDEP_H 1
 

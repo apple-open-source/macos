@@ -45,10 +45,11 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMultiColumnFlow);
 
 RenderMultiColumnFlow::RenderMultiColumnFlow(Document& document, RenderStyle&& style)
-    : RenderFragmentedFlow(document, WTFMove(style))
+    : RenderFragmentedFlow(Type::MultiColumnFlow, document, WTFMove(style))
     , m_spannerMap(makeUnique<SpannerMap>())
 {
-    setFragmentedFlowState(InsideInFragmentedFlow);
+    setFragmentedFlowState(FragmentedFlowState::InsideFlow);
+    ASSERT(isRenderMultiColumnFlow());
 }
 
 RenderMultiColumnFlow::~RenderMultiColumnFlow() = default;
@@ -134,11 +135,11 @@ void RenderMultiColumnFlow::addFragmentToThread(RenderFragmentContainer* fragmen
 {
     auto* columnSet = downcast<RenderMultiColumnSet>(fragmentContainer);
     if (RenderMultiColumnSet* nextSet = columnSet->nextSiblingMultiColumnSet()) {
-        RenderFragmentContainerList::iterator it = m_fragmentList.find(nextSet);
+        auto it = m_fragmentList.find(*nextSet);
         ASSERT(it != m_fragmentList.end());
-        m_fragmentList.insertBefore(it, columnSet);
+        m_fragmentList.insertBefore(it, *columnSet);
     } else
-        m_fragmentList.add(columnSet);
+        m_fragmentList.add(*columnSet);
     fragmentContainer->setIsValid(true);
 }
 

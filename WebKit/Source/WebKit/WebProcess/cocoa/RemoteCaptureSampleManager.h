@@ -63,7 +63,7 @@ public:
     void removeSource(WebCore::RealtimeMediaSourceIdentifier);
 
     void didUpdateSourceConnection(IPC::Connection&);
-    void setVideoFrameObjectHeapProxy(RemoteVideoFrameObjectHeapProxy*);
+    void setVideoFrameObjectHeapProxy(RefPtr<RemoteVideoFrameObjectHeapProxy>&&);
 
     // IPC::WorkQueueMessageReceiver overrides.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
@@ -76,7 +76,7 @@ private:
     // FIXME: Will be removed once RemoteVideoFrameProxy providers are the only ones sending data.
     void videoFrameAvailableCV(WebCore::RealtimeMediaSourceIdentifier, RetainPtr<CVPixelBufferRef>&&, WebCore::VideoFrameRotation, bool mirrored, MediaTime, WebCore::VideoFrameTimeMetadata);
 
-    void setConnection(IPC::Connection*);
+    void setConnection(RefPtr<IPC::Connection>&&);
 
     class RemoteAudio {
         WTF_MAKE_FAST_ALLOCATED;

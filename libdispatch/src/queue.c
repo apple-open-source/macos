@@ -118,6 +118,21 @@ dispatch_assert_queue_barrier(dispatch_queue_t dq)
 }
 
 #pragma mark -
+#pragma mark dispatch_allow_send_signals
+
+int
+dispatch_allow_send_signals(int preserve_signum)
+{
+#if HAVE__PTHREAD_WORKQUEUE_ALLOW_SEND_SIGNALS
+	return _pthread_workqueue_allow_send_signals(preserve_signum);
+#else
+	(void)preserve_signum;
+	errno = ENOTSUP;
+	return -1;
+#endif
+}
+
+#pragma mark -
 #pragma mark _dispatch_set_priority_and_mach_voucher
 #if HAVE_PTHREAD_WORKQUEUE_QOS
 
@@ -4101,10 +4116,17 @@ DISPATCH_ALWAYS_INLINE
 static bool
 _dispatch_workloop_has_kernel_attributes(dispatch_workloop_t dwl)
 {
-	return dwl->dwl_attr && (dwl->dwl_attr->dwla_flags &
+	bool ret = false;
+	ret = dwl->dwl_attr && (dwl->dwl_attr->dwla_flags &
 			(DISPATCH_WORKLOOP_ATTR_HAS_SCHED |
 			 DISPATCH_WORKLOOP_ATTR_HAS_POLICY |
 			 DISPATCH_WORKLOOP_ATTR_HAS_CPUPERCENT));
+
+#if DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
+	ret = ret || (dwl->dwl_attr && dwl->dwl_attr->workgroup &&
+			_os_workgroup_get_backing_workinterval(dwl->dwl_attr->workgroup));
+#endif
+	return ret;
 }
 
 void
@@ -4237,6 +4259,43 @@ _dispatch_workloop_activate_simulator_fallback(dispatch_workloop_t dwl,
 		new_state |= DISPATCH_QUEUE_ROLE_BASE_ANON;
 	});
 }
+
+#if DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
+static void
+_dispatch_workloop_activate_tg_unsupported_fallback(dispatch_workloop_t dwl)
+{
+	dispatch_workloop_attr_t dwla = dwl->dwl_attr;
+	pthread_attr_t attr;
+
+	pthread_attr_init(&attr);
+	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_SCHED) {
+		pthread_attr_setschedparam(&attr, &dwla->dwla_sched);
+	}
+	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_POLICY) {
+		pthread_attr_setschedpolicy(&attr, dwla->dwla_policy);
+	}
+#if HAVE_PTHREAD_ATTR_SETCPUPERCENT_NP
+	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_CPUPERCENT) {
+		pthread_attr_setcpupercent_np(&attr, dwla->dwla_cpupercent.percent,
+				(unsigned long)dwla->dwla_cpupercent.refillms);
+	}
+#endif // HAVE_PTHREAD_ATTR_SETCPUPERCENT_NP
+
+	int rv = _pthread_workloop_create((uint64_t)dwl, 0, &attr);
+	switch (rv) {
+		case 0:
+			dwla->dwla_flags |= DISPATCH_WORKLOOP_ATTR_NEEDS_DESTROY;
+			break;
+		case ENOTSUP:
+			/* Last restort. Simulator fallback */
+			_dispatch_workloop_activate_simulator_fallback(dwl, &attr);
+			break;
+		default:
+			dispatch_assert_zero(rv);
+	}
+	pthread_attr_destroy(&attr);
+}
+#endif // DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
 #endif // TARGET_OS_MAC
 
 static void
@@ -4270,6 +4329,16 @@ _dispatch_workloop_activate_attributes(dispatch_workloop_t dwl)
 		// single block
 		dwl->do_targetq =
 				(dispatch_queue_t)_dispatch_custom_workloop_root_queue._as_dq;
+
+#if DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
+		// We borrow a reference to a send right this workgroup has on the
+		// underlying work interval port. The kernel will take its own reference
+		// and manage its lifecycle. We are just the mediator here.
+		mach_port_t wi_port = _os_workgroup_get_backing_workinterval(dwla->workgroup);
+		if (wi_port != MACH_PORT_NULL) {
+			pthread_attr_setworkinterval_np(&attr, wi_port);
+		}
+#endif
 	}
 	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_POLICY) {
 		pthread_attr_setschedpolicy(&attr, dwla->dwla_policy);
@@ -4289,8 +4358,22 @@ _dispatch_workloop_activate_attributes(dispatch_workloop_t dwl)
 			dwla->dwla_flags |= DISPATCH_WORKLOOP_ATTR_NEEDS_DESTROY;
 			break;
 		case ENOTSUP:
+#if DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
+			// If underlying workqueue subsystem does not support thread group
+			// preadoption, we will get ENOTSUP from _pthread_workloop_create
+			// below. In such cases, we re-drive the workloop creation request
+			// without the workgroup information. That means a servicer thread
+			// will not be preadopting thread group at creation/wakeup time
+			// in the kernel; but, it will still be able to perform
+			// os_workgroup_join when it comes out to userspace.
+			//
+			// This should be an unusual occurrence with Intel platforms and
+			// BridgeOS falling into this category.
+			_dispatch_workloop_activate_tg_unsupported_fallback(dwl);
+#else
 			/* simulator fallback */
 			_dispatch_workloop_activate_simulator_fallback(dwl, &attr);
+#endif // DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
 			break;
 		default:
 			dispatch_assert_zero(rv);
@@ -8346,8 +8429,10 @@ DISPATCH_EXPORT DISPATCH_NOTHROW
 void
 libdispatch_init(void)
 {
+#if DISPATCH_APPLY_USE_CONTINUATION_ALLOCATOR
 	dispatch_assert(sizeof(struct dispatch_apply_s) <=
 			DISPATCH_CONTINUATION_SIZE);
+#endif
 
 	if (_dispatch_getenv_bool("LIBDISPATCH_STRICT", false)) {
 		_dispatch_mode |= DISPATCH_MODE_STRICT;

@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>mod_perl</string>
 	<key>OpenSourceVersion</key>
-	<string>2.0.9</string>
+	<string>2.0.12</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://perl.apache.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://perl.apache.org/dist/mod_perl-2.0.9.tar.gz</string>
-	<key>OpenSourceSHA1</key>
-	<string>5de3018214da21de186d758a429d5c78f827caa5</string>
+	<string>https://dlcdn.apache.org/perl/mod_perl-2.0.12.tar.gz</string>
+	<key>OpenSourceSHA256</key>
+	<string>f5b821b59b0fdc9670e46ed0fcf32d8911f25126189a8b68c1652f9221eee269</string>
 	<key>OpenSourceImportDate</key>
-	<string>2016-6-20</string>
+	<string>2023-09-26</string>
 	<key>OpenSourceLicense</key>
 	<string>Apache</string>
 	<key>OpenSourceLicenseFile</key>

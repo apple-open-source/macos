@@ -87,6 +87,7 @@
 #import <WebCore/ActivityState.h>
 #import <WebCore/AttributedString.h>
 #import <WebCore/CaretRectComputation.h>
+#import <WebCore/CharacterRange.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/CompositionHighlight.h>
@@ -104,6 +105,7 @@
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/Pasteboard.h>
 #import <WebCore/PlatformEventFactoryMac.h>
+#import <WebCore/PlatformPlaybackSessionInterface.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/PlaybackSessionInterfaceMac.h>
 #import <WebCore/PromisedAttachmentInfo.h>
@@ -318,6 +320,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidDeminiaturize:) name:NSWindowDidDeminiaturizeNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidMove:) name:NSWindowDidMoveNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidResize:) name:NSWindowDidResizeNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowWillBeginSheet:) name:NSWindowWillBeginSheetNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeBackingProperties:) name:NSWindowDidChangeBackingPropertiesNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeScreen:) name:NSWindowDidChangeScreenNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeLayerHosting:) name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window];
@@ -352,6 +355,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter removeObserver:self name:NSWindowDidDeminiaturizeNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidMoveNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidResizeNotification object:window];
+    [defaultNotificationCenter removeObserver:self name:NSWindowWillBeginSheetNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeBackingPropertiesNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeScreenNotification object:window];
     [defaultNotificationCenter removeObserver:self name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window];
@@ -426,6 +430,11 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 - (void)_windowDidResize:(NSNotification *)notification
 {
     _impl->windowDidResize();
+}
+
+- (void)_windowWillBeginSheet:(NSNotification *)notification
+{
+    _impl->windowWillBeginSheet();
 }
 
 - (void)_windowDidChangeBackingProperties:(NSNotification *)notification
@@ -2027,6 +2036,13 @@ void WebViewImpl::windowDidResize()
     updateWindowAndViewFrames();
 }
 
+void WebViewImpl::windowWillBeginSheet()
+{
+#if ENABLE(POINTER_LOCK)
+    m_page->requestPointerUnlock();
+#endif
+}
+
 void WebViewImpl::windowDidChangeBackingProperties(CGFloat oldBackingScaleFactor)
 {
     CGFloat newBackingScaleFactor = intrinsicDeviceScaleFactor();
@@ -2352,12 +2368,12 @@ void WebViewImpl::setUnderlayColor(NSColor *underlayColor)
 
 RetainPtr<NSColor> WebViewImpl::underlayColor() const
 {
-    return cocoaColorOrNil(m_page->underlayColor()).autorelease();
+    return WebCore::cocoaColorOrNil(m_page->underlayColor()).autorelease();
 }
 
 RetainPtr<NSColor> WebViewImpl::pageExtendedBackgroundColor() const
 {
-    return cocoaColorOrNil(m_page->pageExtendedBackgroundColor()).autorelease();
+    return WebCore::cocoaColorOrNil(m_page->pageExtendedBackgroundColor()).autorelease();
 }
 
 void WebViewImpl::setOverlayScrollbarStyle(std::optional<WebCore::ScrollbarOverlayStyle> scrollbarStyle)
@@ -2561,7 +2577,7 @@ NSView *WebViewImpl::fullScreenPlaceholderView()
 NSWindow *WebViewImpl::fullScreenWindow()
 {
 #if ENABLE(FULLSCREEN_API)
-    return adoptNS([[WebCoreFullScreenWindow alloc] initWithContentRect:[[NSScreen mainScreen] frame] styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskUnifiedTitleAndToolbar | NSWindowStyleMaskFullSizeContentView | NSWindowStyleMaskResizable) backing:NSBackingStoreBuffered defer:NO]).autorelease();
+    return adoptNS([[WebCoreFullScreenWindow alloc] initWithContentRect:[[NSScreen mainScreen] frame] styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskUnifiedTitleAndToolbar | NSWindowStyleMaskFullSizeContentView | NSWindowStyleMaskResizable | NSWindowStyleMaskClosable) backing:NSBackingStoreBuffered defer:NO]).autorelease();
 #else
     return nil;
 #endif
@@ -3947,7 +3963,7 @@ void WebViewImpl::draggingExited(id <NSDraggingInfo> draggingInfo)
     WebCore::IntPoint client([m_view convertPoint:draggingInfo.draggingLocation fromView:nil]);
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, [m_view window]));
     WebCore::DragData dragData(draggingInfo, client, global, coreDragOperationMask(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), WebCore::anyDragDestinationAction(), m_page->webPageID());
-    m_page->dragExited(dragData, draggingInfo.draggingPasteboard.name);
+    m_page->dragExited(dragData);
     m_page->resetCurrentDragInformation();
     draggingInfo.numberOfValidItemsForDrop = m_initialNumberOfValidItemsForDrop;
     m_initialNumberOfValidItemsForDrop = 0;
@@ -4522,7 +4538,7 @@ void WebViewImpl::setCustomSwipeViews(NSArray *customSwipeViews)
     Vector<RetainPtr<NSView>> views;
     views.reserveInitialCapacity(customSwipeViews.count);
     for (NSView *view in customSwipeViews)
-        views.uncheckedAppend(view);
+        views.append(view);
 
     ensureGestureController().setCustomSwipeViews(views);
 }
@@ -4594,8 +4610,8 @@ void WebViewImpl::magnifyWithEvent(NSEvent *event)
 {
     if (!m_allowsMagnification) {
 #if ENABLE(MAC_GESTURE_EVENTS)
-        NativeWebGestureEvent webEvent = NativeWebGestureEvent(event, m_view.getAutoreleased());
-        m_page->handleGestureEvent(webEvent);
+        if (auto webEvent = NativeWebGestureEvent::create(event, m_view.getAutoreleased()))
+            m_page->handleGestureEvent(*webEvent);
 #endif
         [m_view _web_superMagnifyWithEvent:event];
         return;
@@ -4611,8 +4627,8 @@ void WebViewImpl::magnifyWithEvent(NSEvent *event)
         return;
     }
 
-    NativeWebGestureEvent webEvent = NativeWebGestureEvent(event, m_view.getAutoreleased());
-    m_page->handleGestureEvent(webEvent);
+    if (auto webEvent = NativeWebGestureEvent::create(event, m_view.getAutoreleased()))
+        m_page->handleGestureEvent(*webEvent);
 #else
     gestureController.handleMagnificationGestureEvent(event, [m_view convertPoint:event.locationInWindow fromView:nil]);
 #endif
@@ -4640,8 +4656,8 @@ RetainPtr<NSEvent> WebViewImpl::setLastMouseDownEvent(NSEvent *event)
 #if ENABLE(MAC_GESTURE_EVENTS)
 void WebViewImpl::rotateWithEvent(NSEvent *event)
 {
-    NativeWebGestureEvent webEvent = NativeWebGestureEvent(event, m_view.getAutoreleased());
-    m_page->handleGestureEvent(webEvent);
+    if (auto webEvent = NativeWebGestureEvent::create(event, m_view.getAutoreleased()))
+        m_page->handleGestureEvent(*webEvent);
 }
 #endif
 
@@ -5002,11 +5018,11 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
     Vector<WebCore::CompositionHighlight> highlights;
     [string enumerateAttributesInRange:NSMakeRange(0, string.length) options:0 usingBlock:[&highlights](NSDictionary<NSAttributedStringKey, id> *attributes, NSRange range, BOOL *) {
         std::optional<WebCore::Color> backgroundHighlightColor;
-        if (CocoaColor *backgroundColor = attributes[NSBackgroundColorAttributeName])
+        if (WebCore::CocoaColor *backgroundColor = attributes[NSBackgroundColorAttributeName])
             backgroundHighlightColor = WebCore::colorFromCocoaColor(backgroundColor);
 
         std::optional<WebCore::Color> foregroundHighlightColor;
-        if (CocoaColor *foregroundColor = attributes[NSForegroundColorAttributeName])
+        if (WebCore::CocoaColor *foregroundColor = attributes[NSForegroundColorAttributeName])
             foregroundHighlightColor = WebCore::colorFromCocoaColor(foregroundColor);
 
         highlights.append({ static_cast<unsigned>(range.location), static_cast<unsigned>(NSMaxRange(range)), backgroundHighlightColor, foregroundHighlightColor });
@@ -5024,7 +5040,7 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
     mergedHighlights.reserveInitialCapacity(highlights.size());
     for (auto& highlight : highlights) {
         if (mergedHighlights.isEmpty() || mergedHighlights.last().backgroundColor != highlight.backgroundColor || mergedHighlights.last().foregroundColor != highlight.foregroundColor)
-            mergedHighlights.uncheckedAppend(highlight);
+            mergedHighlights.append(highlight);
         else
             mergedHighlights.last().endOffset = highlight.endOffset;
     }
@@ -5098,7 +5114,7 @@ static Vector<WebCore::CompositionUnderline> compositionUnderlines(NSAttributedS
     return mergedUnderlines;
 }
 
-static HashMap<String, Vector<CharacterRange>> compositionAnnotations(NSAttributedString *string)
+static HashMap<String, Vector<WebCore::CharacterRange>> compositionAnnotations(NSAttributedString *string)
 {
     if (!string.length)
         return { };
@@ -5111,7 +5127,7 @@ static HashMap<String, Vector<CharacterRange>> compositionAnnotations(NSAttribut
     });
 #endif
 
-    HashMap<String, Vector<CharacterRange>> annotations;
+    HashMap<String, Vector<WebCore::CharacterRange>> annotations;
     [string enumerateAttributesInRange:NSMakeRange(0, string.length) options:0 usingBlock:[&annotations](NSDictionary<NSAttributedStringKey, id> *attributes, NSRange range, BOOL *) {
         [attributes enumerateKeysAndObjectsUsingBlock:[&annotations, &range](NSAttributedStringKey key, id value, BOOL *) {
 
@@ -5120,7 +5136,7 @@ static HashMap<String, Vector<CharacterRange>> compositionAnnotations(NSAttribut
 
             auto it = annotations.find(key);
             if (it == annotations.end())
-                it = annotations.add(key, Vector<CharacterRange> { }).iterator;
+                it = annotations.add(key, Vector<WebCore::CharacterRange> { }).iterator;
             auto& vector = it->value;
 
             // Coalesce this range into the previous one if possible
@@ -5147,7 +5163,7 @@ void WebViewImpl::setMarkedText(id string, NSRange selectedRange, NSRange replac
 
     Vector<WebCore::CompositionUnderline> underlines;
     Vector<WebCore::CompositionHighlight> highlights;
-    HashMap<String, Vector<CharacterRange>> annotations;
+    HashMap<String, Vector<WebCore::CharacterRange>> annotations;
     NSString *text;
 
     if (isAttributedString) {
@@ -5701,12 +5717,8 @@ void WebViewImpl::effectiveAppearanceDidChange()
 
 bool WebViewImpl::effectiveAppearanceIsDark()
 {
-#if HAVE(OS_DARK_MODE_SUPPORT)
     NSAppearanceName appearance = [[m_view effectiveAppearance] bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]];
     return [appearance isEqualToString:NSAppearanceNameDarkAqua];
-#else
-    return false;
-#endif
 }
 
 bool WebViewImpl::effectiveUserInterfaceLevelIsElevated()
@@ -6011,7 +6023,7 @@ void WebViewImpl::updateMediaPlaybackControlsManager()
         [m_playbackControlsManager setCanTogglePictureInPicture:NO];
     }
 
-    if (PlatformPlaybackSessionInterface* interface = m_page->playbackSessionManager()->controlsManagerInterface()) {
+    if (WebCore::PlatformPlaybackSessionInterface* interface = m_page->playbackSessionManager()->controlsManagerInterface()) {
         [m_playbackControlsManager setPlaybackSessionInterfaceMac:interface];
         interface->updatePlaybackControlsManagerCanTogglePictureInPicture();
     }
@@ -6155,7 +6167,7 @@ void WebViewImpl::updateCursorAccessoryPlacement()
 #if HAVE(REDESIGNED_TEXT_CURSOR) && PLATFORM(MAC)
 static RetainPtr<_WKWebViewTextInputNotifications> subscribeToTextInputNotifications(WebViewImpl* webView)
 {
-    if (!redesignedTextCursorEnabled())
+    if (!WebCore::redesignedTextCursorEnabled())
         return nullptr;
 
     auto textInputNotifications = adoptNS([[_WKWebViewTextInputNotifications alloc] initWithWebView:webView]);

@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmAES_CFB.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoAlgorithmAesCbcCfbParams.h"
 #include "CryptoKeyAES.h"
 #include <CommonCrypto/CommonCrypto.h>
@@ -39,20 +37,20 @@ static ExceptionOr<Vector<uint8_t>> transformAES_CFB(CCOperation operation, cons
     CCCryptorRef cryptor;
     CCCryptorStatus status = CCCryptorCreateWithMode(operation, kCCModeCFB8, kCCAlgorithmAES, ccNoPadding, iv.data(), key.data(), key.size(), 0, 0, 0, 0, &cryptor);
     if (status)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     Vector<uint8_t> result(CCCryptorGetOutputLength(cryptor, data.size(), true));
 
     size_t bytesWritten;
     status = CCCryptorUpdate(cryptor, data.data(), data.size(), result.data(), result.size(), &bytesWritten);
     if (status)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     uint8_t* p = result.data() + bytesWritten;
     status = CCCryptorFinal(cryptor, p, result.end() - p, &bytesWritten);
     p += bytesWritten;
     if (status)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     ASSERT(p <= result.end());
     result.shrink(p - result.begin());
@@ -75,5 +73,3 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmAES_CFB::platformDecrypt(const Crypt
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

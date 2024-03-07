@@ -25,7 +25,7 @@
 #include "RenderReplaced.h"
 
 #include "BackgroundPainter.h"
-#include "DeprecatedGlobalSettings.h"
+#include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "ElementRuleCollector.h"
 #include "FloatRoundedRect.h"
@@ -64,25 +64,28 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(RenderReplaced);
 const int cDefaultWidth = 300;
 const int cDefaultHeight = 150;
 
-RenderReplaced::RenderReplaced(Element& element, RenderStyle&& style)
-    : RenderBox(element, WTFMove(style), RenderReplacedFlag)
+RenderReplaced::RenderReplaced(Type type, Element& element, RenderStyle&& style, OptionSet<ReplacedFlag> flags)
+    : RenderBox(type, element, WTFMove(style), { }, flags)
     , m_intrinsicSize(cDefaultWidth, cDefaultHeight)
 {
     setReplacedOrInlineBlock(true);
+    ASSERT(isRenderReplaced());
 }
 
-RenderReplaced::RenderReplaced(Element& element, RenderStyle&& style, const LayoutSize& intrinsicSize)
-    : RenderBox(element, WTFMove(style), RenderReplacedFlag)
+RenderReplaced::RenderReplaced(Type type, Element& element, RenderStyle&& style, const LayoutSize& intrinsicSize, OptionSet<ReplacedFlag> flags)
+    : RenderBox(type, element, WTFMove(style), { }, flags)
     , m_intrinsicSize(intrinsicSize)
 {
     setReplacedOrInlineBlock(true);
+    ASSERT(isRenderReplaced());
 }
 
-RenderReplaced::RenderReplaced(Document& document, RenderStyle&& style, const LayoutSize& intrinsicSize)
-    : RenderBox(document, WTFMove(style), RenderReplacedFlag)
+RenderReplaced::RenderReplaced(Type type, Document& document, RenderStyle&& style, const LayoutSize& intrinsicSize, OptionSet<ReplacedFlag> flags)
+    : RenderBox(type, document, WTFMove(style), { }, flags)
     , m_intrinsicSize(intrinsicSize)
 {
     setReplacedOrInlineBlock(true);
+    ASSERT(isRenderReplaced());
 }
 
 RenderReplaced::~RenderReplaced() = default;
@@ -142,9 +145,9 @@ bool RenderReplaced::shouldDrawSelectionTint() const
     return selectionState() != HighlightState::None && !document().printing();
 }
 
-inline static bool draggedContentContainsReplacedElement(const Vector<RenderedDocumentMarker*>& markers, const Element& element)
+inline static bool draggedContentContainsReplacedElement(const Vector<WeakPtr<RenderedDocumentMarker>>& markers, const Element& element)
 {
-    for (auto* marker : markers) {
+    for (auto& marker : markers) {
         if (std::get<RefPtr<Node>>(marker->data()) == &element)
             return true;
     }
@@ -173,7 +176,7 @@ Color RenderReplaced::calculateHighlightColor() const
         }
     }
 #endif
-    if (DeprecatedGlobalSettings::highlightAPIEnabled()) {
+    if (document().settings().highlightAPIEnabled()) {
         if (auto highlightRegistry = document().highlightRegistryIfExists()) {
             for (auto& highlight : highlightRegistry->map()) {
                 for (auto& highlightRange : highlight.value->highlightRanges()) {
@@ -220,8 +223,8 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (paintInfo.phase == PaintPhase::EventRegion) {
         if (visibleToHitTesting()) {
             auto borderRect = LayoutRect(adjustedPaintOffset, size());
-            auto borderRegion = approximateAsRegion(style().getRoundedBorderFor(borderRect));
-            paintInfo.eventRegionContext()->unite(borderRegion, *this, style());
+            auto borderRoundedRect = style().getRoundedBorderFor(borderRect);
+            paintInfo.eventRegionContext()->unite(FloatRoundedRect(borderRoundedRect), *this, style());
         }
         return;
     }
@@ -237,7 +240,7 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (element() && element()->parentOrShadowHostElement()) {
         auto* parentContainer = element()->parentOrShadowHostElement();
         ASSERT(parentContainer);
-        if (draggedContentContainsReplacedElement(document().markers().markersFor(*parentContainer, DocumentMarker::DraggedContent), *element())) {
+        if (CheckedPtr markers = document().markersIfExists(); markers && draggedContentContainsReplacedElement(markers->markersFor(*parentContainer, DocumentMarker::Type::DraggedContent), *element())) {
             savedGraphicsContext.save();
             paintInfo.context().setAlpha(0.25);
         }
@@ -401,6 +404,8 @@ static bool isVideoWithDefaultObjectSize(const RenderReplaced* maybeVideo)
 #if ENABLE(VIDEO)
     if (auto* video = dynamicDowncast<RenderVideo>(maybeVideo))
         return video->hasDefaultObjectSize();
+#else
+    UNUSED_PARAM(maybeVideo);
 #endif
     return false;
 } 
@@ -527,7 +532,7 @@ void RenderReplaced::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, 
             return;
     }
     // Figure out if we need to compute an intrinsic ratio.
-    if (!RenderObject::hasIntrinsicAspectRatio() && !isSVGRootOrLegacySVGRoot())
+    if (!RenderObject::hasIntrinsicAspectRatio() && !isRenderOrLegacyRenderSVGRoot())
         return;
 
     // After supporting contain-intrinsic-size, the intrinsicSize of size containment is not always empty.
@@ -570,7 +575,7 @@ static inline bool hasIntrinsicSize(RenderBox*contentRenderer, bool hasIntrinsic
     if (hasIntrinsicWidth && hasIntrinsicHeight)
         return true;
     if (hasIntrinsicWidth || hasIntrinsicHeight)
-        return contentRenderer && contentRenderer->isSVGRootOrLegacySVGRoot();
+        return contentRenderer && contentRenderer->isRenderOrLegacyRenderSVGRoot();
     return false;
 }
 
@@ -812,18 +817,24 @@ bool RenderReplaced::isHighlighted(HighlightState state, const RenderHighlight& 
     return false;
 }
 
-LayoutRect RenderReplaced::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
+auto RenderReplaced::localRectsForRepaint(RepaintOutlineBounds repaintOutlineBounds) const -> RepaintRects
 {
     if (isInsideEntirelyHiddenLayer())
         return { };
 
     // The selectionRect can project outside of the overflowRect, so take their union
     // for repainting to avoid selection painting glitches.
-    LayoutRect r = unionRect(localSelectionRect(false), visualOverflowRect());
+    auto overflowRect = unionRect(localSelectionRect(false), visualOverflowRect());
+
     // FIXME: layoutDelta needs to be applied in parts before/after transforms and
     // repaint containers. https://bugs.webkit.org/show_bug.cgi?id=23308
-    r.move(view().frameView().layoutContext().layoutDelta());
-    return computeRect(r, repaintContainer, context);
+    overflowRect.move(view().frameView().layoutContext().layoutDelta());
+
+    auto rects = RepaintRects { overflowRect };
+    if (repaintOutlineBounds == RepaintOutlineBounds::Yes)
+        rects.outlineBoundsRect = localOutlineBoundsRepaintRect();
+
+    return rects;
 }
 
 bool RenderReplaced::isContentLikelyVisibleInViewport()

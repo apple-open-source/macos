@@ -21,11 +21,11 @@ es_DO{
                 "d 'de' MMMM 'de' y G",
                 "dd/MM/y G",
                 "d/M/y GGGGG",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
             DateTimeSkeletons{
                 "ahmmsszzzz",
@@ -47,46 +47,8 @@ es_DO{
                 "a. m.",
                 "p. m.",
             }
-            DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
-                "EEEE, d 'de' MMMM 'de' y",
-                "d 'de' MMMM 'de' y",
-                "d MMM y",
-                "d/M/yy",
-                "{1} {0}",
-                "{1}, {0}",
-                "{1}, {0}",
-                "{1} {0}",
-                "{1}, {0}",
-            }
-            DateTimeSkeletons{
-                "ahmmsszzzz",
-                "ahmmssz",
-                "ahmmss",
-                "ahmm",
-                "yMMMMEEEEd",
-                "yMMMMd",
-                "yMMMd",
-                "yyMd",
-            }
             availableFormats{
                 yMMMd{"d MMM 'de' y"}
-            }
-            dayNames{
-                format{
-                    narrow{
-                        "D",
-                        "L",
-                        "M",
-                        "M",
-                        "J",
-                        "V",
-                        "S",
-                    }
-                }
             }
             dayPeriod{
                 format{
@@ -99,6 +61,10 @@ es_DO{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        am{"a. m."}
+                        pm{"p. m."}
+                    }
                     narrow{
                         am{"a. m."}
                         noon{"m."}
@@ -118,14 +84,6 @@ es_DO{
             }
             quarters{
                 format{
-                    abbreviated{
-                        "Q1",
-                        "Q2",
-                        "Q3",
-                        "Q4",
-                    }
-                }
-                stand-alone{
                     abbreviated{
                         "Q1",
                         "Q2",
@@ -173,7 +131,10 @@ es_DO{
             end{"{0} y {1}"}
         }
         unit-short{
+            2{"{0} y {1}"}
             end{"{0} y {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
         }
     }
 }

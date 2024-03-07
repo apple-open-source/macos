@@ -50,8 +50,9 @@ using namespace HTMLNames;
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderListItem);
 
 RenderListItem::RenderListItem(Element& element, RenderStyle&& style)
-    : RenderBlockFlow(element, WTFMove(style))
+    : RenderBlockFlow(Type::ListItem, element, WTFMove(style))
 {
+    ASSERT(isRenderListItem());
     setInline(false);
 }
 
@@ -82,7 +83,7 @@ RenderStyle RenderListItem::computeMarkerStyle() const
     markerStyle.fontCascade().update(&document().fontSelector());
     markerStyle.setUnicodeBidi(UnicodeBidi::Isolate);
     markerStyle.setWhiteSpaceCollapse(WhiteSpaceCollapse::Preserve);
-    markerStyle.setTextWrap(TextWrap::NoWrap);
+    markerStyle.setTextWrapMode(TextWrapMode::NoWrap);
     markerStyle.setTextTransform({ });
     return markerStyle;
 }

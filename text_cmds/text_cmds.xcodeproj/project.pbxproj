@@ -45,6 +45,7 @@
 				D073AD802900B7CB002A6563 /* PBXTargetDependency */,
 				D073AD822900B7CB002A6563 /* PBXTargetDependency */,
 				D073AD842900B7CB002A6563 /* PBXTargetDependency */,
+				2A31581329CFF27C00B2DB3D /* PBXTargetDependency */,
 				D073AD862900B7CB002A6563 /* PBXTargetDependency */,
 				D073AD882900B7CB002A6563 /* PBXTargetDependency */,
 				D073AD8A2900B7CB002A6563 /* PBXTargetDependency */,
@@ -95,6 +96,7 @@
 				FC7A7EC3149875E00086576A /* PBXTargetDependency */,
 				FC7A7EC5149875E00086576A /* PBXTargetDependency */,
 				FC7A7EC7149875E00086576A /* PBXTargetDependency */,
+				2A31581129CFF26100B2DB3D /* PBXTargetDependency */,
 				FC7A7EC9149875E00086576A /* PBXTargetDependency */,
 				FC7A7ECB149875E00086576A /* PBXTargetDependency */,
 				FC7A7ECD149875E00086576A /* PBXTargetDependency */,
@@ -121,9 +123,24 @@
 		2A151331294701BC0051ED9C /* base64_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A151330294701B00051ED9C /* base64_test.sh */; };
 		2A1513342947034F0051ED9C /* base64.1 in Sources */ = {isa = PBXBuildFile; fileRef = 2A151333294703430051ED9C /* base64.1 */; };
 		2A190211296CB83E008E5A05 /* base64.1 in Install section 1 manpages */ = {isa = PBXBuildFile; fileRef = 2A151333294703430051ED9C /* base64.1 */; };
+		2A31580829CFCA5200B2DB3D /* test_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A31580729CFCA5200B2DB3D /* test_base64.c */; };
+		2A31580A29CFCABD00B2DB3D /* libdarwintest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A31580929CFCABD00B2DB3D /* libdarwintest.a */; };
+		2A31580B29CFCAE600B2DB3D /* apple_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A1513032946F96F0051ED9C /* apple_base64.c */; };
+		2A31580E29CFD81300B2DB3D /* uudecode.1 in Install section 1 manpages */ = {isa = PBXBuildFile; fileRef = 2A31580C29CFD7E300B2DB3D /* uudecode.1 */; };
+		2A31580F29CFD81800B2DB3D /* uuencode.1 in Install section 1 manpages */ = {isa = PBXBuildFile; fileRef = 2A31580D29CFD7FE00B2DB3D /* uuencode.1 */; };
 		2A36389228C0774600D47F6C /* split_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A36389028C0772100D47F6C /* split_test.sh */; };
 		2A471D432A0342CF0018D18F /* d_oflag_zerolen_apple_f.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A471D412A03422C0018D18F /* d_oflag_zerolen_apple_f.out */; };
 		2A471D442A0342FD0018D18F /* d_oflag_zerolen_apple_f.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A471D422A03422C0018D18F /* d_oflag_zerolen_apple_f.in */; };
+		2A473CF929EDF39C0049F068 /* regress.153276.in in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A15130D2946F9980051ED9C /* regress.153276.in */; };
+		2A473CFA29EDF39C0049F068 /* regress.153276.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A15130F2946F9980051ED9C /* regress.153276.out */; };
+		2A473CFB29EDF39C0049F068 /* regress.base64.in in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A1513142946F9980051ED9C /* regress.base64.in */; };
+		2A473CFC29EDF39C0049F068 /* regress.base64.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A1513122946F9980051ED9C /* regress.base64.out */; };
+		2A473CFD29EDF39C0049F068 /* regress.in in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A1513172946F9980051ED9C /* regress.in */; };
+		2A473CFE29EDF39C0049F068 /* regress.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A15130C2946F9980051ED9C /* regress.out */; };
+		2A473CFF29EDF39C0049F068 /* regress.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A1513102946F9980051ED9C /* regress.sh */; };
+		2A473D0029EDF39C0049F068 /* regress.traditional.in in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A1513162946F9980051ED9C /* regress.traditional.in */; };
+		2A473D0129EDF39C0049F068 /* regress.traditional.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A1513132946F9980051ED9C /* regress.traditional.out */; };
+		2A473D0229EDF3A20049F068 /* legacy_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A1513182946F9980051ED9C /* legacy_test.sh */; };
 		2A62DBC4276951EA001389AF /* COPYRIGHT in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A62DBC3276951E3001389AF /* COPYRIGHT */; };
 		2A6BBF67275EAFD000EBBEA6 /* d_align.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF5D275EAFCA00EBBEA6 /* d_align.in */; };
 		2A6BBF68275EAFD000EBBEA6 /* d_align.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF66275EAFCA00EBBEA6 /* d_align.out */; };
@@ -589,6 +606,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2A1513192946F9A20051ED9C;
 			remoteInfo = bintrans;
+		};
+		2A31581029CFF26100B2DB3D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC7A7B30149865C80086576A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A3157F029CFCA1100B2DB3D;
+			remoteInfo = test_base64;
+		};
+		2A31581229CFF27C00B2DB3D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC7A7B30149865C80086576A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A3157F029CFCA1100B2DB3D;
+			remoteInfo = test_base64;
 		};
 		D073AD4F2900B7CB002A6563 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1084,6 +1115,8 @@
 			files = (
 				2A190211296CB83E008E5A05 /* base64.1 in Install section 1 manpages */,
 				2A15132B2947002D0051ED9C /* bintrans.1 in Install section 1 manpages */,
+				2A31580E29CFD81300B2DB3D /* uudecode.1 in Install section 1 manpages */,
+				2A31580F29CFD81800B2DB3D /* uuencode.1 in Install section 1 manpages */,
 			);
 			name = "Install section 1 manpages";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -1096,6 +1129,16 @@
 			files = (
 				2A151331294701BC0051ED9C /* base64_test.sh in Install Test Files */,
 				2A15132D294700B00051ED9C /* bintrans_test.sh in Install Test Files */,
+				2A473D0229EDF3A20049F068 /* legacy_test.sh in Install Test Files */,
+				2A473CF929EDF39C0049F068 /* regress.153276.in in Install Test Files */,
+				2A473CFA29EDF39C0049F068 /* regress.153276.out in Install Test Files */,
+				2A473CFB29EDF39C0049F068 /* regress.base64.in in Install Test Files */,
+				2A473CFC29EDF39C0049F068 /* regress.base64.out in Install Test Files */,
+				2A473CFD29EDF39C0049F068 /* regress.in in Install Test Files */,
+				2A473CFE29EDF39C0049F068 /* regress.out in Install Test Files */,
+				2A473CFF29EDF39C0049F068 /* regress.sh in Install Test Files */,
+				2A473D0029EDF39C0049F068 /* regress.traditional.in in Install Test Files */,
+				2A473D0129EDF39C0049F068 /* regress.traditional.out in Install Test Files */,
 				2A15132E294700B30051ED9C /* textqpdec in Install Test Files */,
 				2A15132F294700B60051ED9C /* textqpenc in Install Test Files */,
 			);
@@ -2021,6 +2064,11 @@
 		2A1513212946F9A20051ED9C /* bintrans */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bintrans; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A151330294701B00051ED9C /* base64_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = base64_test.sh; path = bintrans/tests/base64_test.sh; sourceTree = "<group>"; };
 		2A151333294703430051ED9C /* base64.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = base64.1; path = bintrans/base64.1; sourceTree = "<group>"; };
+		2A31580429CFCA1100B2DB3D /* test_base64 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_base64; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A31580729CFCA5200B2DB3D /* test_base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_base64.c; path = bintrans/tests/test_base64.c; sourceTree = "<group>"; };
+		2A31580929CFCABD00B2DB3D /* libdarwintest.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libdarwintest.a; path = usr/local/lib/libdarwintest.a; sourceTree = SDKROOT; };
+		2A31580C29CFD7E300B2DB3D /* uudecode.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = uudecode.1; path = bintrans/uudecode.1; sourceTree = "<group>"; };
+		2A31580D29CFD7FE00B2DB3D /* uuencode.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = uuencode.1; path = bintrans/uuencode.1; sourceTree = "<group>"; };
 		2A36389028C0772100D47F6C /* split_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = split_test.sh; path = tests/split_test.sh; sourceTree = "<group>"; };
 		2A471D412A03422C0018D18F /* d_oflag_zerolen_apple_f.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = d_oflag_zerolen_apple_f.out; path = tests/d_oflag_zerolen_apple_f.out; sourceTree = "<group>"; };
 		2A471D422A03422C0018D18F /* d_oflag_zerolen_apple_f.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = d_oflag_zerolen_apple_f.in; path = tests/d_oflag_zerolen_apple_f.in; sourceTree = "<group>"; };
@@ -2730,6 +2778,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2A3157F829CFCA1100B2DB3D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A31580A29CFCABD00B2DB3D /* libdarwintest.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC7A7B36149865C80086576A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2993,7 +3049,9 @@
 				2A1513072946F96F0051ED9C /* bintrans.h */,
 				2A1513062946F96F0051ED9C /* qp.c */,
 				2A1513082946F9770051ED9C /* tests */,
+				2A31580C29CFD7E300B2DB3D /* uudecode.1 */,
 				2A1513092946F9880051ED9C /* uudecode.c */,
+				2A31580D29CFD7FE00B2DB3D /* uuencode.1 */,
 				2A15130B2946F9890051ED9C /* uuencode.c */,
 				2A15130A2946F9890051ED9C /* uuencode.format.5 */,
 			);
@@ -3015,6 +3073,7 @@
 				2A1513102946F9980051ED9C /* regress.sh */,
 				2A1513162946F9980051ED9C /* regress.traditional.in */,
 				2A1513132946F9980051ED9C /* regress.traditional.out */,
+				2A31580729CFCA5200B2DB3D /* test_base64.c */,
 				2A1513112946F9980051ED9C /* textqpdec */,
 				2A1513152946F9980051ED9C /* textqpenc */,
 			);
@@ -3525,6 +3584,7 @@
 		2AC6B55C268C1B16006AA0B7 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				2A31580929CFCABD00B2DB3D /* libdarwintest.a */,
 				E14C02A427C7CED1007B22ED /* libxo.tbd */,
 				2AC6B55D268C1B16006AA0B7 /* libutil.tbd */,
 			);
@@ -3625,6 +3685,7 @@
 				FC7A7DDA14986A5A0086576A /* vis */,
 				FC7A7DE214986A5C0086576A /* wc */,
 				2A1513212946F9A20051ED9C /* bintrans */,
+				2A31580429CFCA1100B2DB3D /* test_base64 */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -4245,6 +4306,22 @@
 			name = bintrans;
 			productName = text_cmds;
 			productReference = 2A1513212946F9A20051ED9C /* bintrans */;
+			productType = "com.apple.product-type.tool";
+		};
+		2A3157F029CFCA1100B2DB3D /* test_base64 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A31580229CFCA1100B2DB3D /* Build configuration list for PBXNativeTarget "test_base64" */;
+			buildPhases = (
+				2A3157F129CFCA1100B2DB3D /* Sources */,
+				2A3157F829CFCA1100B2DB3D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = test_base64;
+			productName = text_cmds;
+			productReference = 2A31580429CFCA1100B2DB3D /* test_base64 */;
 			productType = "com.apple.product-type.tool";
 		};
 		FC7A7B38149865C80086576A /* banner */ = {
@@ -4927,6 +5004,7 @@
 				FC7A7D9414986A470086576A /* sort */,
 				FC7A7D9C14986A480086576A /* split */,
 				FC7A7DA414986A4A0086576A /* tail */,
+				2A3157F029CFCA1100B2DB3D /* test_base64 */,
 				FC7A7DAC14986A500086576A /* tr */,
 				FC7A7DB414986A530086576A /* ul */,
 				FC7A7DBC14986A540086576A /* unexpand */,
@@ -4968,12 +5046,16 @@
 			);
 			inputPaths = (
 				"$(DSTROOT)/usr/bin/bintrans",
+				"$(DSTROOT)/usr/bin/bintrans",
+				"$(DSTROOT)/usr/bin/bintrans",
 			);
 			name = "Install bintrans links";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 				"$(DSTROOT)/usr/bin/base64",
+				"$(DSTROOT)/usr/bin/uudecode",
+				"$(DSTROOT)/usr/bin/uuencode",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
@@ -4988,12 +5070,16 @@
 			);
 			inputPaths = (
 				"$(DSTROOT)/usr/bin/bintrans",
+				"$(DSTROOT)/usr/bin/bintrans",
+				"$(DSTROOT)/usr/bin/bintrans",
 			);
 			name = "Install bintrans links";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 				"$(DSTROOT)/usr/bin/base64",
+				"$(DSTROOT)/usr/bin/uudecode",
+				"$(DSTROOT)/usr/bin/uuencode",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
@@ -5088,7 +5174,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/grep_variant_links.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/grep_variant_links.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FDF283721DAEE22200CF8C36 /* ShellScript */ = {
@@ -5118,6 +5204,15 @@
 				2A1513282946FA030051ED9C /* qp.c in Sources */,
 				2A1513292946FA650051ED9C /* uudecode.c in Sources */,
 				2A15132A2946FA690051ED9C /* uuencode.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A3157F129CFCA1100B2DB3D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A31580B29CFCAE600B2DB3D /* apple_base64.c in Sources */,
+				2A31580829CFCA5200B2DB3D /* test_base64.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5441,6 +5536,16 @@
 			isa = PBXTargetDependency;
 			target = 2A1513192946F9A20051ED9C /* bintrans */;
 			targetProxy = 2A1513242946F9E50051ED9C /* PBXContainerItemProxy */;
+		};
+		2A31581129CFF26100B2DB3D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A3157F029CFCA1100B2DB3D /* test_base64 */;
+			targetProxy = 2A31581029CFF26100B2DB3D /* PBXContainerItemProxy */;
+		};
+		2A31581329CFF27C00B2DB3D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A3157F029CFCA1100B2DB3D /* test_base64 */;
+			targetProxy = 2A31581229CFF27C00B2DB3D /* PBXContainerItemProxy */;
 		};
 		D073AD4E2900B7CB002A6563 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -5796,6 +5901,17 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "-";
 				DEAD_CODE_STRIPPING = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		2A31580329CFCA1100B2DB3D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
+				DEAD_CODE_STRIPPING = YES;
+				INSTALL_PATH = /AppleInternal/Tests/text_cmds/bintrans;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -6275,7 +6391,6 @@
 			baseConfigurationReference = FD2BDC161B7188240053EE6B /* ee.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = NO;
 				DEAD_CODE_STRIPPING = YES;
 			};
 			name = Release;
@@ -6287,6 +6402,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2A1513202946F9A20051ED9C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A31580229CFCA1100B2DB3D /* Build configuration list for PBXNativeTarget "test_base64" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A31580329CFCA1100B2DB3D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

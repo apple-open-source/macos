@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmAES_GCM.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CommonCryptoUtilities.h"
 #include "CryptoAlgorithmAesGcmParams.h"
 #include "CryptoKeyAES.h"
@@ -44,7 +42,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CCCryptorStatus status = CCCryptorGCM(kCCEncrypt, kCCAlgorithmAES, key.data(), key.size(), iv.data(), iv.size(), additionalData.data(), additionalData.size(), plainText.data(), plainText.size(), cipherText.data(), tag.data(), &desiredTagLengthInBytes);
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (status)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     memcpy(cipherText.data() + plainText.size(), tag.data(), desiredTagLengthInBytes);
 
@@ -61,11 +59,11 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CCCryptorStatus status = CCCryptorGCM(kCCDecrypt, kCCAlgorithmAES, key.data(), key.size(), iv.data(), iv.size(), additionalData.data(), additionalData.size(), cipherText.data(), offset, plainText.data(), tag.data(), &desiredTagLengthInBytes);
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (status)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     // Using a constant time comparison to prevent timing attacks.
     if (constantTimeMemcmp(tag.data(), cipherText.data() + offset, desiredTagLengthInBytes))
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     plainText.shrink(offset);
     return WTFMove(plainText);
@@ -82,5 +80,3 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmAES_GCM::platformDecrypt(const Crypt
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

@@ -1,0 +1,11 @@
+module allocator [system] {
+    module malloc {
+        header "malloc/malloc.h"
+        export *
+    }
+
+    module _platform {
+        header "malloc/_platform.h"
+        export *
+    }
+}

@@ -136,6 +136,7 @@ enum {
 	kSortAirPort,
 	kSortThunderbolt,		// Thunderbolt IP
 	kSortOtherWireless,
+	kSortTetheredHotspot,
 	kSortTethered,
 	kSortWWANEthernet,
 	kSortBluetoothPAN_GN,
@@ -163,6 +164,7 @@ static const char *sortOrderName[]	= {
 	"AirPort",
 	"Thunderbolt",
 	"OtherWireless",
+	"TetheredHotspot",
 	"Tethered",
 	"WWANEthernet",
 	"BluetoothPAN_GN",
@@ -1798,7 +1800,7 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 			} else if (IOObjectConformsTo(controller, "AppleUSBEthernetHost")) {
 				interfacePrivate->interface_type	= kSCNetworkInterfaceTypeEthernet;
 				interfacePrivate->entity_type		= kSCValNetInterfaceTypeEthernet;
-				interfacePrivate->sort_order		= kSortTethered;
+				interfacePrivate->sort_order		= kSortTetheredHotspot;
 			} else if (IOObjectConformsTo(controller, "AppleUSBCDCECMData")) {
 				interfacePrivate->interface_type	= kSCNetworkInterfaceTypeEthernet;
 				interfacePrivate->entity_type		= kSCValNetInterfaceTypeEthernet;
@@ -8164,7 +8166,17 @@ _SCNetworkInterfaceIsTethered(SCNetworkInterfaceRef interface)
 	if (!isA_SCNetworkInterface(interface)) {
 		return FALSE;
 	}
-	return (interfacePrivate->sort_order == kSortTethered);
+	return (interfacePrivate->sort_order == kSortTethered ||
+		interfacePrivate->sort_order == kSortTetheredHotspot);
+}
+
+Boolean
+_SCNetworkInterfaceIsTetheredHotspot(SCNetworkInterfaceRef interface)
+{
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+	return (interface->sort_order == kSortTetheredHotspot);
 }
 
 

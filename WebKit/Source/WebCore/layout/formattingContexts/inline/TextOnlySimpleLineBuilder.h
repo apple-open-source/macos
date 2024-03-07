@@ -26,24 +26,21 @@
 #pragma once
 
 #include "AbstractLineBuilder.h"
-#include "FormattingConstraints.h"
-#include "InlineLine.h"
-#include "InlineLineBuilder.h"
-#include "InlineLineTypes.h"
 
 namespace WebCore {
 namespace Layout {
 
 class InlineContentBreaker;
+class InlineContentCache;
 struct CandidateTextContent;
 struct TextOnlyLineBreakResult;
 
 class TextOnlySimpleLineBuilder : public AbstractLineBuilder {
 public:
-    TextOnlySimpleLineBuilder(const InlineFormattingContext&, HorizontalConstraints rootHorizontalConstraints, const InlineItems&);
+    TextOnlySimpleLineBuilder(InlineFormattingContext&, HorizontalConstraints rootHorizontalConstraints, const InlineItemList&);
     LineLayoutResult layoutInlineContent(const LineInput&, const std::optional<PreviousLine>&) final;
 
-    static bool isEligibleForSimplifiedTextOnlyInlineLayout(const ElementBox& root, const InlineFormattingState&, const FloatingState* = nullptr);
+    static bool isEligibleForSimplifiedTextOnlyInlineLayout(const ElementBox& root, const InlineContentCache&, const PlacedFloats* = nullptr);
 
 private:
     InlineItemPosition placeInlineTextContent(const InlineItemRange&);
@@ -57,27 +54,10 @@ private:
     InlineLayoutUnit availableWidth() const;
     bool isWrappingAllowed() const { return m_isWrappingAllowed; }
 
-    bool isFirstFormattedLine() const { return !m_previousLine.has_value(); }
-
-    const InlineFormattingContext& formattingContext() const { return m_inlineFormattingContext; }
-    const ElementBox& root() const;
-
 private:
-    std::optional<PreviousLine> m_previousLine { };
-    std::optional<IntrinsicWidthMode> m_intrinsicWidthMode;
-    const InlineFormattingContext& m_inlineFormattingContext;
-    std::optional<HorizontalConstraints> m_rootHorizontalConstraints;
-
-    Line m_line;
-    InlineContentBreaker m_inlineContentBreaker;
-    InlineRect m_lineLogicalRect;
-    const InlineItems& m_inlineItems;
-    Vector<const InlineTextItem*> m_wrapOpportunityList;
     bool m_isWrappingAllowed { false };
     InlineLayoutUnit m_trimmedTrailingWhitespaceWidth { 0.f };
     std::optional<InlineLayoutUnit> m_overflowContentLogicalWidth { };
-
-    std::optional<InlineTextItem> m_partialLeadingTextItem;
 };
 
 }

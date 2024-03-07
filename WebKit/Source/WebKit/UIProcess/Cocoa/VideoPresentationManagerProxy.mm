@@ -31,12 +31,15 @@
 #import "APIUIClient.h"
 #import "DrawingAreaProxy.h"
 #import "GPUProcessProxy.h"
+#import "Logging.h"
 #import "MessageSenderInlines.h"
+#import "PageClient.h"
 #import "PlaybackSessionManagerProxy.h"
 #import "VideoPresentationManagerMessages.h"
 #import "VideoPresentationManagerProxyMessages.h"
 #import "WKVideoView.h"
 #import "WebPageProxy.h"
+#import "WebProcessPool.h"
 #import "WebProcessProxy.h"
 #import <QuartzCore/CoreAnimation.h>
 #import <WebCore/MediaPlayerEnums.h>
@@ -50,6 +53,7 @@
 #import <wtf/LoggerHelper.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/WeakObjCPtr.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import "RemoteLayerTreeDrawingAreaProxy.h"
@@ -59,14 +63,26 @@
 #endif
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_page->process().connection())
+#if USE(EXTENSIONKIT)
+#import <BrowserEngineKit/BELayerHierarchyHostingTransactionCoordinator.h>
+#import <BrowserEngineKit/BELayerHierarchyHostingView.h>
+#endif
 
 @interface WKLayerHostView : PlatformView
 @property (nonatomic, assign) uint32_t contextID;
+#if USE(EXTENSIONKIT)
+@property (nonatomic, strong) PlatformView *visibilityPropagationView;
+#endif
 @end
 
 @implementation WKLayerHostView {
 #if PLATFORM(IOS_FAMILY)
     WeakObjCPtr<UIWindow> _window;
+#endif
+#if USE(EXTENSIONKIT)
+    RetainPtr<PlatformView> _visibilityPropagationView;
+@public
+    RetainPtr<BELayerHierarchyHostingView> _hostingView;
 #endif
 }
 
@@ -109,6 +125,20 @@
     return [super window];
 }
 #endif
+
+#if USE(EXTENSIONKIT)
+- (PlatformView *)visibilityPropagationView
+{
+    return _visibilityPropagationView.get();
+}
+
+- (void)setVisibilityPropagationView:(PlatformView *)visibilityPropagationView
+{
+    [_visibilityPropagationView removeFromSuperview];
+    _visibilityPropagationView = visibilityPropagationView;
+    [self addSubview:_visibilityPropagationView.get()];
+}
+#endif // USE(EXTENSIONKIT)
 
 @end
 
@@ -192,7 +222,7 @@ void VideoPresentationManagerProxy::applicationDidBecomeActive()
 #pragma mark - VideoPresentationModelContext
 
 VideoPresentationModelContext::VideoPresentationModelContext(VideoPresentationManagerProxy& manager, PlaybackSessionModelContext& playbackSessionModel, PlaybackSessionContextIdentifier contextId)
-    : m_manager(&manager)
+    : m_manager(manager)
     , m_playbackSessionModel(playbackSessionModel)
     , m_contextId(contextId)
 {
@@ -202,14 +232,14 @@ VideoPresentationModelContext::~VideoPresentationModelContext() = default;
 
 void VideoPresentationModelContext::addClient(VideoPresentationModelClient& client)
 {
-    ASSERT(!m_clients.contains(&client));
-    m_clients.add(&client);
+    ASSERT(!m_clients.contains(client));
+    m_clients.add(client);
 }
 
 void VideoPresentationModelContext::removeClient(VideoPresentationModelClient& client)
 {
-    ASSERT(m_clients.contains(&client));
-    m_clients.remove(&client);
+    ASSERT(m_clients.contains(client));
+    m_clients.remove(client);
 }
 
 void VideoPresentationModelContext::setPlayerLayer(RetainPtr<WebAVPlayerLayer>&& playerLayer)
@@ -224,9 +254,10 @@ void VideoPresentationModelContext::setVideoDimensions(const WebCore::FloatSize&
         return;
 
     m_videoDimensions = videoDimensions;
-    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, videoDimensions, ", clients=", m_clients.size());
-    for (auto& client : copyToVector(m_clients))
-        client->videoDimensionsChanged(videoDimensions);
+    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, videoDimensions, ", clients=", m_clients.computeSize());
+    m_clients.forEach([&](auto& client) {
+        client.videoDimensionsChanged(videoDimensions);
+    });
 }
 
 void VideoPresentationModelContext::requestCloseAllMediaPresentations(bool finishedWithMedia, CompletionHandler<void()>&& completionHandler)
@@ -274,7 +305,7 @@ UIViewController *VideoPresentationModelContext::presentingViewController()
     if (!m_manager)
         return nullptr;
 
-    if (auto* page = m_manager->m_page)
+    if (auto* page = m_manager->m_page.get())
         return page->uiClient().presentingViewController();
     return nullptr;
 }
@@ -388,22 +419,25 @@ void VideoPresentationModelContext::didExitPictureInPicture()
 void VideoPresentationModelContext::willEnterPictureInPicture()
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    for (auto& client : copyToVector(m_clients))
-        client->willEnterPictureInPicture();
+    m_clients.forEach([&](auto& client) {
+        client.willEnterPictureInPicture();
+    });
 }
 
 void VideoPresentationModelContext::failedToEnterPictureInPicture()
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    for (auto& client : copyToVector(m_clients))
-        client->failedToEnterPictureInPicture();
+    m_clients.forEach([&](auto& client) {
+        client.failedToEnterPictureInPicture();
+    });
 }
 
 void VideoPresentationModelContext::willExitPictureInPicture()
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    for (auto& client : copyToVector(m_clients))
-        client->willExitPictureInPicture();
+    m_clients.forEach([&](auto& client) {
+        client.willExitPictureInPicture();
+    });
 }
 
 #if !RELEASE_LOG_DISABLED
@@ -436,7 +470,7 @@ Ref<VideoPresentationManagerProxy> VideoPresentationManagerProxy::create(WebPage
 }
 
 VideoPresentationManagerProxy::VideoPresentationManagerProxy(WebPageProxy& page, PlaybackSessionManagerProxy& playbackSessionManagerProxy)
-    : m_page(&page)
+    : m_page(page)
     , m_playbackSessionManagerProxy(playbackSessionManagerProxy)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
@@ -529,9 +563,9 @@ void VideoPresentationManagerProxy::requestRouteSharingPolicyAndContextUID(Playb
 
 VideoPresentationManagerProxy::ModelInterfaceTuple VideoPresentationManagerProxy::createModelAndInterface(PlaybackSessionContextIdentifier contextId)
 {
-    auto& playbackSessionModel = m_playbackSessionManagerProxy->ensureModel(contextId);
+    Ref playbackSessionModel = m_playbackSessionManagerProxy->ensureModel(contextId);
     auto model = VideoPresentationModelContext::create(*this, playbackSessionModel, contextId);
-    auto& playbackSessionInterface = m_playbackSessionManagerProxy->ensureInterface(contextId);
+    Ref playbackSessionInterface = m_playbackSessionManagerProxy->ensureInterface(contextId);
     Ref<PlatformVideoFullscreenInterface> interface = PlatformVideoFullscreenInterface::create(playbackSessionInterface);
     m_playbackSessionManagerProxy->addClientForContext(contextId);
 
@@ -589,9 +623,9 @@ void VideoPresentationManagerProxy::removeClientForContext(PlaybackSessionContex
     clientCount--;
 
     if (clientCount <= 0) {
-        auto& interface = ensureInterface(contextId);
-        interface.setVideoPresentationModel(nullptr);
-        interface.invalidate();
+        Ref interface = ensureInterface(contextId);
+        interface->setVideoPresentationModel(nullptr);
+        interface->invalidate();
         m_playbackSessionManagerProxy->removeClientForContext(contextId);
         m_clientCounts.remove(contextId);
         m_contextMap.remove(contextId);
@@ -620,28 +654,28 @@ void VideoPresentationManagerProxy::forEachSession(Function<void(VideoPresentati
     }
 }
 
-void VideoPresentationManagerProxy::requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier identifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
+void VideoPresentationManagerProxy::requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier identifier, CompletionHandler<void(std::optional<ShareableBitmap::Handle>&&)>&& completionHandler)
 {
     if (!m_page) {
-        completionHandler({ });
+        completionHandler(std::nullopt);
         return;
     }
 
     RefPtr gpuProcess = GPUProcessProxy::singletonIfCreated();
     if (!gpuProcess) {
-        completionHandler({ });
+        completionHandler(std::nullopt);
         return;
     }
 
-    auto* interface = findInterface(identifier);
+    RefPtr interface = findInterface(identifier);
     if (!interface) {
-        completionHandler({ });
+        completionHandler(std::nullopt);
         return;
     }
 
     auto playerIdentifier = valueOrDefault(interface->playerIdentifier());
     if (!playerIdentifier) {
-        completionHandler({ });
+        completionHandler(std::nullopt);
         return;
     }
 
@@ -657,7 +691,7 @@ void VideoPresentationManagerProxy::addVideoInPictureInPictureDidChangeObserver(
 void VideoPresentationManagerProxy::hasVideoInPictureInPictureDidChange(bool value)
 {
     ALWAYS_LOG(LOGIDENTIFIER, value);
-    RefPtr page = m_page;
+    RefPtr page = m_page.get();
     if (!page)
         return;
     page->uiClient().hasVideoInPictureInPictureDidChange(page.get(), value);
@@ -711,12 +745,29 @@ RetainPtr<WKLayerHostView> VideoPresentationManagerProxy::createLayerHostViewWit
 #endif
         model->setLayerHostView(view);
 
-        [view layer].masksToBounds = NO;
-        [view layer].name = @"WKLayerHostView layer";
-        [view layer].frame = CGRectMake(0, 0, initialSize.width(), initialSize.height());
+#if USE(EXTENSIONKIT)
+        auto hostingView = adoptNS([[BELayerHierarchyHostingView alloc] init]);
+        view->_hostingView = hostingView;
+        [view addSubview:hostingView.get()];
+        auto layer = [hostingView layer];
+#else
+        auto layer = [view layer];
+#endif
+        layer.masksToBounds = NO;
+        layer.name = @"WKLayerHostView layer";
+        layer.frame = CGRectMake(0, 0, initialSize.width(), initialSize.height());
     }
 
+#if USE(EXTENSIONKIT)
+    RefPtr page = m_page.get();
+    if (RefPtr gpuProcess = page ? page->process().processPool().gpuProcess() : nullptr) {
+        RetainPtr handle = LayerHostingContext::createHostingHandle(gpuProcess->processID(), videoLayerID);
+        [view->_hostingView setHandle:handle.get()];
+    } else
+        RELEASE_LOG_ERROR(Media, "VideoPresentationManagerProxy::createLayerHostViewWithID: Unable to initialize hosting view, no GPU process");
+#else
     [view setContextID:videoLayerID];
+#endif
 
     interface->setupCaptionsLayer([view layer], initialSize);
 
@@ -762,8 +813,7 @@ RetainPtr<WKVideoView> VideoPresentationManagerProxy::createViewWithID(PlaybackS
         if (![[view layer] superlayer])
             [playerLayer addSublayer:[view layer]];
 
-        auto videoView = adoptNS([[WKVideoView alloc] initWithFrame:initialFrame]);
-        [videoView addSubview:playerView.get()];
+        auto videoView = adoptNS([[WKVideoView alloc] initWithFrame:initialFrame playerView:playerView.get()]);
 
         model->setPlayerLayer(WTFMove(playerLayer));
         model->setPlayerView(playerView.get());
@@ -815,6 +865,11 @@ void VideoPresentationManagerProxy::setupFullscreenWithID(PlaybackSessionContext
 #endif
 
     RetainPtr<WKLayerHostView> view = createLayerHostViewWithID(contextId, videoLayerID, initialSize, hostingDeviceScaleFactor);
+
+#if USE(EXTENSIONKIT)
+        if (UIView *visibilityPropagationView = m_page->pageClient().createVisibilityPropagationView())
+            [view setVisibilityPropagationView:visibilityPropagationView];
+#endif
 
 #if PLATFORM(IOS_FAMILY)
     auto* rootNode = downcast<RemoteLayerTreeDrawingAreaProxy>(*m_page->drawingArea()).remoteLayerTreeHost().rootNode();
@@ -868,8 +923,8 @@ void VideoPresentationManagerProxy::enterFullscreen(PlaybackSessionContextIdenti
         return;
     }
 
-    auto& interface = ensureInterface(contextId);
-    interface.enterFullscreen();
+    Ref interface = ensureInterface(contextId);
+    interface->enterFullscreen();
 
     // Only one context can be in a given full screen mode at a time:
     for (auto& contextPair : m_contextMap) {
@@ -878,7 +933,7 @@ void VideoPresentationManagerProxy::enterFullscreen(PlaybackSessionContextIdenti
             continue;
 
         auto& otherInterface = std::get<1>(contextPair.value);
-        if (otherInterface->hasMode(interface.mode()))
+        if (otherInterface->hasMode(interface->mode()))
             otherInterface->requestHideAndExitFullscreen();
     }
 }
@@ -1158,6 +1213,11 @@ void VideoPresentationManagerProxy::didCleanupFullscreen(PlaybackSessionContextI
 
     auto& [model, interface] = ensureModelAndInterface(contextId);
 
+#if USE(EXTENSIONKIT)
+    if (auto layerHostView = dynamic_objc_cast<WKLayerHostView>(model->layerHostView()))
+        [layerHostView setVisibilityPropagationView:nil];
+#endif
+
     [model->layerHostView() removeFromSuperview];
     interface->removeCaptionsLayer();
     if (auto playerLayer = model->playerLayer()) {
@@ -1184,10 +1244,23 @@ void VideoPresentationManagerProxy::setVideoLayerFrame(PlaybackSessionContextIde
 
     auto& [model, interface] = ensureModelAndInterface(contextId);
     interface->setCaptionsFrame(CGRectMake(0, 0, frame.width(), frame.height()));
-#if PLATFORM(IOS_FAMILY)
-    auto fenceSendRight = MachSendRight::adopt([UIWindow _synchronizeDrawingAcrossProcesses]);
-#else
     MachSendRight fenceSendRight;
+#if PLATFORM(IOS_FAMILY)
+#if USE(EXTENSIONKIT)
+    auto view = dynamic_objc_cast<WKLayerHostView>(model->layerHostView());
+    if (view && view->_hostingView) {
+        auto hostingUpdateCoordinator = [BELayerHierarchyHostingTransactionCoordinator coordinatorWithError:nil];
+        [hostingUpdateCoordinator addLayerHierarchyHostingView:view->_hostingView.get()];
+        OSObjectPtr<xpc_object_t> xpcRepresentationHostingCoordinator = [hostingUpdateCoordinator createXPCRepresentation];
+        fenceSendRight = MachSendRight::adopt(xpc_dictionary_copy_mach_send(xpcRepresentationHostingCoordinator.get(), machPortKey));
+        m_page->send(Messages::VideoPresentationManager::SetVideoLayerFrameFenced(contextId, frame, WTFMove(fenceSendRight)));
+        [hostingUpdateCoordinator commit];
+        return;
+    }
+#else
+    fenceSendRight = MachSendRight::adopt([UIWindow _synchronizeDrawingAcrossProcesses]);
+#endif // USE(EXTENSIONKIT)
+#else
     if (DrawingAreaProxy* drawingArea = m_page->drawingArea())
         fenceSendRight = drawingArea->createFence();
 #endif

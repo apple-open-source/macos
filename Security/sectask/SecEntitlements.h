@@ -195,6 +195,14 @@ __BEGIN_DECLS
 #define kSecEntitlementPrivateStashService @"com.apple.private.securityd.stash-agent-client"
 #endif
 
+/* Entitlement to allow use of Keychain Sharing SPIs */
+#define kSecEntitlementPrivateKCSharingClient CFSTR("com.apple.private.keychain.kcsharing.client")
+
+/* Entitlement to allow notifying securityd of new Keychain Sharing group invitations */
+#define kSecEntitlementPrivateKCSharingInvitationNotifier CFSTR("com.apple.private.keychain.kcsharing.invitation.notifier")
+
+/* Entitlement to allow management of Keychain Sharing group invitations */
+#define kSecEntitlementPrivateKCSharingInvitationManager CFSTR("com.apple.private.keychain.kcsharing.invitation.manager")
 
 __END_DECLS
 

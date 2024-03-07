@@ -254,9 +254,12 @@ version     tvos                15.6
 version     watchos             8.7
 version     bridgeos            6.6
 set         summer_2022         2022.6.1    0.0
-# Security updates that shipped after final SU
+# Security updates that shipped after final normal SU
 version     macos               12.6
 version     macos               12.7
+version     watchos             8.8
+version     ios                 15.7
+version     ios                 15.8
 version     macos               13.0
 version     ios                 16.0
 version     tvos                16.0
@@ -337,6 +340,7 @@ version     bridgeos            8.3
 version     driverkit           23.3
 set         2023_SU_D           2023.14.1    23.3.0
 #ifndef __OPENSOURCE__
+platform    exclavekit          exclavekit  EXCLAVEKIT -unversioned
 version     visionos            1.1
 version     macos               14.4
 version     ios                 17.4
@@ -353,5 +357,4 @@ version     watchos             11.0
 version     bridgeos            9.0
 version     driverkit           24.0
 set         fall_2024           2024.0.0    24.0
-platform    exclavekit          exclavekit  EXCLAVEKIT -unversioned
 #endif

@@ -315,7 +315,6 @@ CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, const void *k
                 if((cryptor = ccMallocECCryptor(nbits, ccECKeyPublic)) == NULL) return kCCMemoryFailure;
                 ccec_const_cp_t cp = ccec_get_cp(nbits);
                 __Require_Action(ccec_x963_import_pub(cp, keyPackageLen, keyPackage, cryptor->ecKey.public) == 0, errOut, retval = kCCInvalidKey);
-                __Require_Action(ccec_validate_pub(cryptor->ecKey.public), errOut, retval = kCCInvalidKey);
                 cryptor->key_nbits = nbits;
             } else return kCCParamError;
 
@@ -332,7 +331,6 @@ CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, const void *k
 
                 ccec_const_cp_t cp = ccec_get_cp(nbits);
                 __Require_Action(ccec_compact_import_pub(cp, keyPackageLen, keyPackage, cryptor->ecKey.public) == 0, errOut, retval = kCCInvalidKey);
-                __Require_Action(ccec_validate_pub(cryptor->ecKey.public), errOut, retval = kCCInvalidKey);
                 cryptor->key_nbits = nbits;
             } else {
                 return kCCParamError;

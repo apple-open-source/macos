@@ -82,6 +82,8 @@
 #include <mach/boolean.h>
 #include <pexpert/pexpert.h>
 
+#include <net/sockaddr_utils.h>
+
 #if __has_ptrcheck
 #include <machine/trap.h> /* Needed by bound-checks-soft when enabled. */
 #endif /* __has_ptrcheck */
@@ -1157,8 +1159,8 @@ protoctl_event_callback(struct nwk_wq_entry *nwk_item)
 
 	/* Call this before we walk the tree */
 	EVENTHANDLER_INVOKE(&protoctl_evhdlr_ctxt, protoctl_event,
-	    p_ev->protoctl_ev_arg.ifp, (struct sockaddr *)&(p_ev->protoctl_ev_arg.laddr),
-	    (struct sockaddr *)&(p_ev->protoctl_ev_arg.raddr),
+	    p_ev->protoctl_ev_arg.ifp, SA(&p_ev->protoctl_ev_arg.laddr),
+	    SA(&p_ev->protoctl_ev_arg.raddr),
 	    p_ev->protoctl_ev_arg.lport, p_ev->protoctl_ev_arg.rport,
 	    p_ev->protoctl_ev_arg.protocol, p_ev->protoctl_ev_arg.protoctl_event_code,
 	    &p_ev->protoctl_ev_arg.val);
@@ -1180,13 +1182,15 @@ protoctl_event_enqueue_nwk_wq_entry(struct ifnet *ifp, struct sockaddr *p_laddr,
 	p_protoctl_ev->protoctl_ev_arg.ifp = ifp;
 
 	if (p_laddr != NULL) {
-		SOCKADDR_COPY(p_laddr,
-		    &p_protoctl_ev->protoctl_ev_arg.laddr);
+		VERIFY(p_laddr->sa_len <= sizeof(p_protoctl_ev->protoctl_ev_arg.laddr));
+		struct sockaddr_in6 *dst __single = &p_protoctl_ev->protoctl_ev_arg.laddr.sin6;
+		SOCKADDR_COPY(SIN6(p_laddr), dst, p_laddr->sa_len);
 	}
 
 	if (p_raddr != NULL) {
-		SOCKADDR_COPY(p_raddr,
-		    &p_protoctl_ev->protoctl_ev_arg.raddr);
+		VERIFY(p_raddr->sa_len <= sizeof(p_protoctl_ev->protoctl_ev_arg.raddr));
+		struct sockaddr_in6 *dst __single = &p_protoctl_ev->protoctl_ev_arg.raddr.sin6;
+		SOCKADDR_COPY(SIN6(p_raddr), dst, p_raddr->sa_len);
 	}
 
 	p_protoctl_ev->protoctl_ev_arg.lport = lport;

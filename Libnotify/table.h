@@ -63,9 +63,9 @@ extern void *_nc_table_find(table_t *t, const char *key);
 extern void *_nc_table_find_n(table_n_t *t, uint32_t key);
 extern void *_nc_table_find_64(table_64_t *t, uint64_t key);
 
-extern void _nc_table_delete(table_t *t, const char *key);
-extern void _nc_table_delete_n(table_n_t *t, uint32_t key);
-extern void _nc_table_delete_64(table_64_t *t, uint64_t key);
+extern void _nc_table_delete(table_t *t, const char *key, char **expected);
+extern void _nc_table_delete_n(table_n_t *t, uint32_t key, uint32_t *expected);
+extern void _nc_table_delete_64(table_64_t *t, uint64_t key, uint64_t *expected);
 
 typedef bool (^payload_handler_t) (void *);
 

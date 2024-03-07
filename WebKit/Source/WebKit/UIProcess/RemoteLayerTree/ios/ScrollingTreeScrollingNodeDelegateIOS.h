@@ -25,14 +25,18 @@
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(ASYNC_SCROLLING)
 
+#import "WKSEDefinitions.h"
 #import <UIKit/UIScrollView.h>
 #import <WebCore/ScrollingCoordinator.h>
 #import <WebCore/ScrollingTreeScrollingNode.h>
 #import <WebCore/ScrollingTreeScrollingNodeDelegate.h>
+#import <wtf/WeakPtr.h>
 
 @class CALayer;
-@class UIScrollEvent;
 @class UIScrollView;
+@class WKBaseScrollView;
+@class WKSEScrollViewScrollUpdate;
+@class WKSEScrollView;
 @class WKScrollingNodeScrollViewDelegate;
 
 namespace WebCore {
@@ -46,7 +50,7 @@ class ScrollingTreeScrollingNode;
 
 namespace WebKit {
 
-class ScrollingTreeScrollingNodeDelegateIOS final : public WebCore::ScrollingTreeScrollingNodeDelegate {
+class ScrollingTreeScrollingNodeDelegateIOS final : public WebCore::ScrollingTreeScrollingNodeDelegate, public CanMakeWeakPtr<ScrollingTreeScrollingNodeDelegateIOS> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     
@@ -70,7 +74,7 @@ public:
     void repositionScrollingLayers();
 
 #if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
-    void handleAsynchronousCancelableScrollEvent(UIScrollView *, UIScrollEvent *, void (^completion)(BOOL handled));
+    void handleAsynchronousCancelableScrollEvent(WKBaseScrollView *, WKSEScrollViewScrollUpdate *, void (^completion)(BOOL handled));
 #endif
 
     OptionSet<WebCore::TouchAction> activeTouchActions() const { return m_activeTouchActions; }
@@ -79,7 +83,7 @@ public:
     void cancelPointersForGestureRecognizer(UIGestureRecognizer*);
 
     UIScrollView *findActingScrollParent(UIScrollView *);
-    UIScrollView *scrollView() const;
+    WKBaseScrollView *scrollView() const;
 
     bool startAnimatedScrollToPosition(WebCore::FloatPoint) final;
     void stopAnimatedScroll() final;
@@ -101,13 +105,13 @@ private:
 
 } // namespace WebKit
 
-@interface WKScrollingNodeScrollViewDelegate : NSObject <UIScrollViewDelegate> {
-    WebKit::ScrollingTreeScrollingNodeDelegateIOS* _scrollingTreeNodeDelegate;
+@interface WKScrollingNodeScrollViewDelegate : NSObject <WKSEScrollViewDelegate> {
+    WeakPtr<WebKit::ScrollingTreeScrollingNodeDelegateIOS> _scrollingTreeNodeDelegate;
 }
 
 @property (nonatomic, getter=_isInUserInteraction) BOOL inUserInteraction;
 
-- (instancetype)initWithScrollingTreeNodeDelegate:(WebKit::ScrollingTreeScrollingNodeDelegateIOS*)delegate;
+- (instancetype)initWithScrollingTreeNodeDelegate:(WebKit::ScrollingTreeScrollingNodeDelegateIOS&)delegate;
 
 @end
 

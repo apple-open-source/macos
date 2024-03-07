@@ -22,113 +22,115 @@
 
 #import <AppleFeatures/AppleFeatures.h>
 
-static int start = false;
-static int signIn = false;
-static int signOut = false;
-static int resetoctagon = false;
-static int resetProtectedData = false;
-static int reset = false;
-static int userControllableViewsSyncStatus = false;
-
-static int fetchAllBottles = false;
-static int recover = false;
-static int depart = false;
-
-static int status = false;
-
-static int er_trigger = false;
-static int er_status = false;
-static int er_reset = false;
-static int er_store = false;
-static int ckks_policy_flag = false;
-
-static int ttr_flag = false;
-
-static int fetch_escrow_records = false;
-static int fetch_all_escrow_records = false;
-
-static int recoverRecord = false;
-static int recoverSilentRecord = false;
-
-static int resetAccountCDPContent = false;
-
-static int createCustodianRecoveryKey = false;
-static int joinWithCustodianRecoveryKey = false;
-static int preflightJoinWithCustodianRecoveryKey = false;
-static int removeCustodianRecoveryKey = false;
-static int checkCustodianRecoveryKey = false;
-
-static int setRecoveryKey = false;
-static int removeRecoveryKey = false;
-
-static int createInheritanceKey = false;
-static int generateInheritanceKey = false;
-static int storeInheritanceKey = false;
-static int joinWithInheritanceKey = false;
-static int preflightJoinWithInheritanceKey = false;
-static int removeInheritanceKey = false;
-static int checkInheritanceKey = false;
-
-static int fetchAccountSettings = false;
-static int fetchAccountWideSettings = false;
-static int fetchAccountWideSettingsDefault = false;
-
-static int enableWalrus = false;
-static int disableWalrus = false;
-
-static int enableWebAccess = false;
-static int disableWebAccess = false;
-
-static int health = false;
-static int simulateReceivePush = false;
-static int tlkRecoverability = false;
-static int machineIDOverride = false;
-
-#if TARGET_OS_WATCH
-static int pairme = false;
-#endif /* TARGET_OS_WATCH */
-
-static char* bottleIDArg = NULL;
-static char* contextNameArg = NULL;
-static char* secretArg = NULL;
-static char* skipRateLimitingCheckArg = NULL;
-static char* recordID = NULL;
-
-static char* overrideForAccountScriptArg = NULL;
-static char* overrideEscrowCacheArg = NULL;
-
-static char* machineIDArg = NULL;
-
-static int argEnable = false;
-static int argPause = false;
-
-static int json = false;
-
-static int notifyIdMS = false;
-
-static int printAccountMetadata = false;
-
-static int forceFetch = false;
-static int repair = false;
-
-static char* altDSIDArg = NULL;
-static char* containerStr = NULL;
-static char* radarNumber = NULL;
-static char* appleIDArg = NULL;
-static char* dsidArg = NULL;
-static char* wrappingKeyArg = NULL;
-static char* wrappedKeyArg = NULL;
-static char* custodianUUIDArg = NULL;
-static char* inheritanceUUIDArg = NULL;
-static char* timeoutInS = NULL;
-
-static char* idmsTargetContext = NULL;
-static char* idmsCuttlefishPassword = NULL;
-
-
 int main(int argc, char** argv)
 {
-    static struct argument options[] = {
+    int start = false;
+    int signIn = false;
+    int signOut = false;
+    int resetoctagon = false;
+    int resetProtectedData = false;
+    int reset = false;
+    int userControllableViewsSyncStatus = false;
+
+    int fetchAllBottles = false;
+    int recover = false;
+    int depart = false;
+
+    int status = false;
+
+    int er_trigger = false;
+    int er_status = false;
+    int er_reset = false;
+    int er_store = false;
+    int ckks_policy_flag = false;
+
+    int ttr_flag = false;
+
+    int fetch_escrow_records = false;
+    int fetch_all_escrow_records = false;
+
+    int recoverRecord = false;
+    int recoverSilentRecord = false;
+
+    int resetAccountCDPContent = false;
+
+    int createCustodianRecoveryKey = false;
+    int joinWithCustodianRecoveryKey = false;
+    int preflightJoinWithCustodianRecoveryKey = false;
+    int removeCustodianRecoveryKey = false;
+    int checkCustodianRecoveryKey = false;
+
+    int setRecoveryKey = false;
+    int removeRecoveryKey = false;
+    int joinWithRecoveryKey = false;
+
+    int createInheritanceKey = false;
+    int generateInheritanceKey = false;
+    int storeInheritanceKey = false;
+    int joinWithInheritanceKey = false;
+    int preflightJoinWithInheritanceKey = false;
+    int removeInheritanceKey = false;
+    int checkInheritanceKey = false;
+
+    int fetchAccountSettings = false;
+    int fetchAccountWideSettings = false;
+    int fetchAccountWideSettingsDefault = false;
+
+    int enableWalrus = false;
+    int disableWalrus = false;
+
+    int enableWebAccess = false;
+    int disableWebAccess = false;
+
+    int health = false;
+    int simulateReceivePush = false;
+    int tlkRecoverability = false;
+    int machineIDOverride = false;
+    int reroll = false;
+
+#if TARGET_OS_WATCH
+    int pairme = false;
+#endif /* TARGET_OS_WATCH */
+
+    char* bottleIDArg = NULL;
+    char* contextNameArg = NULL;
+    char* secretArg = NULL;
+    char* skipRateLimitingCheckArg = NULL;
+    char* recordID = NULL;
+
+    char* overrideForAccountScriptArg = NULL;
+    char* overrideEscrowCacheArg = NULL;
+
+    char* machineIDArg = NULL;
+
+    int argEnable = false;
+    int argPause = false;
+
+    int json = false;
+
+    int notifyIdMS = false;
+
+    int printAccountMetadata = false;
+
+    int forceFetch = false;
+    int repair = false;
+
+    char* altDSIDArg = NULL;
+    char* containerStr = NULL;
+    char* radarNumber = NULL;
+    char* appleIDArg = NULL;
+    char* dsidArg = NULL;
+    char* wrappingKeyArg = NULL;
+    char* wrappedKeyArg = NULL;
+    char* custodianUUIDArg = NULL;
+    char* inheritanceUUIDArg = NULL;
+    char* timeoutInS = NULL;
+    char* recoveryKeyArg = NULL;
+
+    char* idmsTargetContext = NULL;
+    char* idmsCuttlefishPassword = NULL;
+
+    struct argument options[] = {
         {.shortname = 's', .longname = "secret", .argument = &secretArg, .description = "escrow secret"},
         {.shortname = 'e', .longname = "bottleID", .argument = &bottleIDArg, .description = "bottle record id"},
         {.shortname = 'r', .longname = "skipRateLimiting", .argument = &skipRateLimitingCheckArg, .description = " enter values YES or NO, option defaults to NO, This gives you the opportunity to skip the rate limiting check when performing the cuttlefish health check"},
@@ -216,6 +218,8 @@ int main(int argc, char** argv)
         {.command = "set-machine-id-override", .flag = &machineIDOverride, .flagval = true, .description = "Set machineID override"},
         {.command = "remove-recovery-key", .flag = &removeRecoveryKey, .flagval = true, .description = "Remove a recovery key", .internal_only = true},
         {.command = "set-recovery-key", .flag = &setRecoveryKey, .flagval = true, .description = "Set a recovery key", .internal_only = true},
+        {.command = "join-with-recovery-key", .flag = &joinWithRecoveryKey, .flagval = true, .description = "Join with a recovery key", .internal_only = true},
+        {.longname = "recoveryKey", .argument = &recoveryKeyArg, .description = "recovery key"},
 
         {.command = "enable-walrus", .flag = &enableWalrus, .flagval = true, .description = "Enable Walrus Setting", .internal_only = true},
         {.command = "disable-walrus", .flag = &disableWalrus, .flagval = true, .description = "Disable Walrus Setting", .internal_only = true},
@@ -230,10 +234,11 @@ int main(int argc, char** argv)
 #endif /* TARGET_OS_WATCH */
 
         {.command = "print-account-metadata", .flag = &printAccountMetadata, .flagval = true, .description = "Print Account Metadata", .internal_only = true},
+        {.command = "reroll", .flag = &reroll, .flagval = true, .description = "Reroll PeerID", .internal_only = true},
 
         {}};
 
-    static struct arguments args = {
+    struct arguments args = {
         .programname = "otctl",
         .description = "Control and report on Octagon Trust",
         .arguments = options,
@@ -270,8 +275,11 @@ int main(int argc, char** argv)
         NSString* idmsTargetContextString = idmsTargetContext ? [NSString stringWithCString:idmsTargetContext encoding:NSUTF8StringEncoding] : nil;
         NSString* idmsCuttlefishPasswordString = idmsCuttlefishPassword ? [NSString stringWithCString:idmsCuttlefishPassword encoding:NSUTF8StringEncoding] : nil;
 
-        NSString* overrideForAccountScript = overrideForAccountScriptArg ? [NSString stringWithCString:overrideForAccountScriptArg encoding:NSUTF8StringEncoding] : @"NO";
-        NSString* overrideEscrowCache = overrideEscrowCacheArg ? [NSString stringWithCString:overrideEscrowCacheArg encoding:NSUTF8StringEncoding] : @"NO";
+        NSString* overrideForAccountScriptString = overrideForAccountScriptArg ? [NSString stringWithCString:overrideForAccountScriptArg encoding:NSUTF8StringEncoding] : @"NO";
+        NSString* overrideEscrowCacheString = overrideEscrowCacheArg ? [NSString stringWithCString:overrideEscrowCacheArg encoding:NSUTF8StringEncoding] : @"NO";
+        BOOL overrideEscrowCache = [overrideEscrowCacheString isEqualToString:@"YES"];
+
+        NSString* recoveryKey = recoveryKeyArg ? [NSString stringWithCString:recoveryKeyArg encoding:NSUTF8StringEncoding] : nil;
 
         OTControlCLI* ctl = [[OTControlCLI alloc] initWithOTControl:rpc];
 
@@ -310,7 +318,7 @@ int main(int argc, char** argv)
         }
 
         if(fetchAllBottles) {
-            return [ctl fetchAllBottles:arguments control:rpc];
+            return [ctl fetchAllBottles:arguments control:rpc overrideEscrowCache:overrideEscrowCache];
         }
         if(recover) {
             NSString* entropyJSON = secretArg ? [NSString stringWithCString:secretArg encoding:NSUTF8StringEncoding] : nil;
@@ -348,10 +356,10 @@ int main(int argc, char** argv)
             return [ctl status:arguments json:json];
         }
         if(fetch_escrow_records) {
-            return [ctl fetchEscrowRecords:arguments json:json];
+            return [ctl fetchEscrowRecords:arguments json:json overrideEscrowCache:overrideEscrowCache];
         }
         if(fetch_all_escrow_records) {
-            return [ctl fetchAllEscrowRecords:arguments json:json];
+            return [ctl fetchAllEscrowRecords:arguments json:json overrideEscrowCache:overrideEscrowCache];
         }
         if(machineIDOverride) {
             NSString* machineID = machineIDArg ? [NSString stringWithCString:machineIDArg encoding:NSUTF8StringEncoding] : nil;
@@ -368,7 +376,14 @@ int main(int argc, char** argv)
                 return 1;
             }
 
-            return [ctl performEscrowRecovery:arguments recordID:recordIDString appleID:appleID secret:secret overrideForAccountScript:overrideForAccountScript overrideEscrowCache:overrideEscrowCache];
+            BOOL overrideForAccountScript = [overrideForAccountScriptString isEqualToString:@"YES"];
+
+            return [ctl performEscrowRecovery:arguments
+                                     recordID:recordIDString
+                                      appleID:appleID
+                                       secret:secret
+                     overrideForAccountScript:overrideForAccountScript
+                          overrideEscrowCache:overrideEscrowCache];
         }
         if(recoverSilentRecord){
             NSString* secret = secretArg ? [NSString stringWithCString:secretArg encoding:NSUTF8StringEncoding] : nil;
@@ -460,7 +475,15 @@ int main(int argc, char** argv)
         if (setRecoveryKey) {
             return [ctl setRecoveryKeyWithArguments:arguments];
         }
-        
+
+        if (joinWithRecoveryKey) {
+            if (!recoveryKey) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl joinWithRecoveryKeyWithArguments:arguments recoveryKey:recoveryKey];
+        }
+
         if(createInheritanceKey) {
             return [ctl createInheritanceKeyWithArguments:arguments uuidString:inheritanceUUIDString json:json timeout:timeout];
         }
@@ -560,7 +583,7 @@ int main(int argc, char** argv)
 #if TARGET_OS_WATCH
         if (pairme) {
             dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-            OTPairingInitiateWithCompletion(NULL, ^(bool success, NSError *pairingError) {
+            OTPairingInitiateWithCompletion(NULL, true, ^(bool success, NSError *pairingError) {
                 if (success) {
                     printf("successfully paired with companion\n");
                 } else {
@@ -574,6 +597,9 @@ int main(int argc, char** argv)
 #endif /* TARGET_OS_WATCH */
         if (printAccountMetadata) {
             return [ctl printAccountMetadataWithArguments:arguments json:json];
+        }
+        if (reroll) {
+            return [ctl rerollWithArguments:arguments json:json];
         }
 
         print_usage(&args);

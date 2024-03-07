@@ -176,6 +176,7 @@ SecSecurityClientGet(void)
 #endif
         gClient.applicationIdentifier = NULL;
         gClient.isAppClip = false;
+        gClient.allowKeychainSharing = false;
     });
 
     static __thread dispatch_once_t onceTokenThreadLocalClient;
@@ -241,6 +242,20 @@ void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier) {
     threadLocalClient.applicationIdentifier = CFRetainSafe(identifier);
 }
 
+// Testing
+void SecSecurityClientSetKeychainSharingState(SecSecurityClientKeychainSharingState state) {
+    (void)SecSecurityClientGet(); // Initializes `gClient` and `threadLocalClient` as a side effect.
+    switch (state) {
+        case SecSecurityClientKeychainSharingStateDisabled:
+            gClient.allowKeychainSharing = false;
+            threadLocalClient.allowKeychainSharing = false;
+            break;
+        case SecSecurityClientKeychainSharingStateEnabled:
+            gClient.allowKeychainSharing = true;
+            threadLocalClient.allowKeychainSharing = true;
+            break;
+    }
+}
 
 #if !TARGET_OS_IPHONE
 static bool securityd_in_system_context(void) {
@@ -284,7 +299,7 @@ static xpc_connection_t securityd_create_connection(const char *name, uid_t targ
     connection = xpc_connection_create_mach_service(serviceName, NULL, flags);
     xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
         const char *description = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
-        secnotice("xpc", "got event: %s", description);
+        secinfo("xpc", "got event: %s", description);
     });
     if (target_uid != SECURITY_TARGET_UID_UNSET) {
 #if TARGET_OS_OSX
@@ -374,7 +389,7 @@ static xpc_connection_t _securityd_connection(void) {
         } else if (sSecuritydConnectionsCount < MAX_SECURITYD_CONNECTIONS) {
             ret = securityd_create_connection(kSecuritydXPCServiceName, securityd_target_uid, 0);
             ++sSecuritydConnectionsCount;
-            secnotice("xpc", "Adding securityd connection to pool, total now %d", sSecuritydConnectionsCount);
+            secinfo("xpc", "Adding securityd connection to pool, total now %d", sSecuritydConnectionsCount);
         }   // No connection available and no room in the pool for a new one, touch luck!
     });
     return ret;
@@ -416,7 +431,11 @@ static xpc_connection_t _securityd_connection_to_foreground_user_session(void) {
     if (securityd_target_uid != SECURITY_TARGET_UID_UNSET && foreground_uid != securityd_target_uid) {
         secerror("xpc: uid targets not equal. using foreground: %d not global: %d", foreground_uid, securityd_target_uid);
     } else {
-        secnotice("xpc", "user sessions enabled, targeting %d", foreground_uid);
+        if(foreground_uid != 501) {
+            secnotice("xpc", "user sessions enabled, targeting %d", foreground_uid);
+        } else {
+            secinfo("xpc", "user sessions enabled, targeting %d", foreground_uid);
+        }
     }
     return securityd_create_connection(kSecuritydXPCServiceName, foreground_uid, 0);
 #endif
@@ -435,15 +454,28 @@ static xpc_connection_t _securityd_connection_to_system_keychain(void) {
 #endif // KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
 }
 
-static xpc_connection_t securityd_connection(bool isForegroundUserOp, bool useSystemKeychain) {
+typedef enum _security_fw_backend {
+    security_fw_backend_SECD,
+    security_fw_backend_SECD_FOREGROUND,
+    security_fw_backend_SECD_SYSTEM,
+    security_fw_backend_TRUSTD,
+    security_fw_backend_TRUSTD_FOREGROUND,
+    security_fw_backend_TRUSTD_SYSTEM,
+    security_fw_backend_UNKNOWN,
+} security_fw_backend;
+
+static xpc_connection_t securityd_connection(bool isForegroundUserOp, bool useSystemKeychain, security_fw_backend* backend) {
     unsigned tries = 0;
     xpc_connection_t ret = NULL;
     do {
         if (isForegroundUserOp) {
+            *backend = security_fw_backend_SECD_FOREGROUND;
             ret = _securityd_connection_to_foreground_user_session();
         } else if (useSystemKeychain) {
+            *backend = security_fw_backend_SECD_SYSTEM;
             ret = _securityd_connection_to_system_keychain();
         } else {
+            *backend = security_fw_backend_SECD;
             ret = _securityd_connection();
         }
         if (!ret) {
@@ -461,7 +493,7 @@ static void return_securityd_connection_to_pool(enum SecXPCOperation op, bool us
     if (is_trust_operation(op)) {
         if (is_foreground_user_operation(op)) {
             // clean up foreground connections, preserve the global one
-            secnotice("xpc", "cleaning up unpooled xpc conn to trustd %p", conn);
+            secinfo("xpc", "cleaning up unpooled xpc conn to trustd %p", conn);
             xpc_connection_cancel(conn);
             xpc_release(conn);
         }
@@ -481,7 +513,7 @@ static void return_securityd_connection_to_pool(enum SecXPCOperation op, bool us
         });
     } else {
         // clean up foreground/system-keychain connection
-        secnotice("xpc", "cleaning up unpooled xpc conn %p", conn);
+        secinfo("xpc", "cleaning up unpooled xpc conn %p", conn);
         xpc_connection_cancel(conn);
         xpc_release(conn);
     }
@@ -534,7 +566,11 @@ static xpc_connection_t trustd_connection_to_foreground_user_session(void) {
         return securityd_create_connection(serviceName, SECURITY_TARGET_UID_UNSET, 0);
     }
 
-    secnotice("xpc", "user sessions enabled, targeting %d", foreground_uid);
+    if(foreground_uid != 501) {
+        secnotice("xpc", "user sessions enabled, targeting %d", foreground_uid);
+    } else {
+        secinfo("xpc", "user sessions enabled, targeting %d", foreground_uid);
+    }
     return securityd_create_connection(serviceName, foreground_uid, 0);
 #else
     secerror("xpc: unexpected foreground user operation on macOS, using default behavior");
@@ -542,7 +578,7 @@ static xpc_connection_t trustd_connection_to_foreground_user_session(void) {
 #endif
 }
 
-static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op, bool useSystemKeychain) {
+static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op, bool useSystemKeychain, security_fw_backend* backend) {
     bool isTrustOp = is_trust_operation(op);
     bool isSysTrustOp = is_system_trust_operation(op);
     #if SECTRUST_VERBOSE_DEBUG
@@ -555,16 +591,19 @@ static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation 
     #endif
     if (isTrustOp) {
         if (isSysTrustOp) {
+            *backend = security_fw_backend_TRUSTD_SYSTEM;
             return trustd_system_connection();
         } else if (is_foreground_user_operation(op)) {
+            *backend = security_fw_backend_TRUSTD_FOREGROUND;
             return trustd_connection_to_foreground_user_session();
         } else {
+            *backend = security_fw_backend_TRUSTD;
             return trustd_connection();
         }
     }
 
     bool isForegroundUserOp = is_foreground_user_operation(op);
-    return securityd_connection(isForegroundUserOp, useSystemKeychain);
+    return securityd_connection(isForegroundUserOp, useSystemKeychain, backend);
 }
 
 // NOTE: This is not thread safe, but this SPI is for testing only.
@@ -694,14 +733,9 @@ static bool securityd_message_is_for_system_keychain(xpc_object_t message) {
 #endif // KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
 }
 
-XPC_RETURNS_RETAINED
-xpc_object_t
-securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
+XPC_RETURNS_RETAINED static xpc_object_t security_fw_send_message_with_reply_sync_inner(xpc_object_t message, xpc_connection_t connection, uint64_t operation, bool useSystemKeychain, CFErrorRef* error)
 {
     xpc_object_t reply = NULL;
-    uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
-    bool useSystemKeychain = securityd_message_is_for_system_keychain(message);
-    xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation, useSystemKeychain);
 
     const int max_tries = SECURITYD_MAX_XPC_TRIES;
 
@@ -718,6 +752,68 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
     return reply;
 }
 
+__attribute__((noinline)) XPC_RETURNS_RETAINED static xpc_object_t security_fw_CALLING_SECD_OR_SECURITYD(xpc_object_t message, xpc_connection_t connection, uint64_t operation, bool useSystemKeychain, CFErrorRef* error)
+{
+    return security_fw_send_message_with_reply_sync_inner(message, connection, operation, useSystemKeychain, error);
+}
+
+__attribute__((noinline)) XPC_RETURNS_RETAINED static xpc_object_t security_fw_CALLING_SECURITYD_FOREGROUND(xpc_object_t message, xpc_connection_t connection, uint64_t operation, bool useSystemKeychain, CFErrorRef* error)
+{
+    return security_fw_send_message_with_reply_sync_inner(message, connection, operation, useSystemKeychain, error);
+}
+
+__attribute__((noinline)) XPC_RETURNS_RETAINED static xpc_object_t security_fw_CALLING_SECURITYD_SYSTEM(xpc_object_t message, xpc_connection_t connection, uint64_t operation, bool useSystemKeychain, CFErrorRef* error)
+{
+    return security_fw_send_message_with_reply_sync_inner(message, connection, operation, useSystemKeychain, error);
+}
+
+__attribute__((noinline)) static xpc_object_t security_fw_CALLING_TRUSTD(xpc_object_t message, xpc_connection_t connection, uint64_t operation, bool useSystemKeychain, CFErrorRef* error)
+{
+    return security_fw_send_message_with_reply_sync_inner(message, connection, operation, useSystemKeychain, error);
+}
+
+__attribute__((noinline)) static xpc_object_t security_fw_CALLING_TRUSTD_FOREGROUND(xpc_object_t message, xpc_connection_t connection, uint64_t operation, bool useSystemKeychain, CFErrorRef* error)
+{
+    return security_fw_send_message_with_reply_sync_inner(message, connection, operation, useSystemKeychain, error);
+}
+
+__attribute__((noinline)) static xpc_object_t security_fw_CALLING_TRUSTD_SYSTEM(xpc_object_t message, xpc_connection_t connection, uint64_t operation, bool useSystemKeychain, CFErrorRef* error)
+{
+    return security_fw_send_message_with_reply_sync_inner(message, connection, operation, useSystemKeychain, error);
+}
+
+__attribute__((noinline)) static xpc_object_t security_fw_CALLING_UNKNOWN_BACKEND_THIS_IS_A_BUG(xpc_object_t message, xpc_connection_t connection, uint64_t operation, bool useSystemKeychain, CFErrorRef* error)
+{
+    return security_fw_send_message_with_reply_sync_inner(message, connection, operation, useSystemKeychain, error);
+}
+
+XPC_RETURNS_RETAINED xpc_object_t securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
+{
+    uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
+    bool useSystemKeychain = securityd_message_is_for_system_keychain(message);
+    security_fw_backend backend = security_fw_backend_UNKNOWN;
+    xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation, useSystemKeychain, &backend);
+
+    switch (backend) {
+        case security_fw_backend_SECD:
+            return security_fw_CALLING_SECD_OR_SECURITYD(message, connection, operation, useSystemKeychain, error);
+        case security_fw_backend_SECD_FOREGROUND:
+            return security_fw_CALLING_SECURITYD_FOREGROUND(message, connection, operation, useSystemKeychain, error);
+        case security_fw_backend_SECD_SYSTEM:
+            return security_fw_CALLING_SECURITYD_SYSTEM(message, connection, operation, useSystemKeychain, error);
+        case security_fw_backend_TRUSTD:
+            return security_fw_CALLING_TRUSTD(message, connection, operation, useSystemKeychain, error);
+        case security_fw_backend_TRUSTD_FOREGROUND:
+            return security_fw_CALLING_TRUSTD_FOREGROUND(message, connection, operation, useSystemKeychain, error);
+        case security_fw_backend_TRUSTD_SYSTEM:
+            return security_fw_CALLING_TRUSTD_SYSTEM(message, connection, operation, useSystemKeychain, error);
+        case security_fw_backend_UNKNOWN:
+            [[fallthrough]];
+        default:
+            return security_fw_CALLING_UNKNOWN_BACKEND_THIS_IS_A_BUG(message, connection, operation, useSystemKeychain, error);
+    }
+}
+
 static void
 _securityd_message_with_reply_async_inner(xpc_object_t message,
 										  dispatch_queue_t replyq,
@@ -726,7 +822,8 @@ _securityd_message_with_reply_async_inner(xpc_object_t message,
 {
 	uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
     bool useSystemKeychain = securityd_message_is_for_system_keychain(message);
-    xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation, useSystemKeychain);
+    security_fw_backend backend = security_fw_backend_UNKNOWN;// unused in async case
+    xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation, useSystemKeychain, &backend);
 
 	xpc_retain(message);
 	dispatch_retain(replyq);

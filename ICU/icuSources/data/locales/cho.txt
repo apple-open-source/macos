@@ -2,20 +2,10 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 cho{
-    AuxExemplarCharacters{"[c č d g j q r š x z]"}
-    ExemplarCharacters{
-        "[a {a\u0331} b {ch} e f h {hl} i {i\u0331} k l m n o {o\u0331} p s {sh} t u "
-        "v ʋ w y]"
-    }
-    ExemplarCharactersIndex{
-        "[A {A\u0331} B {CH} E F H {HL} I {I\u0331} K L M N O {O\u0331} P S {SH} T U "
-        "V Ʋ W Z]"
-    }
-    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
-    ExemplarCharactersPunctuation{
-        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
-        "′ ″]"
-    }
+    AuxExemplarCharacters{"[cč d g j q r š x z]"}
+    ExemplarCharacters{"[a{a̱} b {ch} e f h {hl} i{i̱} k l m n o{o̱} p s {sh} t u v ʋ w y]"}
+    ExemplarCharactersIndex{"[A{A̱} B {CH} E F H {HL} I{I̱} K L M N O{O̱} P S {SH} T U V Ʋ W Z]"}
+    ExemplarCharactersPunctuation{"[\\- ‐‑ – — , ; \\: ! ? . … '‘’ \u0022“” ( ) \\[ \\] § @ * / \\& # † ‡ ′ ″]"}
     calendar{
         gregorian{
             DateTimePatterns{

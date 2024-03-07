@@ -7,8 +7,6 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
-
-#ifdef WEBRTC_USE_H265
 #include "modules/video_coding/h265_vps_sps_pps_tracker.h"
 
 #include <memory>
@@ -297,7 +295,7 @@ void H265VpsSpsPpsTracker::InsertVpsSpsPpsNalus(
   uint8_t* sps_data = new uint8_t[sps_info.size];
   memcpy(sps_data, sps.data(), sps_info.size);
   sps_info.data.reset(sps_data);
-  sps_data_[parsed_sps->id] = std::move(sps_info);
+  sps_data_[parsed_sps->sps_id] = std::move(sps_info);
 
   PpsInfo pps_info;
   pps_info.size = pps.size();
@@ -307,11 +305,10 @@ void H265VpsSpsPpsTracker::InsertVpsSpsPpsNalus(
   pps_info.data.reset(pps_data);
   pps_data_[parsed_pps->id] = std::move(pps_info);
 
-  RTC_LOG(LS_INFO) << "Inserted SPS id " << parsed_sps->id << " and PPS id "
+  RTC_LOG(LS_INFO) << "Inserted SPS id " << parsed_sps->sps_id << " and PPS id "
                    << parsed_pps->id << " (referencing SPS "
                    << parsed_pps->sps_id << ")";
 }
 
 }  // namespace video_coding
 }  // namespace webrtc
-#endif // WEBRTC_USE_H265

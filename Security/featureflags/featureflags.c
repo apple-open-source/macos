@@ -75,6 +75,40 @@ void _SecSystemKeychainAlwaysClearOverride(void)
     secnotice("keychain", "System Keychain Always Supported override removed");
 }
 
+typedef enum : int {
+    KCSharingChangeTrackingEnabledState_DEFAULT,
+    KCSharingChangeTrackingEnabledState_OVERRIDE_TRUE,
+    KCSharingChangeTrackingEnabledState_OVERRIDE_FALSE,
+} KCSharingChangeTrackingEnabledState;
+
+static _Atomic(KCSharingChangeTrackingEnabledState) gSharingChangeTrackingEnabled = KCSharingChangeTrackingEnabledState_DEFAULT;
+
+bool KCSharingIsChangeTrackingEnabled(void)
+{
+    KCSharingChangeTrackingEnabledState currentState = atomic_load_explicit(&gSharingChangeTrackingEnabled, memory_order_acquire);
+    if (currentState != KCSharingChangeTrackingEnabledState_DEFAULT) {
+        return currentState == KCSharingChangeTrackingEnabledState_OVERRIDE_TRUE;
+    }
+
+    static bool ffSharingAutomaticSyncing = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        ffSharingAutomaticSyncing = os_feature_enabled(Security, KCSharingAutomaticSyncing);
+    });
+
+    return ffSharingAutomaticSyncing;
+}
+
+void KCSharingSetChangeTrackingEnabled(bool enabled)
+{
+    KCSharingChangeTrackingEnabledState newState = enabled ? KCSharingChangeTrackingEnabledState_OVERRIDE_TRUE : KCSharingChangeTrackingEnabledState_OVERRIDE_FALSE;
+    atomic_store_explicit(&gSharingChangeTrackingEnabled, newState, memory_order_release);
+}
+
+void KCSharingClearChangeTrackingEnabledOverride(void)
+{
+    atomic_store_explicit(&gSharingChangeTrackingEnabled, KCSharingChangeTrackingEnabledState_DEFAULT, memory_order_release);
+}
 
 bool _SecTrustSettingsUseXPCEnabled(void)
 {

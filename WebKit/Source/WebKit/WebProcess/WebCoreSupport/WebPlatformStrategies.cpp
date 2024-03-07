@@ -109,6 +109,13 @@ BlobRegistry* WebPlatformStrategies::createBlobRegistry()
     return new BlobRegistryProxy;
 }
 
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+PushStrategy* WebPlatformStrategies::createPushStrategy()
+{
+    return this;
+}
+#endif
+
 static std::optional<PageIdentifier> pageIdentifier(const PasteboardContext* context)
 {
     if (!is<PagePasteboardContext>(context))
@@ -210,7 +217,6 @@ int64_t WebPlatformStrategies::setTypes(const Vector<String>& pasteboardTypes, c
 
 int64_t WebPlatformStrategies::setBufferForType(SharedBuffer* buffer, const String& pasteboardType, const String& pasteboardName, const PasteboardContext* context)
 {
-    SharedMemory::Handle handle;
     // FIXME: Null check prevents crashing, but it is not great that we will have empty pasteboard content for this type,
     // because we've already set the types.
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, pasteboardType, buffer ? RefPtr { buffer } : SharedBuffer::create(), pageIdentifier(context)), 0);
@@ -448,4 +454,57 @@ String WebPlatformStrategies::readStringFromPasteboard(size_t index, const Strin
     return value;
 }
 
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+
+void WebPlatformStrategies::navigatorSubscribeToPushService(const URL& scope, const Vector<uint8_t>& applicationServerKey, SubscribeToPushServiceCallback&& callback)
+{
+    auto completionHandler = [callback = WTFMove(callback)](auto&& valueOrException) mutable {
+        if (!valueOrException.has_value()) {
+            callback(valueOrException.error().toException());
+            return;
+        }
+        callback(WTFMove(*valueOrException));
+    };
+
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::NavigatorSubscribeToPushService(scope, applicationServerKey), WTFMove(completionHandler));
+}
+
+void WebPlatformStrategies::navigatorUnsubscribeFromPushService(const URL& scope, PushSubscriptionIdentifier subscriptionIdentifier, UnsubscribeFromPushServiceCallback&& callback)
+{
+    auto completionHandler = [callback = WTFMove(callback)](auto&& valueOrException) mutable {
+        if (!valueOrException.has_value()) {
+            callback(valueOrException.error().toException());
+            return;
+        }
+        callback(WTFMove(*valueOrException));
+    };
+
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::NavigatorUnsubscribeFromPushService(scope, subscriptionIdentifier), WTFMove(completionHandler));
+}
+
+void WebPlatformStrategies::navigatorGetPushSubscription(const URL& scope, GetPushSubscriptionCallback&& callback)
+{
+    auto completionHandler = [callback = WTFMove(callback)](auto&& valueOrException) mutable {
+        if (!valueOrException.has_value()) {
+            callback(valueOrException.error().toException());
+            return;
+        }
+        callback(WTFMove(*valueOrException));
+    };
+
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::NavigatorGetPushSubscription(scope), WTFMove(completionHandler));
+}
+
+void WebPlatformStrategies::navigatorGetPushPermissionState(const URL& scope, GetPushPermissionStateCallback&& callback)
+{
+    auto completionHandler = [callback = WTFMove(callback)](auto&& valueOrException) mutable {
+        if (!valueOrException.has_value())
+            return callback(valueOrException.error().toException());
+        callback(static_cast<PushPermissionState>(*valueOrException));
+    };
+
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::NavigatorGetPushPermissionState(scope), WTFMove(completionHandler));
+}
+
+#endif // ENABLE(DECLARATIVE_WEB_PUSH)
 } // namespace WebKit

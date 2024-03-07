@@ -100,4 +100,10 @@ bool PathImpl::isClosed() const
     return lastElementIsClosed;
 }
 
+bool PathImpl::hasSubpaths() const
+{
+    auto rect = fastBoundingRect();
+    return rect.height() || rect.width();
+}
+
 } // namespace WebCore

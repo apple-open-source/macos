@@ -127,3 +127,8 @@ const CssmData &TokenKey::canonicalDigest()
 {
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
+
+void TokenKey::publicKey(const Context &context, CssmData &pubKeyData)
+{
+    CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+}

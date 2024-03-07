@@ -22,3 +22,6 @@
  */
 
 #include "malloc_type_private.h"
+
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()

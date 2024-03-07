@@ -323,9 +323,7 @@ protected:
                 if (m_workset.isEmpty())
                     continue;
 
-                liveAtHead.reserveCapacity(liveAtHead.size() + m_workset.size());
-                for (unsigned newValue : m_workset)
-                    liveAtHead.uncheckedAppend(newValue);
+                liveAtHead.appendRange(m_workset.begin(), m_workset.end());
                 
                 m_workset.sort();
                 
@@ -340,7 +338,7 @@ protected:
                             liveAtTail.begin(), liveAtTail.end(),
                             m_workset.begin(), m_workset.end(),
                             mergeBuffer.begin());
-                        mergeBuffer.resize(iter - mergeBuffer.begin());
+                        mergeBuffer.shrink(iter - mergeBuffer.begin());
                         
                         if (mergeBuffer.size() == liveAtTail.size())
                             continue;

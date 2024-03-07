@@ -58,13 +58,14 @@
 #include <wtf/RefPtr.h>
 #include <wtf/RobinHoodHashSet.h>
 #include <wtf/UUID.h>
+#include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 #include <WebCore/CaptionUserPreferences.h>
 #endif
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
 #include "DisplayLinkObserverID.h"
 #include "DisplayLinkProcessProxyClient.h"
 #endif
@@ -82,7 +83,6 @@ struct PluginInfo;
 struct PrewarmInformation;
 class SecurityOriginData;
 enum class PermissionName : uint8_t;
-enum class RenderAsTextFlag : uint16_t;
 enum class ThirdPartyCookieBlockingMode : uint8_t;
 using FramesPerSecond = unsigned;
 using PlatformDisplayID = uint32_t;
@@ -97,8 +97,8 @@ namespace WebKit {
 class AudioSessionRoutingArbitratorProxy;
 class ObjCObjectGraph;
 class PageClient;
-class ProvisionalFrameProxy;
 class ProvisionalPageProxy;
+class RemotePageProxy;
 class SuspendedPageProxy;
 class UserMediaCaptureManagerProxy;
 class VisitedLinkStore;
@@ -113,6 +113,7 @@ class WebProcessPool;
 class WebUserContentControllerProxy;
 class WebsiteDataStore;
 struct BackForwardListItemState;
+struct CoreIPCAuditToken;
 struct GPUProcessConnectionParameters;
 struct UserMessage;
 struct WebNavigationDataStore;
@@ -141,11 +142,10 @@ using WebProcessWithMediaStreamingCounter = RefCounter<WebProcessWithMediaStream
 using WebProcessWithMediaStreamingToken = WebProcessWithMediaStreamingCounter::Token;
 enum class CheckBackForwardList : bool { No, Yes };
 
-class WebProcessProxy : public AuxiliaryProcessProxy, private ProcessThrottlerClient {
+class WebProcessProxy : public AuxiliaryProcessProxy {
 public:
-    using WebPageProxyMap = HashMap<WebPageProxyIdentifier, WeakPtr<WebPageProxy>>;
+    using WebPageProxyMap = HashMap<WebPageProxyIdentifier, WeakRef<WebPageProxy>>;
     using UserInitiatedActionByAuthorizationTokenMap = HashMap<WTF::UUID, RefPtr<API::UserInitiatedAction>>;
-    typedef HashMap<WebCore::FrameIdentifier, WeakPtr<WebFrameProxy>> WebFrameProxyMap;
     typedef HashMap<uint64_t, RefPtr<API::UserInitiatedAction>> UserInitiatedActionMap;
 
     enum class IsPrewarmed : bool { No, Yes };
@@ -154,7 +154,7 @@ public:
     enum class LockdownMode : bool { Disabled, Enabled };
 
     static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore*, LockdownMode, IsPrewarmed, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared, ShouldLaunchProcess = ShouldLaunchProcess::Yes);
-    static Ref<WebProcessProxy> createForRemoteWorkers(RemoteWorkerType, WebProcessPool&, WebCore::RegistrableDomain&&, WebsiteDataStore&);
+    static Ref<WebProcessProxy> createForRemoteWorkers(RemoteWorkerType, WebProcessPool&, WebCore::RegistrableDomain&&, WebsiteDataStore&, LockdownMode);
 
     ~WebProcessProxy();
 
@@ -162,6 +162,7 @@ public:
     static Vector<std::pair<WebCore::ProcessIdentifier, WebCore::RegistrableDomain>> allowedFirstPartiesForCookies();
 
     WebConnection* webConnection() const { return m_webConnection.get(); }
+    RefPtr<WebConnection> protectedWebConnection() const { return m_webConnection; }
 
     unsigned suspendedPageCount() const { return m_suspendedPages.computeSize(); }
     void addSuspendedPageProxy(SuspendedPageProxy&);
@@ -169,6 +170,7 @@ public:
 
     WebProcessPool* processPoolIfExists() const;
     WebProcessPool& processPool() const;
+    Ref<WebProcessPool> protectedProcessPool() const;
 
 #if ENABLE(GPU_PROCESS)
     const std::optional<GPUProcessPreferencesForWebProcess>& preferencesForGPUProcess() const { return m_preferencesForGPUProcess; }
@@ -186,6 +188,7 @@ public:
     void disableRemoteWorkers(OptionSet<RemoteWorkerType>);
 
     WebsiteDataStore* websiteDataStore() const { ASSERT(m_websiteDataStore); return m_websiteDataStore.get(); }
+    RefPtr<WebsiteDataStore> protectedWebsiteDataStore() const;
     void setWebsiteDataStore(WebsiteDataStore&);
     
     PAL::SessionID sessionID() const;
@@ -209,15 +212,15 @@ public:
 
     void addProvisionalPageProxy(ProvisionalPageProxy&);
     void removeProvisionalPageProxy(ProvisionalPageProxy&);
-    void addProvisionalFrameProxy(ProvisionalFrameProxy&);
-    void removeProvisionalFrameProxy(ProvisionalFrameProxy&);
-    void provisionalFrameCommitted(WebFrameProxy&);
-    void removeFrameWithRemoteFrameProcess(WebFrameProxy&);
+    void addRemotePageProxy(RemotePageProxy&);
+    void removeRemotePageProxy(RemotePageProxy&);
 
-    Vector<RefPtr<WebPageProxy>> pages() const;
+    Vector<Ref<WebPageProxy>> pages() const;
     unsigned pageCount() const { return m_pageMap.size(); }
     unsigned provisionalPageCount() const { return m_provisionalPages.computeSize(); }
     unsigned visiblePageCount() const { return m_visiblePageCounter.value(); }
+
+    Vector<WeakPtr<RemotePageProxy>> remotePages() const;
 
     void activePagesDomainsForTesting(CompletionHandler<void(Vector<String>&&)>&&); // This is what is reported to ActivityMonitor.
 
@@ -237,11 +240,11 @@ public:
     void addWebUserContentControllerProxy(WebUserContentControllerProxy&);
     void didDestroyWebUserContentControllerProxy(WebUserContentControllerProxy&);
 
-    void recordUserGestureAuthorizationToken(WTF::UUID);
+    void recordUserGestureAuthorizationToken(WebCore::PageIdentifier, WTF::UUID);
     RefPtr<API::UserInitiatedAction> userInitiatedActivity(uint64_t);
-    RefPtr<API::UserInitiatedAction> userInitiatedActivity(std::optional<WTF::UUID>, uint64_t);
+    RefPtr<API::UserInitiatedAction> userInitiatedActivity(WebCore::PageIdentifier, std::optional<WTF::UUID>, uint64_t);
 
-    void consumeIfNotVerifiablyFromUIProcess(API::UserInitiatedAction&, std::optional<WTF::UUID>);
+    void consumeIfNotVerifiablyFromUIProcess(WebCore::PageIdentifier, API::UserInitiatedAction&, std::optional<WTF::UUID>);
 
     bool isResponsive() const;
 
@@ -273,14 +276,12 @@ public:
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
 
-#if ENABLE(TRACKING_PREVENTION)
     static void notifyPageStatisticsAndDataRecordsProcessed();
 
     static void notifyWebsiteDataDeletionForRegistrableDomainsFinished();
     static void notifyWebsiteDataScanForRegistrableDomainsFinished();
 
     void setThirdPartyCookieBlockingMode(WebCore::ThirdPartyCookieBlockingMode, CompletionHandler<void()>&&);
-#endif
 
     void enableSuddenTermination();
     void disableSuddenTermination();
@@ -340,7 +341,7 @@ public:
     void releaseHighPerformanceGPU();
 #endif
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
     DisplayLink::Client& displayLinkClient() { return m_displayLinkClient; }
     std::optional<unsigned> nominalFramesPerSecondForDisplay(WebCore::PlatformDisplayID);
 
@@ -408,13 +409,11 @@ public:
     void registerRemoteWorkerClientProcess(RemoteWorkerType, WebProcessProxy&);
     void unregisterRemoteWorkerClientProcess(RemoteWorkerType, WebProcessProxy&);
     void updateRemoteWorkerProcessAssertion(RemoteWorkerType);
-#if ENABLE(SERVICE_WORKER)
     bool hasServiceWorkerPageProxy(WebPageProxyIdentifier pageProxyID) { return m_serviceWorkerInformation && m_serviceWorkerInformation->remoteWorkerPageProxyID == pageProxyID; }
     bool hasServiceWorkerForegroundActivityForTesting() const;
     bool hasServiceWorkerBackgroundActivityForTesting() const;
     void startServiceWorkerBackgroundProcessing();
     void endServiceWorkerBackgroundProcessing();
-#endif
     void setThrottleStateForTesting(ProcessThrottleState);
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
@@ -522,11 +521,11 @@ protected:
     void validateFreezerStatus();
 
 private:
-    using WebProcessProxyMap = HashMap<WebCore::ProcessIdentifier, WeakPtr<WebProcessProxy>>;
+    using WebProcessProxyMap = HashMap<WebCore::ProcessIdentifier, CheckedRef<WebProcessProxy>>;
     static WebProcessProxyMap& allProcessMap();
-    static Vector<RefPtr<WebProcessProxy>> allProcesses();
+    static Vector<Ref<WebProcessProxy>> allProcesses();
     static WebPageProxyMap& globalPageMap();
-    static Vector<RefPtr<WebPageProxy>> globalPages();
+    static Vector<Ref<WebPageProxy>> globalPages();
 
     void initializePreferencesForGPUProcess(const WebPageProxy&);
 
@@ -539,9 +538,7 @@ private:
     // IPC message handlers.
     void updateBackForwardItem(const BackForwardListItemState&);
     void didDestroyFrame(WebCore::FrameIdentifier, WebPageProxyIdentifier);
-    void didDestroyUserGestureToken(uint64_t);
-    void postMessageToRemote(WebCore::FrameIdentifier, std::optional<WebCore::SecurityOriginData>, const WebCore::MessageWithMessagePorts&);
-    void renderTreeAsText(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String)>&&);
+    void didDestroyUserGestureToken(WebCore::PageIdentifier, uint64_t);
 
     bool canBeAddedToWebProcessCache() const;
     void shouldTerminate(CompletionHandler<void(bool)>&&);
@@ -560,8 +557,6 @@ private:
     static const MemoryCompactLookupOnlyRobinHoodHashSet<String>& platformPathsWithAssumedReadAccess();
 
     void updateBackgroundResponsivenessTimer();
-
-    void updateBlobRegistryPartitioningState() const;
 
     void processDidTerminateOrFailedToLaunch(ProcessTerminationReason);
 
@@ -603,7 +598,7 @@ private:
     void systemBeep();
     
 #if PLATFORM(MAC)
-    void isAXAuthenticated(audit_token_t, CompletionHandler<void(bool)>&&);
+    void isAXAuthenticated(CoreIPCAuditToken&&, CompletionHandler<void(bool)>&&);
 #endif
 
 #if PLATFORM(COCOA)
@@ -655,15 +650,14 @@ private:
     HashSet<String> m_previouslyApprovedFilePaths;
 
     WebPageProxyMap m_pageMap;
-    WebFrameProxyMap m_frameMap;
+    WeakHashSet<RemotePageProxy> m_remotePages;
     WeakHashSet<ProvisionalPageProxy> m_provisionalPages;
-    WeakHashSet<ProvisionalFrameProxy> m_provisionalFrames;
     WeakHashSet<SuspendedPageProxy> m_suspendedPages;
     UserInitiatedActionMap m_userInitiatedActionMap;
-    UserInitiatedActionByAuthorizationTokenMap m_userInitiatedActionByAuthorizationTokenMap;
+    HashMap<WebCore::PageIdentifier, UserInitiatedActionByAuthorizationTokenMap> m_userInitiatedActionByAuthorizationTokenMap;
 
-    HashMap<VisitedLinkStore*, HashSet<WebPageProxyIdentifier>> m_visitedLinkStoresWithUsers;
-    HashSet<WebUserContentControllerProxy*> m_webUserContentControllerProxies;
+    WeakHashMap<VisitedLinkStore, HashSet<WebPageProxyIdentifier>> m_visitedLinkStoresWithUsers;
+    WeakHashSet<WebUserContentControllerProxy> m_webUserContentControllerProxies;
 
     int m_numberOfTimesSuddenTerminationWasDisabled;
     ProcessThrottler m_throttler;
@@ -672,7 +666,7 @@ private:
     BackgroundWebProcessToken m_backgroundToken;
     bool m_areThrottleStateChangesEnabled { true };
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
     DisplayLinkProcessProxyClient m_displayLinkClient;
 #endif
 
@@ -690,9 +684,6 @@ private:
 
     VisibleWebPageCounter m_visiblePageCounter;
     RefPtr<WebsiteDataStore> m_websiteDataStore;
-#if PLATFORM(COCOA)
-    RefPtr<NetworkProcessProxy> m_networkProcessToKeepAliveUntilDataStoreIsCreated;
-#endif
 
     bool m_isUnderMemoryPressure { false };
 

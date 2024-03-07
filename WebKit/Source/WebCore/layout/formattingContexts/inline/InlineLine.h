@@ -28,11 +28,15 @@
 #include "InlineDisplayBox.h"
 #include "InlineItem.h"
 #include "InlineTextItem.h"
+#include "RenderStyleInlines.h"
 #include <unicode/ubidi.h>
+#include <wtf/Range.h>
 
 namespace WebCore {
 namespace Layout {
 
+struct ExpansionInfo;
+class InlineContentAligner;
 class InlineFormattingContext;
 class InlineSoftLineBreakItem;
 enum class IntrinsicWidthMode;
@@ -42,7 +46,7 @@ public:
     Line(const InlineFormattingContext&);
     ~Line() = default;
 
-    void initialize(const Vector<InlineItem>& lineSpanningInlineBoxes, bool isFirstFormattedLine);
+    void initialize(const Vector<InlineItem, 1>& lineSpanningInlineBoxes, bool isFirstFormattedLine);
 
     void append(const InlineItem&, const RenderStyle&, InlineLayoutUnit logicalWidth);
     // Reserved for TextOnlySimpleLineBuilder
@@ -50,6 +54,7 @@ public:
 
     bool hasContent() const;
     bool hasContentOrListMarker() const;
+    bool hasRubyContent() const { return m_hasRubyContent; }
 
     InlineLayoutUnit contentLogicalWidth() const { return m_contentLogicalWidth; }
     InlineLayoutUnit contentLogicalRight() const { return lastRunLogicalRight() + m_clonedEndDecorationWidthForInlineBoxRuns; }
@@ -57,8 +62,8 @@ public:
     bool contentNeedsBidiReordering() const { return m_hasNonDefaultBidiLevelRun; }
     size_t nonSpanningInlineLevelBoxCount() const { return m_nonSpanningInlineLevelBoxCount; }
     InlineLayoutUnit hangingTrailingContentWidth() const { return m_hangingContent.trailingWidth(); }
+    size_t hangingTrailingWhitespaceLength() const { return m_hangingContent.trailingWhitespaceLength(); }
     bool isHangingTrailingContentWhitespace() const { return !!m_hangingContent.trailingWhitespaceLength(); }
-
 
     InlineLayoutUnit trimmableTrailingWidth() const { return m_trimmableTrailingContent.width(); }
     bool isTrailingRunFullyTrimmable() const { return m_trimmableTrailingContent.isTrailingRunFullyTrimmable(); }
@@ -70,8 +75,8 @@ public:
     InlineLayoutUnit handleTrailingTrimmableContent(TrailingContentAction);
     void handleTrailingHangingContent(std::optional<IntrinsicWidthMode>, InlineLayoutUnit horizontalAvailableSpace, bool isLastFormattedLine);
     void handleOverflowingNonBreakingSpace(TrailingContentAction, InlineLayoutUnit overflowingWidth);
+    const Box* removeOverflowingOutOfFlowContent();
     void resetBidiLevelForTrailingWhitespace(UBiDiLevel rootBidiLevel);
-    void applyRunExpansion(InlineLayoutUnit horizontalAvailableSpace);
 
     struct Run {
         enum class Type : uint8_t {
@@ -131,12 +136,14 @@ public:
 
         TextDirection inlineDirection() const;
         InlineLayoutUnit letterSpacing() const;
-        inline bool hasTextCombine() const;
+        bool hasTextCombine() const;
 
         UBiDiLevel bidiLevel() const { return m_bidiLevel; }
 
     private:
         friend class Line;
+        friend class InlineContentAligner;
+        friend class RubyFormattingContext;
 
         Run(const InlineTextItem&, const RenderStyle&, InlineLayoutUnit logicalLeft, InlineLayoutUnit logicalWidth);
         Run(const InlineSoftLineBreakItem&, const RenderStyle&, InlineLayoutUnit logicalLeft);
@@ -186,6 +193,11 @@ public:
     };
     using RunList = Vector<Run, 10>;
     const RunList& runs() const { return m_runs; }
+    RunList& runs() { return m_runs; }
+    void inflateContentLogicalWidth(InlineLayoutUnit delta) { m_contentLogicalWidth += delta; }
+    // FIXME: This is temporary and should be removed when annotation transitions to inline box structure.
+    void adjustContentRightWithRubyAlign(InlineLayoutUnit offset) { m_rubyAlignContentRightOffset = offset; }
+
     using InlineBoxListWithClonedDecorationEnd = HashMap<const Box*, InlineLayoutUnit>;
     const InlineBoxListWithClonedDecorationEnd& inlineBoxListWithClonedDecorationEnd() const { return m_inlineBoxListWithClonedDecorationEnd; }
 
@@ -292,6 +304,8 @@ private:
     InlineLayoutUnit m_clonedEndDecorationWidthForInlineBoxRuns { 0 };
     bool m_hasNonDefaultBidiLevelRun { false };
     bool m_isFirstFormattedLine { false };
+    bool m_hasRubyContent { false };
+    InlineLayoutUnit m_rubyAlignContentRightOffset { 0.f };
     Vector<InlineLayoutUnit> m_inlineBoxLogicalLeftStack;
 };
 

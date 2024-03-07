@@ -249,16 +249,6 @@ fail:
     return success;
 }
 
--(bool) kvsSendAccountChangedWithDSID:(CFStringRef) dsid err:(CFErrorRef *)error
-{
-    NSDictionary *changes = @{(__bridge NSString*)kSOSKVSAccountChangedKey:(__bridge NSString*)dsid};
-    
-    bool success = SOSTransportCircleKVSUpdateKVS(changes, error);
-    
-    
-    return success;
-}
-
 //send the Ring over KVS
 -(bool) kvsRingPostRing:(CFStringRef) ringName ring:(CFDataRef) ring err:(CFErrorRef *)error
 {

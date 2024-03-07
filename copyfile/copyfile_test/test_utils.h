@@ -7,15 +7,66 @@
 #ifndef test_utils_h
 #define test_utils_h
 
+#include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/queue.h>
 #include <sys/errno.h>
+#include <TargetConditionals.h>
 
 #include "../copyfile.h"
 
-#include <TargetConditionals.h>
+typedef struct test {
+	const char		*t_name;
+	bool 			(*t_func)(const char *, size_t);
+	bool			t_asroot;
+	uint32_t		t_timeout_seconds;
+	LIST_ENTRY(test) t_list;
+} test_t;
+
+typedef struct tests {
+	LIST_HEAD(_tests, test) t_tests;
+	unsigned t_num;
+} tests_t;
+
+void register_test(test_t *);
+
+#define REGISTER_TEST(name, asroot, timeout_seconds) \
+	bool do_##name##_test(const char *, size_t); \
+	test_t _test_##name = { \
+		.t_name = #name, \
+		.t_func = do_##name##_test, \
+		.t_asroot = asroot, \
+		.t_timeout_seconds = timeout_seconds, \
+	}; \
+	static void __attribute__((constructor)) \
+	register_test_##name(void) \
+	{ \
+		register_test(&_test_##name); \
+	}
+
+#define TIMEOUT_MIN(minutes) ((minutes) * 60)
+
+#ifndef KB
+#define KB (1024U)
+#endif
+#ifndef MB
+#define MB (1024UL * KB)
+#endif
+#ifndef GB
+#define GB (1024ULL * MB)
+#endif
+#ifndef TB
+#define TB (1024ULL * GB)
+#endif
+
+#define TEST_DIR				"/tmp/copyfile_test"
+
+#define MIN_BLOCKSIZE_B			512
+#define DEFAULT_BLOCKSIZE_B		4096
+#define MAX_BLOCKSIZE_B			16384
 
 #define BSIZE_B					128
 #define MAX_DISK_IMAGE_SIZE_MB	1024
@@ -50,12 +101,15 @@ int create_hole_in_fd(int fd, off_t offset, off_t length);
 void write_compressible_data(int fd);
 void compress_file(const char *path, const char *type);
 void create_test_file_name(const char *dir, const char *postfix, int id, char *string_out);
+void set_up_test_dir(uint32_t *bsize_out);
+void sort_tests(tests_t *tests);
 
 #if TARGET_OS_OSX
 // Our disk image test functions.
 void disk_image_create(const char *fstype, const char *mount_path, size_t size_in_mb);
 void disk_image_destroy(const char *mount_path, bool allow_failure);
 #endif
+
 
 // Assertion functions/macros for tests.
 static inline void

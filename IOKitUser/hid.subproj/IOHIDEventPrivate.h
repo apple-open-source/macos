@@ -23,4 +23,7 @@ Boolean _IOHIDEventEqual(CFTypeRef cf1, CFTypeRef cf2);
 CF_EXPORT
 CFStringRef IOHIDEventCopyDescription(IOHIDEventRef event);
 
+CF_EXPORT
+CFStringRef _IOHIDEventDebugInfo(IOHIDEventRef event);
+
 #endif /* IOHIDEventPrivate_h */

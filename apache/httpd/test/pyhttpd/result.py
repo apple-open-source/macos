@@ -6,7 +6,9 @@ from typing import Optional, Dict, List
 class ExecResult:
 
     def __init__(self, args: List[str], exit_code: int,
-                 stdout: bytes, stderr: bytes = None, duration: timedelta = None):
+                 stdout: bytes, stderr: bytes = None,
+                 stdout_as_list: List[bytes] = None,
+                 duration: timedelta = None):
         self._args = args
         self._exit_code = exit_code
         self._stdout = stdout if stdout is not None else b''
@@ -17,13 +19,23 @@ class ExecResult:
         self._assets = []
         # noinspection PyBroadException
         try:
-            out = self._stdout.decode()
+            if stdout_as_list is None:
+                out = self._stdout.decode()
+            else:
+                out = "[" + ','.join(stdout_as_list) + "]"
             self._json_out = json.loads(out)
         except:
             self._json_out = None
 
     def __repr__(self):
-        return f"ExecResult[code={self.exit_code}, args={self._args}, stdout={self._stdout}, stderr={self._stderr}]"
+        out = [
+            f"ExecResult[code={self.exit_code}, args={self._args}\n",
+            "----stdout---------------------------------------\n",
+            self._stdout.decode(),
+            "----stderr---------------------------------------\n",
+            self._stderr.decode()
+        ]
+        return ''.join(out)
 
     @property
     def exit_code(self) -> int:

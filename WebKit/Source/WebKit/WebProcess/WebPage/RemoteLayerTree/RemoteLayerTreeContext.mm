@@ -31,11 +31,12 @@
 #import "PlatformCALayerRemote.h"
 #import "RemoteLayerTreeDrawingArea.h"
 #import "RemoteLayerTreeTransaction.h"
-#import "RemoteLayerWithRemoteRenderingBackingStoreCollection.h"
 #import "VideoPresentationManager.h"
 #import "WebFrame.h"
 #import "WebPage.h"
+#import "WebProcess.h"
 #import <WebCore/HTMLMediaElementIdentifier.h>
+#import <WebCore/HTMLVideoElement.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/Page.h>
@@ -48,10 +49,7 @@ using namespace WebCore;
 RemoteLayerTreeContext::RemoteLayerTreeContext(WebPage& webPage)
     : m_webPage(webPage)
 {
-    if (WebProcess::singleton().shouldUseRemoteRenderingFor(WebCore::RenderingPurpose::DOM))
-        m_backingStoreCollection = makeUnique<RemoteLayerWithRemoteRenderingBackingStoreCollection>(*this);
-    else
-        m_backingStoreCollection = makeUnique<RemoteLayerBackingStoreCollection>(*this);
+    m_backingStoreCollection = makeUnique<RemoteLayerBackingStoreCollection>(*this);
 }
 
 RemoteLayerTreeContext::~RemoteLayerTreeContext()
@@ -59,20 +57,26 @@ RemoteLayerTreeContext::~RemoteLayerTreeContext()
     for (auto& layer : m_livePlatformLayers.values())
         layer->clearContext();
 
+
     auto graphicsLayers = m_liveGraphicsLayers;
     for (auto& layer : graphicsLayers)
-        layer->clearContext();
+        Ref { layer.get() }->clearContext();
+
+    // Make sure containers are empty before destruction to avoid hitting the assertion in CanMakeCheckedPtr.
+    m_livePlatformLayers.clear();
+    m_liveGraphicsLayers.clear();
+    m_layersWithAnimations.clear();
 }
 
 void RemoteLayerTreeContext::adoptLayersFromContext(RemoteLayerTreeContext& oldContext)
 {
     auto& platformLayers = oldContext.m_livePlatformLayers;
     while (!platformLayers.isEmpty())
-        platformLayers.begin()->value->moveToContext(*this);
+        RefPtr { platformLayers.begin()->value.get() }->moveToContext(*this);
 
     auto& graphicsLayers = oldContext.m_liveGraphicsLayers;
     while (!graphicsLayers.isEmpty())
-        (*graphicsLayers.begin())->moveToContext(*this);
+        Ref { (*graphicsLayers.begin()).get() }->moveToContext(*this);
 }
 
 float RemoteLayerTreeContext::deviceScaleFactor() const
@@ -164,12 +168,12 @@ void RemoteLayerTreeContext::layerWillLeaveContext(PlatformCALayerRemote& layer)
 
 void RemoteLayerTreeContext::graphicsLayerDidEnterContext(GraphicsLayerCARemote& layer)
 {
-    m_liveGraphicsLayers.add(&layer);
+    m_liveGraphicsLayers.add(layer);
 }
 
 void RemoteLayerTreeContext::graphicsLayerWillLeaveContext(GraphicsLayerCARemote& layer)
 {
-    m_liveGraphicsLayers.remove(&layer);
+    m_liveGraphicsLayers.remove(layer);
 }
 
 Ref<GraphicsLayer> RemoteLayerTreeContext::createGraphicsLayer(WebCore::GraphicsLayer::Type layerType, GraphicsLayerClient& client)
@@ -189,11 +193,12 @@ void RemoteLayerTreeContext::buildTransaction(RemoteLayerTreeTransaction& transa
     m_currentTransaction = &transaction;
     rootLayerRemote.recursiveBuildTransaction(*this, transaction);
     m_backingStoreCollection->prepareBackingStoresForDisplay(transaction);
-    m_currentTransaction = nullptr;
 
     bool paintedAnyBackingStore = m_backingStoreCollection->paintReachableBackingStoreContents();
     if (paintedAnyBackingStore)
         m_nextRenderingUpdateRequiresSynchronousImageDecoding = false;
+
+    m_currentTransaction = nullptr;
 
     transaction.setCreatedLayers(moveToVector(std::exchange(m_createdLayers, { }).values()));
     transaction.setDestroyedLayerIDs(WTFMove(m_destroyedLayers));
@@ -214,14 +219,14 @@ void RemoteLayerTreeContext::animationDidStart(WebCore::PlatformLayerIdentifier 
 {
     auto it = m_layersWithAnimations.find(layerID);
     if (it != m_layersWithAnimations.end())
-        it->value->animationStarted(key, startTime);
+        RefPtr { it->value.get() }->animationStarted(key, startTime);
 }
 
 void RemoteLayerTreeContext::animationDidEnd(WebCore::PlatformLayerIdentifier layerID, const String& key)
 {
     auto it = m_layersWithAnimations.find(layerID);
     if (it != m_layersWithAnimations.end())
-        it->value->animationEnded(key);
+        RefPtr { it->value.get() }->animationEnded(key);
 }
 
 RemoteRenderingBackendProxy& RemoteLayerTreeContext::ensureRemoteRenderingBackendProxy()

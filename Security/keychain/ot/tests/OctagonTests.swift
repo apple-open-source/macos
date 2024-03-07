@@ -54,14 +54,6 @@ class FakeCKOperationRunner: CKOperationRunner {
             if let completionBlock = operation.codeOperationResultBlock as? ((Result<FetchPolicyDocumentsResponse, Error>) -> Void) {
                 self.server.fetchPolicyDocuments(request, completion: completionBlock)
             }
-        } else if let request = operation.request as? ReportHealthRequest {
-            if let completionBlock = operation.codeOperationResultBlock as? ((Result<ReportHealthResponse, Error>) -> Void) {
-                self.server.reportHealth(request, completion: completionBlock)
-            }
-        } else if let request = operation.request as? PushHealthInquiryRequest {
-            if let completionBlock = operation.codeOperationResultBlock as? ((Result<PushHealthInquiryResponse, Error>) -> Void) {
-                self.server.pushHealthInquiry(request, completion: completionBlock)
-            }
         } else if let request = operation.request as? GetRepairActionRequest {
             if let completionBlock = operation.codeOperationResultBlock as? ((Result<GetRepairActionResponse, Error>) -> Void) {
                 self.server.getRepairAction(request, completion: completionBlock)
@@ -69,14 +61,6 @@ class FakeCKOperationRunner: CKOperationRunner {
         } else if let request = operation.request as? GetSupportAppInfoRequest {
             if let completionBlock = operation.codeOperationResultBlock as? ((Result<GetSupportAppInfoResponse, Error>) -> Void) {
                 self.server.getSupportAppInfo(request, completion: completionBlock)
-            }
-        } else if let request = operation.request as? GetClubCertificatesRequest {
-            if let completionBlock = operation.codeOperationResultBlock as? ((Result<GetClubCertificatesResponse, Error>) -> Void) {
-                self.server.getClubCertificates(request, completion: completionBlock)
-            }
-        } else if let request = operation.request as? FetchSOSiCloudIdentityRequest {
-            if let completionBlock = operation.codeOperationResultBlock as? ((Result<FetchSOSiCloudIdentityResponse, Error>) -> Void) {
-                self.server.fetchSosiCloudIdentity(request, completion: completionBlock)
             }
         } else if let request = operation.request as? ResetAccountCDPContentsRequest {
             if let completionBlock = operation.codeOperationResultBlock as? ((Result<ResetAccountCDPContentsResponse, Error>) -> Void) {
@@ -198,7 +182,7 @@ class OTMockTooManyPeersAdapter: OTTooManyPeersAdapter {
 }
 
 class OTMockTapToRadarAdapter: OTTapToRadarAdapter {
-    func postHomePodLostTrustTTR() {
+    func postHomePodLostTrustTTR(_ identifiers: String) {
         self.timesHomePodTTRSent += 1
     }
 
@@ -1533,7 +1517,7 @@ class OctagonTests: OctagonTestsBase {
 
         let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil, altDSID: "altDSID", flowID: "flowID", deviceSessionID: "deviceSessionID", eventName: "eventName", testsAreEnabled: false, canSendMetrics: false, category: 100)
 
-        let error = NSError.init(domain: "error_domain", code: 1)
+        let error = NSError(domain: "error_domain", code: 1)
 
         for _ in 0...500 {
             let queue1 = DispatchQueue(label: "testPopulateError1")
@@ -1550,7 +1534,6 @@ class OctagonTests: OctagonTestsBase {
         group1.wait()
         group2.wait()
     }
-
 
     func testTPHPrepare() throws {
         self.startCKAccountStatusMock()
@@ -1807,7 +1790,7 @@ class OctagonTests: OctagonTestsBase {
         self.fakeCuttlefishServer.resetListener = {  request in
             self.fakeCuttlefishServer.resetListener = nil
             resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.testGenerated.rawValue, "reset reason should be unknown")
+            XCTAssertEqual(request.resetReason.rawValue, CuttlefishResetReason.testGenerated.rawValue, "reset reason should be unknown")
             return nil
         }
 
@@ -2680,7 +2663,7 @@ class OctagonTests: OctagonTestsBase {
                                                     stateMachine: self.cuttlefishContext.stateMachine,
                                                     path: try XCTUnwrap(path),
                                                     initialRequest: nil)
-        self.cuttlefishContext.stateMachine.register(watcher)
+        self.cuttlefishContext.stateMachine.register(watcher, startTimeout: 10 * NSEC_PER_SEC)
 
         let watcherCompleteOperationExpectation = self.expectation(description: "watcherCompleteOperationExpectation returns")
         let watcherFinishOp = CKKSResultOperation.named("should-fail-cleanup") {
@@ -2717,7 +2700,6 @@ class OctagonTests: OctagonTestsBase {
         let requestNever = OctagonStateTransitionRequest("name",
                                                          sourceStates: Set([OctagonStateWaitForCDPCapableSecurityLevel]),
                                                          serialQueue: self.cuttlefishContext.queue,
-                                                         timeout: 1 * NSEC_PER_SEC,
                                                          transitionOp: stateTransitionOp)
 
         // Set up a watcher that we expect to fail due to its initial transition op timing out...
@@ -2732,7 +2714,8 @@ class OctagonTests: OctagonTestsBase {
                                                     stateMachine: self.cuttlefishContext.stateMachine,
                                                     path: try XCTUnwrap(path),
                                                     initialRequest: (requestNever as! OctagonStateTransitionRequest<CKKSResultOperation & OctagonStateTransitionOperationProtocol>))
-        self.cuttlefishContext.stateMachine.register(watcher)
+        self.cuttlefishContext.stateMachine.register(watcher, startTimeout: 5 * NSEC_PER_SEC)
+        self.cuttlefishContext.stateMachine.handleExternalRequest((requestNever as! OctagonStateTransitionRequest<CKKSResultOperation & OctagonStateTransitionOperationProtocol>), startTimeout: 1 * NSEC_PER_SEC)
 
         let watcherCompleteOperationExpectation = self.expectation(description: "watcherCompleteOperationExpectation returns")
         let watcherFinishOp = CKKSResultOperation.named("should-fail-cleanup") {
@@ -3265,7 +3248,7 @@ class OctagonTests: OctagonTestsBase {
         var count: NSNumber?
         XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
         XCTAssertNotNil(count, "count should not be nil")
-        XCTAssertTrue(count?.intValue == 1, "count should be 1")
+        XCTAssertEqual(count?.intValue, 1, "count should be 1")
 
         // until there's another peer around
         let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
@@ -3273,14 +3256,14 @@ class OctagonTests: OctagonTestsBase {
 
         XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
         XCTAssertNotNil(count, "count should not be nil")
-        XCTAssertTrue(count?.intValue == 2, "count should be 2")
+        XCTAssertEqual(count?.intValue, 2, "count should be 2")
 
         let secondJoiningContext = self.makeInitiatorContext(contextID: "second_joiner", authKitAdapter: self.mockAuthKit3)
         self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
 
         XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
         XCTAssertNotNil(count, "count should not be nil")
-        XCTAssertTrue(count?.intValue == 3, "count should be 3")
+        XCTAssertEqual(count?.intValue, 3, "count should be 3")
     }
 
     func testTrustedPeerCountAPIWhileNotTrusted() throws {
@@ -3292,7 +3275,7 @@ class OctagonTests: OctagonTestsBase {
         var count: NSNumber?
         XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
         XCTAssertNotNil(count, "count should not be nil")
-        XCTAssertTrue(count?.intValue == 1, "count should be 1")
+        XCTAssertEqual(count?.intValue, 1, "count should be 1")
 
         // until there's another peer around
         let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
@@ -3300,14 +3283,14 @@ class OctagonTests: OctagonTestsBase {
 
         XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
         XCTAssertNotNil(count, "count should not be nil")
-        XCTAssertTrue(count?.intValue == 2, "count should be 2")
+        XCTAssertEqual(count?.intValue, 2, "count should be 2")
 
         let secondJoiningContext = self.makeInitiatorContext(contextID: "second_joiner", authKitAdapter: self.mockAuthKit3)
         self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
 
         XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
         XCTAssertNotNil(count, "count should not be nil")
-        XCTAssertTrue(count?.intValue == 3, "count should be 3")
+        XCTAssertEqual(count?.intValue, 3, "count should be 3")
 
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         XCTAssertNoThrow(try clique.leave(), "Should not be an error departing clique")
@@ -3315,7 +3298,7 @@ class OctagonTests: OctagonTestsBase {
 
         XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
         XCTAssertNotNil(count, "count should not be nil")
-        XCTAssertTrue(count?.intValue == 2, "count should be 2")
+        XCTAssertEqual(count?.intValue, 2, "count should be 2")
     }
 
     func testPersistRefSchedulerLessThan100Items() throws {
@@ -4032,7 +4015,7 @@ class OctagonTests: OctagonTestsBase {
         self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { error in
             XCTAssertNil(error, "error should be nil")
         }
-       
+
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateBecomeReady, within: 10 * NSEC_PER_SEC)
 
         self.releaseOctagonStateMachine(context: self.cuttlefishContext, from: OctagonStateBecomeReady)

@@ -873,7 +873,7 @@ do {                                                                    \
 	    _ifa = _ifa->ifa_list.tqe_next) {                           \
 	        IFA_LOCK(_ifa);                                         \
 	        if (_ifa->ifa_addr->sa_family == AF_INET6) {            \
-	                IFA_ADDREF_LOCKED(_ifa);                        \
+	                ifa_addref(_ifa);                        \
 	                IFA_UNLOCK(_ifa);                               \
 	                break;                                          \
 	        }                                                       \
@@ -1154,7 +1154,6 @@ extern int ip6_setmoptions(struct inpcb *, struct sockopt *);
 extern struct in6_multi_mship *in6_joingroup(struct ifnet *,
     struct in6_addr *, int *, int);
 extern int in6_leavegroup(struct in6_multi_mship *);
-extern void in6_multi_init(void);
 extern void in6m_addref(struct in6_multi *, int);
 extern void in6m_remref(struct in6_multi *, int);
 extern int in6_multi_detach(struct in6_multi *);

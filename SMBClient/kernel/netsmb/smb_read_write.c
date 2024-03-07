@@ -53,6 +53,7 @@
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_rq_2.h>
 #include <netsmb/smb_conn.h>
+#include <netsmb/smb_conn_2.h>
 #include <smbfs/smbfs.h>
 
 /* Enable these to turn on debug logging */
@@ -150,22 +151,47 @@ smb_rw_thread(void *arg, wait_result_t wr __unused)
 #endif
 
         SMB_LOG_KTRACE(SMB_DBG_SMB_RW_THREAD | DBG_FUNC_START,
-                       /* channelID */ 0, qi, 0, 0, 0);
+                       /* channelID */ 0, qi, ep->command, 0, 0);
 
-        /* Send the request and block waiting for reply */
-        ep->error = smb_rq_simple(ep->rqp);
+        switch (ep->command) {
+            case SMB_READ_WRITE:
+                /* Send the read/write request and block waiting for reply */
+                ep->error = smb_rq_simple(ep->rqp);
+                
+                SMB_LOG_KTRACE(SMB_DBG_SMB_RW_THREAD | DBG_FUNC_END,
+                               /* channelID */ 0, qi, ep->error, 0, 0);
 
-        SMB_LOG_KTRACE(SMB_DBG_SMB_RW_THREAD | DBG_FUNC_END,
-                       /* channelID */ 0, qi, ep->error, 0, 0);
+                /*
+                 * We now have the reply so wake up main thread which is waiting
+                 * for the reply
+                 */
+                lck_mtx_lock(&ep->rw_arg_lock);
+                ep->flags |= SMB_RW_REPLY_RCVD;
+                wakeup(&ep->flags);
+                lck_mtx_unlock(&ep->rw_arg_lock);
+                break;
 
-        /*
-         * We now have the reply so wake up main thread which is waiting
-         * for the reply
-         */
-        lck_mtx_lock(&ep->rw_arg_lock);
-        ep->flags |= SMB_RW_REPLY_RCVD;
-        wakeup(&ep->flags);
-        lck_mtx_unlock(&ep->rw_arg_lock);
+            case SMB_LEASE_BREAK_ACK:
+                /* Send the lease break ack and block waiting for reply */
+                ep->error = smb2_smb_lease_break_ack(ep->share, ep->iod,
+                                                     ep->lease_key_hi, ep->lease_key_low,
+                                                     ep->lease_state, ep->context);
+                
+                SMB_LOG_KTRACE(SMB_DBG_SMB_RW_THREAD | DBG_FUNC_END,
+                               /* channelID */ 0, qi, ep->error, 0, 0);
+
+                /*
+                 * Just free the smb_rw_arg here for lease break acks. We are
+                 * assuming the lease break ack exchange would rarely have an
+                 * error, so are just ignoring any possible errors at this time
+                 */
+                lck_mtx_destroy(&ep->rw_arg_lock, smb_rw_group);
+                SMB_FREE_TYPE(struct smb_rw_arg, ep);
+                break;
+            default:
+                SMBERROR("Unknown command %d\n", ep->command);
+               break;
+        }
     }
 
     /* This thread is exiting */

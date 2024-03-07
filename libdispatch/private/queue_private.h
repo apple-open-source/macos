@@ -71,8 +71,8 @@ enum {
  * Sets the QOS class on a dispatch queue, source or mach channel.
  *
  * @discussion
- * This is equivalent to using dispatch_queue_make_attr_with_qos_class()
- * when creating a dispatch queue, but is availabile on additional dispatch
+ * This is equivalent to using dispatch_queue_attr_make_with_qos_class()
+ * when creating a dispatch queue, but is available on additional dispatch
  * object types.
  *
  * When configured in this manner, the specified QOS class will be used over

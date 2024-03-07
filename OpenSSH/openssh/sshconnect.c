@@ -1,4 +1,4 @@
-/* $OpenBSD: sshconnect.c,v 1.363 2023/03/10 07:17:08 dtucker Exp $ */
+/* $OpenBSD: sshconnect.c,v 1.365 2023/11/20 02:50:00 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -626,6 +626,14 @@ ssh_connect_direct(struct ssh *ssh, const char *host, struct addrinfo *aitop,
 				errno = oerrno;
 				continue;
 			}
+			if (options.address_family != AF_UNSPEC &&
+			    ai->ai_family != options.address_family) {
+				debug2_f("skipping address [%s]:%s: "
+				    "wrong address family", ntop, strport);
+				errno = EAFNOSUPPORT;
+				continue;
+			}
+
 			debug("Connecting to %.200s [%.100s] port %s.",
 				host, ntop, strport);
 
@@ -1117,6 +1125,20 @@ check_host_key(char *hostname, const struct ssh_conn_info *cinfo,
 		options.update_hostkeys = 0;
 		return 0;
 	}
+#ifdef __APPLE_NOHOSTAUTHPROXY__
+
+	/*
+	 * Similar to the above scenario, in some cases a ProxyCommand
+	 * may refer to multiple hosts and provide its own host
+	 * authentication mechanism.
+	 */
+	if (options.no_host_authentication_for_proxy_command == 1 &&
+	    options.proxy_command != NULL) {
+		debug("Forcing accepting of host key for ProxyCommand.");
+		options.update_hostkeys = 0;
+		return 0;
+	}
+#endif
 
 	/*
 	 * Don't ever try to write an invalid name to a known hosts file.

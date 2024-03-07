@@ -1,4 +1,4 @@
-/* $OpenBSD: sshd.c,v 1.600 2023/03/08 04:43:12 guenther Exp $ */
+/* $OpenBSD: sshd.c,v 1.601 2023/12/18 14:45:49 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -1612,12 +1612,12 @@ main(int ac, char **av)
 		} else if (rc > 0) {
 			xasprintf(&config_file_name,
 			    "%s" _PATH_SERVER_CONFIG_FILE, buf);
-		} else if (0 != errno) {
+		} else if (ENOENT == errno || 0 == errno) {
+			verbose("No managed configuration found.");
+		} else {
 			error("Error reading managed configuration (%d: %s). "
 			    "Proceeding with default configuration.", errno,
 			    strerror(errno));
-		} else {
-			verbose("No managed configuration found.");
 		}
 	}
 #endif
@@ -1730,7 +1730,7 @@ main(int ac, char **av)
 			break;
 		case 'V':
 			fprintf(stderr, "%s, %s\n",
-			    SSH_VERSION, SSH_OPENSSL_VERSION);
+			    SSH_RELEASE, SSH_OPENSSL_VERSION);
 			exit(0);
 		default:
 			usage();
@@ -2449,7 +2449,9 @@ do_ssh2_kex(struct ssh *ssh)
 	/* start key exchange */
 	if ((r = kex_setup(ssh, myproposal)) != 0)
 		fatal_r(r, "kex_setup");
+	kex_set_server_sig_algs(ssh, options.pubkey_accepted_algos);
 	kex = ssh->kex;
+
 #ifdef WITH_OPENSSL
 	kex->kex[KEX_DH_GRP1_SHA1] = kex_gen_server;
 	kex->kex[KEX_DH_GRP14_SHA1] = kex_gen_server;

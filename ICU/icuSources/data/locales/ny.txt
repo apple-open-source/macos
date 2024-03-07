@@ -3,7 +3,7 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ny{
     AuxExemplarCharacters{"[q v x]"}
-    ExemplarCharacters{"[a b c d e f g h i j k l m n o p r s t u w ŵ y z]"}
+    ExemplarCharacters{"[a b c d e f g h i j k l m n o p r s t u wŵ y z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
     calendar{
         gregorian{

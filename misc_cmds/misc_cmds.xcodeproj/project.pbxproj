@@ -112,6 +112,8 @@
 		723CE9630FC350FF00064057 /* ostern.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE95D0FC350FF00064057 /* ostern.c */; };
 		723CE9640FC350FF00064057 /* paskha.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE95E0FC350FF00064057 /* paskha.c */; };
 		723CE9C70FC3792900064057 /* calendar.1 in Copy manpage */ = {isa = PBXBuildFile; fileRef = 723CE9C30FC378FD00064057 /* calendar.1 */; };
+		CB6AD3172A04111200070CFF /* libedit.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CB6AD3162A04110400070CFF /* libedit.tbd */; };
+		CBCA98FD2A0BD94C00AD2E5C /* tsort_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = CBCA98FC2A0BD92500AD2E5C /* tsort_test.sh */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -314,6 +316,17 @@
 			name = "Copy manpage";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		CBCA98FB2A0BD90E00AD2E5C /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/misc_cmds/tsort;
+			dstSubfolderSpec = 0;
+			files = (
+				CBCA98FD2A0BD94C00AD2E5C /* tsort_test.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -403,6 +416,8 @@
 		723CE95F0FC350FF00064057 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
 		723CE9710FC36C6400064057 /* calendar.freebsd */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.freebsd; sourceTree = "<group>"; };
 		723CE9C30FC378FD00064057 /* calendar.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = calendar.1; sourceTree = "<group>"; };
+		CB6AD3162A04110400070CFF /* libedit.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libedit.tbd; path = usr/lib/libedit.tbd; sourceTree = SDKROOT; };
+		CBCA98FC2A0BD92500AD2E5C /* tsort_test.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = tsort_test.sh; path = tests/tsort_test.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -432,6 +447,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB6AD3172A04111200070CFF /* libedit.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -519,6 +535,7 @@
 		3E59B92C1D4939A700D3128C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CB6AD3162A04110400070CFF /* libedit.tbd */,
 				3E59B92D1D4939A700D3128C /* libncurses.dylib */,
 			);
 			name = Frameworks;
@@ -573,6 +590,7 @@
 			children = (
 				723CE89C0FC346BA00064057 /* tsort.1 */,
 				723CE89D0FC346BA00064057 /* tsort.c */,
+				CBCA98FC2A0BD92500AD2E5C /* tsort_test.sh */,
 			);
 			path = tsort;
 			sourceTree = "<group>";
@@ -677,6 +695,7 @@
 				723CE8B20FC3476900064057 /* Sources */,
 				723CE8B30FC3476900064057 /* Frameworks */,
 				723CE8C20FC347C600064057 /* CopyFiles */,
+				CBCA98FB2A0BD90E00AD2E5C /* Copy Test Files */,
 			);
 			buildRules = (
 			);

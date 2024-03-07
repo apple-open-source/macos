@@ -84,7 +84,8 @@ StyleGradientImage::~StyleGradientImage() = default;
 
 bool StyleGradientImage::operator==(const StyleImage& other) const
 {
-    return is<StyleGradientImage>(other) && equals(downcast<StyleGradientImage>(other));
+    auto* otherGradientImage = dynamicDowncast<StyleGradientImage>(other);
+    return otherGradientImage && equals(*otherGradientImage);
 }
 
 bool StyleGradientImage::equals(const StyleGradientImage& other) const
@@ -746,7 +747,7 @@ static std::pair<FloatPoint, FloatPoint> endPointsFromAngle(float angleDeg, cons
 static std::pair<FloatPoint, FloatPoint> endPointsFromAngleForPrefixedVariants(float angleDeg, const FloatSize& size)
 {
     // Prefixed gradients use "polar coordinate" angles, rather than "bearing" angles.
-    return endPointsFromAngle(angleDeg = 90 - angleDeg, size);
+    return endPointsFromAngle(90 - angleDeg, size);
 }
 
 static float resolveRadius(CSSPrimitiveValue& radius, const CSSToLengthConversionData& conversionData, float widthOrHeight)

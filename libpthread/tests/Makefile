@@ -58,10 +58,27 @@ TARGETS += perf_contended_mutex_rwlock
 
 EXCLUDED_SOURCES := wq_cooperative
 
+ifeq ($(PLATFORM),MacOSX))
+	JIT_LEGACY_SUPPORTED = 1
+	JIT_CALLBACK_SUPPORTED = 1
+	JIT_ENTITLEMENT_SUFFIX = macos
+else ifeq ($(PLATFORM),iPhoneOS)
+	JIT_LEGACY_SUPPORTED = 0
+	JIT_CALLBACK_SUPPORTED = 1
+	JIT_ENTITLEMENT_SUFFIX = ios
+else
+	JIT_LEGACY_SUPPORTED = 0
+	JIT_CALLBACK_SUPPORTED = 0
+endif
 
-ifeq ($(PLATFORM),MacOSX)
+ifeq ($(JIT_LEGACY_SUPPORTED),1)
 TARGETS += pthread_jit_write_protection
 pthread_jit_write_protection: CODE_SIGN_ENTITLEMENTS=pthread_jit_write_protection-entitlements.plist
+endif
+
+ifeq ($(JIT_CALLBACK_SUPPORTED), 1)
+TARGETS += pthread_jit_write_lockdown
+pthread_jit_write_lockdown: CODE_SIGN_ENTITLEMENTS=pthread_jit_write_lockdown-entitlements.plist
 
 OTHER_TEST_TARGETS = pthread_jit_write_with_callback pthread_jit_write_freeze_callbacks
 
@@ -71,21 +88,21 @@ pthread_jit_write_with_callback: pthread_jit_write_with_callback.c libpthreadjit
 			pthread_jit_write_with_callback.c $(SYMROOT)/assets/libpthreadjittest.notdylib \
 			-rpath @executable_path/assets \
 			-o $(SYMROOT)/$@
-	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_with_callback-entitlements.plist $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_with_callback-$(JIT_ENTITLEMENT_SUFFIX)-entitlements.plist $(SYMROOT)/$@
 
 pthread_jit_write_freeze_callbacks: pthread_jit_write_freeze_callbacks.c libpthreadjittest.notdylib
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) \
 			$(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) \
 			pthread_jit_write_freeze_callbacks.c \
 			-o $(SYMROOT)/$@
-	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_freeze_callbacks-entitlements.plist $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_freeze_callbacks-$(JIT_ENTITLEMENT_SUFFIX)-entitlements.plist $(SYMROOT)/$@
 endif
 
 # this should be CUSTOM_TARGETS, see "Compatibility defines" in Makefile.targets
 OTHER_TARGETS := stackoverflow_crash
 OTHER_TARGETS += wq_cooperative
 
-ifeq ($(PLATFORM),MacOSX)
+ifeq ($(JIT_CALLBACK_SUPPORTED),1)
 OTHER_TARGETS += pthread_jit_write_with_callback_tool \
 		pthread_jit_write_freeze_callbacks_tool \
 		libpthreadjittest.notdylib
@@ -100,7 +117,7 @@ OTHER_CFLAGS := -DDARWINTEST -Weverything \
 		-Wno-vla -Wno-bad-function-cast -Wno-missing-noreturn \
 		-Wno-missing-field-initializers -Wno-format-pedantic \
 		-Wno-gnu-folding-constant -Wno-used-but-marked-unused \
-		-Wno-padded
+		-Wno-padded -Werror=undef
 OTHER_LDFLAGS := -ldarwintest_utils
 
 #TARGETS += main_stack_legacy // Disabled by default due to linker warnings
@@ -137,11 +154,11 @@ install-wq_cooperative: wq_cooperative
 	@cp $(SYMROOT)/wq_cooperative $(INSTALLDIR)/wq_cooperative
 	@cp -R $(SYMROOT)/wq_cooperative.dSYM $(INSTALLDIR)/
 
-ifeq ($(PLATFORM),MacOSX)
+ifeq ($(JIT_CALLBACK_SUPPORTED),1)
 pthread_jit_write_with_callback_tool: helpers/pthread_jit_write_with_callback_tool.c
 	mkdir -p $(SYMROOT)/assets/
 	$(CC) -o $(SYMROOT)/assets/$@ $(CFLAGS) $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS) $<
-	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_with_callback-entitlements.plist $(SYMROOT)/assets/pthread_jit_write_with_callback_tool
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_with_callback-$(JIT_ENTITLEMENT_SUFFIX)-entitlements.plist $(SYMROOT)/assets/pthread_jit_write_with_callback_tool
 
 install-pthread_jit_write_with_callback_tool: pthread_jit_write_with_callback_tool
 	mkdir -p $(INSTALLDIR)/assets
@@ -150,7 +167,7 @@ install-pthread_jit_write_with_callback_tool: pthread_jit_write_with_callback_to
 pthread_jit_write_freeze_callbacks_tool: helpers/pthread_jit_write_with_callback_tool.c
 	mkdir -p $(SYMROOT)/assets/
 	$(CC) -o $(SYMROOT)/assets/$@ $(CFLAGS) $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS) $<
-	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_freeze_callbacks-entitlements.plist $(SYMROOT)/assets/pthread_jit_write_freeze_callbacks_tool
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements pthread_jit_write_freeze_callbacks-$(JIT_ENTITLEMENT_SUFFIX)-entitlements.plist $(SYMROOT)/assets/pthread_jit_write_freeze_callbacks_tool
 
 install-pthread_jit_write_freeze_callbacks_tool: pthread_jit_write_freeze_callbacks_tool
 	mkdir -p $(INSTALLDIR)/assets
@@ -160,6 +177,7 @@ install-pthread_jit_write_freeze_callbacks_tool: pthread_jit_write_freeze_callba
 libpthreadjittest.notdylib: helpers/libpthreadjittest.c
 	mkdir -p $(SYMROOT)/assets/
 	$(CC) -o $(SYMROOT)/assets/$@ -dynamiclib $(CFLAGS) $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS) -install_name @rpath/libpthreadjittest.notdylib $<
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/assets/libpthreadjittest.notdylib
 
 install-libpthreadjittest.notdylib: libpthreadjittest.notdylib
 	mkdir -p $(INSTALLDIR)/assets

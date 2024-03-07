@@ -34,6 +34,7 @@
 #include "LayoutRect.h"
 #include "MediaPlayerEnums.h"
 #include "MediaPlayerIdentifier.h"
+#include "MediaPromiseTypes.h"
 #include "PlatformLayer.h"
 #include "PlatformTextTrack.h"
 #include "ProcessIdentity.h"
@@ -49,6 +50,7 @@
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/URL.h>
 #include <wtf/WallTime.h>
+#include <wtf/WeakHashSet.h>
 #include <wtf/text/StringHash.h>
 
 OBJC_CLASS AVPlayer;
@@ -110,38 +112,6 @@ struct MediaEngineSupportParameters {
     std::optional<Vector<FourCC>> allowedMediaVideoCodecIDs;
     std::optional<Vector<FourCC>> allowedMediaAudioCodecIDs;
     std::optional<Vector<FourCC>> allowedMediaCaptionFormatTypes;
-
-    template<class Encoder>
-    void encode(Encoder& encoder) const
-    {
-        encoder << type;
-        encoder << url;
-        encoder << isMediaSource;
-        encoder << isMediaStream;
-        encoder << requiresRemotePlayback;
-        encoder << contentTypesRequiringHardwareSupport;
-        encoder << allowedMediaContainerTypes;
-        encoder << allowedMediaCodecTypes;
-        encoder << allowedMediaVideoCodecIDs;
-        encoder << allowedMediaAudioCodecIDs;
-        encoder << allowedMediaCaptionFormatTypes;
-    }
-
-    template <class Decoder>
-    static bool decode(Decoder& decoder, MediaEngineSupportParameters& parameters)
-    {
-        return decoder.decode(parameters.type)
-            && decoder.decode(parameters.url)
-            && decoder.decode(parameters.isMediaSource)
-            && decoder.decode(parameters.isMediaStream)
-            && decoder.decode(parameters.requiresRemotePlayback)
-            && decoder.decode(parameters.contentTypesRequiringHardwareSupport)
-            && decoder.decode(parameters.allowedMediaContainerTypes)
-            && decoder.decode(parameters.allowedMediaCodecTypes)
-            && decoder.decode(parameters.allowedMediaVideoCodecIDs)
-            && decoder.decode(parameters.allowedMediaAudioCodecIDs)
-            && decoder.decode(parameters.allowedMediaCaptionFormatTypes);
-    }
 };
 
 struct SeekTarget {
@@ -165,6 +135,15 @@ struct SeekTarget {
 
     WEBCORE_EXPORT String toString() const;
 };
+
+enum class MediaPlatformType {
+    Mock,
+    AVFObjC,
+    GStreamer,
+    Remote
+};
+
+using TrackID = uint64_t;
 
 class MediaPlayerClient : public CanMakeWeakPtr<MediaPlayerClient> {
 public:
@@ -402,7 +381,7 @@ public:
 #endif
     void cancelLoad();
 
-    void setPageIsVisible(bool);
+    void setPageIsVisible(bool, String&& sceneIdentifier = ""_s);
     void setVisibleForCanvas(bool);
     bool isVisibleForCanvas() const { return m_visibleForCanvas; }
 
@@ -677,7 +656,7 @@ public:
     bool contentMIMETypeWasInferredFromExtension() const { return m_contentMIMETypeWasInferredFromExtension; }
 
     const Vector<ContentType>& mediaContentTypesRequiringHardwareSupport() const;
-    bool shouldCheckHardwareSupport() const;
+    void setShouldCheckHardwareSupport(bool);
 
     const std::optional<Vector<String>>& allowedMediaContainerTypes() const;
     const std::optional<Vector<String>>& allowedMediaCodecTypes() const;
@@ -763,9 +742,9 @@ private:
 
     WeakPtr<MediaPlayerClient> m_client;
     Timer m_reloadTimer;
-    std::unique_ptr<MediaPlayerPrivateInterface> m_private;
+    RefPtr<MediaPlayerPrivateInterface> m_private;
     const MediaPlayerFactory* m_currentMediaEngine { nullptr };
-    HashSet<const MediaPlayerFactory*> m_attemptedEngines;
+    WeakHashSet<const MediaPlayerFactory> m_attemptedEngines;
     URL m_url;
     ContentType m_contentType;
     String m_keySystem;
@@ -787,7 +766,7 @@ private:
     PitchCorrectionAlgorithm m_pitchCorrectionAlgorithm { PitchCorrectionAlgorithm::BestAllAround };
 
 #if ENABLE(MEDIA_SOURCE)
-    WeakPtr<MediaSourcePrivateClient> m_mediaSource;
+    ThreadSafeWeakPtr<MediaSourcePrivateClient> m_mediaSource;
 #endif
 #if ENABLE(MEDIA_STREAM)
     RefPtr<MediaStreamPrivate> m_mediaStream;
@@ -801,14 +780,14 @@ private:
     ProcessIdentity m_processIdentity;
 };
 
-class MediaPlayerFactory {
+class MediaPlayerFactory : public CanMakeWeakPtr<MediaPlayerFactory> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     MediaPlayerFactory() = default;
     virtual ~MediaPlayerFactory() = default;
 
     virtual MediaPlayerEnums::MediaEngineIdentifier identifier() const  = 0;
-    virtual std::unique_ptr<MediaPlayerPrivateInterface> createMediaEnginePlayer(MediaPlayer*) const = 0;
+    virtual Ref<MediaPlayerPrivateInterface> createMediaEnginePlayer(MediaPlayer*) const = 0;
     virtual void getSupportedTypes(HashSet<String>&) const = 0;
     virtual MediaPlayer::SupportsType supportsTypeAndCodecs(const MediaEngineSupportParameters&) const = 0;
 
@@ -848,6 +827,8 @@ inline bool MediaPlayer::hasMediaEngine() const
 }
 
 } // namespace WebCore
+
+using WebCore::TrackID;
 
 namespace WTF {
 

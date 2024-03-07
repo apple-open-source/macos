@@ -41,8 +41,6 @@
 namespace WebKit {
 using namespace WebCore;
 
-static constexpr OptionSet<ActivityState> focusedActiveWindow = { ActivityState::IsFocused, ActivityState::WindowIsActive };
-
 UserMediaPermissionRequestManager::UserMediaPermissionRequestManager(WebPage& page)
     : m_page(page)
 {
@@ -79,7 +77,7 @@ void UserMediaPermissionRequestManager::sendUserMediaRequest(UserMediaRequest& u
 
     m_ongoingUserMediaRequests.add(userRequest.identifier(), userRequest);
 
-    WebFrame* webFrame = WebFrame::fromCoreFrame(*frame);
+    auto webFrame = WebFrame::fromCoreFrame(*frame);
     ASSERT(webFrame);
 
     auto* topLevelDocumentOrigin = userRequest.topLevelDocumentOrigin();

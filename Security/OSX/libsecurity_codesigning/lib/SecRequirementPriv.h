@@ -98,7 +98,6 @@ typedef CF_OPTIONS(uint32_t, SecCSFlagsPriv) {
 OSStatus SecRequirementsCreateWithString(CFStringRef text, SecCSFlags flags,
 	CFTypeRef *result, CFErrorRef *errors);
 
-
 /*!
 	@function SecRequirementsCopyString
 	Converts a requirement object of some kind into text form.

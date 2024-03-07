@@ -56,8 +56,6 @@ public:
         Natural,
     };
 
-    WebWheelEvent() = default;
-
     WebWheelEvent(WebEvent&&, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, const WebCore::FloatSize& delta, const WebCore::FloatSize& wheelTicks, Granularity);
 #if PLATFORM(COCOA)
     WebWheelEvent(WebEvent&&, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, const WebCore::FloatSize& delta, const WebCore::FloatSize& wheelTicks, Granularity, bool directionInvertedFromDevice, Phase, Phase momentumPhase, bool hasPreciseScrollingDeltas, uint32_t scrollCount, const WebCore::FloatSize& unacceleratedScrollingDelta, WallTime ioHIDEventTimestamp, std::optional<WebCore::FloatSize> rawPlatformDelta, MomentumEndType);
@@ -66,6 +64,7 @@ public:
 #endif
 
     const WebCore::IntPoint position() const { return m_position; }
+    void setPosition(WebCore::IntPoint position) { m_position = position; }
     const WebCore::IntPoint globalPosition() const { return m_globalPosition; }
     const WebCore::FloatSize delta() const { return m_delta; }
     const WebCore::FloatSize wheelTicks() const { return m_wheelTicks; }

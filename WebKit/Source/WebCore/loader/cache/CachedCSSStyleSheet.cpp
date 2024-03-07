@@ -37,6 +37,10 @@
 #include "StyleSheetContents.h"
 #include "TextResourceDecoder.h"
 
+#if PLATFORM(COCOA)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#endif
+
 namespace WebCore {
 
 CachedCSSStyleSheet::CachedCSSStyleSheet(CachedResourceRequest&& request, PAL::SessionID sessionID, const CookieJar* cookieJar)
@@ -73,9 +77,12 @@ String CachedCSSStyleSheet::encoding() const
     return String::fromLatin1(m_decoder->encoding().name());
 }
 
-const String CachedCSSStyleSheet::sheetText(MIMETypeCheckHint mimeTypeCheckHint, bool* hasValidMIMEType) const
+const String CachedCSSStyleSheet::sheetText(MIMETypeCheckHint mimeTypeCheckHint, bool* hasValidMIMEType, bool* hasHTTPStatusOK) const
 {
-    if (!m_data || m_data->isEmpty() || !canUseSheet(mimeTypeCheckHint, hasValidMIMEType))
+    // Ensure hasValidMIMEType and hasHTTPStatusOK always get set (even if m_data is null or empty) — which in turn
+    // ensures that if the MIME type isn't text/css or the HTTP status isn't an OK status, we never load the resource.
+    // https://html.spec.whatwg.org/#link-type-stylesheet:process-the-linked-resource
+    if (!canUseSheet(mimeTypeCheckHint, hasValidMIMEType, hasHTTPStatusOK) || !m_data || m_data->isEmpty())
         return String();
 
     if (!m_decodedSheetText.isNull())
@@ -141,10 +148,25 @@ bool CachedCSSStyleSheet::mimeTypeAllowedByNosniff() const
     return parseContentTypeOptionsHeader(response().httpHeaderField(HTTPHeaderName::XContentTypeOptions)) != ContentTypeOptionsDisposition::Nosniff || equalLettersIgnoringASCIICase(responseMIMEType(), "text/css"_s);
 }
 
-bool CachedCSSStyleSheet::canUseSheet(MIMETypeCheckHint mimeTypeCheckHint, bool* hasValidMIMEType) const
+bool CachedCSSStyleSheet::canUseSheet(MIMETypeCheckHint mimeTypeCheckHint, bool* hasValidMIMEType, bool* hasHTTPStatusOK) const
 {
     if (errorOccurred())
         return false;
+
+    // https://html.spec.whatwg.org/#fetching-and-processing-a-resource-from-a-link-element:processresponseconsumebody
+    auto shouldAvoidUsingStyleSheetDueToUnsuccessfulRequest = [&] {
+#if PLATFORM(COCOA)
+        if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DoNotLoadStyleSheetIfHTTPStatusIsNotOK))
+            return false;
+#endif
+        return response().url().protocolIsInHTTPFamily() && !response().isSuccessful();
+    }();
+
+    if (shouldAvoidUsingStyleSheetDueToUnsuccessfulRequest) {
+        if (hasHTTPStatusOK)
+            *hasHTTPStatusOK = false;
+        return false;
+    }
 
     if (!mimeTypeAllowedByNosniff()) {
         if (hasValidMIMEType)

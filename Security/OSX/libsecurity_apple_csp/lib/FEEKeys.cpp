@@ -213,7 +213,25 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 		feePubKeyFree(keyToEncode);
 	}
 }
-		
+
+BinaryKey *CryptKit::FEEBinaryKey::getPublicKey() const
+{
+    if (mKeyHeader.keyClass() != CSSM_KEYCLASS_PRIVATE_KEY) {
+        CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
+    }
+
+    FEEBinaryKey *fPubBinKey = new FEEBinaryKey();
+    feeReturn frtn = feePubKeyInitPubKeyFromPriv(feeKey(), fPubBinKey->feeKey());
+    if(frtn) {
+        delete fPubBinKey;
+        throwCryptKit(frtn, "feePubKeyInitPubKeyFromPriv");
+        return NULL;
+    }
+    fPubBinKey->mKeyHeader = CssmKey::Header::overlay(mKeyHeader);
+    fPubBinKey->mKeyHeader.keyClass(CSSM_KEYCLASS_PUBLIC_KEY);
+    return fPubBinKey;
+}
+
 /***
  *** FEE-style AppleKeyPairGenContext
  ***/

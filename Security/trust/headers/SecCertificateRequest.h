@@ -113,6 +113,14 @@ extern const CFStringRef kSecCertificateSerialNumber;
             will normally be the same as the common name of the certificate
             subject, and is considered the entity to which this certificate
             is being issued.
+        @param kSecAttestationKey   SecKeyRef
+            if set, specifies a co-resident private key which will be used to
+            attest the newly-created key for the client identity.
+        @param kSecAttestationChain     CFArrayRef
+            if set, specifies an array of SecCertificateRef items. The first item
+            must be the certificate whose public key corresponds to the private key
+            provided in kSecAttestationKey, and is followed in order by the CA
+            certificates needed to build the chain to a trusted root.
         @param kSecAttestationOids     CFArrayRef
             if set, specifies an array of CFStringRef values which contain OIDs
             for the type of attestation being requested.
@@ -142,6 +150,10 @@ extern const CFStringRef kSecCertificateSerialNumber;
 */
 extern const CFStringRef kSecClientIdentifier
     __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+extern const CFStringRef kSecAttestationKey
+    __OSX_AVAILABLE(14.3) __IOS_AVAILABLE(17.3) __TVOS_AVAILABLE(17.3) __WATCHOS_AVAILABLE(10.3);
+extern const CFStringRef kSecAttestationChain
+    __OSX_AVAILABLE(14.3) __IOS_AVAILABLE(17.3) __TVOS_AVAILABLE(17.3) __WATCHOS_AVAILABLE(10.3);
 extern const CFStringRef kSecAttestationOids
     __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
 extern const CFStringRef kSecLocalIssuerIdentity

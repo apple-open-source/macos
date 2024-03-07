@@ -98,6 +98,16 @@ libSC_info_client_dealloc(libSC_info_client_t *client)
 }
 
 
+static __inline__ void
+libSC_client_dealloc(void * _Nullable client)
+{
+	if (client != NULL) {
+		libSC_info_client_dealloc((libSC_info_client_t *)client);
+	}
+	return;
+}
+
+
 __private_extern__
 libSC_info_client_t *
 libSC_info_client_create(dispatch_queue_t	q,
@@ -157,7 +167,7 @@ libSC_info_client_create(dispatch_queue_t	q,
 	client->connection = c;
 
 	xpc_connection_set_context(c, client);
-	xpc_connection_set_finalizer_f(c, (xpc_finalizer_t)libSC_info_client_dealloc);
+	xpc_connection_set_finalizer_f(c, (xpc_finalizer_t)libSC_client_dealloc);
 
 	xpc_connection_resume(c);
 

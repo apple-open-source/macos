@@ -31,6 +31,7 @@
 #include "reqdumper.h"
 #include <Security/SecCertificatePriv.h>
 #include <security_utilities/cfutilities.h>
+#import "LWCRHelper.h"
 
 using namespace CodeSigning;
 
@@ -309,6 +310,27 @@ OSStatus SecRequirementsCreateWithString(CFStringRef text, SecCSFlags flags,
 	END_CSAPI_ERRORS
 }
 
+OSStatus SecRequirementCreateWithLightweightCodeRequirementData(CFDataRef lwcrData, SecCSFlags flags,
+														        SecRequirementRef *result, CFErrorRef* errors)
+{
+	BEGIN_CSAPI
+#if TARGET_OS_SIMULATOR
+	return errSecCSUnimplemented;
+#else
+	checkFlags(flags);
+	
+	if (lwcrData == NULL || result == NULL) {
+		return errSecCSObjectRequired;
+	}
+	Requirement::Maker maker(Requirement::Kind::lwcrForm);
+	const void* dataPtr = CFDataGetBytePtr(lwcrData);
+	size_t dataLen = CFDataGetLength(lwcrData);
+	validateLightweightCodeRequirementData(lwcrData);
+	maker.putData(dataPtr, dataLen);
+	*result = (new SecRequirement(maker(), true))->handle();
+#endif
+	END_CSAPI_ERRORS
+}
 	
 //
 // Convert a SecRequirementRef or a CFDataRef containing a requirement set to text.

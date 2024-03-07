@@ -2065,7 +2065,7 @@ def ShowIVACFreeList(cmd_args=[], cmd_options={}):
 def GetIPCVoucherSummary(voucher, show_entries=False):
     """ describe a voucher from its ipc_voucher * object """
     out_str = ""
-    fmt = "{v: <#18x} {v.iv_refs.ref_count: <8d} {table_addr: <#18x} {v.iv_port: <#18x}"
+    fmt = "{v: <#18x} {v.iv_refs: <8d} {table_addr: <#18x} {v.iv_port: <#18x}"
     out_str += fmt.format(v = voucher, table_addr = addressof(voucher.iv_table))
     entries_str = ''
     if show_entries or config['verbosity'] > vHUMAN:

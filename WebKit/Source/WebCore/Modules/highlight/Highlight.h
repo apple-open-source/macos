@@ -54,7 +54,7 @@ private:
     explicit HighlightRange(Ref<AbstractRange>&& range)
         : m_range(WTFMove(range))
     {
-        if (RefPtr liveRange = RefPtr { dynamicDowncast<Range>(m_range.get()) })
+        if (auto liveRange = dynamicDowncast<Range>(m_range))
             liveRange->didAssociateWithHighlight();
     }
 

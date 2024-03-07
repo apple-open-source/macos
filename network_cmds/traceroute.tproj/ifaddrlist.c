@@ -95,15 +95,15 @@ struct rtentry;
  * Return the interface list
  */
 int
-ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf, size_t errbuflen)
+ifaddrlist(struct ifaddrlist **ipaddrp, char *errbuf, size_t errbuflen)
 {
-	register int fd, nipaddr;
+	int fd, nipaddr;
 #ifdef HAVE_SOCKADDR_SA_LEN
-	register int n;
+	int n;
 #endif
-	register struct ifreq *ifrp, *ifend, *ifnext, *mp;
-	register struct sockaddr_in *sin;
-	register struct ifaddrlist *al;
+	struct ifreq *ifrp, *ifend, *ifnext, *mp;
+	struct sockaddr_in *sin;
+	struct ifaddrlist *al;
 	struct ifconf ifc;
 	struct ifreq ibuf[(32 * 1024) / sizeof(struct ifreq)], ifr;
 #define MAX_IPADDR (sizeof(ibuf) / sizeof(ibuf[0]))

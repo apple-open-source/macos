@@ -910,8 +910,8 @@ struct __user_packet {
 #define SK_PTR_ENCODE(_p, _t, _s)       \
 	(SK_PTR_ADDR_ENC(_p) | SK_PTR_TYPE_ENC(_t) | SK_PTR_SUBTYPE_ENC(_s))
 
-#define SK_PTR_ADDR_UQUM(_ph)   ((struct __user_quantum *)SK_PTR_ADDR(_ph))
-#define SK_PTR_ADDR_UPKT(_ph)   ((struct __user_packet *)SK_PTR_ADDR(_ph))
+#define SK_PTR_ADDR_UQUM(_ph)   (__unsafe_forge_single(struct __user_quantum *, SK_PTR_ADDR(_ph)))
+#define SK_PTR_ADDR_UPKT(_ph)   (__unsafe_forge_single(struct __user_packet *, SK_PTR_ADDR(_ph)))
 
 #ifdef KERNEL
 __BEGIN_DECLS

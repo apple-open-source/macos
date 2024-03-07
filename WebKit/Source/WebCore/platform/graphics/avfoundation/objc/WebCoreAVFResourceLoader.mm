@@ -39,6 +39,7 @@
 #import "UTIUtilities.h"
 #import <AVFoundation/AVAssetResourceLoader.h>
 #import <objc/runtime.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/text/CString.h>
 
@@ -171,11 +172,10 @@ WeakPtr<PlatformResourceMediaLoader> PlatformResourceMediaLoader::create(WebCore
     auto resource = loader.requestResource(WTFMove(request), PlatformMediaResourceLoader::LoadOption::DisallowCaching);
     if (!resource)
         return nullptr;
-    auto* resourcePointer = resource.get();
-    auto client = adoptRef(*new PlatformResourceMediaLoader { parent, resource.releaseNonNull() });
+    auto client = adoptRef(*new PlatformResourceMediaLoader { parent, Ref { *resource } });
     WeakPtr result = client;
 
-    resourcePointer->setClient(WTFMove(client));
+    resource->setClient(WTFMove(client));
     return result;
 }
 
@@ -366,7 +366,9 @@ void WebCoreAVFResourceLoader::responseReceived(const ResourceResponse& response
             [contentInfo setEntireLengthAvailableOnDemand:YES];
 
         if (![m_avRequest dataRequest]) {
+            BEGIN_BLOCK_OBJC_EXCEPTIONS
             [m_avRequest finishLoading];
+            END_BLOCK_OBJC_EXCEPTIONS
             stopLoading();
         }
     }
@@ -385,7 +387,9 @@ void WebCoreAVFResourceLoader::loadFailed(const ResourceError& error)
 
 void WebCoreAVFResourceLoader::loadFinished()
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_avRequest finishLoading];
+    END_BLOCK_OBJC_EXCEPTIONS
     stopLoading();
 }
 
@@ -430,7 +434,9 @@ void WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(const FragmentedShare
         return;
 
     if (dataRequest.currentOffset + dataRequest.requestedLength >= dataRequest.requestedOffset) {
+        BEGIN_BLOCK_OBJC_EXCEPTIONS
         [m_avRequest finishLoading];
+        END_BLOCK_OBJC_EXCEPTIONS
         stopLoading();
     }
 }

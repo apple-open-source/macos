@@ -298,6 +298,9 @@ yue{
         ZW{"辛巴威"}
         ZZ{"未知區域"}
     }
+    Countries%chagos{
+        IO{"查哥斯群島"}
+    }
     Countries%short{
         PS{"巴勒斯坦"}
     }

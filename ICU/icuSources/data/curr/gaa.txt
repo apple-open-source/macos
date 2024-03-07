@@ -315,10 +315,6 @@ gaa{
             "SHP",
             "St. Helena Pound",
         }
-        SLL{
-            "SLL",
-            "Sierra Leone Leone",
-        }
         SOS{
             "SOS",
             "Somali Sheleŋ",
@@ -624,9 +620,6 @@ gaa{
         }
         SHP{
             other{"St. Helena pounds"}
-        }
-        SLL{
-            other{"Sierra Leone leonei"}
         }
         SOS{
             other{"Somali sheleŋ"}

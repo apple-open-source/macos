@@ -78,7 +78,7 @@ static bool trustsServerForLocalTests(NSURLAuthenticationChallenge *challenge)
 
 namespace WebKit::PCM {
 
-enum LoadTaskIdentifierType { };
+enum class LoadTaskIdentifierType { };
 using LoadTaskIdentifier = ObjectIdentifier<LoadTaskIdentifierType>;
 static HashMap<LoadTaskIdentifier, RetainPtr<NSURLSessionDataTask>>& taskMap()
 {
@@ -96,7 +96,7 @@ static NSURLSession *statelessSessionWithoutRedirects()
         configuration.URLCache = nil;
         configuration.HTTPCookieStorage = nil;
         configuration._shouldSkipPreferredClientCertificateLookup = YES;
-        return adoptNS([NSURLSession sessionWithConfiguration:configuration delegate:delegate.get().get() delegateQueue:[NSOperationQueue mainQueue]]);
+        return [NSURLSession sessionWithConfiguration:configuration delegate:delegate.get().get() delegateQueue:[NSOperationQueue mainQueue]];
     }();
     return session.get().get();
 }

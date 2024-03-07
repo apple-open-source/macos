@@ -70,7 +70,7 @@ public:
     virtual const MutableStyleProperties* additionalPresentationalHintStyle() const { return nullptr; }
 
 protected:
-    StyledElement(const QualifiedName& name, Document& document, ConstructionType type)
+    StyledElement(const QualifiedName& name, Document& document, OptionSet<TypeFlag> type)
         : Element(name, document, type)
     {
     }
@@ -84,6 +84,7 @@ protected:
     void addPropertyToPresentationalHintStyle(MutableStyleProperties&, CSSPropertyID, const String& value);
 
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
+    Attribute replaceURLsInAttributeValue(const Attribute&, const HashMap<String, String>&) const override;
 
 private:
     void styleAttributeChanged(const AtomString& newStyleString, AttributeModificationReason);

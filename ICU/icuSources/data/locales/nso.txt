@@ -6,43 +6,16 @@ nso{
     ExemplarCharacters{"[a b d e ê f g h i j k l m n o ô p r s š t u w x y]"}
     NumberElements{
         latn{
-            miscPatterns{
-                atLeast{"≥{0}"}
-                range{"{0}–{1}"}
-            }
             patterns{
                 accountingFormat{"¤#,##0.00"}
-                currencyFormat{"¤ #,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
                 group{" "}
-                infinity{"∞"}
-                minusSign{"-"}
-                nan{"NaN"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
-        minimumGroupingDigits{"1"}
     }
     calendar{
         gregorian{
-            AmPmMarkers{
-                "AM",
-                "PM",
-            }
-            AmPmMarkersAbbr{
-                "AM",
-                "PM",
-            }
             AmPmMarkersNarrow{
                 "a",
                 "p",
@@ -62,63 +35,18 @@ nso{
                 "{1}, {0}",
                 "{1}, {0}",
             }
-            DateTimeSkeletons{
-                "HHmmsszzzz",
-                "HHmmssz",
-                "HHmmss",
-                "HHmm",
-                "yMMMMEEEEd",
-                "yMMMMd",
-                "yMMMd",
-                "yMMdd",
-            }
-            appendItems{
-                Timezone{"{0} {1}"}
-            }
             availableFormats{
-                E{"ccc"}
-                EHm{"E HH:mm"}
-                EHms{"E HH:mm:ss"}
-                Ed{"d, E"}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
-                Gy{"G y"}
-                GyMMM{"G y MMM"}
-                GyMMMEd{"G y MMM d, E"}
-                GyMMMd{"G y MMM d"}
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-                Hmsv{"HH:mm:ss v"}
-                Hmv{"HH:mm v"}
-                M{"L"}
-                MEd{"MM-dd, E"}
-                MMM{"LLL"}
-                MMMEd{"MMM d, E"}
                 MMMMW{
                     one{"'beke' W 'ya' MMM"}
                     other{"'beke' 'ya' 'bo' W 'ya' MMM"}
                 }
-                MMMMd{"MMMM d"}
-                MMMd{"MMM d"}
-                Md{"MM-dd"}
-                d{"d"}
                 h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
                 hmsv{"h:mm:ss a v"}
                 hmv{"h:mm a v"}
-                ms{"mm:ss"}
-                y{"y"}
-                yM{"y-MM"}
-                yMEd{"y-MM-dd, E"}
-                yMMM{"y MMM"}
-                yMMMEd{"y MMM d, E"}
-                yMMMM{"y MMMM"}
-                yMMMd{"y MMM d"}
-                yMd{"y-MM-dd"}
-                yQQQ{"y QQQ"}
-                yQQQQ{"y QQQQ"}
                 yw{
                     one{"'beke' 'ya' 'bo' w 'ya' Y"}
                     other{"'beke' 'ya' 'bo' w 'ya' Y"}
@@ -135,24 +63,6 @@ nso{
                         "Hla",
                         "Mok",
                     }
-                    narrow{
-                        "L",
-                        "M",
-                        "B",
-                        "R",
-                        "N",
-                        "H",
-                        "M",
-                    }
-                    short{
-                        "Lam",
-                        "Mos",
-                        "Bed",
-                        "Rar",
-                        "Ne",
-                        "Hla",
-                        "Mok",
-                    }
                     wide{
                         "Lamorena",
                         "Musopologo",
@@ -164,15 +74,6 @@ nso{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "Lam",
-                        "Mos",
-                        "Bed",
-                        "Rar",
-                        "Ne",
-                        "Hla",
-                        "Mok",
-                    }
                     narrow{
                         "L",
                         "M",
@@ -181,40 +82,6 @@ nso{
                         "N",
                         "H",
                         "M",
-                    }
-                    short{
-                        "Lam",
-                        "Mos",
-                        "Bed",
-                        "Rar",
-                        "Ne",
-                        "Hla",
-                        "Mok",
-                    }
-                    wide{
-                        "Lamorena",
-                        "Musopologo",
-                        "Labobedi",
-                        "Laboraro",
-                        "Labone",
-                        "Labohlano",
-                        "Mokibelo",
-                    }
-                }
-            }
-            dayPeriod{
-                stand-alone{
-                    abbreviated{
-                        am{"AM"}
-                        pm{"PM"}
-                    }
-                    narrow{
-                        am{"AM"}
-                        pm{"PM"}
-                    }
-                    wide{
-                        am{"AM"}
-                        pm{"PM"}
                     }
                 }
             }
@@ -237,29 +104,9 @@ nso{
                 }
             }
             intervalFormats{
-                H{
-                    H{"HH–HH"}
-                }
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
-                }
-                Hv{
-                    H{"HH–HH v"}
-                }
-                M{
-                    M{"MM–MM"}
-                }
                 MEd{
                     M{"MM-dd, E – MM-dd, E"}
                     d{"MM-dd, E – MM-dd, E"}
-                }
-                MMM{
-                    M{"LLL–LLL"}
                 }
                 MMMEd{
                     M{"MMM d, E – MMM d, E"}
@@ -267,16 +114,11 @@ nso{
                 }
                 MMMd{
                     M{"MMM d – MMM d"}
-                    d{"MMM d–d"}
                 }
                 Md{
                     M{"MM-dd – MM-dd"}
                     d{"MM-dd – MM-dd"}
                 }
-                d{
-                    d{"d–d"}
-                }
-                fallback{"{0} – {1}"}
                 h{
                     a{"h a – h a"}
                     h{"h–h a"}
@@ -295,9 +137,6 @@ nso{
                     a{"h a – h a v"}
                     h{"h–h a v"}
                 }
-                y{
-                    y{"y–y"}
-                }
                 yM{
                     M{"y-MM – y-MM"}
                     y{"y-MM – y-MM"}
@@ -308,7 +147,6 @@ nso{
                     y{"y-MM-dd, E – y-MM-dd, E"}
                 }
                 yMMM{
-                    M{"y MMM–MMM"}
                     y{"y MMM – y MMM"}
                 }
                 yMMMEd{
@@ -317,12 +155,10 @@ nso{
                     y{"y MMM d, E – y MMM d, E"}
                 }
                 yMMMM{
-                    M{"y MMMM–MMMM"}
                     y{"y MMMM – y MMMM"}
                 }
                 yMMMd{
                     M{"y MMM d – MMM d"}
-                    d{"y MMM d–d"}
                     y{"y MMM d – y MMM d"}
                 }
                 yMd{
@@ -347,20 +183,6 @@ nso{
                         "Diba",
                         "Manth",
                     }
-                    narrow{
-                        "P",
-                        "D",
-                        "H",
-                        "M",
-                        "M",
-                        "P",
-                        "M",
-                        "P",
-                        "L",
-                        "D",
-                        "D",
-                        "M",
-                    }
                     wide{
                         "Pherekgong",
                         "Dibokwane",
@@ -377,20 +199,6 @@ nso{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "Phere",
-                        "Dibo",
-                        "Hlak",
-                        "Mora",
-                        "Mopi",
-                        "Phupu",
-                        "Mose",
-                        "Phato",
-                        "Lewe",
-                        "Dipha",
-                        "Diba",
-                        "Manth",
-                    }
                     narrow{
                         "P",
                         "D",
@@ -404,57 +212,11 @@ nso{
                         "D",
                         "D",
                         "M",
-                    }
-                    wide{
-                        "Pherekgong",
-                        "Dibokwane",
-                        "Hlakola",
-                        "Moranang",
-                        "Mopitlo",
-                        "Phupu",
-                        "Mosegemanye",
-                        "Phato",
-                        "Lewedi",
-                        "Diphalane",
-                        "Dibatsela",
-                        "Manthole",
                     }
                 }
             }
             quarters{
                 format{
-                    abbreviated{
-                        "1st Kotara",
-                        "2nd Kotara",
-                        "3rd Kotara",
-                        "4th Kotara",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                    }
-                    wide{
-                        "1st Kotara",
-                        "2nd Kotara",
-                        "3rd Kotara",
-                        "4th Kotara",
-                    }
-                }
-                stand-alone{
-                    abbreviated{
-                        "1st Kotara",
-                        "2nd Kotara",
-                        "3rd Kotara",
-                        "4th Kotara",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                    }
                     wide{
                         "1st Kotara",
                         "2nd Kotara",

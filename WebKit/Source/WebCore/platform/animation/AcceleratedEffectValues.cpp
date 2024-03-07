@@ -42,9 +42,7 @@ AcceleratedEffectValues::AcceleratedEffectValues(const AcceleratedEffectValues& 
 
     auto& transformOperations = transform.operations();
     auto& srcTransformOperations = src.transform.operations();
-    transformOperations.reserveCapacity(srcTransformOperations.size());
-    for (auto& srcTransformOperation : srcTransformOperations)
-        transformOperations.uncheckedAppend(srcTransformOperation.copyRef());
+    transformOperations.appendVector(srcTransformOperations);
 
     translate = src.translate.copyRef();
     scale = src.scale.copyRef();
@@ -61,11 +59,9 @@ AcceleratedEffectValues::AcceleratedEffectValues(const AcceleratedEffectValues& 
         return operation.copyRef();
     }));
 
-#if ENABLE(FILTERS_LEVEL_2)
     backdropFilter.setOperations(src.backdropFilter.operations().map([](const auto& operation) {
         return operation.copyRef();
     }));
-#endif
 }
 
 AcceleratedEffectValues AcceleratedEffectValues::clone() const
@@ -101,11 +97,9 @@ AcceleratedEffectValues AcceleratedEffectValues::clone() const
         return RefPtr { operation->clone() };
     }) };
 
-#if ENABLE(FILTERS_LEVEL_2)
     FilterOperations clonedBackdropFilter { backdropFilter.operations().map([](const auto& operation) {
         return RefPtr { operation->clone() };
     }) };
-#endif
 
     return {
         opacity,
@@ -120,9 +114,7 @@ AcceleratedEffectValues AcceleratedEffectValues::clone() const
         WTFMove(clonedOffsetAnchor),
         WTFMove(clonedOffsetRotate),
         WTFMove(clonedFilter),
-#if ENABLE(FILTERS_LEVEL_2)
         WTFMove(clonedBackdropFilter)
-#endif
     };
 }
 
@@ -144,9 +136,9 @@ AcceleratedEffectValues::AcceleratedEffectValues(const RenderStyle& style, const
 
     auto& transformOperations = transform.operations();
     auto& srcTransformOperations = style.transform().operations();
-    transformOperations.reserveCapacity(srcTransformOperations.size());
-    for (auto& srcTransformOperation : srcTransformOperations)
-        transformOperations.uncheckedAppend(srcTransformOperation->selfOrCopyWithResolvedCalculatedValues(borderBoxSize));
+    transformOperations.appendContainerWithMapping(srcTransformOperations, [&](auto& srcTransformOperation) {
+        return srcTransformOperation->selfOrCopyWithResolvedCalculatedValues(borderBoxSize);
+    });
 
     if (auto* srcTranslate = style.translate())
         translate = srcTranslate->selfOrCopyWithResolvedCalculatedValues(borderBoxSize);
@@ -174,11 +166,9 @@ AcceleratedEffectValues::AcceleratedEffectValues(const RenderStyle& style, const
         return operation.copyRef();
     }));
 
-#if ENABLE(FILTERS_LEVEL_2)
     backdropFilter.setOperations(style.backdropFilter().operations().map([](const auto& operation) {
         return operation.copyRef();
     }));
-#endif
 }
 
 } // namespace WebCore

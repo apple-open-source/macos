@@ -262,7 +262,7 @@ public:
 	static OSObject      * target(OSAction * action, IORPCMessage * message);
 
 	IOReturn               rpc(IORPC rpc);
-	IOReturn               server(ipc_kmsg_t requestkmsg, ipc_kmsg_t * preply);
+	IOReturn               server(ipc_kmsg_t requestkmsg, IORPCMessage * message, ipc_kmsg_t * preply);
 	kern_return_t          waitInterruptTrap(void * p1, void * p2, void * p3, void * p4, void * p5, void * p6);
 	static bool            shouldLeakObjects();
 	static void            beginLeakingObjects();

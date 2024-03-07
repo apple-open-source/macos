@@ -124,9 +124,6 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
                                canSendMetrics:(BOOL)canSendMetrics
                                      category:(NSNumber *)category
 {
-    // 'enable' tests for D release effectively disabling metrics collection.
-    testsAreEnabled = YES;
-
     // if AAAFoundation is not available or
     // if AuthKit is not available or
     // if tests are running or

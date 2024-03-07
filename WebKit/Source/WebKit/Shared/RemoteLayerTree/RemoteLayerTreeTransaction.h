@@ -54,6 +54,10 @@
 #include <WebCore/AcceleratedEffectValues.h>
 #endif
 
+#if ENABLE(MODEL_ELEMENT)
+#include <WebCore/Model.h>
+#endif
+
 namespace WebKit {
 
 struct LayerProperties;
@@ -95,7 +99,7 @@ public:
         >;
 
         WebCore::PlatformLayerIdentifier layerID;
-        WebCore::PlatformCALayer::LayerType type { WebCore::PlatformCALayer::LayerTypeLayer };
+        WebCore::PlatformCALayer::LayerType type { WebCore::PlatformCALayer::LayerType::LayerTypeLayer };
         std::optional<VideoElementData> videoElementData;
         AdditionalData additionalData;
 
@@ -235,6 +239,11 @@ public:
     void setDynamicViewportSizeUpdateID(DynamicViewportSizeUpdateID resizeID) { m_dynamicViewportSizeUpdateID = resizeID; }
 #endif
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    Seconds acceleratedTimelineTimeOrigin() const { return m_acceleratedTimelineTimeOrigin; }
+    void setAcceleratedTimelineTimeOrigin(Seconds timeOrigin) { m_acceleratedTimelineTimeOrigin = timeOrigin; }
+#endif
+
 private:
     friend struct IPC::ArgumentCoder<RemoteLayerTreeTransaction, void>;
 
@@ -284,6 +293,9 @@ private:
     std::optional<EditorState> m_editorState;
 #if PLATFORM(IOS_FAMILY)
     std::optional<DynamicViewportSizeUpdateID> m_dynamicViewportSizeUpdateID;
+#endif
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    Seconds m_acceleratedTimelineTimeOrigin;
 #endif
 };
 

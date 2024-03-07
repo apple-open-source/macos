@@ -17,7 +17,7 @@ test_mvm_allocate_pages(size_t size, int vm_page_label)
 			VM_FLAGS_ANYWHERE | VM_MAKE_TAG(vm_page_label));
 	return kr == KERN_SUCCESS ? (void *)vm_addr : NULL;
 }
-#define mvm_allocate_pages(size, align, debug_flags, vm_page_label) \
+#define mvm_allocate_pages_plat(size, align, debug_flags, vm_page_label, plat) \
 	test_mvm_allocate_pages(size, vm_page_label)
 
 #include "../src/early_malloc.c"

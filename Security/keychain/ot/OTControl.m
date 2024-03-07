@@ -478,11 +478,12 @@
 }
 
 - (void)fetchAllViableBottles:(OTControlArguments*)arguments
+                       source:(OTEscrowRecordFetchSource)source
                         reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*> * _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(nil, nil, error);
-    }] fetchAllViableBottles:arguments reply:reply];
+    }] fetchAllViableBottles:arguments source:source reply:reply];
 }
 
 - (void)restoreFromBottle:(OTControlArguments*)arguments
@@ -822,14 +823,6 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] tlkRecoverabilityForEscrowRecordData:arguments recordData:recordData source:source reply:reply];
 }
 
-- (void)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
-                           reply:(void (^)(NSError* _Nullable error))reply
-{
-    [[self getConnection:^(NSError *connectionError) {
-        reply(connectionError);
-    }] deliverAKDeviceListDelta:notificationDictionary reply:reply];
-}
-
 - (void)setMachineIDOverride:(OTControlArguments*)arguments
                    machineID:(NSString*)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply
@@ -904,6 +897,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection: ^(NSError* error) {
         reply(NO, error);
     }] areRecoveryKeysDistrusted:arguments reply:reply];
+}
+
+- (void)reroll:(OTControlArguments*)arguments
+         reply:(void (^)(NSError *_Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(error);
+    }] reroll:arguments reply:reply];
 }
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {

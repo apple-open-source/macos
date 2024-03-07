@@ -53,12 +53,12 @@ public:
 
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
-    static JSWebAssemblyStruct* tryCreate(JSGlobalObject*, Structure*, JSWebAssemblyInstance*, uint32_t, RefPtr<const Wasm::RTT>);
+    static JSWebAssemblyStruct* create(JSGlobalObject*, Structure*, JSWebAssemblyInstance*, uint32_t, RefPtr<const Wasm::RTT>);
 
     DECLARE_VISIT_CHILDREN;
 
     uint64_t get(uint32_t) const;
-    void set(JSGlobalObject*, uint32_t, JSValue);
+    void set(uint32_t, EncodedJSValue);
     const Wasm::StructType* structType() const { return m_type->as<Wasm::StructType>(); }
     Wasm::FieldType fieldType(uint32_t fieldIndex) const { return structType()->field(fieldIndex); }
 

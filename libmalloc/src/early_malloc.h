@@ -102,7 +102,7 @@ extern size_t mfm_alloc_size(const void *ptr);
  * of malloc features. Its allocations will always be zeroed,
  * and 16 bytes aligned.
  */
-extern void *mfm_alloc(size_t size);
+extern void *mfm_alloc(size_t size) __alloc_size(1);
 
 /*!
  * @function mfm_free()

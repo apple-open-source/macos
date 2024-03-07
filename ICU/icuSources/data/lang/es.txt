@@ -73,6 +73,7 @@ es{
         bez{"bena"}
         bfd{"bafut"}
         bg{"búlgaro"}
+        bgc{"haryanvi"}
         bgn{"baluchi occidental"}
         bho{"bhoyapurí"}
         bi{"bislama"}
@@ -264,7 +265,7 @@ es{
         jv{"javanés"}
         ka{"georgiano"}
         kaa{"karakalpako"}
-        kab{"cabila"}
+        kab{"cabileño"}
         kac{"kachin"}
         kaj{"jju"}
         kam{"kamba"}
@@ -322,6 +323,7 @@ es{
         li{"limburgués"}
         lil{"lillooet"}
         lkt{"lakota"}
+        lmo{"lombardo"}
         ln{"lingala"}
         lo{"lao"}
         lol{"mongo"}
@@ -926,10 +928,11 @@ es{
     }
     characterLabelPattern{
         all{"{0} — Todo"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} — Compatibilidad"}
         enclosed{"{0} — Rodeados"}
         extended{"{0} — Ampliados"}
+        facing-left{"{0} hacia la izquierda"}
+        facing-right{"{0} hacia la derecha"}
         historic{"{0} — Históricos"}
         miscellaneous{"{0} — Varios"}
         other{"{0} — Otros"}
@@ -945,10 +948,5 @@ es{
         language{"Idioma: {0}"}
         script{"Sistema de escritura: {0}"}
         territory{"Región: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

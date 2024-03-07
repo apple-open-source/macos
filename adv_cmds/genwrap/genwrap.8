@@ -21,7 +21,7 @@
 .\"
 .\"  @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd January 26, 2023
+.Dd June 23, 2023
 .Dt GENWRAP 8
 .Os
 .Sh NAME
@@ -166,6 +166,11 @@ directory as provided by
 at runtime.
 .Pp
 If an absolute path is given, then it will be used as-is.
+.It addarg Do Ar argv[1] Dc Oo Do argv[n] Dc ... Oc
+Adds the given quoted words to the arguments we pass to this application, if
+selected.
+These arguments are inserted at argv[1], before any arguments that the wrapper
+was invoked with.
 .It flag Do Ar flag Dc Oo optional_arg | arg Oc
 Adds the given
 .Ar flag
@@ -281,6 +286,8 @@ application "newapp"
 	flag "bytes" "b" arg
 	# Supports a --verbose flag that takes no argument.
 	flag "verbose"
+	# Transform the wrapper being called as `app ...` into `newapp -g ...`
+	addarg "-g"
 application "oldapp"
 	path "/usr/bin/oldapp"
 	# No flags directives here indicates that we do not need to check the

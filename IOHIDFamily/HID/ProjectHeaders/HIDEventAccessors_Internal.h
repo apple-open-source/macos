@@ -107,9 +107,11 @@ NS_ASSUME_NONNULL_BEGIN
 @interface HIDEvent (HIDGameControllerEventPrivate)
 
 @property double gameControllerButtonL4;
-@property double gameControllerButtonL5;
+@property double gameControllerButtonM1;
+@property double gameControllerButtonM2;
+@property double gameControllerButtonM3;
+@property double gameControllerButtonM4;
 @property double gameControllerButtonR4;
-@property double gameControllerButtonR5;
 @property double gameControllerDirectionPadDown;
 @property double gameControllerDirectionPadLeft;
 @property double gameControllerDirectionPadRight;

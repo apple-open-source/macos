@@ -537,6 +537,46 @@ void AppleCSPSession::PassThrough(
 			*OutData = outHash;
 			return;
 		}
+        case CSSM_APPLECSP_PUBKEY:
+        {
+            CssmKey &key = Context.get<CssmKey>(CSSM_ATTRIBUTE_KEY, CSSMERR_CSP_MISSING_ATTR_KEY);
+            if (key.keyClass() != CSSM_KEYCLASS_PRIVATE_KEY) {
+                CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+            }
+
+            BinaryKey *publicKey = NULL;
+            switch(key.blobType()) {
+                case CSSM_KEYBLOB_RAW:
+                {
+                    CSSM_KEYATTR_FLAGS flags = 0;
+                    CSPKeyInfoProvider *provider = infoProvider(key);
+                    BinaryKey *binKey = NULL;
+                    provider->CssmKeyToBinary(NULL, flags, &binKey);
+                    delete provider;
+                    binKey->mKeyHeader = CssmKey::Header::overlay(key.KeyHeader);
+                    publicKey = binKey->getPublicKey();
+                    delete binKey;
+                    break;
+                }
+                case CSSM_KEYBLOB_REFERENCE:
+                {
+                    BinaryKey &binKey = lookupRefKey(key);
+                    publicKey = binKey.getPublicKey();
+                    break;
+                }
+                default:
+                    CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
+            }
+            CSSM_KEYBLOB_FORMAT rawFormat = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+            Context.getInt(CSSM_ATTRIBUTE_PUBLIC_KEY_FORMAT, rawFormat);
+            CSSM_KEYATTR_FLAGS attrFlags = 0;
+            CssmData *keyBlob = (CssmData *)normAllocator.malloc(sizeof(CssmData));
+            keyBlob->length(0);
+            publicKey->generateKeyBlob(privAllocator, *keyBlob, rawFormat, *this, NULL, attrFlags);
+            *OutData = keyBlob;
+            delete publicKey;
+            return;
+        }
 		default:
 			CssmError::throwMe(CSSMERR_CSP_INVALID_PASSTHROUGH_ID);
 	}

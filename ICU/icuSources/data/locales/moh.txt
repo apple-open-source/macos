@@ -4,8 +4,8 @@
 moh{
     AuxExemplarCharacters{"[b c d f g j l m p q u v x z]"}
     ExemplarCharacters{
-        "[a á à {a\\:} {á\\:} {à\\:} e é è {e\\:} {é\\:} {è\\:} h i í ì {i\\:} {í\\:}"
-        " {ì\\:} k n o ó ò {o\\:} {ó\\:} {ò\\:} r s t w y ʼ]"
+        "[aáà {a\\:}{á\\:}{à\\:} eéè {e\\:}{é\\:}{è\\:} h iíì {i\\:}{í\\:}{ì\\:} k n "
+        "oóò {o\\:}{ó\\:}{ò\\:} r s t w y ʼ]"
     }
     ExemplarCharactersIndex{"[A E H I K N O R S T W Y]"}
     calendar{
@@ -36,9 +36,5 @@ moh{
                 "yMMdd",
             }
         }
-    }
-    layout{
-        characters{"left-to-right"}
-        lines{"top-to-bottom"}
     }
 }

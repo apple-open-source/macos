@@ -28,6 +28,8 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import <WebCore/RuntimeApplicationChecks.h>
+#import <pal/spi/cocoa/FeatureFlagsSPI.h>
 #import <pal/spi/ios/ManagedConfigurationSPI.h>
 #import <pal/system/ios/Device.h>
 #import <pal/system/ios/UserInterfaceIdiom.h>
@@ -73,6 +75,39 @@ bool defaultMediaSourceEnabled()
 }
 
 #endif
+
+static bool isAsyncTextInputFeatureFlagEnabled()
+{
+    static bool enabled = false;
+#if PLATFORM(IOS) && HAVE(UI_ASYNC_TEXT_INTERACTION)
+    static std::once_flag flag;
+    std::call_once(flag, [] {
+        if (PAL::deviceClassIsSmallScreen())
+            enabled = os_feature_enabled(UIKit, async_text_input_iphone) || os_feature_enabled(UIKit, async_text_input);
+        else if (PAL::deviceHasIPadCapability())
+            enabled = os_feature_enabled(UIKit, async_text_input_ipad);
+    });
+#endif
+    return enabled;
+}
+
+bool defaultUseAsyncUIKitInteractions()
+{
+    if (WebCore::CocoaApplication::isIBooks()) {
+        // FIXME: Remove this exception once rdar://119836700 is addressed.
+        return false;
+    }
+    return isAsyncTextInputFeatureFlagEnabled();
+}
+
+bool defaultWriteRichTextDataWhenCopyingOrDragging()
+{
+    // While this is keyed off of the same underlying system feature flag as
+    // "Async UIKit Interactions", the logic is inverted, since versions of
+    // iOS with the requisite support for async text input *no longer* require
+    // WebKit to write RTF and attributed string data.
+    return !isAsyncTextInputFeatureFlagEnabled();
+}
 
 } // namespace WebKit
 

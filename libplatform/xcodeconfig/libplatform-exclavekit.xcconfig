@@ -18,8 +18,8 @@
 // @APPLE_APACHE_LICENSE_HEADER_END@
 //
 SDKROOT = exclavekit.iphoneos.internal
-PRODUCT_NAME = libplatform
+PRODUCT_NAME = platform
 BUILD_VARIANTS = normal
 SKIP_INSTALL = NO
-EXECUTABLE_PREFIX = 
+EXECUTABLE_PREFIX = libsystem_
 

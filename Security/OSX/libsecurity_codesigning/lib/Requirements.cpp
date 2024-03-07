@@ -56,8 +56,7 @@ SecRequirement::SecRequirement(const Requirement *req, bool transferOwnership)
 		mReq = req;
 	else
 		mReq = req->clone();
-}
- 
+} 
 
 //
 // Clean up a SecRequirement object

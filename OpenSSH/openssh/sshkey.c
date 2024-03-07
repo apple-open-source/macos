@@ -1,4 +1,4 @@
-/* $OpenBSD: sshkey.c,v 1.137 2023/07/27 22:23:05 djm Exp $ */
+/* $OpenBSD: sshkey.c,v 1.140 2023/10/16 08:40:00 dtucker Exp $ */
 /*
  * Copyright (c) 2000, 2001 Markus Friedl.  All rights reserved.
  * Copyright (c) 2008 Alexander von Gernler.  All rights reserved.
@@ -41,6 +41,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <resolv.h>
 #include <time.h>
@@ -54,7 +55,6 @@
 #include "sshbuf.h"
 #include "cipher.h"
 #include "digest.h"
-#include "log.h"
 #define SSHKEY_INTERNAL
 #include "sshkey.h"
 #include "match.h"
@@ -2359,8 +2359,6 @@ sshkey_cert_check_authority(const struct sshkey *k,
 int
 sshkey_cert_check_authority_now(const struct sshkey *k,
     int want_host, int require_principal, int wildcard_pattern,
-#ifdef __APPLE__
-#endif
     const char *name, const char **reason)
 {
 	time_t now;
@@ -2370,8 +2368,6 @@ sshkey_cert_check_authority_now(const struct sshkey *k,
 		*reason = "Certificate invalid: not yet valid";
 		return SSH_ERR_KEY_CERT_INVALID;
 	}
-#ifdef __APPLE__
-#endif
 	return sshkey_cert_check_authority(k, want_host, require_principal,
 	    wildcard_pattern, (uint64_t)now, name, reason);
 }
@@ -2384,8 +2380,6 @@ sshkey_cert_check_host(const struct sshkey *key, const char *host,
 	int r;
 
 	if ((r = sshkey_cert_check_authority_now(key, 1, 0, wildcard_principals,
-#ifdef __APPLE__
-#endif
 	    host, reason)) != 0)
 		return r;
 	if (sshbuf_len(key->cert->critical) != 0) {
@@ -3506,6 +3500,43 @@ sshkey_parse_private_pem_fileblob(struct sshbuf *blob, int type,
 			sshkey_dump_ec_key(prv->ecdsa);
 # endif
 #endif /* OPENSSL_HAS_ECC */
+#ifdef OPENSSL_HAS_ED25519
+	} else if (EVP_PKEY_base_id(pk) == EVP_PKEY_ED25519 &&
+	    (type == KEY_UNSPEC || type == KEY_ED25519)) {
+		size_t len;
+
+		if ((prv = sshkey_new(KEY_UNSPEC)) == NULL ||
+		    (prv->ed25519_sk = calloc(1, ED25519_SK_SZ)) == NULL ||
+		    (prv->ed25519_pk = calloc(1, ED25519_PK_SZ)) == NULL) {
+			r = SSH_ERR_ALLOC_FAIL;
+			goto out;
+		}
+		prv->type = KEY_ED25519;
+		len = ED25519_PK_SZ;
+		if (!EVP_PKEY_get_raw_public_key(pk, prv->ed25519_pk, &len)) {
+			r = SSH_ERR_LIBCRYPTO_ERROR;
+			goto out;
+		}
+		if (len != ED25519_PK_SZ) {
+			r = SSH_ERR_INVALID_FORMAT;
+			goto out;
+		}
+		len = ED25519_SK_SZ - ED25519_PK_SZ;
+		if (!EVP_PKEY_get_raw_private_key(pk, prv->ed25519_sk, &len)) {
+			r = SSH_ERR_LIBCRYPTO_ERROR;
+			goto out;
+		}
+		if (len != ED25519_SK_SZ - ED25519_PK_SZ) {
+			r = SSH_ERR_INVALID_FORMAT;
+			goto out;
+		}
+		/* Append the public key to our private key */
+		memcpy(prv->ed25519_sk + (ED25519_SK_SZ - ED25519_PK_SZ),
+		    prv->ed25519_pk, ED25519_PK_SZ);
+# ifdef DEBUG_PK
+		sshbuf_dump_data(prv->ed25519_sk, ED25519_SK_SZ, stderr);
+# endif
+#endif /* OPENSSL_HAS_ED25519 */
 	} else {
 		r = SSH_ERR_INVALID_FORMAT;
 		goto out;
@@ -3535,7 +3566,6 @@ sshkey_parse_private_fileblob_type(struct sshbuf *blob, int type,
 		*commentp = NULL;
 
 	switch (type) {
-	case KEY_ED25519:
 	case KEY_XMSS:
 		/* No fallback for new-format-only keys */
 		return sshkey_parse_private2(blob, type, passphrase,

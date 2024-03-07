@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CryptoAlgorithmHMAC.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyHMAC.h"
 #include "OpenSSLCryptoUniquePtr.h"
 #include "OpenSSLUtilities.h"
@@ -63,11 +61,11 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHMAC::platformSign(const CryptoKeyHM
 {
     auto algorithm = digestAlgorithm(key.hashAlgorithmIdentifier());
     if (!algorithm)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto result = calculateSignature(algorithm, key.key(), data.data(), data.size());
     if (!result)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     return WTFMove(*result);
 }
 
@@ -75,15 +73,13 @@ ExceptionOr<bool> CryptoAlgorithmHMAC::platformVerify(const CryptoKeyHMAC& key, 
 {
     auto algorithm = digestAlgorithm(key.hashAlgorithmIdentifier());
     if (!algorithm)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
 
     auto expectedSignature = calculateSignature(algorithm, key.key(), data.data(), data.size());
     if (!expectedSignature)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     // Using a constant time comparison to prevent timing attacks.
     return signature.size() == expectedSignature->size() && !constantTimeMemcmp(expectedSignature->data(), signature.data(), expectedSignature->size());
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

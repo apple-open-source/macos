@@ -25,6 +25,7 @@
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
+#undef KCSHARING
 #endif
 
 #include <os/transaction_private.h>
@@ -117,6 +118,12 @@
 
 #include "keychain/keychainupgrader/KeychainItemUpgradeRequestServerHelpers.h"
 
+#if KCSHARING
+#include "keychain/Sharing/KCSharingSupport.h"
+#include "keychain/Sharing/Groups/KCSharingXPCListenerDelegate.h"
+#else
+#include "keychain/securityd/KCSharingStubXPCListenerDelegate.h"
+#endif  // KCSHARING
 
 #if TARGET_OS_OSX
 #include <sandbox.h>
@@ -402,6 +409,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
         .canAccessNetworkExtensionAccessGroups = false,
         .applicationIdentifier = NULL,
         .isAppClip = false,
+        .allowKeychainSharing = false,
     };
 
     secdebug("serverxpc", "entering");
@@ -489,6 +497,26 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         }
                         CFReleaseNull(query);
                     }
+                }
+                break;
+            }
+            case sec_item_share_with_group_id:
+            {
+                if (!EntitlementAbsentOrFalse(sec_item_share_with_group_id, client.task, kSecEntitlementKeychainDeny, &error) || !client.allowKeychainSharing) {
+                    break;
+                }
+                CFDictionaryRef query = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
+                if (query) {
+                    CFStringRef sharingGroup = SecXPCDictionaryCopyString(event, kSecXPCKeySharingGroup, &error);
+                    if (sharingGroup) {
+                        CFTypeRef result = _SecItemShareWithGroup(query, sharingGroup, &client, &error);
+                        if (result) {
+                            (void)SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
+                            CFRelease(result);
+                        }
+                        CFRelease(sharingGroup);
+                    }
+                    CFRelease(query);
                 }
                 break;
             }
@@ -1630,9 +1658,12 @@ static void securityd_xpc_init_activities(void)
         if (activityState == XPC_ACTIVITY_STATE_RUN) {
             SecCKKS24hrNotification();
             SecOctagon24hrNotification();
+#if KCSHARING
+            KCSharingPerformMaintenance();
+#endif  // KCSHARING
         }
     });
-#endif
+#endif // OCTAGON
 
     xpc_activity_register("com.apple.securityd.entropyhealth", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         xpc_activity_state_t activityState = xpc_activity_get_state(activity);
@@ -1647,6 +1678,16 @@ static void securityd_xpc_init_activities(void)
             refresh_prng();
         }
     });
+
+    xpc_activity_register("com.apple.securityd.kcsharing.resync", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
+#if KCSHARING
+        xpc_activity_state_t state = xpc_activity_get_state(activity);
+        if (state == XPC_ACTIVITY_STATE_RUN) {
+            KCSharingRequestResync();
+        }
+#endif
+    });
+
 }
 #endif
 
@@ -1808,6 +1849,9 @@ int main(int argc, char *argv[])
     SecCKKSEnable();
 #endif
 
+#if KCSHARING
+    KCSharingRegisterErrorUserInfoValueProvider();
+#endif  // KCSHARING
 
     /* setup SQDLite before some other component have a chance to create a database connection */
     _SecDbServerSetup();
@@ -1841,6 +1885,11 @@ int main(int argc, char *argv[])
     }
 #endif
 
+#if KCSHARING
+    KCSharingXPCServerInitialize();
+#else
+    KCSharingStubXPCServerInitialize();
+#endif  // KCSHARING
 
     CFRunLoopRun();
 }

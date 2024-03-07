@@ -601,7 +601,7 @@ aks_ref_key_encrypt(aks_ref_key_t handle,
     SFAuthenticatedEncryptionOperation* op = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:key.key.keySpecifier authenticationMode:SFAuthenticatedEncryptionModeGCM];
 
 
-    SFAuthenticatedCiphertext* ciphertext = [op encrypt:nsdata withKey:key.key error:&error];
+    SFAuthenticatedCiphertext* ciphertext = (SFAuthenticatedCiphertext*)[op encrypt:nsdata withKey:key.key error:&error];
 
     if(error || !ciphertext || !out_der || !out_der_len) {
         return kAKSReturnError;
@@ -651,7 +651,7 @@ aks_ref_key_create_and_encrypt(keybag_handle_t handle, keyclass_t key_class, aks
         SFAuthenticatedEncryptionOperation* op = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:key.key.keySpecifier authenticationMode:SFAuthenticatedEncryptionModeGCM];
 
 
-        SFAuthenticatedCiphertext* ciphertext = [op encrypt:nsdata withKey:key.key error:&error];
+        SFAuthenticatedCiphertext* ciphertext = (SFAuthenticatedCiphertext*)[op encrypt:nsdata withKey:key.key error:&error];
 
         if(error || !ciphertext || !out_der || !out_der_len) {
             return kAKSReturnError;

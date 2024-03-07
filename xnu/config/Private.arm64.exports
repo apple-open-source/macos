@@ -76,6 +76,7 @@ _ml_page_protection_type
 _ml_static_ptovirt
 _ml_static_mfree
 _ml_update_cluster_wfe_recommendation
+_ml_paddr_is_exclaves_owned
 _mach_bridge_recv_timestamps
 _mach_bridge_init_timestamp
 _mach_bridge_set_params

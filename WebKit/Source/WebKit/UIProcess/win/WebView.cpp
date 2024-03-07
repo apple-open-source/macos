@@ -391,19 +391,19 @@ LRESULT WebView::onHorizontalScroll(HWND hWnd, UINT message, WPARAM wParam, LPAR
     switch (LOWORD(wParam)) {
     case SB_LINELEFT:
         granularity = ScrollGranularity::Line;
-        direction = ScrollLeft;
+        direction = ScrollDirection::ScrollLeft;
         break;
     case SB_LINERIGHT:
         granularity = ScrollGranularity::Line;
-        direction = ScrollRight;
+        direction = ScrollDirection::ScrollRight;
         break;
     case SB_PAGELEFT:
         granularity = ScrollGranularity::Document;
-        direction = ScrollLeft;
+        direction = ScrollDirection::ScrollLeft;
         break;
     case SB_PAGERIGHT:
         granularity = ScrollGranularity::Document;
-        direction = ScrollRight;
+        direction = ScrollDirection::ScrollRight;
         break;
     default:
         handled = false;
@@ -423,19 +423,19 @@ LRESULT WebView::onVerticalScroll(HWND hWnd, UINT message, WPARAM wParam, LPARAM
     switch (LOWORD(wParam)) {
     case SB_LINEDOWN:
         granularity = ScrollGranularity::Line;
-        direction = ScrollDown;
+        direction = ScrollDirection::ScrollDown;
         break;
     case SB_LINEUP:
         granularity = ScrollGranularity::Line;
-        direction = ScrollUp;
+        direction = ScrollDirection::ScrollUp;
         break;
     case SB_PAGEDOWN:
         granularity = ScrollGranularity::Document;
-        direction = ScrollDown;
+        direction = ScrollDirection::ScrollDown;
         break;
     case SB_PAGEUP:
         granularity = ScrollGranularity::Document;
-        direction = ScrollUp;
+        direction = ScrollDirection::ScrollUp;
         break;
     default:
         handled = false;
@@ -641,7 +641,7 @@ LRESULT WebView::onMenuCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
     ContextMenuAction action = static_cast<ContextMenuAction>(menuItemInfo.wID);
     bool enabled = !(menuItemInfo.fState & MFS_DISABLED);
     bool checked = menuItemInfo.fState & MFS_CHECKED;
-    WebContextMenuItemData item(ContextMenuItemType::ActionType, action, title, enabled, checked);
+    WebContextMenuItemData item(ContextMenuItemType::Action, action, WTFMove(title), enabled, checked);
     m_page->contextMenuItemSelected(item);
 
     handled = true;

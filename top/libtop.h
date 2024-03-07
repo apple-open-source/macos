@@ -224,6 +224,10 @@ struct libtop_psamp_s {
 	uint64_t		p_rshrd;
 	uint64_t		p_empty;
 
+	int32_t         jetsam_priority;
+	int32_t         b_jetsam_priority;
+	int32_t         p_jetsam_priority;
+
 	/* Physical/purgeable memory statistics. */
 	uint64_t purgeable;
     uint64_t pfootprint;

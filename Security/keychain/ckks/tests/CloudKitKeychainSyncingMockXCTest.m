@@ -24,7 +24,10 @@
 #if OCTAGON
 
 #include <Security/SecCertificate.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include <Security/SecCertificateRequest.h>
+#pragma clang diagnostic pop
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"

@@ -157,7 +157,6 @@
 				6003DACF071F234300B23FF4 /* Headers */,
 				6003DAD2071F234300B23FF4 /* Sources */,
 				6003DADB071F234300B23FF4 /* Frameworks */,
-				6003DADC071F234300B23FF4 /* Rez */,
 				6003DADD071F234300B23FF4 /* CopyFiles */,
 				60AE24300B5EA83E000C2C57 /* CopyFiles */,
 				60AE24360B5EA87D000C2C57 /* CopyFiles */,
@@ -196,16 +195,6 @@
 		};
 /* End PBXProject section */
 
-/* Begin PBXRezBuildPhase section */
-		6003DADC071F234300B23FF4 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		6003DAD2071F234300B23FF4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -231,7 +220,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = gpt.ios.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = gpt.macos.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -248,7 +237,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = gpt.ios.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = gpt.macos.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = gpt;

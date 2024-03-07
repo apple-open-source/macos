@@ -26,8 +26,8 @@
 #include "config.h"
 #include "MarkedText.h"
 
-#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "Editor.h"
 #include "ElementRuleCollector.h"
@@ -52,7 +52,7 @@ Vector<MarkedText> MarkedText::subdivide(const Vector<MarkedText>& markedTexts, 
         enum Kind { Begin, End };
         Kind kind;
         unsigned value; // Copy of markedText.startOffset/endOffset to avoid the need to branch based on kind.
-        const MarkedText* markedText;
+        CheckedPtr<const MarkedText> markedText;
     };
 
     // 1. Build table of all offsets.
@@ -62,8 +62,8 @@ Vector<MarkedText> MarkedText::subdivide(const Vector<MarkedText>& markedTexts, 
     unsigned numberOfOffsets = 2 * numberOfMarkedTexts;
     offsets.reserveInitialCapacity(numberOfOffsets);
     for (auto& markedText : markedTexts) {
-        offsets.uncheckedAppend({ Offset::Begin, markedText.startOffset, &markedText });
-        offsets.uncheckedAppend({ Offset::End, markedText.endOffset, &markedText });
+        offsets.append({ Offset::Begin, markedText.startOffset, &markedText });
+        offsets.append({ Offset::End, markedText.endOffset, &markedText });
     }
 
     // 2. Sort offsets such that begin offsets are in paint order and end offsets are in reverse paint order.
@@ -75,7 +75,7 @@ Vector<MarkedText> MarkedText::subdivide(const Vector<MarkedText>& markedTexts, 
     // 3. Compute intersection.
     Vector<MarkedText> result;
     result.reserveInitialCapacity(numberOfMarkedTexts);
-    HashSet<const MarkedText*> processedMarkedTexts;
+    HashSet<CheckedPtr<const MarkedText>> processedMarkedTexts;
     unsigned offsetSoFar = offsets[0].value;
     for (unsigned i = 1; i < numberOfOffsets; ++i) {
         if (offsets[i].value > offsets[i - 1].value) {
@@ -109,7 +109,7 @@ Vector<MarkedText> MarkedText::collectForHighlights(const RenderText& renderer, 
 {
     Vector<MarkedText> markedTexts;
     RenderHighlight renderHighlight;
-    if (DeprecatedGlobalSettings::highlightAPIEnabled()) {
+    if (renderer.document().settings().highlightAPIEnabled()) {
         auto& parentRenderer = *renderer.parent();
         auto& parentStyle = parentRenderer.style();
         if (auto highlightRegistry = renderer.document().highlightRegistryIfExists()) {
@@ -199,22 +199,26 @@ Vector<MarkedText> MarkedText::collectForDocumentMarkers(const RenderText& rende
     if (!renderer.textNode())
         return { };
 
-    Vector<RenderedDocumentMarker*> markers = renderer.document().markers().markersFor(*renderer.textNode());
+    CheckedPtr markerController = renderer.document().markersIfExists();
+    if (!markerController)
+        return { };
 
-    auto markedTextTypeForMarkerType = [] (DocumentMarker::MarkerType type) {
+    auto markers = markerController->markersFor(*renderer.textNode());
+
+    auto markedTextTypeForMarkerType = [] (DocumentMarker::Type type) {
         switch (type) {
-        case DocumentMarker::Spelling:
+        case DocumentMarker::Type::Spelling:
             return MarkedText::Type::SpellingError;
-        case DocumentMarker::Grammar:
+        case DocumentMarker::Type::Grammar:
             return MarkedText::Type::GrammarError;
-        case DocumentMarker::CorrectionIndicator:
+        case DocumentMarker::Type::CorrectionIndicator:
             return MarkedText::Type::Correction;
-        case DocumentMarker::TextMatch:
+        case DocumentMarker::Type::TextMatch:
             return MarkedText::Type::TextMatch;
-        case DocumentMarker::DictationAlternatives:
+        case DocumentMarker::Type::DictationAlternatives:
             return MarkedText::Type::DictationAlternatives;
 #if PLATFORM(IOS_FAMILY)
-        case DocumentMarker::DictationPhraseWithAlternatives:
+        case DocumentMarker::Type::DictationPhraseWithAlternatives:
             return MarkedText::Type::DictationPhraseWithAlternatives;
 #endif
         default:
@@ -227,29 +231,32 @@ Vector<MarkedText> MarkedText::collectForDocumentMarkers(const RenderText& rende
 
     // Give any document markers that touch this run a chance to draw before the text has been drawn.
     // Note end() points at the last char, not one past it like endOffset and ranges do.
-    for (auto* marker : markers) {
+    for (auto& marker : markers) {
         // Collect either the background markers or the foreground markers, but not both
         switch (marker->type()) {
-        case DocumentMarker::Grammar:
-        case DocumentMarker::Spelling:
-        case DocumentMarker::CorrectionIndicator:
-        case DocumentMarker::Replacement:
-        case DocumentMarker::DictationAlternatives:
+        case DocumentMarker::Type::Grammar:
+        case DocumentMarker::Type::Spelling:
+            if (renderer.settings().grammarAndSpellingPseudoElementsEnabled())
+                break;
+            FALLTHROUGH;
+        case DocumentMarker::Type::CorrectionIndicator:
+        case DocumentMarker::Type::Replacement:
+        case DocumentMarker::Type::DictationAlternatives:
 #if PLATFORM(IOS_FAMILY)
         // FIXME: Remove the PLATFORM(IOS_FAMILY)-guard.
-        case DocumentMarker::DictationPhraseWithAlternatives:
+        case DocumentMarker::Type::DictationPhraseWithAlternatives:
 #endif
             if (phase != MarkedText::PaintPhase::Decoration)
                 continue;
             break;
-        case DocumentMarker::TextMatch:
+        case DocumentMarker::Type::TextMatch:
             if (!renderer.frame().editor().markedTextMatchesAreHighlighted())
                 continue;
             if (phase == MarkedText::PaintPhase::Decoration)
                 continue;
             break;
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
-        case DocumentMarker::TelephoneNumber:
+        case DocumentMarker::Type::TelephoneNumber:
             if (!renderer.frame().editor().markedTextMatchesAreHighlighted())
                 continue;
             if (phase != MarkedText::PaintPhase::Background)
@@ -273,23 +280,23 @@ Vector<MarkedText> MarkedText::collectForDocumentMarkers(const RenderText& rende
 
         // Marker intersects this run. Collect it.
         switch (marker->type()) {
-        case DocumentMarker::Spelling:
-        case DocumentMarker::CorrectionIndicator:
-        case DocumentMarker::DictationAlternatives:
-        case DocumentMarker::Grammar:
+        case DocumentMarker::Type::Spelling:
+        case DocumentMarker::Type::CorrectionIndicator:
+        case DocumentMarker::Type::DictationAlternatives:
+        case DocumentMarker::Type::Grammar:
 #if PLATFORM(IOS_FAMILY)
         // FIXME: See <rdar://problem/8933352>. Also, remove the PLATFORM(IOS_FAMILY)-guard.
-        case DocumentMarker::DictationPhraseWithAlternatives:
+        case DocumentMarker::Type::DictationPhraseWithAlternatives:
 #endif
-        case DocumentMarker::TextMatch: {
+        case DocumentMarker::Type::TextMatch: {
             auto [clampedStart, clampedEnd] = selectableRange.clamp(marker->startOffset(), marker->endOffset());
-            markedTexts.uncheckedAppend({ clampedStart, clampedEnd, markedTextTypeForMarkerType(marker->type()), marker });
+            markedTexts.append({ clampedStart, clampedEnd, markedTextTypeForMarkerType(marker->type()), marker.get() });
             break;
         }
-        case DocumentMarker::Replacement:
+        case DocumentMarker::Type::Replacement:
             break;
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
-        case DocumentMarker::TelephoneNumber:
+        case DocumentMarker::Type::TelephoneNumber:
             break;
 #endif
         default:

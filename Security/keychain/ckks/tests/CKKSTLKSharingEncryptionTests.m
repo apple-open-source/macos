@@ -50,6 +50,7 @@
 - (void)setUp {
     // We don't really want to spin up the whole machinery for the encryption tests
     SecCKKSDisable();
+    KCSharingSetChangeTrackingEnabled(false);
 
     NSError* error = nil;
     self.tlk = [CKKSKey randomKeyWrappedBySelf:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
@@ -80,6 +81,7 @@
 
 - (void)tearDown {
     [super tearDown];
+    KCSharingClearChangeTrackingEnabledOverride();
 }
 
 - (void)testKeyWrapAndUnwrap {

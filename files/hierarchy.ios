@@ -31,6 +31,7 @@
 0777	root	wheel	private/var/logs
 0755	501	501	private/var/logs/mediaserverd
 0755	501	501	private/var/logs/hidfw-crashlogs
+0755	501	501	private/var/logs/WindowServer
 0755	root	wheel	private/var/Managed Preferences
 0755	501	501	private/var/Managed Preferences/mobile
 0755	root	wheel	private/var/preferences

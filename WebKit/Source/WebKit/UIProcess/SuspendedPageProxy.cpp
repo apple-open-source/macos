@@ -27,6 +27,7 @@
 #include "SuspendedPageProxy.h"
 
 #include "APIPageConfiguration.h"
+#include "BrowsingContextGroup.h"
 #include "DrawingAreaProxy.h"
 #include "HandleMessage.h"
 #include "Logging.h"
@@ -47,16 +48,16 @@ using namespace WebCore;
 
 static const Seconds suspensionTimeout { 10_s };
 
-static HashSet<SuspendedPageProxy*>& allSuspendedPages()
+static WeakHashSet<SuspendedPageProxy>& allSuspendedPages()
 {
-    static NeverDestroyed<HashSet<SuspendedPageProxy*>> map;
+    static NeverDestroyed<WeakHashSet<SuspendedPageProxy>> map;
     return map;
 }
 
 RefPtr<WebProcessProxy> SuspendedPageProxy::findReusableSuspendedPageProcess(WebProcessPool& processPool, const RegistrableDomain& registrableDomain, WebsiteDataStore& dataStore, WebProcessProxy::LockdownMode lockdownMode, const API::PageConfiguration& pageConfiguration)
 {
-    for (auto* suspendedPage : allSuspendedPages()) {
-        Ref process = suspendedPage->process();
+    for (auto& suspendedPage : allSuspendedPages()) {
+        Ref process = suspendedPage.process();
         if (&process->processPool() == &processPool
             && process->registrableDomain() == registrableDomain
             && process->websiteDataStore() == &dataStore
@@ -103,11 +104,12 @@ static const MessageNameSet& messageNamesToIgnoreWhileSuspended()
 }
 #endif
 
-SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&& process, Ref<WebFrameProxy>&& mainFrame, ShouldDelayClosingUntilFirstLayerFlush shouldDelayClosingUntilFirstLayerFlush)
+SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&& process, Ref<WebFrameProxy>&& mainFrame, Ref<BrowsingContextGroup>&& browsingContextGroup, RemotePageProxyState&& remotePageProxyState, ShouldDelayClosingUntilFirstLayerFlush shouldDelayClosingUntilFirstLayerFlush)
     : m_page(page)
     , m_webPageID(page.webPageID())
     , m_process(WTFMove(process))
     , m_mainFrame(WTFMove(mainFrame))
+    , m_browsingContextGroup(WTFMove(browsingContextGroup))
     , m_shouldDelayClosingUntilFirstLayerFlush(shouldDelayClosingUntilFirstLayerFlush)
     , m_suspensionTimeoutTimer(RunLoop::main(), this, &SuspendedPageProxy::suspensionTimedOut)
 #if USE(RUNNINGBOARD)
@@ -119,18 +121,26 @@ SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&
     , m_contextIDForVisibilityPropagationInGPUProcess(page.contextIDForVisibilityPropagationInGPUProcess())
 #endif
 #endif
-    , m_remotePageMap(page.takeRemotePageMap())
+    , m_remotePageProxyState(WTFMove(remotePageProxyState))
 {
-    allSuspendedPages().add(this);
+    allSuspendedPages().add(*this);
     m_process->addSuspendedPageProxy(*this);
     m_messageReceiverRegistration.startReceivingMessages(m_process, m_webPageID, *this);
     m_suspensionTimeoutTimer.startOneShot(suspensionTimeout);
-    send(Messages::WebPage::SetIsSuspended(true));
+    sendToAllProcesses(Messages::WebPage::SetIsSuspended(true));
+}
+
+template<typename T>
+void SuspendedPageProxy::sendToAllProcesses(T&& message)
+{
+    // FIXME: Iterate m_remotePageProxyState.domainToRemotePageProxyMap.values() and send to each RemotePageProxy's process.
+    // FIXME: Rename m_process to m_mainFrameProcess and make its use aware of site isolation.
+    m_process->send(std::forward<T>(message), m_webPageID);
 }
 
 SuspendedPageProxy::~SuspendedPageProxy()
 {
-    allSuspendedPages().remove(this);
+    allSuspendedPages().remove(*this);
 
     if (m_readyToUnsuspendHandler) {
         RunLoop::main().dispatch([readyToUnsuspendHandler = WTFMove(m_readyToUnsuspendHandler)]() mutable {
@@ -150,11 +160,6 @@ SuspendedPageProxy::~SuspendedPageProxy()
 Ref<WebPageProxy> SuspendedPageProxy::protectedPage() const
 {
     return m_page.get();
-}
-
-HashMap<WebCore::RegistrableDomain, WeakPtr<RemotePageProxy>> SuspendedPageProxy::takeRemotePageMap()
-{
-    return std::exchange(m_remotePageMap, { });
 }
 
 void SuspendedPageProxy::didDestroyNavigation(uint64_t navigationID)
@@ -192,7 +197,7 @@ void SuspendedPageProxy::unsuspend()
     ASSERT(m_suspensionState == SuspensionState::Suspended);
 
     m_suspensionState = SuspensionState::Resumed;
-    send(Messages::WebPage::SetIsSuspended(false));
+    sendToAllProcesses(Messages::WebPage::SetIsSuspended(false));
 }
 
 void SuspendedPageProxy::close()
@@ -204,7 +209,7 @@ void SuspendedPageProxy::close()
 
     RELEASE_LOG(ProcessSwapping, "%p - SuspendedPageProxy::close()", this);
     m_isClosed = true;
-    send(Messages::WebPage::Close());
+    sendToAllProcesses(Messages::WebPage::Close());
 }
 
 void SuspendedPageProxy::pageDidFirstLayerFlush()
@@ -263,6 +268,11 @@ void SuspendedPageProxy::suspensionTimedOut()
     backForwardCache().removeEntry(*this); // Will destroy |this|.
 }
 
+WebPageProxy& SuspendedPageProxy::page() const
+{
+    return m_page.get();
+}
+
 void SuspendedPageProxy::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     ASSERT(decoder.messageReceiverName() == Messages::WebPageProxy::messageReceiverName());
@@ -291,28 +301,6 @@ void SuspendedPageProxy::didReceiveMessage(IPC::Connection& connection, IPC::Dec
 bool SuspendedPageProxy::didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&)
 {
     return false;
-}
-
-IPC::Connection* SuspendedPageProxy::messageSenderConnection() const
-{
-    return m_process->connection();
-}
-
-uint64_t SuspendedPageProxy::messageSenderDestinationID() const
-{
-    return m_webPageID.toUInt64();
-}
-
-bool SuspendedPageProxy::sendMessage(UniqueRef<IPC::Encoder>&& encoder, OptionSet<IPC::SendOption> sendOptions)
-{
-    // Send messages via the WebProcessProxy instead of the IPC::Connection since AuxiliaryProcessProxy implements queueing of messages
-    // while the process is still launching.
-    return m_process->sendMessage(WTFMove(encoder), sendOptions);
-}
-
-bool SuspendedPageProxy::sendMessageWithAsyncReply(UniqueRef<IPC::Encoder>&& encoder, AsyncReplyHandler handler, OptionSet<IPC::SendOption> sendOptions)
-{
-    return m_process->sendMessage(WTFMove(encoder), sendOptions, WTFMove(handler));
 }
 
 #if !LOG_DISABLED

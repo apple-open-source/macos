@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -84,5 +84,11 @@ const mountopt_t optnames[] = {
     { MNT_DONTBROWSE,   "nobrowse",     "nobrowse",     },
     { MNT_CPROTECT,     "protect",      "protect",      },
     { 0,                NULL,           NULL,           }, // must be last
+};
+
+const mountopt_t extoptnames[] = {
+    { MNT_EXT_ROOT_DATA_VOL,    "root data",    NULL,           },
+    { MNT_EXT_FSKIT,            "fskit",        NULL,           },
+    { 0,                        NULL,           NULL,           }, // must be last
 };
 

@@ -95,4 +95,6 @@ message AccountMetadataClassC {
 
     // True when the device is untrusted up until the point of the first Manatee key fetch
     optional MetricsState sendingMetricsPermitted = 22;
+
+    optional string oldPeerID = 23;
 }

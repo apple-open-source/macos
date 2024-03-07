@@ -365,8 +365,6 @@ auth_check_authkey_line(struct passwd *pw, struct sshkey *key,
 		goto fail_reason;
 	}
 	if (sshkey_cert_check_authority_now(key, 0, 0, 0,
-#ifdef __APPLE__
-#endif
 	    keyopts->cert_principals == NULL ? pw->pw_name : NULL,
 	    &reason) != 0)
 		goto fail_reason;

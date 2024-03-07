@@ -36,17 +36,17 @@ CF_IMPLICIT_BRIDGING_ENABLED
 /*!
     @abstract Specifies a base 64 encoding
  */
-extern const CFStringRef kSecBase64Encoding API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+extern const CFStringRef kSecBase64Encoding API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
     @abstract Specifies a base 32 encoding
  */
-extern const CFStringRef kSecBase32Encoding API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+extern const CFStringRef kSecBase32Encoding API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
     @abstract Specifies a compressed encoding.
  */
-extern const CFStringRef kSecZLibEncoding API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+extern const CFStringRef kSecZLibEncoding API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
  @constant kSecEncodeTypeAttribute
@@ -54,11 +54,11 @@ extern const CFStringRef kSecZLibEncoding API_DEPRECATED("SecTransform is no lon
  Returns one of the strings defined in the previous section.
  */
 
-extern const CFStringRef kSecEncodeTypeAttribute API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+extern const CFStringRef kSecEncodeTypeAttribute API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 
-extern const CFStringRef kSecLineLength64 API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
-extern const CFStringRef kSecLineLength76 API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+extern const CFStringRef kSecLineLength64 API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
+extern const CFStringRef kSecLineLength76 API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 	
 /*!
  @constant kSecEncodeLineLengthAttribute
@@ -76,9 +76,9 @@ extern const CFStringRef kSecLineLength76 API_DEPRECATED("SecTransform is no lon
  (RFC1421), or kSecLineLength76 (RFC2045) may be used to
  set line lengths of 64 or 76 bytes.
  */
-extern const CFStringRef kSecEncodeLineLengthAttribute API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+extern const CFStringRef kSecEncodeLineLengthAttribute API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
-extern const CFStringRef kSecCompressionRatio API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+extern const CFStringRef kSecCompressionRatio API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 
 /*!
  @function SecEncodeTransformCreate
@@ -102,7 +102,7 @@ __nullable
 SecTransformRef SecEncodeTransformCreate(CFTypeRef encodeType,
 										 CFErrorRef* error
 										 )
-API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0)) API_UNAVAILABLE(ios, tvos, watchos, macCatalyst);
 	
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

@@ -1,86 +1,103 @@
 #!/usr/sbin/dtrace -s
 
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_open:entry
+BEGIN
 {
-	/* Save vnop_open_args arg */
-	self->ap = arg0;
+	printf("Watching smb opens/closes - ^C to quit ...\n");
+}
+
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_open:entry
+{ 
+    self->vnop_open_arg0 = arg0;
+
+    printf("proc <%s> name <%s> a_mode <0x%x>",
+    	   execname,
+    	   stringof(((struct vnop_open_args *) arg0)->a_vp->v_name),
+     	   ((struct vnop_open_args *) arg0)->a_mode
+           );
+	//ustack(15); 
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_open:return
-/self->ap/
-{ 
-    printf("proc <%s> name <%s> a_mode <0x%x> error <%d> ",
-    	   execname,
-    	   stringof(((struct vnop_open_args *) self->ap)->a_vp->v_name),
-    	   ((struct vnop_open_args *) self->ap)->a_mode,
-    	   arg1
-           );
-			
-	/* Clear ap value */
-	self->ap = 0;
-}
-
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_close:entry
+/self->vnop_open_arg0/
 {
-	/* Save vnop_close_args arg */
-	self->ap = arg0;
-}
+    printf("proc <%s> name <%s> a_mode <0x%x> error <%d>",
+        execname,
+        stringof(((struct vnop_open_args *) self->vnop_open_arg0)->a_vp->v_name),
+        ((struct vnop_open_args *) self->vnop_open_arg0)->a_mode,
+        arg1
+    );
 
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_close:return
-/self->ap/
-{ 
-    printf("proc <%s> name <%s> a_fflag <0x%x> error <%d> ",
-    	   execname,
-    	   stringof(((struct vnop_close_args *) self->ap)->a_vp->v_name),
-    	   ((struct vnop_close_args *) self->ap)->a_fflag,
-    	   arg1
-           );
-			
-	/* Clear ap value */
-	self->ap = 0;
-}
-
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_create:entry
-{
-	/* Save vnop_create_args arg */
-	self->ap = arg0;
-}
-
-fbt:com.apple.filesystems.smbfs:smbfs_vnop_create:return
-/self->ap/
-{ 
-    printf("proc <%s> par_name <%s> name <%s> error <%d> ",
-    	   execname,
-    	   stringof(((struct vnop_create_args *) self->ap)->a_dvp->v_name),
-    	   stringof(((struct vnop_create_args *) self->ap)->a_cnp->cn_nameptr),
-    	   arg1
-           );
-			
-	/* Clear ap value */
-	self->ap = 0;
+	self->vnop_open_arg0 = 0;
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_compound_open:entry
 {
-	/* Save vnop_create_args arg */
-	self->ap = arg0;
+	/* Save vnop_compound_open_args arg */
+	self->vnop_cmpd_open_arg0 = arg0;
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_vnop_compound_open:return
-/self->ap/
+/self->vnop_cmpd_open_arg0/
 { 
-    printf("proc <%s> par_name <%s> name <%s> a_fmode <0x%x> vap <%p> va_active <x%llx> error <%d> ",
+    printf("proc <%s> par_name <%s> name <%s> a_fmode <0x%x> vap <%p> va_active <x%llx> va_mode <0x%x> error <%d> ",
     	   execname,
-    	   stringof(((struct vnop_compound_open_args *) self->ap)->a_dvp->v_name),
-    	   stringof(((struct vnop_compound_open_args *) self->ap)->a_cnp->cn_nameptr),
-    	   ((struct vnop_compound_open_args *) self->ap)->a_fmode,
-           ((struct vnop_compound_open_args *) self->ap)->a_vap,
-           ((struct vnop_compound_open_args *) self->ap)->a_vap->va_active,
+    	   stringof(((struct vnop_compound_open_args *) self->vnop_cmpd_open_arg0)->a_dvp->v_name),
+    	   stringof(((struct vnop_compound_open_args *) self->vnop_cmpd_open_arg0)->a_cnp->cn_nameptr),
+    	   ((struct vnop_compound_open_args *) self->vnop_cmpd_open_arg0)->a_fmode,
+           ((struct vnop_compound_open_args *) self->vnop_cmpd_open_arg0)->a_vap,
+           ((struct vnop_compound_open_args *) self->vnop_cmpd_open_arg0)->a_vap == NULL ? 0 : ((struct vnop_compound_open_args *) self->vnop_cmpd_open_arg0)->a_vap->va_active,
+           ((struct vnop_compound_open_args *) self->vnop_cmpd_open_arg0)->a_vap == NULL ? 0 : ((struct vnop_compound_open_args *) self->vnop_cmpd_open_arg0)->a_vap->va_mode,
     	   arg1
            );
 			
-	/* Clear ap value */
-	self->ap = 0;
+	self->vnop_cmpd_open_arg0 = 0;
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_close:entry
+{ 
+    self->vnop_close_arg0 = arg0;
+
+    printf("proc <%s> name <%s> ",
+    	   execname,
+    	   stringof(((struct vnop_close_args *) arg0)->a_vp->v_name)
+           );
+	//ustack(15); 
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_close:return
+/self->vnop_close_arg0/
+{
+    printf("proc <%s> name <%s> error <%d>",
+        execname,
+        stringof(((struct vnop_close_args *) self->vnop_close_arg0)->a_vp->v_name),
+        arg1
+    );
+
+	self->vnop_close_arg0 = 0;
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_create:entry
+{ 
+    self->vnop_create_arg0 = arg0;
+
+    printf("proc <%s> name <%s> ",
+    	   execname,
+    	   stringof(((struct vnop_create_args *) arg0)->a_cnp->cn_nameptr)
+           );
+	//ustack(15); 
+}
+
+fbt:com.apple.filesystems.smbfs:smbfs_vnop_create:return
+/self->vnop_create_arg0/
+{
+    printf("proc <%s> name <%s> error <%d>",
+        execname,
+        stringof(((struct vnop_create_args *) self->vnop_create_arg0)->a_cnp->cn_nameptr),
+        arg1
+    );
+
+	self->vnop_create_arg0 = 0;
 }
 
 fbt:com.apple.filesystems.smbfs:smbfs_set_create_vap:entry
@@ -91,6 +108,6 @@ fbt:com.apple.filesystems.smbfs:smbfs_set_create_vap:entry
             ((struct vnode_attr *) arg1),
             ((struct vnode_attr *) arg1)->va_active
     );
-stack();
+	//stack();
 }
 

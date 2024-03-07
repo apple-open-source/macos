@@ -506,14 +506,37 @@ ATF_TC_WITHOUT_HEAD(mbconv_lenreset);
 ATF_TC_BODY(mbconv_lenreset, tc)
 {
 	const char short_inject[] = "\x00\x80";
+	char *str;
+	size_t outsz;
+	int err;
 	struct mbconv_tc_params tcp = {
 		.tcp_src = "SHIFT_JIS",
 		.tcp_dst = "UTF-32",
+		.tcp_oerr = &err,
+		.tcp_ostr = &str,
+		.tcp_osz = &outsz,
 		/* Includes BOM */
 		.tcp_oscale = 8,
 	};
 
 	test_one(&tcp, 0, short_inject, sizeof(short_inject) - 1);
+	ATF_REQUIRE_EQ(EILSEQ, err);
+
+	/* BOM + nul byte, \x80 was invalid */
+	ATF_REQUIRE_EQ(8, outsz);
+	free(str);
+}
+
+ATF_TC_WITHOUT_HEAD(mbconv_multics);
+ATF_TC_BODY(mbconv_multics, tc)
+{
+	const char cp932_inject[] = "\"Apple\",\"\xb1\xaf\xcc\xdf\xd9\"";
+	const char cp932_expected[] =
+	    "\"Apple\",\"\xef\xbd\xb1\xef\xbd\xaf\xef\xbe\x8c\xef\xbe\x9f\xef\xbe\x99\"";
+
+	mbconv_parallel_cnt_one("CP932", "UTF-8", cp932_inject,
+	    sizeof(cp932_inject) - 1, cp932_expected,
+	    sizeof(cp932_expected) - 1);
 }
 
 ATF_TC_WITHOUT_HEAD(mbconv_outerr);
@@ -607,6 +630,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, mbconv_parallel_cnt);
 	ATF_TP_ADD_TC(tp, mbconv_serial_cnt);
 	ATF_TP_ADD_TC(tp, mbconv_lenreset);
+	ATF_TP_ADD_TC(tp, mbconv_multics);
 	ATF_TP_ADD_TC(tp, mbconv_outerr);
 	ATF_TP_ADD_TC(tp, mbconv_partial);
 	ATF_TP_ADD_TC(tp, mbconv_serial_clobber);

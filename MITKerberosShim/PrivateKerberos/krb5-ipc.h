@@ -27,6 +27,8 @@
 #ifndef KRB5_IPC_CLIENT_H
 #define KRB5_IPC_CLIENT_H
 
+#include <sys/types.h>
+
 void	krb5_ipc_client_set_target_uid(uid_t);
 void	krb5_ipc_client_clear_target(void);
 

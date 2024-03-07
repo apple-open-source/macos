@@ -2,13 +2,6 @@
 """ Please make sure you read the README file COMPLETELY BEFORE reading anything below.
     It is very critical that you read coding guidelines in Section E in README file.
 """
-from __future__ import absolute_import, division, print_function
-
-from builtins import chr
-from builtins import hex
-from builtins import range
-from builtins import object
-
 from xnu import *
 import sys
 import shlex
@@ -19,7 +12,6 @@ from process import *
 import macho
 import json
 from ctypes import c_int64
-import six
 from operator import itemgetter
 from kext import GetUUIDSummary
 from kext import FindKmodNameForAddr
@@ -27,7 +19,6 @@ from core.collections import (
      iter_RB_HEAD,
 )
 import kmemory
-
 
 def get_vme_offset(vme):
     return unsigned(vme.vme_offset) << 12
@@ -413,7 +404,7 @@ def kalloc_array_decode(addr, elt_type):
             size *= page_size
         ptr = addr | KALLOC_ARRAY_PTR_FIX
 
-    if isinstance(elt_type, six.string_types):
+    if isinstance(elt_type, str):
         elt_type = gettype(elt_type)
 
     target = LazyTarget.GetTarget()
@@ -2722,9 +2713,8 @@ def getThreadFromCtid(cmd_args = None):
     """
     if not cmd_args:
         raise ArgumentError("Please specify a ctid")
-        return
 
-    ctid   = unsigned(kern.GetValueFromAddress(cmd_args[0]))
+    ctid   = ArgumentStringToInt(cmd_args[0])
     thread = getThreadFromCtidInternal(ctid)
     if thread:
         print("Thread pointer {:#x}".format(thread))
@@ -2734,13 +2724,12 @@ def getThreadFromCtid(cmd_args = None):
 @lldb_command('getturnstilefromctsid')
 def getTurnstileFromCtid(cmd_args = None):
     """ Get the turnstile pointer associated with the ctsid
-        Usage: getthreadfromctid <ctid>
+        Usage: getturnstilefromctsid <ctid>
     """
     if not cmd_args:
         raise ArgumentError("Please specify a ctid")
-        return
 
-    ctid = unsigned(kern.GetValueFromAddress(cmd_args[0]))
+    ctid = ArgumentStringToInt(cmd_args[0])
     ts   = getTurnstileFromCtidInternal(ctid)
     if ts:
         print("Turnstile pointer {:#x}".format(ts))
@@ -4668,7 +4657,8 @@ def vm_page_lookup_in_compressor(slot_ptr):
         C_SEG_SLOT_ARRAY_MASK = C_SEG_SLOT_ARRAY_SIZE - 1
         cs = GetObjectAtIndexFromArray(c_seg.c_slots[c_indx // C_SEG_SLOT_ARRAY_SIZE], c_indx & C_SEG_SLOT_ARRAY_MASK)
     print(cs)
-    c_slot_unpacked_ptr = vm_unpack_ptr(cs.c_packed_ptr, kern.globals.c_slot_packing_params)
+    kmem = kmemory.KMem.get_shared()
+    c_slot_unpacked_ptr = kmem.c_slot_packing.unpack(unsigned(cs.c_packed_ptr))
     print("c_slot {: <#018x} c_offset {:#x} c_size {:#x} c_packed_ptr {:#x} (unpacked: {: <#018x})".format(cs, cs.c_offset, cs.c_size, cs.c_packed_ptr, unsigned(c_slot_unpacked_ptr)))
     if unsigned(slot_ptr) != unsigned(c_slot_unpacked_ptr):
         print("*** ERROR: compressor slot {: <#018x} points back to {: <#018x} instead of itself".format(slot_ptr, c_slot_unpacked_ptr))

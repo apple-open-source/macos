@@ -317,12 +317,11 @@ void FontCache::purgeInactiveFontData(unsigned purgeCount)
         }
     };
 
-    Vector<FontPlatformDataCacheKey> keysToRemove;
-    keysToRemove.reserveInitialCapacity(m_fontDataCaches->platformData.size());
-    for (auto& entry : m_fontDataCaches->platformData) {
+    auto keysToRemove = WTF::compactMap(m_fontDataCaches->platformData, [&](auto& entry) -> std::optional<FontPlatformDataCacheKey> {
         if (entry.value && !m_fontDataCaches->data.contains(*entry.value))
-            keysToRemove.uncheckedAppend(entry.key);
-    }
+            return entry.key;
+        return std::nullopt;
+    });
 
     LOG(Fonts, " removing %lu keys", keysToRemove.size());
 
@@ -415,9 +414,8 @@ static void dispatchToAllFontCaches(F function)
 
     function(FontCache::forCurrentThread());
 
-    Locker locker { WorkerOrWorkletThread::workerOrWorkletThreadsLock() };
-    for (auto thread : WorkerOrWorkletThread::workerOrWorkletThreads()) {
-        thread->runLoop().postTask([function](ScriptExecutionContext&) {
+    for (auto& thread : WorkerOrWorkletThread::workerOrWorkletThreads()) {
+        thread.runLoop().postTask([function](ScriptExecutionContext&) {
             if (auto fontCache = FontCache::forCurrentThreadIfExists())
                 function(*fontCache);
         });

@@ -30,6 +30,7 @@
 #include "WebPageGroupData.h"
 #include "WebProcessProxy.h"
 #include <WebCore/UserStyleSheetTypes.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/WTFString.h>
 
@@ -39,7 +40,7 @@ class WebPreferences;
 class WebPageProxy;
 class WebUserContentControllerProxy;
 
-class WebPageGroup : public API::ObjectImpl<API::Object::Type::PageGroup> {
+class WebPageGroup : public API::ObjectImpl<API::Object::Type::PageGroup>, public CanMakeWeakPtr<WebPageGroup> {
 public:
     explicit WebPageGroup(const String& identifier = { });
     static Ref<WebPageGroup> create(const String& identifier = { });
@@ -58,8 +59,10 @@ public:
 
     void setPreferences(WebPreferences*);
     WebPreferences& preferences() const;
+    Ref<WebPreferences> protectedPreferences() const;
 
     WebUserContentControllerProxy& userContentController();
+    Ref<WebUserContentControllerProxy> protectedUserContentController();
 
 private:
     WebPageGroupData m_data;

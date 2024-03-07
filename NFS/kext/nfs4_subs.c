@@ -254,28 +254,38 @@ nfs4_setclientid(struct nfsmount *nmp, int recover)
 	nfsm_chain_add_opaque(error, &nmreq, nmp->nm_longid->nci_id, nmp->nm_longid->nci_idlen);
 	nfsmout_if(error);
 	/* cb_client4      callback; */
-	if (!NMFLAG(nmp, NOCALLBACK) && nmp->nm_cbid && nfs4_cb_port &&
-	    !sock_getsockname(nmp->nm_nso->nso_so, (struct sockaddr*)&ss, sizeof(ss))) {
-		if (ss.ss_family == AF_INET) {
-			sinaddr = &((struct sockaddr_in*)&ss)->sin_addr;
-			port = nfs4_cb_port;
-		} else if (ss.ss_family == AF_INET6) {
-			sinaddr = &((struct sockaddr_in6*)&ss)->sin6_addr;
-			port = nfs4_cb_port6;
-		} else {
-			error = EINVAL;
+	if (!NMFLAG(nmp, NOCALLBACK) && nmp->nm_cbid && nfs4_cb_port) {
+		lck_mtx_lock(&nmp->nm_lock);
+		if (!nmp->nm_nso || (nmp->nm_sockflags & NMSOCK_DISCONNECTING)) {
+			lck_mtx_unlock(&nmp->nm_lock);
+			printf("nfs4_setclientid: socket is being disconnected. nso %p, sockflags 0x%x\n", nmp->nm_nso, nmp->nm_sockflags);
+			error = ENOTCONN;
 			nfsmout_if(error);
 		}
-		if (sinaddr && port && (inet_ntop(ss.ss_family, sinaddr, raddr, sizeof(raddr)) == raddr)) {
-			/* assemble r_addr = universal address (nmp->nm_nso->nso_so source IP addr + port) */
-			ualen = snprintf(uaddr, sizeof(uaddr), "%s.%d.%d", raddr,
-			    ((port >> 8) & 0xff),
-			    (port & 0xff));
-			/* make sure it fit, give up if it didn't */
-			if (ualen >= (int)sizeof(uaddr)) {
-				ualen = 0;
+		if (!sock_getsockname(nmp->nm_nso->nso_so, (struct sockaddr*)&ss, sizeof(ss))) {
+			if (ss.ss_family == AF_INET) {
+				sinaddr = &((struct sockaddr_in*)&ss)->sin_addr;
+				port = nfs4_cb_port;
+			} else if (ss.ss_family == AF_INET6) {
+				sinaddr = &((struct sockaddr_in6*)&ss)->sin6_addr;
+				port = nfs4_cb_port6;
+			} else {
+				lck_mtx_unlock(&nmp->nm_lock);
+				error = EINVAL;
+				nfsmout_if(error);
+			}
+			if (sinaddr && port && (inet_ntop(ss.ss_family, sinaddr, raddr, sizeof(raddr)) == raddr)) {
+				/* assemble r_addr = universal address (nmp->nm_nso->nso_so source IP addr + port) */
+				ualen = snprintf(uaddr, sizeof(uaddr), "%s.%d.%d", raddr,
+				    ((port >> 8) & 0xff),
+				    (port & 0xff));
+				/* make sure it fit, give up if it didn't */
+				if (ualen >= (int)sizeof(uaddr)) {
+					ualen = 0;
+				}
 			}
 		}
+		lck_mtx_unlock(&nmp->nm_lock);
 	}
 	if (ualen > 0) {
 		/* add callback info */
@@ -432,6 +442,37 @@ nfsmout:
 	return error;
 }
 
+/*
+ * Verify the presence of valid open files
+ */
+int
+nfs4_has_open_files(struct nfsmount *nmp)
+{
+	int has_open_files = 0;
+	struct nfs_open_owner *noop;
+	struct nfs_open_file *nofp;
+
+	/* for each open owner... */
+	lck_mtx_lock(&nmp->nm_open_owners_lock);
+	TAILQ_FOREACH(noop, &nmp->nm_open_owners, noo_link) {
+		/* for each of its opens... */
+		lck_mtx_lock(&noop->noo_lock);
+		TAILQ_FOREACH(nofp, &noop->noo_opens, nof_oolink) {
+			if (!nofp->nof_access || (nofp->nof_flags & NFS_OPEN_FILE_LOST) || (nofp->nof_np->n_flag & NREVOKE)) {
+				continue;
+			}
+			has_open_files = 1;
+			break;
+		}
+		lck_mtx_unlock(&noop->noo_lock);
+		if (has_open_files) {
+			break;
+		}
+	}
+	lck_mtx_unlock(&nmp->nm_open_owners_lock);
+
+	return has_open_files;
+}
 
 /*
  * periodic timer to renew lease state on server
@@ -442,6 +483,7 @@ nfs4_renew_timer(void *param0, __unused void *param1)
 	struct nfsmount *nmp = param0;
 	u_int64_t clientid;
 	int error = 0, interval;
+	int do_renew = !NMFLAG(nmp, SKIP_RENEW) || nfs4_has_open_files(nmp);
 
 	lck_mtx_lock(&nmp->nm_lock);
 	clientid = nmp->nm_clientid;
@@ -451,7 +493,9 @@ nfs4_renew_timer(void *param0, __unused void *param1)
 	}
 	lck_mtx_unlock(&nmp->nm_lock);
 
-	error = nfs4_renew(nmp, R_RECOVER);
+	if (do_renew) {
+		error = nfs4_renew(nmp, R_RECOVER);
+	}
 out:
 	if (error == ETIMEDOUT) {
 		nfs_need_reconnect(nmp);
@@ -1789,6 +1833,7 @@ nfs4_parsefattr(
 	uint32_t ace_type, ace_flags, ace_mask;
 	struct nfs_fs_locations nfsls_dummy;
 	struct sockaddr_storage ss;
+	nfs_specdata sd;
 
 	/* if not interested in some values... throw 'em into a local dummy variable */
 	if (!nfsap) {
@@ -2386,8 +2431,11 @@ nfs4_parsefattr(
 		attrbytes -= 2 * NFSX_UNSIGNED;
 	}
 	if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_RAWDEV)) {
-		nfsm_chain_get_32(error, nmc, nvap->nva_rawdev.specdata1);
-		nfsm_chain_get_32(error, nmc, nvap->nva_rawdev.specdata2);
+		nfsm_chain_get_32(error, nmc, sd.specdata1);
+		nfsm_chain_get_32(error, nmc, sd.specdata2);
+		if (!error) {
+			nvap->nva_rawdev = makedev(sd.specdata1, sd.specdata2);
+		}
 		attrbytes -= 2 * NFSX_UNSIGNED;
 	}
 	if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_SPACE_AVAIL)) {

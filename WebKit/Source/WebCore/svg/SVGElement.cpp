@@ -37,10 +37,9 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "JSEventListener.h"
+#include "LegacyRenderSVGResourceContainer.h"
 #include "NodeName.h"
 #include "RenderAncestorIterator.h"
-#include "RenderSVGResourceFilter.h"
-#include "RenderSVGResourceMasker.h"
 #include "ResolvedStyle.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementRareData.h"
@@ -70,8 +69,8 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(SVGElement);
 
-SVGElement::SVGElement(const QualifiedName& tagName, Document& document, UniqueRef<SVGPropertyRegistry>&& propertyRegistry, ConstructionType constructionType)
-    : StyledElement(tagName, document, constructionType)
+SVGElement::SVGElement(const QualifiedName& tagName, Document& document, UniqueRef<SVGPropertyRegistry>&& propertyRegistry, OptionSet<TypeFlag> typeFlags)
+    : StyledElement(tagName, document, typeFlags | TypeFlag::IsSVGElement | TypeFlag::HasCustomStyleResolveCallbacks)
     , m_propertyAnimatorFactory(makeUnique<SVGPropertyAnimatorFactory>())
     , m_propertyRegistry(WTFMove(propertyRegistry))
 {
@@ -304,10 +303,7 @@ RefPtr<SVGUseElement> SVGElement::correspondingUseElement() const
         return nullptr;
     if (root->mode() != ShadowRootMode::UserAgent)
         return nullptr;
-    auto* host = root->host();
-    if (!is<SVGUseElement>(host))
-        return nullptr;
-    return &downcast<SVGUseElement>(*host);
+    return dynamicDowncast<SVGUseElement>(root->host());
 }
 
 void SVGElement::setCorrespondingElement(SVGElement* correspondingElement)
@@ -449,12 +445,14 @@ static inline bool isSVGLayerAwareElement(const SVGElement& element)
     case SVG::a:
     case SVG::altGlyph:
     case SVG::circle:
+    case SVG::clipPath:
     case SVG::defs:
     case SVG::ellipse:
     case SVG::foreignObject:
     case SVG::g:
     case SVG::image:
     case SVG::line:
+    case SVG::mask:
     case SVG::path:
     case SVG::polygon:
     case SVG::polyline:
@@ -477,19 +475,19 @@ static inline bool isSVGLayerAwareElement(const SVGElement& element)
 
 bool SVGElement::childShouldCreateRenderer(const Node& child) const
 {
-    if (!child.isSVGElement())
+    auto* svgChild = dynamicDowncast<SVGElement>(child);
+    if (!svgChild)
         return false;
-    auto& svgChild = downcast<SVGElement>(child);
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
     // If the layer based SVG engine is enabled, all renderers that do not support the
     // RenderLayer aware layout / painting / hit-testing mode ('LBSE-mode') have to be skipped.
     // FIXME: [LBSE] Upstream support for all elements, and remove 'isSVGLayerAwareElement' check afterwards.
-    if (document().settings().layerBasedSVGEngineEnabled() && !isSVGLayerAwareElement(svgChild))
+    if (document().settings().layerBasedSVGEngineEnabled() && !isSVGLayerAwareElement(*svgChild))
         return false;
 #endif
 
-    switch (svgChild.elementName()) {
+    switch (svgChild->elementName()) {
     case ElementNames::SVG::altGlyph:
     case ElementNames::SVG::textPath:
     case ElementNames::SVG::tref:
@@ -498,7 +496,7 @@ bool SVGElement::childShouldCreateRenderer(const Node& child) const
     default:
         break;
     }
-    return svgChild.isValid();
+    return svgChild->isValid();
 }
 
 void SVGElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
@@ -1019,8 +1017,8 @@ void SVGElement::svgAttributeChanged(const QualifiedName& attrName)
     if (attrName == HTMLNames::idAttr) {
         auto renderer = this->renderer();
         // Notify resources about id changes, this is important as we cache resources by id in SVGDocumentExtensions
-        if (is<RenderSVGResourceContainer>(renderer))
-            downcast<RenderSVGResourceContainer>(*renderer).idChanged();
+        if (CheckedPtr container = dynamicDowncast<LegacyRenderSVGResourceContainer>(renderer))
+            container->idChanged();
         if (isConnected())
             buildPendingResourcesIfNeeded();
         invalidateInstances();
@@ -1066,7 +1064,7 @@ void SVGElement::buildPendingResourcesIfNeeded()
         if (clientElement->hasPendingResources()) {
             clientElement->buildPendingResource();
             if (auto renderer = clientElement->renderer()) {
-                for (auto& ancestor : ancestorsOfType<RenderSVGResourceContainer>(*renderer))
+                for (auto& ancestor : ancestorsOfType<LegacyRenderSVGResourceContainer>(*renderer))
                     ancestor.markAllClientsForRepaint();
             }
             treeScope.clearHasPendingSVGResourcesIfPossible(*clientElement);
@@ -1162,7 +1160,7 @@ bool SVGElement::hasAssociatedSVGLayoutBox() const
         return false;
 
     // Legacy SVG engine specific condition.
-    if (renderer()->isLegacySVGRoot())
+    if (renderer()->isLegacyRenderSVGRoot())
         return false;
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)

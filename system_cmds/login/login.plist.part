@@ -18,6 +18,7 @@
 			<string>login.c: report initgroups() failure (3836119)</string>
 			<string>login.c: fix login on 2018 hardware (43101375)</string>
 			<string>login.c: replace closefrom (83865228)</string>
+			<string>login.c: look for .hushlogin in home directory (112854361)</string>
 			<string>login_audit.c: use setaudit_addr (8907611)</string>
 		</array>
 		<key>OpenSourceLicense</key>

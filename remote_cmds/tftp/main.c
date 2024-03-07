@@ -1,6 +1,6 @@
-/*	$NetBSD: main.c,v 1.19 2003/10/02 23:31:52 itojun Exp $	*/
-
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -29,8 +29,8 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __APPLE__
 #ifndef lint
-__attribute__((__used__))
 static const char copyright[] =
 "@(#) Copyright (c) 1983, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
@@ -41,9 +41,10 @@ static const char copyright[] =
 static char sccsid[] = "@(#)main.c	8.1 (Berkeley) 6/6/93";
 #endif
 #endif
+#endif /* !__APPLE__ */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/tftp/main.c,v 1.22 2005/10/19 15:37:42 stefanf Exp $");
+__FBSDID("$FreeBSD$");
 
 /* Many bug fixes are from Jim Guyton <guyton@rand-unix> */
 
@@ -51,196 +52,293 @@ __FBSDID("$FreeBSD: src/usr.bin/tftp/main.c,v 1.22 2005/10/19 15:37:42 stefanf E
  * TFTP User Program -- Command Interface.
  */
 #include <sys/param.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/file.h>
-#include <sys/param.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/sysctl.h>
 
 #include <netinet/in.h>
-
 #include <arpa/inet.h>
 #include <arpa/tftp.h>
 
 #include <ctype.h>
-#include <fcntl.h>
 #include <err.h>
 #include <histedit.h>
 #include <netdb.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "extern.h"
+#include "tftp-utils.h"
+#include "tftp-io.h"
+#include "tftp-options.h"
+#include "tftp.h"
 
-#define	MAXLINE		200
+#define	MAXLINE		(2 * MAXPATHLEN)
 #define	TIMEOUT		5		/* secs between rexmt's */
-#define MAXSEGSIZE  65464
-struct	sockaddr_storage peeraddr;
-int	f;
-int	trace;
-int	verbose;
-int	tsize=0;
-int	tout=0;
-int	def_blksize=SEGSIZE;
-int	blksize=SEGSIZE;
-int	connected;
-char	mode[32];
-char	line[MAXLINE];
-int	margc;
+
+typedef struct	sockaddr_storage peeraddr;
+static int	connected;
+static char	mode[32];
+static jmp_buf	toplevel;
+static int	txrx_error;
+static int	peer;
+
 #define	MAX_MARGV	20
-char	*margv[MAX_MARGV];
-jmp_buf	toplevel;
-volatile int txrx_error;
+static int	margc;
+static char	*margv[MAX_MARGV];
 
-void	get(int, char **);
-void	help(int, char **);
-void	intr(int);
-void	modecmd(int, char **);
-void	put(int, char **);
-void	quit(int, char **);
-void	setascii(int, char **);
-void	setbinary(int, char **);
-void	setpeer0(char *, const char *);
-void	setpeer(int, char **);
-void	setrexmt(int, char **);
-void	settimeout(int, char **);
-void	settrace(int, char **);
-void	setverbose(int, char **);
+int		verbose;
 #ifdef __APPLE__
-void	setblksize(int, char **);
-void	settsize(int, char **);
-void	settimeoutopt(int, char **);
+static int	tsize = 1;
+static int	tout = 0;
 #endif
-void	status(int, char **);
-#ifdef __APPLE__
-char	*tail(char *);
-int	main(int, char *[]);
-void	intr(int);
-struct cmd *getcmd(char *);
-#endif
+static char	*port = NULL;
 
-static void command(void) __dead2;
+static void	get(int, char **);
+static void	help(int, char **);
+static void	intr(int);
+static void	modecmd(int, char **);
+static void	put(int, char **);
+static void	quit(int, char **);
+static void	setascii(int, char **);
+static void	setbinary(int, char **);
+static void	setpeer0(char *, const char *);
+static void	setpeer(int, char **);
+static void	settimeoutpacket(int, char **);
+static void	settimeoutnetwork(int, char **);
+static void	setdebug(int, char **);
+static void	setverbose(int, char **);
+#ifdef __APPLE__
+static void	initblksize(size_t);
+static void	setblksize(int, char **);
+static void	settsize(int, char **);
+static void	settimeoutopt(int, char **);
+#endif
+static void	showstatus(int, char **);
+static void	setblocksize(int, char **);
+static void	setblocksize2(int, char **);
+static void	setoptions(int, char **);
+static void	setrollover(int, char **);
+static void	setpacketdrop(int, char **);
+static void	setwindowsize(int, char **);
+
+static void command(bool, EditLine *, History *, HistEvent *) __dead2;
 static const char *command_prompt(void);
 
+static void urihandling(char *URI);
 static void getusage(char *);
-static void makeargv(void);
+static void makeargv(char *line);
 static void putusage(char *);
 static void settftpmode(const char *);
 
-char	*tail(char *);
-struct	cmd *getcmd(char *);
+static char	*tail(char *);
+static const struct cmd *getcmd(const char *);
 
 #define HELPINDENT (sizeof("connect"))
 
 struct cmd {
 	const char	*name;
-	char	*help;
 	void	(*handler)(int, char **);
+	const char	*help;
 };
 
-char	vhelp[] = "toggle verbose mode";
-char	thelp[] = "toggle packet tracing";
+static struct cmd cmdtab[] = {
+	{ "connect",	setpeer,	"connect to remote tftp"	},
+	{ "mode",	modecmd,	"set file transfer mode"	},
+	{ "put",	put,		"send file"			},
+	{ "get",	get,		"receive file"			},
+	{ "quit",	quit,		"exit tftp"			},
+	{ "verbose",	setverbose,	"toggle verbose mode"		},
 #ifdef __APPLE__
-char	tshelp[] = "toggle extended tsize option";
-char	tohelp[] = "toggle extended timeout option";
-char	blhelp[] = "set an alternative blocksize (def. 512)";
+	{ "blksize",	setblksize,	"set an alternative blocksize"	},
+	{ "tsize",	settsize,	"toggle extended tsize option"	},
 #endif
-char	chelp[] = "connect to remote tftp";
-char	qhelp[] = "exit tftp";
-char	hhelp[] = "print help information";
-char	shelp[] = "send file";
-char	rhelp[] = "receive file";
-char	mhelp[] = "set file transfer mode";
-char	sthelp[] = "show current status";
-char	xhelp[] = "set per-packet retransmission timeout";
-char	ihelp[] = "set total retransmission timeout";
-char    ashelp[] = "set mode to netascii";
-char    bnhelp[] = "set mode to octet";
+	{ "status",	showstatus,	"show current status"		},
+	{ "binary",     setbinary,	"set mode to octet"		},
+	{ "ascii",      setascii,	"set mode to netascii"		},
+	{ "rexmt",	settimeoutpacket,
+	  "set per-packet retransmission timeout[-]" },
+	{ "timeout",	settimeoutnetwork,
+	  "set total retransmission timeout" },
+#ifdef __APPLE__
+	{ "tout",	settimeoutopt,	"toggle extended timeout option" },
+#endif
+	{ "trace",	setdebug,	"enable 'debug packet'[-]"	},
+	{ "debug",	setdebug,	"enable verbose output"		},
+	{ "blocksize",	setblocksize,	"set blocksize[*]"		},
+	{ "blocksize2",	setblocksize2,	"set blocksize as a power of 2[**]" },
+	{ "rollover",	setrollover,	"rollover after 64K packets[**]" },
+	{ "options",	setoptions,
+	  "enable or disable RFC2347 style options" },
+	{ "help",	help,		"print help information"	},
+	{ "packetdrop",	setpacketdrop,	"artificial packetloss feature"	},
+	{ "windowsize",	setwindowsize,	"set windowsize[*]"		},
+	{ "?",		help,		"print help information"	},
+	{ NULL,		NULL,		NULL				}
+};
 
-struct cmd cmdtab[] = {
-	{ "connect",	chelp,		setpeer },
-	{ "mode",       mhelp,          modecmd },
-	{ "put",	shelp,		put },
-	{ "get",	rhelp,		get },
-	{ "quit",	qhelp,		quit },
-	{ "verbose",	vhelp,		setverbose },
-#ifdef __APPLE__
-	{ "blksize",	blhelp,		setblksize },
-	{ "tsize",	tshelp,		settsize },
-#endif
-	{ "trace",	thelp,		settrace },
-	{ "status",	sthelp,		status },
-	{ "binary",     bnhelp,         setbinary },
-	{ "ascii",      ashelp,         setascii },
-	{ "rexmt",	xhelp,		setrexmt },
-	{ "timeout",	ihelp,		settimeout },
-#ifdef __APPLE__
-	{ "tout",	tohelp,		settimeoutopt },
-#endif
-	{ "?",		hhelp,		help },
-	{ NULL, NULL, NULL }
+static struct	modes {
+	const char *m_name;
+	const char *m_mode;
+} modes[] = {
+	{ "ascii",	"netascii" },
+	{ "netascii",	"netascii" },
+	{ "binary",	"octet" },
+	{ "image",	"octet" },
+	{ "octet",	"octet" },
+	{ NULL,		NULL }
 };
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	int	c;
+	HistEvent he;
+	static EditLine *el;
+	static History *hist;
+	bool interactive;
+#ifdef __APPLE__
+	int opt;
 
-	f = -1;
-	strcpy(mode, "netascii");
-	signal(SIGINT, intr);
-
-	setprogname(argv[0]);
-	while ((c = getopt(argc, argv, "e")) != -1) {
-		switch (c) {
+	while ((opt = getopt(argc, argv, "e")) != -1) {
+		switch (opt) {
 		case 'e':
-			blksize = MAXSEGSIZE;
-			strcpy(mode, "octet");
+			initblksize(MAXSEGSIZE);
 			tsize = 1;
 			tout = 1;
 			break;
 		default:
-			printf("usage: %s [-e] host-name [port]\n",
-				getprogname());
+			printf("usage: %s [-e] [host [port]]\n", argv[0]);
 			exit(1);
 		}
 	}
-	argc -= optind;
-	argv += optind;
+	argv[optind - 1] = argv[0];
+	argc -= optind - 1;
+	argv += optind - 1;
+#endif /* __APPLE__ */
 
-	if (argc >= 1) {
+	acting_as_client = 1;
+	peer = -1;
+	strcpy(mode, "octet");
+	signal(SIGINT, intr);
+
+	interactive = isatty(STDIN_FILENO);
+	if (interactive) {
+		el = el_init("tftp", stdin, stdout, stderr);
+		hist = history_init();
+		history(hist, &he, H_SETSIZE, 100);
+		el_set(el, EL_HIST, history, hist);
+		el_set(el, EL_EDITOR, "emacs");
+		el_set(el, EL_PROMPT, command_prompt);
+		el_set(el, EL_SIGNAL, 1);
+		el_source(el, NULL);
+	}
+
+	if (argc > 1) {
 		if (setjmp(toplevel) != 0)
 			exit(txrx_error);
-		argc++;
-		argv--;
+
+		if (strncmp(argv[1], "tftp://", 7) == 0) {
+			urihandling(argv[1]);
+			exit(txrx_error);
+		}
+
 		setpeer(argc, argv);
 	}
-	if (setjmp(toplevel) != 0)
+
+	if (setjmp(toplevel) != 0) {
+		if (interactive)
+			el_reset(el);
 		(void)putchar('\n');
-	command();
-	return (0);
+	}
+
+	init_options();
+	command(interactive, el, hist, &he);
 }
 
-char    hostname[MAXHOSTNAMELEN];
+/*
+ * RFC3617 handling of TFTP URIs:
+ *
+ *    tftpURI         = "tftp://" host "/" file [ mode ]
+ *    mode            = ";"  "mode=" ( "netascii" / "octet" )
+ *    file            = *( unreserved / escaped )
+ *    host            = <as specified by RFC 2732>
+ *    unreserved      = <as specified in RFC 2396>
+ *    escaped         = <as specified in RFC 2396>
+ *
+ * We are cheating a little bit by allowing any mode as specified in the
+ * modes table defined earlier on in this file and mapping it on the real
+ * mode.
+ */
+static void
+urihandling(char *URI)
+{
+	char	uri[ARG_MAX];
+	char	*host = NULL;
+	char	*path = NULL;
+	char	*opts = NULL;
+	const char *tmode = "octet";
+	char	*s;
+	char	line[MAXLINE];
+	int	i;
 
-void
-setpeer0(host, port)
-	char *host;
-	const char *port;
+	strlcpy(uri, URI, ARG_MAX);
+	host = uri + 7;
+
+	if ((s = strchr(host, '/')) == NULL) {
+		fprintf(stderr,
+		    "Invalid URI: Couldn't find / after hostname\n");
+		exit(1);
+	}
+	*s = '\0';
+	path = s + 1;
+
+	if ((s = strchr(path, ';')) != NULL) {
+		*s = '\0';
+		opts = s + 1;
+
+		if (strncmp(opts, "mode=", 5) == 0) {
+			tmode = opts;
+			tmode += 5;
+
+			for (i = 0; modes[i].m_name != NULL; i++) {
+				if (strcmp(modes[i].m_name, tmode) == 0)
+					break;
+			}
+			if (modes[i].m_name == NULL) {
+				fprintf(stderr, "Invalid mode: '%s'\n", mode);
+				exit(1);
+			}
+			settftpmode(modes[i].m_mode);
+		}
+	} else {
+		settftpmode("octet");
+	}
+
+	setpeer0(host, NULL);
+
+	sprintf(line, "get %s", path);
+	makeargv(line);
+	get(margc, margv);
+}
+
+static char    hostname[MAXHOSTNAMELEN];
+
+static void
+setpeer0(char *host, const char *lport)
 {
 	struct addrinfo hints, *res0, *res;
-	int error, soopt;
-	struct sockaddr_storage ss;
+	int error;
 	const char *cause = "unknown";
 
 	if (connected) {
-		close(f);
-		f = -1;
+		close(peer);
+		peer = -1;
 	}
 	connected = 0;
 
@@ -249,9 +347,9 @@ setpeer0(host, port)
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_protocol = IPPROTO_UDP;
 	hints.ai_flags = AI_CANONNAME;
-	if (!port)
-		port = "tftp";
-	error = getaddrinfo(host, port, &hints, &res0);
+	if (!lport)
+		lport = "tftp";
+	error = getaddrinfo(host, lport, &hints, &res0);
 	if (error) {
 		warnx("%s", gai_strerror(error));
 		return;
@@ -260,49 +358,34 @@ setpeer0(host, port)
 	for (res = res0; res; res = res->ai_next) {
 		if (res->ai_addrlen > sizeof(peeraddr))
 			continue;
-		f = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-		if (f < 0) {
+		peer = socket(res->ai_family, res->ai_socktype,
+			res->ai_protocol);
+		if (peer < 0) {
 			cause = "socket";
 			continue;
 		}
 
-		memset(&ss, 0, sizeof(ss));
-		ss.ss_family = res->ai_family;
-		ss.ss_len = res->ai_addrlen;
-		if (bind(f, (struct sockaddr *)&ss, ss.ss_len) < 0) {
+		memset(&peer_sock, 0, sizeof(peer_sock));
+		peer_sock.ss_family = res->ai_family;
+		peer_sock.ss_len = res->ai_addrlen;
+		if (bind(peer, (struct sockaddr *)&peer_sock, peer_sock.ss_len) < 0) {
 			cause = "bind";
-			close(f);
-			f = -1;
+			close(peer);
+			peer = -1;
 			continue;
 		}
 
 		break;
 	}
 
-	if (f >= 0) {
-		soopt = 65536;
-		if (setsockopt(f, SOL_SOCKET, SO_SNDBUF, &soopt, sizeof(soopt))
-		    < 0) {
-			close(f);
-			f = -1;
-			cause = "setsockopt SNDBUF";
-		}
-		if (setsockopt(f, SOL_SOCKET, SO_RCVBUF, &soopt, sizeof(soopt))
-		    < 0) {
-			close(f);
-			f = -1;
-			cause = "setsockopt RCVBUF";
-		}
-	}
-
-	if (f < 0)
+	if (peer < 0)
 		warn("%s", cause);
 	else {
 		/* res->ai_addr <= sizeof(peeraddr) is guaranteed */
-		memcpy(&peeraddr, res->ai_addr, res->ai_addrlen);
+		memcpy(&peer_sock, res->ai_addr, res->ai_addrlen);
 		if (res->ai_canonname) {
 			(void) strlcpy(hostname, res->ai_canonname,
-			    sizeof(hostname));
+				sizeof(hostname));
 		} else
 			(void) strlcpy(hostname, host, sizeof(hostname));
 		connected = 1;
@@ -311,47 +394,32 @@ setpeer0(host, port)
 	freeaddrinfo(res0);
 }
 
-void
-setpeer(argc, argv)
-	int argc;
-	char *argv[];
+static void
+setpeer(int argc, char *argv[])
 {
+	char	line[MAXLINE];
 
 	if (argc < 2) {
 		strcpy(line, "Connect ");
 		printf("(to) ");
 		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
-		makeargv();
+		makeargv(line);
 		argc = margc;
 		argv = margv;
 	}
 	if ((argc < 2) || (argc > 3)) {
-		printf("usage: %s [-e] host-name [port]\n", getprogname());
+		printf("usage: %s [host [port]]\n", argv[0]);
 		return;
 	}
-	if (argc == 3)
+	if (argc == 3) {
+		port = argv[2];
 		setpeer0(argv[1], argv[2]);
-	else
+	} else
 		setpeer0(argv[1], NULL);
 }
 
-struct	modes {
-	const char *m_name;
-	const char *m_mode;
-} modes[] = {
-	{ "ascii",	"netascii" },
-	{ "netascii",   "netascii" },
-	{ "binary",     "octet" },
-	{ "image",      "octet" },
-	{ "octet",     "octet" },
-/*      { "mail",       "mail" },       */
-	{ 0,		0 }
-};
-
-void
-modecmd(argc, argv)
-	int argc;
-	char *argv[];
+static void
+modecmd(int argc, char *argv[])
 {
 	struct modes *p;
 	const char *sep;
@@ -374,7 +442,7 @@ modecmd(argc, argv)
 
 	printf("usage: %s [", argv[0]);
 	sep = " ";
-	for (p = modes; p->m_name; p++) {
+	for (p = modes; p->m_name != NULL; p++) {
 		printf("%s%s", sep, p->m_name);
 		if (*sep == ' ')
 			sep = " | ";
@@ -383,29 +451,25 @@ modecmd(argc, argv)
 	return;
 }
 
-void
-setbinary(argc, argv)
-	int argc __unused;
-	char *argv[] __unused;
+static void
+setbinary(int argc __unused, char *argv[] __unused)
 {
 
 	settftpmode("octet");
 }
 
-void
-setascii(argc, argv)
-	int argc __unused;
-	char *argv[] __unused;
+static void
+setascii(int argc __unused, char *argv[] __unused)
 {
 
 	settftpmode("netascii");
 }
 
 static void
-settftpmode(newmode)
-	const char *newmode;
+settftpmode(const char *newmode)
 {
-	strcpy(mode, newmode);
+
+	strlcpy(mode, newmode, sizeof(mode));
 	if (verbose)
 		printf("mode set to %s\n", mode);
 }
@@ -414,23 +478,20 @@ settftpmode(newmode)
 /*
  * Send file(s).
  */
-void
-put(argc, argv)
-	int argc;
-	char *argv[];
+static void
+put(int argc, char *argv[])
 {
-	int fd;
-	int n;
-	char *cp, *targ;
-#ifdef __APPLE__
-	char targbuf[PATH_MAX];
-#endif /* __APPLE__ */
+	int	fd;
+	int	n;
+	char	*cp, *targ, *path;
+	char	line[MAXLINE];
+	struct stat sb;
 
 	if (argc < 2) {
 		strcpy(line, "send ");
 		printf("(file) ");
 		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
-		makeargv();
+		makeargv(line);
 		argc = margc;
 		argv = margv;
 	}
@@ -439,22 +500,22 @@ put(argc, argv)
 		return;
 	}
 	targ = argv[argc - 1];
-	if (rindex(argv[argc - 1], ':')) {
+	if (strrchr(argv[argc - 1], ':')) {
 		char *lcp;
 
 		for (n = 1; n < argc - 1; n++)
-			if (index(argv[n], ':')) {
+			if (strchr(argv[n], ':')) {
 				putusage(argv[0]);
 				return;
 			}
 		lcp = argv[argc - 1];
-		targ = rindex(lcp, ':');
+		targ = strrchr(lcp, ':');
 		*targ++ = 0;
 		if (lcp[0] == '[' && lcp[strlen(lcp) - 1] == ']') {
 			lcp[strlen(lcp) - 1] = '\0';
 			lcp++;
 		}
-		setpeer0(lcp, NULL);		
+		setpeer0(lcp, NULL);
 	}
 	if (!connected) {
 		printf("No target machine specified.\n");
@@ -467,70 +528,90 @@ put(argc, argv)
 			warn("%s", cp);
 			return;
 		}
+
+		if (fstat(fd, &sb) < 0) {
+			warn("%s", cp);
+			close(fd);
+			return;
+		}
+#ifdef __APPLE__
+		if (tout)
+			options_set_request(OPT_TIMEOUT, "%d", timeoutpacket);
+		if (tsize)
+#endif /* __APPLE__ */
+		options_set_request(OPT_TSIZE, "%ju", (uintmax_t)sb.st_size);
+
 		if (verbose)
 			printf("putting %s to %s:%s [%s]\n",
-				cp, hostname, targ, mode);
-		xmitfile(fd, targ, mode);
+			    cp, hostname, targ, mode);
+		if (xmitfile(peer, port, fd, targ, mode) != 0)
+			txrx_error = 1;
+		close(fd);
 		return;
 	}
 				/* this assumes the target is a directory */
 				/* on a remote unix system.  hmmmm.  */
-#ifdef __APPLE__
-	snprintf(targbuf, sizeof(targbuf), "%s/", targ);
-	cp = targbuf + strlen(targbuf);
-#else /* !__APPLE__ */
-	cp = index(targ, '\0');
-	*cp++ = '/';
-#endif /* __APPLE__ */
 	for (n = 1; n < argc - 1; n++) {
-#ifdef __APPLE__
-		strlcpy(cp, tail(argv[n]), sizeof(targbuf) - (cp - targbuf));
-#else /* !__APPLE__ */
-		strcpy(cp, tail(argv[n]));
-#endif /* __APPLE__ */
+		if (asprintf(&path, "%s/%s", targ, tail(argv[n])) < 0)
+			err(1, "malloc");
+
 		fd = open(argv[n], O_RDONLY);
 		if (fd < 0) {
 			warn("%s", argv[n]);
+			free(path);
 			continue;
 		}
+
+		if (fstat(fd, &sb) < 0) {
+			warn("%s", argv[n]);
+			close(fd);
+			free(path);
+			continue;
+		}
+#ifdef __APPLE__
+		if (tout)
+			options_set_request(OPT_TIMEOUT, "%d", timeoutpacket);
+		if (tsize)
+#endif /* __APPLE__ */
+		options_set_request(OPT_TSIZE, "%ju", (uintmax_t)sb.st_size);
+
 		if (verbose)
 			printf("putting %s to %s:%s [%s]\n",
-#ifdef __APPLE__
-				argv[n], hostname, targbuf, mode);
-		xmitfile(fd, targbuf, mode);
-#else /* !__APPLE__ */
-				argv[n], hostname, targ, mode);
-		xmitfile(fd, targ, mode);
-#endif /* __APPLE__ */
+			    argv[n], hostname, path, mode);
+		if (xmitfile(peer, port, fd, path, mode) != 0)
+			txrx_error = 1;
+		close(fd);
+
+		free(path);
 	}
 }
 
 static void
-putusage(s)
-	char *s;
+putusage(char *s)
 {
-	printf("usage: %s file ... host:target, or\n", s);
-	printf("       %s file ... target (when already connected)\n", s);
+
+	printf("usage: %s file [remotename]\n", s);
+	printf("       %s file host:remotename\n", s);
+	printf("       %s file1 file2 ... fileN [[host:]remote-directory]\n", s);
 }
 
 /*
  * Receive file(s).
  */
-void
-get(argc, argv)
-	int argc;
-	char *argv[];
+static void
+get(int argc, char *argv[])
 {
 	int fd;
 	int n;
 	char *cp;
 	char *src;
+	char	line[MAXLINE];
 
 	if (argc < 2) {
 		strcpy(line, "get ");
 		printf("(files) ");
 		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
-		makeargv();
+		makeargv(line);
 		argc = margc;
 		argv = margv;
 	}
@@ -540,13 +621,21 @@ get(argc, argv)
 	}
 	if (!connected) {
 		for (n = 1; n < argc ; n++)
-			if (rindex(argv[n], ':') == 0) {
+			if (strrchr(argv[n], ':') == 0) {
+				printf("No remote host specified and "
+				    "no host given for file '%s'\n", argv[n]);
 				getusage(argv[0]);
 				return;
 			}
 	}
+#ifdef __APPLE__
+	if (tout)
+		options_set_request(OPT_TIMEOUT, "%d", timeoutpacket);
+	if (tsize)
+		options_set_request(OPT_TSIZE, "%d", 0);
+#endif /* __APPLE__ */
 	for (n = 1; n < argc ; n++) {
-		src = rindex(argv[n], ':');
+		src = strrchr(argv[n], ':');
 		if (src == NULL)
 			src = argv[n];
 		else {
@@ -571,8 +660,9 @@ get(argc, argv)
 			}
 			if (verbose)
 				printf("getting from %s:%s to %s [%s]\n",
-					hostname, src, cp, mode);
-			recvfile(fd, src, mode);
+				    hostname, src, cp, mode);
+			if (recvfile(peer, port, fd, src, mode) != 0)
+				txrx_error = 1;
 			break;
 		}
 		cp = tail(src);         /* new .. jdg */
@@ -583,31 +673,47 @@ get(argc, argv)
 		}
 		if (verbose)
 			printf("getting from %s:%s to %s [%s]\n",
-				hostname, src, cp, mode);
-		recvfile(fd, src, mode);
+			    hostname, src, cp, mode);
+		if (recvfile(peer, port, fd, src, mode) != 0)
+			txrx_error = 1;
 	}
 }
 
 static void
-getusage(s)
-	char *s;
+getusage(char *s)
 {
-	printf("usage: %s host:file host:file ... file, or\n", s);
-	printf("       %s file file ... file if connected\n", s);
+
+	printf("usage: %s file [localname]\n", s);
+	printf("       %s [host:]file [localname]\n", s);
+	printf("       %s [host1:]file1 [host2:]file2 ... [hostN:]fileN\n", s);
 }
 
-void
-setblksize(argc, argv)
-	int argc;
-	char *argv[];
+#ifdef __APPLE__
+static void
+initblksize(size_t blksize)
 {
-	int t;
+	int maxdgram;
+	size_t size = sizeof(maxdgram);
+	int ret;
+
+	ret = sysctlbyname("net.inet.udp.maxdgram", &maxdgram, &size, NULL, 0);
+	if (ret < 0)
+		err(1, "sysctl: net.inet.udp.maxdgram");
+	if (blksize > maxdgram - 4)
+		blksize = maxdgram - 4;
+	asprintf(&options[OPT_BLKSIZE].o_request, "%zu", blksize);
+}
+
+static void
+setblksize(int argc, char *argv[])
+{
+	char	line[MAXLINE];
 
 	if (argc < 2) {
 		strcpy(line, "blksize ");
 		printf("(blksize) ");
 		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
-		makeargv();
+		makeargv(line);
 		argc = margc;
 		argv = margv;
 	}
@@ -615,28 +721,21 @@ setblksize(argc, argv)
 		printf("usage: %s value\n", argv[0]);
 		return;
 	}
-	t = atoi(argv[1]);
-	if (t < 8 || t > 65464)
-		printf("%s: bad value\n", argv[1]);
-	else
-		blksize = t;
+	setblocksize(argc, argv);
 }
+#endif /* __APPLE__ */
 
-int	def_rexmtval = TIMEOUT;
-int	rexmtval = TIMEOUT;
-
-void
-setrexmt(argc, argv)
-	int argc;
-	char *argv[];
+static void
+settimeoutpacket(int argc, char *argv[])
 {
 	int t;
+	char	line[MAXLINE];
 
 	if (argc < 2) {
-		strcpy(line, "Rexmt-timeout ");
+		strcpy(line, "Packet timeout ");
 		printf("(value) ");
 		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
-		makeargv();
+		makeargv(line);
 		argc = margc;
 		argv = margv;
 	}
@@ -645,26 +744,25 @@ setrexmt(argc, argv)
 		return;
 	}
 	t = atoi(argv[1]);
-	if (t < 0)
+	if (t < 0) {
 		printf("%s: bad value\n", argv[1]);
-	else
-		rexmtval = t;
+		return;
+	}
+
+	settimeouts(t, timeoutnetwork, maxtimeouts);
 }
 
-int	maxtimeout = 5 * TIMEOUT;
-
-void
-settimeout(argc, argv)
-	int argc;
-	char *argv[];
+static void
+settimeoutnetwork(int argc, char *argv[])
 {
 	int t;
+	char	line[MAXLINE];
 
 	if (argc < 2) {
-		strcpy(line, "Maximum-timeout ");
+		strcpy(line, "Network timeout ");
 		printf("(value) ");
 		fgets(&line[strlen(line)], sizeof line - strlen(line), stdin);
-		makeargv();
+		makeargv(line);
 		argc = margc;
 		argv = margv;
 	}
@@ -673,30 +771,37 @@ settimeout(argc, argv)
 		return;
 	}
 	t = atoi(argv[1]);
-	if (t < 0)
+	if (t < 0) {
 		printf("%s: bad value\n", argv[1]);
-	else
-		maxtimeout = t;
+		return;
+	}
+
+	settimeouts(timeoutpacket, t, maxtimeouts);
 }
 
-void
-status(argc, argv)
-	int argc __unused;
-	char *argv[] __unused;
+static void
+showstatus(int argc __unused, char *argv[] __unused)
 {
-	if (connected)
-		printf("Connected to %s.\n", hostname);
-	else
-		printf("Not connected.\n");
-	printf("Mode: %s Verbose: %s Tracing: %s\n", mode,
-		verbose ? "on" : "off", trace ? "on" : "off");
-	printf("Rexmt-interval: %d seconds, Max-timeout: %d seconds\n",
-		rexmtval, maxtimeout);
+
+	printf("Remote host: %s\n",
+	    connected ? hostname : "none specified yet");
+	printf("RFC2347 Options support: %s\n",
+	    options_rfc_enabled ? "enabled" : "disabled");
+	printf("Non-RFC defined options support: %s\n",
+	    options_extra_enabled ? "enabled" : "disabled");
+	printf("Mode: %s\n", mode);
+	printf("Verbose: %s\n", verbose ? "on" : "off");
+	printf("Debug: %s\n", debug_show(debug));
+	printf("Artificial packetloss: %d in 100 packets\n",
+	    packetdroppercentage);
+	printf("Segment size: %d bytes\n", segsize);
+	printf("Network timeout: %d seconds\n", timeoutpacket);
+	printf("Maximum network timeout: %d seconds\n", timeoutnetwork);
+	printf("Maximum timeouts: %d \n", maxtimeouts);
 }
 
-void
-intr(dummy)
-	int dummy __unused;
+static void
+intr(int dummy __unused)
 {
 
 	signal(SIGALRM, SIG_IGN);
@@ -704,14 +809,13 @@ intr(dummy)
 	longjmp(toplevel, -1);
 }
 
-char *
-tail(filename)
-	char *filename;
+static char *
+tail(char *filename)
 {
 	char *s;
 
 	while (*filename) {
-		s = rindex(filename, '/');
+		s = strrchr(filename, '/');
 		if (s == NULL)
 			break;
 		if (s[1])
@@ -722,7 +826,7 @@ tail(filename)
 }
 
 static const char *
-command_prompt()
+command_prompt(void)
 {
 
 	return ("tftp> ");
@@ -732,37 +836,25 @@ command_prompt()
  * Command parser.
  */
 static void
-command()
+command(bool interactive, EditLine *el, History *hist, HistEvent *hep)
 {
-	HistEvent he;
-	struct cmd *c;
-	static EditLine *el;
-	static History *hist;
+	const struct cmd *c;
 	const char *bp;
 	char *cp;
-	int len, num, vrbose;
+	int len, num;
+	char	line[MAXLINE];
 
-	vrbose = isatty(0);
-	if (vrbose) {
-		el = el_init("tftp", stdin, stdout, stderr);
-		hist = history_init();
-		history(hist, &he, H_SETSIZE, 100);
-		el_set(el, EL_HIST, history, hist);
-		el_set(el, EL_EDITOR, "emacs");
-		el_set(el, EL_PROMPT, command_prompt);
-		el_set(el, EL_SIGNAL, 1);
-		el_source(el, NULL);
-	}
 	for (;;) {
-		if (vrbose) {
-                        if ((bp = el_gets(el, &num)) == NULL || num == 0)
-                                exit(0);
-                        len = (num > MAXLINE) ? MAXLINE : num;
-                        memcpy(line, bp, len);
-                        line[len] = '\0';
-                        history(hist, &he, H_ENTER, bp);
+		if (interactive) {
+			if ((bp = el_gets(el, &num)) == NULL || num == 0)
+				exit(0);
+			len = MIN(MAXLINE, num);
+			memcpy(line, bp, len);
+			line[len - 1] = '\0';
+			history(hist, hep, H_ENTER, bp);
 		} else {
-			if (fgets(line, sizeof line , stdin) == 0) {
+			line[0] = 0;
+			if (fgets(line, sizeof line , stdin) == NULL) {
 				if (feof(stdin)) {
 					exit(txrx_error);
 				} else {
@@ -774,7 +866,7 @@ command()
 			*cp = '\0';
 		if (line[0] == 0)
 			continue;
-		makeargv();
+		makeargv(line);
 		if (margc == 0)
 			continue;
 		c = getcmd(margv[0]);
@@ -782,7 +874,7 @@ command()
 			printf("?Ambiguous command\n");
 			continue;
 		}
-		if (c == 0) {
+		if (c == NULL) {
 			printf("?Invalid command\n");
 			continue;
 		}
@@ -790,22 +882,22 @@ command()
 	}
 }
 
-struct cmd *
-getcmd(name)
-	char *name;
+static const struct cmd *
+getcmd(const char *name)
 {
 	const char *p, *q;
-	struct cmd *c, *found;
-	int nmatches, longest;
+	const struct cmd *c, *found;
+	ptrdiff_t longest;
+	int nmatches;
 
 	longest = 0;
 	nmatches = 0;
 	found = 0;
 	for (c = cmdtab; (p = c->name) != NULL; c++) {
 		for (q = name; *q == *p++; q++)
-			if (*q == 0)		/* exact match? */
+			if (*q == '\0')		/* exact match? */
 				return (c);
-		if (!*q) {			/* the name was a prefix */
+		if (*q == '\0') {		/* the name was a prefix */
 			if (q - name > longest) {
 				longest = q - name;
 				nmatches = 1;
@@ -823,22 +915,22 @@ getcmd(name)
  * Slice a string up into argc/argv.
  */
 static void
-makeargv()
+makeargv(char *line)
 {
 	char *cp;
 	char **argp = margv;
 
 	margc = 0;
-	if ((cp = strchr(line, '\n')))
+	if ((cp = strchr(line, '\n')) != NULL)
 		*cp = '\0';
-	for (cp = line; margc < MAX_MARGV - 1 && *cp;) {
-		while (isspace((unsigned char)*cp))
+	for (cp = line; margc < MAX_MARGV - 1 && *cp != '\0';) {
+		while (isspace(*cp))
 			cp++;
 		if (*cp == '\0')
 			break;
 		*argp++ = cp;
 		margc += 1;
-		while (*cp != '\0' && !isspace((unsigned char)*cp))
+		while (*cp != '\0' && !isspace(*cp))
 			cp++;
 		if (*cp == '\0')
 			break;
@@ -847,28 +939,29 @@ makeargv()
 	*argp++ = 0;
 }
 
-void
-quit(argc, argv)
-	int argc __unused;
-	char *argv[] __unused;
+static void
+quit(int argc __unused, char *argv[] __unused)
 {
+
 	exit(txrx_error);
 }
 
 /*
  * Help command.
  */
-void
-help(argc, argv)
-	int argc;
-	char *argv[];
+static void
+help(int argc, char *argv[])
 {
-	struct cmd *c;
+	const struct cmd *c;
 
 	if (argc == 1) {
 		printf("Commands may be abbreviated.  Commands are:\n\n");
 		for (c = cmdtab; c->name; c++)
 			printf("%-*s\t%s\n", (int)HELPINDENT, c->name, c->help);
+
+		printf("\n[-] : You shouldn't use these ones anymore.\n");
+		printf("[*] : RFC2347 options support required.\n");
+		printf("[**] : Non-standard RFC2347 option.\n");
 		return;
 	}
 	while (--argc > 0) {
@@ -876,46 +969,245 @@ help(argc, argv)
 		arg = *++argv;
 		c = getcmd(arg);
 		if (c == (struct cmd *)-1)
-			printf("?Ambiguous help command %s\n", arg);
+			printf("?Ambiguous help command: %s\n", arg);
 		else if (c == (struct cmd *)0)
-			printf("?Invalid help command %s\n", arg);
+			printf("?Invalid help command: %s\n", arg);
 		else
 			printf("%s\n", c->help);
 	}
 }
 
-void
-settrace(argc, argv)
-	int argc __unused;
-	char **argv __unused;
+static void
+setverbose(int argc __unused, char *argv[] __unused)
 {
-	trace = !trace;
-	printf("Packet tracing %s.\n", trace ? "on" : "off");
-}
 
-void
-setverbose(argc, argv)
-	int argc __unused;
-	char **argv __unused;
-{
 	verbose = !verbose;
 	printf("Verbose mode %s.\n", verbose ? "on" : "off");
 }
 
-void
-settsize(argc, argv)
-	int argc __unused;
-	char **argv __unused;
+static void
+settsize(int argc __unused, char **argv __unused)
 {
+
 	tsize = !tsize;
+	if (!tsize)
+		options_clear_request(OPT_TSIZE);
 	printf("Tsize mode %s.\n", tsize ? "on" : "off");
 }
 
-void
-settimeoutopt(argc, argv)
-	int argc __unused;
-	char **argv __unused;
+static void
+settimeoutopt(int argc __unused, char **argv __unused)
 {
+
 	tout = !tout;
+	if (!tout)
+		options_clear_request(OPT_TIMEOUT);
 	printf("Timeout option %s.\n", tout ? "on" : "off");
+}
+
+static void
+setoptions(int argc, char *argv[])
+{
+
+	if (argc == 2) {
+		if (strcasecmp(argv[1], "enable") == 0 ||
+		    strcasecmp(argv[1], "on") == 0) {
+			options_extra_enabled = 1;
+			options_rfc_enabled = 1;
+		}
+		if (strcasecmp(argv[1], "disable") == 0 ||
+		    strcasecmp(argv[1], "off") == 0) {
+			options_extra_enabled = 0;
+			options_rfc_enabled = 0;
+		}
+		if (strcasecmp(argv[1], "extra") == 0)
+			options_extra_enabled = !options_extra_enabled;
+	}
+	printf("Support for RFC2347 style options are now %s.\n",
+	    options_rfc_enabled ? "enabled" : "disabled");
+	printf("Support for non-RFC defined options are now %s.\n",
+	    options_extra_enabled ? "enabled" : "disabled");
+
+	printf("\nThe following options are available:\n"
+	    "\toptions on	: enable support for RFC2347 style options\n"
+	    "\toptions off	: disable support for RFC2347 style options\n"
+	    "\toptions extra	: toggle support for non-RFC defined options\n"
+	);
+}
+
+static void
+setrollover(int argc, char *argv[])
+{
+
+	if (argc == 2) {
+		if (strcasecmp(argv[1], "never") == 0 ||
+		    strcasecmp(argv[1], "none") == 0) {
+			options_set_request(OPT_ROLLOVER, NULL);
+		}
+		if (strcasecmp(argv[1], "1") == 0) {
+			options_set_request(OPT_ROLLOVER, "1");
+		}
+		if (strcasecmp(argv[1], "0") == 0) {
+			options_set_request(OPT_ROLLOVER, "0");
+		}
+	}
+	printf("Support for the rollover options is %s.\n",
+	    options[OPT_ROLLOVER].o_request != NULL ? "enabled" : "disabled");
+	if (options[OPT_ROLLOVER].o_request != NULL)
+		printf("Block rollover will be to block %s.\n",
+		    options[OPT_ROLLOVER].o_request);
+
+
+	printf("\nThe following rollover options are available:\n"
+	    "\trollover 0	: rollover to block zero (default)\n"
+	    "\trollover 1	: rollover to block one\n"
+	    "\trollover never	: do not support the rollover option\n"
+	    "\trollover none	: do not support the rollover option\n"
+	);
+}
+
+static void
+setdebug(int argc, char *argv[])
+{
+	int i;
+
+	if (argc != 1) {
+		i = 1;
+		while (i < argc)
+			debug ^= debug_find(argv[i++]);
+	}
+	printf("The following debugging is enabled: %s\n", debug_show(debug));
+
+	printf("\nThe following debugs are available:\n");
+	i = 0;
+	while (debugs[i].name != NULL) {
+		printf("\t%s\t%s\n", debugs[i].name, debugs[i].desc);
+		i++;
+	}
+}
+
+static void
+setblocksize(int argc, char *argv[])
+{
+
+	if (!options_rfc_enabled)
+		printf("RFC2347 style options are not enabled "
+		    "(but proceeding anyway)\n");
+
+	if (argc != 1) {
+		int size = atoi(argv[1]);
+		size_t max;
+		int maxdgram;
+
+		max = sizeof(maxdgram);
+		if (sysctlbyname("net.inet.udp.maxdgram",
+			&maxdgram, &max, NULL, 0) < 0) {
+			perror("sysctl: net.inet.udp.maxdgram");
+			return;
+		}
+
+		if (size < BLKSIZE_MIN || size > BLKSIZE_MAX) {
+			printf("Blocksize should be between %d and %d bytes.\n",
+				BLKSIZE_MIN, BLKSIZE_MAX);
+			return;
+		} else if (size > maxdgram - 4) {
+			printf("Blocksize can't be bigger than %d bytes due "
+			    "to the net.inet.udp.maxdgram sysctl limitation.\n",
+			    maxdgram - 4);
+			options_set_request(OPT_BLKSIZE, "%d", maxdgram - 4);
+		} else {
+			options_set_request(OPT_BLKSIZE, "%d", size);
+		}
+	}
+	printf("Blocksize is now %s bytes.\n", options[OPT_BLKSIZE].o_request);
+}
+
+static void
+setblocksize2(int argc, char *argv[])
+{
+
+	if (!options_rfc_enabled || !options_extra_enabled)
+		printf(
+		    "RFC2347 style or non-RFC defined options are not enabled "
+		    "(but proceeding anyway)\n");
+
+	if (argc != 1) {
+		int size = atoi(argv[1]);
+		int i;
+		size_t max;
+		int maxdgram;
+
+		int sizes[] = {
+			8, 16, 32, 64, 128, 256, 512, 1024,
+			2048, 4096, 8192, 16384, 32768, 0
+		};
+
+		max = sizeof(maxdgram);
+		if (sysctlbyname("net.inet.udp.maxdgram",
+			&maxdgram, &max, NULL, 0) < 0) {
+			perror("sysctl: net.inet.udp.maxdgram");
+			return;
+		}
+
+		for (i = 0; sizes[i] != 0; i++) {
+			if (sizes[i] == size) break;
+		}
+		if (sizes[i] == 0) {
+			printf("Blocksize2 should be a power of two between "
+			    "8 and 32768.\n");
+			return;
+		}
+
+		if (size < BLKSIZE_MIN || size > BLKSIZE_MAX) {
+			printf("Blocksize2 should be between "
+			    "%d and %d bytes.\n", BLKSIZE_MIN, BLKSIZE_MAX);
+			return;
+		} else if (size > maxdgram - 4) {
+			printf("Blocksize2 can't be bigger than %d bytes due "
+			    "to the net.inet.udp.maxdgram sysctl limitation.\n",
+			    maxdgram - 4);
+			for (i = 0; sizes[i+1] != 0; i++) {
+				if (maxdgram < sizes[i+1]) break;
+			}
+			options_set_request(OPT_BLKSIZE2, "%d", sizes[i]);
+		} else {
+			options_set_request(OPT_BLKSIZE2, "%d", size);
+		}
+	}
+	printf("Blocksize2 is now %s bytes.\n",
+	    options[OPT_BLKSIZE2].o_request);
+}
+
+static void
+setpacketdrop(int argc, char *argv[])
+{
+
+	if (argc != 1)
+		packetdroppercentage = atoi(argv[1]);
+
+	printf("Randomly %d in 100 packets will be dropped\n",
+	    packetdroppercentage);
+}
+
+static void
+setwindowsize(int argc, char *argv[])
+{
+
+	if (!options_rfc_enabled)
+		printf("RFC2347 style options are not enabled "
+		    "(but proceeding anyway)\n");
+
+	if (argc != 1) {
+		int size = atoi(argv[1]);
+
+		if (size < WINDOWSIZE_MIN || size > WINDOWSIZE_MAX) {
+			printf("Windowsize should be between %d and %d "
+			    "blocks.\n", WINDOWSIZE_MIN, WINDOWSIZE_MAX);
+			return;
+		} else {
+			options_set_request(OPT_WINDOWSIZE, "%d", size);
+		}
+	}
+	printf("Windowsize is now %s blocks.\n",
+	    options[OPT_WINDOWSIZE].o_request);
 }

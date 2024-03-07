@@ -123,7 +123,7 @@
                     NSError* thirdLevelError = subscriptionError.userInfo[NSUnderlyingErrorKey];
 
                     if(subscriptionError && [subscriptionError.domain isEqualToString:CKErrorDomain] && subscriptionError.code == CKErrorServerRejectedRequest &&
-                       thirdLevelError && [thirdLevelError.domain isEqualToString:CKErrorDomain] && thirdLevelError.code == CKErrorInternalDuplicateSubscription) {
+                       thirdLevelError && [thirdLevelError.domain isEqualToString:CKErrorDomain] && thirdLevelError.code == CKUnderlyingErrorDuplicateSubscription) {
                         ckkserror("ckks", viewState.zoneID, "zone subscription error appears to say that the zone subscription exists; this is okay!");
                         createdSubscription = true;
                     }

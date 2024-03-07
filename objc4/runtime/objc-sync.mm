@@ -80,7 +80,7 @@ struct SyncList {
     SyncData *_data;
     spinlock_t _lock;
 
-    SyncList() : _data(nil), _lock(fork_unsafe) { }
+    SyncList() : _data(nil), _lock() { }
 
     void lock() {
         _lock.lock();
@@ -451,20 +451,8 @@ void _objc_sync_foreach_lock(void (^call)(id obj, SyncKind kind, recursive_mutex
     sDataLists.get().unlockAll();
 }
 
-void _objc_sync_lock_atfork_prepare(void)
-{
-    sDataLists.get().lockAll();
-}
-
-void _objc_sync_lock_atfork_parent(void)
-{
-    sDataLists.get().unlockAll();
-}
-
 void _objc_sync_lock_atfork_child(void)
 {
-    sDataLists.get().forceResetAll();
-
     // The per-thread cache could hold stale data, clear it.
     clearSyncCache();
 
@@ -486,4 +474,10 @@ void _objc_sync_lock_atfork_child(void)
         }
         list._data = NULL;
     });
+}
+
+spinlock_t *_objc_sync_locks_get_lock(unsigned n) {
+    if (auto *list = sDataLists.get().getLock(n))
+        return &list->_lock;
+    return nullptr;
 }

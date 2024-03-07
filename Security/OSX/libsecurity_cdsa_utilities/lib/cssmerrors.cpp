@@ -127,6 +127,8 @@ CSSM_RETURN CssmError::cssmError(const CommonError &error, CSSM_RETURN base)
 		case BOOTSTRAP_UNKNOWN_SERVICE:
 		case MIG_SERVER_DIED:
 			return CSSM_ERRCODE_SERVICE_NOT_AVAILABLE;
+        case MIG_BAD_ID:
+            return CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED;
 		default:
 			return CSSM_ERRCODE_INTERNAL_ERROR;
 		}

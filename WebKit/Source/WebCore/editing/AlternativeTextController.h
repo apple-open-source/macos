@@ -131,14 +131,15 @@ private:
     Position m_positionForLastDeletedAutocorrection;
 #endif
 #if USE(DICTATION_ALTERNATIVES) || USE(AUTOCORRECTION_PANEL)
-    String markerDescriptionForAppliedAlternativeText(AlternativeTextType, DocumentMarker::MarkerType);
-    void applyAlternativeTextToRange(const SimpleRange&, const String&, AlternativeTextType, OptionSet<DocumentMarker::MarkerType>);
+    String markerDescriptionForAppliedAlternativeText(AlternativeTextType, DocumentMarker::Type);
+    void applyAlternativeTextToRange(const SimpleRange&, const String&, AlternativeTextType, OptionSet<DocumentMarker::Type>);
     AlternativeTextClient* alternativeTextClient();
 #endif
+    Ref<Document> protectedDocument() const { return m_document.get(); }
 
     void removeCorrectionIndicatorMarkers();
 
-    Document& m_document;
+    CheckedRef<Document> m_document;
 };
 
 #undef UNLESS_ENABLED

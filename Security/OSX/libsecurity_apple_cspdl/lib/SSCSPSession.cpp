@@ -587,7 +587,37 @@ SSCSPSession::PassThrough(CSSM_CC_HANDLE CCHandle,
 		*outData = digest;
 		break;
 	}
-	
+    case CSSM_APPLECSP_PUBKEY:
+    {
+        // inData unused, must be NULL
+        if (inData)
+            CssmError::throwMe(CSSM_ERRCODE_INVALID_INPUT_POINTER);
+
+        // outData required
+        Required(outData);
+
+        // take the key from the context, convert to KeyHandle
+        const CssmKey &key =
+        context.get<const CssmKey>(CSSM_ATTRIBUTE_KEY,  CSSMERR_CSP_MISSING_ATTR_KEY);
+        KeyHandle keyHandle = lookupKey(key).keyHandle();
+
+        // allocate pubKey data holder on app's behalf
+        CSSM_DATA *pubKey = alloc<CSSM_DATA>(sizeof(CSSM_DATA));
+        pubKey->Data = NULL;
+        pubKey->Length = 0;
+
+        // go
+        try {
+            clientSession().getPublicKey(context, keyHandle, CssmData::overlay(*pubKey));
+        }
+        catch(...) {
+            free(pubKey);
+            throw;
+        }
+        *outData = pubKey;
+        break;
+    }
+
 	default:
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_PASSTHROUGH_ID);
 	}

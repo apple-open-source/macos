@@ -30,6 +30,7 @@
 + (void)setUp {
     securityd_init_local_spi();
     SecCKKSDisable();
+    KCSharingSetChangeTrackingEnabled(false);
 
     [super setUp];
 }
@@ -81,6 +82,7 @@
 
 + (void)tearDown {
     [super tearDown];
+    KCSharingClearChangeTrackingEnabledOverride();
 }
 
 - (void)testStateMachineEntersNothingToDo

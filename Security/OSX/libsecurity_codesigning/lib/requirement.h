@@ -29,11 +29,11 @@
 
 #include <security_utilities/blob.h>
 #include <security_utilities/superblob.h>
-#include <security_utilities/hashing.h>
 #include <security_utilities/debugging_internal.h>
 #include <Security/CodeSigning.h>
 #include "codedirectory.h"
 #include <map>
+#include <kern/cs_blobs.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -59,9 +59,10 @@ public:
 	class Reader;				// structured reader
 	class Interpreter;			// evaluation engine
 
-	// different forms of Requirements. Right now, we only support exprForm ("opExprs")
+	// different forms of Requirements.
 	enum Kind {
-		exprForm = 1			// prefix expr form
+		exprForm = 1,			// prefix expr form
+		lwcrForm = 2,			// DER encoded lightweight code requirement form
 	};
 	
 	void kind(Kind k) { mKind = k; }
@@ -100,15 +101,19 @@ private:
 class Requirement::Context {
 protected:
 	Context()
-		: certs(NULL), info(NULL), entitlements(NULL), identifier(""), directory(NULL), packageChecksum(NULL), packageAlgorithm(kSecCodeSignatureNoHash), forcePlatform(false), secureTimestamp(NULL) { }
+	: certs(NULL), info(NULL), entitlements(NULL), identifier(""), directory(NULL), packageChecksum(NULL), packageAlgorithm(kSecCodeSignatureNoHash), forcePlatform(false),
+		secureTimestamp(NULL), teamIdentifier(NULL), platformType(0), isSIPProtected(false), onAuthorizedAuthAPFSVolume(false), onSystemVolume(false),
+		validationCategory(CS_VALIDATION_CATEGORY_INVALID) { }
 
 public:
 	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict, const std::string &ident,
 			const CodeDirectory *dir, CFDataRef packageChecksum, SecCSDigestAlgorithm packageAlgorithm, bool force_platform, CFDateRef secure_timestamp,
-			const char *teamID)
+			const char *teamID, uint8_t platformType = 0, bool isSIPProtected = false, bool onAuthorizedAuthAPFSVolume = false, bool onSystemVolume = false, 
+			unsigned int validationCategory = CS_VALIDATION_CATEGORY_INVALID)
 		: certs(certChain), info(infoDict), entitlements(entitlementDict), identifier(ident), directory(dir),
 			packageChecksum(packageChecksum), packageAlgorithm(packageAlgorithm), forcePlatform(force_platform),
-			secureTimestamp(secure_timestamp), teamIdentifier(teamID)   { }
+			secureTimestamp(secure_timestamp), teamIdentifier(teamID),platformType(platformType),isSIPProtected(isSIPProtected),
+			onAuthorizedAuthAPFSVolume(onAuthorizedAuthAPFSVolume), onSystemVolume(onSystemVolume), validationCategory(validationCategory) { }
 
 	CFArrayRef certs;								// certificate chain
 	CFDictionaryRef info;							// Info.plist
@@ -120,6 +125,11 @@ public:
 	bool forcePlatform;
 	CFDateRef secureTimestamp;
 	const char *teamIdentifier;					// team identifier
+	uint8_t platformType;
+	bool isSIPProtected;
+	bool onAuthorizedAuthAPFSVolume;
+	bool onSystemVolume;
+	unsigned int validationCategory;
 
 	SecCertificateRef cert(int ix) const;			// get a cert from the cert chain (NULL if not found)
 	unsigned int certCount() const;				// length of cert chain (including root)

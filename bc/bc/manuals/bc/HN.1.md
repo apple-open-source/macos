@@ -2,7 +2,7 @@
 
 SPDX-License-Identifier: BSD-2-Clause
 
-Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+Copyright (c) 2018-2023 Gavin D. Howard and contributors.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -34,21 +34,114 @@ bc - arbitrary-precision decimal arithmetic language and calculator
 
 # SYNOPSIS
 
-**bc** [**-ghilPqRsvVw**] [**-\-global-stacks**] [**-\-help**] [**-\-interactive**] [**-\-mathlib**] [**-\-no-prompt**] [**-\-no-read-prompt**] [**-\-quiet**] [**-\-standard**] [**-\-warn**] [**-\-version**] [**-e** *expr*] [**-\-expression**=*expr*...] [**-f** *file*...] [**-\-file**=*file*...] [*file*...]
+**bc** [**-cCghilPqRsvVw**] [**-\-digit-clamp**] [**-\-no-digit-clamp**] [**-\-global-stacks**] [**-\-help**] [**-\-interactive**] [**-\-mathlib**] [**-\-no-prompt**] [**-\-no-read-prompt**] [**-\-quiet**] [**-\-standard**] [**-\-warn**] [**-\-version**] [**-e** *expr*] [**-\-expression**=*expr*...] [**-f** *file*...] [**-\-file**=*file*...] [*file*...] [**-I** *ibase*] [**-\-ibase**=*ibase*] [**-O** *obase*] [**-\-obase**=*obase*] [**-S** *scale*] [**-\-scale**=*scale*] [**-E** *seed*] [**-\-seed**=*seed*]
 
 # DESCRIPTION
 
 bc(1) is an interactive processor for a language first standardized in 1991 by
-POSIX. (The current standard is [here][1].) The language provides unlimited
+POSIX. (See the **STANDARDS** section.) The language provides unlimited
 precision decimal arithmetic and is somewhat C-like, but there are differences.
 Such differences will be noted in this document.
 
 After parsing and handling options, this bc(1) reads any files given on the
 command line and executes them before reading from **stdin**.
 
+This bc(1) is a drop-in replacement for *any* bc(1), including (and
+especially) the GNU bc(1). It also has many extensions and extra features beyond
+other implementations.
+
+**Note**: If running this bc(1) on *any* script meant for another bc(1) gives a
+parse error, it is probably because a word this bc(1) reserves as a keyword is
+used as the name of a function, variable, or array. To fix that, use the
+command-line option **-r** *keyword*, where *keyword* is the keyword that is
+used as a name in the script. For more information, see the **OPTIONS** section.
+
+If parsing scripts meant for other bc(1) implementations still does not work,
+that is a bug and should be reported. See the **BUGS** section.
+
 # OPTIONS
 
 The following are the options that bc(1) accepts.
+
+**-C**, **-\-no-digit-clamp**
+
+:   Disables clamping of digits greater than or equal to the current **ibase**
+    when parsing numbers.
+
+    This means that the value added to a number from a digit is always that
+    digit's value multiplied by the value of ibase raised to the power of the
+    digit's position, which starts from 0 at the least significant digit.
+
+    If this and/or the **-c** or **-\-digit-clamp** options are given multiple
+    times, the last one given is used.
+
+    This option overrides the **BC_DIGIT_CLAMP** environment variable (see the
+    **ENVIRONMENT VARIABLES** section) and the default, which can be queried
+    with the **-h** or **-\-help** options.
+
+    This is a **non-portable extension**.
+
+**-c**, **-\-digit-clamp**
+
+:   Enables clamping of digits greater than or equal to the current **ibase**
+    when parsing numbers.
+
+    This means that digits that the value added to a number from a digit that is
+    greater than or equal to the ibase is the value of ibase minus 1 all
+    multiplied by the value of ibase raised to the power of the digit's
+    position, which starts from 0 at the least significant digit.
+
+    If this and/or the **-C** or **-\-no-digit-clamp** options are given
+    multiple times, the last one given is used.
+
+    This option overrides the **BC_DIGIT_CLAMP** environment variable (see the
+    **ENVIRONMENT VARIABLES** section) and the default, which can be queried
+    with the **-h** or **-\-help** options.
+
+    This is a **non-portable extension**.
+
+**-E** *seed*, **-\-seed**=*seed*
+
+:   Sets the builtin variable **seed** to the value *seed* assuming that *seed*
+    is in base 10. It is a fatal error if *seed* is not a valid number.
+
+    If multiple instances of this option are given, the last is used.
+
+    This is a **non-portable extension**.
+
+**-e** *expr*, **-\-expression**=*expr*
+
+:   Evaluates *expr*. If multiple expressions are given, they are evaluated in
+    order. If files are given as well (see the **-f** and **-\-file** options),
+    the expressions and files are evaluated in the order given. This means that
+    if a file is given before an expression, the file is read in and evaluated
+    first.
+
+    If this option is given on the command-line (i.e., not in **BC_ENV_ARGS**,
+    see the **ENVIRONMENT VARIABLES** section), then after processing all
+    expressions and files, bc(1) will exit, unless **-** (**stdin**) was given
+    as an argument at least once to **-f** or **-\-file**, whether on the
+    command-line or in **BC_ENV_ARGS**. However, if any other **-e**,
+    **-\-expression**, **-f**, or **-\-file** arguments are given after **-f-**
+    or equivalent is given, bc(1) will give a fatal error and exit.
+
+    This is a **non-portable extension**.
+
+**-f** *file*, **-\-file**=*file*
+
+:   Reads in *file* and evaluates it, line by line, as though it were read
+    through **stdin**. If expressions are also given (see the **-e** and
+    **-\-expression** options), the expressions are evaluated in the order
+    given.
+
+    If this option is given on the command-line (i.e., not in **BC_ENV_ARGS**,
+    see the **ENVIRONMENT VARIABLES** section), then after processing all
+    expressions and files, bc(1) will exit, unless **-** (**stdin**) was given
+    as an argument at least once to **-f** or **-\-file**. However, if any other
+    **-e**, **-\-expression**, **-f**, or **-\-file** arguments are given after
+    **-f-** or equivalent is given, bc(1) will give a fatal error and exit.
+
+    This is a **non-portable extension**.
 
 **-g**, **-\-global-stacks**
 
@@ -120,11 +213,28 @@ The following are the options that bc(1) accepts.
 
 **-h**, **-\-help**
 
-:   Prints a usage message and quits.
+:   Prints a usage message and exits.
+
+**-I** *ibase*, **-\-ibase**=*ibase*
+
+:   Sets the builtin variable **ibase** to the value *ibase* assuming that
+    *ibase* is in base 10. It is a fatal error if *ibase* is not a valid number.
+
+    If multiple instances of this option are given, the last is used.
+
+    This is a **non-portable extension**.
 
 **-i**, **-\-interactive**
 
 :   Forces interactive mode. (See the **INTERACTIVE MODE** section.)
+
+    This is a **non-portable extension**.
+
+**-L**, **-\-no-line-length**
+
+:   Disables line length checking and prints numbers without backslashes and
+    newlines. In other words, this option sets **BC_LINE_LENGTH** to **0** (see
+    the **ENVIRONMENT VARIABLES** section).
 
     This is a **non-portable extension**.
 
@@ -136,6 +246,15 @@ The following are the options that bc(1) accepts.
 
     To learn what is in the libraries, see the **LIBRARY** section.
 
+**-O** *obase*, **-\-obase**=*obase*
+
+:   Sets the builtin variable **obase** to the value *obase* assuming that
+    *obase* is in base 10. It is a fatal error if *obase* is not a valid number.
+
+    If multiple instances of this option are given, the last is used.
+
+    This is a **non-portable extension**.
+
 **-P**, **-\-no-prompt**
 
 :   Disables the prompt in TTY mode. (The prompt is only enabled in TTY mode.
@@ -143,6 +262,22 @@ The following are the options that bc(1) accepts.
     want a prompt or are not used to having them in bc(1). Most of those users
     would want to put this option in **BC_ENV_ARGS** (see the
     **ENVIRONMENT VARIABLES** section).
+
+    These options override the **BC_PROMPT** and **BC_TTY_MODE** environment
+    variables (see the **ENVIRONMENT VARIABLES** section).
+
+    This is a **non-portable extension**.
+
+**-q**, **-\-quiet**
+
+:   This option is for compatibility with the GNU bc(1)
+    (https://www.gnu.org/software/bc/); it is a no-op. Without this option, GNU
+    bc(1) prints a copyright header. This bc(1) only prints the copyright header
+    if one or more of the **-v**, **-V**, or **-\-version** options are given
+    unless the **BC_BANNER** environment variable is set and contains a non-zero
+    integer or if this bc(1) was built with the header displayed by default. If
+    *any* of that is the case, then this option *does* prevent bc(1) from
+    printing the header.
 
     This is a **non-portable extension**.
 
@@ -158,27 +293,70 @@ The following are the options that bc(1) accepts.
     This option does not disable the regular prompt because the read prompt is
     only used when the **read()** built-in function is called.
 
+    These options *do* override the **BC_PROMPT** and **BC_TTY_MODE**
+    environment variables (see the **ENVIRONMENT VARIABLES** section), but only
+    for the read prompt.
+
     This is a **non-portable extension**.
 
-**-q**, **-\-quiet**
+**-r** *keyword*, **-\-redefine**=*keyword*
 
-:   This option is for compatibility with the [GNU bc(1)][2]; it is a no-op.
-    Without this option, GNU bc(1) prints a copyright header. This bc(1) only
-    prints the copyright header if one or more of the **-v**, **-V**, or
-    **-\-version** options are given.
+:   Redefines *keyword* in order to allow it to be used as a function, variable,
+    or array name. This is useful when this bc(1) gives parse errors when
+    parsing scripts meant for other bc(1) implementations.
+
+    The keywords this bc(1) allows to be redefined are:
+
+    * **abs**
+    * **asciify**
+    * **continue**
+    * **divmod**
+    * **else**
+    * **halt**
+    * **irand**
+    * **last**
+    * **limits**
+    * **maxibase**
+    * **maxobase**
+    * **maxrand**
+    * **maxscale**
+    * **modexp**
+    * **print**
+    * **rand**
+    * **read**
+    * **seed**
+	* **stream**
+
+    If any of those keywords are used as a function, variable, or array name in
+    a script, use this option with the keyword as the argument. If multiple are
+    used, use this option for all of them; it can be used multiple times.
+
+    Keywords are *not* redefined when parsing the builtin math library (see the
+    **LIBRARY** section).
+
+    It is a fatal error to redefine keywords mandated by the POSIX standard (see
+    the **STANDARDS** section). It is a fatal error to attempt to redefine words
+    that this bc(1) does not reserve as keywords.
+
+**-S** *scale*, **-\-scale**=*scale*
+
+:   Sets the builtin variable **scale** to the value *scale* assuming that
+    *scale* is in base 10. It is a fatal error if *scale* is not a valid number.
+
+    If multiple instances of this option are given, the last is used.
 
     This is a **non-portable extension**.
 
 **-s**, **-\-standard**
 
-:   Process exactly the language defined by the [standard][1] and error if any
-    extensions are used.
+:   Process exactly the language defined by the standard (see the **STANDARDS**
+    section) and error if any extensions are used.
 
     This is a **non-portable extension**.
 
 **-v**, **-V**, **-\-version**
 
-:   Print the version information (copyright header) and exit.
+:   Print the version information (copyright header) and exits.
 
     This is a **non-portable extension**.
 
@@ -189,39 +367,34 @@ The following are the options that bc(1) accepts.
 
     This is a **non-portable extension**.
 
-**-e** *expr*, **-\-expression**=*expr*
+**-z**, **-\-leading-zeroes**
 
-:   Evaluates *expr*. If multiple expressions are given, they are evaluated in
-    order. If files are given as well (see below), the expressions and files are
-    evaluated in the order given. This means that if a file is given before an
-    expression, the file is read in and evaluated first.
+:   Makes bc(1) print all numbers greater than **-1** and less than **1**, and
+    not equal to **0**, with a leading zero.
 
-    If this option is given on the command-line (i.e., not in **BC_ENV_ARGS**,
-    see the **ENVIRONMENT VARIABLES** section), then after processing all
-    expressions and files, bc(1) will exit, unless **-** (**stdin**) was given
-    as an argument at least once to **-f** or **-\-file**, whether on the
-    command-line or in **BC_ENV_ARGS**. However, if any other **-e**,
-    **-\-expression**, **-f**, or **-\-file** arguments are given after **-f-**
-    or equivalent is given, bc(1) will give a fatal error and exit.
-
-    This is a **non-portable extension**.
-
-**-f** *file*, **-\-file**=*file*
-
-:   Reads in *file* and evaluates it, line by line, as though it were read
-    through **stdin**. If expressions are also given (see above), the
-    expressions are evaluated in the order given.
-
-    If this option is given on the command-line (i.e., not in **BC_ENV_ARGS**,
-    see the **ENVIRONMENT VARIABLES** section), then after processing all
-    expressions and files, bc(1) will exit, unless **-** (**stdin**) was given
-    as an argument at least once to **-f** or **-\-file**. However, if any other
-    **-e**, **-\-expression**, **-f**, or **-\-file** arguments are given after
-    **-f-** or equivalent is given, bc(1) will give a fatal error and exit.
+    This can be set for individual numbers with the **plz(x)**, **plznl(x)**,
+    **pnlz(x)**, and **pnlznl(x)** functions in the extended math library (see
+    the **LIBRARY** section).
 
     This is a **non-portable extension**.
 
 All long options are **non-portable extensions**.
+
+# STDIN
+
+If no files or expressions are given by the **-f**, **-\-file**, **-e**, or
+**-\-expression** options, then bc(1) reads from **stdin**.
+
+However, there are a few caveats to this.
+
+First, **stdin** is evaluated a line at a time. The only exception to this is if
+the parse cannot complete. That means that starting a string without ending it
+or starting a function, **if** statement, or loop without ending it will also
+cause bc(1) to not execute.
+
+Second, after an **if** statement, bc(1) doesn't know if an **else** statement
+will follow, so it will not execute until it knows there will not be an **else**
+statement.
 
 # STDOUT
 
@@ -256,9 +429,9 @@ it is recommended that those scripts be changed to redirect **stderr** to
 # SYNTAX
 
 The syntax for bc(1) programs is mostly C-like, with some differences. This
-bc(1) follows the [POSIX standard][1], which is a much more thorough resource
-for the language this bc(1) accepts. This section is meant to be a summary and a
-listing of all the extensions to the standard.
+bc(1) follows the POSIX standard (see the **STANDARDS** section), which is a
+much more thorough resource for the language this bc(1) accepts. This section is
+meant to be a summary and a listing of all the extensions to the standard.
 
 In the sections below, **E** means expression, **S** means statement, and **I**
 means identifier.
@@ -376,31 +549,63 @@ The following are valid operands in bc(1):
 2.	Array indices (**I[E]**).
 3.	**(E)**: The value of **E** (used to change precedence).
 4.	**sqrt(E)**: The square root of **E**. **E** must be non-negative.
-5.	**length(E)**: The number of significant decimal digits in **E**.
+5.	**length(E)**: The number of significant decimal digits in **E**. Returns
+	**1** for **0** with no decimal places. If given a string, the length of the
+	string is returned. Passing a string to **length(E)** is a **non-portable
+	extension**.
 6.	**length(I[])**: The number of elements in the array **I**. This is a
 	**non-portable extension**.
 7.	**scale(E)**: The *scale* of **E**.
 8.	**abs(E)**: The absolute value of **E**. This is a **non-portable
 	extension**.
-9.	**I()**, **I(E)**, **I(E, E)**, and so on, where **I** is an identifier for
+9.	**is_number(E)**: **1** if the given argument is a number, **0** if it is a
+	string. This is a **non-portable extension**.
+10.	**is_string(E)**: **1** if the given argument is a string, **0** if it is a
+	number. This is a **non-portable extension**.
+11.	**modexp(E, E, E)**: Modular exponentiation, where the first expression is
+	the base, the second is the exponent, and the third is the modulus. All
+	three values must be integers. The second argument must be non-negative. The
+	third argument must be non-zero. This is a **non-portable extension**.
+11.	**divmod(E, E, I[])**: Division and modulus in one operation. This is for
+	optimization. The first expression is the dividend, and the second is the
+	divisor, which must be non-zero. The return value is the quotient, and the
+	modulus is stored in index **0** of the provided array (the last argument).
+	This is a **non-portable extension**.
+12.	**asciify(E)**: If **E** is a string, returns a string that is the first
+	letter of its argument. If it is a number, calculates the number mod **256**
+	and returns that number as a one-character string. This is a **non-portable
+	extension**.
+13.	**asciify(I[])**: A string that is made up of the characters that would
+	result from running **asciify(E)** on each element of the array identified
+	by the argument. This allows creating multi-character strings and storing
+	them. This is a **non-portable extension**.
+14.	**I()**, **I(E)**, **I(E, E)**, and so on, where **I** is an identifier for
 	a non-**void** function (see the *Void Functions* subsection of the
 	**FUNCTIONS** section). The **E** argument(s) may also be arrays of the form
 	**I[]**, which will automatically be turned into array references (see the
 	*Array References* subsection of the **FUNCTIONS** section) if the
 	corresponding parameter in the function definition is an array reference.
-10.	**read()**: Reads a line from **stdin** and uses that as an expression. The
+15.	**read()**: Reads a line from **stdin** and uses that as an expression. The
 	result of that expression is the result of the **read()** operand. This is a
 	**non-portable extension**.
-11.	**maxibase()**: The max allowable **ibase**. This is a **non-portable
+16.	**maxibase()**: The max allowable **ibase**. This is a **non-portable
 	extension**.
-12.	**maxobase()**: The max allowable **obase**. This is a **non-portable
+17.	**maxobase()**: The max allowable **obase**. This is a **non-portable
 	extension**.
-13.	**maxscale()**: The max allowable **scale**. This is a **non-portable
+18.	**maxscale()**: The max allowable **scale**. This is a **non-portable
 	extension**.
-14.	**rand()**: A pseudo-random integer between **0** (inclusive) and
+19.	**line_length()**: The line length set with **BC_LINE_LENGTH** (see the
+	**ENVIRONMENT VARIABLES** section). This is a **non-portable extension**.
+20.	**global_stacks()**: **0** if global stacks are not enabled with the **-g**
+	or **-\-global-stacks** options, non-zero otherwise. See the **OPTIONS**
+	section. This is a **non-portable extension**.
+21.	**leading_zero()**: **0** if leading zeroes are not enabled with the **-z**
+	or **--leading-zeroes** options, non-zero otherwise. See the **OPTIONS**
+	section. This is a **non-portable extension**.
+22.	**rand()**: A pseudo-random integer between **0** (inclusive) and
 	**BC_RAND_MAX** (inclusive). Using this operand will change the value of
 	**seed**. This is a **non-portable extension**.
-15.	**irand(E)**: A pseudo-random integer between **0** (inclusive) and the
+23.	**irand(E)**: A pseudo-random integer between **0** (inclusive) and the
 	value of **E** (exclusive). If **E** is negative or is a non-integer
 	(**E**'s *scale* is not **0**), an error is raised, and bc(1) resets (see
 	the **RESET** section) while **seed** remains unchanged. If **E** is larger
@@ -411,7 +616,7 @@ The following are valid operands in bc(1):
 	change the value of **seed**, unless the value of **E** is **0** or **1**.
 	In that case, **0** is returned, and **seed** is *not* changed. This is a
 	**non-portable extension**.
-16.	**maxrand()**: The max integer returned by **rand()**. This is a
+24.	**maxrand()**: The max integer returned by **rand()**. This is a
 	**non-portable extension**.
 
 The integers generated by **rand()** and **irand(E)** are guaranteed to be as
@@ -430,14 +635,40 @@ use a non-seeded pseudo-random number generator.
 
 Numbers are strings made up of digits, uppercase letters, and at most **1**
 period for a radix. Numbers can have up to **BC_NUM_MAX** digits. Uppercase
-letters are equal to **9** + their position in the alphabet (i.e., **A** equals
-**10**, or **9+1**). If a digit or letter makes no sense with the current value
-of **ibase**, they are set to the value of the highest valid digit in **ibase**.
+letters are equal to **9** plus their position in the alphabet, starting from
+**1** (i.e., **A** equals **10**, or **9+1**).
 
-Single-character numbers (i.e., **A** alone) take the value that they would have
-if they were valid digits, regardless of the value of **ibase**. This means that
-**A** alone always equals decimal **10** and **Z** alone always equals decimal
-**35**.
+If a digit or letter makes no sense with the current value of **ibase** (i.e.,
+they are greater than or equal to the current value of **ibase**), then the
+behavior depends on the existence of the **-c**/**-\-digit-clamp** or
+**-C**/**-\-no-digit-clamp** options (see the **OPTIONS** section), the
+existence and setting of the **BC_DIGIT_CLAMP** environment variable (see the
+**ENVIRONMENT VARIABLES** section), or the default, which can be queried with
+the **-h**/**-\-help** option.
+
+If clamping is off, then digits or letters that are greater than or equal to the
+current value of **ibase** are not changed. Instead, their given value is
+multiplied by the appropriate power of **ibase** and added into the number. This
+means that, with an **ibase** of **3**, the number **AB** is equal to
+**3\^1\*A+3\^0\*B**, which is **3** times **10** plus **11**, or **41**.
+
+If clamping is on, then digits or letters that are greater than or equal to the
+current value of **ibase** are set to the value of the highest valid digit in
+**ibase** before being multiplied by the appropriate power of **ibase** and
+added into the number. This means that, with an **ibase** of **3**, the number
+**AB** is equal to **3\^1\*2+3\^0\*2**, which is **3** times **2** plus **2**,
+or **8**.
+
+There is one exception to clamping: single-character numbers (i.e., **A**
+alone). Such numbers are never clamped and always take the value they would have
+in the highest possible **ibase**. This means that **A** alone always equals
+decimal **10** and **Z** alone always equals decimal **35**. This behavior is
+mandated by the standard (see the STANDARDS section) and is meant to provide an
+easy way to set the current **ibase** (with the **i** command) regardless of the
+current value of **ibase**.
+
+If clamping is on, and the clamped value of a character is needed, use a leading
+zero, i.e., for **A**, use **0A**.
 
 In addition, bc(1) accepts numbers in scientific notation. These have the form
 **\<number\>e\<integer\>**. The exponent (the portion after the **e**) must be
@@ -687,9 +918,9 @@ The operators will be described in more detail below.
     **assignment** operators, which means that **a=b\>c** is interpreted as
     **(a=b)\>c**.
 
-    Also, unlike the [standard][1] requires, these operators can appear anywhere
-    any other expressions can be used. This allowance is a
-    **non-portable extension**.
+    Also, unlike the standard (see the **STANDARDS** section) requires, these
+    operators can appear anywhere any other expressions can be used. This
+    allowance is a **non-portable extension**.
 
 **&&**
 
@@ -727,14 +958,15 @@ The following items are statements:
 12.	**limits**
 13.	A string of characters, enclosed in double quotes
 14.	**print** **E** **,** ... **,** **E**
-15.	**I()**, **I(E)**, **I(E, E)**, and so on, where **I** is an identifier for
+15.	**stream** **E** **,** ... **,** **E**
+16.	**I()**, **I(E)**, **I(E, E)**, and so on, where **I** is an identifier for
 	a **void** function (see the *Void Functions* subsection of the
 	**FUNCTIONS** section). The **E** argument(s) may also be arrays of the form
 	**I[]**, which will automatically be turned into array references (see the
 	*Array References* subsection of the **FUNCTIONS** section) if the
 	corresponding parameter in the function definition is an array reference.
 
-Numbers 4, 9, 11, 12, 14, and 15 are **non-portable extensions**.
+Numbers 4, 9, 11, 12, 14, 15, and 16 are **non-portable extensions**.
 
 Also, as a **non-portable extension**, any or all of the expressions in the
 header of a for loop may be omitted. If the condition (second expression) is
@@ -751,6 +983,19 @@ The **if** **else** statement does the same thing as in C.
 
 The **quit** statement causes bc(1) to quit, even if it is on a branch that will
 not be executed (it is a compile-time command).
+
+**Warning**: The behavior of this bc(1) on **quit** is slightly different from
+other bc(1) implementations. Other bc(1) implementations will exit as soon as
+they finish parsing the line that a **quit** command is on. This bc(1) will
+execute any completed and executable statements that occur before the **quit**
+statement before exiting.
+
+In other words, for the bc(1) code below:
+
+    for (i = 0; i < 3; ++i) i; quit
+
+Other bc(1) implementations will print nothing, and this bc(1) will print **0**,
+**1**, and **2** on successive lines before exiting.
 
 The **halt** statement causes bc(1) to quit, if it is executed. (Unlike **quit**
 if it is on a branch of an **if** statement that is not executed, bc(1) does not
@@ -772,29 +1017,67 @@ either the **-s** or **-w** command-line options (or equivalents).
 Printing numbers in scientific notation and/or engineering notation is a
 **non-portable extension**.
 
+## Strings
+
+If strings appear as a statement by themselves, they are printed without a
+trailing newline.
+
+In addition to appearing as a lone statement by themselves, strings can be
+assigned to variables and array elements. They can also be passed to functions
+in variable parameters.
+
+If any statement that expects a string is given a variable that had a string
+assigned to it, the statement acts as though it had received a string.
+
+If any math operation is attempted on a string or a variable or array element
+that has been assigned a string, an error is raised, and bc(1) resets (see the
+**RESET** section).
+
+Assigning strings to variables and array elements and passing them to functions
+are **non-portable extensions**.
+
 ## Print Statement
 
 The "expressions" in a **print** statement may also be strings. If they are, there
 are backslash escape sequences that are interpreted specially. What those
 sequences are, and what they cause to be printed, are shown below:
 
--------- -------
-**\\a**  **\\a**
-**\\b**  **\\b**
-**\\\\** **\\**
-**\\e**  **\\**
-**\\f**  **\\f**
-**\\n**  **\\n**
-**\\q**  **"**
-**\\r**  **\\r**
-**\\t**  **\\t**
--------- -------
+**\\a**:   **\\a**
+
+**\\b**:   **\\b**
+
+**\\\\**:   **\\**
+
+**\\e**:   **\\**
+
+**\\f**:   **\\f**
+
+**\\n**:   **\\n**
+
+**\\q**:   **"**
+
+**\\r**:   **\\r**
+
+**\\t**:   **\\t**
 
 Any other character following a backslash causes the backslash and character to
 be printed as-is.
 
 Any non-string expression in a print statement shall be assigned to **last**,
 like any other expression that is printed.
+
+## Stream Statement
+
+The "expressions in a **stream** statement may also be strings.
+
+If a **stream** statement is given a string, it prints the string as though the
+string had appeared as its own statement. In other words, the **stream**
+statement prints strings normally, without a newline.
+
+If a **stream** statement is given a number, a copy of it is truncated and its
+absolute value is calculated. The result is then printed as though **obase** is
+**256** and each digit is interpreted as an 8-bit ASCII character, making it a
+byte stream.
 
 ## Order of Evaluation
 
@@ -897,7 +1180,8 @@ equivalents are given.
 
 ## Standard Library
 
-The [standard][1] defines the following functions for the math library:
+The standard (see the **STANDARDS** section) defines the following functions for
+the math library:
 
 **s(x)**
 
@@ -945,7 +1229,7 @@ The [standard][1] defines the following functions for the math library:
 
 The extended library is *not* loaded when the **-s**/**-\-standard** or
 **-w**/**-\-warn** options are given since they are not part of the library
-defined by the [standard][1].
+defined by the standard (see the **STANDARDS** section).
 
 The extended library is a **non-portable extension**.
 
@@ -962,12 +1246,14 @@ The extended library is a **non-portable extension**.
 **r(x, p)**
 
 :   Returns **x** rounded to **p** decimal places according to the rounding mode
-    [round half away from **0**][3].
+    round half away from **0**
+    (https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero).
 
 **ceil(x, p)**
 
 :   Returns **x** rounded to **p** decimal places according to the rounding mode
-    [round away from **0**][6].
+    round away from **0**
+    (https://en.wikipedia.org/wiki/Rounding#Rounding_away_from_zero).
 
 **f(x)**
 
@@ -1016,6 +1302,16 @@ The extended library is a **non-portable extension**.
     If **r** is **0** or negative, this raises an error and causes bc(1) to
     reset (see the **RESET** section). It also raises an error and causes bc(1)
     to reset if **r** is even and **x** is negative.
+
+**gcd(a, b)**
+
+:   Returns the greatest common divisor (factor) of the truncated absolute value
+    of **a** and the truncated absolute value of **b**.
+
+**lcm(a, b)**
+
+:   Returns the least common multiple of the truncated absolute value of **a**
+    and the truncated absolute value of **b**.
 
 **pi(p)**
 
@@ -1146,6 +1442,349 @@ The extended library is a **non-portable extension**.
 
 :   Returns a random boolean value (either **0** or **1**).
 
+**band(a, b)**
+
+:   Takes the truncated absolute value of both **a** and **b** and calculates
+    and returns the result of the bitwise **and** operation between them.
+
+    If you want to use signed two's complement arguments, use **s2u(x)** to
+    convert.
+
+**bor(a, b)**
+
+:   Takes the truncated absolute value of both **a** and **b** and calculates
+    and returns the result of the bitwise **or** operation between them.
+
+    If you want to use signed two's complement arguments, use **s2u(x)** to
+    convert.
+
+**bxor(a, b)**
+
+:   Takes the truncated absolute value of both **a** and **b** and calculates
+    and returns the result of the bitwise **xor** operation between them.
+
+    If you want to use signed two's complement arguments, use **s2u(x)** to
+    convert.
+
+**bshl(a, b)**
+
+:   Takes the truncated absolute value of both **a** and **b** and calculates
+    and returns the result of **a** bit-shifted left by **b** places.
+
+    If you want to use signed two's complement arguments, use **s2u(x)** to
+    convert.
+
+**bshr(a, b)**
+
+:   Takes the truncated absolute value of both **a** and **b** and calculates
+    and returns the truncated result of **a** bit-shifted right by **b** places.
+
+    If you want to use signed two's complement arguments, use **s2u(x)** to
+    convert.
+
+**bnotn(x, n)**
+
+:   Takes the truncated absolute value of **x** and does a bitwise not as though
+    it has the same number of bytes as the truncated absolute value of **n**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bnot8(x)**
+
+:   Does a bitwise not of the truncated absolute value of **x** as though it has
+    **8** binary digits (1 unsigned byte).
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bnot16(x)**
+
+:   Does a bitwise not of the truncated absolute value of **x** as though it has
+    **16** binary digits (2 unsigned bytes).
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bnot32(x)**
+
+:   Does a bitwise not of the truncated absolute value of **x** as though it has
+    **32** binary digits (4 unsigned bytes).
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bnot64(x)**
+
+:   Does a bitwise not of the truncated absolute value of **x** as though it has
+    **64** binary digits (8 unsigned bytes).
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bnot(x)**
+
+:   Does a bitwise not of the truncated absolute value of **x** as though it has
+    the minimum number of power of two unsigned bytes.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brevn(x, n)**
+
+:   Runs a bit reversal on the truncated absolute value of **x** as though it
+    has the same number of 8-bit bytes as the truncated absolute value of **n**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brev8(x)**
+
+:   Runs a bit reversal on the truncated absolute value of **x** as though it
+    has 8 binary digits (1 unsigned byte).
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brev16(x)**
+
+:   Runs a bit reversal on the truncated absolute value of **x** as though it
+    has 16 binary digits (2 unsigned bytes).
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brev32(x)**
+
+:   Runs a bit reversal on the truncated absolute value of **x** as though it
+    has 32 binary digits (4 unsigned bytes).
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brev64(x)**
+
+:   Runs a bit reversal on the truncated absolute value of **x** as though it
+    has 64 binary digits (8 unsigned bytes).
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brev(x)**
+
+:   Runs a bit reversal on the truncated absolute value of **x** as though it
+    has the minimum number of power of two unsigned bytes.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**broln(x, p, n)**
+
+:   Does a left bitwise rotatation of the truncated absolute value of **x**, as
+    though it has the same number of unsigned 8-bit bytes as the truncated
+    absolute value of **n**, by the number of places equal to the truncated
+    absolute value of **p** modded by the **2** to the power of the number of
+    binary digits in **n** 8-bit bytes.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brol8(x, p)**
+
+:   Does a left bitwise rotatation of the truncated absolute value of **x**, as
+    though it has **8** binary digits (**1** unsigned byte), by the number of
+    places equal to the truncated absolute value of **p** modded by **2** to the
+    power of **8**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brol16(x, p)**
+
+:   Does a left bitwise rotatation of the truncated absolute value of **x**, as
+    though it has **16** binary digits (**2** unsigned bytes), by the number of
+    places equal to the truncated absolute value of **p** modded by **2** to the
+    power of **16**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brol32(x, p)**
+
+:   Does a left bitwise rotatation of the truncated absolute value of **x**, as
+    though it has **32** binary digits (**2** unsigned bytes), by the number of
+    places equal to the truncated absolute value of **p** modded by **2** to the
+    power of **32**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brol64(x, p)**
+
+:   Does a left bitwise rotatation of the truncated absolute value of **x**, as
+    though it has **64** binary digits (**2** unsigned bytes), by the number of
+    places equal to the truncated absolute value of **p** modded by **2** to the
+    power of **64**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brol(x, p)**
+
+:   Does a left bitwise rotatation of the truncated absolute value of **x**, as
+    though it has the minimum number of power of two unsigned 8-bit bytes, by
+    the number of places equal to the truncated absolute value of **p** modded
+    by 2 to the power of the number of binary digits in the minimum number of
+    8-bit bytes.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**brorn(x, p, n)**
+
+:   Does a right bitwise rotatation of the truncated absolute value of **x**, as
+    though it has the same number of unsigned 8-bit bytes as the truncated
+    absolute value of **n**, by the number of places equal to the truncated
+    absolute value of **p** modded by the **2** to the power of the number of
+    binary digits in **n** 8-bit bytes.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bror8(x, p)**
+
+:   Does a right bitwise rotatation of the truncated absolute value of **x**, as
+    though it has **8** binary digits (**1** unsigned byte), by the number of
+    places equal to the truncated absolute value of **p** modded by **2** to the
+    power of **8**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bror16(x, p)**
+
+:   Does a right bitwise rotatation of the truncated absolute value of **x**, as
+    though it has **16** binary digits (**2** unsigned bytes), by the number of
+    places equal to the truncated absolute value of **p** modded by **2** to the
+    power of **16**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bror32(x, p)**
+
+:   Does a right bitwise rotatation of the truncated absolute value of **x**, as
+    though it has **32** binary digits (**2** unsigned bytes), by the number of
+    places equal to the truncated absolute value of **p** modded by **2** to the
+    power of **32**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bror64(x, p)**
+
+:   Does a right bitwise rotatation of the truncated absolute value of **x**, as
+    though it has **64** binary digits (**2** unsigned bytes), by the number of
+    places equal to the truncated absolute value of **p** modded by **2** to the
+    power of **64**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bror(x, p)**
+
+:   Does a right bitwise rotatation of the truncated absolute value of **x**, as
+    though it has the minimum number of power of two unsigned 8-bit bytes, by
+    the number of places equal to the truncated absolute value of **p** modded
+    by 2 to the power of the number of binary digits in the minimum number of
+    8-bit bytes.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bmodn(x, n)**
+
+:   Returns the modulus of the truncated absolute value of **x** by **2** to the
+    power of the multiplication of the truncated absolute value of **n** and
+    **8**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bmod8(x, n)**
+
+:   Returns the modulus of the truncated absolute value of **x** by **2** to the
+    power of **8**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bmod16(x, n)**
+
+:   Returns the modulus of the truncated absolute value of **x** by **2** to the
+    power of **16**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bmod32(x, n)**
+
+:   Returns the modulus of the truncated absolute value of **x** by **2** to the
+    power of **32**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bmod64(x, n)**
+
+:   Returns the modulus of the truncated absolute value of **x** by **2** to the
+    power of **64**.
+
+    If you want to a use signed two's complement argument, use **s2u(x)** to
+    convert.
+
+**bunrev(t)**
+
+:   Assumes **t** is a bitwise-reversed number with an extra set bit one place
+    more significant than the real most significant bit (which was the least
+    significant bit in the original number). This number is reversed and
+    returned without the extra set bit.
+
+    This function is used to implement other bitwise functions; it is not meant
+    to be used by users, but it can be.
+
+**plz(x)**
+
+:   If **x** is not equal to **0** and greater that **-1** and less than **1**,
+    it is printed with a leading zero, regardless of the use of the **-z**
+    option (see the **OPTIONS** section) and without a trailing newline.
+
+    Otherwise, **x** is printed normally, without a trailing newline.
+
+**plznl(x)**
+
+:   If **x** is not equal to **0** and greater that **-1** and less than **1**,
+    it is printed with a leading zero, regardless of the use of the **-z**
+    option (see the **OPTIONS** section) and with a trailing newline.
+
+    Otherwise, **x** is printed normally, with a trailing newline.
+
+**pnlz(x)**
+
+:   If **x** is not equal to **0** and greater that **-1** and less than **1**,
+    it is printed without a leading zero, regardless of the use of the **-z**
+    option (see the **OPTIONS** section) and without a trailing newline.
+
+    Otherwise, **x** is printed normally, without a trailing newline.
+
+**pnlznl(x)**
+
+:   If **x** is not equal to **0** and greater that **-1** and less than **1**,
+    it is printed without a leading zero, regardless of the use of the **-z**
+    option (see the **OPTIONS** section) and with a trailing newline.
+
+    Otherwise, **x** is printed normally, with a trailing newline.
+
 **ubytes(x)**
 
 :   Returns the numbers of unsigned integer bytes required to hold the truncated
@@ -1155,6 +1794,20 @@ The extended library is a **non-portable extension**.
 
 :   Returns the numbers of signed, two's-complement integer bytes required to
     hold the truncated value of **x**.
+
+**s2u(x)**
+
+:   Returns **x** if it is non-negative. If it *is* negative, then it calculates
+    what **x** would be as a 2's-complement signed integer and returns the
+    non-negative integer that would have the same representation in binary.
+
+**s2un(x,n)**
+
+:   Returns **x** if it is non-negative. If it *is* negative, then it calculates
+    what **x** would be as a 2's-complement signed integer with **n** bytes and
+    returns the non-negative integer that would have the same representation in
+    binary. If **x** cannot fit into **n** 2's-complement signed bytes, it is
+    truncated to fit.
 
 **hex(x)**
 
@@ -1364,10 +2017,11 @@ The extended library is a **non-portable extension**.
 
 ## Transcendental Functions
 
-All transcendental functions can return slightly inaccurate results (up to 1
-[ULP][4]). This is unavoidable, and [this article][5] explains why it is
-impossible and unnecessary to calculate exact results for the transcendental
-functions.
+All transcendental functions can return slightly inaccurate results, up to 1 ULP
+(https://en.wikipedia.org/wiki/Unit_in_the_last_place). This is unavoidable, and
+the  article at https://people.eecs.berkeley.edu/~wkahan/LOG10HAF.TXT explains
+why it is impossible and unnecessary to calculate exact results for the
+transcendental functions.
 
 Because of the possible inaccuracy, I recommend that users call those functions
 with the precision (**scale**) set to at least 1 higher than is necessary. If
@@ -1510,7 +2164,8 @@ be hit.
 
 # ENVIRONMENT VARIABLES
 
-bc(1) recognizes the following environment variables:
+As **non-portable extensions**, bc(1) recognizes the following environment
+variables:
 
 **POSIXLY_CORRECT**
 
@@ -1547,6 +2202,90 @@ bc(1) recognizes the following environment variables:
     lines to that length, including the backslash (**\\**). The default line
     length is **70**.
 
+    The special value of **0** will disable line length checking and print
+    numbers without regard to line length and without backslashes and newlines.
+
+**BC_BANNER**
+
+:   If this environment variable exists and contains an integer, then a non-zero
+    value activates the copyright banner when bc(1) is in interactive mode,
+    while zero deactivates it.
+
+    If bc(1) is not in interactive mode (see the **INTERACTIVE MODE** section),
+    then this environment variable has no effect because bc(1) does not print
+    the banner when not in interactive mode.
+
+    This environment variable overrides the default, which can be queried with
+    the **-h** or **-\-help** options.
+
+**BC_SIGINT_RESET**
+
+:   If bc(1) is not in interactive mode (see the **INTERACTIVE MODE** section),
+    then this environment variable has no effect because bc(1) exits on
+    **SIGINT** when not in interactive mode.
+
+    However, when bc(1) is in interactive mode, then if this environment
+    variable exists and contains an integer, a non-zero value makes bc(1) reset
+    on **SIGINT**, rather than exit, and zero makes bc(1) exit. If this
+    environment variable exists and is *not* an integer, then bc(1) will exit on
+    **SIGINT**.
+
+    This environment variable overrides the default, which can be queried with
+    the **-h** or **-\-help** options.
+
+**BC_TTY_MODE**
+
+:   If TTY mode is *not* available (see the **TTY MODE** section), then this
+    environment variable has no effect.
+
+    However, when TTY mode is available, then if this environment variable
+    exists and contains an integer, then a non-zero value makes bc(1) use TTY
+    mode, and zero makes bc(1) not use TTY mode.
+
+    This environment variable overrides the default, which can be queried with
+    the **-h** or **-\-help** options.
+
+**BC_PROMPT**
+
+:   If TTY mode is *not* available (see the **TTY MODE** section), then this
+    environment variable has no effect.
+
+    However, when TTY mode is available, then if this environment variable
+    exists and contains an integer, a non-zero value makes bc(1) use a prompt,
+    and zero or a non-integer makes bc(1) not use a prompt. If this environment
+    variable does not exist and **BC_TTY_MODE** does, then the value of the
+    **BC_TTY_MODE** environment variable is used.
+
+    This environment variable and the **BC_TTY_MODE** environment variable
+    override the default, which can be queried with the **-h** or **-\-help**
+    options.
+
+**BC_EXPR_EXIT**
+
+:   If any expressions or expression files are given on the command-line with
+    **-e**, **-\-expression**, **-f**, or **-\-file**, then if this environment
+    variable exists and contains an integer, a non-zero value makes bc(1) exit
+    after executing the expressions and expression files, and a zero value makes
+    bc(1) not exit.
+
+    This environment variable overrides the default, which can be queried with
+    the **-h** or **-\-help** options.
+
+**BC_DIGIT_CLAMP**
+
+:   When parsing numbers and if this environment variable exists and contains an
+    integer, a non-zero value makes bc(1) clamp digits that are greater than or
+    equal to the current **ibase** so that all such digits are considered equal
+    to the **ibase** minus 1, and a zero value disables such clamping so that
+    those digits are always equal to their value, which is multiplied by the
+    power of the **ibase**.
+
+    This never applies to single-digit numbers, as per the standard (see the
+    **STANDARDS** section).
+
+    This environment variable overrides the default, which can be queried with
+    the **-h** or **-\-help** options.
+
 # EXIT STATUS
 
 bc(1) returns the following exit statuses:
@@ -1564,8 +2303,9 @@ bc(1) returns the following exit statuses:
     Math errors include divide by **0**, taking the square root of a negative
     number, using a negative number as a bound for the pseudo-random number
     generator, attempting to convert a negative number to a hardware integer,
-    overflow when converting a number to a hardware integer, and attempting to
-    use a non-integer where an integer is required.
+    overflow when converting a number to a hardware integer, overflow when
+    calculating the size of a number, and attempting to use a non-integer where
+    an integer is required.
 
     Converting to a hardware integer happens for the second operand of the power
     (**\^**), places (**\@**), left shift (**\<\<**), and right shift (**\>\>**)
@@ -1590,11 +2330,12 @@ bc(1) returns the following exit statuses:
 
 :   A runtime error occurred.
 
-    Runtime errors include assigning an invalid number to **ibase**, **obase**,
-    or **scale**; give a bad expression to a **read()** call, calling **read()**
-    inside of a **read()** call, type errors, passing the wrong number of
-    arguments to functions, attempting to call an undefined function, and
-    attempting to use a **void** function call as a value in an expression.
+    Runtime errors include assigning an invalid number to any global (**ibase**,
+    **obase**, or **scale**), giving a bad expression to a **read()** call,
+    calling **read()** inside of a **read()** call, type errors, passing the
+    wrong number of arguments to functions, attempting to call an undefined
+    function, and attempting to use a **void** function call as a value in an
+    expression.
 
 **4**
 
@@ -1620,37 +2361,73 @@ checking, and its normal behavior can be forced by using the **-i** flag or
 
 # INTERACTIVE MODE
 
-Per the [standard][1], bc(1) has an interactive mode and a non-interactive mode.
-Interactive mode is turned on automatically when both **stdin** and **stdout**
-are hooked to a terminal, but the **-i** flag and **-\-interactive** option can
-turn it on in other cases.
+Per the standard (see the **STANDARDS** section), bc(1) has an interactive mode
+and a non-interactive mode. Interactive mode is turned on automatically when
+both **stdin** and **stdout** are hooked to a terminal, but the **-i** flag and
+**-\-interactive** option can turn it on in other situations.
 
 In interactive mode, bc(1) attempts to recover from errors (see the **RESET**
 section), and in normal execution, flushes **stdout** as soon as execution is
-done for the current input.
+done for the current input. bc(1) may also reset on **SIGINT** instead of exit,
+depending on the contents of, or default for, the **BC_SIGINT_RESET**
+environment variable (see the **ENVIRONMENT VARIABLES** section).
 
 # TTY MODE
 
-If **stdin**, **stdout**, and **stderr** are all connected to a TTY, bc(1) turns
-on "TTY mode."
+If **stdin**, **stdout**, and **stderr** are all connected to a TTY, then "TTY
+mode" is considered to be available, and thus, bc(1) can turn on TTY mode,
+subject to some settings.
 
-The prompt is enabled in TTY mode.
+If there is the environment variable **BC_TTY_MODE** in the environment (see the
+**ENVIRONMENT VARIABLES** section), then if that environment variable contains a
+non-zero integer, bc(1) will turn on TTY mode when **stdin**, **stdout**, and
+**stderr** are all connected to a TTY. If the **BC_TTY_MODE** environment
+variable exists but is *not* a non-zero integer, then bc(1) will not turn TTY
+mode on.
+
+If the environment variable **BC_TTY_MODE** does *not* exist, the default
+setting is used. The default setting can be queried with the **-h** or
+**-\-help** options.
 
 TTY mode is different from interactive mode because interactive mode is required
-in the [bc(1) specification][1], and interactive mode requires only **stdin**
-and **stdout** to be connected to a terminal.
+in the bc(1) standard (see the **STANDARDS** section), and interactive mode
+requires only **stdin** and **stdout** to be connected to a terminal.
+
+## Prompt
+
+If TTY mode is available, then a prompt can be enabled. Like TTY mode itself, it
+can be turned on or off with an environment variable: **BC_PROMPT** (see the
+**ENVIRONMENT VARIABLES** section).
+
+If the environment variable **BC_PROMPT** exists and is a non-zero integer, then
+the prompt is turned on when **stdin**, **stdout**, and **stderr** are connected
+to a TTY and the **-P** and **-\-no-prompt** options were not used. The read
+prompt will be turned on under the same conditions, except that the **-R** and
+**-\-no-read-prompt** options must also not be used.
+
+However, if **BC_PROMPT** does not exist, the prompt can be enabled or disabled
+with the **BC_TTY_MODE** environment variable, the **-P** and **-\-no-prompt**
+options, and the **-R** and **-\-no-read-prompt** options. See the **ENVIRONMENT
+VARIABLES** and **OPTIONS** sections for more details.
 
 # SIGNAL HANDLING
 
-Sending a **SIGINT** will cause bc(1) to stop execution of the current input. If
-bc(1) is in TTY mode (see the **TTY MODE** section), it will reset (see the
-**RESET** section). Otherwise, it will clean up and exit.
+Sending a **SIGINT** will cause bc(1) to do one of two things.
+
+If bc(1) is not in interactive mode (see the **INTERACTIVE MODE** section), or
+the **BC_SIGINT_RESET** environment variable (see the **ENVIRONMENT VARIABLES**
+section), or its default, is either not an integer or it is zero, bc(1) will
+exit.
+
+However, if bc(1) is in interactive mode, and the **BC_SIGINT_RESET** or its
+default is an integer and non-zero, then bc(1) will stop executing the current
+input and reset (see the **RESET** section) upon receiving a **SIGINT**.
 
 Note that "current input" can mean one of two things. If bc(1) is processing
-input from **stdin** in TTY mode, it will ask for more input. If bc(1) is
-processing input from a file in TTY mode, it will stop processing the file and
-start processing the next file, if one exists, or ask for input from **stdin**
-if no other file exists.
+input from **stdin** in interactive mode, it will ask for more input. If bc(1)
+is processing input from a file in interactive mode, it will stop processing the
+file and start processing the next file, if one exists, or ask for input from
+**stdin** if no other file exists.
 
 This means that if a **SIGINT** is sent to bc(1) as it is executing a file, it
 can seem as though bc(1) did not respond to the signal since it will immediately
@@ -1669,9 +2446,14 @@ dc(1)
 
 # STANDARDS
 
-bc(1) is compliant with the [IEEE Std 1003.1-2017 (“POSIX.1-2017”)][1]
-specification. The flags **-efghiqsvVw**, all long options, and the extensions
-noted above are extensions to that specification.
+bc(1) is compliant with the IEEE Std 1003.1-2017 (“POSIX.1-2017”) specification
+at https://pubs.opengroup.org/onlinepubs/9699919799/utilities/bc.html . The
+flags **-efghiqsvVw**, all long options, and the extensions noted above are
+extensions to that specification.
+
+In addition, the behavior of the **quit** implements an interpretation of that
+specification that is different from all known implementations. For more
+information see the **Statements** subsection of the **SYNTAX** section.
 
 Note that the specification explicitly says that bc(1) only accepts numbers that
 use a period (**.**) as a radix point, regardless of the value of
@@ -1679,15 +2461,11 @@ use a period (**.**) as a radix point, regardless of the value of
 
 # BUGS
 
-None are known. Report bugs at https://git.yzena.com/gavin/bc.
+Before version **6.1.0**, this bc(1) had incorrect behavior for the **quit**
+statement.
+
+No other bugs are known. Report bugs at https://git.gavinhoward.com/gavin/bc .
 
 # AUTHORS
 
-Gavin D. Howard <gavin@yzena.com> and contributors.
-
-[1]: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/bc.html
-[2]: https://www.gnu.org/software/bc/
-[3]: https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero
-[4]: https://en.wikipedia.org/wiki/Unit_in_the_last_place
-[5]: https://people.eecs.berkeley.edu/~wkahan/LOG10HAF.TXT
-[6]: https://en.wikipedia.org/wiki/Rounding#Rounding_away_from_zero
+Gavin D. Howard <gavin@gavinhoward.com> and contributors.

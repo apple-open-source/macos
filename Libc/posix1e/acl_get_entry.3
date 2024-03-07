@@ -25,7 +25,7 @@
 .\"
 .\" $FreeBSD: src/lib/libc/posix1e/acl_get_entry.3,v 1.6 2002/12/18 12:45:09 ru Exp $
 .\"
-.Dd April 13, 2001
+.Dd September 21, 2023
 .Dt ACL_GET_ENTRY 3
 .Os
 .Sh NAME
@@ -44,7 +44,7 @@ The
 function
 is a POSIX.1e call that retrieves a descriptor for an ACL entry
 specified by the argument
-.Fa entry_d
+.Fa entry_id
 within the ACL indicated by the argument
 .Fa acl .
 .Pp
@@ -64,7 +64,7 @@ set to
 .Dv ACL_NEXT_ENTRY
 when there has not been either an initial successful call to
 .Fn acl_get_entry ,
-or a previous successfull call to
+or a previous successful call to
 .Fn acl_create_entry ,
 .Fn acl_delete_entry ,
 .Fn acl_dup ,
@@ -96,12 +96,13 @@ will be set to indicate the error.
 .Sh ERRORS
 The
 .Fn acl_get_entry
-fails if:
+function fails if:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 Argument
 .Fa acl
-does not point to a valid ACL.  Argument
+does not point to a valid ACL.
+Argument
 .Fa entry_id
 is neither
 .Dv ACL_FIRST_ENTRY ,

@@ -2,14 +2,15 @@
 
 #pragma mark Definitions
 #define CTL_OUTPUT_WIDTH (80)
-#define CTL_OUTPUT_OPTARG_INDENT (32)
+#define CTL_OUTPUT_OPTARG_INDENT (16)
 #define CTL_OUTPUT_OPTARG_OVERFLOW (CTL_OUTPUT_OPTARG_INDENT - 4)
 #define SUBCOMMAND_LINKER_SET "__subcommands"
 
 #define OS_SUBCOMMAND_OPTIONS_FOREACH(_osco_i, _osc, _which, _i) \
-		while (((_osco_i) = &osc->osc_ ## _which[(_i)]) && \
-			((_i) += 1, 1) && \
-			!((_osco_i)->osco_flags & OS_SUBCOMMAND_OPTION_FLAG_TERMINATOR))
+		if (osc->osc_ ## _which) \
+			while (((_osco_i) = &osc->osc_ ## _which[(_i)]) && \
+				((_i) += 1, 1) && \
+				!((_osco_i)->osco_flags & OS_SUBCOMMAND_OPTION_FLAG_TERMINATOR))
 
 #pragma mark Types
 OS_ENUM(os_subcommand_option_spec_fmt, uint64_t,
@@ -426,14 +427,18 @@ _os_subcommand_copy_usage_line(const os_subcommand_t *osc)
 
 static void
 _os_subcommand_print_option_usage(const os_subcommand_t *osc,
-		const os_subcommand_option_t *osco, FILE *f)
+		const os_subcommand_option_t *osco, FILE *f, bool *first_opt)
 {
 	char *__os_free opt_spec = NULL;
 	ssize_t initpad = -CTL_OUTPUT_OPTARG_INDENT;
 
+	if (!*first_opt) {
+		crfprintf_np(f, "");
+	}
+
 	opt_spec = _os_subcommand_copy_option_spec(osc, osco,
 			OS_SUBCOMMAND_OPTION_SPEC_COMBINED);
-	fprintf(f, "    %-24s    ", opt_spec);
+	fprintf(f, "    %-8s    ", opt_spec);
 
 	// If the usage specifier is long, start the description on the next line.
 	if (strlen(opt_spec) >= CTL_OUTPUT_OPTARG_OVERFLOW) {
@@ -443,6 +448,7 @@ _os_subcommand_print_option_usage(const os_subcommand_t *osc,
 
 	wfprintf_np(f, initpad, CTL_OUTPUT_OPTARG_INDENT, _ttys->ts_cols, "%s",
 			osco->osco_argument_human);
+	*first_opt = false;
 }
 
 static void
@@ -450,7 +456,7 @@ _os_subcommand_print_help_line(const os_subcommand_t *osc, FILE *f)
 {
 	ssize_t initpad = -CTL_OUTPUT_OPTARG_INDENT;
 
-	fprintf(f, "    %-24s    ", osc->osc_name);
+	fprintf(f, "    %-8s    ", osc->osc_name);
 
 	// If the usage specifier is long, start the description on the next line.
 	if (strlen(osc->osc_name) >= CTL_OUTPUT_OPTARG_OVERFLOW) {
@@ -469,6 +475,7 @@ _os_subcommand_print_usage(const os_subcommand_t *osc, FILE *f)
 	const os_subcommand_option_t *osco_i = NULL;
 	char *__os_free usage_line = NULL;
 	bool header_printed = false;
+	bool first_opt = true;
 
 	usage_line = _os_subcommand_copy_usage_line(osc);
 
@@ -491,42 +498,43 @@ _os_subcommand_print_usage(const os_subcommand_t *osc, FILE *f)
 		i = 0;
 		OS_SUBCOMMAND_OPTIONS_FOREACH(osco_i, osc, required, i) {
 			_print_header(f, "REQUIRED", &header_printed);
-			_os_subcommand_print_option_usage(osc, osco_i, f);
+			_os_subcommand_print_option_usage(osc, osco_i, f, &first_opt);
 		}
 
 		i = 0;
 		OS_SUBCOMMAND_OPTIONS_FOREACH(osco_i, osc, positional, i) {
-			_print_header(f, "REQUIRED", &header_printed);
-
 			if (osco_i->osco_flags & OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL_POS) {
 				continue;
 			}
 
-			_os_subcommand_print_option_usage(osc, osco_i, f);
+			_print_header(f, "REQUIRED", &header_printed);
+			_os_subcommand_print_option_usage(osc, osco_i, f, &first_opt);
 		}
 
 		if (osc == _main_cmd && osc != _internal_main_cmd) {
+			const os_subcommand_option_t *main_opt = &_main_positional[0];
+
 			// We do not expect the user's main command to specify that a
 			// subcommand must follow, so always defer to ours.
 			_print_header(f, "REQUIRED", &header_printed);
-			_os_subcommand_print_option_usage(osc, &_main_positional[0], f);
+			_os_subcommand_print_option_usage(osc, main_opt, f, &first_opt);
 		}
 	}
 
 	header_printed = false;
-
+	first_opt = true;
 	if (osc->osc_optional || osc->osc_positional) {
 		i = 0;
 		OS_SUBCOMMAND_OPTIONS_FOREACH(osco_i, osc, optional, i) {
 			_print_header(f, "OPTIONAL", &header_printed);
-			_os_subcommand_print_option_usage(osc, osco_i, f);
+			_os_subcommand_print_option_usage(osc, osco_i, f, &first_opt);
 		}
 
 		i = 0;
 		OS_SUBCOMMAND_OPTIONS_FOREACH(osco_i, osc, positional, i) {
 			if (osco_i->osco_flags & OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL_POS) {
 				_print_header(f, "OPTIONAL", &header_printed);
-				_os_subcommand_print_option_usage(osc, osco_i, f);
+				_os_subcommand_print_option_usage(osc, osco_i, f, &first_opt);
 			}
 		}
 	}

@@ -429,7 +429,11 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 	kq = kqueue();
 	if (kq < 0)
 		err(1, "kqueue");
+#ifdef __APPLE__
+	ev = malloc(no_files * 2 * sizeof(struct kevent));
+#else
 	ev = malloc(n * sizeof(struct kevent));
+#endif
 	if (! ev)
 	    err(1, "Couldn't allocate memory for kevents.");
 	set_events(files);

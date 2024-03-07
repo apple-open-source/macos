@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +35,11 @@
 #include "SlotVisitorInlines.h"
 #include "VMInlines.h"
 #include <wtf/CompilationThread.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace JSC {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JITWorklist);
 
 JITWorklist::JITWorklist()
     : m_lock(Box<Lock>::create())
@@ -50,7 +53,7 @@ JITWorklist::JITWorklist()
 
     Locker locker { *m_lock };
     for (unsigned i = 0; i < Options::numberOfWorklistThreads(); ++i)
-        m_threads.append(new JITWorklistThread(locker, *this));
+        m_threads.append(*new JITWorklistThread(locker, *this));
 }
 
 JITWorklist::~JITWorklist()
@@ -93,7 +96,15 @@ CompilationResult JITWorklist::enqueue(Ref<JITPlan> plan)
     ASSERT(m_plans.find(plan->key()) == m_plans.end());
     m_plans.add(plan->key(), plan.copyRef());
     m_queues[static_cast<unsigned>(plan->tier())].append(WTFMove(plan));
-    m_planEnqueued->notifyOne(locker);
+
+    // Notify when some of thread is waiting.
+    for (auto& thread : m_threads) {
+        if (thread->state() == JITWorklistThread::State::NotCompiling) {
+            m_planEnqueued->notifyOne(locker);
+            break;
+        }
+    }
+
     return CompilationDeferred;
 }
 
@@ -114,14 +125,19 @@ size_t JITWorklist::queueLength(const AbstractLocker&) const
 void JITWorklist::suspendAllThreads() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
 {
     m_suspensionLock.lock();
-    for (unsigned i = m_threads.size(); i--;)
-        m_threads[i]->m_rightToRun.lock();
+    Vector<Ref<JITWorklistThread>, 8> busyThreads;
+    for (auto& thread : m_threads) {
+        if (!thread->m_rightToRun.tryLock())
+            busyThreads.append(thread.copyRef());
+    }
+    for (auto& thread : busyThreads)
+        thread->m_rightToRun.lock();
 }
 
 void JITWorklist::resumeAllThreads() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
 {
-    for (unsigned i = m_threads.size(); i--;)
-        m_threads[i]->m_rightToRun.unlock();
+    for (auto& thread : m_threads)
+        thread->m_rightToRun.unlock();
     m_suspensionLock.unlock();
 }
 
@@ -238,8 +254,8 @@ void JITWorklist::removeDeadPlans(VM& vm)
     });
 
     // No locking needed for this part, see comment in visitWeakReferences().
-    for (unsigned i = m_threads.size(); i--;) {
-        Safepoint* safepoint = m_threads[i].get()->m_safepoint;
+    for (auto& thread : m_threads) {
+        Safepoint* safepoint = thread->m_safepoint;
         if (!safepoint)
             continue;
         if (safepoint->vm() != &vm)
@@ -280,8 +296,8 @@ void JITWorklist::visitWeakReferences(Visitor& visitor)
     // (1) no new threads can be added to m_threads. Hence, it is immutable and needs no locks.
     // (2) JITWorklistThread::m_safepoint is protected by that thread's m_rightToRun which we must be
     //     holding here because of a prior call to suspendAllThreads().
-    for (unsigned i = m_threads.size(); i--;) {
-        Safepoint* safepoint = m_threads[i]->m_safepoint;
+    for (auto& thread : m_threads) {
+        Safepoint* safepoint = thread->m_safepoint;
         if (safepoint && safepoint->vm() == vm)
             safepoint->checkLivenessAndVisitChildren(visitor);
     }

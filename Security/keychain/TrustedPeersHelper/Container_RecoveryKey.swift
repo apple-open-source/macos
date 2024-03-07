@@ -22,7 +22,10 @@ extension Container {
             }
 
             // Ensure we have all policy versions claimed by peers, including our sponsor
-            self.fetchPolicyDocumentsWithSemaphore(versions: self.model.allPolicyVersions()) { _, fetchPolicyDocumentsError in
+            let allPolicyVersions: Set<TPPolicyVersion> = self.moc.performAndWait {
+                self.model.allPolicyVersions()
+            }
+            self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, fetchPolicyDocumentsError in
                 guard fetchPolicyDocumentsError == nil else {
                     logger.info("preflightRecoveryKey unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
                     reply(nil, nil, fetchPolicyDocumentsError)
@@ -125,7 +128,10 @@ extension Container {
             }
 
             // Ensure we have all policy versions claimed by peers, including our sponsor
-            self.fetchPolicyDocumentsWithSemaphore(versions: self.model.allPolicyVersions()) { _, fetchPolicyDocumentsError in
+            let allPolicyVersions: Set<TPPolicyVersion> = self.moc.performAndWait {
+                self.model.allPolicyVersions()
+            }
+            self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, fetchPolicyDocumentsError in
                 guard fetchPolicyDocumentsError == nil else {
                     logger.info("preflightCustodianRecoveryKey unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
                     reply(nil, nil, fetchPolicyDocumentsError)
@@ -182,7 +188,7 @@ extension Container {
                     }
 
                     // Dear model: if I were to use this custodian recovery key, what peers would I end up using?
-                    guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
+                    guard self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
                         logger.info("preflightCustodianRecoveryKey: custodian recovery key is not trusted")
                         reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                         return

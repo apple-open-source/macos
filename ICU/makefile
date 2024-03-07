@@ -418,7 +418,7 @@ endif
 # - MAC_OS_HOST_SDKVERSION, a string like "13.4" or "14.0": The default macosx.internal SDK version
 # - MAC_OS_HOST_MAXVERSION, a released version less than the current macOS release target,
 #   to enable testing on a previous stable release. This should be updated every time a new
-#   open-source ICU version is integrated to Apple ICU.Currently we set this to 13.1 = RomeC.
+#   open-source ICU version is integrated to Apple ICU.Currently we set this to 14.5 = SunburstE.
 #
 # We split each of the three above version into their MAJOR and MINOR parts using cut (since makefile
 # numeric comparison using "test x -lt Y" can only be done on integers). First we find the lower
@@ -440,7 +440,7 @@ ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
   MAC_OS_HOST_SDKVERSION_MAJOR := $(shell echo $(MAC_OS_HOST_SDKVERSION) | cut -f1 -d.)
   MAC_OS_HOST_SDKVERSION_MINOR := $(shell echo $(MAC_OS_HOST_SDKVERSION) | cut -f2 -d.)
 
-  MAC_OS_HOST_MAXVERSION := 13.1
+  MAC_OS_HOST_MAXVERSION := 14.5
   MAC_OS_HOST_MAXVERSION_MAJOR := $(shell echo $(MAC_OS_HOST_MAXVERSION) | cut -f1 -d.)
   MAC_OS_HOST_MAXVERSION_MINOR := $(shell echo $(MAC_OS_HOST_MAXVERSION) | cut -f2 -d.)
 
@@ -768,7 +768,7 @@ endif
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 72
+ICU_VERS = 74
 ICU_SUBVERS = 1
 CORE_VERS = A
 
@@ -1144,8 +1144,8 @@ else
 		CPPFLAGS="$(DEFINE_BUILD_LEVEL) -DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) $(ISYSROOT) $(ENV_CONFIGURE_ARCHS)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" $(FORCEENDIAN)\
 		TZDATA="$(TZDATA)" \
@@ -1154,8 +1154,8 @@ else
 	ENV= \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1164,8 +1164,8 @@ else
 	ENV_DEBUG= \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1174,8 +1174,8 @@ else
 	ENV_PROFILE= \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1323,14 +1323,12 @@ icu debug profile : $(OBJROOT_CURRENT)/Makefile
 						-o ./$($(INSTALLED_DYLIB_$@)) $(DYLIB_OBJS); \
 				fi; \
 			else \
-				tmpfile=`mktemp -t weakexternal.XXXXXX` || exit 1; \
-				$(NM) -m $(RC_ARCHS:%=-arch %) $(DYLIB_OBJS) | fgrep "weak external" | fgrep -v "undefined" | sed -e 's/.*weak external[^_]*//' | sort | uniq | cat >$$tmpfile; \
 				if test ! "$(ICU_FOR_EMBEDDED_TRAINS)" = "YES"; then \
 					ZIPPERING_LDFLAGS=-Wl,-iosmac_version_min,12.0; \
 				fi; \
 				$($(ENV_$@)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
 					$(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) \
-					$(CXXFLAGS) $(LDFLAGS) $$ZIPPERING_LDFLAGS -single_module $(SECTORDER_FLAGS) -unexported_symbols_list $$tmpfile -dead_strip \
+					$(CXXFLAGS) $(LDFLAGS) $$ZIPPERING_LDFLAGS -single_module $(SECTORDER_FLAGS) -dead_strip \
 					-install_name $(libdir)$($(INSTALLED_DYLIB_$@)) -o ./$($(INSTALLED_DYLIB_$@)) $(DYLIB_OBJS); \
 				if test "$@" = "icu"; then \
 					ln -fs  $(INSTALLED_DYLIB) $(DYLIB); \

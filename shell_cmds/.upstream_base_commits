@@ -4,6 +4,8 @@
 alias/builtin.1	freebsd	share/man/man1/builtin.1	a63d6c943d3e2e14007b20edc4446d8396f3ef0b
 alias/generic.sh	freebsd	usr.bin/alias/generic.sh	923e7a09b08f357a691324bc700da560ff469573
 
+apply/apply.1	freebsd	usr.bin/apply/apply.1	1578c22e92c5d2b7e09d64127665539a92359af5
+apply/apply.c	freebsd	usr.bin/apply/apply.c	441202c00bdf6edbf6b6bc1b1923bebd8e2d8e45
 apply/tests/legacy_test.sh	freebsd	usr.bin/apply/tests/legacy_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
 apply/tests/regress.00.in	freebsd	usr.bin/apply/tests/regress.00.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
 apply/tests/regress.00.out	freebsd	usr.bin/apply/tests/regress.00.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
@@ -288,6 +290,14 @@ uname/uname.c	freebsd	usr.bin/uname/uname.c	fb9a985516b495b6713cda4951a58a721d99
 
 users/users.1	freebsd	usr.bin/users/users.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 users/users.cc	freebsd	usr.bin/users/users.cc	bec6dc30e1a6ec4e96d8b29510d345e3f2a8ea40
+
+w/extern.h	freebsd	usr.bin/w/extern.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+w/fmt.c	freebsd	bin/ps/fmt.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+w/pr_time.c	freebsd	usr.bin/w/pr_time.c	04f6b9cb1822fdd6ab1cbeeafb38a6b354b61ca7
+w/proc_compare.c	freebsd	usr.bin/w/proc_compare.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+w/uptime.1	freebsd	usr.bin/w/uptime.1	976e7c964b905a7ec7dd356a73fffff3cde53a38
+w/w.1	freebsd	usr.bin/w/w.1	3f8c71d1c90fdc3308a772713fcac08c3f1245c5
+w/w.c	freebsd	usr.bin/w/w.c	6fc1bbbf62bda2f1b5be3a4be3d36bc964490ebe
 
 what/what.1	freebsd	usr.bin/what/what.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 what/what.c	freebsd	usr.bin/what/what.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97

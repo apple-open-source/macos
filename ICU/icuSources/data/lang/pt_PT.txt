@@ -130,6 +130,7 @@ pt_PT{
     }
     Languages%short{
         az{"azeri"}
+        en_US{"inglês (EUA)"}
     }
     Languages%variant{
         hi_Latn{"hinglish"}

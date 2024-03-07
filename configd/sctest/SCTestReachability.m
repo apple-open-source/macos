@@ -36,6 +36,8 @@
 
 #if !TARGET_OS_BRIDGE
 @implementation SCTestReachability
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 
 + (NSString *)command
 {
@@ -377,4 +379,5 @@ myReachabilityCallback(SCNetworkReachabilityRef target, SCNetworkReachabilityFla
 }
 
 @end
+#pragma GCC diagnostic ignored "-Wdeprecated"
 #endif // !TARGET_OS_BRIDGE

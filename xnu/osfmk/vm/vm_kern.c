@@ -888,10 +888,12 @@ kmem_alloc_guard_internal(
 		vm_object_reference(object);
 	} else {
 		object = vm_object_allocate(map_size);
+		vm_object_lock(object);
 		vm_object_set_size(object, map_size, size);
 		/* stabilize the object to prevent shadowing */
 		object->copy_strategy = MEMORY_OBJECT_COPY_DELAY;
-		object->true_share = TRUE;
+		VM_OBJECT_SET_TRUE_SHARE(object, TRUE);
+		vm_object_unlock(object);
 	}
 
 	if (flags & KMA_LAST_FREE) {
@@ -1972,9 +1974,22 @@ again:
 
 				mem = vm_page_lookup(object, offset);
 				assert(mem != VM_PAGE_NULL);
-				assert(VM_PAGE_WIRED(mem));
-				assert(mem->vmp_wire_count >= 1);
-				mem->vmp_wire_count++;
+				assertf(!VM_PAGE_PAGEABLE(mem),
+				    "mem %p qstate %d",
+				    mem, mem->vmp_q_state);
+				if (VM_PAGE_GET_PHYS_PAGE(mem) == vm_page_guard_addr) {
+					/* guard pages are not wired */
+				} else {
+					assertf(VM_PAGE_WIRED(mem),
+					    "mem %p qstate %d wirecount %d",
+					    mem,
+					    mem->vmp_q_state,
+					    mem->vmp_wire_count);
+					assertf(mem->vmp_wire_count >= 1,
+					    "mem %p wirecount %d",
+					    mem, mem->vmp_wire_count);
+					mem->vmp_wire_count++;
+				}
 			}
 		}
 
@@ -2069,11 +2084,24 @@ again:
 
 				mem = vm_page_lookup(object, offset);
 				assert(mem != VM_PAGE_NULL);
-				assert(VM_PAGE_WIRED(mem));
-				assert(mem->vmp_wire_count >= 2);
-				mem->vmp_wire_count--;
-				assert(VM_PAGE_WIRED(mem));
-				assert(mem->vmp_wire_count >= 1);
+				assertf(!VM_PAGE_PAGEABLE(mem),
+				    "mem %p qstate %d",
+				    mem, mem->vmp_q_state);
+				if (VM_PAGE_GET_PHYS_PAGE(mem) == vm_page_guard_addr) {
+					/* guard pages are not wired */
+				} else {
+					assertf(VM_PAGE_WIRED(mem),
+					    "mem %p qstate %d wirecount %d",
+					    mem,
+					    mem->vmp_q_state,
+					    mem->vmp_wire_count);
+					assertf(mem->vmp_wire_count >= 2,
+					    "mem %p wirecount %d",
+					    mem, mem->vmp_wire_count);
+					mem->vmp_wire_count--;
+					assert(VM_PAGE_WIRED(mem));
+					assert(mem->vmp_wire_count >= 1);
+				}
 			}
 			vm_object_unlock(object);
 			vm_object_deallocate(object); /* release extra ref */

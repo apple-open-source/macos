@@ -27,8 +27,6 @@
 #include "config.h"
 #include "CryptoAlgorithmAES_KW.h"
 
-#if ENABLE(WEB_CRYPTO)
-
 #include "CryptoKeyAES.h"
 #include <pal/crypto/gcrypt/Handle.h>
 #include <pal/crypto/gcrypt/Utilities.h>
@@ -119,7 +117,7 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmAES_KW::platformWrapKey(const Crypto
 {
     auto output = gcryptWrapKey(key.key(), data);
     if (!output)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     return WTFMove(*output);
 }
 
@@ -127,10 +125,8 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmAES_KW::platformUnwrapKey(const Cryp
 {
     auto output = gcryptUnwrapKey(key.key(), data);
     if (!output)
-        return Exception { OperationError };
+        return Exception { ExceptionCode::OperationError };
     return WTFMove(*output);
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WEB_CRYPTO)

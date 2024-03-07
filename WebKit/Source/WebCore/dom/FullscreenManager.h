@@ -32,6 +32,7 @@
 #include "GCReachableRef.h"
 #include "LayoutRect.h"
 #include "Page.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/Deque.h>
 #include <wtf/WeakPtr.h>
 
@@ -40,19 +41,20 @@ namespace WebCore {
 class DeferredPromise;
 class RenderStyle;
 
-class FullscreenManager final : public CanMakeWeakPtr<FullscreenManager> {
+class FullscreenManager final : public CanMakeWeakPtr<FullscreenManager>, public CanMakeCheckedPtr {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     FullscreenManager(Document&);
     ~FullscreenManager();
 
-    Document& document() { return m_document; }
-    const Document& document() const { return m_document; }
-    Page* page() const { return m_document.page(); }
-    LocalFrame* frame() const { return m_document.frame(); }
-    Element* documentElement() const { return m_document.documentElement(); }
+    Document& document() { return m_document.get(); }
+    const Document& document() const { return m_document.get(); }
+    Ref<Document> protectedDocument() const { return m_document.get(); }
+    Page* page() const { return document().page(); }
+    LocalFrame* frame() const { return document().frame(); }
+    Element* documentElement() const { return document().documentElement(); }
     bool isSimpleFullscreenDocument() const;
-    Document::BackForwardCacheState backForwardCacheState() const { return m_document.backForwardCacheState(); }
+    Document::BackForwardCacheState backForwardCacheState() const { return document().backForwardCacheState(); }
 
     // WHATWG Fullscreen API
     WEBCORE_EXPORT Element* fullscreenElement() const;
@@ -102,15 +104,16 @@ protected:
 
 private:
 #if !RELEASE_LOG_DISABLED
-    const Logger& logger() const { return m_document.logger(); }
+    const Logger& logger() const { return document().logger(); }
     const void* logIdentifier() const { return m_logIdentifier; }
     const char* logClassName() const { return "FullscreenManager"; }
     WTFLogChannel& logChannel() const;
 #endif
 
     Document& topDocument() { return m_topDocument ? *m_topDocument : document().topDocument(); }
+    Ref<Document> protectedTopDocument();
 
-    Document& m_document;
+    CheckedRef<Document> m_document;
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_topDocument;
 
     RefPtr<Element> fullscreenOrPendingElement() const { return m_fullscreenElement ? m_fullscreenElement : m_pendingFullscreenElement; }

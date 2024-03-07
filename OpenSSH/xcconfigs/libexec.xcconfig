@@ -1,3 +1,0 @@
-//  Copyright © 2022 Apple Inc. All rights reserved.
-INSTALL_PATH = /usr/local/libexec
-INSTALL_PATH[sdk=macosx*] = /usr/libexec

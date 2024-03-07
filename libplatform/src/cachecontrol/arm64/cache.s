@@ -25,7 +25,6 @@
 #include <mach/arm64/asm.h>
 #include <machine/cpu_capabilities.h>
 
-
 #define MMU_I_CLINE	6		// cache line size as 1<<MMU_I_CLINE (64)
 
 /* void sys_icache_invalidate(void *start, size_t length) */
@@ -60,7 +59,6 @@ _sys_icache_invalidate:
 	adds	x10, x10, #1					// decrement cacheline counter
 	b.ne	1b
 	dsb		ish
-
 	isb
 2:
 	ret
@@ -84,8 +82,14 @@ _sys_icache_invalidate:
 
 
 _cpus_that_need_dsb_for_ic_ivau:
-	.word 0
-
+		.word 0x1b588bb3
+		.word 0xda33d83d
+		.word 0x8765edea
+		.word 0xfa33415e
+		.word 0x2876f5b5
+		.word 0x72015832
+		.word 0x5f4dea93
+		.word 0
 
 /* void sys_dcache_flush(void *start, size_t length) */
 .globl	_sys_dcache_flush

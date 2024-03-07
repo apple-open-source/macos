@@ -481,8 +481,6 @@ class PrivateState : angle::NonCopyable
     // Hint setters
     void setGenerateMipmapHint(GLenum hint);
     GLenum getGenerateMipmapHint() const { return mGenerateMipmapHint; }
-    void setTextureFilteringHint(GLenum hint);
-    GLenum getTextureFilteringHint() const { return mTextureFilteringHint; }
     GLenum getFragmentShaderDerivativeHint() const { return mFragmentShaderDerivativeHint; }
     void setFragmentShaderDerivativeHint(GLenum hint);
 
@@ -582,7 +580,7 @@ class PrivateState : angle::NonCopyable
     {
         mDirtyBits.set();
         mExtendedDirtyBits.set();
-        mDirtyCurrentValues.set();
+        mDirtyCurrentValues = mAllAttribsMask;
     }
 
     const state::ExtendedDirtyBits &getExtendedDirtyBits() const { return mExtendedDirtyBits; }
@@ -639,7 +637,6 @@ class PrivateState : angle::NonCopyable
     GLfloat mLineWidth;
 
     GLenum mGenerateMipmapHint;
-    GLenum mTextureFilteringHint;
     GLenum mFragmentShaderDerivativeHint;
 
     Rectangle mViewport;
@@ -655,6 +652,9 @@ class PrivateState : angle::NonCopyable
     using VertexAttribVector = std::vector<VertexAttribCurrentValueData>;
     VertexAttribVector mVertexAttribCurrentValues;  // From glVertexAttrib
     ComponentTypeMask mCurrentValuesTypeMask;
+
+    // Mask of all attributes that are available to this context: [0, maxVertexAttributes)
+    AttributesMask mAllAttribsMask;
 
     // Texture and sampler bindings
     GLint mActiveSampler;  // Active texture unit selector - GL_TEXTURE0
@@ -1344,7 +1344,6 @@ class State : angle::NonCopyable
     float getLineWidth() const { return mPrivateState.getLineWidth(); }
     unsigned int getActiveSampler() const { return mPrivateState.getActiveSampler(); }
     GLenum getGenerateMipmapHint() const { return mPrivateState.getGenerateMipmapHint(); }
-    GLenum getTextureFilteringHint() const { return mPrivateState.getTextureFilteringHint(); }
     GLenum getFragmentShaderDerivativeHint() const
     {
         return mPrivateState.getFragmentShaderDerivativeHint();

@@ -3207,11 +3207,18 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
                         gcFixedVal = &_gameController.extra.r4;
                         break;
                     case 13:
-                        gcFixedVal = &_gameController.extra.l5;
+                        gcFixedVal = &_gameController.extra.m1;
                         break;
                     case 14:
-                        gcFixedVal = &_gameController.extra.r5;
+                        gcFixedVal = &_gameController.extra.m2;
                         break;
+                    case 15:
+                        gcFixedVal = &_gameController.extra.m3;
+                        break;
+                    case 16:
+                        gcFixedVal = &_gameController.extra.m4;
+                        break;
+
                 }
                 break;
         }
@@ -3232,7 +3239,7 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
     require_quiet(reportID == _gameController.sendingReportID, exit);
     
     if ( _gameController.extended ) {
-        dispatchExtendedGameControllerEventWithOptionalButtons(
+        dispatchExtendedGameControllerEventWithOptionalBottomButtons(
                 timeStamp,
                 _gameController.dpad.up,
                 _gameController.dpad.down,
@@ -3254,8 +3261,11 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
                 _gameController.thumbstick.right,
                 _gameController.extra.l4,
                 _gameController.extra.r4,
-                _gameController.extra.l5,
-                _gameController.extra.r5);
+                _gameController.extra.m1,
+                _gameController.extra.m2,
+                _gameController.extra.m3,
+                _gameController.extra.m4,
+                0);
     } else {
         dispatchStandardGameControllerEvent(
                 timeStamp,
@@ -3268,7 +3278,8 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
                 _gameController.face.a,
                 _gameController.face.b,
                 _gameController.shoulder.l1,
-                _gameController.shoulder.r1);
+                _gameController.shoulder.r1,
+                0);
     }
     
 exit:

@@ -1517,9 +1517,7 @@ nanov2_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 	kern_return_t kr;
 	bitarray_t slots;
 
-	if (!reader) {
-		reader = nano_common_default_reader;
-	}
+	reader = reader_or_in_memory_fallback(reader, task);
 
 	kr = reader(task, zone_address, sizeof(nanozonev2_t), (void **)&nanozone);
 	if (kr) {
@@ -1643,7 +1641,7 @@ nanov2_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 							ranges[range_count].size = slot_size;
 							range_count++;
 						}
-						free(slots);
+						_free(slots);
 					}
 					if (range_count) {
 						// Notify the in-use pointers that we found.
@@ -1960,7 +1958,7 @@ nanov2_statistics(task_t task, vm_address_t zone_address,
 		malloc_statistics_t *stats)
 {
 	printer = printer ? printer : nanov2_null_printer;
-	reader = !reader && task == mach_task_self() ? _malloc_default_reader : reader;
+	reader = reader_or_in_memory_fallback(reader, task);
 
 	kern_return_t err;
 
@@ -3099,11 +3097,9 @@ again:
 malloc_zone_t *
 nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 {
-	// Note: It is important that nanov2_create_zone resets _malloc_engaged_nano
-	// if it is unable to enable the nanozone (and chooses not to abort). As
-	// several functions rely on _malloc_engaged_nano to determine if they
-	// should manipulate the nanozone, and these should not run if we failed
-	// to create the zone.
+	// Note: It is not necessary that nanov2_create_zone resets _malloc_engaged_nano
+	// if it is unable to enable the nanozone - functions that need to determine
+	// whether the nanozone is preset should test initial_nano_zone.
 	MALLOC_ASSERT(_malloc_engaged_nano == NANO_V2);
 
 	// Get memory for the zone and disable Nano if we fail.

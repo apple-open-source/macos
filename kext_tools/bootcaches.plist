@@ -300,6 +300,55 @@
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
+            <key>Ap,SecurePageTableMonitor</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,SecurePageTableMonitor.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,TrustedExecutionMonitor</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,TrustedExecutionMonitor.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,cL4</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,cL4.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,ExclaveOS</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,ExclaveOS.dmg</string>
+                <key>ManifestRule</key>
+                <integer>0</integer> <!-- unstitched -->
+            </dict>
+            <key>Ap,ExclaveOSIntegrityCatalog</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,ExclaveOSIntegrityCatalog.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,ExclaveOSTrustCache</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,ExclaveOSTrustCache.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,ExclaveOSVolume</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,ExclaveOSVolume.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
         </dict>
     </dict>
 

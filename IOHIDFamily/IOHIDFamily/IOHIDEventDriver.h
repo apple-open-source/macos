@@ -162,8 +162,10 @@ private:
             struct {
                 IOFixed l4;
                 IOFixed r4;
-                IOFixed l5;
-                IOFixed r5;
+                IOFixed m1;
+                IOFixed m2;
+                IOFixed m3;
+                IOFixed m4;
             } extra;
             
         } gameController;

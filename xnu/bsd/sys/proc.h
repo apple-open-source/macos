@@ -332,7 +332,7 @@ extern int proc_suser(proc_t p);
 
 /* returns the cred assicaited with the process; temporary api */
 #if !BSD_KERNEL_PRIVATE
-__deprecated_msg("proc_ucred is unsafe, use kauth_cred_proc_ref()")
+__deprecated_msg("proc_ucred is unsafe, use kauth_cred_proc_ref() or current_cached_proc_cred()")
 kauth_cred_t proc_ucred(proc_t p);
 #endif
 
@@ -439,6 +439,7 @@ extern int proc_isabortedsignal(proc_t);
 
 /* return true if the process is translated, false for default */
 extern boolean_t proc_is_translated(proc_t);
+
 
 /* return true if this is an x86_64 process running under translation */
 extern bool proc_is_x86_64_compat(proc_t);

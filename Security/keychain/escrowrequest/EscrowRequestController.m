@@ -24,6 +24,8 @@ OctagonState* const EscrowRequestStateTriggerCloudServices = (OctagonState*)@"tr
 OctagonState* const EscrowRequestStateAttemptEscrowUpload = (OctagonState*)@"trigger_escrow_upload";
 OctagonState* const EscrowRequestStateWaitForUnlock = (OctagonState*)@"wait_for_unlock";
 
+OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation = (OctagonFlag*)@"escrowrequest_inform_cloudservices";
+
 @interface EscrowRequestController ()
 @property dispatch_queue_t queue;
 @property CKKSLockStateTracker* lockStateTracker;

@@ -254,7 +254,7 @@ it{
         SV{"El Salvador"}
         SX{"Sint Maarten"}
         SY{"Siria"}
-        SZ{"eSwatini"}
+        SZ{"Eswatini"}
         TA{"Tristan da Cunha"}
         TC{"Isole Turks e Caicos"}
         TD{"Ciad"}
@@ -311,7 +311,7 @@ it{
         CZ{"Repubblica Ceca"}
         FK{"Isole Falkland (Isole Malvine)"}
         NZ{"Nuova Zelanda (Aotearoa)"}
-        SZ{"Regno di eSwatini"}
+        SZ{"Regno di Eswatini"}
         TL{"Timor Leste"}
         TR{"Türkiye"}
     }

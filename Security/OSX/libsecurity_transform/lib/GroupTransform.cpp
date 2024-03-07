@@ -40,7 +40,7 @@ void GroupTransform::StartingExecutionInGroup()
     dispatch_group_enter(mAllChildrenFinalized);
 }
 
-void GroupTransform::StartedExecutionInGroup(bool succesful)
+void GroupTransform::StartedExecutionInGroup(bool successful)
 {
     dispatch_group_leave(mPendingStartupActivity);
     dispatch_group_leave(mAllChildrenFinalized);

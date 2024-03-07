@@ -102,14 +102,15 @@ ALIAS_LDFLAGS = -Wl,-alias_list,$(SRCROOT)/xcodescripts/pthread.aliases $(LEGACY
 MACOS_NO_LIBDYLD_LDFLAGS = -ldyld
 MACOS_NO_LIBDYLD_LDFLAGS[sdk=macos*][arch=i386] =
 
-MACOS_LIBMACHO_LDFLAGS =
-MACOS_LIBMACHO_LDFLAGS[sdk=macosx*] = -Wl,-upward-lmacho
-MACOS_LIBMACHO_LDFLAGS[sdk=macosx*][arch=i386] =
-MACOS_LIBMACHO_LDFLAGS[sdk=macosx*][arch=x86_64*] =
+LIBMACHO_LDFLAGS =
+LIBMACHO_LDFLAGS[sdk=macosx*] = -Wl,-upward-lmacho
+LIBMACHO_LDFLAGS[sdk=macosx*][arch=i386] =
+LIBMACHO_LDFLAGS[sdk=macosx*][arch=x86_64*] =
+LIBMACHO_LDFLAGS[sdk=iphone*] = -Wl,-upward-lmacho
 
 // Don't add compiler_rt or libdyld
 DYLIB_LDFLAGS_COMMON = -Wl,-umbrella,System -L$(SDK_INSTALL_ROOT)/usr/lib/system -lsystem_kernel -lsystem_platform
-DYLIB_LDFLAGS = $(DYLIB_LDFLAGS_COMMON) $(MACOS_NO_LIBDYLD_LDFLAGS) $(MACOS_LIBMACHO_LDFLAGS)
+DYLIB_LDFLAGS = $(DYLIB_LDFLAGS_COMMON) $(MACOS_NO_LIBDYLD_LDFLAGS) $(LIBMACHO_LDFLAGS)
 
 OTHER_LDFLAGS = $(ALIAS_LDFLAGS) $(DYLIB_LDFLAGS) $(DIRTY_LDFLAGS) $(CR_LDFLAGS) $(PLATFORM_LDFLAGS) $(SIMULATOR_LDFLAGS)
 

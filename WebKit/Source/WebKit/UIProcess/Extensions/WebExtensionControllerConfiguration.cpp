@@ -35,33 +35,21 @@ WebExtensionControllerConfiguration::WebExtensionControllerConfiguration(IsPersi
 {
 }
 
+WebExtensionControllerConfiguration::WebExtensionControllerConfiguration(TemporaryTag, const String& storageDirectory)
+    : m_temporary(true)
+    , m_storageDirectory(!storageDirectory.isEmpty() ? storageDirectory : createTemporaryStorageDirectoryPath())
+{
+}
+
 WebExtensionControllerConfiguration::WebExtensionControllerConfiguration(const WTF::UUID& identifier)
     : m_identifier(identifier)
     , m_storageDirectory(createStorageDirectoryPath(identifier))
 {
 }
 
-Ref<WebExtensionControllerConfiguration> WebExtensionControllerConfiguration::copy() const
-{
-    if (m_identifier)
-        return create(m_identifier.value());
-    if (storageIsPersistent())
-        return createDefault();
-    return createNonPersistent();
-}
-
 bool WebExtensionControllerConfiguration::operator==(const WebExtensionControllerConfiguration& other) const
 {
-    if (this == &other)
-        return true;
-
-    if (m_storageDirectory != other.m_storageDirectory)
-        return false;
-
-    if (m_identifier != other.m_identifier)
-        return false;
-
-    return true;
+    return this == &other || (m_identifier == other.m_identifier && m_storageDirectory == other.m_storageDirectory && m_webViewConfiguration == other.m_webViewConfiguration);
 }
 
 } // namespace WebKit

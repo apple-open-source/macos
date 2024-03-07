@@ -24,50 +24,10 @@
 #ifndef __MAGAZINE_INLINE_H
 #define __MAGAZINE_INLINE_H
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 extern unsigned int _os_cpu_number_override;
-
-/*
- * MALLOC_ABSOLUTE_MAX_SIZE - There are many instances of addition to a
- * user-specified size_t, which can cause overflow (and subsequent crashes)
- * for values near SIZE_T_MAX.  Rather than add extra "if" checks everywhere
- * this occurs, it is easier to just set an absolute maximum request size,
- * and immediately return an error if the requested size exceeds this maximum.
- * Of course, values less than this absolute max can fail later if the value
- * is still too large for the available memory.  The largest value added
- * seems to be large_vm_page_quanta_size (in the macro round_large_page_quanta()), so to be safe, we set
- * the maximum to be 2 * PAGE_SIZE less than SIZE_T_MAX.
- *
- * This value needs to be calculated at runtime, so we'll cache it rather than
- * recalculate on each use.
- */
-#define _MALLOC_ABSOLUTE_MAX_SIZE (SIZE_T_MAX - (2 * large_vm_page_quanta_size))
-
-#if defined(MALLOC_BUILDING_XCTESTS)
-#define malloc_absolute_max_size _MALLOC_ABSOLUTE_MAX_SIZE
-#else
-extern size_t malloc_absolute_max_size; // caches the definition above
-#endif
-
-// Gets the allocation size for a calloc(). Multiples size by num_items and adds
-// extra_size, storing the result in *total_size. Returns 0 on success, -1 (with
-// errno set to ENOMEM) on overflow.
-static int MALLOC_INLINE MALLOC_ALWAYS_INLINE
-calloc_get_size(size_t num_items, size_t size, size_t extra_size, size_t *total_size)
-{
-	size_t alloc_size = size;
-	if (num_items != 1 && (os_mul_overflow(num_items, size, &alloc_size)
-			|| alloc_size > malloc_absolute_max_size)) {
-		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
-		return -1;
-	}
-	if (extra_size && (os_add_overflow(alloc_size, extra_size, &alloc_size)
-			|| alloc_size > malloc_absolute_max_size)) {
-		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
-		return -1;
-	}
-	*total_size = alloc_size;
-	return 0;
-}
 
 /*********************	FREE LIST UTILITIES  ************************/
 
@@ -103,19 +63,6 @@ static MALLOC_INLINE unsigned free_list_count(task_t task,
 static MALLOC_INLINE void recirc_list_extract(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
 static MALLOC_INLINE void recirc_list_splice_last(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
 static MALLOC_INLINE void recirc_list_splice_first(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
-
-static MALLOC_INLINE void
-yield(void)
-{
-	thread_switch(MACH_PORT_NULL, SWITCH_OPTION_DEPRESS, 1);
-}
-
-static MALLOC_INLINE kern_return_t
-_malloc_default_reader(task_t task, vm_address_t address, vm_size_t size, void **ptr)
-{
-	*ptr = (void *)address;
-	return 0;
-}
 
 #pragma mark helpers
 
@@ -231,7 +178,7 @@ free_list_count(task_t task, memory_reader_t reader,
 	while (ptr.p) {
 		count++;
 		if (reader(task, (vm_address_t)ptr.inplace, sizeof(*ptr.inplace),
-				(void **)&mapped_inplace_free_entry)) {
+				__unsafe_forge_single(void **, &mapped_inplace_free_entry))) {
 			printer("** invalid pointer in free list: %p\n", ptr.inplace);
 			break;
 		}
@@ -256,14 +203,14 @@ free_list_checksum_ptr(rack_t *rack, void *ptr)
 static MALLOC_INLINE void *
 free_list_unchecksum_ptr(rack_t *rack, inplace_union *ptr)
 {
-	void *stored_ptr = ptr->p;
+	void * __single stored_ptr = ptr->p;
 	// N.B. we don't use ptrauth_auth_data() because we want to be able to call
 	// free_list_checksum_botch() on failure, which prints a diagnostic first,
 	// rather than trapping directly
-	void *stripped_ptr = ptrauth_strip(stored_ptr, ptrauth_key_process_dependent_data);
+	void * __single stripped_ptr = ptrauth_strip(stored_ptr, ptrauth_key_process_dependent_data);
 	uintptr_t resigned_ptr = free_list_checksum_ptr(rack, stripped_ptr);
 	if ((uintptr_t)stored_ptr != resigned_ptr) {
-		free_list_checksum_botch(rack, ptr, (void *)ptr->u);
+		free_list_checksum_botch(rack, ptr, __unsafe_forge_single(void *, ptr->u));
 		__builtin_trap();
 	}
 	return stripped_ptr;
@@ -299,7 +246,7 @@ free_list_unchecksum_ptr(rack_t *rack, inplace_union *ptr)
 	p.u = t & ~(uintptr_t)0xF;
 
 	if ((t ^ free_list_gen_checksum(p.u ^ rack->cookie)) & (uintptr_t)0xF) {
-		free_list_checksum_botch(rack, ptr, (void *)ptr->u);
+		free_list_checksum_botch(rack, ptr, __unsafe_forge_single(void *, ptr->u));
 		__builtin_trap();
 	}
 	return p.p;
@@ -380,7 +327,7 @@ recirc_list_splice_first(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *no
  * cache would likely be a significant performance win here.
  */
 static MALLOC_INLINE rgnhdl_t
-hash_lookup_region_no_lock(region_t *regions, size_t num_entries, size_t shift, region_t r)
+hash_lookup_region_no_lock(region_t * __counted_by(num_entries) regions, size_t num_entries, size_t shift, region_t r)
 {
 	size_t index, hash_index;
 	rgnhdl_t entry;
@@ -416,7 +363,7 @@ hash_lookup_region_no_lock(region_t *regions, size_t num_entries, size_t shift, 
  * hash_region_insert_no_lock - Insert a region into the hash ring.
  */
 static void
-hash_region_insert_no_lock(region_t *regions, size_t num_entries, size_t shift, region_t r)
+hash_region_insert_no_lock(region_t * __counted_by(num_entries) regions, size_t num_entries, size_t shift, region_t r)
 {
 	size_t index, hash_index;
 	rgnhdl_t entry;
@@ -460,7 +407,7 @@ hash_regions_alloc_no_lock(size_t num_entries)
  * the old entries since someone may still be allocating them.
  */
 static MALLOC_INLINE region_t *
-hash_regions_grow_no_lock(region_t *regions, size_t old_size, size_t *mutable_shift, size_t *new_size)
+hash_regions_grow_no_lock(region_t * __counted_by(old_size) regions, size_t old_size, size_t *mutable_shift, size_t *new_size)
 {
 	// double in size and allocate memory for the regions
 	*new_size = old_size + old_size;
@@ -480,18 +427,6 @@ hash_regions_grow_no_lock(region_t *regions, size_t old_size, size_t *mutable_sh
 
 #pragma mark mag index
 
-/*
- * These commpage routines provide fast access to the logical cpu number
- * of the calling processor assuming no pre-emption occurs.
- */
-
-extern unsigned int hyper_shift;
-extern unsigned int phys_ncpus;
-extern unsigned int logical_ncpus;
-#if CONFIG_MAGAZINE_PER_CLUSTER
-extern unsigned int ncpuclusters;
-#endif // CONFIG_MAGAZINE_PER_CLUSTER
-
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE
 unsigned int
 mag_max_magazines(void)
@@ -509,10 +444,10 @@ mag_max_medium_magazines(void)
 #pragma mark mag lock
 
 static MALLOC_INLINE magazine_t *
-mag_lock_zine_for_region_trailer(magazine_t *magazines, region_trailer_t *trailer, mag_index_t mag_index)
+mag_lock_zine_for_region_trailer(magazine_t * __unsafe_indexable magazines, region_trailer_t *trailer, mag_index_t mag_index)
 {
 	mag_index_t refreshed_index;
-	magazine_t *mag_ptr = &(magazines[mag_index]);
+	magazine_t *mag_ptr = __unsafe_forge_single(magazine_t *, &(magazines[mag_index]));
 
 	// Take the lock  on entry.
 	SZONE_MAGAZINE_PTR_LOCK(mag_ptr);
@@ -525,7 +460,7 @@ mag_lock_zine_for_region_trailer(magazine_t *magazines, region_trailer_t *traile
 		SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
 
 		mag_index = refreshed_index;
-		mag_ptr = &(magazines[mag_index]);
+		mag_ptr = __unsafe_forge_single(magazine_t *, &(magazines[mag_index]));
 		SZONE_MAGAZINE_PTR_LOCK(mag_ptr);
 	}
 
@@ -533,8 +468,6 @@ mag_lock_zine_for_region_trailer(magazine_t *magazines, region_trailer_t *traile
 }
 
 #pragma mark Region Cookie
-
-extern uint64_t malloc_entropy[2];
 
 static region_cookie_t
 region_cookie(void)
@@ -583,8 +516,8 @@ tiny_region_for_ptr_no_lock(rack_t *rack, const void *ptr)
 static MALLOC_INLINE msize_t
 get_tiny_free_size_offset(const void *ptr, off_t mapped_offset)
 {
-	void *next_block = (void *)((uintptr_t)ptr + TINY_QUANTUM);
-	void *region_end = TINY_REGION_HEAP_END(TINY_REGION_FOR_PTR(ptr));
+	void * __single next_block = __unsafe_forge_single(void *, (uintptr_t)ptr + TINY_QUANTUM);
+	void * __single region_end = TINY_REGION_HEAP_END(TINY_REGION_FOR_PTR(ptr));
 
 	// check whether the next block is outside the tiny region or a block header
 	// if so, then the size of this block is one, and there is no stored size.

@@ -171,6 +171,12 @@ _os_object_t
 _os_object_alloc_realized(const void *cls, size_t size);
 
 API_AVAILABLE(macos(10.8), ios(6.0))
+OS_OBJECT_EXPORT OS_OBJECT_MALLOC OS_OBJECT_WARN_RESULT OS_OBJECT_NOTHROW
+OS_SWIFT_UNAVAILABLE("Unavailable in Swift")
+_os_object_t
+_os_object_alloc_bridged(const void *cls, size_t size);
+
+API_AVAILABLE(macos(10.8), ios(6.0))
 OS_OBJECT_EXPORT OS_OBJECT_NONNULL OS_OBJECT_NOTHROW
 OS_SWIFT_UNAVAILABLE("Unavailable in Swift")
 void _os_object_dealloc(_os_object_t object);

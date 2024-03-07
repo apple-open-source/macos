@@ -24,6 +24,9 @@
 #ifndef __MALLOC_TYPE_INTERNAL_H__
 #define __MALLOC_TYPE_INTERNAL_H__
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 #if MALLOC_TARGET_64BIT
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
@@ -31,7 +34,7 @@ static malloc_type_descriptor_t
 malloc_get_tsd_type_descriptor(void)
 {
 	return (malloc_type_descriptor_t){
-		.storage = _pthread_getspecific_direct(__TSD_MALLOC_TYPE_DESCRIPTOR),
+		.storage = __unsafe_forge_single(void *, _pthread_getspecific_direct(__TSD_MALLOC_TYPE_DESCRIPTOR)),
 	};
 }
 
@@ -48,6 +51,18 @@ malloc_set_tsd_type_descriptor(malloc_type_descriptor_t type_desc)
 {
 	_pthread_setspecific_direct(__TSD_MALLOC_TYPE_DESCRIPTOR,
 			type_desc.storage);
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static malloc_type_descriptor_t
+malloc_callsite_fallback_type_descriptor(void)
+{
+	uint32_t bits =
+			(uint32_t)(((uintptr_t)__builtin_return_address(0)) >> 2);
+	return (malloc_type_descriptor_t){
+		.hash = bits,
+		// no summary bits
+	};
 }
 
 // TODO: can we get a guarantee from the compiler that no valid type ID will
@@ -91,10 +106,23 @@ malloc_get_tsd_type_id(void)
 	return 0;
 }
 
+typedef uint64_t malloc_type_descriptor_t;
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static malloc_type_descriptor_t
+malloc_callsite_fallback_type_descriptor(void)
+{
+	return 0;
+}
+
 #endif // MALLOC_TARGET_64BIT
 
+#if !MALLOC_TARGET_EXCLAVES
 MALLOC_NOEXPORT
 extern bool malloc_interposition_compat;
+#else
+static const bool malloc_interposition_compat = false;
+#endif // !MALLOC_TARGET_EXCLAVES
 
 MALLOC_NOEXPORT
 void

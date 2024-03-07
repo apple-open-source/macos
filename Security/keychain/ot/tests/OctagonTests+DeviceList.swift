@@ -66,6 +66,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
     }
 
     func testRemovePeerWhenRemovedFromDeviceList() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         XCTAssert(self.mockAuthKit.currentDeviceList().contains(self.mockAuthKit2.currentMachineID), "AuthKit should already have device 2 on the list")
@@ -143,6 +144,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
     }
 
     func testRemovePeerWhenRemovedFromDeviceListViaIncompleteNotification() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         XCTAssert(self.mockAuthKit.currentDeviceList().contains(self.mockAuthKit2.currentMachineID), "AuthKit should already have device 2 on the list")
@@ -187,6 +189,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
     }
 
     func testTrustPeerWhenMissingFromDeviceList() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.mockAuthKit.otherDevices.removeAllObjects()
@@ -270,6 +273,8 @@ class OctagonDeviceListTests: OctagonTestsBase {
     }
 
     func testRemoveSelfWhenRemovedFromLargeDeviceList() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         self.startCKAccountStatusMock()
 
         XCTAssert(self.mockAuthKit.currentDeviceList().count > 1, "AuthKit should have more than one device on the list")
@@ -305,6 +310,8 @@ class OctagonDeviceListTests: OctagonTestsBase {
     }
 
     func testRemoveSelfWhenRemovedFromLargeDeviceListByIncompleteNotification() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         self.startCKAccountStatusMock()
 
         XCTAssert(self.mockAuthKit.currentDeviceList().count > 1, "AuthKit should have more than one device on the list")
@@ -455,7 +462,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
                            allowed: self.mockAuthKit.currentDeviceList().subtracting(peer2MIDSet),
                            unknown: peer2MIDSet)
 
-        // Now, let's pretend that three days pass, and do this again... Octagon should now fetch the MID list and become happy.
+        // Now, let's pretend that 2 days pass, and do this again... Octagon should now fetch the MID list and become happy.
         let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
         container.moc.performAndWait {
             var foundPeer2 = false
@@ -463,7 +470,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
                 where machinemo.machineID == self.mockAuthKit2.currentMachineID {
                     foundPeer2 = true
                     //
-                    machinemo.modified = Date(timeIntervalSinceNow: -60 * 60 * TimeInterval(72))
+                    machinemo.modified = Date(timeIntervalSinceNow: -60 * 60 * 24 * TimeInterval(2))
                     XCTAssertEqual(machinemo.status, Int64(TPMachineIDStatus.unknown.rawValue), "peer2's MID entry should be 'unknown'")
             }
 
@@ -480,6 +487,8 @@ class OctagonDeviceListTests: OctagonTestsBase {
     }
 
     func testTrustPeerWheMissingFromDeviceListAndLocked() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         self.startCKAccountStatusMock()
 
         self.mockAuthKit.otherDevices.removeAllObjects()
@@ -581,6 +590,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
     }
 
     func testDemoAccountTrustPeerWhenMissingFromDeviceList() throws {
+        try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
 
         self.mockAuthKit.otherDevices.removeAllObjects()
@@ -646,6 +656,8 @@ class OctagonDeviceListTests: OctagonTestsBase {
     }
 
     func testRemovePeerWhenRemovedFromDeviceListAndAuthkitThrowsError() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
         self.startCKAccountStatusMock()
 
         XCTAssert(self.mockAuthKit.currentDeviceList().contains(self.mockAuthKit2.currentMachineID), "AuthKit should already have device 2 on the list")
@@ -768,6 +780,299 @@ class OctagonDeviceListTests: OctagonTestsBase {
 
         XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(3 * NSEC_PER_SEC), "State machine should be paused, and not looping")
         XCTAssertEqual(deviceListFetches + 1, self.mockAuthKit.fetchInvocations, "Should have fetched device list exactly once")
+    }
+
+    func testATVCannotDistrustDevicesUponTDLDistrust() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.startCKAccountStatusMock()
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        do {
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.verifyDatabaseMocks()
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        do {
+            let peersByID = try clique.peerDeviceNamesByPeerID()
+            XCTAssertNotNil(peersByID, "Should have received information on peers")
+            XCTAssertTrue(peersByID.isEmpty, "peer1 should report no trusted peers")
+        } catch {
+            XCTFail("Error thrown: \(error)")
+        }
+
+        let appleTVDeviceAdapter = OTMockDeviceInfoAdapter(modelID: "AppleTV",
+                                                           deviceName: "test-appletv",
+                                                           serialNumber: NSUUID().uuidString,
+                                                           osVersion: "21K627")
+
+        let appleTV = self.manager.context(forContainerName: OTCKContainerName,
+                                         contextID: "appletv-context",
+                                         sosAdapter: self.mockSOSAdapter!,
+                                         accountsAdapter: self.mockAuthKit2,
+                                         authKitAdapter: self.mockAuthKit2,
+                                         tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
+                                         lockStateTracker: self.lockStateTracker,
+                                         deviceInformationAdapter: appleTVDeviceAdapter)
+
+        appleTV.startOctagonStateMachine()
+
+        self.assertJoinViaProximitySetup(joiningContext: appleTV, sponsor: self.cuttlefishContext)
+        self.assertEnters(context: appleTV, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        self.mockAuthKit2.removeAndSendNotification(self.mockAuthKit.currentMachineID)
+
+        self.sendContainerChangeWaitForFetch(context: appleTV)
+
+        var stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(appleTV.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+            XCTAssertNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should be nil")
+            XCTAssertNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should be nil")
+
+            XCTAssertNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should be nil")
+            XCTAssertNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should be nil")
+
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+
+        // Cuttlefish context removes itself from the IdMS TDL and becomes untrusted
+        self.mockAuthKit.removeAndSendNotification(self.mockAuthKit.currentMachineID)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        // appleTV gets updates from cuttlefish context
+        self.sendContainerChangeWaitForFetch(context: appleTV)
+
+        // appleTV should now be the only device in the account
+        stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(appleTV.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+            XCTAssertNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should be nil")
+            XCTAssertNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should be nil")
+
+            XCTAssertNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should be nil")
+            XCTAssertNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should be nil")
+
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 1, "should be 1 peer id")
+
+            let excluded = dynamicInfo!["excluded"] as? [String]
+            XCTAssertNotNil(excluded, "excluded should not be nil")
+
+            XCTAssertNotEqual(egoSelf!["peerID"] as! String, excluded![0] as String, "peer should be excluded")
+
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+
+        // cuttlefish context should have a dynamic info
+        stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+            XCTAssertNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should be nil")
+            XCTAssertNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should be nil")
+
+            XCTAssertNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should be nil")
+            XCTAssertNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should be nil")
+
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNil(included, "included should be nil")
+
+            let excluded = dynamicInfo!["excluded"] as? [String]
+            XCTAssertNotNil(excluded, "excluded should not be nil")
+
+            XCTAssertEqual(egoSelf!["peerID"] as! String, excluded![0] as String, "peer should be excluded")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+    }
+
+    func testHomePodCannotDistrustDevicesUponTDLDistrust() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        do {
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.verifyDatabaseMocks()
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        do {
+            let peersByID = try clique.peerDeviceNamesByPeerID()
+            XCTAssertNotNil(peersByID, "Should have received information on peers")
+            XCTAssertTrue(peersByID.isEmpty, "peer1 should report no trusted peers")
+        } catch {
+            XCTFail("Error thrown: \(error)")
+        }
+
+        let homepodDeviceAdapter = OTMockDeviceInfoAdapter(modelID: "AudioAccessory",
+                                                           deviceName: "test-homepod",
+                                                           serialNumber: NSUUID().uuidString,
+                                                           osVersion: "21K627")
+
+        let homepod = self.manager.context(forContainerName: OTCKContainerName,
+                                         contextID: "appletv-context",
+                                         sosAdapter: self.mockSOSAdapter!,
+                                         accountsAdapter: self.mockAuthKit2,
+                                         authKitAdapter: self.mockAuthKit2,
+                                         tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
+                                         lockStateTracker: self.lockStateTracker,
+                                         deviceInformationAdapter: homepodDeviceAdapter)
+
+        homepod.startOctagonStateMachine()
+
+        self.assertJoinViaProximitySetup(joiningContext: homepod, sponsor: self.cuttlefishContext)
+        self.assertEnters(context: homepod, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        self.mockAuthKit2.removeAndSendNotification(self.mockAuthKit.currentMachineID)
+
+        self.sendContainerChangeWaitForFetch(context: homepod)
+
+        var stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(homepod.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+            XCTAssertNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should be nil")
+            XCTAssertNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should be nil")
+
+            XCTAssertNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should be nil")
+            XCTAssertNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should be nil")
+
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+
+        // Cuttlefish context removes itself from the IdMS TDL and becomes untrusted
+        self.mockAuthKit.removeAndSendNotification(self.mockAuthKit.currentMachineID)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        // appleTV gets updates from cuttlefish context
+        self.sendContainerChangeWaitForFetch(context: homepod)
+
+        // appleTV should now be the only device in the account
+        stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(homepod.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+            XCTAssertNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should be nil")
+            XCTAssertNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should be nil")
+
+            XCTAssertNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should be nil")
+            XCTAssertNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should be nil")
+
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 1, "should be 1 peer id")
+
+            let excluded = dynamicInfo!["excluded"] as? [String]
+            XCTAssertNotNil(excluded, "excluded should not be nil")
+
+            XCTAssertNotEqual(egoSelf!["peerID"] as! String, excluded![0] as String, "peer should be excluded")
+
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+
+        // cuttlefish context should have a dynamic info
+        stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
+            XCTAssertNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should be nil")
+            XCTAssertNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should be nil")
+
+            XCTAssertNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should be nil")
+            XCTAssertNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should be nil")
+
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNil(included, "included should be nil")
+
+            let excluded = dynamicInfo!["excluded"] as? [String]
+            XCTAssertNotNil(excluded, "excluded should not be nil")
+
+            XCTAssertEqual(egoSelf!["peerID"] as! String, excluded![0] as String, "peer should be excluded")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
     }
 }
 

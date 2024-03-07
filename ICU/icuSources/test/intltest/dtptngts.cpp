@@ -103,6 +103,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         {"zh", "", "", "calendar=chinese"},     // 10
         {"ja", "JP", "TRADITIONAL", ""},        // 11
 #if APPLE_ICU_CHANGES
+// rdar://16482189&16567439 chinese calendar date formats: Use rU or r (not y), drop 日 in zh formats
 // rdar://
         {"zh", "", "", "calendar=chinese;numbers=hanidays"},    // 12 Apple add
         {"ar", "", "", ""},                     // 13 Apple add
@@ -128,7 +129,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("January 1999"),                        // 12: yyyyMMMM
         UnicodeString("Wed, Jan 13"),                         // 13: MMMEd -> EEE, MMM d
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://98584839 en_US: Compact date shown alongside inline widget shows “12 Fri” instead of “Fri 12”
         UnicodeString("Wed 13"),                              // 14: Ed    -> E d
 #else
         UnicodeString("13 Wed"),                              // 14: Ed    -> d EEE
@@ -140,7 +141,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     UnicodeString patternResults_en_US_japanese[] = {
         // en_US@calendar=japanese                            // 1 en_US@calendar=japanese
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
         UnicodeString("1/H11"),                               //  0: yM
         UnicodeString("Jan Heisei 11"),                       //  1: yMMM
         UnicodeString("1/13/H11"),                            //  2: yMd
@@ -155,7 +156,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("Jan 13"),                              //  5: MMMd
         UnicodeString("January 13"),                          //  6: MMMMd
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
         UnicodeString("Q1 Heisei 11"),                        //  7: yQQQ
 #else
         UnicodeString("Q1 11 Heisei"),                        //  7: yQQQ
@@ -165,7 +166,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString(u"11:58\u202FPM", -1),                 // 10: jjmm
         UnicodeString("58:59"),                               // 11: mmss
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
         UnicodeString("January Heisei 11"),                   // 12: yyyyMMMM
 #else
         UnicodeString("January 11 Heisei"),                   // 12: yyyyMMMM
@@ -182,7 +183,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
 // rdar://97937093 restore . not /
         UnicodeString("1.1999"),                              // 00: yM
 #else
-        UnicodeString("01/1999"),                             // 00: yM
+        UnicodeString("1/1999"),                              // 00: yM
 #endif  // APPLE_ICU_CHANGES
         UnicodeString("Jan. 1999"),                           // 01: yMMM
         UnicodeString("13.1.1999"),                           // 02: yMd
@@ -330,7 +331,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
 
     UnicodeString patternResults_zh_Hans_CN[] = {
         // zh_Hans_CN                                                     // 7 zh_Hans_CN
-        CharsToUnicodeString("1999\\u5E741\\u6708"),                      // 00: yM -> y\u5E74M\u6708
+        CharsToUnicodeString("1999/1"),                                   // 00: yM
         CharsToUnicodeString("1999\\u5E741\\u6708"),                      // 01: yMMM  -> yyyy\u5E74MMM (fixed expected result per ticket:6626:)
         CharsToUnicodeString("1999/1/13"),                                // 02: yMd
         CharsToUnicodeString("1999\\u5E741\\u670813\\u65E5"),             // 03: yMMMd -> yyyy\u5E74MMMd\u65E5 (fixed expected result per ticket:6626:)
@@ -491,7 +492,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     };
 
 #if APPLE_ICU_CHANGES
-// rdar://
+// rdar://16482189&16567439 chinese calendar date formats: Use rU or r (not y), drop 日 in zh formats
     UnicodeString patternResults_zh_chinese_hanidays[] = { // 12 Apple add
         // zh@calendar=chinese,numbers=hanidays                           // 10 zh@calendar=chinese,numbers=hanidays
         CharsToUnicodeString("1998\\u620A\\u5BC5\\u5E74\\u51AC\\u6708"),  // 00: yMMM
@@ -733,7 +734,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         return;
     }
     TimeZone *zone = TimeZone::createTimeZone(UnicodeString("ECT"));
-    if (zone==NULL) {
+    if (zone==nullptr) {
         dataerrln("ERROR: Could not create TimeZone ECT");
         delete gen;
         delete format;
@@ -766,8 +767,8 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     delete format;
 
     // get a pattern and modify it
-    format = (SimpleDateFormat *)DateFormat::createDateTimeInstance(DateFormat::kFull, DateFormat::kFull,
-                                                                  deLocale);
+    format = dynamic_cast<SimpleDateFormat*>(DateFormat::createDateTimeInstance(DateFormat::kFull, DateFormat::kFull,
+                                                                  deLocale));
     format->setTimeZone(*zone);
     UnicodeString pattern;
     pattern = format->toPattern(pattern);
@@ -973,13 +974,13 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
             return;
         }
         TimeZone *enZone = TimeZone::createTimeZone(UnicodeString("ECT/GMT"));
-        if (enZone==NULL) {
+        if (enZone==nullptr) {
             dataerrln("ERROR: Could not create TimeZone ECT");
             delete patGen;
             return;
         }
-        SimpleDateFormat *enFormat = (SimpleDateFormat *)DateFormat::createDateTimeInstance(DateFormat::kFull,
-                         DateFormat::kFull, Locale::getEnglish());
+        SimpleDateFormat *enFormat = dynamic_cast<SimpleDateFormat*>(DateFormat::createDateTimeInstance(DateFormat::kFull,
+                         DateFormat::kFull, Locale::getEnglish()));
         enFormat->setTimeZone(*enZone);
         while (patternTests2[dataIndex].length() > 0) {
             logln(patternTests2[dataIndex]);
@@ -1009,12 +1010,12 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         dataerrln("ERROR: Could not create DateTimePatternGenerator (Locale::getFrench()) - exiting");
         return;
     }
-    UChar newChar;
+    char16_t newChar;
     for (i=0; i<10; ++i) {
         UnicodeString randomSkeleton;
         int32_t len = rand() % 20;
         for (int32_t j=0; j<len; ++j ) {
-            while ((newChar = (UChar)(rand()%0x7f))>=(UChar)0x20) {
+            while ((newChar = (char16_t)(rand()%0x7f))>=(char16_t)0x20) {
                 randomSkeleton += newChar;
             }
         }
@@ -1051,13 +1052,13 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     testPattern=test->getBestPattern(UnicodeString("MMMMdd"), status);
     conflictingStatus = test->addPattern(UnicodeString("HH:mm"), true, conflictingPattern, status);
     conflictingStatus = test->addPattern(UnicodeString("MMMMMdd"), true, conflictingPattern, status); //duplicate pattern
-    StringEnumeration *output=NULL;
+    StringEnumeration *output=nullptr;
     output = test->getRedundants(status);
     expectedResult=UnicodeString("MMMMd");
-    if (output != NULL) {
+    if (output != nullptr) {
         output->reset(status);
         const UnicodeString *dupPattern=output->snext(status);
-        if ( (dupPattern==NULL) || (*dupPattern != expectedResult) ) {
+        if ( (dupPattern==nullptr) || (*dupPattern != expectedResult) ) {
             errln("ERROR: Fail in getRedundants !\n");
         }
     }
@@ -1071,7 +1072,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     ptrSkeletonEnum->reset(status);
     count=ptrSkeletonEnum->count(status);
     for (i=0; i<count; ++i) {
-        ptrSkeleton = (UnicodeString *)ptrSkeletonEnum->snext(status);
+        ptrSkeleton = const_cast<UnicodeString *>(ptrSkeletonEnum->snext(status));
         returnPattern = test->getPatternForSkeleton(*ptrSkeleton);
         if ( returnPattern != testSkeletonsResults[i] ) {
             errln(UnicodeString("ERROR: Unexpected result from getSkeletons and getPatternForSkeleton\nGot: ") + returnPattern
@@ -1085,7 +1086,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     }
     count=ptrBaseSkeletonEnum->count(status);
     for (i=0; i<count; ++i) {
-        ptrSkeleton = (UnicodeString *)ptrBaseSkeletonEnum->snext(status);
+        ptrSkeleton = const_cast<UnicodeString *>(ptrBaseSkeletonEnum->snext(status));
         if ( *ptrSkeleton != testBaseSkeletonsResults[i] ) {
             errln("ERROR: Unexpected result from getBaseSkeletons() !\n");
         }
@@ -1147,7 +1148,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
 typedef struct DTPtnGenOptionsData {
     const char *locale;
     const char *skel;
-    const UChar *expectedPattern;
+    const char16_t *expectedPattern;
     UDateTimePatternMatchOptions    options;
 } DTPtnGenOptionsData;
 void IntlTestDateTimePatternGeneratorAPI::testOptions(/*char *par*/)
@@ -1170,8 +1171,18 @@ void IntlTestDateTimePatternGeneratorAPI::testOptions(/*char *par*/)
         { "en",                   "yyyy",  u"yyyy",  UDATPG_MATCH_NO_OPTIONS },
         { "en",                   "YYYY",  u"YYYY",  UDATPG_MATCH_NO_OPTIONS },
         { "en",                   "U",     u"y",     UDATPG_MATCH_NO_OPTIONS },
+
+// rdar://113679874 remove commas for EMMMMd format for en_GB, confirm it's different to en_001
 #if APPLE_ICU_CHANGES
-// rdar://
+        { "en_001",                  "EMMMMd",  u"EEE, d MMMM",  UDATPG_MATCH_NO_OPTIONS },
+        { "en_GB",                   "EMMMMd",  u"EEE d MMMM",   UDATPG_MATCH_NO_OPTIONS },
+#else
+        { "en_001",                  "EMMMMd",  u"EEE, d MMMM",  UDATPG_MATCH_NO_OPTIONS },
+        { "en_GB",                   "EMMMMd",  u"EEE, d MMMM",  UDATPG_MATCH_NO_OPTIONS },
+#endif  // APPLE_ICU_CHANGES
+
+#if APPLE_ICU_CHANGES
+// rdar://69457523 en/de/es/fr, japanese cal date formats should use G y or GGGGGy+
         { "en@calendar=japanese", "yyyy",  u"G y",   UDATPG_MATCH_NO_OPTIONS },
         { "en@calendar=japanese", "YYYY",  u"G Y",   UDATPG_MATCH_NO_OPTIONS },
         { "en@calendar=japanese", "U",     u"G y",   UDATPG_MATCH_NO_OPTIONS },
@@ -1259,7 +1270,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAllFieldPatterns(/*char *par*/)
         "en",
         "en@calendar=japanese",
         "en@calendar=chinese",
-        NULL // terminator
+        nullptr // terminator
     };
     AllFieldsTestItem testData[] = {
         //pat   fieldLengths    generated pattern must
@@ -1318,7 +1329,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAllFieldPatterns(/*char *par*/)
 
     const char ** localeNamesPtr = localeNames;
     const char * localeName;
-    while ( (localeName = *localeNamesPtr++) != NULL) {
+    while ( (localeName = *localeNamesPtr++) != nullptr) {
         UErrorCode status = U_ZERO_ERROR;
         Locale locale = Locale::createFromName(localeName);
         DateTimePatternGenerator * dtpg = DateTimePatternGenerator::createInstance(locale, status);
@@ -1353,7 +1364,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAllFieldPatterns(/*char *par*/)
                         int32_t patIndx, patLen = pattern.length();
                         UBool inQuoted = false;
                         for (patIndx = 0; patIndx < patLen; patIndx++) {
-                            UChar c = pattern.charAt(patIndx);
+                            char16_t c = pattern.charAt(patIndx);
                             if (c == 0x27) {
                                 inQuoted = !inQuoted;
                             } else if (!inQuoted && c <= 0x007A && c >= 0x0041) {
@@ -1409,10 +1420,20 @@ void IntlTestDateTimePatternGeneratorAPI::testC() {
             {"zh-TW",  "CCCCm",   "BBBBhh:mm"},
             {"zh-TW",  "CCCCCm",  "BBBBBh:mm"},
             {"zh-TW",  "CCCCCCm", "BBBBBhh:mm"},
+#if APPLE_ICU_CHANGES
+// rdar://rdar://116151591 The minimum field length for the hour field isn't 1, but is whatever the
+// length of the field is in the pattern for "H" (or "h") in the relevant availableFormats resource --
+// for "H", this is usually 2
             {"de",     "Cm",      "HH:mm"},
             {"de",     "CCm",     "HH:mm"},
             {"de",     "CCCm",    "HH:mm"},
             {"de",     "CCCCm",   "HH:mm"},
+#else
+            {"de",     "Cm",      "H:mm"},
+            {"de",     "CCm",     "HH:mm"},
+            {"de",     "CCCm",    "H:mm"},
+            {"de",     "CCCCm",   "HH:mm"},
+#endif // APPLE_ICU_CHANGES
             {"en",     "Cm",      "h:mm\\u202Fa"},
             {"en",     "CCm",     "hh:mm\\u202Fa"},
             {"en",     "CCCm",    "h:mm\\u202Faaaa"},
@@ -1429,7 +1450,7 @@ void IntlTestDateTimePatternGeneratorAPI::testC() {
     for (int32_t i = 0; i < numTests; ++i) {
         DateTimePatternGenerator *gen = DateTimePatternGenerator::createInstance(
                 Locale::forLanguageTag(tests[i][0], status), status);
-        if (gen == NULL) {
+        if (gen == nullptr) {
             dataerrln("FAIL: DateTimePatternGenerator::createInstance failed for %s", tests[i][0]);
             return;
         }
@@ -1557,7 +1578,7 @@ void IntlTestDateTimePatternGeneratorAPI::testGetFieldDisplayNames() {
         if (U_FAILURE(status)) {
             dataerrln("FAIL: DateTimePatternGenerator::createInstance failed for locale %s", testDataPtr->locale);
         } else {
-            UChar expName[kFieldDisplayNameMax+1];
+            char16_t expName[kFieldDisplayNameMax+1];
             u_unescape(testDataPtr->expected, expName, kFieldDisplayNameMax);
             expName[kFieldDisplayNameMax] = 0; // ensure 0 termination
             UnicodeString getName = dtpg->getFieldDisplayName(testDataPtr->field, testDataPtr->width);
@@ -1570,7 +1591,7 @@ void IntlTestDateTimePatternGeneratorAPI::testGetFieldDisplayNames() {
     }
 }
 
-static const UChar timeCycleChars[] = { (UChar)0x0048, (UChar)0x0068, (UChar)0x004B, (UChar)0x006B, (UChar)0 };
+static const char16_t timeCycleChars[] = { (char16_t)0x0048, (char16_t)0x0068, (char16_t)0x004B, (char16_t)0x006B, (char16_t)0 };
 
 void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
     UErrorCode status = U_ZERO_ERROR;
@@ -1614,7 +1635,7 @@ void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
             continue;
         }
         const SimpleDateFormat* sdfmt;
-        if ((sdfmt = dynamic_cast<const SimpleDateFormat*>(reinterpret_cast<const DateFormat*>(dfmt.getAlias()))) == NULL) {
+        if ((sdfmt = dynamic_cast<const SimpleDateFormat*>(reinterpret_cast<const DateFormat*>(dfmt.getAlias()))) == nullptr) {
             continue;
         }
         UnicodeString shortPattern;
@@ -1631,8 +1652,8 @@ void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
             errln("FAIL: DateTimePatternGenerator::staticGetSkeleton locale %s: %s", localeID, u_errorName(status));
             continue;
         }
-        const UChar* charPtr = timeCycleChars;
-        for (; *charPtr != (UChar)0; charPtr++) {
+        const char16_t* charPtr = timeCycleChars;
+        for (; *charPtr != (char16_t)0; charPtr++) {
              if (jPatSkeleton.indexOf(*charPtr) >= 0) {
                  if (shortPatSkeleton.indexOf(*charPtr) < 0) {
                      char jcBuf[2], spBuf[32], jpBuf[32];
@@ -1768,7 +1789,7 @@ void IntlTestDateTimePatternGeneratorAPI::test_jConsistencyOddLocales() { // ICU
         "xz-ZX",  // unknown language with unknown country
         "ars", "wuu" // aliased locales
     };
-    static const UChar* skeleton = u"jm";
+    static const char16_t* skeleton = u"jm";
     for (const char* localeID: localeIDs) {
         UErrorCode status = U_ZERO_ERROR;
         Locale locale(localeID);
@@ -1812,7 +1833,7 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
     const struct TestCase {
         const char* localeID;
         const char* skeleton;
-        const UChar* expectedPattern;
+        const char16_t* expectedPattern;
     } testCases[] = {
         // ICU-21650: (See the "week day" section of https://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table
         // for a full explanation of why this is the desired behavior)
@@ -1875,6 +1896,7 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
         { "en",         "EEEd",        u"EEE d" }, // the case that was failing
         { "en_GB",      "EEEd",        u"EEE d" }, // the cases that were succeeding (and that we want to match)
         { "en_CA",      "EEEd",        u"EEE d" },
+        { "en_CA",      "yMd",         u"y-MM-dd" }, //rdar: 116370369: Canadian date format no longer supported DD/MM/YYYY
 #else
         { "ckb_IR",     "BSSS",        u"SSS \u251c'Dayperiod': B\u2524" },
 #endif  // APPLE_ICU_CHANGES
@@ -1891,7 +1913,7 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
             LocalPointer<DateFormat> df(DateFormat::createDateInstance(DateFormat::kFull, testCases[i].localeID));
             SimpleDateFormat* sdf = dynamic_cast<SimpleDateFormat*>(df.getAlias());
             
-            if (sdf != NULL) {
+            if (sdf != nullptr) {
                 sdf->toPattern(actualPattern);
             }
         }
@@ -1940,7 +1962,12 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
         { "ha", { UnicodeString(u"EEEE d MMMM, y 'da' HH:mm"),
                   UnicodeString(u"d MMMM, y 'da' HH:mm"),
                   UnicodeString(u"d MMM, y, HH:mm"),
+#if APPLE_ICU_CHANGES
+// rdar://116151591 This is wrong in OSICU due to a bug that was keeping us from inheriting availableFormats resources from root
                   UnicodeString(u"y-MM-dd, HH:mm") } },
+#else
+                  UnicodeString(u"d/M/y, HH:mm") } },
+#endif // APPLE_ICU_CHANGES
         { nullptr, { UnicodeString(""), UnicodeString(""), // terminator
                     UnicodeString(""), UnicodeString("") } },
     };
@@ -2055,7 +2082,7 @@ void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
 void IntlTestDateTimePatternGeneratorAPI::testRegionOverride() {
     const struct TestCase {
         const char* locale;
-        const UChar* expectedPattern;
+        const char16_t* expectedPattern;
         UDateFormatHourCycle expectedHourCycle;
     } testCases[] = {
         { "en_US",           u"h:mm\u202fa", UDAT_HOUR_CYCLE_12 },

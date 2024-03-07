@@ -55,11 +55,6 @@ public:
     Path& operator=(const Path&) = default;
     Path& operator=(Path&&) = default;
 
-    WEBCORE_EXPORT bool operator==(const Path&) const;
-
-    // FIXME: Remove this method when the call of it from WebKitAdditions in is removed.
-    static Path polygonPathFromPoints(const Vector<FloatPoint>&);
-
     WEBCORE_EXPORT void moveTo(const FloatPoint&);
 
     WEBCORE_EXPORT void addLineTo(const FloatPoint&);
@@ -91,10 +86,12 @@ public:
     WEBCORE_EXPORT std::optional<PathSegment> singleSegment() const;
     std::optional<PathDataLine> singleDataLine() const;
     std::optional<PathArc> singleArc() const;
+    std::optional<PathClosedArc> singleClosedArc() const;
     std::optional<PathDataQuadCurve> singleQuadCurve() const;
     std::optional<PathDataBezierCurve> singleBezierCurve() const;
 
     WEBCORE_EXPORT bool isEmpty() const;
+    bool definitelySingleLine() const;
     WEBCORE_EXPORT PlatformPathPtr platformPath() const;
 
     const PathSegment* singleSegmentIfExists() const { return asSingle(); }
@@ -103,6 +100,7 @@ public:
 
     float length() const;
     bool isClosed() const;
+    bool hasSubpaths() const;
     FloatPoint currentPoint() const;
     PathTraversalState traversalStateAtLength(float length) const;
     FloatPoint pointAtLength(float length) const;
@@ -126,6 +124,7 @@ private:
     const PathImpl* asImpl() const;
 
     const PathMoveTo* asSingleMoveTo() const;
+    const PathArc* asSingleArc() const;
 
     std::variant<std::monostate, PathSegment, DataRef<PathImpl>> m_data;
 };

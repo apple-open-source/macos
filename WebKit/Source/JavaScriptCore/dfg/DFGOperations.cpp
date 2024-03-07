@@ -143,7 +143,7 @@ char* newTypedArrayWithSize(JSGlobalObject* globalObject, VM& vm, Structure* str
     size_t unsignedSize = static_cast<size_t>(size);
 
     if (vector)
-        return bitwise_cast<char*>(ViewClass::createWithFastVector(globalObject, structure, unsignedSize, untagArrayPtr(vector, unsignedSize)));
+        return bitwise_cast<char*>(ViewClass::createWithFastVector(globalObject, structure, unsignedSize, vector));
 
     RELEASE_AND_RETURN(scope, bitwise_cast<char*>(ViewClass::create(globalObject, structure, unsignedSize)));
 }
@@ -290,9 +290,8 @@ JSC_DEFINE_JIT_OPERATION(operationObjectAssignObject, void, (JSGlobalObject* glo
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
     auto scope = DECLARE_THROW_SCOPE(vm);
-    bool targetCanPerformFastPut = jsDynamicCast<JSFinalObject*>(target) && target->canPerformFastPutInlineExcludingProto() && target->isStructureExtensible();
 
-    if (targetCanPerformFastPut) {
+    if (auto* targetObject = jsDynamicCast<JSFinalObject*>(target); targetObject && targetObject->canPerformFastPutInlineExcludingProto() && targetObject->isStructureExtensible()) {
         Vector<RefPtr<UniquedStringImpl>, 8> properties;
         MarkedArgumentBuffer values;
         if (!source->staticPropertiesReified()) {
@@ -311,7 +310,7 @@ JSC_DEFINE_JIT_OPERATION(operationObjectAssignObject, void, (JSGlobalObject* glo
         // https://bugs.webkit.org/show_bug.cgi?id=187837
 
         // Do not clear since Vector::clear shrinks the backing store.
-        bool objectAssignFastSucceeded = objectAssignFast(globalObject, target, source, properties, values);
+        bool objectAssignFastSucceeded = objectAssignFast(globalObject, targetObject, source, properties, values);
         RETURN_IF_EXCEPTION(scope, void());
         if (objectAssignFastSucceeded)
             return;
@@ -328,15 +327,13 @@ JSC_DEFINE_JIT_OPERATION(operationObjectAssignUntyped, void, (JSGlobalObject* gl
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    bool targetCanPerformFastPut = jsDynamicCast<JSFinalObject*>(target) && target->canPerformFastPutInlineExcludingProto() && target->isStructureExtensible();
-
     JSValue sourceValue = JSValue::decode(encodedSource);
     if (sourceValue.isUndefinedOrNull())
         return;
     JSObject* source = sourceValue.toObject(globalObject);
     RETURN_IF_EXCEPTION(scope, void());
 
-    if (targetCanPerformFastPut) {
+    if (auto* targetObject = jsDynamicCast<JSFinalObject*>(target); targetObject && targetObject->canPerformFastPutInlineExcludingProto() && targetObject->isStructureExtensible()) {
         if (!source->staticPropertiesReified()) {
             source->reifyAllStaticProperties(globalObject);
             RETURN_IF_EXCEPTION(scope, void());
@@ -344,7 +341,7 @@ JSC_DEFINE_JIT_OPERATION(operationObjectAssignUntyped, void, (JSGlobalObject* gl
 
         Vector<RefPtr<UniquedStringImpl>, 8> properties;
         MarkedArgumentBuffer values;
-        bool objectAssignFastSucceeded = objectAssignFast(globalObject, target, source, properties, values);
+        bool objectAssignFastSucceeded = objectAssignFast(globalObject, targetObject, source, properties, values);
         RETURN_IF_EXCEPTION(scope, void());
         if (objectAssignFastSucceeded)
             return;
@@ -1959,7 +1956,7 @@ JSC_DEFINE_JIT_OPERATION(operationNewArrayWithSize, char*, (JSGlobalObject* glob
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (UNLIKELY(size < 0)) {
-        throwException(globalObject, scope, createRangeError(globalObject, "Array size is not a small enough positive integer."_s));
+        throwException(globalObject, scope, createRangeError(globalObject, ArrayInvalidLengthError));
         return nullptr;
     }
 
@@ -1984,7 +1981,7 @@ JSC_DEFINE_JIT_OPERATION(operationNewArrayWithSizeAndHint, char*, (JSGlobalObjec
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (UNLIKELY(size < 0)) {
-        throwException(globalObject, scope, createRangeError(globalObject, "Array size is not a small enough positive integer."_s));
+        throwException(globalObject, scope, createRangeError(globalObject, ArrayInvalidLengthError));
         return nullptr;
     }
 
@@ -2611,7 +2608,7 @@ JSC_DEFINE_JIT_OPERATION(operationStringReplaceStringEmptyString, JSString*, (JS
     String search = searchCell->value(globalObject);
     RETURN_IF_EXCEPTION(scope, nullptr);
 
-    size_t matchStart = string.find(search);
+    size_t matchStart = StringView(string).find(vm.adaptiveStringSearcherTables(), StringView(search));
     if (matchStart == notFound)
         return stringCell;
 
@@ -2811,7 +2808,7 @@ JSC_DEFINE_JIT_OPERATION(operationStringIndexOf, UCPUStrictInt32, (JSGlobalObjec
     auto otherViewWithString = argument->viewWithUnderlyingString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
-    size_t result = thisViewWithString.view.find(otherViewWithString.view);
+    size_t result = thisViewWithString.view.find(vm.adaptiveStringSearcherTables(), otherViewWithString.view);
     if (result == notFound)
         return toUCPUStrictInt32(-1);
     return toUCPUStrictInt32(result);
@@ -2856,7 +2853,7 @@ JSC_DEFINE_JIT_OPERATION(operationStringIndexOfWithIndex, UCPUStrictInt32, (JSGl
     if (static_cast<unsigned>(length) < otherViewWithString.view.length() + pos)
         return toUCPUStrictInt32(-1);
 
-    size_t result = thisViewWithString.view.find(otherViewWithString.view, pos);
+    size_t result = thisViewWithString.view.find(vm.adaptiveStringSearcherTables(), otherViewWithString.view, pos);
     if (result == notFound)
         return toUCPUStrictInt32(-1);
     return toUCPUStrictInt32(result);
@@ -3724,7 +3721,7 @@ static ALWAYS_INLINE JSObject* newArrayWithSpeciesImpl(JSGlobalObject* globalObj
 
     if (LIKELY(speciesResult.first == SpeciesConstructResult::FastPath)) {
         if (UNLIKELY(length > std::numeric_limits<unsigned>::max())) {
-            throwRangeError(globalObject, scope, "Array size is not a small enough positive integer."_s);
+            throwRangeError(globalObject, scope, ArrayInvalidLengthError);
             return nullptr;
         }
 
@@ -4240,7 +4237,7 @@ JSC_DEFINE_JIT_OPERATION(operationThrowStaticError, void, (JSGlobalObject* globa
     scope.throwException(globalObject, createError(globalObject, static_cast<ErrorTypeWithExtension>(errorType), errorMessage));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationLinkDirectCall, void, (OptimizingCallLinkInfo* callLinkInfo, JSFunction* callee))
+JSC_DEFINE_JIT_OPERATION(operationLinkDirectCall, void, (DirectCallLinkInfo* callLinkInfo, JSFunction* callee))
 {
     JSGlobalObject* globalObject = callee->globalObject();
     VM& vm = globalObject->vm();
@@ -4249,25 +4246,9 @@ JSC_DEFINE_JIT_OPERATION(operationLinkDirectCall, void, (OptimizingCallLinkInfo*
     auto throwScope = DECLARE_THROW_SCOPE(vm);
 
     CodeSpecializationKind kind = callLinkInfo->specializationKind();
-    
-    RELEASE_ASSERT(callLinkInfo->isDirect());
-    
-    // This would happen if the executable died during GC but the CodeBlock did not die. That should
-    // not happen because the CodeBlock should have a weak reference to any executable it uses for
-    // this purpose.
-    RELEASE_ASSERT(callLinkInfo->executable());
-    
-    // Having a CodeBlock indicates that this is linked. We shouldn't be taking this path if it's
-    // linked.
-    RELEASE_ASSERT(!callLinkInfo->codeBlock());
-    
-    // We just don't support this yet.
-    RELEASE_ASSERT(!callLinkInfo->isVarargs());
-    
-    ExecutableBase* executable = callLinkInfo->executable();
-    RELEASE_ASSERT(callee->executable() == callLinkInfo->executable());
 
     JSScope* scope = callee->scopeUnchecked();
+    ExecutableBase* executable = callee->executable();
 
     // FIXME: Support wasm IC.
     // https://bugs.webkit.org/show_bug.cgi?id=220339
@@ -4284,14 +4265,14 @@ JSC_DEFINE_JIT_OPERATION(operationLinkDirectCall, void, (OptimizingCallLinkInfo*
         functionExecutable->prepareForExecution<FunctionExecutable>(vm, callee, scope, kind, codeBlock);
         RETURN_IF_EXCEPTION(throwScope, void());
 
-        unsigned argumentStackSlots = callLinkInfo->maxArgumentCountIncludingThisForDirectCall();
+        unsigned argumentStackSlots = callLinkInfo->maxArgumentCountIncludingThis();
         if (argumentStackSlots < static_cast<size_t>(codeBlock->numParameters()))
             codePtr = functionExecutable->entrypointFor(kind, MustCheckArity);
         else
             codePtr = functionExecutable->entrypointFor(kind, ArityCheckNotRequired);
     }
-    
-    linkDirectCall(callFrame, *callLinkInfo, codeBlock, codePtr);
+
+    linkDirectCall(*callLinkInfo, codeBlock, codePtr);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationTriggerReoptimizationNow, void, (CodeBlock* codeBlock, CodeBlock* optimizedCodeBlock, OSRExitBase* exit))
@@ -4320,7 +4301,7 @@ JSC_DEFINE_JIT_OPERATION(operationTriggerReoptimizationNow, void, (CodeBlock* co
     // Otherwise, the replacement must be optimized code. Use this as an opportunity
     // to check our logic.
     ASSERT(codeBlock->hasOptimizedReplacement());
-    ASSERT(JITCode::isOptimizingJIT(optimizedCodeBlock->jitType()));
+    ASSERT(JSC::JITCode::isOptimizingJIT(optimizedCodeBlock->jitType()));
     
     bool didTryToEnterIntoInlinedLoops = false;
     for (InlineCallFrame* inlineCallFrame = exit->m_codeOrigin.inlineCallFrame(); inlineCallFrame; inlineCallFrame = inlineCallFrame->directCaller.inlineCallFrame()) {

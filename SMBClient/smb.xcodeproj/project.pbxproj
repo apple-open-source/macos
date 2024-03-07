@@ -3004,7 +3004,6 @@
 				PRODUCT_NAME = smbutil;
 				SDKROOT = macosx.internal;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmissing-prototypes",
 					"-Wall",
@@ -3067,7 +3066,6 @@
 				PRODUCT_NAME = smbutil;
 				SDKROOT = macosx.internal;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmissing-prototypes",
 					"-Wall",
@@ -3402,13 +3400,11 @@
 				OTHER_CFLAGS = (
 					"-DSMB_DEBUG=1",
 					"-DNAMEDSTREAMS",
-					"-msoft-float",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.smbfs;
 				PRODUCT_NAME = smbfs;
 				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "";
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmissing-prototypes",
 					"-Wall",
@@ -3476,15 +3472,11 @@
 				MODULE_START = smbfs_module_start;
 				MODULE_STOP = smbfs_module_stop;
 				MODULE_VERSION = 1.7.0;
-				OTHER_CFLAGS = (
-					"-DNAMEDSTREAMS",
-					"-msoft-float",
-				);
+				OTHER_CFLAGS = "-DNAMEDSTREAMS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.smbfs;
 				PRODUCT_NAME = smbfs;
 				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "";
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmissing-prototypes",
 					"-Wall",
@@ -3628,7 +3620,6 @@
 				);
 				RUN_CLANG_STATIC_ANALYZER = NO;
 				SYMROOT = ./build;
-				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Development;
@@ -3677,7 +3668,6 @@
 				ONLY_ACTIVE_ARCH = NO;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SYMROOT = ./build;
-				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Deployment;
@@ -3857,7 +3847,6 @@
 				ONLY_ACTIVE_ARCH = NO;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SYMROOT = ./build;
-				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = CodeCvgDeployment;
@@ -3893,7 +3882,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTS_TEXT_BASED_API = YES;
-				VALID_ARCHS = x86_64;
 			};
 			name = CodeCvgDeployment;
 		};
@@ -4044,7 +4032,6 @@
 				MODULE_VERSION = 1.7.0;
 				OTHER_CFLAGS = (
 					"-DNAMEDSTREAMS",
-					"-msoft-float",
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
@@ -4052,7 +4039,6 @@
 				PRODUCT_NAME = smbfs;
 				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "";
-				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmissing-prototypes",
 					"-Wall",
@@ -4470,7 +4456,6 @@
 				PRODUCT_NAME = smbutil;
 				SDKROOT = macosx.internal;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmissing-prototypes",
 					"-Wall",
@@ -4606,7 +4591,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTS_TEXT_BASED_API = YES;
-				VALID_ARCHS = x86_64;
 			};
 			name = Development;
 		};
@@ -4619,7 +4603,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTS_TEXT_BASED_API = YES;
-				VALID_ARCHS = x86_64;
 			};
 			name = Deployment;
 		};

@@ -41,18 +41,6 @@
 #include "syspolicy.h"
 #include "driverkit.h"
 
-#if HAVE_DANGERZONE
-#include <dz/dz.h>
-
-// Mark functions as weak linked so we can check if they exist without the compiler
-// optimizing out the code.
-extern void __attribute__((weak_import))
-dz_notify_kext_load_v2(dz_kext_load_t type, const char *kextpath,
-        dz_kext_load_flags_t flags, bool allowed);
-
-extern void __attribute__((weak_import))
-dz_notify_kextcache_update_v2(const char *kextpath, bool allowed);
-#endif // HAVE_DANGERZONE
 
 /*******************************************************************************
  * Helper functions
@@ -2322,76 +2310,3 @@ __out:
     return isNetBooted;
 }
 
-#if HAVE_DANGERZONE
-
-/*******************************************************************************
- * copyKextPathToBuffer - Helper function to copy a kext path into a provided buffer.
- *******************************************************************************/
-void copyKextPathToBuffer(OSKextRef kext, char *buffer, size_t buffer_size) {
-    CFStringRef kextPath = copyKextPath(kext);
-    if (!kextPath) {
-        goto __out;
-    }
-    if (!CFStringGetCString(kextPath, buffer, buffer_size, kCFStringEncodingUTF8)) {
-        OSKextLog(/* kext */ NULL,
-                  kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                  "failed to copy kext path");
-        goto __out;
-    }
-__out:
-    SAFE_RELEASE(kextPath);
-}
-
-/*******************************************************************************
- * dzRecordKextLoad* - Helper functions to notify the DangerZone subsystem about
- * various types of kext load scenarios.
- *******************************************************************************/
-void dzRecordKextLoadUser(OSKextRef kext, bool allowed) {
-    if (dz_notify_kext_load_v2 == NULL) {
-        // libdz is weak linked for use in old OS environments.
-        return;
-    }
-    char localKextPath[PATH_MAX] = {0};
-    copyKextPathToBuffer(kext, localKextPath, sizeof(localKextPath));
-    dz_notify_kext_load_v2(DZ_KEXT_LOAD_KEXTD_USER, localKextPath, DZ_KEXT_LOAD_FLAG_NONE, allowed);
-}
-
-void dzRecordKextLoadKernel(OSKextRef kext, bool allowed) {
-    if (dz_notify_kext_load_v2 == NULL) {
-        // libdz is weak linked for use in old OS environments.
-        return;
-    }
-    char localKextPath[PATH_MAX] = {0};
-    copyKextPathToBuffer(kext, localKextPath, sizeof(localKextPath));
-
-    dz_notify_kext_load_v2(DZ_KEXT_LOAD_KEXTD_KERNEL, localKextPath, DZ_KEXT_LOAD_FLAG_NONE, allowed);
-}
-
-void dzRecordKextLoadBypass(OSKextRef kext, bool allowed) {
-    // Note: dzRecordKextLoadBypass will only be called for kexts that are allowed to load. The current code structure
-    // is difficult to instrument for denials, and in the future shouldn't be a code path that exists for non-early
-    // boot scenarios.
-    if (dz_notify_kext_load_v2 == NULL) {
-        // libdz is weak linked for use in old OS environments.
-        return;
-    }
-    char localKextPath[PATH_MAX] = {0};
-    copyKextPathToBuffer(kext, localKextPath, sizeof(localKextPath));
-    dz_notify_kext_load_v2(DZ_KEXT_LOAD_KEXTD_BYPASS, localKextPath, DZ_KEXT_LOAD_FLAG_NONE, allowed);
-}
-
-/*******************************************************************************
- * dzRecordKextCacheAdd - Helper function to notify the Danger Zone subsystem
- * of the inclusion of a kext in a kext cache.
- *******************************************************************************/
-void dzRecordKextCacheAdd(OSKextRef kext, bool allowed) {
-    if (dz_notify_kextcache_update_v2 == NULL) {
-        // libdz is weak linked for use in old OS environments.
-        return;
-    }
-    char localKextPath[PATH_MAX] = {0};
-    copyKextPathToBuffer(kext, localKextPath, sizeof(localKextPath));
-    dz_notify_kextcache_update_v2(localKextPath, allowed);
-}
-
-#endif // HAVE_DANGERZONE

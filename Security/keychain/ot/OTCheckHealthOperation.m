@@ -72,18 +72,15 @@
 - (BOOL) checkIfPasscodeIsSetForDevice
 {
     BOOL passcodeIsSet = NO;
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-    int lockState = MKBGetDeviceLockState(NULL);
-    if (lockState != kMobileKeyBagDisabled && lockState >= 0) {
-        passcodeIsSet = YES;
+#if TARGET_OS_MAC && !TARGET_OS_SIMULATOR
+    aks_device_state_s deviceState;
+    kern_return_t retCode = aks_get_device_state(session_keybag_handle, &deviceState);
+    if (kAKSReturnSuccess == retCode){
+        passcodeIsSet = (deviceState.lock_state != aks_lock_state_disabled ? YES : NO);
+    } else {
+        secerror("octagon-health: aks_get_device_state failed with: %d", retCode);
     }
-#elif TARGET_OS_MAC && !TARGET_OS_SIMULATOR
-    NSDictionary *options = @{ (id)kKeyBagDeviceHandle : [[NSNumber alloc] initWithInt: getuid()] };
-    int lockState = MKBGetDeviceLockState((__bridge CFDictionaryRef)(options));
-    if (lockState != kMobileKeyBagDisabled && lockState >= 0) {
-        passcodeIsSet = YES;
-    }
-#else
+    secnotice("octagon-health", "checkIfPasscodeIsSetForDevice is %{BOOL}d", passcodeIsSet);
 #endif
     return passcodeIsSet;
 }

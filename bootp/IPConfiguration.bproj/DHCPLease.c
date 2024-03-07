@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,14 +61,20 @@
 #define kIPAddress			CFSTR("IPAddress")
 #define kRouterIPAddress		CFSTR("RouterIPAddress")
 
-static Boolean
+/* Locally Administered Address bit */
+#define LAA_BIT	0x02
+
+static bool
 client_id_data_matches(CFDataRef client_id,
-		       uint8_t cid_type, const void * cid, int cid_length)
+		       uint8_t cid_type, const void * cid, int cid_length,
+		       bool * is_laa)
 {
     const UInt8 *	bytes;
+    const UInt8 *	check_cid;
     CFIndex		len;
-    Boolean		match = FALSE;
+    bool		match = false;
 
+    *is_laa = false;
     if (cid_length == 0) {
 	goto done;
     }
@@ -83,8 +89,13 @@ client_id_data_matches(CFDataRef client_id,
     if (*bytes != cid_type) {
 	goto done;
     }
-    if (bcmp(bytes + 1, cid, cid_length) == 0) {
+    check_cid = bytes + 1;
+    if (bcmp(check_cid, cid, cid_length) == 0) {
 	match = TRUE;
+    } else if (cid_type == ARPHRD_ETHER && cid_length == ETHER_ADDR_LEN
+	       && (check_cid[0] & LAA_BIT) != 0) {
+	/* return true if it has the locally administered bit */
+	match = *is_laa = true;
     }
 
  done:
@@ -116,6 +127,7 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict,
 {
     CFDataRef			client_id_data;
     CFDataRef			hwaddr_data;
+    bool			is_laa = false;
     dhcp_lease_time_t		lease_time;
     DHCPLeaseRef		lease_p;
     CFStringRef			networkID = NULL;
@@ -130,7 +142,12 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict,
 
     /* get the client identifier */
     client_id_data = CFDictionaryGetValue(dict, kClientIdentifier);
-    if (!client_id_data_matches(client_id_data, cid_type, cid, cid_length)) {
+    if (!client_id_data_matches(client_id_data, cid_type, cid, cid_length,
+				&is_laa)) {
+	goto failed;
+    }
+    /* load a lease with a mis-matched MAC address only if it's Wi-Fi */
+    if (is_laa && !is_wifi) {
 	goto failed;
     }
 
@@ -209,6 +226,14 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict,
     if (networkID != NULL) {
 	CFRetain(networkID);
 	lease_p->networkID = networkID;
+    }
+    if (is_laa) {
+	CFRange		range;
+
+	range.length = sizeof(lease_p->wifi_mac);
+	range.location = 1;
+	CFDataGetBytes(client_id_data, range, lease_p->wifi_mac);
+	lease_p->wifi_mac_is_set = true;
     }
     return (lease_p);
 
@@ -466,9 +491,7 @@ DHCPLeaseListRemoveStaleLeases(DHCPLeaseListRef list_p)
  *   DHCPLeaseList structure.  This lease is marked as "tentative" because
  *   we have no idea whether the lease is still good or not, since another
  *   version of the OS (or another OS) could have had additional communication
- *   with the DHCP server, invalidating our notion of the lease.  It also
- *   affords a simple, self-cleansing mechanism to clear out the set of
- *   leases we keep track of.
+ *   with the DHCP server, invalidating our notion of the lease.
  */
 void
 DHCPLeaseListRead(DHCPLeaseListRef list_p,
@@ -897,32 +920,3 @@ DHCPLeaseListRemoveLease(DHCPLeaseListRef list_p,
     }
     return;
 }
-
-/* 
- * Function: DHCPLeaseListRemoveAllButLastLease
- * Purpose:
- *   Remove all leases except the last one (the most recently used one),
- *   and mark it tentative.
- */
-void
-DHCPLeaseListRemoveAllButLastLease(DHCPLeaseListRef list_p)
-{
-    int			count;
-    int			i;
-    DHCPLeaseRef	lease_p;
-
-    count = DHCPLeaseListCount(list_p);
-    if (count == 0) {
-	return;
-    }
-    for (i = 0; i < (count - 1); i++) {
-	lease_p = DHCPLeaseListElement(list_p, 0);	    
-	my_log(LOG_INFO, "Removing lease #%d for IP address "
-	       IP_FORMAT, i + 1, IP_LIST(&lease_p->our_ip));
-	dynarray_free_element(list_p, 0);
-    }
-    lease_p = DHCPLeaseListElement(list_p, 0);
-    lease_p->tentative = TRUE;
-    return;
-}
-

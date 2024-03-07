@@ -46,6 +46,7 @@ enum {
 @property CKKSCondition* completionHandlerDidRunCondition;
 
 @property NSInteger descriptionErrorCode; // Set to non-0 for inclusion of this operation in NSError chains. Code is application-dependent, but will be -1 in cases of excessive recursion.
+@property (nullable) NSError* descriptionUnderlyingError; // Set to non-nil to include as an underlying error if descriptionErrorCode is used.
 
 // If you subclass CKKSResultOperation, this is the method corresponding to descriptionErrorCode. Fill it in to your heart's content.
 - (NSError* _Nullable)descriptionError;

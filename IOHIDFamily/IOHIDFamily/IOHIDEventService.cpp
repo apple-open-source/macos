@@ -2770,23 +2770,46 @@ void IOHIDEventService::dispatchExtendedGameControllerEventWithOptionalButtons(
                                                                                 IOFixed                         buttonR5,
                                                                                 IOOptionBits                    options)
 {
-    IOHIDEvent * event = IOHIDEvent::extendedGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, shoulderL2, shoulderR2, joystickX, joystickY, joystickZ, joystickRz, options);
+    return;
+}
+
+OSMetaClassDefineReservedUsed(IOHIDEventService, 28);
+void IOHIDEventService::dispatchExtendedGameControllerEventWithOptionalBottomButtons(
+                                                                AbsoluteTime                    timeStamp,
+                                                                IOFixed                         dpadUp,
+                                                                IOFixed                         dpadDown,
+                                                                IOFixed                         dpadLeft,
+                                                                IOFixed                         dpadRight,
+                                                                IOFixed                         faceX,
+                                                                IOFixed                         faceY,
+                                                                IOFixed                         faceA,
+                                                                IOFixed                         faceB,
+                                                                IOFixed                         shoulderL1,
+                                                                IOFixed                         shoulderR1,
+                                                                IOFixed                         shoulderL2,
+                                                                IOFixed                         shoulderR2,
+                                                                IOFixed                         joystickX,
+                                                                IOFixed                         joystickY,
+                                                                IOFixed                         joystickZ,
+                                                                IOFixed                         joystickRz,
+                                                                boolean_t                       thumbstickButtonLeft,
+                                                                boolean_t                       thumbstickButtonRight,
+                                                                IOFixed                         buttonL4,
+                                                                IOFixed                         buttonR4,
+                                                                IOFixed                         buttonM1,
+                                                                IOFixed                         buttonM2,
+                                                                IOFixed                         buttonM3,
+                                                                IOFixed                         buttonM4,
+                                                                IOOptionBits                    options)
+{
+    IOHIDEvent * event = IOHIDEvent::extendedGameControllerEventWithOptionalButtons(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, shoulderL2, shoulderR2, joystickX, joystickY, joystickZ, joystickRz, thumbstickButtonLeft, thumbstickButtonRight, buttonL4, buttonR4, buttonM1, buttonM2, buttonM3, buttonM4, options);
     
     if (event) {
-        event->setIntegerValue(kIOHIDEventFieldGameControllerThumbstickButtonRight, thumbstickButtonRight);
-        event->setIntegerValue(kIOHIDEventFieldGameControllerThumbstickButtonLeft, thumbstickButtonLeft);
-        
-        event->setFixedValue(kIOHIDEventFieldGameControllerButtonL4, buttonL4);
-        event->setFixedValue(kIOHIDEventFieldGameControllerButtonR4, buttonR4);
-        event->setFixedValue(kIOHIDEventFieldGameControllerButtonL5, buttonL5);
-        event->setFixedValue(kIOHIDEventFieldGameControllerButtonR5, buttonR5);
-        
         dispatchEvent(event);
         event->release();
     }
 }
 
-OSMetaClassDefineReservedUnused(IOHIDEventService, 28);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 29);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 30);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 31);

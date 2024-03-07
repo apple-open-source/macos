@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,12 +34,15 @@
 #include "SharedMemory.h"
 #include <WebCore/AudioSession.h>
 #include <WebCore/PlatformMediaSession.h>
+#include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 class CAAudioStreamDescription;
+struct PageIdentifierType;
+using PageIdentifier = ObjectIdentifier<PageIdentifierType>;
 }
 
 namespace IPC {
@@ -66,6 +69,7 @@ public:
     ~GPUProcessConnection();
     
     IPC::Connection& connection() { return m_connection.get(); }
+    Ref<IPC::Connection> protectedConnection() { return m_connection; }
     IPC::MessageReceiverMap& messageReceiverMap() { return m_messageReceiverMap; }
 
 #if HAVE(AUDIT_TOKEN)
@@ -86,17 +90,13 @@ public:
 
     void updateMediaConfiguration(bool forceUpdate);
 
-#if ENABLE(VP9)
-    void enableVP9Decoders(bool enableVP8Decoder, bool enableVP9Decoder, bool enableVP9SWDecoder);
-
-    bool isVP8DecoderEnabled() const { return m_enableVP8Decoder; }
-    bool isVP9DecoderEnabled() const { return m_enableVP9Decoder; }
-    bool isVPSWDecoderEnabled() const { return m_enableVP9SWDecoder; }
-#endif
-
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     void createVisibilityPropagationContextForPage(WebPage&);
     void destroyVisibilityPropagationContextForPage(WebPage&);
+#endif
+
+#if ENABLE(EXTENSION_CAPABILITIES)
+    void setMediaEnvironment(WebCore::PageIdentifier, const String&);
 #endif
 
     void configureLoggingChannel(const String&, WTFLogChannelState, WTFLogLevel);
@@ -152,11 +152,6 @@ private:
 #endif
 #if PLATFORM(COCOA) && ENABLE(WEB_AUDIO)
     RefPtr<RemoteAudioSourceProviderManager> m_audioSourceProviderManager;
-#endif
-#if ENABLE(VP9)
-    bool m_enableVP8Decoder { false };
-    bool m_enableVP9Decoder { false };
-    bool m_enableVP9SWDecoder { false };
 #endif
 
 #if PLATFORM(COCOA)

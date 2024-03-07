@@ -79,7 +79,12 @@ public:
 		{
 			CssmError::throwMe(CSSMERR_CSP_FUNCTION_NOT_IMPLEMENTED); 
 		}
-		
+
+    virtual BinaryKey *getPublicKey() const
+    {
+        CssmError::throwMe(CSSMERR_CSP_FUNCTION_NOT_IMPLEMENTED);
+    }
+
 	CssmKey::Header		mKeyHeader;
 	KeyRef				mKeyRef;
 	const CssmData		&descData()		{ return mDescData; }

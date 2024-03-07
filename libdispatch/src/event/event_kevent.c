@@ -112,6 +112,7 @@ _evfiltstr(short filt)
 #if DISPATCH_USE_KEVENT_WORKLOOP
 	_evfilt2(EVFILT_WORKLOOP);
 #endif // DISPATCH_USE_KEVENT_WORKLOOP
+	_evfilt2(EVFILT_EXCLAVES_NOTIFICATION);
 #endif // DISPATCH_EVENT_BACKEND_KEVENT
 
 	_evfilt2(DISPATCH_EVFILT_TIMER);
@@ -1605,6 +1606,19 @@ _dispatch_kevent_workloop_drain_error(dispatch_kevent_t ke, long flags)
 			//
 			return ENOENT;
 		}
+#if defined(__LP64__)
+		else {
+			//
+			// Log fflags & flags from a kevent to investigate rdar://114986686.
+			// The issue only reproduces on test racks with no automation
+			// support to get additional diagnostics.
+			//
+			uint64_t detailed_err = ((uint64_t)ke->fflags << 32);
+			detailed_err |= ((uint32_t)ke->flags << 16);
+			detailed_err |= ((uint32_t)err);
+			DISPATCH_INTERNAL_CRASH(detailed_err, "Unexpected error from kevent");
+		}
+#endif
 		break;
 	case ESTALE:
 		if ((flags & DISPATCH_KEVENT_WORKLOOP_ALLOW_ESTALE) &&
@@ -2683,6 +2697,17 @@ const dispatch_source_type_s _dispatch_source_type_vm = {
 	// redirected to _dispatch_source_type_memorypressure
 };
 #endif // DISPATCH_USE_MEMORYSTATUS
+
+const dispatch_source_type_s _dispatch_source_type_exclaves_notification = {
+	.dst_kind       = "exclaves_notification",
+	.dst_filter     = EVFILT_EXCLAVES_NOTIFICATION,
+	.dst_flags      = DISPATCH_EV_DIRECT|EV_CLEAR,
+	.dst_mask       = ~((uint32_t)0),
+	.dst_action     = DISPATCH_UNOTE_ACTION_SOURCE_OR_FFLAGS,
+	.dst_size       = sizeof(struct dispatch_source_refs_s),
+	.dst_create     = _dispatch_unote_create_with_handle,
+	.dst_merge_evt  = _dispatch_source_merge_evt,
+};
 
 #pragma mark mach send / notifications
 #if HAVE_MACH

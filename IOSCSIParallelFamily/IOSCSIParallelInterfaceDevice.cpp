@@ -2222,7 +2222,7 @@ IOSCSIParallelInterfaceDevice::GetTargetIdentifier (
 	
 	if ( task == NULL )
 	{
-		return NULL;
+		return 0;
 	}
 	
 	return task->GetTargetIdentifier ( );
@@ -2244,7 +2244,7 @@ IOSCSIParallelInterfaceDevice::SetDMABuffer (
 	
 	if ( task == NULL )
 	{
-		return NULL;
+		return 0;
 	}
 	
 	return task->SetBuffer ( buffer );

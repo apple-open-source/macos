@@ -77,7 +77,7 @@ sv{
         bax{"bamunska"}
         bbc{"batak-toba"}
         bbj{"ghomala"}
-        be{"vitryska"}
+        be{"belarusiska"}
         bej{"beja"}
         bem{"bemba"}
         ber{"tamazight"}
@@ -86,6 +86,7 @@ sv{
         bfd{"bafut"}
         bfq{"bagada"}
         bg{"bulgariska"}
+        bgc{"hariyanvi"}
         bgn{"västbaluchiska"}
         bho{"bhojpuri"}
         bi{"bislama"}
@@ -1194,10 +1195,11 @@ sv{
     }
     characterLabelPattern{
         all{"{0} – alla"}
-        category-list{"{0}: {1}"}
         compatibility{"{0} – kompatibilitet"}
         enclosed{"{0} – omringande"}
         extended{"{0} – utvidgat"}
+        facing-left{"{0} åt vänster"}
+        facing-right{"{0} åt höger"}
         historic{"{0} — historiska"}
         miscellaneous{"{0} – diverse"}
         other{"{0} – övriga"}
@@ -1213,10 +1215,5 @@ sv{
         language{"språk: {0}"}
         script{"skrift: {0}"}
         territory{"region: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

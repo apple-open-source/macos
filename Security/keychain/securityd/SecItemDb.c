@@ -357,6 +357,9 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
         if (SecDbItemIsSyncable(item)) {
             q->q_sync_changed = true;
         }
+        if (SecDbItemIsShared(item)) {
+            q->q_shared_changed = true;
+        }
     }
 
     secdebug("dbitem", "inserting item " SECDBITEM_FMT "%s%@", item, ok ? "" : "failed: ", ok || error == NULL ? (CFErrorRef)CFSTR("") : *error);
@@ -652,6 +655,12 @@ decode:
         item = key;
     }
 
+    if (q->q_skip_shared_items) {
+        CFTypeRef ggrp = CFDictionaryGetValue(item, kSecAttrSharingGroup);
+        if (isString(ggrp) && CFStringCompare(ggrp, kSecAttrSharingGroupNone, 0) != kCFCompareEqualTo) {
+            goto out;
+        }
+    }
 
     if (!match_item(c->dbt, q, c->accessGroups, item)) {
         goto out;
@@ -1275,6 +1284,9 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
         return SecError(errSecItemIllegalQuery, error, CFSTR("attributes to update illegal; both token persistent ref and other attributes can't be updated at the same time"));
     }
 
+    if (CFDictionaryContainsKey(attributesToUpdate, kSecAttrSharingGroup)) {
+        return SecError(errSecItemIllegalQuery, error, CFSTR("Cannot change SharingGroup using this API"));
+    }
 
     __block bool result = true;
     Query *u = query_create(q->q_class, NULL, attributesToUpdate, NULL, error);
@@ -1295,6 +1307,13 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                     return;
             }
 
+            if (q->q_skip_shared_items) {
+                CFTypeRef ggrp = SecDbItemGetCachedValueWithName(item, kSecAttrSharingGroup);
+                if (isString(ggrp) && CFStringCompare(ggrp, kSecAttrSharingGroupNone, 0) != kCFCompareEqualTo) {
+                    secerror("Cannot update shared item for unentitled client");
+                    return;
+                }
+            }
 
             // Cache the storedSHA1 digest so we use the one from the db not the recomputed one for notifications.
             const SecDbAttr *sha1attr = SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, NULL);
@@ -1322,11 +1341,15 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
             result = SecErrorPropagate(localError, error) && new_item;
             if (new_item) {
                 bool item_is_sync = SecDbItemIsSyncable(item);
+                bool item_is_shared = SecDbItemIsShared(item);
                 result = SecDbItemUpdate(item, new_item, dbt, s3dl_should_make_tombstone(q, item_is_sync, item), q->q_uuid_from_primary_key, error);
                 if (result) {
                     q->q_changed = true;
                     if (item_is_sync || SecDbItemIsSyncable(new_item)) {
                         q->q_sync_changed = true;
+                    }
+                    if (item_is_shared || SecDbItemIsShared(new_item)) {
+                        q->q_shared_changed = true;
                     }
                 }
                 CFRelease(new_item);
@@ -1386,11 +1409,19 @@ s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFE
             return;
         }
 
+        if (q->q_skip_shared_items) {
+            CFTypeRef ggrp = SecDbItemGetCachedValueWithName(item, kSecAttrSharingGroup);
+            if (isString(ggrp) && CFStringCompare(ggrp, kSecAttrSharingGroupNone, 0) != kCFCompareEqualTo) {
+                secerror("Cannot delete shared item for unentitled client");
+                return;
+            }
+        }
 
         // Cache the storedSHA1 digest so we use the one from the db not the recomputed one for notifications.
         const SecDbAttr *sha1attr = SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, NULL);
         CFDataRef storedSHA1 = CFRetainSafe(SecDbItemGetValue(item, sha1attr, NULL));
         bool item_is_sync = SecDbItemIsSyncable(item);
+        bool item_is_shared = SecDbItemIsShared(item);
         SecDbItemSetValue(item, sha1attr, storedSHA1, NULL);
         CFReleaseSafe(storedSHA1);
         ok = SecDbItemDelete(item, dbt, s3dl_should_make_tombstone(q, item_is_sync, item), q->q_tombstone_use_mdat_from_item, error);
@@ -1398,6 +1429,9 @@ s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFE
             q->q_changed = true;
             if (item_is_sync) {
                 q->q_sync_changed = true;
+            }
+            if (item_is_shared) {
+                q->q_shared_changed = true;
             }
         }
     });
@@ -1584,6 +1618,13 @@ bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool inEd
         return true;
     }
 
+    CFTypeRef sharingGroup = NULL;
+    if (CFDictionaryGetValueIfPresent(item, kSecAttrSharingGroup, &sharingGroup) && isString(sharingGroup)) {
+        // Flag shared copies of items as system-bound, so that they're excluded
+        // from backups. We'll repopulate them from CloudKit the next time we
+        // sync shared items after a restore.
+        return true;
+    }
 
     secdebug("backup", "found non sys_bound item: " SECDBITEM_FMT, item);
     return false;

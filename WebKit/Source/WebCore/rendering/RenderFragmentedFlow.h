@@ -33,7 +33,7 @@
 #include "PODIntervalTree.h"
 #include "RenderBlockFlow.h"
 #include "RenderFragmentContainer.h"
-#include <wtf/ListHashSet.h>
+#include <wtf/WeakListHashSet.h>
 
 namespace WebCore {
 
@@ -43,9 +43,9 @@ class RenderStyle;
 class RenderFragmentContainer;
 class LegacyRootInlineBox;
 
-typedef ListHashSet<RenderFragmentContainer*> RenderFragmentContainerList;
-typedef Vector<RenderLayer*> RenderLayerList;
-typedef HashMap<const LegacyRootInlineBox*, RenderFragmentContainer*> ContainingFragmentMap;
+typedef SingleThreadWeakListHashSet<RenderFragmentContainer> RenderFragmentContainerList;
+typedef Vector<SingleThreadWeakPtr<RenderLayer>> RenderLayerList;
+typedef HashMap<const LegacyRootInlineBox*, SingleThreadWeakPtr<RenderFragmentContainer>> ContainingFragmentMap;
 
 // RenderFragmentedFlow is used to collect all the render objects that participate in a
 // flow thread. It will also help in doing the layout. However, it will not render
@@ -70,7 +70,7 @@ public:
     void deleteLines() override;
 
     virtual void addFragmentToThread(RenderFragmentContainer*) = 0;
-    virtual void removeFragmentFromThread(RenderFragmentContainer*);
+    void removeFragmentFromThread(RenderFragmentContainer&);
     const RenderFragmentContainerList& renderFragmentContainerList() const { return m_fragmentList; }
 
     void updateLogicalWidth() final;
@@ -78,12 +78,12 @@ public:
 
     bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override;
 
-    bool hasFragments() const { return m_fragmentList.size(); }
+    bool hasFragments() const { return !m_fragmentList.isEmptyIgnoringNullReferences(); }
     virtual void fragmentChangedWritingMode(RenderFragmentContainer*) { }
 
     void validateFragments();
     void invalidateFragments(MarkingBehavior = MarkContainingBlockChain);
-    bool hasValidFragmentInfo() const { return !m_fragmentsInvalidated && !m_fragmentList.isEmpty(); }
+    bool hasValidFragmentInfo() const { return !m_fragmentsInvalidated && !m_fragmentList.isEmptyIgnoringNullReferences(); }
     
     // Called when a descendant box's layout is finished and it has been positioned within its container.
     virtual void fragmentedFlowDescendantBoxLaidOut(RenderBox*) { }
@@ -91,8 +91,6 @@ public:
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
     void repaintRectangleInFragments(const LayoutRect&) const;
-    
-    LayoutPoint adjustedPositionRelativeToOffsetParent(const RenderBoxModelObject&, const LayoutPoint&) const;
 
     LayoutUnit pageLogicalTopForOffset(LayoutUnit) const;
     LayoutUnit pageLogicalWidthForOffset(LayoutUnit) const;
@@ -182,7 +180,7 @@ private:
     bool requiresLayer() const final { return true; }
 
 protected:
-    RenderFragmentedFlow(Document&, RenderStyle&&);
+    RenderFragmentedFlow(Type, Document&, RenderStyle&&);
 
     RenderFragmentedFlow* locateEnclosingFragmentedFlow() const override { return const_cast<RenderFragmentedFlow*>(this); }
 
@@ -226,8 +224,8 @@ protected:
         void clearRangeInvalidated() { m_rangeInvalidated = false; }
 
     private:
-        WeakPtr<RenderFragmentContainer> m_startFragment;
-        WeakPtr<RenderFragmentContainer> m_endFragment;
+        SingleThreadWeakPtr<RenderFragmentContainer> m_startFragment;
+        SingleThreadWeakPtr<RenderFragmentContainer> m_endFragment;
         bool m_rangeInvalidated;
     };
 
@@ -247,7 +245,7 @@ protected:
     RenderBoxToFragmentMap m_breakBeforeToFragmentMap;
     RenderBoxToFragmentMap m_breakAfterToFragmentMap;
 
-    using FragmentIntervalTree = PODIntervalTree<LayoutUnit, WeakPtr<RenderFragmentContainer>>;
+    using FragmentIntervalTree = PODIntervalTree<LayoutUnit, SingleThreadWeakPtr<RenderFragmentContainer>>;
     FragmentIntervalTree m_fragmentIntervalTree;
 
     CurrentRenderFragmentContainerMaintainer* m_currentFragmentMaintainer;

@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2022 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd October 5, 2022
+.Dd September 5, 2023
 .Dt COPYFILE 3
 .Os
 .Sh NAME
@@ -387,6 +387,21 @@ parameter is a pointer to
 .Vt bool
 (type
 .Vt bool\ * ).
+.It Dv COPYFILE_STATE_RECURSIVE_SRC_FTSENT
+Get any available file entry information during a recursive copy.
+If none is available, the value will be
+.Dv NULL .
+(Only valid for
+.Fn copyfile_state_get ).
+The
+.Va dst
+parameter is a pointer to a pointer to a const
+.Vt FTSENT
+(type
+.Vt const FTSENT\ ** );
+the returned value is the
+.Va state 's
+copy, and must not be modified or released.
 .El
 .Sh Recursive Copies
 When given the
@@ -671,7 +686,9 @@ be a potential security risk, especially if the process has
 elevated privileges.
 .Pp
 When performing a recursive copy, if the source hierarchy
-changes while the copy is occurring, the results are undefined.
+changes while the copy is occurring, the results are undefined;
+however, an effort is made to detect this and return an error
+to the caller instead of proceeding.
 .Pp
 .Fn fcopyfile
 does not reset the seek position for either source or destination.
@@ -772,6 +789,9 @@ parameters.
 Write permission is denied for a component of the path prefix for the
 .Va to
 parameter.
+.It Bq Er EBADF
+COPYFILE_RECURSIVE was specified and a change in the source hierarchy
+was detected.
 .El
 .Pp
 In addition, both functions may set

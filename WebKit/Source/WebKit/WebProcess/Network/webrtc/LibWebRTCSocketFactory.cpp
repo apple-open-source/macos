@@ -41,7 +41,7 @@ using namespace WebCore;
 
 static inline rtc::SocketAddress prepareSocketAddress(const rtc::SocketAddress& address, bool disableNonLocalhostConnections)
 {
-    auto result = RTCNetwork::isolatedCopy(address);
+    auto result = RTC::Network::SocketAddress::isolatedCopy(address);
     if (disableNonLocalhostConnections)
         result.SetIP("127.0.0.1");
     return result;
@@ -50,15 +50,15 @@ static inline rtc::SocketAddress prepareSocketAddress(const rtc::SocketAddress& 
 void LibWebRTCSocketFactory::setConnection(RefPtr<IPC::Connection>&& connection)
 {
     ASSERT(!WTF::isMainRunLoop());
-    m_connection = WTFMove(connection);
+    m_connection = connection.copyRef();
     if (!m_connection)
         return;
 
-    m_connection->send(Messages::NetworkRTCProvider::SetPlatformTCPSocketsEnabled(DeprecatedGlobalSettings::webRTCPlatformTCPSocketsEnabled()), 0);
-    m_connection->send(Messages::NetworkRTCProvider::SetPlatformUDPSocketsEnabled(DeprecatedGlobalSettings::webRTCPlatformUDPSocketsEnabled()), 0);
+    connection->send(Messages::NetworkRTCProvider::SetPlatformTCPSocketsEnabled(DeprecatedGlobalSettings::webRTCPlatformTCPSocketsEnabled()), 0);
+    connection->send(Messages::NetworkRTCProvider::SetPlatformUDPSocketsEnabled(DeprecatedGlobalSettings::webRTCPlatformUDPSocketsEnabled()), 0);
 
     while (!m_pendingMessageTasks.isEmpty())
-        m_pendingMessageTasks.takeFirst()(*m_connection);
+        m_pendingMessageTasks.takeFirst()(*connection);
 }
 
 IPC::Connection* LibWebRTCSocketFactory::connection()
@@ -129,7 +129,7 @@ void LibWebRTCSocketFactory::addSocket(LibWebRTCSocket& socket)
 {
     ASSERT(!WTF::isMainRunLoop());
     ASSERT(!m_sockets.contains(socket.identifier()));
-    m_sockets.add(socket.identifier(), &socket);
+    m_sockets.add(socket.identifier(), socket);
 }
 
 void LibWebRTCSocketFactory::removeSocket(LibWebRTCSocket& socket)
@@ -142,18 +142,20 @@ void LibWebRTCSocketFactory::removeSocket(LibWebRTCSocket& socket)
 void LibWebRTCSocketFactory::forSocketInGroup(ScriptExecutionContextIdentifier contextIdentifier, const Function<void(LibWebRTCSocket&)>& callback)
 {
     ASSERT(!WTF::isMainRunLoop());
-    for (auto* socket : m_sockets.values()) {
+    for (auto& socket : m_sockets.values()) {
         if (socket->contextIdentifier() == contextIdentifier)
-            callback(*socket);
+            callback(socket);
     }
 }
 
-rtc::AsyncResolverInterface* LibWebRTCSocketFactory::createAsyncResolver()
+std::unique_ptr<LibWebRTCResolver> LibWebRTCSocketFactory::createAsyncDnsResolver()
 {
     auto resolver = makeUnique<LibWebRTCResolver>();
-    auto* resolverPointer = resolver.get();
-    m_resolvers.set(resolverPointer->identifier(), WTFMove(resolver));
-    return resolverPointer;
+
+    ASSERT(!m_resolvers.contains(resolver->identifier()));
+    m_resolvers.add(resolver->identifier(), *resolver);
+
+    return resolver;
 }
 
 } // namespace WebKit

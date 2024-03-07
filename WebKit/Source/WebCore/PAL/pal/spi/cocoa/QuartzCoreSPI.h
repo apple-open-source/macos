@@ -142,7 +142,6 @@ typedef struct _CARenderContext CARenderContext;
 - (CGSize)size;
 - (void *)regionBeingDrawn;
 - (void)reloadValueForKeyPath:(NSString *)keyPath;
-- (void)setCornerRadius:(CGFloat)cornerRadius;
 - (void)addPresentationModifier:(CAPresentationModifier *)modifier;
 - (void)removePresentationModifier:(CAPresentationModifier *)modifier;
 @property BOOL allowsGroupBlending;
@@ -161,11 +160,9 @@ typedef struct _CARenderContext CARenderContext;
 @property BOOL toneMapToStandardDynamicRange;
 @end
 
-#if ENABLE(FILTERS_LEVEL_2)
 @interface CABackdropLayer : CALayer
 @property BOOL windowServerAware;
 @end
-#endif
 
 struct CAColorMatrix {
     float m11, m12, m13, m14, m15;
@@ -221,6 +218,17 @@ typedef enum {
 @property BOOL matchesPosition;
 @property BOOL matchesTransform;
 @end
+
+#if HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
+typedef uint32_t CAHighFrameRateReason;
+
+#define CAHighFrameRateReasonMake(component, code) \
+    (((uint32_t)((component) & 0xffff) << 16) | ((code) & 0xffff))
+
+@interface CAAnimation ()
+@property CAHighFrameRateReason highFrameRateReason;
+@end
+#endif // HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
 
 #endif // __OBJC__
 

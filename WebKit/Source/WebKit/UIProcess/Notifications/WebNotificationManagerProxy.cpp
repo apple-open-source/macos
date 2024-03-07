@@ -112,19 +112,19 @@ void WebNotificationManagerProxy::show(WebPageProxy* webPage, IPC::Connection& c
     showImpl(webPage, WTFMove(notification), WTFMove(notificationResources));
 }
 
-void WebNotificationManagerProxy::show(const WebsiteDataStore& dataStore, IPC::Connection& connection, const WebCore::NotificationData& notificationData, RefPtr<WebCore::NotificationResources>&& notificationResources)
+bool WebNotificationManagerProxy::showPersistent(const WebsiteDataStore& dataStore, IPC::Connection* connection, const WebCore::NotificationData& notificationData, RefPtr<WebCore::NotificationResources>&& notificationResources)
 {
     LOG(Notifications, "WebsiteDataStore (%p) asking to show notification (%s)", &dataStore, notificationData.notificationID.toString().utf8().data());
 
     auto notification = WebNotification::createPersistent(notificationData, dataStore.configuration().identifier(), connection);
-    showImpl(nullptr, WTFMove(notification), WTFMove(notificationResources));
+    return showImpl(nullptr, WTFMove(notification), WTFMove(notificationResources));
 }
 
-void WebNotificationManagerProxy::showImpl(WebPageProxy* webPage, Ref<WebNotification>&& notification, RefPtr<WebCore::NotificationResources>&& notificationResources)
+bool WebNotificationManagerProxy::showImpl(WebPageProxy* webPage, Ref<WebNotification>&& notification, RefPtr<WebCore::NotificationResources>&& notificationResources)
 {
     m_globalNotificationMap.set(notification->notificationID(), notification->coreNotificationID());
     m_notifications.set(notification->coreNotificationID(), notification);
-    m_provider->show(webPage, notification.get(), WTFMove(notificationResources));
+    return m_provider->show(webPage, notification.get(), WTFMove(notificationResources));
 }
 
 void WebNotificationManagerProxy::cancel(WebPageProxy* page, const WTF::UUID& pageNotificationID)
@@ -205,7 +205,6 @@ static void dispatchDidClickNotification(WebNotification* notification)
     if (!notification)
         return;
 
-#if ENABLE(SERVICE_WORKER)
     if (notification->isPersistentNotification()) {
         if (auto* dataStore = WebsiteDataStore::existingDataStoreForSessionID(notification->sessionID()))
             dataStore->networkProcess().processNotificationEvent(notification->data(), NotificationEventType::Click, [](bool) { });
@@ -213,7 +212,6 @@ static void dispatchDidClickNotification(WebNotification* notification)
             RELEASE_LOG_ERROR(Notifications, "WebsiteDataStore not found from sessionID %" PRIu64 ", dropping notification click", notification->sessionID().toUInt64());
         return;
     }
-#endif
 
     if (auto connection = notification->sourceConnection())
         connection->send(Messages::WebNotificationManager::DidClickNotification(notification->coreNotificationID()), 0);
@@ -268,7 +266,6 @@ void WebNotificationManagerProxy::providerDidCloseNotifications(API::Array* glob
         if (!notification)
             continue;
 
-#if ENABLE(SERVICE_WORKER)
         if (notification->isPersistentNotification()) {
             if (auto* dataStore = WebsiteDataStore::existingDataStoreForSessionID(notification->sessionID()))
                 dataStore->networkProcess().processNotificationEvent(notification->data(), NotificationEventType::Close, [](bool) { });
@@ -276,7 +273,6 @@ void WebNotificationManagerProxy::providerDidCloseNotifications(API::Array* glob
                 RELEASE_LOG_ERROR(Notifications, "WebsiteDataStore not found from sessionID %" PRIu64 ", dropping notification close", notification->sessionID().toUInt64());
             return;
         }
-#endif
 
         m_globalNotificationMap.remove(notification->notificationID());
         closedNotifications.append(WTFMove(notification));
@@ -314,14 +310,9 @@ static Vector<WebCore::SecurityOriginData> apiArrayToSecurityOrigins(API::Array*
     if (!origins)
         return { };
 
-    Vector<WebCore::SecurityOriginData> securityOrigins;
-    size_t size = origins->size();
-    securityOrigins.reserveInitialCapacity(size);
-
-    for (size_t i = 0; i < size; ++i)
-        securityOrigins.uncheckedAppend(origins->at<API::SecurityOrigin>(i)->securityOrigin());
-
-    return securityOrigins;
+    return Vector<WebCore::SecurityOriginData>(origins->size(), [origins](size_t i) {
+        return origins->at<API::SecurityOrigin>(i)->securityOrigin();
+    });
 }
 
 static Vector<String> apiArrayToSecurityOriginStrings(API::Array* origins)
@@ -329,14 +320,9 @@ static Vector<String> apiArrayToSecurityOriginStrings(API::Array* origins)
     if (!origins)
         return { };
 
-    Vector<String> originStrings;
-    size_t size = origins->size();
-    originStrings.reserveInitialCapacity(size);
-
-    for (size_t i = 0; i < size; ++i)
-        originStrings.uncheckedAppend(origins->at<API::SecurityOrigin>(i)->securityOrigin().toString());
-
-    return originStrings;
+    return Vector<String>(origins->size(), [origins](size_t i) {
+        return origins->at<API::SecurityOrigin>(i)->securityOrigin().toString();
+    });
 }
 
 void WebNotificationManagerProxy::providerDidUpdateNotificationPolicy(const API::SecurityOrigin* origin, bool enabled)

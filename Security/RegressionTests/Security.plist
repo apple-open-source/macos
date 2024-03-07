@@ -65,10 +65,13 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>AuthorizationTest</string>
+			<string>AuthorizationTests</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/authdtest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/AuthorizationTests.xctest</string>
 			</array>
 			<key>Disabled</key>
 			<string>BATS_UTD_Disabled_AuthorizationTest</string>
@@ -200,6 +203,19 @@
 			</array>
 			<key>Disabled</key>
 			<string>BATS_UTD_Disabled_SecurityUnitTests</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>CodesigningUnitTests</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/CodesigningUnitTests.xctest</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_CodesigningUnitTests</string>
 		</dict>
 	</array>
 </dict>

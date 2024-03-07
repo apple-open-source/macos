@@ -19,7 +19,7 @@
 
 #pragma once
 
-#if ENABLE(WEB_CODECS) && USE(GSTREAMER)
+#if USE(GSTREAMER)
 
 #include "GRefPtrGStreamer.h"
 #include "VideoDecoder.h"
@@ -35,7 +35,7 @@ class GStreamerVideoDecoder : public ThreadSafeRefCounted<GStreamerVideoDecoder>
     WTF_MAKE_FAST_ALLOCATED;
 
 public:
-    static bool create(const String& codecName, const Config&, CreateCallback&&, OutputCallback&&, PostTaskCallback&&);
+    static void create(const String& codecName, const Config&, CreateCallback&&, OutputCallback&&, PostTaskCallback&&);
 
     GStreamerVideoDecoder(const String& codecName, const Config&, OutputCallback&&, PostTaskCallback&&, GRefPtr<GstElement>&&);
     ~GStreamerVideoDecoder();
@@ -51,4 +51,4 @@ private:
 
 }
 
-#endif // ENABLE(WEB_CODECS) && USE(GSTREAMER)
+#endif // USE(GSTREAMER)

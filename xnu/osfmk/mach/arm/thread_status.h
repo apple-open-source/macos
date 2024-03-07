@@ -474,7 +474,7 @@ extern void ml_check_signed_state(const arm_saved_state_t *, uint64_t, uint32_t,
 	                  [SS64_CPSR]	"i"(ss64_offsetof(cpsr)),               \
 	                  [SS64_LR]	"i"(ss64_offsetof(lr)),##__VA_ARGS__    \
 	                : "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", \
-	                  "x9"                                                  \
+	                  "x9", "x16"                                           \
 	        );                                                              \
 	        ml_pac_safe_interrupts_restore(_intr);                          \
 	} while (0)

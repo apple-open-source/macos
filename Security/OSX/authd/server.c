@@ -513,18 +513,16 @@ OSStatus authorization_create_with_audit_token(connection_t conn, xpc_object_t m
 //    auth_items_t environment = auth_items_create_with_xpc(xpc_dictionary_get_value(message, AUTH_XPC_ENVIRONMENT));
     AuthorizationFlags flags = (AuthorizationFlags)xpc_dictionary_get_uint64(message, AUTH_XPC_FLAGS);
     
-    audit_info_s auditInfo;
-    _server_parse_audit_token((audit_token_t*)data, &auditInfo);
-    
     // Create Authorization Token
     auth = auth_token_create(proc, flags & kAuthorizationFlagLeastPrivileged);
     require_action(auth != NULL, done, status = errAuthorizationInternal);
     
-    process_add_auth_token(proc,auth);
+    process_add_auth_token(proc, auth);
     
     //reply
     xpc_dictionary_set_data(reply, AUTH_XPC_BLOB, auth_token_get_blob(auth), sizeof(AuthorizationBlob));
-
+    status = errAuthorizationSuccess;
+    
 done:
 //    CFReleaseSafe(environment);
     CFReleaseSafe(auth);

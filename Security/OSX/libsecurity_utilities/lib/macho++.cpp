@@ -730,7 +730,7 @@ MachO *Universal::architecture(const Architecture &arch) const
 	if (isUniversal())
 		return findImage(arch);
 	else if (mThinArch.matches(arch))
-		return new MachO(*this, mBase);
+		return new MachO(*this, mBase, mLength);
 	else
 		UnixError::throwMe(ENOEXEC);
 }
@@ -762,7 +762,7 @@ size_t Universal::archLength(const Architecture &arch) const
 MachO *Universal::architecture(size_t offset) const
 {
 	if (isUniversal())
-		return make(new MachO(*this, offset));
+		return make(new MachO(*this, offset, lengthOfSlice(offset)));
 	else if (offset == mBase)
 		return new MachO(*this);
 	else

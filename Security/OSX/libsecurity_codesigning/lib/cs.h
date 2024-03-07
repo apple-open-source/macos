@@ -33,6 +33,7 @@
 #include <Security/SecCodePriv.h>
 #include <Security/SecStaticCodePriv.h>
 #include <Security/SecRequirementPriv.h>
+#include <Security/SecRequirementPrivLWCR.h>
 #include <Security/SecCodeSigner.h>
 #include <Security/SecCodeSignerRemote.h>
 #include <Security/SecBasePriv.h>

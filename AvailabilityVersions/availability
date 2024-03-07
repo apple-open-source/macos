@@ -129,7 +129,8 @@ class VersionSetDSL:
         def set(self, name, version, uversion):
             platforms = {}
             for (platformName, platform) in self.platforms.items():
-                platforms[platformName] = platform.versions[-1]
+                if platform.versioned:
+                    platforms[platformName] = platform.versions[-1]
             version_set                 = {}
             version_set["name"]         = name
             version_set["version"]      = VersionSetDSL.Version(version)

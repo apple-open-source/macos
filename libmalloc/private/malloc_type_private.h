@@ -24,6 +24,9 @@
 #ifndef _MALLOC_TYPE_PRIVATE_H_
 #define _MALLOC_TYPE_PRIVATE_H_
 
+#include <malloc/_ptrcheck.h>
+__ptrcheck_abi_assume_single()
+
 #if defined(__LP64__) // MALLOC_TARGET_64BIT
 
 #include <malloc/_malloc_type.h>

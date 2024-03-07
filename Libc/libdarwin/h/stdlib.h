@@ -228,11 +228,12 @@ _os_strdup_known(const char *str)
  */
 #if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE)
 #define os_strdup(__str) ({ \
-	char *ptr = NULL; \
+	char *__unsafe_indexable ptr = NULL; \
 	const char *_str = (__str); \
 	if (__builtin_constant_p(__str) || !_dispatch_is_multithreaded()) { \
 		ptr = _os_strdup_known(_str); \
-		os_assert_malloc("known-constant allocation", ptr, strlen(_str)); \
+		os_assert_malloc("known-constant allocation", \
+				__unsafe_forge_single(char*, ptr), strlen(_str)); \
 	} else { \
 		ptr = _os_strdup_loop(_str); \
 	} \

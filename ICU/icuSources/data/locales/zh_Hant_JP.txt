@@ -47,6 +47,7 @@ zh_Hant_JP{
                 h{"aK時"}
                 hm{"aK:mm"}
                 hms{"aK:mm:ss"}
+                ms{"mm:ss"}
                 yyyyM{"GGGGGy/M"}
                 yyyyMEEEEd{"GGGGGy/M/d(EEEE)"}
                 yyyyMEd{"GGGGGy/M/d(E)"}
@@ -145,6 +146,7 @@ zh_Hant_JP{
                 hms{"aK:mm:ss"}
                 hmsv{"aK:mm:ss v"}
                 hmv{"aK:mm v"}
+                ms{"mm:ss"}
                 yMEEEEd{"y/M/dEEEE"}
                 yMEd{"y/M/d(E)"}
             }

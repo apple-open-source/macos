@@ -7,4 +7,4 @@
 
 set -ex
 
-ln ${DSTROOT}/usr/bin/bc ${DSTROOT}/usr/bin/dc
+ln -f ${DSTROOT}/usr/bin/bc ${DSTROOT}/usr/bin/dc

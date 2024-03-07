@@ -36,6 +36,7 @@
 
 namespace WebKit {
 
+class AuxiliaryProcessProxy;
 class ProcessAndUIAssertion;
 
 // ConnectionTerminationWatchdog does two things:
@@ -44,10 +45,10 @@ class ProcessAndUIAssertion;
 //    to ensure it has a chance to terminate cleanly.
 class XPCConnectionTerminationWatchdog {
 public:
-    static void startConnectionTerminationWatchdog(OSObjectPtr<xpc_connection_t>, Seconds interval);
+    static void startConnectionTerminationWatchdog(AuxiliaryProcessProxy&, Seconds interval);
 
 private:
-    XPCConnectionTerminationWatchdog(OSObjectPtr<xpc_connection_t>&&, Seconds interval);
+    XPCConnectionTerminationWatchdog(AuxiliaryProcessProxy&, Seconds interval);
     void watchdogTimerFired();
 
     OSObjectPtr<xpc_connection_t> m_xpcConnection;

@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -44,10 +42,8 @@ static char sccsid[] = "@(#)talkd.c	8.1 (Berkeley) 6/4/93";
 #endif
 __attribute__((__used__))
 static const char rcsid[] =
-  "$FreeBSD: src/libexec/talkd/talkd.c,v 1.17 2004/06/14 22:44:13 bms Exp $";
+  "$FreeBSD$";
 #endif /* not lint */
-
-#include <sys/cdefs.h>
 
 /*
  * The top level of the daemon, the format is heavily borrowed
@@ -73,13 +69,13 @@ static const char rcsid[] =
 
 #include "extern.h"
 
-CTL_MSG		request;
-CTL_RESPONSE	response;
+static CTL_MSG		request;
+static CTL_RESPONSE	response;
 
-int	debug = 0;
-long	lastmsgtime;
+int			debug = 0;
+static long		lastmsgtime;
 
-char	hostname[MAXHOSTNAMELEN + 1];
+char			hostname[MAXHOSTNAMELEN];
 
 #define TIMEOUT 30
 #define MAXIDLE 120
@@ -91,12 +87,13 @@ main(int argc, char *argv[])
 	int cc;
 	struct sockaddr ctl_addr;
 
+#ifdef NOTDEF
 	/*
 	 * removed so ntalkd can run in tty sandbox
 	 */
 	if (getuid())
 		errx(1, "getuid: not super-user");
-
+#endif
 	openlog("talkd", LOG_PID, LOG_DAEMON);
 	if (gethostname(hostname, sizeof(hostname) - 1) < 0) {
 		syslog(LOG_ERR, "gethostname: %m");
@@ -119,7 +116,8 @@ main(int argc, char *argv[])
 			continue;
 		}
 		lastmsgtime = time(0);
-		(void)memcpy(&ctl_addr, &mp->ctl_addr, sizeof(ctl_addr));
+		(void)memcpy(&ctl_addr.sa_data, &mp->ctl_addr.sa_data,
+		    sizeof(ctl_addr.sa_data));
 		ctl_addr.sa_family = ntohs(mp->ctl_addr.sa_family);
 		ctl_addr.sa_len = sizeof(ctl_addr);
 		process_request(mp, &response);
@@ -129,8 +127,6 @@ main(int argc, char *argv[])
 		if (cc != sizeof (response))
 			syslog(LOG_WARNING, "sendto: %m");
 	}
-	/* NOTREACHED */
-	return 0;
 }
 
 void

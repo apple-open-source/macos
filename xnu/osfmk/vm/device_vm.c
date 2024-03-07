@@ -162,7 +162,7 @@ device_pager_setup(
 
 	assert(object != VM_OBJECT_NULL);
 	vm_object_lock(object);
-	object->true_share = TRUE;
+	VM_OBJECT_SET_TRUE_SHARE(object, TRUE);
 	if (object->copy_strategy == MEMORY_OBJECT_COPY_SYMMETRIC) {
 		object->copy_strategy = MEMORY_OBJECT_COPY_DELAY;
 	}
@@ -270,12 +270,12 @@ device_pager_init(
 
 	vm_object = (vm_object_t)memory_object_control_to_vm_object(control);
 	vm_object_lock(vm_object);
-	vm_object->private = TRUE;
+	VM_OBJECT_SET_PRIVATE(vm_object, TRUE);
 	if (device_object->flags & DEVICE_PAGER_CONTIGUOUS) {
-		vm_object->phys_contiguous = TRUE;
+		VM_OBJECT_SET_PHYS_CONTIGUOUS(vm_object, TRUE);
 	}
 	if (device_object->flags & DEVICE_PAGER_NOPHYSCACHE) {
-		vm_object->nophyscache = TRUE;
+		VM_OBJECT_SET_NOPHYSCACHE(vm_object, TRUE);
 	}
 
 	vm_object->wimg_bits = device_object->flags & VM_WIMG_MASK;

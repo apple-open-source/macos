@@ -458,6 +458,25 @@ proc_signal_with_audittoken(audit_token_t *audittoken, int sig)
 }
 
 int
+proc_terminate_with_audittoken(audit_token_t *audittoken, int *sig)
+{
+	int retval;
+
+	if (!sig) {
+		return EINVAL;
+	}
+
+	retval = __proc_info(PROC_INFO_CALL_TERMINATE_AUDITTOKEN, 0, 0, 0, audittoken, 0);
+	if (retval == -1) {
+		return errno;
+	}
+
+	*sig = retval;
+
+	return 0;
+}
+
+int
 proc_terminate_all_rsr(int sig)
 {
 	int retval = 0;

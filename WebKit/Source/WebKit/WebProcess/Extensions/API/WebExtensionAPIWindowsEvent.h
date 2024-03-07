@@ -45,13 +45,20 @@ public:
     using FilterAndCallbackPair = std::pair<RefPtr<WebExtensionCallbackHandler>, OptionSet<WindowTypeFilter>>;
     using ListenerVector = Vector<FilterAndCallbackPair>;
 
-    void invokeListenersWithArgument(id argument, WindowTypeFilter);
+    void invokeListenersWithArgument(id argument, OptionSet<WindowTypeFilter>);
 
     const ListenerVector& listeners() const { return m_listeners; }
 
     void addListener(WebPage*, RefPtr<WebExtensionCallbackHandler>, NSDictionary *filter, NSString **outExceptionString);
     void removeListener(WebPage*, RefPtr<WebExtensionCallbackHandler>);
     bool hasListener(RefPtr<WebExtensionCallbackHandler>);
+
+    void removeAllListeners();
+
+    virtual ~WebExtensionAPIWindowsEvent()
+    {
+        removeAllListeners();
+    }
 
 private:
     explicit WebExtensionAPIWindowsEvent(ForMainWorld forMainWorld, WebExtensionAPIRuntimeBase& runtime, WebExtensionContextProxy& context, WebExtensionEventListenerType type)
@@ -60,6 +67,7 @@ private:
     {
     }
 
+    WebPageProxyIdentifier m_pageProxyIdentifier;
     WebExtensionEventListenerType m_type;
     ListenerVector m_listeners;
 };

@@ -2641,32 +2641,6 @@ ExitStatus filterKextsForCache(
         } // for loop...
     } // count > 0
 
-#if HAVE_DANGERZONE
-    // First, check the volume root url to determine if this kextcache is intended for the
-    // currently running system. We will not notify DZ for caches generated for other systems.
-    if (isRootVolURL(toolArgs->volumeRootURL)) {
-        CFArrayRef loadList = OSKextCopyLoadListForKexts(kextArray, false);
-
-        // First, record all kexts that wound up in the load list because they will all be in the cache.
-        count = CFArrayGetCount(loadList);
-        for (i = count - 1; i >= 0; i--) {
-            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(loadList, i);
-            dzRecordKextCacheAdd(theKext, true);
-        }
-
-        // Second, look for any kexts in the initial first pass array that didn't end up in the load
-        // list.  Each of those are kexts that were rejected for some reason and were not allowed.
-        count = CFArrayGetCount(firstPassArray);
-        CFRange loadListRangeAll = RANGE_ALL(loadList);
-        for (i = count - 1; i >= 0; i--) {
-            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(firstPassArray, i);
-            if (!CFArrayContainsValue(loadList, loadListRangeAll, theKext)) {
-                dzRecordKextCacheAdd(theKext, false);
-            }
-        }
-    }
-#endif // HAVE_DANGERZONE
-
     if (CFArrayGetCount(kextArray)) {
         if (earlyBoot == false) {
             recordKextLoadListForMT(kextArray, false);

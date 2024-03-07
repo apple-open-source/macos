@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 scn{
-    AuxExemplarCharacters{"[ç đ é ë ə ḥ ì k š ù w x y]"}
-    ExemplarCharacters{"[a à â b c d ḍ e è ê f g h i í î j l m n o ò ô p q r s t u ú û v z]"}
+    AuxExemplarCharacters{"[ç đ éë ə ḥ ì k š ù w x y]"}
+    ExemplarCharacters{"[aàâ b c dḍ eèê f g h iíî j l m n oòô p q r s t uúû v z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J L M N O P Q R S T U V Z]"}
 }

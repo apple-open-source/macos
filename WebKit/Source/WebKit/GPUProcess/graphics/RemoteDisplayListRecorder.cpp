@@ -32,6 +32,7 @@
 #include "ImageBufferShareableAllocator.h"
 #include "RemoteDisplayListRecorderMessages.h"
 #include "RemoteImageBuffer.h"
+#include "SharedVideoFrame.h"
 #include <WebCore/BitmapImage.h>
 #include <WebCore/FEImage.h>
 #include <WebCore/FilterResults.h>
@@ -53,9 +54,6 @@ RemoteDisplayListRecorder::RemoteDisplayListRecorder(ImageBuffer& imageBuffer, R
     : m_imageBuffer(imageBuffer)
     , m_imageBufferIdentifier(imageBufferIdentifier)
     , m_renderingBackend(&renderingBackend)
-#if PLATFORM(COCOA) && ENABLE(VIDEO)
-    , m_sharedVideoFrameReader(Ref { renderingBackend.gpuConnectionToWebProcess().videoFrameObjectHeap() }, renderingBackend.gpuConnectionToWebProcess().webProcessIdentity())
-#endif
 {
 }
 
@@ -192,9 +190,9 @@ void RemoteDisplayListRecorder::setMiterLimit(float limit)
     handleItem(DisplayList::SetMiterLimit(limit));
 }
 
-void RemoteDisplayListRecorder::clearShadow()
+void RemoteDisplayListRecorder::clearDropShadow()
 {
-    handleItem(DisplayList::ClearShadow());
+    handleItem(DisplayList::ClearDropShadow());
 }
 
 void RemoteDisplayListRecorder::clip(const FloatRect& rect)
@@ -272,7 +270,7 @@ void RemoteDisplayListRecorder::drawFilteredImageBufferInternal(std::optional<Re
 
 void RemoteDisplayListRecorder::drawFilteredImageBuffer(std::optional<RenderingResourceIdentifier> sourceImageIdentifier, const FloatRect& sourceImageRect, Ref<Filter> filter)
 {
-    auto* svgFilter = dynamicDowncast<SVGFilter>(filter.get());
+    RefPtr svgFilter = dynamicDowncast<SVGFilter>(filter);
 
     if (!svgFilter || !svgFilter->hasValidRenderingResourceIdentifier()) {
         FilterResults results(makeUnique<ImageBufferShareableAllocator>(m_renderingBackend->resourceOwner()));
@@ -281,7 +279,7 @@ void RemoteDisplayListRecorder::drawFilteredImageBuffer(std::optional<RenderingR
     }
 
     RefPtr cachedFilter = resourceCache().cachedFilter(filter->renderingResourceIdentifier());
-    auto* cachedSVGFilter = dynamicDowncast<SVGFilter>(cachedFilter.get());
+    RefPtr cachedSVGFilter = dynamicDowncast<SVGFilter>(WTFMove(cachedFilter));
     if (!cachedSVGFilter) {
         ASSERT_NOT_REACHED();
         return;
@@ -326,7 +324,12 @@ void RemoteDisplayListRecorder::drawDecomposedGlyphs(RenderingResourceIdentifier
     handleItem(DisplayList::DrawDecomposedGlyphs(fontIdentifier, decomposedGlyphsIdentifier), *font, *decomposedGlyphs);
 }
 
-void RemoteDisplayListRecorder::drawImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destinationRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void RemoteDisplayListRecorder::drawDisplayListItems(Vector<WebCore::DisplayList::Item>&& items, const FloatPoint& destination)
+{
+    handleItem(DisplayList::DrawDisplayListItems(WTFMove(items), destination), resourceCache().resourceHeap());
+}
+
+void RemoteDisplayListRecorder::drawImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destinationRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     RefPtr sourceImage = imageBuffer(imageBufferIdentifier);
     if (!sourceImage) {
@@ -337,7 +340,7 @@ void RemoteDisplayListRecorder::drawImageBuffer(RenderingResourceIdentifier imag
     handleItem(DisplayList::DrawImageBuffer(imageBufferIdentifier, destinationRect, srcRect, options), *sourceImage);
 }
 
-void RemoteDisplayListRecorder::drawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void RemoteDisplayListRecorder::drawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     RefPtr image = resourceCache().cachedNativeImage(imageIdentifier);
     if (!image) {
@@ -345,7 +348,7 @@ void RemoteDisplayListRecorder::drawNativeImage(RenderingResourceIdentifier imag
         return;
     }
 
-    handleItem(DisplayList::DrawNativeImage(imageIdentifier, imageSize, destRect, srcRect, options), *image);
+    handleItem(DisplayList::DrawNativeImage(imageIdentifier, destRect, srcRect, options), *image);
 }
 
 void RemoteDisplayListRecorder::drawSystemImage(Ref<SystemImage> systemImage, const FloatRect& destinationRect)
@@ -364,7 +367,7 @@ void RemoteDisplayListRecorder::drawSystemImage(Ref<SystemImage> systemImage, co
     handleItem(DisplayList::DrawSystemImage(systemImage, destinationRect));
 }
 
-void RemoteDisplayListRecorder::drawPattern(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& transform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void RemoteDisplayListRecorder::drawPattern(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& transform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     auto patternImage = sourceImage(imageIdentifier);
     if (!patternImage) {
@@ -467,6 +470,11 @@ void RemoteDisplayListRecorder::fillArc(const PathArc& arc)
     handleItem(DisplayList::FillArc(arc));
 }
 
+void RemoteDisplayListRecorder::fillClosedArc(const PathClosedArc& closedArc)
+{
+    handleItem(DisplayList::FillClosedArc(closedArc));
+}
+
 void RemoteDisplayListRecorder::fillQuadCurve(const PathDataQuadCurve& curve)
 {
     handleItem(DisplayList::FillQuadCurve(curve));
@@ -505,20 +513,29 @@ void RemoteDisplayListRecorder::paintFrameForMedia(MediaPlayerIdentifier identif
 #endif
 
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
+SharedVideoFrameReader& RemoteDisplayListRecorder::sharedVideoFrameReader()
+{
+    if (!m_sharedVideoFrameReader)
+        m_sharedVideoFrameReader = makeUnique<SharedVideoFrameReader>(Ref { m_renderingBackend->gpuConnectionToWebProcess().videoFrameObjectHeap() }, m_renderingBackend->gpuConnectionToWebProcess().webProcessIdentity());
+
+    return *m_sharedVideoFrameReader;
+}
+
 void RemoteDisplayListRecorder::paintVideoFrame(SharedVideoFrame&& frame, const WebCore::FloatRect& destination, bool shouldDiscardAlpha)
 {
-    if (auto videoFrame = m_sharedVideoFrameReader.read(WTFMove(frame)))
+    if (auto videoFrame = sharedVideoFrameReader().read(WTFMove(frame)))
         drawingContext().paintVideoFrame(*videoFrame, destination, shouldDiscardAlpha);
 }
 
+
 void RemoteDisplayListRecorder::setSharedVideoFrameSemaphore(IPC::Semaphore&& semaphore)
 {
-    m_sharedVideoFrameReader.setSemaphore(WTFMove(semaphore));
+    sharedVideoFrameReader().setSemaphore(WTFMove(semaphore));
 }
 
 void RemoteDisplayListRecorder::setSharedVideoFrameMemory(SharedMemory::Handle&& handle)
 {
-    m_sharedVideoFrameReader.setSharedMemory(WTFMove(handle));
+    sharedVideoFrameReader().setSharedMemory(WTFMove(handle));
 }
 #endif // PLATFORM(COCOA) && ENABLE(VIDEO)
 
@@ -543,6 +560,11 @@ void RemoteDisplayListRecorder::strokeLineWithColorAndThickness(const PathDataLi
 void RemoteDisplayListRecorder::strokeArc(const PathArc& arc)
 {
     handleItem(DisplayList::StrokeArc(arc));
+}
+
+void RemoteDisplayListRecorder::strokeClosedArc(const PathClosedArc& closedArc)
+{
+    handleItem(DisplayList::StrokeClosedArc(closedArc));
 }
 
 void RemoteDisplayListRecorder::strokeQuadCurve(const PathDataQuadCurve& curve)

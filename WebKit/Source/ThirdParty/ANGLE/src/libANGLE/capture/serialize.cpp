@@ -572,7 +572,6 @@ void SerializeContextState(JsonSerializer *json, const gl::State &state)
     json->addScalar("StencilBackRef", state.getStencilBackRef());
     json->addScalar("LineWidth", state.getLineWidth());
     json->addScalar("GenerateMipmapHint", state.getGenerateMipmapHint());
-    json->addScalar("TextureFilteringHint", state.getTextureFilteringHint());
     json->addScalar("FragmentShaderDerivativeHint", state.getFragmentShaderDerivativeHint());
     json->addScalar("BindGeneratesResourceEnabled", state.isBindGeneratesResourceEnabled());
     json->addScalar("ClientArraysEnabled", state.areClientArraysEnabled());
@@ -972,9 +971,6 @@ void SerializeShader(const gl::Context *context,
     // Do not serialize mType because it is already serialized in SerializeCompiledShaderState.
     json->addString("InfoLogString", shader->getInfoLogString());
     // Do not serialize compiler resources string because it can vary between test modes.
-    json->addScalar("CurrentMaxComputeWorkGroupInvocations",
-                    shader->getCurrentMaxComputeWorkGroupInvocations());
-    json->addScalar("MaxComputeSharedMemory", shader->getMaxComputeSharedMemory());
 }
 
 void SerializeVariableLocationsVector(JsonSerializer *json,

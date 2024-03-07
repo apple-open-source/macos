@@ -25,6 +25,7 @@
 #include <wtf/Forward.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 
 // This implements a counter tree that is used for finding parents in counters() lookup,
 // and for propagating count changes when nodes are added or removed.
@@ -40,7 +41,7 @@ namespace WebCore {
 class RenderCounter;
 class RenderElement;
 
-class CounterNode : public RefCounted<CounterNode>, public CanMakeCheckedPtr {
+class CounterNode : public RefCounted<CounterNode>, public CanMakeSingleThreadWeakPtr<CounterNode> {
 public:
     enum class Type : uint8_t { Increment, Reset, Set };
 
@@ -86,11 +87,11 @@ private:
     RenderElement& m_owner;
     RenderCounter* m_rootRenderer { nullptr };
 
-    CheckedPtr<CounterNode> m_parent;
-    CheckedPtr<CounterNode> m_previousSibling;
-    CheckedPtr<CounterNode> m_nextSibling;
-    CheckedPtr<CounterNode> m_firstChild;
-    CheckedPtr<CounterNode> m_lastChild;
+    SingleThreadWeakPtr<CounterNode> m_parent;
+    SingleThreadWeakPtr<CounterNode> m_previousSibling;
+    SingleThreadWeakPtr<CounterNode> m_nextSibling;
+    SingleThreadWeakPtr<CounterNode> m_firstChild;
+    SingleThreadWeakPtr<CounterNode> m_lastChild;
 };
 
 } // namespace WebCore

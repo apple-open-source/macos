@@ -130,7 +130,7 @@ void DrawGlyphsRecorder::populateInternalContext(const GraphicsContextState& con
     if (m_originalState.dropShadow)
         m_internalContext->setDropShadow(*m_originalState.dropShadow);
     else
-        m_internalContext->clearShadow();
+        m_internalContext->clearDropShadow();
 
     m_internalContext->setTextDrawingMode(contextState.textDrawingMode());
 }
@@ -217,7 +217,7 @@ void DrawGlyphsRecorder::updateShadow(const std::optional<GraphicsDropShadow>& d
     if (dropShadow)
         m_owner.setDropShadow(*dropShadow);
     else
-        m_owner.clearShadow();
+        m_owner.clearDropShadow();
 
     m_owner.setShadowsIgnoreTransforms(shadowsIgnoreTransforms == ShadowsIgnoreTransforms::Yes);
 }
@@ -235,7 +235,7 @@ void DrawGlyphsRecorder::updateShadow(CGStyleRef style)
     auto shadowOffset = FloatSize(std::cos(rad), std::sin(rad)) * shadowStyle.height;
     auto shadowRadius = static_cast<float>(shadowStyle.radius);
     auto shadowColor = CGStyleGetColor(style);
-    updateShadow({ { shadowOffset, shadowRadius, Color::createAndPreserveColorSpace(shadowColor), ShadowRadiusMode::Default } }, ShadowsIgnoreTransforms::Yes);
+    updateShadow({ { shadowOffset, shadowRadius, Color::createAndPreserveColorSpace(shadowColor) } }, ShadowsIgnoreTransforms::Yes);
 }
 
 void DrawGlyphsRecorder::recordBeginLayer(CGRenderingStateRef, CGGStateRef gstate, CGRect)
@@ -269,9 +269,9 @@ static AdvancesAndInitialPosition computeHorizontalAdvancesFromPositions(const C
         auto nextPosition = positions[i + 1];
         auto currentPosition = positions[i];
         auto advance = CGSizeMake(nextPosition.x - currentPosition.x, nextPosition.y - currentPosition.y);
-        result.advances.uncheckedAppend(CGSizeApplyAffineTransform(advance, textMatrix));
+        result.advances.append(CGSizeApplyAffineTransform(advance, textMatrix));
     }
-    result.advances.uncheckedConstructAndAppend(CGSizeZero);
+    result.advances.constructAndAppend(CGSizeZero);
     return result;
 }
 
@@ -297,10 +297,10 @@ static AdvancesAndInitialPosition computeVerticalAdvancesFromPositions(const CGS
 
     for (size_t i = 1; i < count; ++i) {
         auto currentPosition = transformPoint(positions[i], translations[i]);
-        result.advances.uncheckedConstructAndAppend(CGSizeMake(currentPosition.x - previousPosition.x, currentPosition.y - previousPosition.y));
+        result.advances.constructAndAppend(CGSizeMake(currentPosition.x - previousPosition.x, currentPosition.y - previousPosition.y));
         previousPosition = currentPosition;
     }
-    result.advances.uncheckedAppend(CGSizeZero);
+    result.advances.append(CGSizeZero);
     return result;
 }
 
@@ -381,7 +381,7 @@ void DrawGlyphsRecorder::recordDrawImage(CGRenderingStateRef, CGGStateRef gstate
     m_owner.scale(FloatSize(1, -1));
 
     auto image = NativeImage::create(cgImage);
-    m_owner.drawNativeImage(*image, image->size(), FloatRect(rect), FloatRect { { }, image->size() }, ImagePaintingOptions { ImageOrientation::Orientation::OriginTopLeft });
+    m_owner.drawNativeImage(*image, FloatRect(rect), FloatRect { { }, image->size() }, ImagePaintingOptions { ImageOrientation::Orientation::OriginTopLeft });
 
     // Undo the above y-flip to restore the context.
     m_owner.scale(FloatSize(1, -1));

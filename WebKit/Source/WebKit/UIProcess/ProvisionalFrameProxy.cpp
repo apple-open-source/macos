@@ -44,22 +44,18 @@ ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, WebProcessPro
 {
     ASSERT(!m_remotePageProxy || m_remotePageProxy->process().coreProcessIdentifier() == process.coreProcessIdentifier());
     m_process->markProcessAsRecentlyUsed();
-    m_process->addProvisionalFrameProxy(*this);
 }
 
-ProvisionalFrameProxy::~ProvisionalFrameProxy()
-{
-    m_process->removeProvisionalFrameProxy(*this);
-}
+ProvisionalFrameProxy::~ProvisionalFrameProxy() = default;
 
 RefPtr<RemotePageProxy> ProvisionalFrameProxy::takeRemotePageProxy()
 {
     return std::exchange(m_remotePageProxy, nullptr);
 }
 
-WebPageProxy* ProvisionalFrameProxy::page()
+Ref<WebProcessProxy> ProvisionalFrameProxy::protectedProcess() const
 {
-    return m_frame->page();
+    return process();
 }
 
-}
+} // namespace WebKit

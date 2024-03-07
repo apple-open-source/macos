@@ -261,6 +261,7 @@ struct nfsmount {
 	uint32_t nm_mflags_mask[NFS_MFLAG_BITMAP_LEN]; /* mount flags mask in mount args */
 	uint32_t nm_mflags[NFS_MFLAG_BITMAP_LEN]; /* mount flags in mount args */
 	uint32_t nm_flags[NFS_MFLAG_BITMAP_LEN]; /* current mount flags (soft, intr, etc...) */
+	uint32_t nm_numgrps;            /* Max. size of groupslist */
 	char *  nm_realm;               /* Kerberos realm to use */
 	char *  nm_principal;           /* GSS principal to use on initial mount */
 	char *  nm_sprinc;              /* Kerberos principal of the server */
@@ -275,7 +276,6 @@ struct nfsmount {
 	mount_t nm_mountp;              /* VFS structure for this filesystem */
 	nfsnode_t nm_dnp;               /* root directory nfsnode pointer */
 	struct nfs_fs_locations nm_locations; /* file system locations */
-	uint32_t nm_numgrps;            /* Max. size of groupslist */
 	TAILQ_HEAD(, nfs_gss_clnt_ctx) nm_gsscl;        /* GSS user contexts */
 	uint32_t nm_ncentries;          /* GSS expired negative cache entries */
 	int     nm_timeo;               /* Init timer for NFSMNT_DUMBTIMR */
@@ -289,6 +289,8 @@ struct nfsmount {
 	time_t   nm_acregmax;           /* reg file max attr cache timeout */
 	time_t   nm_acdirmin;           /* dir min attr cache timeout */
 	time_t   nm_acdirmax;           /* dir max attr cache timeout */
+	time_t   nm_acrootdirmin;       /* root dir min attr cache timeout */
+	time_t   nm_acrootdirmax;       /* root dir max attr cache timeout */
 	uint32_t nm_auth;               /* security mechanism flavor being used */
 	uint32_t nm_writers;            /* Number of nodes open for writing */
 	uint32_t nm_mappers;            /* Number of nodes that have mmapped */
@@ -296,7 +298,6 @@ struct nfsmount {
 	struct nfs_sec nm_servsec;      /* server's acceptable security mechanism flavors */
 	struct nfs_etype nm_etype;      /* If using kerberos, the support session key encryption types */
 	fhandle_t *nm_fh;               /* initial file handle */
-	uint32_t  nm_lockmode;          /* advisory file locking mode */
 	/* mount info */
 	time_t nm_fsattrstamp;          /* timestamp for fs attrs */
 	struct nfs_fsattr nm_fsattr;    /* file system attributes */
@@ -336,21 +337,22 @@ struct nfsmount {
 	struct nfs_reqqhead nm_iodq;    /* async I/O request queue */
 	struct nfsiod *nm_niod;         /* nfsiod processing this mount */
 	TAILQ_ENTRY(nfsmount) nm_iodlink; /* chain of mounts awaiting nfsiod */
-	int     nm_asyncwrites;         /* outstanding async I/O writes */
-	lck_mtx_t nm_asyncwrites_lock;  /* outstanding async I/O writes lock */
 	/* socket state */
 	uint8_t nm_sofamily;            /* (preferred) protocol family of socket */
 	uint8_t nm_sotype;              /* (preferred) type of socket */
 	in_port_t       nm_nfsport;     /* NFS protocol port */
 	in_port_t       nm_mountport;   /* MOUNT protocol port (v2/v3) */
+	u_short nm_sockflags;           /* socket state flags */
 	char    *nm_nfs_localport;      /* Unix domain address (port) for nfs */
 	char    *nm_mount_localport;    /* Unix domain address (port) for mountd */
 	struct nfs_socket_search *nm_nss; /* current socket search structure */
 	struct nfs_socket *nm_nso;      /* current socket */
 	struct sockaddr *nm_saddr;      /* Address of server */
-	u_short nm_sockflags;           /* socket state flags */
-	u_short nm_sndstate;            /* send state flags */
 	lck_mtx_t nm_sndstate_lock;     /* send state lock */
+	u_short nm_sndstate;            /* send state flags */
+	uint16_t  nm_lockmode;          /* advisory file locking mode */
+	int     nm_asyncwrites;         /* outstanding async I/O writes */
+	lck_mtx_t nm_asyncwrites_lock;  /* outstanding async I/O writes lock */
 	time_t  nm_deadto_start;        /* dead timeout start time */
 	time_t  nm_reconnect_start;     /* reconnect start time */
 	time_t  nm_lastrcv;             /* time of last successfully received rpc */

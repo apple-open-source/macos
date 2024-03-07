@@ -35,6 +35,7 @@
 #include "DiagnosticLoggingKeys.h"
 #include "DiagnosticLoggingResultType.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "FocusController.h"
 #include "FrameDestructionObserverInlines.h"
@@ -210,7 +211,7 @@ static bool canCachePage(Page& page)
         return false;
     bool isCacheable = canCacheFrame(*localMainFrame, diagnosticLoggingClient, indentLevel + 1);
 
-    if (!page.settings().usesBackForwardCache() || page.isResourceCachingDisabledByWebInspector()) {
+    if (!page.settings().usesBackForwardCache() || page.isResourceCachingDisabledByWebInspector() || page.settings().siteIsolationEnabled()) {
         PCLOG("   -Page settings says b/f cache disabled");
         logBackForwardCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::isDisabledKey());
         isCacheable = false;
@@ -470,7 +471,7 @@ std::unique_ptr<CachedPage> BackForwardCache::trySuspendPage(Page& page, ForceSu
 
     // Focus the main frame, defocusing a focused subframe (if we have one). We do this here,
     // before the page enters the back/forward cache, while we still can dispatch DOM blur/focus events.
-    if (CheckedRef focusController { page.focusController() }; focusController->focusedFrame())
+    if (CheckedRef focusController { page.focusController() }; focusController->focusedLocalFrame())
         focusController->setFocusedFrame(localMainFrame);
 
     // Fire the pagehide event in all frames.

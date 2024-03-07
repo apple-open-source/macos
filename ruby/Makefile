@@ -99,7 +99,8 @@ AEP_Patches    = \
 	ruby-socket-extconf.patch \
 	update-mkconfig.rb-host_fields.patch \
 	102172098.patch \
-	CVE-2023-28756.patch
+	CVE-2023-28756.patch \
+	108916473.patch
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)

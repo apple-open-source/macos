@@ -75,6 +75,8 @@ public:
 	// into a virtual address space as executable. Not all platforms check this.
 	virtual size_t execSegBase(const Architecture *arch);			// start offset of executable segment in main executable [zero]
 	virtual size_t execSegLimit(const Architecture *arch) = 0;		// size of executable segment in main executable
+	
+	virtual uint32_t platformType(const Architecture *arch) {return 0;};
 
 	virtual std::string format() = 0;						// human-readable type string
 	virtual CFArrayRef modifiedFiles();						// list of files modified by signing [main execcutable only]

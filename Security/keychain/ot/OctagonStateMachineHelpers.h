@@ -84,13 +84,12 @@ extern OctagonState* const OctagonStateMachineHalted;
 @property (readonly) NSSet<OctagonState*>* sourceStates;
 @property (readonly) OperationType transitionOperation;
 
-- (instancetype)timeout:(dispatch_time_t)timeout;
 - (OperationType _Nullable)_onqueueStart;
+- (void)onqueueHandleStartTimeout:(NSError*)stateMachineStateError;
 
 - (instancetype)init:(NSString*)name
         sourceStates:(NSSet<OctagonState*>*)sourceStates
          serialQueue:(dispatch_queue_t)queue
-             timeout:(dispatch_time_t)timeout
         transitionOp:(OperationType)transitionOp;
 @end
 

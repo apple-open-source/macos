@@ -126,6 +126,18 @@
 #include <Security/SOSControlHelper.h>
 #include <Security/X509Templates.h>
 
+#include <Security/KCSharingGroupManager.h>
+#include <Security/KCSharingDaemonConnection.h>
+#include <Security/KCSharingMessagingdConnection.h>
+#include <Security/KCSharingLogging.h>
+#include <Security/KCSharingGroupManager.h>
+#include <Security/KCSharingGroup.h>
+#include <Security/KCSharingGroupInvite.h>
+#include <Security/KCSharingParticipant.h>
+#include <Security/KCSharingGroupRequests.h>
+#include <Security/KCSharingGroupUpdateInfo.h>
+#include <Security/KCSharingGroupNotificationProtocol.h>
+#include <Security/SecRequirementPrivLWCR.h>
 
 #if SEC_OS_OSX_INCLUDES
 #include <Security/AuthorizationPriv.h>

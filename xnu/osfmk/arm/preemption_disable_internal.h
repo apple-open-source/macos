@@ -33,6 +33,11 @@
 
 #pragma once
 
+#if CONFIG_SPTM
+/*
+ * This header is only meant for the PPL and SPTM to access the preemption disable data structure directly.
+ */
+#endif /* CONFIG_SPTM */
 
 /**
  * Track time and other counters during a preemption disabled window,
@@ -47,12 +52,12 @@ struct _preemption_disable_pcpu {
 		uint64_t pds_mach_time;
 		/* The amount of time spent in interrupts by the current CPU, in Mach time units. */
 		uint64_t pds_int_mach_time;
-#if MONOTONIC
+#if CONFIG_CPU_COUNTERS
 		/* The number of cycles elapsed on this CPU. */
 		uint64_t pds_cycles;
 		/* The number of instructions seen by this CPU. */
 		uint64_t pds_instrs;
-#endif /* MONOTONIC */
+#endif /* CONFIG_CPU_COUNTERS */
 	}
 	/* At the start of the preemption disabled window. */
 	pdp_start;

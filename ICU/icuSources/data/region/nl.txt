@@ -85,6 +85,7 @@ nl{
         CN{"China, vasteland"}
         CO{"Colombia"}
         CP{"Clipperton"}
+        CQ{"Sark"}
         CR{"Costa Rica"}
         CU{"Cuba"}
         CV{"Kaapverdië"}
@@ -313,5 +314,6 @@ nl{
         NZ{"Aotearoa Nieuw-Zeeland"}
         SZ{"Swaziland"}
         TL{"Democratische Republiek Oost-Timor"}
+        TR{"Türkiye"}
     }
 }

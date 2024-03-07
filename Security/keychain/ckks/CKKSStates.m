@@ -5,7 +5,7 @@
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ot/ObjCImprovements.h"
 
-NSString* const CKKSStateTransitionErrorDomain = @"com.appple.ckks.state";
+NSString* const CKKSStateTransitionErrorDomain = @"com.apple.ckks.state";
 
 CKKSState* const CKKSStateLoggedOut = (CKKSState*) @"loggedout";
 CKKSState* const CKKSStateWaitForCloudKitAccountStatus = (CKKSState*)@"wait_for_ck_account_status";

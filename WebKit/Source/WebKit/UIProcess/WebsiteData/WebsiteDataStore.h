@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "FrameInfoData.h"
 #include "NetworkSessionCreationParameters.h"
 #include "WebDeviceOrientationAndMotionAccessController.h"
 #include "WebFramePolicyListenerProxy.h"
@@ -39,6 +40,7 @@
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/SecurityOriginHash.h>
 #include <pal/SessionID.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/Identified.h>
@@ -102,21 +104,20 @@ class WebProcessProxy;
 class WebResourceLoadStatisticsStore;
 enum class CacheModel : uint8_t;
 enum class CallDownloadDidStart : bool;
+enum class ShouldGrandfatherStatistics : bool;
+enum class StorageAccessStatus : uint8_t;
+enum class StorageAccessPromptStatus;
 enum class UnifiedOriginStorageLevel : uint8_t;
 enum class WebsiteDataFetchOption : uint8_t;
 enum class WebsiteDataType : uint32_t;
 
+struct ITPThirdPartyData;
 struct NetworkProcessConnectionInfo;
+struct WebPushMessage;
 struct WebsiteDataRecord;
 struct WebsiteDataStoreParameters;
 
-#if ENABLE(TRACKING_PREVENTION)
-enum class ShouldGrandfatherStatistics : bool;
-enum class StorageAccessStatus : uint8_t;
-enum class StorageAccessPromptStatus;
-#endif
-
-class WebsiteDataStore : public API::ObjectImpl<API::Object::Type::WebsiteDataStore>, public Identified<WebsiteDataStore>, public CanMakeWeakPtr<WebsiteDataStore>  {
+class WebsiteDataStore : public API::ObjectImpl<API::Object::Type::WebsiteDataStore>, public Identified<WebsiteDataStore>, public CanMakeWeakPtr<WebsiteDataStore> {
 public:
     static Ref<WebsiteDataStore> defaultDataStore();
     static bool defaultDataStoreExists();
@@ -136,6 +137,7 @@ public:
     
     NetworkProcessProxy& networkProcess() const;
     NetworkProcessProxy& networkProcess();
+    Ref<NetworkProcessProxy> protectedNetworkProcess() const;
     NetworkProcessProxy* networkProcessIfExists() { return m_networkProcess.get(); }
     
     static WebsiteDataStore* existingDataStoreForSessionID(PAL::SessionID);
@@ -175,6 +177,7 @@ public:
     std::optional<double> originQuotaRatio() { return m_resolvedConfiguration->originQuotaRatio(); }
 
     bool isBlobRegistryPartitioningEnabled() const;
+    void updateBlobRegistryPartitioningState();
 
 #if PLATFORM(IOS_FAMILY)
     String resolvedCookieStorageDirectory();
@@ -184,9 +187,8 @@ public:
     static String cacheDirectoryInContainerOrHomeDirectory(const String& subpath);
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
     void clearResourceLoadStatisticsInWebProcesses(CompletionHandler<void()>&&);
-#endif
+    void setUserAgentStringQuirkForTesting(const String& domain, const String& userAgentString, CompletionHandler<void()>&&);
 
     void fetchData(OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, Function<void(Vector<WebsiteDataRecord>)>&& completionHandler);
     void removeData(OptionSet<WebsiteDataType>, WallTime modifiedSince, Function<void()>&& completionHandler);
@@ -197,7 +199,6 @@ public:
     void resetServiceWorkerTimeoutForTesting();
     bool hasServiceWorkerBackgroundActivityForTesting() const;
 
-#if ENABLE(TRACKING_PREVENTION)
     void fetchDataForRegistrableDomains(OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, Vector<WebCore::RegistrableDomain>&&, CompletionHandler<void(Vector<WebsiteDataRecord>&&, HashSet<WebCore::RegistrableDomain>&&)>&&);
     void clearPrevalentResource(const URL&, CompletionHandler<void()>&&);
     void clearUserInteraction(const URL&, CompletionHandler<void()>&&);
@@ -216,7 +217,7 @@ public:
     void scheduleCookieBlockingUpdate(CompletionHandler<void()>&&);
     void scheduleClearInMemoryAndPersistent(WallTime modifiedSince, ShouldGrandfatherStatistics, CompletionHandler<void()>&&);
     void scheduleClearInMemoryAndPersistent(ShouldGrandfatherStatistics, CompletionHandler<void()>&&);
-    void getResourceLoadStatisticsDataSummary(CompletionHandler<void(Vector<WebResourceLoadStatisticsStore::ThirdPartyData>&&)>&&);
+    void getResourceLoadStatisticsDataSummary(CompletionHandler<void(Vector<ITPThirdPartyData>&&)>&&);
     void scheduleStatisticsAndDataRecordsProcessing(CompletionHandler<void()>&&);
     void setGrandfathered(const URL&, bool, CompletionHandler<void()>&&);
     void isGrandfathered(const URL&, CompletionHandler<void(bool)>&&);
@@ -228,6 +229,8 @@ public:
     void insertExpiredStatisticForTesting(const URL&, unsigned numberOfOperatingDaysPassed, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
     void setNotifyPagesWhenDataRecordsWereScanned(bool, CompletionHandler<void()>&&);
     void setResourceLoadStatisticsTimeAdvanceForTesting(Seconds, CompletionHandler<void()>&&);
+    void setStorageAccessPromptQuirkForTesting(String&& topFrameDomain, Vector<String>&& subFrameDomains, CompletionHandler<void()>&&);
+    void grantStorageAccessForTesting(String&& topFrameDomain, Vector<String>&& subFrameDomains, CompletionHandler<void()>&&);
     void setIsRunningResourceLoadStatisticsTest(bool, CompletionHandler<void()>&&);
     void setPruneEntriesDownTo(size_t, CompletionHandler<void()>&&);
     void setSubframeUnderTopFrameDomain(const URL& subframe, const URL& topFrame, CompletionHandler<void()>&&);
@@ -262,7 +265,6 @@ public:
     WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode() const;
     bool isTrackingPreventionStateExplicitlySet() const { return m_isTrackingPreventionStateExplicitlySet; }
     void useExplicitTrackingPreventionState() { m_isTrackingPreventionStateExplicitlySet = true; }
-#endif // ENABLE(TRACKING_PREVENTION)
     void closeDatabases(CompletionHandler<void()>&&);
     void syncLocalStorage(CompletionHandler<void()>&&);
     void storeServiceWorkerRegistrations(CompletionHandler<void()>&&);
@@ -288,6 +290,7 @@ public:
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     const String& resolvedModelElementCacheDirectory() const { return m_resolvedConfiguration->modelElementCacheDirectory(); }
 #endif
+    FileSystem::Salt mediaKeysStorageSalt() const;
 
     static void setCachedProcessSuspensionDelayForTesting(Seconds);
 
@@ -297,18 +300,17 @@ public:
     void allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo&);
 
     DeviceIdHashSaltStorage& deviceIdHashSaltStorage() { return m_deviceIdHashSaltStorage.get(); }
+    Ref<DeviceIdHashSaltStorage> protectedDeviceIdHashSaltStorage();
 
     WebsiteDataStoreParameters parameters();
     static Vector<WebsiteDataStoreParameters> parametersFromEachWebsiteDataStore();
 
     void flushCookies(CompletionHandler<void()>&&);
 
-    void setAllowsAnySSLCertificateForWebSocket(bool);
-
     void dispatchOnQueue(Function<void()>&&);
 
 #if PLATFORM(COCOA)
-    static bool useNetworkLoader();
+    static std::optional<bool> useNetworkLoader();
 #endif
 
 #if USE(CURL)
@@ -433,7 +435,7 @@ public:
 
     void countNonDefaultSessionSets(CompletionHandler<void(size_t)>&&);
 
-    void showServiceWorkerNotification(IPC::Connection&, const WebCore::NotificationData&);
+    bool showPersistentNotification(IPC::Connection*, const WebCore::NotificationData&);
     void cancelServiceWorkerNotification(const WTF::UUID& notificationID);
     void clearServiceWorkerNotification(const WTF::UUID& notificationID);
     void didDestroyServiceWorkerNotification(const WTF::UUID& notificationID);
@@ -453,9 +455,7 @@ public:
     void addPage(WebPageProxy&);
     void removePage(WebPageProxy&);
 
-#if ENABLE(SERVICE_WORKER)
     void updateServiceWorkerInspectability();
-#endif
 
     HashSet<RefPtr<WebProcessPool>> processPools(size_t limit = std::numeric_limits<size_t>::max()) const;
 
@@ -474,6 +474,8 @@ public:
     void setProxyConfigData(Vector<std::pair<Vector<uint8_t>, WTF::UUID>>&&);
 #endif
     void setCompletionHandlerForRemovalFromNetworkProcess(CompletionHandler<void(String&&)>&&);
+
+    void processPushMessage(WebPushMessage&&, CompletionHandler<void(bool)>&&);
 
     void setOriginQuotaRatioEnabledForTesting(bool enabled, CompletionHandler<void()>&&);
 
@@ -494,7 +496,8 @@ private:
 
     WebsiteDataStore();
     static WorkQueue& websiteDataStoreIOQueue();
-    Ref<NetworkProcessProxy> protectedNetworkProcess() const;
+
+    Ref<WorkQueue> protectedQueue() const;
 
     // FIXME: Only Cocoa ports respect ShouldCreateDirectory, so you cannot rely on it to create
     // directories. This is confusing.
@@ -507,9 +510,9 @@ private:
     // Will create a temporary process pool is none exists yet.
     HashSet<RefPtr<WebProcessPool>> ensureProcessPools() const;
 
-    static Vector<WebCore::SecurityOriginData> mediaKeyOrigins(const String& mediaKeysStorageDirectory);
-    static void removeMediaKeys(const String& mediaKeysStorageDirectory, WallTime modifiedSince);
-    static void removeMediaKeys(const String& mediaKeysStorageDirectory, const HashSet<WebCore::SecurityOriginData>&);
+    static Vector<WebCore::SecurityOriginData> mediaKeysStorageOrigins(const String& mediaKeysStorageDirectory);
+    static void removeMediaKeysStorage(const String& mediaKeysStorageDirectory, WallTime modifiedSince);
+    static void removeMediaKeysStorage(const String& mediaKeysStorageDirectory, const HashSet<WebCore::SecurityOriginData>&, const FileSystem::Salt&);
 
     void registerWithSessionIDMap();
     bool hasActivePages();
@@ -532,6 +535,8 @@ private:
     String parentBundleDirectory() const;
 #endif
 
+    String migrateMediaKeysStorageIfNecessary(const String& directory);
+
     const PAL::SessionID m_sessionID;
 
     Ref<WebsiteDataStoreConfiguration> m_resolvedConfiguration;
@@ -545,11 +550,9 @@ private:
     String m_resolvedCookieStorageDirectory;
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
     bool m_trackingPreventionDebugMode { false };
     bool m_trackingPreventionEnabled { false };
     Function<void(const String&)> m_statisticsTestingCallback;
-#endif
 
     Ref<WorkQueue> m_queue;
 
@@ -596,15 +599,20 @@ private:
 #if HAVE(APP_SSO)
     std::unique_ptr<SOAuthorizationCoordinator> m_soAuthorizationCoordinator;
 #endif
-#if ENABLE(TRACKING_PREVENTION)
     mutable std::optional<WebCore::ThirdPartyCookieBlockingMode> m_thirdPartyCookieBlockingMode; // Lazily computed.
-#endif
     Ref<WebCore::LocalWebLockRegistry> m_webLockRegistry;
 
     RefPtr<WebPreferences> m_serviceWorkerOverridePreferences;
     CompletionHandler<void(String&&)> m_completionHandlerForRemovalFromNetworkProcess;
 
     bool m_inspectionForServiceWorkersAllowed { true };
+    FileSystem::Salt m_mediaKeysStorageSalt;
+
+    bool m_isBlobRegistryPartitioningEnabled { false };
+
+#if HAVE(NW_PROXY_CONFIG)
+    std::optional<Vector<std::pair<Vector<uint8_t>, WTF::UUID>>> m_proxyConfigData;
+#endif
 };
 
 }

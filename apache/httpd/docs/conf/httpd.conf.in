@@ -49,12 +49,7 @@ ServerRoot "@@ServerRoot@@"
 # prevent Apache from glomming onto all bound IP addresses.
 #
 #Listen 12.34.56.78:80
-<IfDefine SERVER_APP_HAS_DEFAULT_PORTS>
-    Listen 8080
-</IfDefine>
-<IfDefine !SERVER_APP_HAS_DEFAULT_PORTS>
-    Listen @@Port@@
-</IfDefine>
+Listen @@Port@@
 
 #
 # Dynamic Shared Object (DSO) Support
@@ -67,12 +62,8 @@ ServerRoot "@@ServerRoot@@"
 #
 # Example:
 # LoadModule foo_module modules/mod_foo.so
-# LoadModule my_custom_module /usr/local/libexec/mod_my_custom.so "My Signature Authority"
 #
 @@LoadModule@@
-#PHP was deprecated in macOS 11 and removed from macOS 12
-#LoadModule perl_module libexec/apache2/mod_perl.so
-LoadModule hfs_apple_module libexec/apache2/mod_hfs_apple.so
 
 <IfModule unixd_module>
 #
@@ -83,8 +74,8 @@ LoadModule hfs_apple_module libexec/apache2/mod_hfs_apple.so
 # It is usually good practice to create a dedicated user and group for
 # running httpd, as with most system services.
 #
-User _www
-Group _www
+User daemon
+Group daemon
 
 </IfModule>
 
@@ -152,8 +143,7 @@ DocumentRoot "@exp_htdocsdir@"
     # http://httpd.apache.org/docs/2.4/mod/core.html#options
     # for more information.
     #
-    Options FollowSymLinks Multiviews
-    MultiviewsMatch Any
+    Options Indexes FollowSymLinks
 
     #
     # AllowOverride controls what directives may be placed in .htaccess files.
@@ -180,19 +170,9 @@ DocumentRoot "@exp_htdocsdir@"
 # The following lines prevent .htaccess and .htpasswd files from being 
 # viewed by Web clients. 
 #
-<FilesMatch "^\.([Hh][Tt]|[Dd][Ss]_[Ss])">
-    Require all denied
-</FilesMatch>
-
-#
-# Apple specific filesystem protection.
-#
-<Files "rsrc">
+<Files ".ht*">
     Require all denied
 </Files>
-<DirectoryMatch ".*\.\.namedfork">
-    Require all denied
-</DirectoryMatch>
 
 #
 # ErrorLog: The location of the error log file.
@@ -266,7 +246,7 @@ LogLevel warn
     # client.  The same rules about trailing "/" apply to ScriptAlias
     # directives as to Alias.
     #
-    ScriptAliasMatch ^/cgi-bin/((?!(?i:webobjects)).*$) "@exp_cgidir@/$1"
+    ScriptAlias /cgi-bin/ "@exp_cgidir@/"
 
 </IfModule>
 
@@ -382,8 +362,6 @@ LogLevel warn
 #EnableMMAP off
 #EnableSendfile on
 
-TraceEnable off
-
 # Supplemental configuration
 #
 # The configuration files in the @rel_sysconfdir@/extra/ directory can be 
@@ -392,13 +370,13 @@ TraceEnable off
 # necessary.
 
 # Server-pool management (MPM specific)
-Include @rel_sysconfdir@/extra/httpd-mpm.conf
+#Include @rel_sysconfdir@/extra/httpd-mpm.conf
 
 # Multi-language error messages
 #Include @rel_sysconfdir@/extra/httpd-multilang-errordoc.conf
 
 # Fancy directory listings
-Include @rel_sysconfdir@/extra/httpd-autoindex.conf
+#Include @rel_sysconfdir@/extra/httpd-autoindex.conf
 
 # Language settings
 #Include @rel_sysconfdir@/extra/httpd-languages.conf
@@ -437,7 +415,4 @@ Include @rel_sysconfdir@/extra/proxy-html.conf
 SSLRandomSeed startup builtin
 SSLRandomSeed connect builtin
 </IfModule>
-
-Include @rel_sysconfdir@/other/*.conf
-
 

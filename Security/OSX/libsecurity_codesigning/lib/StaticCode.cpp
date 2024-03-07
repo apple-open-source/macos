@@ -87,6 +87,10 @@
 #import <libamfi-interface.h>
 #endif
 
+#if TARGET_OS_OSX
+#import <rootless.h>
+#endif
+
 namespace Security {
 namespace CodeSigning {
 
@@ -2323,10 +2327,34 @@ bool SecStaticCode::satisfiesRequirement(const Requirement *req, OSStatus failur
 	if (CFAbsoluteTime time = this->signingTimestamp()) {
 		secureTimestamp.take(CFDateCreate(NULL, time));
 	}
+	CFRef<CFURLRef> cfpath = this->copyCanonicalPath();
+	std::string path = cfString(cfpath);
+	uint8_t platformType = 0;
+	bool isSIPProtected = false;
+	bool onAuthorizedAPFSVolume = false;
+	bool onSystemVolume = false;
+	unsigned int vc = CS_VALIDATION_CATEGORY_INVALID;
+	if (req->kind() == Requirement::lwcrForm) {
+		Universal *fat = diskRep()->mainExecutableImage();
+		if (fat) {
+			Architecture arch = fat->bestNativeArch();
+			platformType = mRep->platformType(&arch);
+		}
+#if TARGET_OS_OSX
+		isSIPProtected = rootless_check_trusted(path.c_str()) == 0 ? true : false;
+#endif
+		onAuthorizedAPFSVolume = isOnAuthAPFSVolume(path.c_str());
+		onSystemVolume = isOnRootFilesystem(path.c_str());
+		// Deciding a validationCategory for lwcr matching requires checking a exprForm requirement
+		// To avoid infinite recursion, we only provide the real validation category if
+		// we are matching a lwcrForm requirement.
+		vc = validationCategory();
+	}
 	result = req->validates(Requirement::Context(mCertChain, infoDictionary(), entitlements(),
 												 codeDirectory()->identifier(), codeDirectory(),
 												 NULL, kSecCodeSignatureNoHash, mRep->appleInternalForcePlatform(),
-												 secureTimestamp, teamID()),
+												 secureTimestamp, teamID(), platformType, isSIPProtected,
+												 onAuthorizedAPFSVolume, onSystemVolume, vc),
 							failure);
 	return result;
 }

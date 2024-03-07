@@ -34,8 +34,6 @@
 -(bool) kvssendDebugInfo:(CFStringRef) type debug:(CFTypeRef) debugInfo  err:(CFErrorRef *)error;
 -(bool) kvsSendOfficialDSID:(CFStringRef) dsid err:(CFErrorRef *)error;
 
--(bool) kvsSendAccountChangedWithDSID:(CFStringRef) dsid err:(CFErrorRef *)error;
-
 @end;
 
 #endif

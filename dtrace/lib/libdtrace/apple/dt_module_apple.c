@@ -431,6 +431,16 @@ dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
 #endif /* DTRACE_USE_CORESYMBOLICATION */
 }
 
+static bool
+dtrace_is_sym_mangled(const char *name)
+{
+	static const char *cpp_mangled_prefix = "__Z";
+	static const char *swift_mangled_prefix = "_$s";
+
+	return ((strncmp(name, cpp_mangled_prefix, 3) == 0) ||
+	    (strncmp(name, swift_mangled_prefix, 3) == 0));
+}
+
 /*
  * Exported interface to look up a symbol by address.  We return the GElf_Sym
  * and complete symbol information for the matching symbol.
@@ -483,10 +493,7 @@ int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
                         const char *mangledName;
                         if (_dtrace_mangled &&
                             (mangledName = CSSymbolGetMangledName(symbol)) &&
-                            strlen(mangledName) >= 3 &&
-                            mangledName[0] == '_' &&
-                            mangledName[1] == '_' &&
-                            mangledName[2] == 'Z') {
+                            dtrace_is_sym_mangled(mangledName)) {
                                 // mangled name - use it
                                 symp->st_name = (uintptr_t)mangledName;
                         } else {

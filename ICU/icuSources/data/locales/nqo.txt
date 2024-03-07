@@ -4,8 +4,8 @@
 nqo{
     AuxExemplarCharacters{"[ߨ ߩ ߪ]"}
     ExemplarCharacters{
-        "[\u07EB \u07EC \u07ED \u07EE \u07EF \u07F0 \u07F1 \u07F2 \u07F3 ߊ ߋ ߌ ߍ ߎ ߏ "
-        "ߐ ߑ ߒ ߓ ߔ ߕ ߖ ߗ ߘ ߙ ߚ ߛ ߜ ߝ ߞ ߟ ߠ ߡ ߢ ߣ ߤ ߥ ߦ ߧ ߴ ߵ]"
+        "[߫ ߬ ߭ ߮ ߯ ߰ ߱ ߲ ߳ ߊ ߋ ߌ ߍ ߎ ߏ ߐ ߑ ߒ ߓ ߔ ߕ ߖ ߗ ߘ ߙ ߚ ߛ ߜ ߝ ߞ ߟ ߠ ߡ ߢ ߣ ߤ ߥ ߦ"
+        " ߧ ߴ ߵ]"
     }
     ExemplarCharactersNumbers{"[\\- ‑ ، . % ‰ + ߀ ߁ ߂ ߃ ߄ ߅ ߆ ߇ ߈ ߉]"}
     ExemplarCharactersPunctuation{"[߸ ߹ ߷]"}
@@ -20,15 +20,7 @@ nqo{
     }
     calendar{
         gregorian{
-            AmPmMarkers{
-                "ߛ",
-                "ߥ",
-            }
             AmPmMarkersAbbr{
-                "ߛ",
-                "ߥ",
-            }
-            AmPmMarkersNarrow{
                 "ߛ",
                 "ߥ",
             }
@@ -46,15 +38,6 @@ nqo{
                         "ߓߌߟ",
                         "ߛߌ߬ߣ",
                         "ߞߍ߲ߘ",
-                    }
-                    narrow{
-                        "ߞ",
-                        "ߞ",
-                        "ߞ",
-                        "ߞ",
-                        "ߓ",
-                        "ߛ",
-                        "ߞ",
                     }
                     short{
                         "ߞߊ߯",
@@ -103,31 +86,6 @@ nqo{
                         "ߛߌ߬",
                         "ߞߍ߲",
                     }
-                    wide{
-                        "ߞߊ߯ߙߌߟߏ߲",
-                        "ߞߐ߬ߓߊ߬ߟߏ߲",
-                        "ߞߐ߬ߟߏ߲",
-                        "ߞߎߣߎ߲ߟߏ߲",
-                        "ߓߌߟߏ߲",
-                        "ߛߌ߬ߣߌ߲߬ߟߏ߲",
-                        "ߞߍ߲ߘߍߟߏ߲",
-                    }
-                }
-            }
-            dayPeriod{
-                stand-alone{
-                    abbreviated{
-                        am{"ߛ"}
-                        pm{"ߥ"}
-                    }
-                    narrow{
-                        am{"ߛ"}
-                        pm{"ߥ"}
-                    }
-                    wide{
-                        am{"ߛ"}
-                        pm{"ߥ"}
-                    }
                 }
             }
             eras{
@@ -164,20 +122,6 @@ nqo{
                         "ߣߍߣ",
                         "ߞߏߟ",
                     }
-                    narrow{
-                        "ߓ",
-                        "ߞ",
-                        "ߕ",
-                        "ߞ",
-                        "ߘ",
-                        "ߥ",
-                        "ߞ",
-                        "ߘ",
-                        "ߕ",
-                        "ߞ",
-                        "ߣ",
-                        "ߞ",
-                    }
                     wide{
                         "ߓߌ߲ߠߊߥߎߟߋ߲",
                         "ߞߏ߲ߞߏߜߍ",
@@ -194,20 +138,6 @@ nqo{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "ߓߌ߲ߠ",
-                        "ߞߏ߲ߞ",
-                        "ߕߙߊ",
-                        "ߞߏ߲ߘ",
-                        "ߘߓߊ߬ߕ",
-                        "ߥߊ߬ߛ",
-                        "ߞߊ߬ߙ",
-                        "ߘߓߊ߬ߓ",
-                        "ߕߎߟߊߝߌ߲",
-                        "ߞߏ߲ߓ",
-                        "ߣߍߣ",
-                        "ߞߏߟ",
-                    }
                     narrow{
                         "ߓ",
                         "ߞ",
@@ -232,12 +162,6 @@ nqo{
                         "ߞߛ߃",
                         "ߞߛ߄",
                     }
-                    narrow{
-                        "߁",
-                        "߂",
-                        "߃",
-                        "߄",
-                    }
                     wide{
                         "ߞߊߙߏߛߓߊ߫ ߁߭",
                         "ߞߊߙߏߛߓߊ߫ ߂߲",
@@ -258,7 +182,6 @@ nqo{
     }
     layout{
         characters{"right-to-left"}
-        lines{"top-to-bottom"}
     }
     measurementSystemNames{
         UK{"ߓߙߌߕߊ߲ߓߊ߫ ߡߊ߲߬ߛߊ߬ߟߊ (ߓ.ߡ.)"}

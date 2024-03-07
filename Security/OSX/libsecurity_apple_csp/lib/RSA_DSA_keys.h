@@ -66,6 +66,7 @@ public:
 		AppleCSPSession		&session,
 		const CssmKey		*paramKey,		/* optional, unused here */
 		CSSM_KEYATTR_FLAGS	&attrFlags);	/* IN/OUT */
+    BinaryKey *getPublicKey() const;
 
 	RSA						*mRsaKey;
 

@@ -195,12 +195,23 @@ RangeUI AddUniforms(const ShaderMap<SharedProgramExecutable> &executables,
 template <typename BlockT>
 void AppendActiveBlocks(ShaderType shaderType,
                         const std::vector<BlockT> &blocksIn,
-                        std::vector<BlockT> &blocksOut)
+                        std::vector<BlockT> &blocksOut,
+                        ProgramPipelineUniformBlockIndexMap *ppoBlockMap)
 {
-    for (const BlockT &block : blocksIn)
+    for (size_t index = 0; index < blocksIn.size(); ++index)
     {
+        const BlockT &block = blocksIn[index];
         if (block.isActive(shaderType))
         {
+            // Have a way for the PPO to know how to map the program's UBO index into its own UBO
+            // array.  This is used to propagate changes to the program's UBOs to the PPO's UBO
+            // list.
+            if (ppoBlockMap != nullptr)
+            {
+                (*ppoBlockMap)[static_cast<uint32_t>(index)] =
+                    static_cast<uint32_t>(blocksOut.size());
+            }
+
             blocksOut.push_back(block);
         }
     }
@@ -1975,12 +1986,22 @@ void ProgramExecutable::copyInputsFromProgram(const ProgramExecutable &executabl
     mProgramInputs = executable.getProgramInputs();
 }
 
-void ProgramExecutable::copyShaderBuffersFromProgram(const ProgramExecutable &executable,
-                                                     ShaderType shaderType)
+void ProgramExecutable::copyUniformBuffersFromProgram(
+    const ProgramExecutable &executable,
+    ShaderType shaderType,
+    ProgramPipelineUniformBlockIndexMap *ppoUniformBlockMap)
 {
-    AppendActiveBlocks(shaderType, executable.getUniformBlocks(), mUniformBlocks);
-    AppendActiveBlocks(shaderType, executable.getShaderStorageBlocks(), mShaderStorageBlocks);
-    AppendActiveBlocks(shaderType, executable.getAtomicCounterBuffers(), mAtomicCounterBuffers);
+    AppendActiveBlocks(shaderType, executable.getUniformBlocks(), mUniformBlocks,
+                       ppoUniformBlockMap);
+}
+
+void ProgramExecutable::copyStorageBuffersFromProgram(const ProgramExecutable &executable,
+                                                      ShaderType shaderType)
+{
+    AppendActiveBlocks(shaderType, executable.getShaderStorageBlocks(), mShaderStorageBlocks,
+                       nullptr);
+    AppendActiveBlocks(shaderType, executable.getAtomicCounterBuffers(), mAtomicCounterBuffers,
+                       nullptr);
 
     // Buffer variable info is queried through the program, and program pipelines don't access it.
     ASSERT(mBufferVariables.empty());
@@ -2442,8 +2463,15 @@ GLuint ProgramExecutable::getUniformIndex(const std::string &name) const
 
 bool ProgramExecutable::shouldIgnoreUniform(UniformLocation location) const
 {
-    if (location.value == -1)
+    if (location.value < 0)
     {
+        return true;
+    }
+
+    if (static_cast<size_t>(location.value) >= mUniformLocations.size())
+    {
+        ERR() << "Invalid uniform location " << location.value << ", expected [0, "
+              << mUniformLocations.size() << ")";
         return true;
     }
 
@@ -3101,6 +3129,13 @@ void ProgramExecutable::setBaseInstanceUniform(GLuint baseInstance)
     mImplementation->setUniform1iv(mPod.baseInstanceLocation, 1, &baseInstanceInt);
 }
 
+gl::ProgramExecutable::DirtyBits ProgramExecutable::getAndResetDirtyBits() const
+{
+    DirtyBits dirtyBits = mDirtyBits;
+    mDirtyBits.reset();
+    return dirtyBits;
+}
+
 void InstallExecutable(const Context *context,
                        const SharedProgramExecutable &toInstall,
                        SharedProgramExecutable *executable)
@@ -3124,4 +3159,5 @@ void UninstallExecutable(const Context *context, SharedProgramExecutable *execut
 
     executable->reset();
 }
+
 }  // namespace gl

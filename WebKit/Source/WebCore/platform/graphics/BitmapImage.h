@@ -128,7 +128,7 @@ public:
     // Accessors for native image formats.
 #if USE(APPKIT)
     NSImage *nsImage() override;
-    RetainPtr<NSImage> snapshotNSImage() override;
+    WEBCORE_EXPORT RetainPtr<NSImage> snapshotNSImage() override;
 #endif
 
 #if PLATFORM(COCOA)
@@ -180,8 +180,8 @@ private:
     FloatSize sourceSize(ImageOrientation orientation = ImageOrientation::Orientation::FromImage) const final { return m_source->sourceSize(orientation); }
     bool hasDensityCorrectedSize() const override { return m_source->hasDensityCorrectedSize(); }
 
-    ImageDrawResult draw(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect, const ImagePaintingOptions& = { }) override;
-    void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { }) override;
+    ImageDrawResult draw(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect, ImagePaintingOptions = { }) override;
+    void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions = { }) override;
 #if PLATFORM(WIN)
     void drawFrameMatchingSourceSize(GraphicsContext&, const FloatRect& dstRect, const IntSize& srcSize, CompositeOperator) override;
 #endif
@@ -264,7 +264,7 @@ private:
 #if USE(CG)
     mutable RetainPtr<CFDataRef> m_tiffRep; // Cached TIFF rep for all the frames. Only built lazily if someone queries for one.
 #endif
-    RefPtr<Image> m_cachedImage;
+    RefPtr<NativeImage> m_cachedImage;
 };
 
 } // namespace WebCore

@@ -322,7 +322,7 @@ public:
      *
      * @internal
      */
-    void setCurrency(const UChar* currency, UErrorCode& status);
+    void setCurrency(const char16_t* currency, UErrorCode& status);
 #endif  // U_HIDE_INTERNAL_API
 
     /**
@@ -479,15 +479,11 @@ public:
      */
     inline const char16_t* getCurrencyPattern(void) const;
 
-#if APPLE_ICU_CHANGES
-// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
     /**
-     * Returns the name of the numbering system used for this object.
+     * Returns the numbering system with which this DecimalFormatSymbols was initialized.
      * @internal
      */
-    inline const char* getNSName() const;
-#endif  // APPLE_ICU_CHANGES
-
+    inline const char* getNumberingSystemName(void) const;
 #endif  /* U_HIDE_INTERNAL_API */
 
 private:
@@ -532,16 +528,13 @@ private:
 
     char actualLocale[ULOC_FULLNAME_CAPACITY];
     char validLocale[ULOC_FULLNAME_CAPACITY];
-    const char16_t* currPattern;
+    const char16_t* currPattern = nullptr;
 
     UnicodeString currencySpcBeforeSym[UNUM_CURRENCY_SPACING_COUNT];
     UnicodeString currencySpcAfterSym[UNUM_CURRENCY_SPACING_COUNT];
     UBool fIsCustomCurrencySymbol;
     UBool fIsCustomIntlCurrencySymbol;
-#if APPLE_ICU_CHANGES
-// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
-    char fNSName[9];
-#endif  // APPLE_ICU_CHANGES
+    char nsName[kInternalNumSysNameCapacity+1] = {};
 };
 
 // -------------------------------------
@@ -627,14 +620,10 @@ inline const char16_t*
 DecimalFormatSymbols::getCurrencyPattern() const {
     return currPattern;
 }
-
-#if APPLE_ICU_CHANGES
-// rdar://51672521 fd4e9428ec.. Slightly restructure to avoid redundant allocations of NumberingSystem objects
 inline const char*
-DecimalFormatSymbols::getNSName() const {
-    return fNSName;
+DecimalFormatSymbols::getNumberingSystemName() const {
+    return nsName;
 }
-#endif  // APPLE_ICU_CHANGES
 #endif /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END

@@ -130,6 +130,7 @@ NS_ASSUME_NONNULL_BEGIN
                           reply:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply;
 
 - (void)fetchAllViableBottles:(OTControlArguments*)arguments
+                       source:(OTEscrowRecordFetchSource)escrowSource
                         reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*> * _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply;
 
 -(void)restoreFromBottle:(OTControlArguments*)arguments
@@ -284,9 +285,6 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                                       source:(OTEscrowRecordFetchSource)source
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
-- (void)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
-                           reply:(void (^)(NSError* _Nullable error))reply;
-
 - (void)setMachineIDOverride:(OTControlArguments*)arguments
                    machineID:(NSString*)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply;
@@ -316,6 +314,10 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
 - (void)areRecoveryKeysDistrusted:(OTControlArguments*)arguments
                             reply:(void (^)(BOOL distrustedRecoveryKeysExist, NSError* _Nullable error))reply;
+
+- (void)reroll:(OTControlArguments*)arguments
+         reply:(void (^)(NSError *_Nullable error))reply;
+
 @end
 
 NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface);

@@ -180,9 +180,6 @@ es_CO{
                         noon{"m."}
                         pm{"p.m."}
                     }
-                    narrow{
-                        noon{"m."}
-                    }
                     wide{
                         am{"a. m."}
                         pm{"p. m."}
@@ -285,6 +282,22 @@ es_CO{
                 }
             }
             monthNames{
+                format{
+                    abbreviated{
+                        "ene.",
+                        "feb.",
+                        "mar.",
+                        "abr.",
+                        "may.",
+                        "jun.",
+                        "jul.",
+                        "ago.",
+                        "sep.",
+                        "oct.",
+                        "nov.",
+                        "dic.",
+                    }
+                }
                 stand-alone{
                     abbreviated{
                         "ene.",

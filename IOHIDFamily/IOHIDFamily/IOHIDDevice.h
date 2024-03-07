@@ -34,7 +34,6 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/IOEventSource.h>
 #include <IOKit/hid/IOHIDDeviceTypes.h>
-#include <IOKit/IOReporter.h>
 #include <HIDDriverKit/IOHIDDevice.h>
 #include <sys/queue.h>
 
@@ -49,6 +48,7 @@ class   IOHIDDeviceShim;
 struct  IOHIDReportHandler;
 class   IOHIDAsyncReportQueue;
 class   IOHIDDeviceElementContainer;
+class   IOSimpleReporter;
 struct  AsyncReportCall;
 struct  AsyncCommitCall;
 

@@ -89,11 +89,11 @@ inline JSCell* CallFrame::codeOwnerCell() const
     return codeBlock();
 }
 
-inline bool CallFrame::isStackOverflowFrame() const
+inline bool CallFrame::isPartiallyInitializedFrame() const
 {
     if (callee().isNativeCallee())
         return false;
-    return jsCallee() == jsCallee()->globalObject()->stackOverflowFrameCallee();
+    return jsCallee() == jsCallee()->globalObject()->partiallyInitializedFrameCallee();
 }
 
 inline bool CallFrame::isNativeCalleeFrame() const
@@ -127,6 +127,11 @@ inline Register* CallFrame::topOfFrame()
     if (!codeBlock())
         return registers();
     return topOfFrameInternal();
+}
+
+SUPPRESS_ASAN ALWAYS_INLINE void CallFrame::setCallSiteIndex(CallSiteIndex callSiteIndex)
+{
+    this[static_cast<int>(CallFrameSlot::argumentCountIncludingThis)].tag() = callSiteIndex.bits();
 }
 
 } // namespace JSC

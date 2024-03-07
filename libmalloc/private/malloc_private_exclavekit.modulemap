@@ -1,0 +1,14 @@
+module Malloc_Private [system] {
+  header "malloc_private.h"
+  export *
+
+  explicit module malloc_implementation {
+    header "malloc_implementation.h"
+    export *
+  }
+
+  explicit module malloc_type_private {
+    header "malloc_type_private.h"
+    export *
+  }
+}

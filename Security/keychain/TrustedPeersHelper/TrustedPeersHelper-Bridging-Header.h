@@ -13,6 +13,8 @@
 #import <TrustedPeers/TPPBPolicyDocument.h>
 #import <TrustedPeers/TPPBPolicyIntroducersByCategory.h>
 #import <TrustedPeers/TPPBPolicyModelToCategory.h>
+#import <TrustedPeers/TPPBDisposition.h>
+#import <TrustedPeers/TPPBDispositionEntry.h>
 
 #import <TrustedPeers/SFKey+TPKey.h>
 #import <TrustedPeers/TPECPublicKeyFactory.h>

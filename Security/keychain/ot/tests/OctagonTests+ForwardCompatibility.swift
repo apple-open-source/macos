@@ -161,7 +161,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
             let policies = dump!["registeredPolicyVersions"] as? [String]
             XCTAssertNotNil(policies, "policies should not be nil")
 
-            XCTAssert(policies?.contains("\(newPolicy.version.versionNumber), \(newPolicy.version.policyHash)") == true, "Registered policies should include newPolicy")
+            XCTAssertTrue(policies!.contains("\(newPolicy.version.versionNumber), \(newPolicy.version.policyHash)"), "Registered policies should include newPolicy")
 
             dumpCallback.fulfill()
         }

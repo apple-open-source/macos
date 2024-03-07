@@ -589,9 +589,6 @@ rtadvd_input()
 {
 	int i;
 	int *hlimp = NULL;
-#ifdef OLDRAWSOCKET
-	struct ip6_hdr *ip;
-#endif 
 	struct icmp6_hdr *icp;
 	int ifindex = 0;
 	struct cmsghdr *cm;
@@ -650,16 +647,6 @@ rtadvd_input()
 		return;
 	}
 
-#ifdef OLDRAWSOCKET
-	if (i < sizeof(struct ip6_hdr) + sizeof(struct icmp6_hdr)) {
-		errorlog("<%s> packet size(%d) is too short",
-		       __func__, i);
-		return;
-	}
-
-	ip = (struct ip6_hdr *)rcvmhdr.msg_iov[0].iov_base;
-	icp = (struct icmp6_hdr *)(ip + 1); /* XXX: ext. hdr? */
-#else
 	if (i < sizeof(struct icmp6_hdr)) {
 		errorlog("<%s> packet size(%d) is too short",
 		       __func__, i);
@@ -667,7 +654,6 @@ rtadvd_input()
 	}
 
 	icp = (struct icmp6_hdr *)rcvmhdr.msg_iov[0].iov_base;
-#endif
 
 	switch (icp->icmp6_type) {
 	case ND_ROUTER_SOLICIT:
