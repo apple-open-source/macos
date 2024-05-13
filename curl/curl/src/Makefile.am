@@ -61,6 +61,8 @@ curl_SOURCES += $(CURL_RCFILES)
 $(CURL_RCFILES): tool_version.h
 endif
 
+curl_LDFLAGS = $(AM_LDFLAGS) $(CURL_LDFLAGS_BIN)
+
 # This might hold -Werror
 CFLAGS += @CURL_CFLAG_EXTRAS@
 
@@ -89,7 +91,7 @@ CLEANFILES = tool_hugehelp.c
 NROFF=env LC_ALL=C @NROFF@ @MANOPT@ 2>/dev/null # figured out by the configure script
 
 EXTRA_DIST = mkhelp.pl \
- Makefile.mk curl.rc Makefile.inc CMakeLists.txt
+ Makefile.mk curl.rc Makefile.inc CMakeLists.txt .checksrc
 
 # Use absolute directory to disable VPATH
 MANPAGE=$(abs_top_builddir)/docs/curl.1
@@ -155,7 +157,7 @@ tidy:
 	$(TIDY) $(CURL_CFILES) $(TIDYFLAGS) -- $(curl_CPPFLAGS) $(CPPFLAGS) -DHAVE_CONFIG_H
 
 listhelp:
-	(cd $(top_srcdir)/docs/cmdline-opts && ./gen.pl listhelp *.d) > tool_listhelp.c
+	(cd $(top_srcdir)/docs/cmdline-opts && make listhelp)
 
 if HAVE_WINDRES
 .rc.o:

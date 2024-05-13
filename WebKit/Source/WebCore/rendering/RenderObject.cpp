@@ -736,7 +736,8 @@ RenderBlock* RenderObject::containingBlockForPositionType(PositionType positionT
 
 RenderBlock* RenderObject::containingBlock() const
 {
-    if (is<RenderText>(*this))
+    // FIXME: See https://bugs.webkit.org/show_bug.cgi?id=270977 for RenderLineBreak special treatment.
+    if (is<RenderText>(*this) || is<RenderLineBreak>(*this))
         return containingBlockForPositionType(PositionType::Static, *this);
 
     auto containingBlockForRenderer = [](const auto& renderer) -> RenderBlock* {
@@ -1704,8 +1705,15 @@ static inline RenderElement* containerForElement(const RenderObject& renderer, c
     // (2) For absolute positioned elements, it will return a relative positioned inline, while
     // containingBlock() skips to the non-anonymous containing block.
     // This does mean that computePositionedLogicalWidth and computePositionedLogicalHeight have to use container().
-    if (!is<RenderElement>(renderer))
+    // FIXME: See https://bugs.webkit.org/show_bug.cgi?id=270977 for RenderLineBreak special treatment.
+    if (!is<RenderElement>(renderer) || is<RenderText>(renderer) || is<RenderLineBreak>(renderer))
         return renderer.parent();
+
+    auto* renderElement = dynamicDowncast<RenderElement>(renderer);
+    if (!renderElement) {
+        ASSERT_NOT_REACHED();
+        return renderer.parent();
+    }
     auto updateRepaintContainerSkippedFlagIfApplicable = [&] {
         if (!repaintContainerSkipped)
             return;
@@ -1815,7 +1823,7 @@ void RenderObject::willBeRemovedFromTree(IsInternalMove)
     invalidateLineLayoutAfterTreeMutationIfNeeded(*this, IsRemoval::Yes);
     // FIXME: We should ASSERT(isRooted()) but we have some out-of-order removals which would need to be fixed first.
     // Update cached boundaries in SVG renderers, if a child is removed.
-    checkedParent()->setNeedsBoundariesUpdate();
+    checkedParent()->invalidateCachedBoundaries();
 }
 
 void RenderObject::destroy()
@@ -2092,8 +2100,16 @@ Node* RenderObject::generatingPseudoHostElement() const
 
 void RenderObject::setNeedsBoundariesUpdate()
 {
-    if (CheckedPtr renderer = parent())
-        renderer->setNeedsBoundariesUpdate();
+}
+
+void RenderObject::invalidateCachedBoundaries()
+{
+    for (CheckedPtr renderer = this; renderer && renderer->isSVGRenderer(); renderer = renderer->parent()) {
+        if (renderer->usesBoundaryCaching()) {
+            renderer->setNeedsBoundariesUpdate();
+            break;
+        }
+    }
 }
 
 FloatRect RenderObject::objectBoundingBox() const

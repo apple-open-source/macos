@@ -103,6 +103,7 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/FileSystem.h>
 #import <wtf/ListHashSet.h>
+#import <wtf/NativePromise.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/OSObjectPtr.h>
 #import <wtf/URL.h>
@@ -445,6 +446,7 @@ MediaPlayerPrivateAVFoundationObjC::MediaPlayerPrivateAVFoundationObjC(MediaPlay
     , m_loaderDelegate(adoptNS([[WebCoreAVFLoaderDelegate alloc] initWithPlayer:*this]))
     , m_cachedItemStatus(MediaPlayerAVPlayerItemStatusDoesNotExist)
 {
+    ALWAYS_LOG(LOGIDENTIFIER);
     m_muted = player->muted();
 }
 
@@ -612,6 +614,8 @@ void MediaPlayerPrivateAVFoundationObjC::createVideoLayer()
         return;
 
     ensureOnMainThread([this, weakThis = ThreadSafeWeakPtr { *this }] {
+        assertIsMainThread();
+
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -630,6 +634,8 @@ void MediaPlayerPrivateAVFoundationObjC::createVideoLayer()
 
 void MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer()
 {
+    assertIsMainThread();
+
     if (!m_avPlayer)
         return;
 
@@ -658,6 +664,8 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer()
 
 void MediaPlayerPrivateAVFoundationObjC::destroyVideoLayer()
 {
+    assertIsMainThread();
+
     if (!m_videoLayer)
         return;
 
@@ -1081,6 +1089,8 @@ static NSString* convertDynamicRangeModeEnumToAVVideoRange(DynamicRangeMode mode
 
 void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
 {
+    assertIsMainThread();
+
     if (m_avPlayer)
         return;
 
@@ -1352,6 +1362,8 @@ void MediaPlayerPrivateAVFoundationObjC::setVideoFullscreenGravity(MediaPlayer::
 void MediaPlayerPrivateAVFoundationObjC::setVideoFullscreenMode(MediaPlayer::VideoFullscreenMode mode)
 {
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS)
+    assertIsMainThread();
+
     if ([m_videoLayer respondsToSelector:@selector(setPIPModeEnabled:)])
         [m_videoLayer setPIPModeEnabled:(mode & MediaPlayer::VideoFullscreenModePictureInPicture)];
     updateDisableExternalPlayback();
@@ -1410,6 +1422,8 @@ void MediaPlayerPrivateAVFoundationObjC::didEnd()
 
 void MediaPlayerPrivateAVFoundationObjC::platformSetVisible(bool isVisible)
 {
+    assertIsMainThread();
+
     if (!m_videoLayer)
         return;
 
@@ -2132,7 +2146,7 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
         auto initData = SharedBuffer::create(Vector<uint8_t> { static_cast<uint8_t*>(initDataBuffer->data()), byteLength });
         player->keyNeeded(initData);
 #if ENABLE(ENCRYPTED_MEDIA)
-        if (!player->shouldContinueAfterKeyNeeded())
+        if (!m_shouldContinueAfterKeyNeeded)
             return true;
 #endif
 #endif
@@ -2149,6 +2163,7 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
         player->initializationDataEncountered("skd"_s, m_keyID->tryCreateArrayBuffer());
         setWaitingForKey(true);
 #endif
+
         m_keyURIToRequestMap.set(keyURI, avRequest);
 
         return true;
@@ -2168,7 +2183,7 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
 
         player->keyNeeded(initData);
 
-        if (!player->shouldContinueAfterKeyNeeded())
+        if (!m_shouldContinueAfterKeyNeeded)
             return false;
 
         m_keyURIToRequestMap.set(keyID, avRequest);
@@ -2185,6 +2200,9 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
 
 void MediaPlayerPrivateAVFoundationObjC::didCancelLoadingRequest(AVAssetResourceLoadingRequest* avRequest)
 {
+    ASSERT(isMainThread());
+
+    ALWAYS_LOG(LOGIDENTIFIER);
     String scheme = [[[avRequest request] URL] scheme];
 
     WebCoreAVFResourceLoader* resourceLoader = m_resourceLoaderMap.get((__bridge CFTypeRef)avRequest);
@@ -2195,6 +2213,9 @@ void MediaPlayerPrivateAVFoundationObjC::didCancelLoadingRequest(AVAssetResource
 
 void MediaPlayerPrivateAVFoundationObjC::didStopLoadingRequest(AVAssetResourceLoadingRequest *avRequest)
 {
+    ASSERT(isMainThread());
+
+    ALWAYS_LOG(LOGIDENTIFIER);
     m_resourceLoaderMap.remove((__bridge CFTypeRef)avRequest);
 }
 
@@ -2214,6 +2235,8 @@ MediaTime MediaPlayerPrivateAVFoundationObjC::mediaTimeForTimeValue(const MediaT
 
 void MediaPlayerPrivateAVFoundationObjC::updateVideoLayerGravity(ShouldAnimate shouldAnimate)
 {
+    assertIsMainThread();
+
     if (!m_videoLayer)
         return;
 
@@ -2869,6 +2892,12 @@ void MediaPlayerPrivateAVFoundationObjC::outputMediaDataWillChange()
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
+void MediaPlayerPrivateAVFoundationObjC::setShouldContinueAfterKeyNeeded(bool shouldContinue)
+{
+    ALWAYS_LOG(LOGIDENTIFIER, shouldContinue);
+    m_shouldContinueAfterKeyNeeded = shouldContinue;
+}
+
 RetainPtr<AVAssetResourceLoadingRequest> MediaPlayerPrivateAVFoundationObjC::takeRequestForKeyURI(const String& keyURI)
 {
     return m_keyURIToRequestMap.take(keyURI);
@@ -2882,6 +2911,7 @@ void MediaPlayerPrivateAVFoundationObjC::keyAdded()
 
     Vector<String> fulfilledKeyIds;
 
+    ALWAYS_LOG(LOGIDENTIFIER);
     for (auto& pair : m_keyURIToRequestMap) {
         const String& keyId = pair.key;
         const RetainPtr<AVAssetResourceLoadingRequest>& request = pair.value;
@@ -3111,13 +3141,13 @@ void MediaPlayerPrivateAVFoundationObjC::processMediaSelectionOptions()
 
 #if ENABLE(AVF_CAPTIONS)
         if ([option outOfBandSource]) {
-            m_textTracks.append(OutOfBandTextTrackPrivateAVF::create(this, option));
+            m_textTracks.append(OutOfBandTextTrackPrivateAVF::create(this, option, m_currentTextTrackID++));
             m_textTracks.last()->setHasBeenReported(true); // Ignore out-of-band tracks that we passed to AVFoundation so we do not double-count them
             continue;
         }
 #endif
 
-        m_textTracks.append(InbandTextTrackPrivateAVFObjC::create(this, legibleGroup, option, InbandTextTrackPrivate::CueFormat::Generic));
+        m_textTracks.append(InbandTextTrackPrivateAVFObjC::create(this, legibleGroup, option, m_currentTextTrackID++, InbandTextTrackPrivate::CueFormat::Generic));
     }
 
     processNewAndRemovedTextTracks(removedTextTracks);
@@ -3128,7 +3158,7 @@ void MediaPlayerPrivateAVFoundationObjC::processMetadataTrack()
     if (m_metadataTrack)
         return;
 
-    m_metadataTrack = InbandMetadataTextTrackPrivateAVF::create(InbandTextTrackPrivate::Kind::Metadata, InbandTextTrackPrivate::CueFormat::Data);
+    m_metadataTrack = InbandMetadataTextTrackPrivateAVF::create(InbandTextTrackPrivate::Kind::Metadata, m_currentTextTrackID++, InbandTextTrackPrivate::CueFormat::Data);
     m_metadataTrack->setInBandMetadataTrackDispatchType("com.apple.streaming"_s);
     if (auto player = this->player())
         player->addTextTrack(*m_metadataTrack);
@@ -3841,7 +3871,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateAVFoundationObjC::videoPlaybackQualityMetrics()
 {
-    if (![m_videoLayer respondsToSelector:@selector(videoPerformanceMetrics)])
+    assertIsMainThread();
+
+    return videoPlaybackQualityMetrics(m_videoLayer.get());
+}
+
+std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateAVFoundationObjC::videoPlaybackQualityMetrics(AVPlayerLayer* videoLayer) const
+{
+    if (!videoLayer || ![videoLayer respondsToSelector:@selector(videoPerformanceMetrics)])
         return std::nullopt;
 
 #if PLATFORM(WATCHOS)
@@ -3849,7 +3886,7 @@ std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateAVFoundationObjC::v
 #else
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 
-    auto metrics = [m_videoLayer videoPerformanceMetrics];
+    auto metrics = [videoLayer videoPerformanceMetrics];
     if (!metrics)
         return std::nullopt;
 
@@ -3867,6 +3904,25 @@ ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 
 ALLOW_NEW_API_WITHOUT_GUARDS_END
 #endif
+}
+
+auto MediaPlayerPrivateAVFoundationObjC::asyncVideoPlaybackQualityMetrics() -> Ref<VideoPlaybackQualityMetricsPromise>
+{
+    assertIsMainThread();
+
+    static std::once_flag onceKey;
+    static LazyNeverDestroyed<Ref<WorkQueue>> metricsWorkQueue;
+    std::call_once(onceKey, [] {
+        metricsWorkQueue.construct(WorkQueue::create("VideoPlaybackQualityMetrics", WorkQueue::QOS::Background));
+    });
+
+    if (!m_videoLayer)
+        return VideoPlaybackQualityMetricsPromise::createAndReject(PlatformMediaError::NotSupportedError);
+    return invokeAsync(metricsWorkQueue.get(), [protectedThis = Ref { *this }, protectedVideoLayer = m_videoLayer, this] {
+        if (auto metrics = videoPlaybackQualityMetrics(protectedVideoLayer.get()))
+            return VideoPlaybackQualityMetricsPromise::createAndResolve(WTFMove(*metrics));
+        return VideoPlaybackQualityMetricsPromise::createAndReject(PlatformMediaError::NotSupportedError);
+    });
 }
 
 bool MediaPlayerPrivateAVFoundationObjC::performTaskAtMediaTime(WTF::Function<void()>&& task, const MediaTime& time)
@@ -3913,6 +3969,8 @@ void MediaPlayerPrivateAVFoundationObjC::setPreferredDynamicRangeMode(DynamicRan
 
 void MediaPlayerPrivateAVFoundationObjC::setShouldDisableHDR(bool shouldDisable)
 {
+    assertIsMainThread();
+
     if (![m_videoLayer respondsToSelector:@selector(setToneMapToStandardDynamicRange:)])
         return;
 

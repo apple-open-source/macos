@@ -27,6 +27,7 @@
 #import "PlatformCAAnimationRemote.h"
 
 #import "ArgumentCoders.h"
+#import "CAFrameRateRangeUtilities.h"
 #import "RemoteLayerTreeHost.h"
 #import "WKAnimationDelegate.h"
 #import "WebCoreArgumentCoders.h"
@@ -45,16 +46,6 @@ static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
 {
     return WTF::MonotonicTime::now() + Seconds(t - CACurrentMediaTime());
 }
-
-#if HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
-static CAFrameRateRange highFrameRateRange()
-{
-    static CAFrameRateRange highFrameRateRange = CAFrameRateRangeMake(80, 120, 120);
-    return highFrameRateRange;
-}
-
-static CAHighFrameRateReason highFrameRateReason = CAHighFrameRateReasonMake(44, 0);
-#endif // HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
 
 static NSString * const WKExplicitBeginTimeFlag = @"WKPlatformCAAnimationExplicitBeginTimeFlag";
 
@@ -524,8 +515,11 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         auto animationGroup = [CAAnimationGroup animation];
 
         if (properties.animations.size()) {
-            [animationGroup setAnimations:createNSArray(properties.animations, [&] (auto& animationProperties) {
-                return createAnimation(layer, layerTreeHost, animationProperties).get();
+            [animationGroup setAnimations:createNSArray(properties.animations, [&] (auto& animationProperties) -> CAAnimation * {
+                if (PlatformCAAnimation::isValidKeyPath(properties.keyPath, properties.animationType))
+                    return createAnimation(layer, layerTreeHost, animationProperties).get();
+                ASSERT_NOT_REACHED();
+                return nil;
             }).get()];
         }
 
@@ -614,8 +608,8 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
 
 #if HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
     // Opt into a higher frame-rate for displays that support higher refresh rates.
-    [caAnimation setPreferredFrameRateRange:highFrameRateRange()];
-    [caAnimation setHighFrameRateReason:highFrameRateReason];
+    [caAnimation setPreferredFrameRateRange:WebKit::highFrameRateRange()];
+    [caAnimation setHighFrameRateReason:WebKit::webAnimationHighFrameRateReason];
 #endif // HAVE(CORE_ANIMATION_FRAME_RATE_RANGE)
 
     return caAnimation;

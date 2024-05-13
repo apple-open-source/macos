@@ -1,7 +1,7 @@
 .\"
-.\" Copyright (c) 2022 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2024 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd September 5, 2023
+.Dd March 26, 2024
 .Dt COPYFILE 3
 .Os
 .Sh NAME
@@ -402,6 +402,20 @@ parameter is a pointer to a pointer to a const
 the returned value is the
 .Va state 's
 copy, and must not be modified or released.
+.It Dv COPYFILE_STATE_FORBID_DST_EXISTING_SYMLINKS
+Get or set the current setting for forbidding
+copying over existing symlinks.
+By default, copying over an existing destination
+is allowed regardless of the type of file that
+already exists at the destination path.
+The
+.Va dst
+parameter and the
+.Va src
+parameter are pointers to
+.Vt uint32_t
+(type
+.Vt uint32_t\ * ).
 .El
 .Sh Recursive Copies
 When given the

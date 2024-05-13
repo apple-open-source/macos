@@ -80,6 +80,7 @@ typedef int (*copyfile_callback_t)(int, int, copyfile_state_t, const char *__uns
 #define	COPYFILE_STATE_BSIZE		13
 #define	COPYFILE_STATE_FORBID_CROSS_MOUNT	14
 #define	COPYFILE_STATE_RECURSIVE_SRC_FTSENT	17
+#define	COPYFILE_STATE_FORBID_DST_EXISTING_SYMLINKS	18
 
 
 #define	COPYFILE_DISABLE_VAR	"COPYFILE_DISABLE"

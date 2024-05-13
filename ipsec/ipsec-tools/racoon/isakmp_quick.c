@@ -219,7 +219,7 @@ quick_i1send(iph2, msg)
 							   &iph2->dhpub, &iph2->dhpriv) < 0) {
 #else
 		if (oakley_dh_generate(iph2->pfsgrp,
-				&iph2->dhpub, &iph2->publicKeySize, &iph2->dhC) < 0) {
+				&iph2->dhpub, &iph2->dhC) < 0) {
 #endif
 			plog(ASL_LEVEL_ERR, 
 				 "failed to generate DH");
@@ -1508,7 +1508,7 @@ quick_r2send(iph2, msg)
 				&iph2->dhpub, &iph2->dhpriv) < 0) {
 #else
 			if (oakley_dh_generate(iph2->pfsgrp,
-								   &iph2->dhpub, &iph2->publicKeySize, &iph2->dhC) < 0) {
+								   &iph2->dhpub, &iph2->dhC) < 0) {
 #endif		
 			plog(ASL_LEVEL_ERR,
 				 "failed to generate DH public");

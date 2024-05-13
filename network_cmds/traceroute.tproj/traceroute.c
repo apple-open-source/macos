@@ -1566,7 +1566,7 @@ tcp_packet_ok(u_char *buf, int cc, struct sockaddr_in *from,
 void
 icmp_prep(struct outdata *outdata)
 {
-	struct icmp *const icmpheader = (struct icmp *) outp;
+	volatile struct icmp *const icmpheader = (struct icmp *) outp;
 
 	icmpheader->icmp_type = ICMP_ECHO;
 	icmpheader->icmp_id = htons(ident);
@@ -1589,7 +1589,7 @@ icmp_check(const u_char *data, int seq)
 void
 udp_prep(struct outdata *outdata)
 {
-	struct udphdr *const outudp = (struct udphdr *) outp;
+	volatile struct udphdr *const outudp = (struct udphdr *) outp;
 
 	outudp->uh_sport = htons(ident + (fixedPort ? outdata->seq : 0));
 	outudp->uh_dport = htons(port + (fixedPort ? 0 : outdata->seq));
@@ -1615,7 +1615,7 @@ udp_check(const u_char *data, int seq)
 void
 tcp_prep(struct outdata *outdata)
 {
-	struct tcphdr *const tcp = (struct tcphdr *) outp;
+	volatile struct tcphdr *const tcp = (struct tcphdr *) outp;
 
 	tcp->th_sport = htons(ident);
 	tcp->th_dport = htons(port + (fixedPort ? 0 : outdata->seq));
@@ -1718,7 +1718,7 @@ print(u_char *buf, int cc, struct sockaddr_in *from)
 u_short
 p_cksum(struct ip *ip, u_short *data, int len, int cov)
 {
-	static struct ipovly ipo;
+	static volatile struct ipovly ipo;
 	u_short sum[2];
 
 	ipo.ih_pr = ip->ip_p;

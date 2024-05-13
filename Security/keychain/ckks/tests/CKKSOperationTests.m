@@ -616,6 +616,23 @@
     XCTAssertFalse([group isPending], "group operation isn't pending, as it's cancelled");
 }
 
+- (void)testBasicOperationDeepDependencyChain {
+    NSMutableArray<NSOperation*>* ops = [NSMutableArray array];
+
+    NSOperation* op = nil;
+
+    for(int i = 0; i < 100; i++) {
+        op = [NSBlockOperation blockOperationWithBlock:^{}];
+        [op addNullableDependency:[ops lastObject]];
+
+        [ops addObject:op];
+    }
+
+    NSString* description = [op description];
+    XCTAssertNotNil(description, "Should have received some description for the operation");
+    XCTAssert([description containsString:@"recursion too deep"], "Recursion should have terminated when logging dependencies");
+}
+
 - (void)testResultOperationDeepDependencyChain {
     NSMutableArray<CKKSResultOperation*>* ops = [NSMutableArray array];
 

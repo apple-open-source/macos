@@ -232,15 +232,16 @@ mbtocsx(struct _citrus_iconv_std_encoding *se,
 
 	if (ret == EOPNOTSUPP) {
 		size_t accum;
-		char *start;
+		char *first, *last;
 		int i;
 
 		*nresult = 0;
 		accum = 0;
-		start = *s;
+		first = *s;
 		for (i = 0; i < *cnt && n > 0; i++) {
 			save_encoding_state(se);
 
+			last = *s;
 			ret = _stdenc_mbtocs(se->se_handle, &csid[i], &idx[i],
 			    s, n, se->se_ps, &accum, hooks);
 			if (ret != 0)
@@ -250,12 +251,10 @@ mbtocsx(struct _citrus_iconv_std_encoding *se,
 				break;
 			}
 
-			/* The NUL byte takes one character. */
-			if (accum == 0)
-				accum = 1;
-			n -= accum;
 			*nresult += accum;
-			delta[i] = *s - start;
+			assert(*s >= last);
+			n -= *s - last;
+			delta[i] = *s - first;
 		}
 
 		if (i < *cnt)
@@ -1446,6 +1445,10 @@ _citrus_iconv_std_iconv_convert(struct _citrus_iconv * __restrict cv,
 			goto err;
 #endif
 next:
+#ifdef __APPLE__
+		assert(tmpin - *in <= *inbytes);
+		assert(szrout <= *outbytes);
+#endif
 		*inbytes -= tmpin-*in; /* szrin is insufficient on \0. */
 		*in = tmpin;
 		*outbytes -= szrout;

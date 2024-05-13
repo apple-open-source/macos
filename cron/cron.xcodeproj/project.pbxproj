@@ -132,7 +132,7 @@
 		FDB436EF1492EBDB00D5E278 /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
 		FDB436F81492EC1200D5E278 /* cron.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cron.8; sourceTree = "<group>"; };
 		FDB436F91492EC1200D5E278 /* cron.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cron.c; sourceTree = "<group>"; };
-		FDB436FB1492EC1200D5E278 /* database.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = database.c; sourceTree = "<group>"; };
+		FDB436FB1492EC1200D5E278 /* database.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = database.c; sourceTree = "<group>"; usesTabs = 1; };
 		FDB436FC1492EC1200D5E278 /* do_command.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = do_command.c; sourceTree = "<group>"; };
 		FDB436FE1492EC1200D5E278 /* job.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = job.c; sourceTree = "<group>"; };
 		FDB437011492EC1200D5E278 /* popen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = popen.c; sourceTree = "<group>"; };

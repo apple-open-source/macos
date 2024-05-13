@@ -39,6 +39,7 @@ __dead2 static void usage(char **argv)
     fprintf (stderr, "    -s      : fork a sleep process\n");
     fprintf (stderr, "    -L      : disable loadinfo\n");
     fprintf (stderr, "    -k      : active kernel threads only\n");
+    fprintf (stderr, "    -x      : skip Exclaves stackshot\n");
     fprintf (stderr, "    -I      : disable io statistics\n");
     fprintf (stderr, "    -S      : stress test: while(1) stackshot; \n");
     fprintf (stderr, "    -p PID  : target a pid\n");
@@ -71,6 +72,7 @@ int main(int argc, char **argv) {
     uint32_t coalition = 0;
     uint32_t instrs_cycles = 0;
     uint32_t flags = 0;
+    uint32_t exclaves = 0;
     uint32_t loadinfo = STACKSHOT_SAVE_LOADINFO | STACKSHOT_SAVE_KEXT_LOADINFO;
     boolean_t delta = FALSE;
     boolean_t sleep = FALSE;
@@ -80,7 +82,7 @@ int main(int argc, char **argv) {
     FILE *file;
     bool closefile;
 
-    while ((c = getopt(argc, argv, "SgIikbcLdtsp:E")) != -1) {
+    while ((c = getopt(argc, argv, "SgIikbcLdtsxp:E")) != -1) {
         switch(c) {
         case 'I':
             iostats |= STACKSHOT_NO_IO_STATS;
@@ -112,6 +114,9 @@ int main(int argc, char **argv) {
             break;
         case 'p':
             pid = atoi(optarg);
+            break;
+        case 'x':
+            exclaves = STACKSHOT_SKIP_EXCLAVES;
             break;
         case 'S':
             stress = TRUE;
@@ -157,7 +162,7 @@ top:
         return 1;
     }
     flags =  flags | loadinfo | STACKSHOT_SAVE_IMP_DONATION_PIDS | STACKSHOT_GET_DQ | STACKSHOT_KCDATA_FORMAT | STACKSHOT_THREAD_WAITINFO |
-        bootprofile | active_kernel_threads_only | iostats | thread_group | coalition | instrs_cycles;
+        bootprofile | active_kernel_threads_only | iostats | thread_group | coalition | instrs_cycles | exclaves;
 
     int err = stackshot_config_set_flags(config, flags);
     if (err != 0) {

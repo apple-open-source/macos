@@ -53,7 +53,7 @@ Run_Test()
         fi
 
         # populate gPath
-        apfsctl dataset -p "${gPath}" > /dev/null 2>&1
+        apfsctl dataset -p "${gPath}" --single-dir > /dev/null 2>&1
 
         # Run dirs_cleaner
         /usr/libexec/dirs_cleaner "${args}" "${dir}"

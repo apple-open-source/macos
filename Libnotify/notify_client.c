@@ -1829,7 +1829,7 @@ notify_post(const char *name)
 		return NOTIFY_STATUS_INVALID_NAME;
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
+	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
 	{
 		_notify_lib_post(&globals->self_state, name, 0, 0);
 #ifdef DEBUG
@@ -2270,7 +2270,7 @@ notify_register_check(const char *name, int *out_token)
 
 	*out_token = -1;
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
+	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
 	{
 		token = atomic_increment32(&globals->token_id);
 		status = _notify_lib_register_plain(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
@@ -2450,7 +2450,7 @@ notify_register_plain(const char *name, int *out_token)
 		return NOTIFY_STATUS_INVALID_NAME;
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
+	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
 	{
 		token = atomic_increment32(&globals->token_id);
 		status = _notify_lib_register_plain(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
@@ -2584,7 +2584,7 @@ notify_register_signal(const char *name, int sig, int *out_token)
 		return NOTIFY_STATUS_INVALID_NAME;
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
+	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
 	{
 		token = atomic_increment32(&globals->token_id);
 		status = _notify_lib_register_signal(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, sig, 0, 0, &nid);
@@ -2803,7 +2803,7 @@ notify_register_mach_port_no_dispatch(const char *name, mach_port_name_t *notify
 
 	assert(globals);
 	assert(name);
-	assert(strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN));
+	assert(strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) && !(client_opts(globals) & NOTIFY_OPT_LOOPBACK));
 
 	uint32_t token;
 	uint32_t cid;
@@ -2909,7 +2909,7 @@ notify_register_coalesced_registration(const char *name, int flags, int *out_tok
 	assert(globals);
 	assert(name);
 
-	if(!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN)) {
+	if(!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK)) {
 		return notify_register_mach_port_self(name, &globals->notify_common_port, flags, out_token, globals);
 	}
 
@@ -3221,7 +3221,7 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 		return NOTIFY_STATUS_INVALID_PORT;
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
+	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
 	{
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -3331,7 +3331,7 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		fdpair[1] = globals->fd_srv[i];
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
+	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
 	{
 		token = atomic_increment32(&globals->token_id);
 		status = _notify_lib_register_file_descriptor(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, fdpair[1], 0, 0, &nid);

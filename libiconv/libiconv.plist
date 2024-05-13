@@ -39,6 +39,7 @@
 			<string>citrus_none.c, ISO646.src: enforce a 7bit restriction for ASCII (112723280)</string>
 			<string>citrus_iconv_std.c: "GNU-compatible" EILSEQ + //IGNORE should increment inval (115458746)</string>
 			<string>citrus_utf1632.c: skip BOMs in the data stream (120338891)</string>
+			<string>citrus_utf7.c: don't special-case nul byte, return EILSEQ (122191103)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

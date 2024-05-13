@@ -3126,9 +3126,6 @@ SecPolicyRef SecPolicyCreateAppleSMPEncryption(void)
             errOut);
 	require(SecPolicyAddChainLengthOptions(options, 3), errOut);
 
-	CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonName,
-					CFSTR("Apple System Integration CA - G3"));
-
 	// Check that leaf has extension with "Apple SMP Encryption" oid (1.2.840.113635.100.6.30)
 	add_leaf_marker(options, &oidAppleCertExtAppleSMPEncryption);
 

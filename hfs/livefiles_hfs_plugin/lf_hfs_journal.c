@@ -1827,6 +1827,11 @@ restart_replay:
             size = blhdr->binfo[i].u.bi.bsize;
             number = blhdr->binfo[i].bnum;
             
+            if (size == 0) {
+                LFHFS_LOG(LEVEL_ERROR, "jnl: replay_journal: invalid bsize\n");
+                goto bad_txn_handling;
+            }
+
             // don't add "killed" blocks
             if (number == (off_t)-1) {
                 //printf("jnl: replay_journal: skipping killed fs block (index %d)\n", i);
@@ -2428,7 +2433,7 @@ static int finish_end_transaction(transaction *tr, errno_t (*callback)(void*), v
          */
         wait_condition(jnl, &jnl->writing_header, "finish_end_transaction");
         
-        size_t used_blhdr_size_in_bytes = sizeof(blhdr) + (blhdr->num_blocks-1) * sizeof(blhdr->binfo); // blhdr includes binfo[0]
+        size_t used_blhdr_size_in_bytes = sizeof(*blhdr) + (blhdr->num_blocks-1) * sizeof(blhdr->binfo); // blhdr includes binfo[0]
         size_t phy_blk_size = jnl->fsmount->psHfsmount->hfs_physical_block_size;
         size_t blhdr_write_size = ((used_blhdr_size_in_bytes+phy_blk_size-1)/phy_blk_size) * phy_blk_size; // Ceiling to block boundary
         

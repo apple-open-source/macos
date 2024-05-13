@@ -71,10 +71,11 @@ else
 	JIT_CALLBACK_SUPPORTED = 0
 endif
 
-ifeq ($(JIT_LEGACY_SUPPORTED),1)
-TARGETS += pthread_jit_write_protection
-pthread_jit_write_protection: CODE_SIGN_ENTITLEMENTS=pthread_jit_write_protection-entitlements.plist
-endif
+# rdar://121952211
+# ifeq ($(JIT_LEGACY_SUPPORTED),1)
+# TARGETS += pthread_jit_write_protection
+# pthread_jit_write_protection: CODE_SIGN_ENTITLEMENTS=pthread_jit_write_protection-entitlements.plist
+# endif
 
 ifeq ($(JIT_CALLBACK_SUPPORTED), 1)
 TARGETS += pthread_jit_write_lockdown

@@ -237,6 +237,9 @@ public:
     {
         return m_inlineAccessBaseStructureID.get();
     }
+
+    CallLinkInfo* callLinkInfoAt(const ConcurrentJSLocker&, unsigned index);
+
 private:
     ALWAYS_INLINE bool considerRepatchingCacheImpl(VM& vm, CodeBlock* codeBlock, Structure* structure, CacheableIdentifier impl)
     {
@@ -707,6 +710,7 @@ private:
     RefPtr<PolymorphicAccessJITStubRoutine> m_getByValMegamorphic;
     RefPtr<PolymorphicAccessJITStubRoutine> m_getByValWithThisMegamorphic;
     RefPtr<PolymorphicAccessJITStubRoutine> m_putByValMegamorphic;
+    RefPtr<PolymorphicAccessJITStubRoutine> m_inByValMegamorphic;
     std::array<RefPtr<InlineCacheHandler>, numberOfAccessTypes> m_fallbackHandlers { };
     std::array<RefPtr<InlineCacheHandler>, numberOfAccessTypes> m_slowPathHandlers { };
 };

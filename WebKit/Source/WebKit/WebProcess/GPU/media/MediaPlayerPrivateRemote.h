@@ -116,6 +116,7 @@ public:
     void playbackStateChanged(bool, MediaTime&&, MonotonicTime&&);
     void engineFailedToLoad(int64_t);
     void updateCachedState(RemoteMediaPlayerState&&);
+    void updatePlaybackQualityMetrics(WebCore::VideoPlaybackQualityMetrics&&);
     void characteristicChanged(RemoteMediaPlayerState&&);
     void sizeChanged(WebCore::FloatSize);
     void firstVideoFrameAvailable();
@@ -208,7 +209,7 @@ private:
 #endif
 
     void load(const URL&, const WebCore::ContentType&, const String&) final;
-    void prepareForPlayback(bool privateMode, WebCore::MediaPlayer::Preload, bool preservesPitch, bool prepare) final;
+    void prepareForPlayback(bool privateMode, WebCore::MediaPlayer::Preload, bool preservesPitch, bool prepareToPlay, bool prepareToRender) final;
 
 #if ENABLE(MEDIA_SOURCE)
     void load(const URL&, const WebCore::ContentType&, WebCore::MediaSourcePrivateClient&) final;
@@ -336,7 +337,6 @@ private:
 
     bool supportsAcceleratedRendering() const final;
     void acceleratedRenderingStateChanged() final;
-    void checkAcceleratedRenderingState();
 
     void setShouldMaintainAspectRatio(bool) final;
 
@@ -481,7 +481,6 @@ private:
     bool m_isCurrentPlaybackTargetWireless { false };
     bool m_waitingForKey { false };
     bool m_timeIsProgressing { false };
-    bool m_renderingCanBeAccelerated { false };
     std::optional<bool> m_shouldMaintainAspectRatio;
     std::optional<bool> m_pageIsVisible;
     RefPtr<RemoteVideoFrameProxy> m_videoFrameForCurrentTime;

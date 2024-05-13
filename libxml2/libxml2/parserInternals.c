@@ -1207,8 +1207,15 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
          * Is there already some content down the pipe to convert ?
          */
         if (xmlBufIsEmpty(input->buf->buffer) == 0) {
+            xmlBufPtr buf;
             int processed;
 	    unsigned int use;
+
+            buf = xmlBufCreate();
+            if (buf == NULL) {
+                xmlErrMemory(ctxt, NULL);
+                return(-1);
+            }
 
             /*
              * Specific handling of the Byte Order Mark for
@@ -1244,7 +1251,7 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
             processed = input->cur - input->base;
             xmlBufShrink(input->buf->buffer, processed);
             input->buf->raw = input->buf->buffer;
-            input->buf->buffer = xmlBufCreate();
+            input->buf->buffer = buf;
 	    input->buf->rawconsumed = processed;
 	    use = xmlBufUse(input->buf->raw);
 

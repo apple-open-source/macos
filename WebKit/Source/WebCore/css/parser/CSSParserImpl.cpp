@@ -456,6 +456,8 @@ RefPtr<StyleRuleBase> CSSParserImpl::consumeAtRule(CSSParserTokenRange& range, A
         return consumePropertyRule(prelude, block);
     case CSSAtRuleScope:
         return consumeScopeRule(prelude, block);
+    case CSSAtRuleStartingStyle:
+        return consumeStartingStyleRule(prelude, block);
     default:
         return nullptr; // Parse error, unrecognised at-rule with block
     }
@@ -587,10 +589,25 @@ RefPtr<StyleRuleImport> CSSParserImpl::consumeImportRule(CSSParserTokenRange pre
         return { };
     };
 
+    auto consumeSupports = [&] () -> std::optional<StyleRuleImport::SupportsCondition> {
+        auto& token = prelude.peek();
+        if (token.type() == FunctionToken && equalLettersIgnoringASCIICase(token.value(), "supports"_s)) {
+            auto arguments = CSSPropertyParserHelpers::consumeFunction(prelude);
+            auto supported = CSSSupportsParser::supportsCondition(arguments, *this, CSSSupportsParser::ParsingMode::AllowBareDeclarationAndGeneralEnclosed, isNestedContext() ? CSSParserEnum::IsNestedContext::Yes : CSSParserEnum::IsNestedContext::No);
+            if (supported == CSSSupportsParser::Invalid)
+                return { }; // Discard import rule.
+            return StyleRuleImport::SupportsCondition { arguments.serialize(), supported == CSSSupportsParser::Supported };
+        }
+        return StyleRuleImport::SupportsCondition { };
+    };
+
     auto cascadeLayerName = consumeCascadeLayer();
+    auto supports = consumeSupports();
+    if (!supports)
+        return nullptr; // Discard import rule with incorrect syntax.
     auto mediaQueries = MQ::MediaQueryParser::parse(prelude, MediaQueryParserContext(m_context));
 
-    return StyleRuleImport::create(uri, WTFMove(mediaQueries), WTFMove(cascadeLayerName));
+    return StyleRuleImport::create(uri, WTFMove(mediaQueries), WTFMove(cascadeLayerName), WTFMove(*supports));
 }
 
 RefPtr<StyleRuleNamespace> CSSParserImpl::consumeNamespaceRule(CSSParserTokenRange prelude)
@@ -678,7 +695,7 @@ RefPtr<StyleRuleMedia> CSSParserImpl::consumeMediaRule(CSSParserTokenRange prelu
 
 RefPtr<StyleRuleSupports> CSSParserImpl::consumeSupportsRule(CSSParserTokenRange prelude, CSSParserTokenRange block)
 {
-    auto supported = CSSSupportsParser::supportsCondition(prelude, *this, CSSSupportsParser::ForAtRule, isNestedContext() ? CSSParserEnum::IsNestedContext::Yes : CSSParserEnum::IsNestedContext::No);
+    auto supported = CSSSupportsParser::supportsCondition(prelude, *this, CSSSupportsParser::ParsingMode::ForAtRuleSupports, isNestedContext() ? CSSParserEnum::IsNestedContext::Yes : CSSParserEnum::IsNestedContext::No);
     if (supported == CSSSupportsParser::Invalid)
         return nullptr; // Parse error, invalid @supports condition
 
@@ -1068,6 +1085,28 @@ RefPtr<StyleRuleScope> CSSParserImpl::consumeScopeRule(CSSParserTokenRange prelu
     if (m_styleSheet)
         rule->setStyleSheetContents(*m_styleSheet);
     return rule;
+}
+
+RefPtr<StyleRuleStartingStyle> CSSParserImpl::consumeStartingStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block)
+{
+    if (!m_context.cssStartingStyleAtRuleEnabled)
+        return nullptr;
+
+    if (!prelude.atEnd())
+        return nullptr;
+
+    if (m_observerWrapper) {
+        m_observerWrapper->observer().startRuleHeader(StyleRuleType::StartingStyle, m_observerWrapper->startOffset(prelude));
+        m_observerWrapper->observer().endRuleHeader(m_observerWrapper->endOffset(prelude));
+        m_observerWrapper->observer().startRuleBody(m_observerWrapper->previousTokenStartOffset(block));
+    }
+
+    auto rules = consumeNestedGroupRules(block);
+
+    if (m_observerWrapper)
+        m_observerWrapper->observer().endRuleBody(m_observerWrapper->endOffset(block));
+
+    return StyleRuleStartingStyle::create(WTFMove(rules));
 }
 
 RefPtr<StyleRuleLayer> CSSParserImpl::consumeLayerRule(CSSParserTokenRange prelude, std::optional<CSSParserTokenRange> block)

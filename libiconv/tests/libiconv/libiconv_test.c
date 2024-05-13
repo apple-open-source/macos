@@ -898,6 +898,102 @@ ATF_TC_BODY(test_invalid_ignore, tc)
 	iconv_close(cd);
 }
 
+ATF_TC_WITHOUT_HEAD(test_utf16_unpaired_surrogates);
+ATF_TC_BODY(test_utf16_unpaired_surrogates, tc)
+{
+	const char *inpairs[] = {
+	    "a\x00\x00\xdcg\x00",	/* Low surrogate with no prior high. */
+	    "a\x00\x00\xd8g\x00",	/* High surrogate with no low. */
+	    NULL,
+	};
+	char outbuf[16];
+	size_t inpairsz = 6;	/* 3 UTF-16 characters */
+	char *inptr, *outptr;
+	size_t insz, outsz, ret;
+	iconv_t cd;
+
+	cd = iconv_open("UTF-8", "UTF-16LE");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	for (const char **buf = &inpairs[0]; *buf != NULL; buf++) {
+		/* A little ugly, but we won't be changing it. */
+		inptr = (char *)(uintptr_t)*buf;
+		insz = inpairsz;
+		outptr = &outbuf[0];
+		outsz = sizeof(outbuf);
+
+		iconv(cd, NULL, NULL, NULL, NULL);
+
+		ret = iconv(cd, &inptr, &insz, &outptr, &outsz);
+		ATF_REQUIRE(ret == (size_t)-1);
+		ATF_REQUIRE(errno == EILSEQ);
+
+		/* We only processed 'a' */
+		ATF_REQUIRE(inpairsz - insz == 2);
+		ATF_REQUIRE(sizeof(outbuf) - outsz == 1);
+		ATF_REQUIRE(strncmp(outbuf, "a", 1) == 0);
+	}
+
+	iconv_close(cd);
+}
+
+ATF_TC_WITHOUT_HEAD(test_utf7_ascii);
+ATF_TC_BODY(test_utf7_ascii, tc)
+{
+	static const char direct_excl[] = "~\\+ ";
+	static const char utf7_spaces[] = " \r\n\t";
+	iconv_t cd;
+	char *inptr, *outptr;
+	size_t insz, outsz, ret;
+	char str[2] = {0, 0};
+	char outbuf[2];
+
+	cd = iconv_open("UTF-8", "UTF-7");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	for (size_t testsz = 1; testsz <= 2; testsz++) {
+		for (int i = 0; i < 0x80; i++) {
+			str[0] = i;
+			str[1] = 0;
+
+			iconv(cd, NULL, NULL, NULL, NULL);
+
+			inptr = &str[0];
+			insz = testsz;
+			outptr = &outbuf[0];
+			outsz = sizeof(outbuf);
+
+			ret = iconv(cd, &inptr, &insz, &outptr, &outsz);
+			if (testsz == 1) {
+				if (isalnum(i)) {
+					/* Directly convertible */
+					ATF_REQUIRE(ret != (size_t)-1);
+					ATF_REQUIRE(insz == 0);
+				} else if (isprint(i) &&
+				    strchr(direct_excl, i) == NULL) {
+					/* Optional direct */
+					ATF_REQUIRE(ret != (size_t)-1);
+					ATF_REQUIRE(insz == 0);
+				} else if (i > 0 &&
+				    strchr(utf7_spaces, i) != NULL) {
+					ATF_REQUIRE(ret != (size_t)-1);
+					ATF_REQUIRE(insz == 0);
+				} else {
+					ATF_REQUIRE(ret == (size_t)-1);
+				}
+			} else {
+				ATF_REQUIRE(ret == (size_t)-1);
+			}
+
+			/* We should never overflow anything. */
+			ATF_REQUIRE(inptr - &str[0] <= sizeof(str));
+			ATF_REQUIRE(outptr - &outbuf[0] <= sizeof(outbuf));
+		}
+	}
+
+	iconv_close(cd);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 
@@ -921,6 +1017,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, test_autoconf);
 	ATF_TP_ADD_TC(tp, test_translit);
 	ATF_TP_ADD_TC(tp, test_invalid_ignore);
+	ATF_TP_ADD_TC(tp, test_utf16_unpaired_surrogates);
+	ATF_TP_ADD_TC(tp, test_utf7_ascii);
 	return (atf_no_error());
 }
 

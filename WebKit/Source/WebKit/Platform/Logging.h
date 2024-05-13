@@ -51,6 +51,7 @@ extern "C" {
     M(ContentObservation) \
     M(ContextMenu) \
     M(DisplayLink) \
+    M(DisplayLists) \
     M(DiskPersistency) \
     M(DragAndDrop) \
     M(EME) \
@@ -84,6 +85,7 @@ extern "C" {
     M(NetworkScheduling) \
     M(NetworkSession) \
     M(Notifications) \
+    M(PageLoadObserver) \
     M(PerformanceLogging) \
     M(Plugins) \
     M(Printing) \

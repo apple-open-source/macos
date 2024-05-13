@@ -139,6 +139,7 @@ public:
     NetworkProcessProxy& networkProcess();
     Ref<NetworkProcessProxy> protectedNetworkProcess() const;
     NetworkProcessProxy* networkProcessIfExists() { return m_networkProcess.get(); }
+    void setNetworkProcess(NetworkProcessProxy&);
     
     static WebsiteDataStore* existingDataStoreForSessionID(PAL::SessionID);
 
@@ -176,6 +177,8 @@ public:
     uint64_t perOriginStorageQuota() const { return m_resolvedConfiguration->perOriginStorageQuota(); }
     std::optional<double> originQuotaRatio() { return m_resolvedConfiguration->originQuotaRatio(); }
 
+    void didAllowPrivateTokenUsageByThirdPartyForTesting(bool wasAllowed, URL&& resourceURL);
+
     bool isBlobRegistryPartitioningEnabled() const;
     void updateBlobRegistryPartitioningState();
 
@@ -189,6 +192,7 @@ public:
 
     void clearResourceLoadStatisticsInWebProcesses(CompletionHandler<void()>&&);
     void setUserAgentStringQuirkForTesting(const String& domain, const String& userAgentString, CompletionHandler<void()>&&);
+    void setPrivateTokenIPCForTesting(bool enabled);
 
     void fetchData(OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, Function<void(Vector<WebsiteDataRecord>)>&& completionHandler);
     void removeData(OptionSet<WebsiteDataType>, WallTime modifiedSince, Function<void()>&& completionHandler);
@@ -613,6 +617,7 @@ private:
 #if HAVE(NW_PROXY_CONFIG)
     std::optional<Vector<std::pair<Vector<uint8_t>, WTF::UUID>>> m_proxyConfigData;
 #endif
+
 };
 
 }

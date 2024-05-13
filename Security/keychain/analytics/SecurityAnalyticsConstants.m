@@ -65,7 +65,11 @@ NSString *const kSecurityRTCEventNameInitiatorImportsInitialSyncData = @"com.app
 NSString *const kSecurityRTCEventNameAcceptorCreatesVoucher = @"com.apple.security.acceptorCreatesVoucher";
 NSString *const kSecurityRTCEventNameAcceptorFetchesInitialSyncData = @"com.apple.security.acceptorFetchesInitialSyncData";
 NSString *const kSecurityRTCEventNameNumberOfTrustedOctagonPeers = @"com.apple.security.numberOfTrustedOctagonPeers";
-
+NSString *const kSecurityRTCEventNameDuplicateMachineID = @"com.apple.security.duplicateMachineID";
+NSString *const kSecurityRTCEventNameMIDVanishedFromTDL = @"com.apple.security.midVanishedFromTDL";
+NSString *const kSecurityRTCEventNameTDLProcessingSuccess = @"com.apple.security.tdlProcessingSuccess";
+NSString *const kSecurityRTCEventNameAllowedMIDHashMismatch = @"com.apple.security.allowedMIDHashMismatch";
+NSString *const kSecurityRTCEventNameDeletedMIDHashMismatch = @"com.apple.security.deletedMIDHashMismatch";
 
 // MARK: RTC Fields
 
@@ -83,6 +87,7 @@ NSString *const kSecurityRTCFieldNumberOfTrustedPeers = @"numberOfTrustedPeers";
 NSString *const kSecurityRTCFieldSecurityLevel = @"securityLevel";
 NSString *const kSecurityRTCFieldRetryAttemptCount = @"retryAttemptCount";
 NSString *const kSecurityRTCFieldTotalRetryDuration = @"totalRetryDuration";
+NSString *const kSecurityRTCFieldEgoMachineIDVanishedFromTDL = @"egoMachineIDVanishedFromTDL";
 
 // MARK: CKKS Launch RTC Event Names
 

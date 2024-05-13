@@ -197,7 +197,7 @@ void RemoteMediaPlayerProxy::cancelLoad()
     m_player->cancelLoad();
 }
 
-void RemoteMediaPlayerProxy::prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode preferredDynamicRangeMode)
+void RemoteMediaPlayerProxy::prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode preferredDynamicRangeMode)
 {
     m_player->setPrivateBrowsingMode(privateMode);
     m_player->setPreload(preload);
@@ -205,6 +205,8 @@ void RemoteMediaPlayerProxy::prepareForPlayback(bool privateMode, WebCore::Media
     m_player->setPitchCorrectionAlgorithm(pitchCorrectionAlgorithm);
     m_player->setPreferredDynamicRangeMode(preferredDynamicRangeMode);
     m_player->setPresentationSize(presentationSize);
+    if (prepareToPlay)
+        m_player->prepareToPlay();
     if (prepareForRendering)
         m_player->prepareForRendering();
     m_videoContentScale = videoContentScale;
@@ -1134,7 +1136,7 @@ void RemoteMediaPlayerProxy::setVideoPlaybackMetricsUpdateInterval(double interv
 
 void RemoteMediaPlayerProxy::maybeUpdateCachedVideoMetrics()
 {
-    if (m_cachedState.paused || !m_videoPlaybackMetricsUpdateInterval || MonotonicTime::now() < m_nextPlaybackQualityMetricsUpdateTime)
+    if (m_cachedState.paused || !m_videoPlaybackMetricsUpdateInterval || MonotonicTime::now() < m_nextPlaybackQualityMetricsUpdateTime || m_hasPlaybackMetricsUpdatePending)
         return;
 
     updateCachedVideoMetrics();
@@ -1144,7 +1146,19 @@ void RemoteMediaPlayerProxy::updateCachedVideoMetrics()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
     m_nextPlaybackQualityMetricsUpdateTime = MonotonicTime::now() + m_videoPlaybackMetricsUpdateInterval;
-    m_cachedState.videoMetrics = m_player->videoPlaybackQualityMetrics();
+    if (m_hasPlaybackMetricsUpdatePending)
+        return;
+    m_hasPlaybackMetricsUpdatePending = true;
+    m_player->asyncVideoPlaybackQualityMetrics()->whenSettled(RunLoop::current(), [weakThis = WeakPtr { *this }, this](auto&& result) {
+        if (!weakThis)
+            return;
+        if (result) {
+            m_cachedState.videoMetrics = *result;
+            m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::UpdatePlaybackQualityMetrics(WTFMove(*result)), m_id);
+        } else
+            m_cachedState.videoMetrics.reset();
+        m_hasPlaybackMetricsUpdatePending = false;
+    });
 }
 
 void RemoteMediaPlayerProxy::setPreferredDynamicRangeMode(DynamicRangeMode mode)

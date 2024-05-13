@@ -155,6 +155,7 @@ messages -> NetworkProcess LegacyReceiver {
     SetPrivateClickMeasurementDebugMode(PAL::SessionID sessionID, bool debugMode)
 
     SetBlobRegistryTopOriginPartitioningEnabled(PAL::SessionID sessionID, bool enabled)
+    SetShouldSendPrivateTokenIPCForTesting(PAL::SessionID sessionID, bool enabled)
 
     SetSessionIsControlledByAutomation(PAL::SessionID sessionID, bool controlled);
 
@@ -213,10 +214,6 @@ messages -> NetworkProcess LegacyReceiver {
     AddWebPageNetworkParameters(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID, WebKit::WebPageNetworkParameters parameters)
     RemoveWebPageNetworkParameters(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID)
     CountNonDefaultSessionSets(PAL::SessionID sessionID) -> (size_t count)
-
-#if ENABLE(CFPREFS_DIRECT_MODE)
-    NotifyPreferencesChanged(String domain, String key, std::optional<String> encodedValue)
-#endif
 
     TerminateRemoteWorkerContextConnectionWhenPossible(enum:uint8_t WebKit::RemoteWorkerType workerType, PAL::SessionID sessionID,  WebCore::RegistrableDomain registrableDomain, WebCore::ProcessIdentifier processIdentifier);
 

@@ -44,7 +44,7 @@
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
-#ifdef WIN32
+#ifdef _WIN32
 #define OPENMODE S_IREAD | S_IWRITE
 #else
 #define OPENMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH
@@ -57,22 +57,12 @@ bool tool_create_output_file(struct OutStruct *outs,
   struct GlobalConfig *global;
   FILE *file = NULL;
   char *fname = outs->filename;
-  char *aname = NULL;
   DEBUGASSERT(outs);
   DEBUGASSERT(config);
   global = config->global;
   if(!fname || !*fname) {
     warnf(global, "Remote filename has no length");
     return FALSE;
-  }
-
-  if(config->output_dir && outs->is_cd_filename) {
-    aname = aprintf("%s/%s", config->output_dir, fname);
-    if(!aname) {
-      errorf(global, "out of memory");
-      return FALSE;
-    }
-    fname = aname;
   }
 
   if(config->file_clobber_mode == CLOBBER_ALWAYS ||
@@ -94,14 +84,12 @@ bool tool_create_output_file(struct OutStruct *outs,
       char *newname;
       /* Guard against wraparound in new filename */
       if(newlen < len) {
-        free(aname);
         errorf(global, "overflow in filename generation");
         return FALSE;
       }
       newname = malloc(newlen);
       if(!newname) {
         errorf(global, "out of memory");
-        free(aname);
         return FALSE;
       }
       memcpy(newname, fname, len);
@@ -135,10 +123,8 @@ bool tool_create_output_file(struct OutStruct *outs,
   if(!file) {
     warnf(global, "Failed to open the file %s: %s", fname,
           strerror(errno));
-    free(aname);
     return FALSE;
   }
-  free(aname);
   outs->s_isreg = TRUE;
   outs->fopened = TRUE;
   outs->stream = file;
@@ -159,7 +145,7 @@ size_t tool_write_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
   struct OperationConfig *config = per->config;
   size_t bytes = sz * nmemb;
   bool is_tty = config->global->isatty;
-#ifdef WIN32
+#ifdef _WIN32
   CONSOLE_SCREEN_BUFFER_INFO console_info;
   intptr_t fhnd;
 #endif
@@ -231,13 +217,13 @@ size_t tool_write_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
     }
   }
 
-#ifdef WIN32
+#ifdef _WIN32
   fhnd = _get_osfhandle(fileno(outs->stream));
   /* if windows console then UTF-8 must be converted to UTF-16 */
   if(isatty(fileno(outs->stream)) &&
      GetConsoleScreenBufferInfo((HANDLE)fhnd, &console_info)) {
     wchar_t *wc_buf;
-    DWORD wc_len;
+    DWORD wc_len, chars_written;
     unsigned char *rbuf = (unsigned char *)buffer;
     DWORD rlen = (DWORD)bytes;
 
@@ -292,7 +278,7 @@ size_t tool_write_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
               (HANDLE) fhnd,
               prefix,
               prefix[1] ? 2 : 1,
-              NULL,
+              &chars_written,
               NULL)) {
             return CURL_WRITEFUNC_ERROR;
           }
@@ -351,7 +337,7 @@ size_t tool_write_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
           (HANDLE) fhnd,
           wc_buf,
           wc_len,
-          NULL,
+          &chars_written,
           NULL)) {
         free(wc_buf);
         return CURL_WRITEFUNC_ERROR;

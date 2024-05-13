@@ -213,8 +213,8 @@ extern void oakley_dhgrp_free (struct dhgroup *);
 extern int oakley_dh_compute (const struct dhgroup *, vchar_t *, vchar_t *, vchar_t *, vchar_t **);
 extern int oakley_dh_generate (const struct dhgroup *, vchar_t **, vchar_t **);
 #else
-extern int oakley_dh_compute (const struct dhgroup *, vchar_t *, size_t, vchar_t **, SecDHContext*);
-extern int oakley_dh_generate (const struct dhgroup *, vchar_t **, size_t *,  SecDHContext*);
+extern int oakley_dh_compute (const struct dhgroup *, vchar_t *, vchar_t **, SecDHContext*);
+extern int oakley_dh_generate (const struct dhgroup *, vchar_t **, SecDHContext*);
 #endif
 extern int oakley_setdhgroup (int, struct dhgroup **);
 

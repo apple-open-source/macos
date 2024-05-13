@@ -164,7 +164,7 @@ static xpc_object_t
 get_crontab_info(db)
 	cron_db *db;
 {
-	uint64_t user_num = 0;
+	int64_t num_entries = 0;
 
 	if (!db) {
 		return NULL;
@@ -173,58 +173,25 @@ get_crontab_info(db)
 	xpc_object_t dict =  xpc_dictionary_create_empty();
 
 	user *user_cursor = db->head;
-	xpc_object_t user_tab_list = xpc_array_create_empty();
 	while (user_cursor) {
 		entry *crontab = user_cursor->crontab;
 		while (crontab) {
-			char *command = strndup(crontab->cmd, PATH_MAX);
-			if (!command) {
-				goto error;
-			}
-
-			char *current_cmd = command;
-
-			while (current_cmd && current_cmd[0] != '\0' && strchr(current_cmd, '=')) {
-				if (!strsep(&current_cmd, " \t")) {
-					goto error;
-				}
-			}
-
-			if (!current_cmd) {
-				goto error;
-			}
-
-			char *tmp_cmd;
-			tmp_cmd = strsep(&current_cmd, " \t");
-			tmp_cmd = basename(tmp_cmd);
-
-			if (!tmp_cmd) {
-				free(command);
-				goto error;
-			}
-
-			xpc_array_set_string(user_tab_list, XPC_ARRAY_APPEND, tmp_cmd);
-			free(command);
-
 			crontab = crontab->next;
+			num_entries++;
 		}
 
-		xpc_dictionary_set_value(dict, "commands", user_tab_list);
-
 		user_cursor = user_cursor->next;
-		user_num++;
+		xpc_dictionary_set_int64(dict, "num_jobs", num_entries);
 	}
 
 	return dict;
 
 error:
-	xpc_release(user_tab_list);
 	xpc_release(dict);
 
 	return NULL;
 }
 #endif // __APPLE__
-
 
 void
 link_user(db, u)

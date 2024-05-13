@@ -180,6 +180,7 @@ using PlatformDisplayID = uint32_t;
 using SharedStringHash = uint32_t;
 
 enum class ActivityState : uint16_t;
+enum class AdvancedPrivacyProtections : uint16_t;
 enum class CanWrap : bool;
 enum class DidWrap : bool;
 enum class DisabledAdaptations : uint8_t;
@@ -232,7 +233,7 @@ enum class RenderingUpdateStep : uint32_t {
 #endif
     FlushAutofocusCandidates        = 1 << 16,
     VideoFrameCallbacks             = 1 << 17,
-    PrepareCanvasesForDisplay       = 1 << 18,
+    PrepareCanvasesForDisplayOrFlush = 1 << 18,
     CaretAnimation                  = 1 << 19,
     FocusFixup                      = 1 << 20,
     UpdateValidationMessagePositions= 1 << 21,
@@ -266,7 +267,7 @@ constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     RenderingUpdateStep::AccessibilityRegionUpdate,
 #endif
-    RenderingUpdateStep::PrepareCanvasesForDisplay,
+    RenderingUpdateStep::PrepareCanvasesForDisplayOrFlush,
     RenderingUpdateStep::CaretAnimation,
     RenderingUpdateStep::UpdateContentRelevancy,
     RenderingUpdateStep::PerformPendingViewTransitions,
@@ -292,7 +293,7 @@ public:
     WEBCORE_EXPORT static void updateStyleForAllPagesAfterGlobalChangeInEnvironment();
     WEBCORE_EXPORT static void clearPreviousItemFromAllPages(HistoryItem*);
 
-    WEBCORE_EXPORT void setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy);
+    WEBCORE_EXPORT void setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy, OptionSet<AdvancedPrivacyProtections>);
 
     void updateStyleAfterChangeInEnvironment();
 
@@ -371,6 +372,7 @@ public:
     const DragController& dragController() const { return m_dragController.get(); }
 #endif
     FocusController& focusController() const { return *m_focusController; }
+    WEBCORE_EXPORT CheckedRef<FocusController> checkedFocusController() const;
 #if ENABLE(CONTEXT_MENUS)
     ContextMenuController& contextMenuController() { return m_contextMenuController.get(); }
     const ContextMenuController& contextMenuController() const { return m_contextMenuController.get(); }
@@ -702,12 +704,10 @@ public:
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     void updatePlayStateForAllAnimations();
     WEBCORE_EXPORT void setImageAnimationEnabled(bool);
-    WEBCORE_EXPORT void setSystemAllowsAnimationControls(bool isAllowed);
     void addIndividuallyPlayingAnimationElement(HTMLImageElement&);
     void removeIndividuallyPlayingAnimationElement(HTMLImageElement&);
 #endif
     bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
-    bool systemAllowsAnimationControls() const { return m_systemAllowsAnimationControls; }
 
     void userStyleSheetLocationChanged();
     const String& userStyleSheet() const;
@@ -1238,7 +1238,6 @@ private:
 
     bool m_canStartMedia { true };
     bool m_imageAnimationEnabled { true };
-    bool m_systemAllowsAnimationControls { false };
     // Elements containing animations that are individually playing (potentially overriding the page-wide m_imageAnimationEnabled state).
     WeakHashSet<HTMLImageElement, WeakPtrImplWithEventTargetData> m_individuallyPlayingAnimationElements;
 

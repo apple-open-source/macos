@@ -79,6 +79,9 @@
 #import <SoftLinking/SoftLinking.h>
 #import "KeychainCircle/MetricsOverrideForTests.h"
 
+#import <dirhelper_priv.h>
+#import <unistd.h>
+
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, KeychainCircle);
 SOFT_LINK_FUNCTION(KeychainCircle, MetricsEnable, soft_MetricsEnable, bool, (void), ());
 SOFT_LINK_FUNCTION(KeychainCircle, MetricsDisable, soft_MetricsDisable, bool, (void), ());

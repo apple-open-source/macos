@@ -70,6 +70,8 @@
 #include "HTMLDialogElement.h"
 #include "HTMLDocument.h"
 #include "HTMLHtmlElement.h"
+#include "HTMLImageElement.h"
+#include "HTMLInputElement.h"
 #include "HTMLLabelElement.h"
 #include "HTMLNameCollection.h"
 #include "HTMLObjectElement.h"
@@ -256,7 +258,12 @@ Element::~Element()
     ASSERT(!beforePseudoElement());
     ASSERT(!afterPseudoElement());
 
-    elementIdentifiersMap().remove(*this);
+    if (UNLIKELY(hasEventTargetFlag(EventTargetFlag::HasElementIdentifier)))
+        elementIdentifiersMap().remove(*this);
+    else
+        ASSERT(!elementIdentifiersMap().contains(*this));
+
+    ASSERT(!is<HTMLImageElement>(*this) || !intersectionObserverDataIfExists());
     disconnectFromIntersectionObservers();
 
     disconnectFromResizeObservers();
@@ -1911,7 +1918,33 @@ std::optional<std::pair<CheckedPtr<RenderObject>, FloatRect>> Element::boundingA
 FloatRect Element::boundingClientRect()
 {
     Ref document = this->document();
-    document->updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
+    auto needsLayout = [&] {
+        if (!document->haveStylesheetsLoaded())
+            return true;
+
+        if (RefPtr owner = document->ownerElement(); owner && owner->protectedDocument()->needsStyleRecalc())
+            return true;
+
+        document->updateRelevancyOfContentVisibilityElements();
+        document->updateStyleIfNeeded();
+        // FIXME: Expand this optimization to other elements.
+        if (!renderer() || !renderer()->isBody() || !renderer()->containingBlock() || !renderer()->containingBlock()->isDocumentElementRenderer())
+            return true;
+        auto& bodyRenderer = *renderer();
+        if (bodyRenderer.selfNeedsLayout() || bodyRenderer.containingBlock()->selfNeedsLayout() || (document->renderView() && document->renderView()->selfNeedsLayout()))
+            return true;
+        auto& bodyStyle = bodyRenderer.style();
+        if (!bodyStyle.logicalWidth().isFixed() && !bodyStyle.logicalWidth().isPercent())
+            return true;
+        if (!bodyStyle.logicalHeight().isFixed() && !bodyStyle.logicalHeight().isPercent())
+            return true;
+        // FIXME: Add support for scroll position.
+        return bodyStyle.hasViewportConstrainedPosition();
+    };
+
+    if (needsLayout())
+        document->updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
+
     auto pair = boundingAbsoluteRectWithoutLayout();
     if (!pair)
         return { };
@@ -2566,18 +2599,16 @@ void Element::parserSetAttributes(std::span<const Attribute> attributes)
             m_elementData = sharedObjectPool->cachedShareableElementDataWithAttributes(attributes);
         else
             m_elementData = ShareableElementData::createWithAttributes(attributes);
-
     }
 
-    parserDidSetAttributes();
+    if (auto* inputElement = dynamicDowncast<HTMLInputElement>(*this)) {
+        DelayedUpdateValidityScope delayedUpdateValidityScope(*inputElement);
+        inputElement->initializeInputTypeAfterParsingOrCloning();
+    }
 
     // Use attributes instead of m_elementData because attributeChanged might modify m_elementData.
     for (const auto& attribute : attributes)
-        notifyAttributeChanged(attribute.name(), nullAtom(), attribute.value(), AttributeModificationReason::Directly);
-}
-
-void Element::parserDidSetAttributes()
-{
+        notifyAttributeChanged(attribute.name(), nullAtom(), attribute.value(), AttributeModificationReason::Parser);
 }
 
 void Element::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
@@ -2966,10 +2997,14 @@ static bool canAttachAuthorShadowRoot(const Element& element)
 
 ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init)
 {
+    if (init.mode == ShadowRootMode::UserAgent)
+        return Exception { ExceptionCode::TypeError };
     if (!canAttachAuthorShadowRoot(*this))
         return Exception { ExceptionCode::NotSupportedError };
     if (RefPtr shadowRoot = this->shadowRoot()) {
         if (shadowRoot->isDeclarativeShadowRoot()) {
+            if (init.mode != shadowRoot->mode())
+                return Exception { ExceptionCode::NotSupportedError };
             ChildListMutationScope mutation(*shadowRoot);
             shadowRoot->removeChildren();
             shadowRoot->setIsDeclarativeShadowRoot(false);
@@ -2977,8 +3012,6 @@ ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init)
         }
         return Exception { ExceptionCode::NotSupportedError };
     }
-    if (init.mode == ShadowRootMode::UserAgent)
-        return Exception { ExceptionCode::TypeError };
     Ref shadow = ShadowRoot::create(document(), init.mode, init.slotAssignment,
         init.delegatesFocus ? ShadowRoot::DelegatesFocus::Yes : ShadowRoot::DelegatesFocus::No,
         init.clonable ? ShadowRoot::Clonable::Yes : ShadowRoot::Clonable::No,
@@ -2987,9 +3020,11 @@ ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init)
     return shadow.get();
 }
 
-ExceptionOr<ShadowRoot&> Element::attachDeclarativeShadow(ShadowRootMode mode, bool delegatesFocus)
+ExceptionOr<ShadowRoot&> Element::attachDeclarativeShadow(ShadowRootMode mode, bool delegatesFocus, bool clonable)
 {
-    auto exceptionOrShadowRoot = attachShadow({ mode, delegatesFocus, /* clonable */ true });
+    if (this->shadowRoot())
+        return Exception { ExceptionCode::NotSupportedError };
+    auto exceptionOrShadowRoot = attachShadow({ mode, delegatesFocus, clonable });
     if (exceptionOrShadowRoot.hasException())
         return exceptionOrShadowRoot.releaseException();
     Ref shadowRoot = exceptionOrShadowRoot.releaseReturnValue();
@@ -3636,7 +3671,7 @@ void Element::focus(const FocusOptions& options)
         // Focus and change event handlers can cause us to lose our last ref.
         // If a focus event handler changes the focus to a different node it
         // does not make sense to continue and update appearence.
-        if (!CheckedRef(page->focusController())->setFocusedElement(newTarget.get(), frame, optionsWithVisibility))
+        if (!page->checkedFocusController()->setFocusedElement(newTarget.get(), frame, optionsWithVisibility))
             return;
     }
 
@@ -3702,7 +3737,7 @@ void Element::blur()
 {
     if (treeScope().focusedElementInScope() == this) {
         if (RefPtr frame = document().frame())
-            CheckedRef(frame->page()->focusController())->setFocusedElement(nullptr, *frame);
+            frame->page()->checkedFocusController()->setFocusedElement(nullptr, *frame);
         else
             protectedDocument()->setFocusedElement(nullptr);
     }
@@ -3978,7 +4013,7 @@ void Element::removeFromTopLayer()
     if (CheckedPtr renderer = this->renderer()) {
         if (CheckedPtr backdrop = renderer->backdropRenderer().get()) {
             if (auto styleable = Styleable::fromRenderer(*backdrop))
-                styleable->cancelDeclarativeAnimations();
+                styleable->cancelStyleOriginatedAnimations();
         }
     }
 
@@ -4530,6 +4565,7 @@ void Element::disconnectFromIntersectionObserversSlow(IntersectionObserverData& 
 
 IntersectionObserverData& Element::ensureIntersectionObserverData()
 {
+    ASSERT(!is<HTMLImageElement>(*this));
     auto& rareData = ensureElementRareData();
     if (!rareData.intersectionObserverData())
         rareData.setIntersectionObserverData(makeUnique<IntersectionObserverData>());
@@ -5100,6 +5136,10 @@ void Element::cloneAttributesFromElement(const Element& other)
     other.synchronizeAllAttributes();
     if (!other.m_elementData) {
         m_elementData = nullptr;
+        if (auto* inputElement = dynamicDowncast<HTMLInputElement>(*this)) {
+            DelayedUpdateValidityScope delayedUpdateValidityScope(*inputElement);
+            inputElement->initializeInputTypeAfterParsingOrCloning();
+        }
         return;
     }
 
@@ -5132,6 +5172,11 @@ void Element::cloneAttributesFromElement(const Element& other)
     else
         m_elementData = other.m_elementData->makeUniqueCopy();
 
+    if (auto* inputElement = dynamicDowncast<HTMLInputElement>(*this)) {
+        DelayedUpdateValidityScope delayedUpdateValidityScope(*inputElement);
+        inputElement->initializeInputTypeAfterParsingOrCloning();
+    }
+
     for (const Attribute& attribute : attributesIterator())
         notifyAttributeChanged(attribute.name(), nullAtom(), attribute.value(), AttributeModificationReason::ByCloning);
 
@@ -5142,6 +5187,10 @@ void Element::cloneDataFromElement(const Element& other)
 {
     cloneAttributesFromElement(other);
     copyNonAttributePropertiesFromElement(other);
+#if ASSERT_ENABLED
+    if (auto* input = dynamicDowncast<HTMLInputElement>(*this))
+        ASSERT(!input->userAgentShadowRoot());
+#endif
 }
 
 void Element::createUniqueElementData()
@@ -5412,7 +5461,10 @@ Vector<RefPtr<WebAnimation>> Element::getAnimations(std::optional<GetAnimationsO
 
 ElementIdentifier Element::identifier() const
 {
-    return elementIdentifiersMap().ensure(const_cast<Element&>(*this), [] { return ElementIdentifier::generate(); }).iterator->value;
+    return elementIdentifiersMap().ensure(const_cast<Element&>(*this), [&] {
+        const_cast<Element&>(*this).setEventTargetFlag(EventTargetFlag::HasElementIdentifier);
+        return ElementIdentifier::generate();
+    }).iterator->value;
 }
 
 Element* Element::fromIdentifier(ElementIdentifier identifier)

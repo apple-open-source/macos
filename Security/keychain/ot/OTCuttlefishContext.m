@@ -128,6 +128,19 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 @class CKKSLockStateTracker;
 
+@implementation OTMetricsSessionData
+
+-(instancetype)initWithFlowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID
+{
+    if (self = [super init]) {
+        _flowID = flowID;
+        _deviceSessionID = deviceSessionID;
+    }
+    return self;
+}
+
+@end
+
 @interface OTCuttlefishContext () <OTCuttlefishAccountStateHolderNotifier>
 {
     NSString* _bottleID;
@@ -137,7 +150,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     NSString* _Nullable _idmsTargetContext;
     NSString* _Nullable _idmsCuttlefishPassword;
     BOOL _notifyIdMS;
-    OTAccountSettings* _Nullable _accountSettings;
     BOOL _skipRateLimitingCheck;
     BOOL _repair;
     BOOL _reportRateLimitingError;
@@ -174,6 +186,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 @property (nonatomic) BOOL initialBecomeUntrustedPosted;
 @property (nullable, nonatomic, strong) NSString* machineID;
+
+@property (nullable) OTAccountSettings* accountSettings;
 
 @end
 
@@ -435,10 +449,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         self.cloudKitAccountInfo = currentAccountInfo;
 
         if(currentAccountInfo.accountStatus == CKAccountStatusAvailable && self.activeAccount == nil) {
+            // In order to maintain consistent values for flowID and deviceSessionID, copy the sessionMetrics to a local variable
+            // that way when another thread mutates the sessionMetrics property, this thread can safely use the local copy
+            __strong OTMetricsSessionData* localSessionMetrics = self.sessionMetrics;
             AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
                                                                                                          altDSID:self.activeAccount.altDSID
-                                                                                                          flowID:self.flowID 
-                                                                                                 deviceSessionID:self.deviceSessionID
+                                                                                                          flowID:localSessionMetrics.flowID
+                                                                                                 deviceSessionID:localSessionMetrics.deviceSessionID
                                                                                                        eventName:kSecurityRTCEventNameCloudKitAccountAvailability
                                                                                                  testsAreEnabled:SecCKKSTestsEnabled()
                                                                                                   canSendMetrics:[self canSendMetricsUsingAccountState: self.shouldSendMetricsForOctagon]
@@ -480,10 +497,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
     if(!(currentAccountInfo.accountStatus == CKAccountStatusAvailable)) {
         secnotice("octagon", "Informed that the CK account is now unavailable: %@", currentAccountInfo);
+        // In order to maintain consistent values for flowID and deviceSessionID, copy the sessionMetrics to a local variable
+        // that way when another thread mutates the sessionMetrics property, this thread can safely use the local copy
+        __strong OTMetricsSessionData* localSessionMetrics = self.sessionMetrics;
         AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
                                                                                                      altDSID:self.activeAccount.altDSID
-                                                                                                      flowID:self.flowID
-                                                                                             deviceSessionID:self.deviceSessionID
+                                                                                                      flowID:localSessionMetrics.flowID
+                                                                                             deviceSessionID:localSessionMetrics.deviceSessionID
                                                                                                    eventName:kSecurityRTCEventNameCloudKitAccountAvailability
                                                                                              testsAreEnabled:SecCKKSTestsEnabled()
                                                                                               canSendMetrics:[self canSendMetricsUsingAccountState:self.shouldSendMetricsForOctagon]
@@ -801,6 +821,16 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                          reply:reply];
 }
 
+- (OTAccountSettings*)mergedAccountSettings:(OTAccountSettings* _Nullable)incoming
+{
+    OTAccountSettings* existing = self.accountSettings;
+
+    OTAccountSettings* merged = [[OTAccountSettings alloc] init];
+    merged.walrus = incoming.hasWalrus ? incoming.walrus : existing.walrus;
+    merged.webAccess = incoming.hasWebAccess ? incoming.webAccess : existing.webAccess;
+    return merged;
+}
+
 - (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason
            idmsTargetContext:(NSString *_Nullable)idmsTargetContext
       idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
@@ -812,7 +842,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     _idmsTargetContext = idmsTargetContext;
     _idmsCuttlefishPassword = idmsCuttlefishPassword;
     _notifyIdMS = notifyIdMS;
-    _accountSettings = accountSettings;
+
+    self.accountSettings = [self mergedAccountSettings:accountSettings];
 
     // The reset flow can split into an error-handling path halfway through; this is okay
     OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary: @{
@@ -873,9 +904,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     if ([self.deviceAdapter isMachineIDOverridden]) {
         machineID = [self.deviceAdapter getOverriddenMachineID];
     } else {
+        // In order to maintain consistent values for flowID and deviceSessionID, copy the sessionMetrics to a local variable
+        // that way when another thread mutates the sessionMetrics property, this thread can safely use the local copy
+        __strong OTMetricsSessionData* localSessionMetrics = self.sessionMetrics;
         machineID = [self.authKitAdapter machineID:self.activeAccount.altDSID
-                                            flowID:self.flowID
-                                   deviceSessionID:self.deviceSessionID
+                                            flowID:localSessionMetrics.flowID
+                                   deviceSessionID:localSessionMetrics.deviceSessionID
                                     canSendMetrics:[self canSendMetricsUsingAccountState:self.shouldSendMetricsForOctagon]
                                              error:&error];
     }
@@ -896,6 +930,10 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (OTOperationDependencies*)operationDependencies
 {
+    // In order to maintain consistent values for flowID and deviceSessionID, copy the sessionMetrics to a local variable
+    // that way when another thread mutates the sessionMetrics property, this thread can safely use the local copy
+    __strong OTMetricsSessionData* localSessionMetrics = self.sessionMetrics;
+
     return [[OTOperationDependencies alloc] initForContainer:self.containerName
                                                    contextID:self.contextID
                                                activeAccount:self.activeAccount
@@ -912,8 +950,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                         cuttlefishXPCWrapper:self.cuttlefishXPCWrapper
                                           escrowRequestClass:self.escrowRequestClass
                                                notifierClass:self.notifierClass
-                                                      flowID:self.flowID
-                                             deviceSessionID:self.deviceSessionID
+                                                      flowID:localSessionMetrics.flowID
+                                             deviceSessionID:localSessionMetrics.deviceSessionID
                                       permittedToSendMetrics:[self canSendMetricsUsingAccountState:self.shouldSendMetricsForOctagon]];
 }
 
@@ -1125,7 +1163,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return [[OTSetAccountSettingsOperation alloc] initWithDependencies:self.operationDependencies
                                                              intendedState:OctagonStateBecomeReady
                                                                 errorState:OctagonStateCheckTrustState
-                                                                  settings:_accountSettings];
+                                                                  settings:self.accountSettings];
     }
 
     if([currentState isEqualToString:OctagonStateNoAccount]) {
@@ -1348,7 +1386,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                      errorState:OctagonStateBecomeUntrusted
                                                      deviceInfo:[self prepareInformation]
                                                  policyOverride:self.policyOverride
-                                                accountSettings:_accountSettings
+                                                accountSettings:self.accountSettings
                                                           epoch:1];
 
     } else if([currentState isEqualToString:OctagonStateCreateIdentityForCustodianRecoveryKey]) {
@@ -1357,7 +1395,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                      errorState:OctagonStateBecomeUntrusted
                                                      deviceInfo:[self prepareInformation]
                                                  policyOverride:self.policyOverride
-                                                accountSettings:_accountSettings
+                                                accountSettings:self.accountSettings
                                                           epoch:1];
 
     } else if([currentState isEqualToString:OctagonStateBottleJoinCreateIdentity]) {
@@ -1366,7 +1404,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                      errorState:OctagonStateBecomeUntrusted
                                                      deviceInfo:[self prepareInformation]
                                                  policyOverride:self.policyOverride
-                                                accountSettings:_accountSettings
+                                                accountSettings:self.accountSettings
                                                           epoch:1];
 
     } else if([currentState isEqualToString:OctagonStateBottleJoinVouchWithBottle]) {
@@ -1479,7 +1517,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                      errorState:OctagonStateError
                                                      deviceInfo:[self prepareInformation]
                                                  policyOverride:self.policyOverride
-                                                accountSettings:_accountSettings
+                                                accountSettings:self.accountSettings
                                                           epoch:0];
 
     } else if([currentState isEqualToString:OctagonStateResetAndEstablishClearLocalContextState]) {
@@ -1581,7 +1619,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                      errorState:OctagonStateBecomeUntrusted
                                                      deviceInfo:[self prepareInformation]
                                                  policyOverride:self.policyOverride
-                                                accountSettings:_accountSettings
+                                                accountSettings:self.accountSettings
                                                           epoch:1];
 
     } else if([currentState isEqualToString:OctagonStateVouchWithReroll]) {
@@ -3050,7 +3088,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                           errorState:OctagonStateBecomeUntrusted
                                                                           deviceInfo:[self prepareInformation]
                                                                       policyOverride:self.policyOverride
-                                                                     accountSettings:_accountSettings
+                                                                     accountSettings:self.accountSettings
                                                                                epoch:epoch];
    
     BOOL isSlowerDevice = [self.deviceAdapter isWatch] || [self.deviceAdapter isAppleTV] || [self.deviceAdapter isHomePod];
@@ -4144,6 +4182,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                            description:@"This platform does not support setting the user-controllable view syncing status"]);
     return;
 #else
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(NO, accountError);
+        return;
+    }
 
     NSError* metadataError = nil;
     OTAccountMetadataClassC* accountState = [self.accountMetadataStore loadOrCreateAccountMetadata:&metadataError];
@@ -4222,18 +4266,32 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return;
     }
 
-    secnotice("octagon-settings", "Setting account settings %@", settings);
-    _accountSettings = settings;
+    if ([self.stateMachine isPaused]) {
+        if ([[OTStates OctagonReadyStates] intersectsSet: [NSSet setWithObject: [self.stateMachine currentState]]] == NO) {
+            secnotice("octagon-settings", "device is not in a ready state to set account settings, returning");
+            reply([NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorCannotSetAccountSettings description:@"Device is not in Octagon yet to set account settings"]);
+            return;
+        }
+    } else {
+        if ([self waitForReady:OctagonStateTransitionDefaultTimeout] == NO) {
+            secnotice("octagon-settings", "rpcSetAccountSetting: failed to reach Ready state");
+            reply([NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorCannotSetAccountSettings description:@"Device is not in Octagon yet to set account settings"]);
+            return;
+        }
+    }
 
+    secnotice("octagon-settings", "Setting account settings %@", settings);
+
+    self.accountSettings = [self mergedAccountSettings:settings];
 
     [self.stateMachine doWatchedStateMachineRPC:@"octagon-set-account-settings"
                                    sourceStates:[OTStates OctagonReadyStates]
                                            path:[OctagonStateTransitionPath pathFromDictionary:@{
-                                               OctagonStateSetAccountSettings: @{
-                                                       OctagonStateBecomeReady: @{
-                                                               OctagonStateReady: [OctagonStateTransitionPathStep success],
-                                                       },
-                                               },
+                                            OctagonStateSetAccountSettings: @{
+                                                OctagonStateBecomeReady: @{
+                                                    OctagonStateReady: [OctagonStateTransitionPathStep success],
+                                                },
+                                            },
                                            }]
                                           reply:reply];
 }
@@ -4939,7 +4997,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     _idmsTargetContext = nil;
     _idmsCuttlefishPassword = nil;
     _notifyIdMS = false;
-    _accountSettings = nil;
+    self.accountSettings = nil;
     _skipRateLimitingCheck = NO;
     _repair = NO;
     _reportRateLimitingError = NO;
@@ -4961,16 +5019,11 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         _idmsTargetContext == nil &&
         _idmsCuttlefishPassword == nil &&
         _notifyIdMS == false &&
-        _accountSettings == nil &&
+        self.accountSettings == nil &&
         _skipRateLimitingCheck == NO &&
         _repair == NO &&
         _reportRateLimitingError == NO &&
         _healthCheckResults == nil;
-}
-
-- (void)setAccountSettings:(OTAccountSettings*_Nullable)accountSettings
-{
-    _accountSettings = accountSettings;
 }
 
 - (BOOL)fetchSendingMetricsPermitted:(NSError**)error

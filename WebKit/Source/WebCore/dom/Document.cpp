@@ -1209,6 +1209,8 @@ void Document::setCompatibilityMode(DocumentCompatibilityMode mode)
 
     if (CheckedPtr view = renderView())
         view->updateQuirksMode();
+
+    invalidateCachedCSSParserContext();
 }
 
 String Document::compatMode() const
@@ -4120,6 +4122,8 @@ void Document::updateBaseURL()
 
     if (!m_baseURL.isValid())
         m_baseURL = URL();
+
+    invalidateCachedCSSParserContext();
 }
 
 void Document::setBaseURLOverride(const URL& url)
@@ -4976,12 +4980,26 @@ void Document::updateViewportUnitsOnResize()
 
 void Document::setNeedsDOMWindowResizeEvent()
 {
+#if ENABLE(FULLSCREEN_API)
+    if (CheckedPtr fullscreenManager = fullscreenManagerIfExists(); fullscreenManager && fullscreenManager->isAnimatingFullscreen()) {
+        fullscreenManager->addPendingScheduledResize(FullscreenManager::ResizeType::DOMWindow);
+        return;
+    }
+#endif
+
     m_needsDOMWindowResizeEvent = true;
     scheduleRenderingUpdate(RenderingUpdateStep::Resize);
 }
 
 void Document::setNeedsVisualViewportResize()
 {
+#if ENABLE(FULLSCREEN_API)
+    if (CheckedPtr fullscreenManager = fullscreenManagerIfExists(); fullscreenManager && fullscreenManager->isAnimatingFullscreen()) {
+        fullscreenManager->addPendingScheduledResize(FullscreenManager::ResizeType::VisualViewport);
+        return;
+    }
+#endif
+
     m_needsVisualViewportResizeEvent = true;
     scheduleRenderingUpdate(RenderingUpdateStep::Resize);
 }
@@ -8166,8 +8184,12 @@ bool Document::hasRecentUserInteractionForNavigationFromJS() const
     if (UserGestureIndicator::processingUserGesture(this))
         return true;
 
-    static constexpr Seconds maximumItervalForUserGestureForwarding { 10_s };
-    return (MonotonicTime::now() - lastHandledUserGestureTimestamp()) <= maximumItervalForUserGestureForwarding;
+    RefPtr window = domWindow();
+    if (!window || window->lastActivationTimestamp().isInfinity())
+        return false;
+
+    static constexpr Seconds maximumIntervalForUserActivationForwarding { 10_s };
+    return (MonotonicTime::now() - window->lastActivationTimestamp()) <= maximumIntervalForUserActivationForwarding;
 }
 
 void Document::startTrackingStyleRecalcs()
@@ -9739,6 +9761,18 @@ CSSCounterStyleRegistry& Document::counterStyleRegistry()
     return styleScope().counterStyleRegistry();
 }
 
+CSSParserContext Document::cssParserContext() const
+{
+    if (!m_cachedCSSParserContext)
+        m_cachedCSSParserContext = makeUnique<CSSParserContext>(*this, URL { }, emptyString());
+    return *m_cachedCSSParserContext;
+}
+
+void Document::invalidateCachedCSSParserContext()
+{
+    m_cachedCSSParserContext = { };
+}
+
 const FixedVector<CSSPropertyID>& Document::exposedComputedCSSPropertyIDs()
 {
     if (!m_exposedComputedCSSPropertyIDs.has_value()) {
@@ -9951,38 +9985,44 @@ const CrossOriginOpenerPolicy& Document::crossOriginOpenerPolicy() const
     return SecurityContext::crossOriginOpenerPolicy();
 }
 
-void Document::prepareCanvasesForDisplayIfNeeded()
+void Document::prepareCanvasesForDisplayOrFlushIfNeeded()
 {
-    // Some canvas contexts need to do work when rendering has finished but
-    // before their content is composited.
+    auto contexts = copyToVectorOf<WeakPtr<CanvasRenderingContext>>(m_canvasContextsToPrepare);
+    m_canvasContextsToPrepare.clear();
+    for (auto& weakContext : contexts) {
+        auto* context = weakContext.get();
+        if (!context)
+            continue;
 
-    // FIXME: Calling prepareForDisplay should not call back into a method
-    // that would mutate our m_canvasesNeedingDisplayPreparation list. It
-    // would be nice if this could be enforced to remove the copyToVector.
+        context->setIsInPreparationForDisplayOrFlush(false);
 
-    auto canvases = copyToVectorOf<Ref<HTMLCanvasElement>>(m_canvasesNeedingDisplayPreparation);
-    m_canvasesNeedingDisplayPreparation.clear();
-    for (auto& canvas : canvases)
-        canvas->prepareForDisplay();
-}
+        // Some canvas contexts hold memory that should be periodically freed.
+        if (context->hasDeferredOperations())
+            context->flushDeferredOperations();
 
-void Document::clearCanvasPreparation(HTMLCanvasElement& canvas)
-{
-    m_canvasesNeedingDisplayPreparation.remove(canvas);
-}
-
-void Document::canvasChanged(CanvasBase& canvasBase, const std::optional<FloatRect>& changedRect)
-{
-    auto* canvas = dynamicDowncast<HTMLCanvasElement>(canvasBase);
-    if (canvas && canvas->needsPreparationForDisplay()) {
-        m_canvasesNeedingDisplayPreparation.add(*canvas);
-        // Schedule a rendering update to force handling of prepareForDisplay
-        // for any queued canvases. This is especially important for any canvas
-        // that is not in the DOM, as those don't have a rect to invalidate to
-        // trigger an update. <http://bugs.webkit.org/show_bug.cgi?id=240380>.
-        if (!changedRect)
-            scheduleRenderingUpdate(RenderingUpdateStep::PrepareCanvasesForDisplay);
+        // Some canvases need to do work when rendering has finished but before their content is composited.
+        if (auto* htmlCanvas = dynamicDowncast<HTMLCanvasElement>(context->canvasBase())) {
+            if (htmlCanvas->needsPreparationForDisplay())
+                htmlCanvas->prepareForDisplay();
+        }
     }
+}
+
+void Document::addCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext& context)
+{
+    if (context.hasDeferredOperations() || context.needsPreparationForDisplay()) {
+        bool shouldSchedule = m_canvasContextsToPrepare.isEmptyIgnoringNullReferences();
+        m_canvasContextsToPrepare.add(context);
+        context.setIsInPreparationForDisplayOrFlush(true);
+        if (shouldSchedule)
+            scheduleRenderingUpdate(RenderingUpdateStep::PrepareCanvasesForDisplayOrFlush);
+    }
+}
+
+void Document::removeCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext& context)
+{
+    m_canvasContextsToPrepare.remove(context);
+    context.setIsInPreparationForDisplayOrFlush(false);
 }
 
 void Document::updateSleepDisablerIfNeeded()
@@ -9993,12 +10033,6 @@ void Document::updateSleepDisablerIfNeeded()
         return;
     }
     m_sleepDisabler = nullptr;
-}
-
-void Document::canvasDestroyed(CanvasBase& canvasBase)
-{
-    if (auto* canvasElement = dynamicDowncast<HTMLCanvasElement>(canvasBase))
-        m_canvasesNeedingDisplayPreparation.remove(*canvasElement);
 }
 
 JSC::VM& Document::vm()
@@ -10149,11 +10183,16 @@ void Document::resetObservationSizeForContainIntrinsicSize(Element& target)
 
 NoiseInjectionPolicy Document::noiseInjectionPolicy() const
 {
-    if (RefPtr loader = topDocument().loader()) {
-        if (loader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::FingerprintingProtections))
-            return NoiseInjectionPolicy::Minimal;
-    }
+    if (advancedPrivacyProtections().contains(AdvancedPrivacyProtections::FingerprintingProtections))
+        return NoiseInjectionPolicy::Minimal;
     return NoiseInjectionPolicy::None;
+}
+
+OptionSet<AdvancedPrivacyProtections> Document::advancedPrivacyProtections() const
+{
+    if (RefPtr loader = topDocument().loader())
+        return loader->advancedPrivacyProtections();
+    return { };
 }
 
 std::optional<uint64_t> Document::noiseInjectionHashSalt() const

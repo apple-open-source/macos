@@ -93,6 +93,7 @@
         if(error) {
             secerror("octagon: Error fetching TLKShares to recover: %@", error);
             // recovering these is best-effort, so fall through.
+            // Note: if there are any TLKShares to our own peer ID, then this device should already have the TLKs and not need this fetch.
         }
 
         NSMutableArray<CKKSTLKShare*>* filteredTLKShares = [NSMutableArray array];

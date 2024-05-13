@@ -172,6 +172,7 @@ uintptr_t _pthread_ptr_munge_token;
 
 static bool pthread_yield_to_zero = true;
 
+
 static void (*exitf)(int) = __exit;
 
 // workgroup support
@@ -2185,6 +2186,7 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 		pthread_yield_to_zero = (envvar[0] == '1');
 	}
 
+
 	return 0;
 }
 
@@ -2401,11 +2403,13 @@ pthread_stack_frame_decode_np(uintptr_t frame_addr, uintptr_t *return_addr)
 	 * this byte to stash extended information about the frame
 	 * (for example the Swift concurrency ABI does this). On arm64
 	 * TBI makes dereferencing it transparent, but people might
-	 * want to do arithmetic on the resulting pointer, so strip
-	 * it unconditionally.
+	 * want to do arithmetic on the resulting pointer.
+	 */
+	/*
+	 * Strip the top byte of the pointer, unconditionally.
 	 */
 	next_frame = next_frame & ~0xFF00000000000000ul;
-#endif
+#endif /* __LP64__ */
 
 	return next_frame;
 }

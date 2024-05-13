@@ -2233,6 +2233,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                 if ( mountpoint )
                                 {
                                     char * path;
+                                    struct stat path_info = {0};
 
                                     path = ___CFURLCopyFileSystemRepresentation( mountpoint );
 #if TARGET_OS_OSX
@@ -2244,6 +2245,18 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                         if ( status )
                                         {
                                             status = kDAReturnNotPrivileged;
+                                        }
+                                        
+                                        if ( status == 0 && audit_token_to_euid( _token ) )
+                                        {
+                                            int ret = stat( path, &path_info);
+                                            if ( ret != 0 )
+                                            {
+                                                status = unix_err( errno );
+                                            } else if ( audit_token_to_euid( _token ) != path_info.st_uid  )
+                                            {
+                                                status = kDAReturnNotPrivileged;
+                                            }
                                         }
 
                                         free( path );
@@ -2259,6 +2272,26 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                                     CFRelease( mountpoint );
                                 }
+                                
+#if TARGET_OS_OSX
+                                if ( argument3 )
+                                {
+                                    if ( DAMountContainsArgument( argument3, kDAFileSystemMountArgumentNoOwnership ) == TRUE &&  DAMountGetPreference( disk, kDAMountPreferenceTrust ) == TRUE )
+                                    {
+                                        if ( audit_token_to_euid( _token ) )
+                                        {
+                                            status = kDAReturnNotPrivileged;
+                                        }
+                                    }
+                                    if ( DAMountContainsArgument( argument3, kDAFileSystemMountArgumentSetUserID ) == TRUE &&  DAMountGetPreference( disk, kDAMountPreferenceTrust ) == FALSE )
+                                    {
+                                        if ( audit_token_to_euid( _token ) )
+                                        {
+                                            status = kDAReturnNotPrivileged;
+                                        }
+                                    }
+                                }
+#endif
                             }
 
                             break;

@@ -37,6 +37,17 @@ class ServiceDelegate: NSObject, NSXPCListenerDelegate {
         let tphEntitlement = "com.apple.private.trustedpeershelper.client"
 
         logger.info("Received a new client: \(newConnection, privacy: .public)")
+
+#if os(macOS)
+        // The recommended way to do this check is: SAUserSetupState.getForUser(getuid()) != .setupUser
+        // That call is expensive in the non-setup case; use constant from MacBuddyX/SharedConstants.h
+        let kMBBuddyUserID = 248
+        guard getuid() != kMBBuddyUserID else {
+            logger.info("client(\(newConnection, privacy: .public)) is running as setup user")
+            return false
+        }
+#endif
+
         switch newConnection.value(forEntitlement: tphEntitlement) {
         case 1 as Int:
             logger.info("client has entitlement '\(tphEntitlement, privacy: .public)'")
@@ -65,34 +76,12 @@ class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     }
 }
 
+let sandboxIdentifier = "com.apple.TrustedPeersHelper"
+
 #if os(macOS)
-public func withArrayOfCStrings<R>(
-    _ args: [String],
-    _ body: ([UnsafePointer<CChar>?]) -> R
-) -> R {
-    var mutableCStrings = args.map { strdup($0) }
-    mutableCStrings.append(nil)
-
-    let cStrings = mutableCStrings.map { UnsafePointer($0) }
-
-    defer {
-        mutableCStrings.forEach { free($0) }
-    }
-    return body(cStrings)
-}
-
-withArrayOfCStrings(["HOME", NSHomeDirectory()]) { parameters in
-    var sandboxErrors: UnsafeMutablePointer<CChar>?
-
-    let rc = sandbox_init_with_parameters("com.apple.TrustedPeersHelper", UInt64(SANDBOX_NAMED), parameters, &sandboxErrors)
-    guard rc == 0 else {
-        let printableMessage = sandboxErrors.map { String(cString: $0 ) }
-        logger.info("Unable to enter sandbox. Error code:\(rc) message: \(String(describing: printableMessage), privacy: .public)")
-        sandbox_free_error(sandboxErrors)
-        abort()
-    }
-    logger.info("Sandbox entered")
-}
+    Sandbox.enterSandbox(identifier: sandboxIdentifier, profile: sandboxIdentifier)
+#else
+    Sandbox.enterSandbox(identifier: sandboxIdentifier)
 #endif
 
 logger.info("Starting up")

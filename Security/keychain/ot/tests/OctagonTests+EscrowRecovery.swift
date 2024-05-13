@@ -1520,6 +1520,53 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
     }
+
+    func testJoinWithBottleFailsWithoutFetchRecoverableTLKShares() throws {
+        self.startCKAccountStatusMock()
+
+        let bottlerContext = self.makeInitiatorContext(contextID: "initiatorContextID")
+        let bottlerPeerID = self.assertResetAndBecomeTrusted(context: bottlerContext)
+        let escrowedEntropy = try XCTUnwrap(try self.loadSecret(label: bottlerPeerID))
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: bottlerContext)
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        // Before you call joinWithBottle, you need to call fetchViableBottles.
+        let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
+        self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
+            XCTAssertNil(error, "should be no error fetching viable bottles")
+            XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
+            fetchViableExpectation.fulfill()
+        }
+        self.wait(for: [fetchViableExpectation], timeout: 10)
+
+        // For this test, the fetchRecoverableTLKShares endpoint is suffering an outage. This should break joinWithBottle.
+        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { request in
+            return NSError(domain: CKErrorDomain,
+                           code: CKError.serverRejectedRequest.rawValue,
+                           userInfo: [:])
+        }
+
+        let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
+        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: escrowedEntropy, bottleSalt: self.otcliqueContext.altDSID!) { error in
+            XCTAssertNotNil(error, "error should be present")
+            if let error {
+                XCTAssertEqual((error as NSError).domain, CKErrorDomain, "error domain should be CloudKit")
+                XCTAssertEqual((error as NSError).code, CKError.serverRejectedRequest.rawValue, "error code should be serverRejectedRequest")
+            }
+            joinWithBottleExpectation.fulfill()
+        }
+
+        self.wait(for: [joinWithBottleExpectation], timeout: 10)
+
+        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+    }
 }
 
 #endif

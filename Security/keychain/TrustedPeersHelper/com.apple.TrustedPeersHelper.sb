@@ -1,7 +1,7 @@
 (version 1)
 
 (define (home-subpath home-relative-subpath)
-    (subpath (string-append (param "HOME") home-relative-subpath)))
+    (subpath (string-append (param "_HOME") home-relative-subpath)))
 
 (deny default)
 (deny file-map-executable iokit-get-properties process-info* nvram*)
@@ -22,9 +22,16 @@
 (allow file-read* file-write*
     (home-subpath "/Library/Keychains/"))
 
+;; Read/write access to a temporary directory.
+(allow file-read* file-write*
+       (subpath (param "_DARWIN_USER_CACHE"))
+       (subpath (param "_DARWIN_USER_TEMP"))
+       (subpath (param "_HOME")))
+
 (allow mach-lookup
     (global-name "com.apple.SecurityServer")
     (global-name "com.apple.apsd")
+    (global-name "com.apple.cdp.daemon")
     (global-name "com.apple.cloudd")
     (global-name "com.apple.lsd.mapdb")
     (global-name "com.apple.mobile.usermanagerd.xpc")

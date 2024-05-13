@@ -682,8 +682,14 @@ format,                                                                         
                                                                             sourceStates:sourceStates
                                                                              serialQueue:self.queue
                                                                             transitionOp:op];
+
+#if TARGET_OS_TV
+    [self handleExternalRequest:request
+                   startTimeout:60*NSEC_PER_SEC];
+#else
     [self handleExternalRequest:request
                    startTimeout:30*NSEC_PER_SEC];
+#endif
 
     WEAKIFY(self);
     CKKSResultOperation* callback = [CKKSResultOperation named:[NSString stringWithFormat: @"%@-callback", name]
@@ -738,9 +744,13 @@ format,                                                                         
                                                                                   stateMachine:self
                                                                                          path:path
                                                                                initialRequest:request];
-
+#if TARGET_OS_TV
+    [self registerStateTransitionWatcher:watcher
+                            startTimeout:self.timeout?:180*NSEC_PER_SEC];
+#else
     [self registerStateTransitionWatcher:watcher
                             startTimeout:self.timeout?:120*NSEC_PER_SEC];
+#endif
 
     CKKSResultOperation* replyOp = [CKKSResultOperation named:[NSString stringWithFormat: @"%@-callback", name]
                                           withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {

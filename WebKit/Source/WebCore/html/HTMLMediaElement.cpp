@@ -91,6 +91,7 @@
 #include "NavigatorMediaDevices.h"
 #include "NetworkingContext.h"
 #include "NodeName.h"
+#include "NowPlayingInfo.h"
 #include "OriginAccessPatterns.h"
 #include "PODIntervalTree.h"
 #include "PageGroup.h"
@@ -103,7 +104,6 @@
 #include "Quirks.h"
 #include "RegistrableDomain.h"
 #include "RenderBoxInlines.h"
-#include "RenderLayerCompositor.h"
 #include "RenderTheme.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
@@ -647,18 +647,33 @@ std::optional<MediaPlayerIdentifier> HTMLMediaElement::playerIdentifier() const
 
 RefPtr<HTMLMediaElement> HTMLMediaElement::bestMediaElementForRemoteControls(MediaElementSession::PlaybackControlsPurpose purpose, const Document* document)
 {
-    Vector<MediaElementSessionInfo> candidateSessions;
-    bool atLeastOneNonCandidateMayBeConfusedForMainContent = false;
-    PlatformMediaSessionManager::sharedManager().forEachMatchingSession([document](auto& session) {
+    auto selectedSession = PlatformMediaSessionManager::sharedManager().bestEligibleSessionForRemoteControls([&document] (auto& session) {
         auto* mediaElementSession = dynamicDowncast<MediaElementSession>(session);
         return mediaElementSession && (!document || &mediaElementSession->element().document() == document);
-    }, [&](auto& session) {
-        auto mediaElementSessionInfo = mediaElementSessionInfoForSession(downcast<MediaElementSession>(session), purpose);
+    }, purpose);
+
+    return selectedSession ? RefPtr { &downcast<MediaElementSession>(selectedSession.get())->element() } : nullptr;
+}
+
+std::optional<NowPlayingInfo> HTMLMediaElement::nowPlayingInfo() const
+{
+    return m_mediaSession->computeNowPlayingInfo();
+}
+
+WeakPtr<PlatformMediaSession> HTMLMediaElement::selectBestMediaSession(const Vector<WeakPtr<PlatformMediaSession>>& sessions, PlatformMediaSession::PlaybackControlsPurpose purpose)
+{
+    if (!sessions.size())
+        return nullptr;
+
+    Vector<MediaElementSessionInfo> candidateSessions;
+    bool atLeastOneNonCandidateMayBeConfusedForMainContent = false;
+    for (auto& session : sessions) {
+        auto mediaElementSessionInfo = mediaElementSessionInfoForSession(*downcast<MediaElementSession>(session.get()), purpose);
         if (mediaElementSessionInfo.canShowControlsManager)
             candidateSessions.append(mediaElementSessionInfo);
         else if (mediaSessionMayBeConfusedWithMainContent(mediaElementSessionInfo, purpose))
             atLeastOneNonCandidateMayBeConfusedForMainContent = true;
-    });
+    }
 
     if (!candidateSessions.size())
         return nullptr;
@@ -668,7 +683,7 @@ RefPtr<HTMLMediaElement> HTMLMediaElement::bestMediaElementForRemoteControls(Med
     if (!strongestSessionCandidate.isVisibleInViewportOrFullscreen && !strongestSessionCandidate.isPlayingAudio && atLeastOneNonCandidateMayBeConfusedForMainContent)
         return nullptr;
 
-    return &strongestSessionCandidate.session->element();
+    return strongestSessionCandidate.session;
 }
 
 void HTMLMediaElement::registerWithDocument(Document& document)
@@ -990,8 +1005,7 @@ void HTMLMediaElement::didDetachRenderers()
         // If we detach a media element from a renderer, we may no longer need the MediaPlayerPrivate
         // to vend a PlatformLayer. However, the renderer may be torn down and re-attached during a
         // single run-loop as a result of layout or due to the element being re-parented.
-        if (!renderer() && m_player)
-            m_player->acceleratedRenderingStateChanged();
+        computeAcceleratedRenderingStateAndUpdateMediaPlayer();
     });
 }
 
@@ -1543,7 +1557,7 @@ void HTMLMediaElement::loadNextSourceChild()
     loadResource(mediaURL, contentType, keySystem);
 }
 
-void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentType, const String& keySystem)
+void HTMLMediaElement::loadResource(const URL& initialURL, const ContentType& contentType, const String& keySystem)
 {
     ASSERT(initialURL.isEmpty() || isSafeToLoadURL(initialURL, Complain));
 
@@ -1670,11 +1684,11 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
         m_blobURLForReading = { BlobURL::createPublicURL(&document().securityOrigin()), document().topOrigin().data() };
         ThreadableBlobRegistry::registerBlobURL(&document().securityOrigin(), document().policyContainer(), m_blobURLForReading, m_blob->url());
 
-        if (!m_player->load(m_blobURLForReading, contentType, keySystem, !!m_remotePlaybackConfiguration))
+        if (!m_player->load(m_blobURLForReading, contentType.isEmpty() ? ContentType { m_blob->type() } : contentType, keySystem, !!m_remotePlaybackConfiguration))
             mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
     }
 
-    if (!loadAttempted && !m_player->load(url, contentType, keySystem, !!m_remotePlaybackConfiguration))
+    if (!loadAttempted && !m_player->load(url, url.protocolIsBlob() && contentType.isEmpty() ? ContentType { ThreadableBlobRegistry::blobType(url) } : contentType, keySystem, !!m_remotePlaybackConfiguration))
         mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
 
     mediaPlayerRenderingModeChanged();
@@ -5634,28 +5648,6 @@ void HTMLMediaElement::mediaPlayerSizeChanged()
     endProcessingMediaPlayerCallback();
 }
 
-bool HTMLMediaElement::mediaPlayerRenderingCanBeAccelerated()
-{
-#if ENABLE(VIDEO_PRESENTATION_MODE)
-    // This function must return "true" when the video is playing in the
-    // picture-in-picture window or if it is in fullscreen.
-    // Otherwise, the MediaPlayerPrivate* may destroy the video layer if
-    // the no longer in the DOM.
-    if (m_videoFullscreenMode != VideoFullscreenModeNone)
-        return true;
-#endif
-    auto* renderer = dynamicDowncast<RenderVideo>(this->renderer());
-    return renderer && renderer->view().compositor().canAccelerateVideoRendering(*renderer);
-}
-
-void HTMLMediaElement::mediaPlayerRenderingModeChanged()
-{
-    ALWAYS_LOG(LOGIDENTIFIER);
-
-    // Kick off a fake recalcStyle that will update the compositing tree.
-    invalidateStyleAndLayerComposition();
-}
-
 bool HTMLMediaElement::mediaPlayerAcceleratedCompositingEnabled()
 {
     return document().settings().acceleratedCompositingEnabled();
@@ -5875,6 +5867,12 @@ bool HTMLMediaElement::couldPlayIfEnoughData() const
         return false;
 
     if (pausedForUserInteraction())
+        return false;
+
+    if (!canProduceAudio() || PlatformMediaSessionManager::sharedManager().hasActiveAudioSession())
+        return true;
+
+    if (mediaSession().activeAudioSessionRequired() && mediaSession().blockedBySystemInterruption())
         return false;
 
     return true;
@@ -7453,6 +7451,9 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     m_player->setPageIsVisible(!m_elementIsHidden, page ? page->sceneIdentifier() : ""_s);
     m_player->setVisibleInViewport(isVisibleInViewport());
     schedulePlaybackControlsManagerUpdate();
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(ENCRYPTED_MEDIA)
+    updateShouldContinueAfterNeedKey();
+#endif
 
 #if ENABLE(WEB_AUDIO)
     if (m_audioSourceNode) {
@@ -7692,7 +7693,7 @@ String HTMLMediaElement::mediaPlayerReferrer() const
     if (!frame)
         return String();
 
-    return SecurityPolicy::generateReferrerHeader(document().referrerPolicy(), m_currentSrc, frame->loader().outgoingReferrer(), OriginAccessPatternsForWebProcess::singleton());
+    return SecurityPolicy::generateReferrerHeader(document().referrerPolicy(), m_currentSrc, frame->loader().outgoingReferrerURL(), OriginAccessPatternsForWebProcess::singleton());
 }
 
 String HTMLMediaElement::mediaPlayerUserAgent() const
@@ -8041,16 +8042,16 @@ RefPtr<VideoPlaybackQuality> HTMLMediaElement::getVideoPlaybackQuality()
     RefPtr domWindow = document().domWindow();
     double timestamp = domWindow ? domWindow->nowTimestamp().milliseconds() : 0;
 
-    auto metrics = m_player ? m_player->videoPlaybackQualityMetrics() : std::nullopt;
-    if (!metrics)
-        return VideoPlaybackQuality::create(timestamp, { });
-
+    VideoPlaybackQualityMetrics currentVideoPlaybackQuality;
 #if ENABLE(MEDIA_SOURCE)
-    metrics.value().totalVideoFrames += m_droppedVideoFrames;
-    metrics.value().droppedVideoFrames += m_droppedVideoFrames;
+    currentVideoPlaybackQuality.totalVideoFrames = m_droppedVideoFrames;
+    currentVideoPlaybackQuality.droppedVideoFrames = m_droppedVideoFrames;
 #endif
 
-    return VideoPlaybackQuality::create(timestamp, metrics.value());
+    if (auto metrics = m_player ? m_player->videoPlaybackQualityMetrics() : std::nullopt)
+        currentVideoPlaybackQuality += *metrics;
+
+    return VideoPlaybackQuality::create(timestamp, currentVideoPlaybackQuality);
 }
 
 DOMWrapperWorld& HTMLMediaElement::ensureIsolatedWorld()
@@ -8987,8 +8988,7 @@ void HTMLMediaElement::setFullscreenMode(VideoFullscreenMode mode)
     visibilityStateChanged();
     schedulePlaybackControlsManagerUpdate();
 
-    if (m_player)
-        m_player->acceleratedRenderingStateChanged();
+    computeAcceleratedRenderingStateAndUpdateMediaPlayer();
 }
 
 #if !RELEASE_LOG_DISABLED

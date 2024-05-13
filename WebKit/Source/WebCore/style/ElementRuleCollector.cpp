@@ -271,7 +271,8 @@ void ElementRuleCollector::transferMatchedRules(DeclarationOrigin declarationOri
             matchedRule.ruleData->propertyAllowlist(),
             matchedRule.styleScopeOrdinal,
             FromStyleAttribute::No,
-            matchedRule.cascadeLayerPriority
+            matchedRule.cascadeLayerPriority,
+            matchedRule.ruleData->isStartingStyle()
         }, declarationOrigin);
     }
 }
@@ -640,14 +641,12 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
                 ++distance;
             }
         };
-        /* @scope (a,b) to (c,d) would create 4 scopes for elements in between
-                [a,c]
-                [a,d]
-                [b,c]
-                [b,d]
-         For an element to not be in the rule @scope, it needs to not be inside any of those scopes
+        /* 
+        An element is in scope if:
+            It is an inclusive descendant of the scoping root, and
+            It is not an inclusive descendant of a scoping limit.
         */
-        auto isWithinScopingRootsAndScopeEnd = [&](const auto& selectorList) {
+        auto isWithinScopingRootsAndScopeEnd = [&](const CSSSelectorList& scopeEnd) {
             auto match = [&] (const auto* scopingRoot, const auto* selector) {
                 auto subContext = context;
                 subContext.scope = scopingRoot;
@@ -667,10 +666,15 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
 
             Vector<ScopingRootWithDistance> scopingRootsWithinScope;
             for (auto scopingRootWithDistance : scopingRoots) {
-                for (const auto* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
-                    if (!match(scopingRootWithDistance.scopingRoot, selector))
-                        scopingRootsWithinScope.append(scopingRootWithDistance);
+                bool anyScopingLimitMatch = false;
+                for (const auto* selector = scopeEnd.first(); selector; selector = CSSSelectorList::next(selector)) {
+                    if (match(scopingRootWithDistance.scopingRoot, selector)) {
+                        anyScopingLimitMatch = true;
+                        break;
+                    }
                 }
+                if (!anyScopingLimitMatch)
+                    scopingRootsWithinScope.append(scopingRootWithDistance);
             }
             return scopingRootsWithinScope;
         };
@@ -695,16 +699,17 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
                 // Verify that the node is in the current document
                 if (client->ownerDocument() != &this->element().document())
                     return;
-                // Find the implicit parent node
+                // The owner node should be the <style> node
                 const auto* owner = client->ownerNode();
                 if (!owner)
                     return;
+                // Find the parent node of the <style>
                 const auto* implicitParentNode = owner->parentNode();
                 const auto* implicitParentContainerNode = dynamicDowncast<ContainerNode>(implicitParentNode);
                 const auto* ancestor = &element();
                 unsigned distance = 0;
                 while (ancestor) {
-                    if (ancestor == owner)
+                    if (ancestor == implicitParentNode)
                         break;
                     ancestor = ancestor->parentElement();
                     ++distance;
@@ -770,8 +775,16 @@ void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool inc
         matchUserRules();
 
     if (auto* styledElement = dynamicDowncast<StyledElement>(element())) {
-        // https://html.spec.whatwg.org/#presentational-hints
-        addElementStyleProperties(styledElement->presentationalHintStyle(), RuleSet::cascadeLayerPriorityForPresentationalHints);
+        if (auto* presentationalHintStyle = styledElement->presentationalHintStyle()) {
+            // https://html.spec.whatwg.org/#presentational-hints
+
+            // Presentation attributes in SVG elements tend to be unique and not restyled often. Avoid bloating the cache.
+            // FIXME: Refcount is an imperfect proxy for sharing within a single document.
+            static constexpr auto matchedDeclarationsCacheSharingThreshold = 4;
+            bool allowCaching = !styledElement->isSVGElement() || presentationalHintStyle->refCount() > matchedDeclarationsCacheSharingThreshold;
+
+            addElementStyleProperties(presentationalHintStyle, RuleSet::cascadeLayerPriorityForPresentationalHints, allowCaching);
+        }
 
         // Tables and table cells share an additional presentation style that must be applied
         // after all attributes, since their style depends on the values of multiple attributes.
@@ -835,6 +848,8 @@ void ElementRuleCollector::addMatchedProperties(MatchedProperties&& matchedPrope
         // It might also be beneficial to overwrite the previous declaration (insteading of appending) if it affects the same exact properties.
         return;
     }
+    if (matchedProperties.isStartingStyle == IsStartingStyle::Yes)
+        m_result->hasStartingStyle = true;
     declarations.append(WTFMove(matchedProperties));
 }
 

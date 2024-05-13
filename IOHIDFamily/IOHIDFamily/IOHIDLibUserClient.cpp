@@ -48,6 +48,7 @@
 #include "IOHIDDebug.h"
 #include <IOKit/hidsystem/IOHIDUsageTables.h>
 #include "IOHIDPrivateKeys.h"
+#include <IOKit/hid/IOHIDDeviceKeys.h>
 #include <AssertMacros.h>
 #include "IOHIDDeviceElementContainer.h"
 #include <IOKit/hid/IOHIDDeviceTypes.h>
@@ -390,6 +391,10 @@ bool IOHIDLibUserClient::start(IOService *provider)
     OSObject        *obj2;
     OSNumber        *primaryUsagePage;
     OSSerializer    *debugStateSerializer;
+    OSObject        *entitlements;
+    OSArray         *entitlementsArr;
+    OSString        *entitlementStr;
+    OSObject        *hasEntitlement;
 
     HIDLibUserClientLogInfo("start");
 
@@ -397,6 +402,52 @@ bool IOHIDLibUserClient::start(IOService *provider)
         HIDLibUserClientLogError("Missing entitlement to access protected service");
         return false;
     }
+    
+    entitlements = provider->getProperty(kIOHIDDeviceAccessEntitlementKey);
+        
+    if((entitlementsArr = OSDynamicCast(OSArray, entitlements)) != NULL) {
+        bool found = false;
+        
+        for(int i = 0; i < entitlementsArr->getCount(); ++i) {
+            OSString *entitlement = OSDynamicCast(OSString, entitlementsArr->getObject(i));
+            
+            if(entitlement) {
+                bool result = false;
+                hasEntitlement = copyClientEntitlement(fClient, entitlement->getCStringNoCopy());
+                
+                if (hasEntitlement){
+                    result = (hasEntitlement == kOSBooleanTrue);
+                    hasEntitlement->release();
+                }
+                if (result) {
+                    found = true;
+                    break;
+                } else {
+                    HIDLibUserClientLogInfo("Client does not have entitlement: %s", entitlement->getCStringNoCopy());
+                }
+            }
+            
+        }
+        
+        if(!found) {
+            HIDLibUserClientLogError("Insufficient permissions to access device for PID: %d", fPid);
+            return false;
+        }
+        
+    } else if ((entitlementStr = OSDynamicCast(OSString, entitlements)) != NULL) {
+        bool result = false;
+        hasEntitlement = copyClientEntitlement(fClient, entitlementStr->getCStringNoCopy());
+        
+        if (hasEntitlement){
+            result = (hasEntitlement == kOSBooleanTrue);
+            hasEntitlement->release();
+        }
+        if (!hasEntitlement || !result) {
+            HIDLibUserClientLogError("Insufficient permissions to access device for PID: %d, missing entitlement: %s", fPid, entitlementStr->getCStringNoCopy());
+            return false;
+        }
+    }
+    
 
     require(super::start(provider), error);
 

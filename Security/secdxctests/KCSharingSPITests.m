@@ -24,6 +24,7 @@
 #import "KeychainXCTest.h"
 #import "SecItemInternal.h"
 #import "SecItemPriv.h"
+#import "keychain/securityd/SecItemDb.h"
 
 #import "ipc/server_security_helpers.h"
 
@@ -672,6 +673,81 @@
     XCTAssertEqual(SecItemDelete((__bridge CFDictionaryRef)queryToDelete), errSecSuccess, "Should allow deleting items with a sharing group");
 }
 
+- (void)testSharingBackupRestore {
+    NSArray* previousKeychainAccessGroups = (__bridge NSArray*)SecAccessGroupsGetCurrent();
+    NSMutableArray* newKeychainAccessGroups = [previousKeychainAccessGroups mutableCopy];
+    [newKeychainAccessGroups addObject:@"com.apple.cfnetwork"];
+    SecAccessGroupsSetCurrent((__bridge CFArrayRef)newKeychainAccessGroups);
+
+    // Add a shared item with a ggrp
+    NSDictionary* attributesToAdd = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrLabel : @"origin.example.com",
+        (id)kSecValueData : [@"swordfish" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrAccessGroup : @"com.apple.cfnetwork",
+        (id)kSecAttrSharingGroup : @"example-group",
+        (id)kSecAttrServer : @"example.com",
+        (id)kSecAttrProtocol : (id)kSecAttrProtocolHTTPS,
+        (id)kSecAttrAuthenticationType : (id)kSecAttrAuthenticationTypeHTMLForm,
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)attributesToAdd, NULL), errSecSuccess, "Should allow adding an inet with a sharing group");
+
+    // add a not-synced and not-shared item (no ggrp), which should have its sync bit flipped to 1 by restoring from backup
+    attributesToAdd = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrLabel : @"destination.example.com",
+        (id)kSecValueData : [@"swordfish" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrAccessGroup : @"com.apple.cfnetwork",
+        (id)kSecAttrServer : @"example.com",
+        (id)kSecAttrProtocol : (id)kSecAttrProtocolHTTPS,
+        (id)kSecAttrAuthenticationType : (id)kSecAttrAuthenticationTypeHTMLForm,
+        (id)kSecAttrSynchronizable: @NO,
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)attributesToAdd, NULL), errSecSuccess, "Should allow adding an unshared+unsynced inet");
+
+    CFErrorRef cferror = NULL;
+    kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
+        CFErrorRef cfcferror = NULL;
+
+        keybag_handle_t keybag_none = KEYBAG_NONE;
+        NSDictionary* backup = (__bridge_transfer NSDictionary*)SecServerCopyKeychainPlist(dbt, SecSecurityClientGet(), &keybag_none, kSecBackupableItemFilter, &cfcferror);
+        XCTAssertNil(CFBridgingRelease(cfcferror), "Shouldn't error creating a 'backup'");
+        XCTAssertNotNil(backup, "Creating a 'backup' should have succeeded");
+
+        bool ret = SecServerImportKeychainInPlist(dbt, SecSecurityClientGet(), KEYBAG_NONE, NULL, KEYBAG_DEVICE,
+                                                  (__bridge CFDictionaryRef)backup, kSecBackupableItemFilter, false, &cfcferror);
+
+        XCTAssertNil(CFBridgingRelease(cfcferror), "Shouldn't error importing a 'backup'");
+        XCTAssert(ret, "Importing a 'backup' should have succeeded");
+        return true;
+    });
+    XCTAssertNil(CFBridgingRelease(cferror), "Shouldn't error mucking about in the db");
+
+    // Make sure we can delete the shared item, asking for _not_ synchronizable, as that bit should not be flipped for KCSharing items
+    NSDictionary *queryToDelete = @{
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecAttrLabel : @"origin.example.com",
+        (id)kSecAttrSharingGroup : @"example-group",
+        (id)kSecAttrSynchronizable: @NO,
+    };
+    XCTAssertEqual(SecItemDelete((__bridge CFDictionaryRef)queryToDelete), errSecSuccess, "Should have found & deleted shared inet w/o sync bit");
+
+    // Make sure we can delete the not-shared-but-now-synced item, asking for synchronizable, as that bit _should_ have be flipped
+    queryToDelete = @{
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecAttrLabel : @"destination.example.com",
+        (id)kSecAttrSynchronizable: @YES,
+    };
+    XCTAssertEqual(SecItemDelete((__bridge CFDictionaryRef)queryToDelete), errSecSuccess, "Should have found & deleted now sync=1 inet");
+
+    SecAccessGroupsSetCurrent((__bridge CFArrayRef)previousKeychainAccessGroups);
+}
 @end
 
 #endif

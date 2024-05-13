@@ -246,13 +246,16 @@ auto TreeResolver::resolveElement(Element& element, const RenderStyle* existingS
     Styleable styleable { element, PseudoId::None };
     auto resolvedStyle = styleForStyleable(styleable, resolutionType, resolutionContext);
 
-    if (!affectsRenderedSubtree(element, *resolvedStyle.style))
+    if (!affectsRenderedSubtree(element, *resolvedStyle.style)) {
+        styleable.setLastStyleChangeEventStyle(nullptr);
         return { };
+    }
 
     auto update = createAnimatedElementUpdate(WTFMove(resolvedStyle), styleable, parent().change, resolutionContext);
     auto descendantsToResolve = computeDescendantsToResolve(update.change, element.styleValidity(), parent().descendantsToResolve);
 
-    if (&element == m_document.documentElement()) {
+    bool isDocumentElement = &element == m_document.documentElement();
+    if (isDocumentElement) {
         if (styleChangeAffectsRelativeUnits(*update.style, existingStyle)) {
             // "rem" units are relative to the document element's font size so we need to recompute everything.
             scope().resolver->invalidateMatchedDeclarationsCache();
@@ -308,7 +311,8 @@ auto TreeResolver::resolveElement(Element& element, const RenderStyle* existingS
     resolveAndAddPseudoElementStyle(PseudoId::Before);
     resolveAndAddPseudoElementStyle(PseudoId::After);
     resolveAndAddPseudoElementStyle(PseudoId::Backdrop);
-    resolveAndAddPseudoElementStyle(PseudoId::ViewTransition);
+    if (isDocumentElement && m_document.hasViewTransitionPseudoElementTree())
+        resolveAndAddPseudoElementStyle(PseudoId::ViewTransition);
 
 #if ENABLE(TOUCH_ACTION_REGIONS)
     // FIXME: Track this exactly.
@@ -348,8 +352,8 @@ std::optional<ElementUpdate> TreeResolver::resolvePseudoElement(Element& element
         return { };
     if (pseudoId == PseudoId::Scrollbar && elementUpdate.style->overflowX() != Overflow::Scroll && elementUpdate.style->overflowY() != Overflow::Scroll)
         return { };
-    if (pseudoId == PseudoId::ViewTransition && (!element.document().hasViewTransitionPseudoElementTree() || &element != element.document().documentElement()))
-        return { };
+    if (pseudoId == PseudoId::ViewTransition)
+        ASSERT(element.document().hasViewTransitionPseudoElementTree() && &element == element.document().documentElement());
 
     if (!elementUpdate.style->hasPseudoStyle(pseudoId))
         return resolveAncestorPseudoElement(element, pseudoId, elementUpdate);
@@ -591,7 +595,22 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
 {
     auto& element = styleable.element;
     auto& document = element.document();
-    auto* oldStyle = element.renderOrDisplayContentsStyle(styleable.pseudoId);
+    auto* currentStyle = element.renderOrDisplayContentsStyle(styleable.pseudoId);
+
+    std::unique_ptr<RenderStyle> startingStyle;
+
+    auto* oldStyle = [&]() -> const RenderStyle* {
+        if (currentStyle)
+            return currentStyle;
+
+        if (resolvedStyle.style->hasTransitions()) {
+            // https://drafts.csswg.org/css-transitions-2/#at-ruledef-starting-style
+            // "If an element does not have a before-change style for a given style change event, the starting style is used instead."
+            startingStyle = resolveStartingStyle(resolvedStyle, styleable, resolutionContext);
+            return startingStyle.get();
+        }
+        return nullptr;
+    }();
 
     auto updateAnimations = [&] {
         if (document.backForwardCacheState() != Document::NotInBackForwardCache || document.printing())
@@ -644,7 +663,7 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
     };
 
     // FIXME: Something like this is also needed for viewport units.
-    if (oldStyle && parent().needsUpdateQueryContainerDependentStyle)
+    if (currentStyle && parent().needsUpdateQueryContainerDependentStyle)
         styleable.queryContainerDidChange();
 
     // First, we need to make sure that any new CSS animation occuring on this element has a matching WebAnimation
@@ -657,16 +676,66 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
 
     // Deduplication speeds up equality comparisons as the properties inherit to descendants.
     // FIXME: There should be a more general mechanism for this.
-    if (oldStyle)
-        newStyle->deduplicateCustomProperties(*oldStyle);
+    if (currentStyle)
+        newStyle->deduplicateCustomProperties(*currentStyle);
 
-    auto change = oldStyle ? determineChange(*oldStyle, *newStyle) : Change::Renderer;
+    auto change = currentStyle ? determineChange(*currentStyle, *newStyle) : Change::Renderer;
 
     if (element.hasInvalidRenderer() || parentChange == Change::Renderer)
         change = Change::Renderer;
 
     bool shouldRecompositeLayer = animationImpact.contains(AnimationImpact::RequiresRecomposite) || element.styleResolutionShouldRecompositeLayer();
     return { WTFMove(newStyle), change, shouldRecompositeLayer };
+}
+
+std::unique_ptr<RenderStyle> TreeResolver::resolveStartingStyle(const ResolvedStyle& resolvedStyle, const Styleable& styleable, const ResolutionContext& resolutionContext) const
+{
+    if (!resolvedStyle.matchResult || !resolvedStyle.matchResult->hasStartingStyle)
+        return nullptr;
+
+    // We now resolve the starting style by applying all rules (including @starting-style ones) again.
+    // We could compute it along with the primary style and include it in MatchedPropertiesCache but it is not
+    // clear this would be benefitial as it is typically only used once.
+
+    auto& parentAfterChangeStyle = [&]() -> const RenderStyle& {
+        if (auto* parentElement = styleable.pseudoId == PseudoId::None ? parent().element : &styleable.element) {
+            // "Starting style inherits from the parent’s after-change style just like after-change style does."
+            if (auto* afterChangeStyle = parentElement->lastStyleChangeEventStyle(styleable.pseudoId))
+                return *afterChangeStyle;
+        }
+        return *resolutionContext.parentStyle;
+    }();
+
+    auto startingStyle = RenderStyle::createPtr();
+    startingStyle->inheritFrom(parentAfterChangeStyle);
+
+    if (styleable.pseudoId != PseudoId::None)
+        startingStyle->setStyleType(styleable.pseudoId);
+
+    auto builderContext = BuilderContext {
+        m_document,
+        parentAfterChangeStyle,
+        resolutionContext.documentElementStyle,
+        &styleable.element
+    };
+
+    auto styleBuilder = Builder {
+        *startingStyle,
+        WTFMove(builderContext),
+        *resolvedStyle.matchResult,
+        CascadeLevel::Author,
+        PropertyCascade::startingStyleProperties()
+    };
+
+    styleBuilder.applyAllProperties();
+
+    if (startingStyle->display() == DisplayType::None)
+        return nullptr;
+
+    Adjuster adjuster(m_document, parentAfterChangeStyle, resolutionContext.parentBoxStyle, styleable.pseudoId == PseudoId::None ? &styleable.element : nullptr);
+    adjuster.adjust(*startingStyle, nullptr);
+
+    return startingStyle;
 }
 
 HashSet<AnimatableCSSProperty> TreeResolver::applyCascadeAfterAnimation(RenderStyle& animatedStyle, const HashSet<AnimatableCSSProperty>& animatedProperties, bool isTransition, const MatchResult& matchResult, const Element& element, const ResolutionContext& resolutionContext)

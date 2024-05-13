@@ -175,8 +175,8 @@ agg_i1send(iph1, msg)
 						   &iph1->dhpub, &iph1->dhpriv) < 0) {	
 #else
 	if (oakley_dh_generate(iph1->rmconf->dhgrp,
-						   &iph1->dhpub, &iph1->publicKeySize, &iph1->dhC) < 0) {
-#endif		
+						   &iph1->dhpub, &iph1->dhC) < 0) {
+#endif
 		plog(ASL_LEVEL_ERR, 
 			 "failed to generate DH");
 		goto end;
@@ -602,7 +602,7 @@ agg_i2recv(iph1, msg)
 	if (oakley_dh_compute(iph1->rmconf->dhgrp, iph1->dhpub,
 						  iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0) {
 #else
-		if (oakley_dh_compute(iph1->rmconf->dhgrp, iph1->dhpub_p, iph1->publicKeySize, &iph1->dhgxy, &iph1->dhC) < 0) {
+		if (oakley_dh_compute(iph1->rmconf->dhgrp, iph1->dhpub_p, &iph1->dhgxy, &iph1->dhC) < 0) {
 #endif
 		plog(ASL_LEVEL_ERR, 
 			 "failed to compute DH");
@@ -1087,7 +1087,7 @@ agg_r2send(iph1, msg)
 						   &iph1->dhpub, &iph1->dhpriv) < 0) {	
 #else
 	if (oakley_dh_generate(iph1->rmconf->dhgrp,
-						   &iph1->dhpub, &iph1->publicKeySize, &iph1->dhC) < 0) {
+						   &iph1->dhpub, &iph1->dhC) < 0) {
 #endif
 		plog(ASL_LEVEL_ERR, 
 			 "failed to generate DH");
@@ -1107,7 +1107,7 @@ agg_r2send(iph1, msg)
 		if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub,
 							  iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0) {
 #else
-	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub_p, iph1->publicKeySize, &iph1->dhgxy, &iph1->dhC) < 0) {
+	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub_p, &iph1->dhgxy, &iph1->dhC) < 0) {
 #endif
 		plog(ASL_LEVEL_ERR, 
 			 "failed to compute DH");

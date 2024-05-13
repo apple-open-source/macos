@@ -72,6 +72,8 @@ messages -> NetworkProcessProxy LegacyReceiver {
     ResourceLoadDidReceiveChallenge(WebKit::WebPageProxyIdentifier pageIdentifier, struct WebKit::ResourceLoadInfo resourceLoadInfo, WebCore::AuthenticationChallenge challenge)
     ResourceLoadDidReceiveResponse(WebKit::WebPageProxyIdentifier pageIdentifier, struct WebKit::ResourceLoadInfo resourceLoadInfo, WebCore::ResourceResponse response)
     ResourceLoadDidCompleteWithError(WebKit::WebPageProxyIdentifier pageIdentifier, struct WebKit::ResourceLoadInfo resourceLoadInfo, WebCore::ResourceResponse response, WebCore::ResourceError error)
+
+    DidAllowPrivateTokenUsageByThirdPartyForTesting(PAL::SessionID sessionID, bool wasAllowed, URL resourceURL)
     
     TriggerBrowsingContextGroupSwitchForNavigation(WebKit::WebPageProxyIdentifier pageIdentifier, uint64_t navigationID, enum:uint8_t WebCore::BrowsingContextGroupSwitchDecision browsingContextGroupSwitchDecision, WebCore::RegistrableDomain responseDomain, WebKit::NetworkResourceLoadIdentifier existingNetworkResourceLoadIdentifierToResume) -> (bool success)
 
@@ -81,6 +83,10 @@ messages -> NetworkProcessProxy LegacyReceiver {
 
 #if ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
     GetWindowSceneAndBundleIdentifierForPaymentPresentation(WebKit::WebPageProxyIdentifier webPageProxyIdentifier) -> (String sceneIdentifier, String bundleIdentifier)
+#endif
+
+#if ENABLE(APPLE_PAY_REMOTE_UI)
+    GetPaymentCoordinatorEmbeddingUserAgent(WebKit::WebPageProxyIdentifier webPageProxyIdentifier) -> (String userAgent)
 #endif
 
     DataTaskReceivedChallenge(WebKit::DataTaskIdentifier identifier, WebCore::AuthenticationChallenge challenge) -> (enum:uint8_t WebKit::AuthenticationChallengeDisposition disposition, WebCore::Credential credential)

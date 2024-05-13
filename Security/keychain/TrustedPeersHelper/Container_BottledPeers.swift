@@ -42,8 +42,17 @@ extension Container {
                     }
 
                     // Ensure we have all policy versions claimed by peers, including our sponsor
-                    let allPolicyVersions: Set<TPPolicyVersion> = self.moc.performAndWait {
-                        self.model.allPolicyVersions()
+                    let allPolicyVersions: Set<TPPolicyVersion>? = self.moc.performAndWait {
+                        do {
+                            return try self.model.allPolicyVersions()
+                        } catch {
+                            logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                            reply(nil, nil, true, error)
+                            return nil
+                        }
+                    }
+                    guard let allPolicyVersions else {
+                        return
                     }
                     self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, fetchPolicyDocumentsError in
                         guard fetchPolicyDocumentsError == nil else {
@@ -92,8 +101,16 @@ extension Container {
 
         let bottleMO = try self.onMOCQueueFindBottle(bottleID: bottleID)
 
-        guard let sponsorPeer = self.model.peer(withID: bottleMO.peerID ?? "") else {
-            logger.info("preflightVouchWithBottle found no peer to match bottle")
+        let sponsorPeer: TPPeer?
+        do {
+            sponsorPeer = try self.model.peer(withID: bottleMO.peerID ?? "")
+        } catch {
+            logger.warning("preflightVouchWithBottle Error finding peer with ID \(bottleMO.peerID ?? "no peer ID given", privacy: .public): \(String(describing:error), privacy: .public)")
+            throw error
+        }
+
+        guard let sponsorPeer else {
+            logger.info("preflightVouchWithBottle found no peer to match bottle with ID \(bottleMO.peerID ?? "no peer ID given", privacy: .public)")
             throw ContainerError.sponsorNotRegistered(bottleMO.peerID ?? "no peer ID given")
         }
 

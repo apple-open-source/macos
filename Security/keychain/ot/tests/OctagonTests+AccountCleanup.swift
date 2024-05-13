@@ -174,8 +174,8 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         self.wait(for: [dumpCallback], timeout: 10)
 
         let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
-        let hasPeer = container.moc.performAndWait {
-            container.model.hasPeer(withID: clique.cliqueMemberIdentifier!)
+        let hasPeer = try container.moc.performAndWait {
+            try container.model.hasPeer(withID: clique.cliqueMemberIdentifier!)
         }
         XCTAssertTrue(hasPeer, "model should still contain the untrusted peer")
 

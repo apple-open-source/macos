@@ -642,6 +642,8 @@ public:
     unsigned long long fileSize() const;
 
     std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics();
+    using VideoPlaybackQualityMetricsPromise = NativePromise<VideoPlaybackQualityMetrics, PlatformMediaError>;
+    Ref<VideoPlaybackQualityMetricsPromise> asyncVideoPlaybackQualityMetrics();
 
     String sourceApplicationIdentifier() const;
     Vector<String> preferredAudioCharacteristics() const;
@@ -759,6 +761,7 @@ private:
     bool m_muted { false };
     bool m_preservesPitch { true };
     bool m_privateBrowsing { false };
+    bool m_shouldPrepareToPlay { false };
     bool m_shouldPrepareToRender { false };
     bool m_contentMIMETypeWasInferredFromExtension { false };
     bool m_initializingMediaEngine { false };

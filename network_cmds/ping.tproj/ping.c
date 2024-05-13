@@ -1122,7 +1122,7 @@ pinger(void)
 	struct timeval now;
 	struct tv32 tv32;
 	struct ip *ip;
-	struct icmp *icp;
+	volatile struct icmp *icp;
 	int cc, i;
 	u_char *packet;
 

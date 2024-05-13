@@ -453,7 +453,7 @@ static ssize_t write_behind(struct testcase *test, int convert)
   if(!test->ofile) {
     char outfile[256];
     msnprintf(outfile, sizeof(outfile), "%s/upload.%ld", logdir, test->testno);
-#ifdef WIN32
+#ifdef _WIN32
     test->ofile = open(outfile, O_CREAT|O_RDWR|O_BINARY, 0777);
 #else
     test->ofile = open(outfile, O_CREAT|O_RDWR, 0777);
@@ -642,7 +642,7 @@ int main(int argc, char **argv)
   msnprintf(loglockfile, sizeof(loglockfile), "%s/%s/tftp-%s.lock",
             logdir, SERVERLOGS_LOCKDIR, ipv_inuse);
 
-#ifdef WIN32
+#ifdef _WIN32
   win32_init();
   atexit(win32_cleanup);
 #endif
@@ -1129,7 +1129,7 @@ static int validate_access(struct testcase *test,
     if(!stream) {
       int error = errno;
       logmsg("fopen() failed with error: %d %s", error, strerror(error));
-      logmsg("Couldn't open test file for test : %d", testno);
+      logmsg("Couldn't open test file for test: %ld", testno);
       return EACCESS;
     }
     else {

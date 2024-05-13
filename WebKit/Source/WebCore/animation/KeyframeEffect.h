@@ -149,7 +149,7 @@ public:
 
     std::optional<unsigned> transformFunctionListPrefix() const override;
 
-    void computeDeclarativeAnimationBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext&);
+    void computeStyleOriginatedAnimationBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext&);
     const BlendingKeyframes& blendingKeyframes() const { return m_blendingKeyframes; }
     const HashSet<AnimatableCSSProperty>& animatedProperties();
     bool animatesProperty(const AnimatableCSSProperty&) const;
@@ -171,9 +171,11 @@ public:
     void customPropertyRegistrationDidChange(const AtomString&);
 
     bool canBeAccelerated() const;
+    bool accelerationWasPrevented() const { return m_runningAccelerated == RunningAccelerated::Prevented; }
     bool preventsAcceleration() const;
     void effectStackNoLongerPreventsAcceleration();
     void effectStackNoLongerAllowsAcceleration();
+    void effectStackNoLongerAllowsAccelerationDuringAcceleratedActionApplication();
     void wasAddedToEffectStack();
     void wasRemovedFromEffectStack();
 

@@ -136,7 +136,6 @@
 		8C32D36B255F4FD1006152A4 /* sanitizer_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C32D36A255F4FD1006152A4 /* sanitizer_malloc.c */; };
 		925383DA1BD03D5100F745DB /* stress_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 925383D11BD03B4A00F745DB /* stress_test.c */; };
 		93C629F52ACB71240006CBDA /* xzone_metapool.c in Sources */ = {isa = PBXBuildFile; fileRef = 93C629F42ACB71240006CBDA /* xzone_metapool.c */; };
-		93C629F62ACB71240006CBDA /* xzone_metapool.c in Sources */ = {isa = PBXBuildFile; fileRef = 93C629F42ACB71240006CBDA /* xzone_metapool.c */; };
 		93C629F72ACB71240006CBDA /* xzone_metapool.c in Sources */ = {isa = PBXBuildFile; fileRef = 93C629F42ACB71240006CBDA /* xzone_metapool.c */; };
 		93D319B62AF5B2100045F3DF /* xzone_metapool.c in Sources */ = {isa = PBXBuildFile; fileRef = 93C629F42ACB71240006CBDA /* xzone_metapool.c */; };
 		96C6DA2027DAC25C008D0061 /* magazine_large_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 96C6DA1F27DAC25C008D0061 /* magazine_large_tests.m */; };
@@ -197,6 +196,7 @@
 		B293DBD72AB2749900EA1B30 /* xzone_introspect.c in Sources */ = {isa = PBXBuildFile; fileRef = B293DBC22AB1223E00EA1B30 /* xzone_introspect.c */; };
 		B293DBD82AB2757500EA1B30 /* xzone_inline_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = F765F92A29217BAA00E9649E /* xzone_inline_internal.h */; };
 		B293DBD92AB2757700EA1B30 /* xzone_malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = F765F92B29217BAA00E9649E /* xzone_malloc.h */; };
+		B299F39F2B48D65D00EA6D23 /* xzone_introspect_stub.c in Sources */ = {isa = PBXBuildFile; fileRef = B299F39B2B48D5DB00EA6D23 /* xzone_introspect_stub.c */; };
 		B29C114F2A7C2F2D00C00C07 /* malloc_printf.c in Sources */ = {isa = PBXBuildFile; fileRef = B65FBE2B2087AA2F00E21F59 /* malloc_printf.c */; settings = {COMPILER_FLAGS = "$(MALLOC_BOUNDS_ATTRIBUTES_SUPPORT)"; }; };
 		B29E9A5929FC651300C0EBFF /* malloc_exclaves.c in Sources */ = {isa = PBXBuildFile; fileRef = B29E9A5829FC651300C0EBFF /* malloc_exclaves.c */; settings = {COMPILER_FLAGS = "$(MALLOC_BOUNDS_ATTRIBUTES_SUPPORT)"; }; };
 		B2C02C0129A8345800BD0C10 /* printf.h in Headers */ = {isa = PBXBuildFile; fileRef = 3FE91FD916A90A8D00D1238A /* printf.h */; };
@@ -557,6 +557,7 @@
 		B293DBC12AB11FF500EA1B30 /* libmalloc_exclaves_introspector.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_exclaves_introspector.xcconfig; sourceTree = "<group>"; };
 		B293DBC22AB1223E00EA1B30 /* xzone_introspect.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xzone_introspect.c; sourceTree = "<group>"; };
 		B293DBCD2AB272BA00EA1B30 /* libmalloc_exclaves_introspector.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = libmalloc_exclaves_introspector.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		B299F39B2B48D5DB00EA6D23 /* xzone_introspect_stub.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xzone_introspect_stub.c; sourceTree = "<group>"; };
 		B29E9A5829FC651300C0EBFF /* malloc_exclaves.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc_exclaves.c; sourceTree = "<group>"; };
 		B2B1803329BBCB2F00B4D3D3 /* bounds_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bounds_test.c; sourceTree = "<group>"; };
 		B2C02C0429A8529900BD0C10 /* _platform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _platform.h; sourceTree = "<group>"; };
@@ -1062,6 +1063,7 @@
 				F765F92A29217BAA00E9649E /* xzone_inline_internal.h */,
 				B23096182AB4F3DE00917598 /* xzone_introspect.h */,
 				B293DBC22AB1223E00EA1B30 /* xzone_introspect.c */,
+				B299F39B2B48D5DB00EA6D23 /* xzone_introspect_stub.c */,
 				F765F92B29217BAA00E9649E /* xzone_malloc.h */,
 				F765F92929217BAA00E9649E /* xzone_malloc.c */,
 				F765F92829217BAA00E9649E /* xzone_segment.c */,
@@ -1826,6 +1828,7 @@
 				B24C35A32AB28FA400E3870E /* early_malloc.c in Sources */,
 				B293DBD72AB2749900EA1B30 /* xzone_introspect.c in Sources */,
 				B24C35A02AB2821800E3870E /* malloc_printf.c in Sources */,
+				B299F39F2B48D65D00EA6D23 /* xzone_introspect_stub.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

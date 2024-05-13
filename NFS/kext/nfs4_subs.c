@@ -603,10 +603,7 @@ nfs4_secinfo_rpc(struct nfsmount *nmp, struct nfsreq_secinfo_args *siap, kauth_c
 		    (((dvp = np->n_parent)) && (error = vnode_get(dvp)))) {
 			dvp = NULL;
 		}
-		if (!dvp) {
-			dvp = vnode_getparent(NFSTOV(np));
-		}
-		vname = vnode_getname(NFSTOV(np));
+		vnode_getparent_and_name(NFSTOV(np), dvp ? NULL : &dvp, &vname);
 		if (!dvp || !vname) {
 			if (!error) {
 				error = EIO;

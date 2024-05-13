@@ -87,6 +87,7 @@ public:
     bool has(PlatformMediaSession::MediaType) const;
     int count(PlatformMediaSession::MediaType) const;
     bool activeAudioSessionRequired() const;
+    bool hasActiveAudioSession() const;
     bool canProduceAudio() const;
 
     virtual bool hasActiveNowPlayingSession() const { return false; }
@@ -185,6 +186,8 @@ public:
     virtual void resetSessionState() { };
 
     bool isApplicationInBackground() const { return m_isApplicationInBackground; }
+
+    WeakPtr<PlatformMediaSession> bestEligibleSessionForRemoteControls(const Function<bool(const PlatformMediaSession&)>&, PlatformMediaSession::PlaybackControlsPurpose);
 
 protected:
     friend class PlatformMediaSession;

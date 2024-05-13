@@ -241,7 +241,7 @@ messages -> WebPageProxy {
     SetIsNeverRichlyEditableForTouchBar(bool isNeverRichlyEditable)
 #endif
 
-    RequestDOMPasteAccess(enum:uint8_t WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::IntRect elementRect, String originIdentifier) -> (enum:uint8_t WebCore::DOMPasteAccessResponse response) Synchronous
+    RequestDOMPasteAccess(enum:uint8_t WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::FrameIdentifier frameID, WebCore::IntRect elementRect, String originIdentifier) -> (enum:uint8_t WebCore::DOMPasteAccessResponse response) Synchronous
 
     # Find messages
     DidCountStringMatches(String string, uint32_t matchCount)
@@ -416,7 +416,7 @@ messages -> WebPageProxy {
     DidUpdateActivityState() CanDispatchOutOfOrder
 
     WrapCryptoKey(Vector<uint8_t> key) -> (bool succeeded, Vector<uint8_t> wrappedKey) Synchronous
-    UnwrapCryptoKey(Vector<uint8_t> wrappedKey) -> (bool succeeded, Vector<uint8_t> key) Synchronous
+    UnwrapCryptoKey(struct WebCore::WrappedCryptoKey wrappedKey) -> (bool succeeded, Vector<uint8_t> key) Synchronous
 
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
@@ -515,10 +515,6 @@ messages -> WebPageProxy {
     [EnabledIf='attachmentElementEnabled()'] WritePromisedAttachmentToPasteboard(struct WebCore::PromisedAttachmentInfo info, String authorizationToken)
 #endif
     [EnabledIf='attachmentElementEnabled()'] RequestAttachmentIcon(String identifier, String contentType, String path, String title, WebCore::FloatSize size)
-#endif
-
-#if ENABLE(APP_HIGHLIGHTS)
-    StoreAppHighlight(struct WebCore::AppHighlight info)
 #endif
 
 #if ENABLE(SPEECH_SYNTHESIS)

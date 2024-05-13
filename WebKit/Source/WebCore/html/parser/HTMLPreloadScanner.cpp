@@ -129,7 +129,7 @@ public:
             ImageCandidate imageCandidate = bestFitSourceForImageAttributes(m_deviceScaleFactor, AtomString { m_urlToLoad }, m_srcSetAttribute, sourceSize);
             if (!imageCandidate.isEmpty()) {
                 pictureState.last() = true;
-                setURLToLoadAllowingReplacement(imageCandidate.string);
+                setURLToLoadAllowingReplacement(imageCandidate.string.view);
             }
         }
 
@@ -137,7 +137,7 @@ public:
         if (m_tagId == TagId::Img && !m_srcSetAttribute.isEmpty()) {
             auto sourceSize = SizesAttributeParser(m_sizesAttribute, document).length();
             ImageCandidate imageCandidate = bestFitSourceForImageAttributes(m_deviceScaleFactor, AtomString { m_urlToLoad }, m_srcSetAttribute, sourceSize);
-            setURLToLoadAllowingReplacement(imageCandidate.string);
+            setURLToLoadAllowingReplacement(imageCandidate.string.view);
         }
 
         if (m_metaIsViewport && !m_metaContent.isNull())
@@ -405,7 +405,7 @@ private:
 
     Ref<Document> protectedDocument() const { return m_document.get(); }
 
-    CheckedRef<Document> m_document;
+    WeakRef<Document, WeakPtrImplWithEventTargetData> m_document;
     TagId m_tagId;
     String m_urlToLoad;
     String m_srcSetAttribute;

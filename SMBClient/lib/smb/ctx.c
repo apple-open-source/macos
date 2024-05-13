@@ -94,6 +94,8 @@
 
 #define SPN_PLEASE_IGNORE_REALM CFSTR("cifs/not_defined_in_RFC4178@please_ignore")
 
+#define MC_NOTIFIER_PATH "/usr/libexec/mc_notifier"
+
 /*
  * Since ENETFSACCOUNTRESTRICTED, ENETFSPWDNEEDSCHANGE, and ENETFSPWDPOLICY are only
  * defined in NetFS.h and we can't include NetFS.h in the kernel so lets reset these
@@ -2709,6 +2711,7 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
     Boolean forceEncryptSession = SMBGetDictBooleanValue(OpenOptions, kSessionEncryptionKey, FALSE);
     Boolean forceEncryptShare = SMBGetDictBooleanValue(OpenOptions, kShareEncryptionKey, FALSE);
 	CFDictionaryRef authInfoDict = NULL;
+    char *const args[2] = { (char*) MC_NOTIFIER_PATH, NULL};
 
     /* Remove any previously auth request flags */
 	ctx->ct_setup.ioc_userflags &= ~(SMBV_KERBEROS_ACCESS | SMBV_ANONYMOUS_ACCESS |
@@ -2965,8 +2968,8 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
  
                     /* Call posix_spawn to launch mc_notifier */
                     if (error == 0) {
-                        error = posix_spawn(&child, "/usr/libexec/mc_notifier",
-                                            NULL, &psattr, NULL, environ);
+                        error = posix_spawn(&child, MC_NOTIFIER_PATH,
+                                            NULL, &psattr, args, environ);
                         if (error) {
                             os_log_error(OS_LOG_DEFAULT, "%s: posix_spawn failed (%d)",
                                          __FUNCTION__, error);

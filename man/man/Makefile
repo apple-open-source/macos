@@ -13,9 +13,9 @@ install:
 
 	$(INSTALL_FILE) man.conf $(DESTDIR)$(ETCDIR)
 	$(INSTALL_SCRIPT) man.sh $(DESTDIR)$(USRBINDIR)/man
-	$(LN) $(DESTDIR)$(USRBINDIR)/man $(DESTDIR)$(USRBINDIR)/manpath
-	$(LN) $(DESTDIR)$(USRBINDIR)/man $(DESTDIR)$(USRBINDIR)/apropos
-	$(LN) $(DESTDIR)$(USRBINDIR)/man $(DESTDIR)$(USRBINDIR)/whatis
+	$(LN) -f $(DESTDIR)$(USRBINDIR)/man $(DESTDIR)$(USRBINDIR)/manpath
+	$(LN) -f $(DESTDIR)$(USRBINDIR)/man $(DESTDIR)$(USRBINDIR)/apropos
+	$(LN) -f $(DESTDIR)$(USRBINDIR)/man $(DESTDIR)$(USRBINDIR)/whatis
 
 	$(INSTALL_FILE) apropos.1 $(DESTDIR)$(MANDIR)/man1/apropos.1
 	$(INSTALL_FILE) man.1 $(DESTDIR)$(MANDIR)/man1/man.1

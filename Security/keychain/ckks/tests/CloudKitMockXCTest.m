@@ -334,12 +334,15 @@
                                                   NSSet<NSString*>* _Nullable evictedRemovals,
                                                   NSSet<NSString*>* _Nullable unknownReasonRemovals,
                                                   NSString* _Nullable version, 
+                                                  NSString* _Nullable trustedDeviceHash,
+                                                  NSString* _Nullable deletedDeviceHash,
+                                                  NSNumber* _Nullable trustedDevicesUpdateTimestamp,
                                                   NSError * _Nullable error))complete
 {
     self.fetchInvocations += 1;
     if ([self.machineIDFetchErrors count] > 0) {
         NSError* firstError = [self.machineIDFetchErrors objectAtIndex:0];
-        complete(nil, nil, nil, nil, nil, firstError);
+        complete(nil, nil, nil, nil, nil, nil, nil, nil, firstError);
         [self.machineIDFetchErrors removeObjectAtIndex:0];
         return;
     }
@@ -350,7 +353,7 @@
     if (demo == NO &&
         self.injectAuthErrorsAtFetchTime &&
         [self.excludeDevices containsObject:self.currentMachineID]) {
-        complete(nil, nil, nil, nil, nil, [NSError errorWithDomain:AKAppleIDAuthenticationErrorDomain code:-7026 userInfo:@{NSLocalizedDescriptionKey : @"Injected AKAuthenticationErrorNotPermitted error"}]);
+        complete(nil, nil, nil, nil, nil, nil, nil, nil, [NSError errorWithDomain:AKAppleIDAuthenticationErrorDomain code:-7026 userInfo:@{NSLocalizedDescriptionKey : @"Injected AKAuthenticationErrorNotPermitted error"}]);
         return;
     }
     if (self.fetchCondition) {
@@ -360,11 +363,11 @@
     NSString* version = [NSString stringWithFormat:@"%lu", [deviceList hash]];
 
     if (demo) {
-        complete([self currentDeviceList], nil, nil, nil, version, nil);
+        complete([self currentDeviceList], nil, nil, nil, version, nil, nil, nil, nil);
         return;
     }
     // TODO: fail if !accountPresent
-    complete([self currentDeviceList], self.excludeDevices, nil, nil, version, nil);
+    complete([self currentDeviceList], self.excludeDevices, nil, nil, version, nil, nil, nil, nil);
 }
 
 - (NSString * _Nullable)machineID:(NSString*)altDSID 

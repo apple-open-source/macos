@@ -70,6 +70,7 @@ Ref<AccessCase> AccessCase::create(VM& vm, JSCell* owner, AccessType type, Cache
     switch (type) {
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     case InHit:
     case InMiss:
     case DeleteNonConfigurable:
@@ -88,6 +89,7 @@ Ref<AccessCase> AccessCase::create(VM& vm, JSCell* owner, AccessType type, Cache
     case IndexedProxyObjectLoad:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
@@ -365,6 +367,7 @@ bool AccessCase::guardedByStructureCheckSkippingConstantIdentifierCheck() const
     switch (m_type) {
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     case ArrayLength:
     case StringLength:
     case DirectArgumentsLength:
@@ -379,6 +382,7 @@ bool AccessCase::guardedByStructureCheckSkippingConstantIdentifierCheck() const
     case IndexedProxyObjectLoad:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
@@ -484,6 +488,7 @@ bool AccessCase::requiresIdentifierNameMatch() const
     case Load:
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     // We don't currently have a by_val for these puts, but we do care about the identifier.
     case Transition:
     case Delete:
@@ -518,6 +523,7 @@ bool AccessCase::requiresIdentifierNameMatch() const
     case IndexedProxyObjectLoad:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
@@ -603,6 +609,7 @@ bool AccessCase::requiresInt32PropertyCheck() const
     case Load:
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:
@@ -635,6 +642,7 @@ bool AccessCase::requiresInt32PropertyCheck() const
     case IndexedProxyObjectLoad:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
         return false;
     case IndexedInt32Load:
     case IndexedDoubleLoad:
@@ -729,9 +737,6 @@ void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
     switch (type()) {
     case Getter:
     case Setter: {
-        auto& accessor = this->as<GetterSetterAccessCase>();
-        if (accessor.callLinkInfo())
-            accessor.callLinkInfo()->forEachDependentCell(functor);
         break;
     }
     case CustomValueGetter:
@@ -759,9 +764,6 @@ void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
     case ProxyObjectLoad:
     case ProxyObjectStore:
     case IndexedProxyObjectLoad: {
-        auto& accessor = this->as<ProxyObjectAccessCase>();
-        if (accessor.callLinkInfo())
-            accessor.callLinkInfo()->forEachDependentCell(functor);
         break;
     }
     case InstanceOfHit:
@@ -774,6 +776,7 @@ void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
     case Load:
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:
@@ -792,6 +795,7 @@ void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
     case InstanceOfGeneric:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
@@ -870,7 +874,7 @@ void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
     }
 }
 
-bool AccessCase::doesCalls(VM& vm, Vector<JSCell*>* cellsToMarkIfDoesCalls) const
+bool AccessCase::doesCalls(VM&) const
 {
     bool doesCalls = false;
     switch (type()) {
@@ -899,6 +903,7 @@ bool AccessCase::doesCalls(VM& vm, Vector<JSCell*>* cellsToMarkIfDoesCalls) cons
     case Load:
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     case Miss:
     case GetGetter:
     case InHit:
@@ -915,6 +920,7 @@ bool AccessCase::doesCalls(VM& vm, Vector<JSCell*>* cellsToMarkIfDoesCalls) cons
     case InstanceOfGeneric:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
@@ -995,12 +1001,6 @@ bool AccessCase::doesCalls(VM& vm, Vector<JSCell*>* cellsToMarkIfDoesCalls) cons
         doesCalls = viaGlobalProxy();
         break;
     }
-
-    if (doesCalls && cellsToMarkIfDoesCalls) {
-        forEachDependentCell(vm, [&](JSCell* cell) {
-            cellsToMarkIfDoesCalls->append(cell);
-        });
-    }
     return doesCalls;
 }
 
@@ -1052,8 +1052,10 @@ bool AccessCase::canReplace(const AccessCase& other) const
     switch (type()) {
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
@@ -1237,17 +1239,18 @@ void AccessCase::dump(PrintStream& out) const
 
 bool AccessCase::visitWeak(VM& vm) const
 {
-    if (isAccessor()) {
-        auto& accessor = this->as<GetterSetterAccessCase>();
-        if (accessor.callLinkInfo())
-            accessor.callLinkInfo()->visitWeak(vm);
-    }
-
     bool isValid = true;
     forEachDependentCell(vm, [&](JSCell* cell) {
         isValid &= vm.heap.isMarked(cell);
     });
     return isValid;
+}
+
+void AccessCase::collectDependentCells(VM& vm, Vector<JSCell*>& cells) const
+{
+    forEachDependentCell(vm, [&](JSCell* cell) {
+        cells.append(cell);
+    });
 }
 
 template<typename Visitor>
@@ -1290,6 +1293,7 @@ inline void AccessCase::runWithDowncast(const Func& func)
     switch (m_type) {
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:
@@ -1305,6 +1309,7 @@ inline void AccessCase::runWithDowncast(const Func& func)
     case SetPrivateBrand:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
@@ -1458,6 +1463,7 @@ bool AccessCase::canBeShared(const AccessCase& lhs, const AccessCase& rhs)
     case Load:
     case LoadMegamorphic:
     case StoreMegamorphic:
+    case InMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:
@@ -1475,6 +1481,7 @@ bool AccessCase::canBeShared(const AccessCase& lhs, const AccessCase& rhs)
     case SetPrivateBrand:
     case IndexedMegamorphicLoad:
     case IndexedMegamorphicStore:
+    case IndexedMegamorphicIn:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:

@@ -288,7 +288,7 @@ oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub, vchar_t *priv, vchar_t
 }
 #else
 int
-oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub_p, size_t publicKeySize, vchar_t **gxy, SecDHContext *dhC)
+oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub_p, vchar_t **gxy, SecDHContext *dhC)
 {
 	
 	vchar_t *computed_key = NULL;
@@ -302,6 +302,12 @@ oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub_p, size_t publicKeySize
 	
 	plog(ASL_LEVEL_DEBUG, "compute DH result.\n");
 
+	if (pub_p->l != dh->prime->l) {
+		plog(ASL_LEVEL_ERR, "remote public key length (%zu) != prime length (%zu)\n",
+			 pub_p->l, dh->prime->l);
+		goto fail;
+	}
+
 	maxKeyLen = SecDHGetMaxKeyLength(*dhC);
 	computed_key = vmalloc(maxKeyLen);
 	if (computed_key == NULL) {
@@ -309,7 +315,7 @@ oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub_p, size_t publicKeySize
 		goto fail;
 	}
 	computed_keylen = computed_key->l;
-	if (SecDHComputeKey(*dhC, (uint8_t*)pub_p->v + (maxKeyLen - publicKeySize), publicKeySize,
+	if (SecDHComputeKey(*dhC, (uint8_t*)pub_p->v, pub_p->l,
 						(uint8_t*)computed_key->v, &computed_keylen)) {
 		plog(ASL_LEVEL_ERR, "failed to compute dh value.\n");
 		goto fail;
@@ -398,11 +404,12 @@ oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, vchar_t **priv)
 }
 #else
 int
-oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, size_t *publicKeySize, SecDHContext *dhC)
+oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, SecDHContext *dhC)
 {
 	vchar_t *public = NULL;
-	size_t maxKeyLen; 
-	
+	size_t maxKeyLen;
+	size_t publicKeySize;
+
 #ifdef ENABLE_STATS
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
@@ -419,12 +426,12 @@ oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, size_t *publicKeySiz
 			}
 			maxKeyLen = SecDHGetMaxKeyLength(*dhC);
 			public = vmalloc(maxKeyLen);
-			*publicKeySize = public->l;
+			publicKeySize = public->l;
 			if (public == NULL) {
 				plog(ASL_LEVEL_ERR, "memory error.\n");
 				goto fail;
 			}
-			if (SecDHGenerateKeypair(*dhC, (uint8_t*)public->v, publicKeySize)) {
+			if (SecDHGenerateKeypair(*dhC, (uint8_t*)public->v, &publicKeySize)) {
 				plog(ASL_LEVEL_ERR, "failed to generate dh key pair.\n");
 				goto fail;
 			}
@@ -436,7 +443,7 @@ oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, size_t *publicKeySiz
 				goto fail;
 			}			
 			/* copy and fill with leading zeros */
-			memcpy((*pub)->v + (maxKeyLen - *publicKeySize), public->v, *publicKeySize);	
+			memcpy((*pub)->v + (maxKeyLen - publicKeySize), public->v, publicKeySize);
 			break;
 			
 		case OAKLEY_ATTR_GRP_TYPE_ECP:
@@ -601,7 +608,7 @@ oakley_compute_keymat(phase2_handle_t *iph2, int side)
 		if (oakley_dh_compute(iph2->pfsgrp, iph2->dhpub,
 							  iph2->dhpriv, iph2->dhpub_p, &iph2->dhgxy) < 0)
 #else
-		if (oakley_dh_compute(iph2->pfsgrp, iph2->dhpub_p, iph2->publicKeySize, &iph2->dhgxy, &iph2->dhC) < 0)
+		if (oakley_dh_compute(iph2->pfsgrp, iph2->dhpub_p, &iph2->dhgxy, &iph2->dhC) < 0)
 #endif
 			goto end;
 	}

@@ -716,7 +716,9 @@ public:
     void compileGetByIdMegamorphic(Node*);
     void compileGetByIdWithThisMegamorphic(Node*);
     void compileInById(Node*);
+    void compileInByIdMegamorphic(Node*);
     void compileInByVal(Node*);
+    void compileInByValMegamorphic(Node*);
     void compileHasPrivate(Node*, AccessType);
     void compileHasPrivateName(Node*);
     void compileHasPrivateBrand(Node*);
@@ -1468,7 +1470,6 @@ public:
     void compileResolveRope(Node*);
     JITCompiler::Jump jumpForTypedArrayOutOfBounds(Node*, GPRReg baseGPR, GPRReg indexGPR, GPRReg scratchGPR, GPRReg scratch2GPR);
     JITCompiler::Jump jumpForTypedArrayIsDetachedIfOutOfBounds(Node*, GPRReg baseGPR, JITCompiler::Jump outOfBounds);
-    void emitTypedArrayBoundsCheck(Node*, GPRReg baseGPR, GPRReg indexGPR, GPRReg scratchGPR, GPRReg scratch2GPR);
     void compileGetTypedArrayByteOffset(Node*);
 #if USE(LARGE_TYPED_ARRAYS)
     void compileGetTypedArrayByteOffsetAsInt52(Node*);
@@ -1508,7 +1509,7 @@ public:
 #endif
         Edge valueUse);
     void loadFromIntTypedArray(GPRReg storageReg, GPRReg propertyReg, GPRReg resultReg, TypedArrayType);
-    void setIntTypedArrayLoadResult(Node*, JSValueRegs resultRegs, TypedArrayType, bool canSpeculate, bool shouldBox, FPRReg);
+    void setIntTypedArrayLoadResult(Node*, JSValueRegs resultRegs, TypedArrayType, bool canSpeculate, bool shouldBox, FPRReg, Jump);
     template <typename ClassType> void compileNewFunctionCommon(GPRReg, RegisteredStructure, GPRReg, GPRReg, GPRReg, JumpList&, size_t, FunctionExecutable*);
     void compileNewFunction(Node*);
     void compileSetFunctionName(Node*);

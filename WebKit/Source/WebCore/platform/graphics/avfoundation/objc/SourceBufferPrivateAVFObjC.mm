@@ -299,6 +299,13 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     auto keyIDs = CDMPrivateFairPlayStreaming::extractKeyIDsSinf(*m_initData);
+    AtomString initDataType = CDMPrivateFairPlayStreaming::sinfName();
+#if HAVE(FAIRPLAYSTREAMING_MTPS_INITDATA)
+    if (!keyIDs) {
+        keyIDs = CDMPrivateFairPlayStreaming::extractKeyIDsMpts(*m_initData);
+        initDataType = CDMPrivateFairPlayStreaming::mptsName();
+    }
+#endif
     if (!keyIDs)
         return;
 
@@ -320,7 +327,7 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
     }
 
     m_keyIDs = WTFMove(keyIDs.value());
-    player->initializationDataEncountered("sinf"_s, m_initData->tryCreateArrayBuffer());
+    player->initializationDataEncountered(initDataType, m_initData->tryCreateArrayBuffer());
     player->needsVideoLayerChanged();
 
     m_waitingForKey = true;
@@ -747,6 +754,8 @@ void SourceBufferPrivateAVFObjC::flushIfNeeded()
     if (!requiresFlush())
         return;
 
+    ALWAYS_LOG(LOGIDENTIFIER);
+
 #if PLATFORM(IOS_FAMILY)
     m_displayLayerWasInterrupted = false;
 #endif
@@ -960,7 +969,7 @@ bool SourceBufferPrivateAVFObjC::canEnqueueSample(TrackID trackID, const MediaSa
         return true;
 
     // if sample is encrypted, but we are not attached to a CDM: do not enqueue sample.
-    if (!m_cdmInstance)
+    if (!m_cdmInstance && !m_session)
         return false;
 
     // DecompressionSessions doesn't support encrypted media.
@@ -973,10 +982,16 @@ bool SourceBufferPrivateAVFObjC::canEnqueueSample(TrackID trackID, const MediaSa
 
     // if sample's set of keyIDs does not match the current set of keyIDs, consult with the CDM
     // to determine if the keyIDs are usable; if so, update the current set of keyIDs and enqueue sample.
-    if (m_cdmInstance->isAnyKeyUsable(sample.keyIDs())) {
+    if (m_cdmInstance && m_cdmInstance->isAnyKeyUsable(sample.keyIDs())) {
         m_currentTrackIDs.try_emplace(trackID, sample.keyIDs());
         return true;
     }
+
+    if (m_session && m_session->isAnyKeyUsable(sample.keyIDs())) {
+        m_currentTrackIDs.try_emplace(trackID, sample.keyIDs());
+        return true;
+    }
+
     return false;
 #else
     return true;
@@ -1104,10 +1119,13 @@ void SourceBufferPrivateAVFObjC::enqueueSampleBuffer(MediaSampleAVFObjC& sample)
 
 void SourceBufferPrivateAVFObjC::attachContentKeyToSampleIfNeeded(const MediaSampleAVFObjC& sample)
 {
-    if (!m_cdmInstance || !sampleBufferRenderersSupportKeySession() || !supportsAttachContentKey())
+    if (!sampleBufferRenderersSupportKeySession() || !supportsAttachContentKey())
         return;
 
-    m_cdmInstance->attachContentKeyToSample(sample);
+    if (m_cdmInstance)
+        m_cdmInstance->attachContentKeyToSample(sample);
+    else if (m_session)
+        m_session->attachContentKeyToSample(sample);
 }
 
 bool SourceBufferPrivateAVFObjC::isReadyForMoreSamples(TrackID trackID)
@@ -1180,6 +1198,9 @@ void SourceBufferPrivateAVFObjC::didBecomeReadyForMoreSamples(TrackID trackID)
 
 void SourceBufferPrivateAVFObjC::notifyClientWhenReadyForMoreSamples(TrackID trackID)
 {
+    if (requiresFlush())
+        return;
+
     if (isEnabledVideoTrackID(trackID)) {
         if (m_decompressionSession) {
             m_decompressionSession->requestMediaDataWhenReady([weakThis = ThreadSafeWeakPtr { *this }, trackID] {
@@ -1258,6 +1279,7 @@ void SourceBufferPrivateAVFObjC::setVideoLayer(AVSampleBufferDisplayLayer* layer
 
     if (layer) {
         m_videoLayer = VideoMediaSampleRenderer::create(layer);
+        m_videoLayer->setResourceOwner(m_resourceOwner);
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
         if (m_cdmInstance && shouldAddContentKeyRecipients())
             [m_cdmInstance->contentKeySession() addContentKeyRecipient:layer];

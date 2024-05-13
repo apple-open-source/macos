@@ -1479,6 +1479,12 @@ void NetworkProcess::setBlobRegistryTopOriginPartitioningEnabled(PAL::SessionID 
         session->setBlobRegistryTopOriginPartitioningEnabled(enabled);
 }
 
+void NetworkProcess::setShouldSendPrivateTokenIPCForTesting(PAL::SessionID sessionID, bool enabled) const
+{
+    if (auto* session = networkSession(sessionID))
+        session->setShouldSendPrivateTokenIPCForTesting(enabled);
+}
+
 void NetworkProcess::preconnectTo(PAL::SessionID sessionID, WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, WebCore::ResourceRequest&& request, WebCore::StoredCredentialsPolicy storedCredentialsPolicy, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain)
 {
     auto url = request.url();
@@ -2963,25 +2969,15 @@ void NetworkProcess::setIsHoldingLockedFiles(bool isHoldingLockedFiles)
 #else
     if (!isHoldingLockedFiles) {
         m_holdingLockedFileAssertion = nullptr;
-#if USE(EXTENSIONKIT)
-        invalidateGrant();
-#endif
         return;
     }
 
     if (m_holdingLockedFileAssertion && m_holdingLockedFileAssertion->isValid())
         return;
 
-#if USE(EXTENSIONKIT)
-    if (hasAcquiredGrant())
-        return;
-    if (aqcuireLockedFileGrant())
-        return;
-#endif
-
     // We synchronously take a process assertion when beginning a SQLite transaction so that we don't get suspended
     // while holding a locked file. We would get killed if suspended while holding locked files.
-    m_holdingLockedFileAssertion = ProcessAssertion::create(getCurrentProcessID(), "Network Process is holding locked files"_s, ProcessAssertionType::FinishTaskInterruptable, ProcessAssertion::Mode::Sync);
+    m_holdingLockedFileAssertion = ProcessAssertion::create(getCurrentProcessID(), "Network Process is holding locked files"_s, ProcessAssertionType::FinishTaskCanSleep, ProcessAssertion::Mode::Sync);
 #endif
 }
 #endif

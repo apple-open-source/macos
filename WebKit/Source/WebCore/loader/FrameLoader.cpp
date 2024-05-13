@@ -63,6 +63,7 @@
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
+#include "FeaturePolicy.h"
 #include "FloatRect.h"
 #include "FormState.h"
 #include "FormSubmission.h"
@@ -796,7 +797,12 @@ void FrameLoader::receivedFirstData()
 
 void FrameLoader::setOutgoingReferrer(const URL& url)
 {
-    m_outgoingReferrer = url.strippedForUseAsReferrer();
+    auto result = url.strippedForUseAsReferrer();
+    m_outgoingReferrer = WTFMove(result.string);
+    if (result.stripped)
+        m_outgoingReferrerURL = { };
+    else
+        m_outgoingReferrerURL = url;
 }
 
 static AtomString extractContentLanguageFromHeader(const String& header)
@@ -1102,7 +1108,7 @@ void FrameLoader::loadArchive(Ref<Archive>&& archive)
 
 #endif // ENABLE(WEB_ARCHIVE) || ENABLE(MHTML)
 
-String FrameLoader::outgoingReferrer() const
+RefPtr<LocalFrame> FrameLoader::nonSrcdocFrame() const
 {
     // See http://www.whatwg.org/specs/web-apps/current-work/#fetching-resources
     // for why we walk the parent chain for srcdoc documents.
@@ -1114,8 +1120,30 @@ String FrameLoader::outgoingReferrer() const
         ASSERT(frame);
     }
     if (!frame)
+        return nullptr;
+    return dynamicDowncast<LocalFrame>(*frame);
+}
+
+String FrameLoader::outgoingReferrer() const
+{
+    RefPtr localFrame = nonSrcdocFrame();
+    if (!localFrame)
         return emptyString();
-    return is<LocalFrame>(*frame) ? downcast<LocalFrame>(*frame).loader().m_outgoingReferrer : emptyString();
+    return localFrame->loader().m_outgoingReferrer;
+}
+
+URL FrameLoader::outgoingReferrerURL()
+{
+    RefPtr localFrame = nonSrcdocFrame();
+    if (!localFrame)
+        return URL { emptyString() };
+    auto& loader = localFrame->loader();
+
+    if (loader.m_outgoingReferrerURL.isValid())
+        return loader.m_outgoingReferrerURL;
+    URL result { loader.m_outgoingReferrer };
+    loader.m_outgoingReferrerURL = result;
+    return result;
 }
 
 String FrameLoader::outgoingOrigin() const
@@ -1367,9 +1395,12 @@ void FrameLoader::loadFrameRequest(FrameLoadRequest&& request, Event* event, Ref
         return;
     }
     
-    String argsReferrer = request.resourceRequest().httpReferrer();
-    if (argsReferrer.isEmpty())
-        argsReferrer = outgoingReferrer();
+    URL argsReferrer;
+    String argsReferrerString = request.resourceRequest().httpReferrer();
+    if (argsReferrerString.isEmpty())
+        argsReferrer = outgoingReferrerURL();
+    else
+        argsReferrer = URL { argsReferrerString };
 
     ReferrerPolicy referrerPolicy = request.referrerPolicy();
     if (referrerPolicy == ReferrerPolicy::EmptyString)
@@ -3197,6 +3228,9 @@ void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMai
     if (isMainResource)
         request.setHTTPHeaderField(HTTPHeaderName::Accept, CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type::MainResource));
 
+    if (RefPtr document = m_frame->document(); document && frame().settings().privateTokenUsageByThirdPartyEnabled() && !frame().loader().client().isRemoteWorkerFrameLoaderClient())
+        request.setIsPrivateTokenUsageByThirdPartyAllowed(isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::PrivateToken, *document, LogFeaturePolicyFailure::No));
+
     // Only set fallback array if it's still empty (later attempts may be incorrect, see bug 117818).
     if (request.responseContentDispositionEncodingFallbackArray().isEmpty()) {
         // Always try UTF-8. If that fails, try frame encoding (if any) and then the default.
@@ -3362,7 +3396,7 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
 ResourceLoaderIdentifier FrameLoader::loadResourceSynchronously(const ResourceRequest& request, ClientCredentialPolicy clientCredentialPolicy, const FetchOptions& options, const HTTPHeaderMap& originalRequestHeaders, ResourceError& error, ResourceResponse& response, RefPtr<SharedBuffer>& data)
 {
     ASSERT(m_frame->document());
-    String referrer = SecurityPolicy::generateReferrerHeader(m_frame->document()->referrerPolicy(), request.url(), outgoingReferrer(), OriginAccessPatternsForWebProcess::singleton());
+    String referrer = SecurityPolicy::generateReferrerHeader(m_frame->document()->referrerPolicy(), request.url(), outgoingReferrerURL(), OriginAccessPatternsForWebProcess::singleton());
     
     ResourceRequest initialRequest = request;
     initialRequest.setTimeoutInterval(10);
@@ -4477,7 +4511,7 @@ RefPtr<Frame> createWindow(LocalFrame& openerFrame, LocalFrame& lookupFrame, Fra
     }
 
     // FIXME: Setting the referrer should be the caller's responsibility.
-    String referrer = SecurityPolicy::generateReferrerHeader(openerFrame.document()->referrerPolicy(), request.resourceRequest().url(), openerFrame.loader().outgoingReferrer(), OriginAccessPatternsForWebProcess::singleton());
+    String referrer = SecurityPolicy::generateReferrerHeader(openerFrame.document()->referrerPolicy(), request.resourceRequest().url(), openerFrame.loader().outgoingReferrerURL(), OriginAccessPatternsForWebProcess::singleton());
     if (!referrer.isEmpty())
         request.resourceRequest().setHTTPReferrer(referrer);
     FrameLoader::addSameSiteInfoToRequestIfNeeded(request.resourceRequest(), openerFrame.document());

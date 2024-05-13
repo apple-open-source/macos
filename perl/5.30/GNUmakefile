@@ -229,7 +229,8 @@ $(OBJROOT)/$(PROJECT)::
 	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-bzip2-use-sdk.patch | patch -p1) && \
 	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-zlib-use-sdk.patch | patch -p1) && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-regexec-fix-underflow.patch) && \
-	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-rootless-check-fd.patch)
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-rootless-check-fd.patch) && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/ff1f9f59360afeebd6f75ca1502f5c3ebf077da3.patch)
 
 
 ifneq "$(RC_XBS)" "YES"

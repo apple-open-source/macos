@@ -11,6 +11,7 @@
 #include <sys/xattr.h>
 
 #include "../copyfile_private.h"
+#include "../xattr_flags.h"
 #include "../xattr_properties.h"
 #include "test_utils.h"
 

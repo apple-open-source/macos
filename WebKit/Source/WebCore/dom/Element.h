@@ -313,7 +313,7 @@ public:
     // For exposing to DOM only.
     WEBCORE_EXPORT NamedNodeMap& attributes() const;
 
-    enum class AttributeModificationReason : bool { Directly, ByCloning };
+    enum class AttributeModificationReason : uint8_t { Directly, ByCloning, Parser };
     // This function is called whenever an attribute is added, changed or removed.
     // Do not call this function directly. notifyAttributeChanged() should be used instead
     // in order to update state dependent on attribute changes.
@@ -356,7 +356,7 @@ public:
     RefPtr<ShadowRoot> shadowRootForBindings(JSC::JSGlobalObject&) const;
 
     WEBCORE_EXPORT ExceptionOr<ShadowRoot&> attachShadow(const ShadowRootInit&);
-    ExceptionOr<ShadowRoot&> attachDeclarativeShadow(ShadowRootMode, bool delegatesFocus);
+    ExceptionOr<ShadowRoot&> attachDeclarativeShadow(ShadowRootMode, bool delegatesFocus, bool clonable);
 
     RefPtr<ShadowRoot> userAgentShadowRoot() const;
     WEBCORE_EXPORT ShadowRoot& ensureUserAgentShadowRoot();
@@ -721,8 +721,8 @@ public:
     using ContainerNode::setAttributeEventListener;
     void setAttributeEventListener(const AtomString& eventType, const QualifiedName& attributeName, const AtomString& value);
 
-    IntersectionObserverData& ensureIntersectionObserverData();
-    IntersectionObserverData* intersectionObserverDataIfExists();
+    virtual IntersectionObserverData& ensureIntersectionObserverData();
+    virtual IntersectionObserverData* intersectionObserverDataIfExists();
 
     ResizeObserverData& ensureResizeObserverData();
     ResizeObserverData* resizeObserverDataIfExists();
@@ -770,7 +770,6 @@ protected:
     void removedFromAncestor(RemovalType, ContainerNode&) override;
     void childrenChanged(const ChildChange&) override;
     void removeAllEventListeners() final;
-    virtual void parserDidSetAttributes();
 
     void setTabIndexExplicitly(std::optional<int>);
 
@@ -791,6 +790,7 @@ protected:
 
     void updateLabel(TreeScope&, const AtomString& oldForAttributeValue, const AtomString& newForAttributeValue);
 
+    void disconnectFromIntersectionObservers();
     static AtomString makeTargetBlankIfHasDanglingMarkup(const AtomString& target);
 
 private:
@@ -852,7 +852,6 @@ private:
     LayoutRect absoluteEventBounds(bool& boundsIncludeAllDescendantElements, bool& includesFixedPositionElements);
     LayoutRect absoluteEventBoundsOfElementAndDescendants(bool& includesFixedPositionElements);
 
-    void disconnectFromIntersectionObservers();
     void disconnectFromIntersectionObserversSlow(IntersectionObserverData&);
 
     void disconnectFromResizeObservers();

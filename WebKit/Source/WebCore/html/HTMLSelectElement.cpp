@@ -1687,8 +1687,8 @@ ExceptionOr<void> HTMLSelectElement::showPicker()
         return Exception { ExceptionCode::NotAllowedError, "Select showPicker() requires a user gesture."_s };
 
 #if !PLATFORM(IOS_FAMILY)
-    if (WeakPtr renderMenuList = dynamicDowncast<RenderMenuList>(renderer()))
-        renderMenuList->showPopup(); // showPopup() may run JS and cause the renderer to get destroyed.
+if (WeakPtr renderMenuList = dynamicDowncast<RenderMenuList>(renderer()))
+    renderMenuList->showPopup(); // showPopup() may run JS and cause the renderer to get destroyed.
 #endif
 
     return { };

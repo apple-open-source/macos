@@ -14,6 +14,7 @@
 		0998F99228ECF564008142F5 /* xdev_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 0998F99128ECF564008142F5 /* xdev_test.c */; };
 		09B503C12591048B00718584 /* clone_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 09B503C02591048B00718584 /* clone_test.c */; };
 		09BBB7BD27AB0AE7002EEC14 /* revert_writable_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 09BBB7BC27AB0AE7002EEC14 /* revert_writable_test.c */; };
+		09ED398B2B7E913200627FB2 /* recursive_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 09ED398A2B7E913200627FB2 /* recursive_test.c */; };
 		3EF9FA5F2418B6BA003B43E8 /* readonly_fd_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF9FA5E2418B6BA003B43E8 /* readonly_fd_test.c */; };
 		721D4F071EA95283000F0555 /* copyfile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE17C1135A658F002CEE6D /* copyfile.c */; };
 		721D4F081EA95290000F0555 /* xattr_flags.c in Sources */ = {isa = PBXBuildFile; fileRef = 72406E621676C3C80099568B /* xattr_flags.c */; };
@@ -52,6 +53,7 @@
 		09B503C02591048B00718584 /* clone_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = clone_test.c; sourceTree = "<group>"; };
 		09BBB7BC27AB0AE7002EEC14 /* revert_writable_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = revert_writable_test.c; sourceTree = "<group>"; };
 		09C701E82AA29188007083B2 /* scaffolding */ = {isa = PBXFileReference; lastKnownFileType = folder; path = scaffolding; sourceTree = "<group>"; };
+		09ED398A2B7E913200627FB2 /* recursive_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = recursive_test.c; sourceTree = "<group>"; };
 		3EF9FA5E2418B6BA003B43E8 /* readonly_fd_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = readonly_fd_test.c; sourceTree = "<group>"; };
 		3F1EFD4C185C4EB400D1C970 /* copyfile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = copyfile.xcconfig; path = xcodescripts/copyfile.xcconfig; sourceTree = "<group>"; };
 		721D4F051EA95008000F0555 /* libcopyfile.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcopyfile.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/usr/lib/system/libcopyfile.tbd; sourceTree = DEVELOPER_DIR; };
@@ -120,6 +122,7 @@
 				0996C65326B48AED004B1073 /* ctype_test.c */,
 				09BBB7BC27AB0AE7002EEC14 /* revert_writable_test.c */,
 				0998F99128ECF564008142F5 /* xdev_test.c */,
+				09ED398A2B7E913200627FB2 /* recursive_test.c */,
 			);
 			path = copyfile_test;
 			sourceTree = "<group>";
@@ -288,6 +291,7 @@
 				D11048A22455AE7900E8F465 /* xattr_test.c in Sources */,
 				0998F99228ECF564008142F5 /* xdev_test.c in Sources */,
 				0995EE832632401A007E32F3 /* bsize_test.c in Sources */,
+				09ED398B2B7E913200627FB2 /* recursive_test.c in Sources */,
 				721D4F071EA95283000F0555 /* copyfile.c in Sources */,
 				726EE9DB1E9423E50017A5B9 /* main.c in Sources */,
 				726EE9E61E946D590017A5B9 /* test_utils.c in Sources */,

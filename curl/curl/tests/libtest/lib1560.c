@@ -151,6 +151,9 @@ struct clearurlcase {
 };
 
 static const struct testcase get_parts_list[] ={
+  {"https://curl.se/#  ",
+   "https | [11] | [12] | [13] | curl.se | [15] | / | [16] | %20%20",
+   CURLU_URLENCODE|CURLU_ALLOW_SPACE, 0, CURLUE_OK},
   {"", "", 0, 0, CURLUE_MALFORMED_INPUT},
   {" ", "", 0, 0, CURLUE_MALFORMED_INPUT},
   {"1h://example.net", "", 0, 0, CURLUE_BAD_SCHEME},
@@ -316,7 +319,7 @@ static const struct testcase get_parts_list[] ={
    "http | ftp.user | moo | [13] | example.com | [15] | /color/ | [16] | "
    "green?no-red",
    CURLU_GUESS_SCHEME, 0, CURLUE_OK },
-#ifdef WIN32
+#ifdef _WIN32
   {"file:/C:\\programs\\foo",
    "file | [11] | [12] | [13] | [14] | [15] | C:\\programs\\foo | [16] | [17]",
    CURLU_DEFAULT_SCHEME, 0, CURLUE_OK},
@@ -785,6 +788,18 @@ static const struct setgetcase setget_parts_list[] = {
 
 /* !checksrc! disable SPACEBEFORECOMMA 1 */
 static const struct setcase set_parts_list[] = {
+  {"https://example.com/?param=value",
+   "query=\"\",",
+   "https://example.com/",
+   0, CURLU_APPENDQUERY | CURLU_URLENCODE, CURLUE_OK, CURLUE_OK},
+  {"https://example.com/",
+   "host=\"\",",
+   "https://example.com/",
+   0, CURLU_URLENCODE, CURLUE_OK, CURLUE_BAD_HOSTNAME},
+  {"https://example.com/",
+   "host=\"\",",
+   "https://example.com/",
+   0, 0, CURLUE_OK, CURLUE_BAD_HOSTNAME},
   {"https://example.com",
    "path=get,",
    "https://example.com/get",
@@ -1030,7 +1045,7 @@ static CURLUcode updateurl(CURLU *u, const char *cmd, unsigned int setflags)
   while(p) {
     char *e = strchr(p, ',');
     if(e) {
-      size_t n = e-p;
+      size_t n = (size_t)(e - p);
       char buf[80];
       char part[80];
       char value[80];
@@ -1624,7 +1639,6 @@ static char bigpart[120000];
  */
 static int huge(void)
 {
-  const char *url = "%s://%s:%s@%s/%s?%s#%s";
   const char *smallpart = "c";
   int i;
   CURLU *urlp = curl_url();
@@ -1648,7 +1662,7 @@ static int huge(void)
   for(i = 0; i <  7; i++) {
     char *partp;
     msnprintf(total, sizeof(total),
-              url,
+              "%s://%s:%s@%s/%s?%s#%s",
               (i == 0)? &bigpart[1] : smallpart,
               (i == 1)? &bigpart[1] : smallpart,
               (i == 2)? &bigpart[1] : smallpart,

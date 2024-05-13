@@ -28,7 +28,7 @@
 
 #define NUM_THREADS 100
 
-#ifdef WIN32
+#ifdef _WIN32
 #ifdef _WIN32_WCE
 static DWORD WINAPI run_thread(LPVOID ptr)
 #else
@@ -84,7 +84,7 @@ int test(char *URL)
     th = _beginthreadex(NULL, 0, run_thread, &results[i], 0, NULL);
 #endif
     if(!th) {
-      fprintf(stderr, "%s:%d Couldn't create thread, errno %d\n",
+      fprintf(stderr, "%s:%d Couldn't create thread, errno %lu\n",
               __FILE__, __LINE__, GetLastError());
       tid_count = i;
       test_failure = -1;

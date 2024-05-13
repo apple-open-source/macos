@@ -281,6 +281,7 @@ private:
     void updateDataDetectorsForSelection();
 
     bool setSelectionWithoutUpdatingAppearance(const VisibleSelection&, OptionSet<SetSelectionOption>, CursorAlignOnScroll, TextGranularity);
+    void setNodeFlags(VisibleSelection&, bool value);
 
     void respondToNodeModification(Node&, bool anchorRemoved, bool focusRemoved, bool baseRemoved, bool extentRemoved, bool startRemoved, bool endRemoved);
     TextDirection directionOfEnclosingBlock();
@@ -335,7 +336,7 @@ private:
     void updateAssociatedLiveRange();
     LayoutRect localCaretRect() const final { return localCaretRectWithoutUpdate(); }
 
-    CheckedPtr<Document> m_document;
+    WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
     RefPtr<Range> m_associatedLiveRange;
     std::optional<LayoutUnit> m_xPosForVerticalArrowNavigation;
     VisibleSelection m_selection;

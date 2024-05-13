@@ -1606,7 +1606,7 @@ u_int16_t
 udp_cksum(struct sockaddr_in6 *src, struct sockaddr_in6 *dst,
     void *payload, u_int32_t len)
 {
-	struct {
+	volatile struct {
 		struct in6_addr src;
 		struct in6_addr dst;
 		u_int32_t len;
@@ -1633,7 +1633,7 @@ u_int16_t
 tcp_chksum(struct sockaddr_in6 *src, struct sockaddr_in6 *dst,
     void *payload, u_int32_t len)
 {
-	struct {
+	volatile struct {
 		struct in6_addr src;
 		struct in6_addr dst;
 		u_int32_t len;

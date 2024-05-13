@@ -110,6 +110,7 @@ typedef NS_ENUM(NSInteger, SupdError) {
     SupdNoError = 0,
     SupdGenericError,
     SupdInvalidJSONError,
+    SupdMissingParamError,
 };
 
 @interface supd : NSObject <supdProtocol, TrustdFileHelper_protocol>
@@ -121,6 +122,8 @@ typedef NS_ENUM(NSInteger, SupdError) {
 @property (readonly) SFAnalyticsReporter *reporter;
 - (void)sendNotificationForOncePerReportSamplers;
 - (instancetype)initWithConnection:(NSXPCConnection *)connection reporter:(SFAnalyticsReporter *)reporter;
++ (NSData *)serializeLoggingEvent:(NSDictionary *)event
+                            error:(NSError **)error;
 @end
 
 // --------------------------------

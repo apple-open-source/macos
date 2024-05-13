@@ -333,12 +333,23 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
 
             for ( argumentListIndex = 0; argumentListIndex < argumentListCount; argumentListIndex++ )
             {
-                CFStringRef compare;
-
-                compare = CFArrayGetValueAtIndex( argumentList, argumentListIndex );
-
-                if ( compare )
+                CFStringRef arg = NULL;
+                CFStringRef compare = NULL;
+                CFMutableStringRef tmpArg = NULL;
+                if ( CFArrayGetValueAtIndex( argumentList, argumentListIndex ) )
                 {
+                    tmpArg = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFArrayGetValueAtIndex( argumentList, argumentListIndex ) );
+                }
+                if ( tmpArg )
+                {
+                    CFStringLowercase( tmpArg, NULL );
+                    arg = CFStringCreateCopy( kCFAllocatorDefault, tmpArg );
+                    CFRelease( tmpArg );
+                }
+
+                if ( arg )
+                {
+                    compare = arg;
                     CFBooleanRef compareValue;
 
                     if ( CFStringHasPrefix( compare, CFSTR( "no" ) ) )
@@ -386,6 +397,7 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
 
                         CFRelease( compare );
                     }
+                    CFRelease( arg );
                 }
             }
 
@@ -1255,33 +1267,16 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         CFStringInsert( options, 0, kDAFileSystemMountArgumentNoWrite );
     }
 
-    /*
-     * override with 'nosuid' for non-internal volumes
-     * override with 'owners' for internal volumes.
-     */
     if ( DAMountGetPreference( disk, kDAMountPreferenceTrust ) == FALSE )
     {
-        CFStringTrim( options, CFSTR( "," ) );
-
-        CFStringAppend( options, CFSTR( "," ) );
-        CFStringAppend( options, kDAFileSystemMountArgumentNoSetUserID );
-  
-        CFStringTrim( options, CFSTR( "," ) );
+        CFStringInsert( options, 0, CFSTR( "," ) );
+        CFStringInsert( options, 0, kDAFileSystemMountArgumentNoSetUserID );
 
         CFStringInsert( options, 0, CFSTR( "," ) );
         CFStringInsert( options, 0, kDAFileSystemMountArgumentNoOwnership );
 
         CFStringInsert( options, 0, CFSTR( "," ) );
         CFStringInsert( options, 0, kDAFileSystemMountArgumentNoDevice );
-    }
-    else
-    {
-        CFStringTrim( options, CFSTR( "," ) );
-
-        CFStringAppend( options, CFSTR( "," ) );
-        CFStringAppend( options, kDAFileSystemMountArgumentOwnership );
-  
-        CFStringTrim( options, CFSTR( "," ) );
     }
     
 ///w:start

@@ -1126,6 +1126,11 @@ out:
 /* Automagically make a item syncable, based on various attributes. */
 bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef *error)
 {
+    CFStringRef ggrp = SecDbItemGetCachedValueWithName(item, kSecAttrSharingGroup);
+    if (isString(ggrp) && CFStringGetLength(ggrp) != 0) {
+        return true;
+    }
+
     CFStringRef agrp = SecDbItemGetCachedValueWithName(item, kSecAttrAccessGroup);
 
     if (!isString(agrp))

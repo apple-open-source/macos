@@ -124,12 +124,12 @@ credential_create(uid_t uid)
     cred = _credential_create();
     require(cred != NULL, done);
 
-    struct passwd *pw = ((int)uid > -1) ? getpwuid(uid) : NULL;
-	if (pw != NULL) {
+    struct passwd *pw = (uid != (uid_t)-1) ? getpwuid(uid) : NULL;
+    if (pw != NULL) {
         // avoid hinting a locked account
-		// LibInfo started to return asterisk for system accounts in <rdar://problem/31633690> J93: 17a240: Hang during boot (opendirectoryd/powerd deadlock)
-		// so do not make this check for those system accounts
-		if ( (uid < 500) ||  (pw->pw_passwd == NULL) || strcmp(pw->pw_passwd, "*") ) {
+        // LibInfo started to return asterisk for system accounts in <rdar://problem/31633690> J93: 17a240: Hang during boot (opendirectoryd/powerd deadlock)
+        // so do not make this check for those system accounts
+        if ((uid < 500) ||  (pw->pw_passwd == NULL) || strcmp(pw->pw_passwd, "*")) {
             cred->uid = pw->pw_uid;
             cred->name = _copy_string(pw->pw_name);
             cred->realName = _copy_string(pw->pw_gecos);
@@ -141,7 +141,7 @@ credential_create(uid_t uid)
         }
         endpwent();
     } else {
-        if ((int)uid != -1) {
+        if (uid != (uid_t)-1) {
             os_log_error(AUTHD_LOG, "credential: failed to get user uid %d", uid);
         }
         cred->uid = (uid_t)-3;

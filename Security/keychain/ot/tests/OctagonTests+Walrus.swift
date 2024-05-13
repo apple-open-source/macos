@@ -581,10 +581,10 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let container2 = try! self.tphClient.getContainer(with: try XCTUnwrap(peer2.activeAccount))
         try container2.moc.performAndWait {
-            XCTAssertEqual(container2.model.peerCount(), 2, "container2 should have 2 peers")
+            XCTAssertEqual(try container2.model.peerCount(), 2, "container2 should have 2 peers")
 
             let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
-            let oldStableInfo: TPPeerStableInfo! = container2.model.getStableInfoForPeer(withID: egoPeerID)
+            let oldStableInfo: TPPeerStableInfo! = try container2.model.getStableInfoForPeer(withID: egoPeerID)
             let newWalrus: TPPBPeerStableInfoSetting! = TPPBPeerStableInfoSetting()
             newWalrus.value = false
             newWalrus.clock = 1
@@ -706,11 +706,11 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let container2 = try! self.tphClient.getContainer(with: try XCTUnwrap(peer2.activeAccount))
         try container2.moc.performAndWait {
-            XCTAssertEqual(container2.model.peerCount(), 2, "container2 should have 2 peers")
+            XCTAssertEqual(try container2.model.peerCount(), 2, "container2 should have 2 peers")
 
             let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
             // set walrus to false on ego peer, true on other peer
-            container2.model.enumeratePeers { peer, _ in
+            try container2.model.enumeratePeers { peer, _ in
                 peer.stableInfo!.walrusSetting!.value = egoPeerID != peer.peerID
                 peer.stableInfo!.walrusSetting!.clock = 1
             }
@@ -1381,10 +1381,10 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let container2 = try! self.tphClient.getContainer(with: try XCTUnwrap(peer2.activeAccount))
         try container2.moc.performAndWait {
-            XCTAssertEqual(container2.model.peerCount(), 2, "container2 should have 2 peers")
+            XCTAssertEqual(try container2.model.peerCount(), 2, "container2 should have 2 peers")
 
             let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
-            let oldStableInfo: TPPeerStableInfo! = container2.model.getStableInfoForPeer(withID: egoPeerID)
+            let oldStableInfo: TPPeerStableInfo! = try container2.model.getStableInfoForPeer(withID: egoPeerID)
             let newWebAccess: TPPBPeerStableInfoSetting = TPPBPeerStableInfoSetting()
             newWebAccess.value = false
             newWebAccess.clock = 1
@@ -1509,11 +1509,11 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let container2 = try! self.tphClient.getContainer(with: try XCTUnwrap(peer2.activeAccount))
         try container2.moc.performAndWait {
-            XCTAssertEqual(container2.model.peerCount(), 2, "container2 should have 2 peers")
+            XCTAssertEqual(try container2.model.peerCount(), 2, "container2 should have 2 peers")
 
             let egoPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
             // set webAccess to false on ego peer, true on other peer
-            container2.model.enumeratePeers { peer, _ in
+            try container2.model.enumeratePeers { peer, _ in
                 peer.stableInfo!.webAccess!.value = egoPeerID != peer.peerID
                 peer.stableInfo!.webAccess!.clock = 1
             }
@@ -1766,13 +1766,18 @@ class OctagonWalrusTests: OctagonTestsBase {
 
             XCTAssertThrowsError(try cliqueBridge.setAccountSetting(setting), "Should not be able to successfully set web access setting when there's no network connectivity") { error in
                 let nserror = error as NSError
-                XCTAssertEqual(nserror.domain, OctagonErrorDomain, "Error should be OctagonErrorDomain")
-                XCTAssertEqual(nserror.code, OctagonError.failedToSetWebAccess.rawValue, "Error code should be OctagonErrorFailedToSetWebAccess")
+                XCTAssertEqual(nserror.domain, OctagonErrorDomain, "Error domain should be OctagonErrorDomain")
+                XCTAssertEqual(nserror.code, OctagonError.failedToSetWalrus.rawValue, "Error code should be OctagonErrorFailedToSetWalrus")
 
                 let underlying = nserror.userInfo[NSUnderlyingErrorKey] as? NSError
                 XCTAssertNotNil(underlying, "Should have an underlying error")
-                XCTAssertEqual(underlying?.domain ?? "", NSURLErrorDomain, "Underlying error should be NSURLErrorDomain")
-                XCTAssertEqual(underlying?.code ?? 0, NSURLErrorUnknown, "Underlying error code should be NSURLErrorUnknown")
+                XCTAssertEqual(underlying?.domain ?? "", OctagonErrorDomain, "Underlying error domain should be OctagonErrorDomain")
+                XCTAssertEqual(underlying?.code ?? 0, OctagonError.failedToSetWebAccess.rawValue, "Error code should be OctagonErrorFailedToSetWebAccess")
+
+                let secondUnderlying = underlying!.userInfo[NSUnderlyingErrorKey] as? NSError
+                XCTAssertNotNil(secondUnderlying, "should have another underlying error")
+                XCTAssertEqual(secondUnderlying?.domain ?? "", NSURLErrorDomain, "Error domain should be NSURLErrorDomain")
+                XCTAssertEqual(secondUnderlying?.code ?? 0, NSURLErrorUnknown, "Error code should be NSURLErrorUnknown")
             }
             self.wait(for: [setWebAccessExpectation], timeout: 10)
             self.fakeCuttlefishServer.updateListener = nil
@@ -2197,6 +2202,43 @@ class OctagonWalrusTests: OctagonTestsBase {
         XCTAssertTrue(retSettings!.walrus!.enabled, "walrus should be enabled")
 
         self.verifyDatabaseMocks()
+    }
+
+    func testSetWalrusBeforeJoining() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Create peer that will join using crk
+        let peerContext = self.makeInitiatorContext(contextID: "join-peer")
+
+        peerContext.startOctagonStateMachine()
+        self.assertEnters(context: peerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.sendContainerChangeWaitForUntrustedFetch(context: peerContext)
+
+        let joiningPeerClique = self.cliqueFor(context: peerContext)
+        let joiningPeerCliqueBridge = OctagonTrustCliqueBridge(clique: joiningPeerClique)
+
+        let setting = makeAccountSettings(walrus: true)
+        // Set walrus
+        let serverSideExpectation = self.expectation(description: "walrus set expectation")
+        serverSideExpectation.isInverted = true
+        self.fakeCuttlefishServer.updateListener = { _ in
+            serverSideExpectation.fulfill()
+            return nil
+        }
+
+        let setAccountSettingExpectation = self.expectation(description: "walrus set expectation")
+        XCTAssertThrowsError(try joiningPeerCliqueBridge.setAccountSetting(setting), "There should be an error setting account setting") { error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
+            XCTAssertEqual((error as NSError).code, OctagonError.cannotSetAccountSettings.rawValue, "error code should be OctagonErrorCannotSetAccountSettings")
+            setAccountSettingExpectation.fulfill()
+        }
+        self.wait(for: [setAccountSettingExpectation], timeout: 10)
+
+        self.wait(for: [serverSideExpectation], timeout: 2)
     }
 }
 

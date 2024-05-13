@@ -75,6 +75,7 @@ private:
     std::pair<ElementUpdate, DescendantsToResolve> resolveElement(Element&, const RenderStyle* existingStyle, ResolutionType);
 
     ElementUpdate createAnimatedElementUpdate(ResolvedStyle&&, const Styleable&, Change, const ResolutionContext&);
+    std::unique_ptr<RenderStyle> resolveStartingStyle(const ResolvedStyle&, const Styleable&, const ResolutionContext&) const;
     HashSet<AnimatableCSSProperty> applyCascadeAfterAnimation(RenderStyle&, const HashSet<AnimatableCSSProperty>&, bool isTransition, const MatchResult&, const Element&, const ResolutionContext&);
 
     std::optional<ElementUpdate> resolvePseudoElement(Element&, PseudoId, const ElementUpdate&);
@@ -109,7 +110,10 @@ private:
     };
 
     Scope& scope() { return m_scopeStack.last(); }
+    const Scope& scope() const { return m_scopeStack.last(); }
+
     Parent& parent() { return m_parentStack.last(); }
+    const Parent& parent() const { return m_parentStack.last(); }
 
     void pushScope(ShadowRoot&);
     void pushEnclosingScope();

@@ -960,6 +960,7 @@ kern_vm_tag_name(uint64_t tag)
 	case (VM_KERN_MEMORY_ANY):              name = "VM_KERN_MEMORY_ANY"; break;
 	case (VM_KERN_MEMORY_RETIRED):          name = "VM_KERN_MEMORY_RETIRED"; break;
 	case (VM_KERN_MEMORY_RECOUNT):          name = "VM_KERN_MEMORY_RECOUNT"; break;
+	case (VM_KERN_MEMORY_EXCLAVES):         name = "VM_KERN_MEMORY_EXCLAVES"; break;
 	default:                                name = NULL; break;
 	}
 	if (name) {

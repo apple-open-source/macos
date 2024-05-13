@@ -65,12 +65,14 @@ public:
 #endif
     virtual void cancelLoad() = 0;
 
-    virtual void prepareForPlayback(bool privateMode, MediaPlayer::Preload preload, bool preservesPitch, bool prepare)
+    virtual void prepareForPlayback(bool privateMode, MediaPlayer::Preload preload, bool preservesPitch, bool prepareToPlay, bool prepareToRender)
     {
         setPrivateBrowsingMode(privateMode);
         setPreload(preload);
         setPreservesPitch(preservesPitch);
-        if (prepare)
+        if (prepareToPlay)
+            this->prepareToPlay();
+        if (prepareToRender)
             prepareForRendering();
     }
 
@@ -308,6 +310,8 @@ public:
     virtual bool ended() const { return false; }
 
     virtual std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() { return std::nullopt; }
+    using VideoPlaybackQualityMetricsPromise = MediaPlayer::VideoPlaybackQualityMetricsPromise;
+    WEBCORE_EXPORT virtual Ref<VideoPlaybackQualityMetricsPromise> asyncVideoPlaybackQualityMetrics();
 
     virtual void notifyTrackModeChanged() { }
 

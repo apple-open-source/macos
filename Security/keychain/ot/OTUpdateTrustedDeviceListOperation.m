@@ -135,6 +135,9 @@
                                                                               NSSet<NSString*>* _Nullable evictedRemovals,
                                                                               NSSet<NSString*>* _Nullable unknownReasonRemovals,
                                                                               NSString* _Nullable version,
+                                                                              NSString* _Nullable trustedDeviceHash,
+                                                                              NSString* _Nullable deletedDeviceHash,
+                                                                              NSNumber* _Nullable trustedDevicesUpdateTimestamp,
                                                                               NSError * _Nullable error) {
         STRONGIFY(self);
 
@@ -179,6 +182,9 @@
               userInitiatedRemovals:userInitiatedRemovals
                     evictedRemovals:evictedRemovals
               unknownReasonRemovals:unknownReasonRemovals
+                  trustedDeviceHash:trustedDeviceHash
+                  deletedDeviceHash:deletedDeviceHash
+      trustedDevicesUpdateTimestamp:trustedDevicesUpdateTimestamp
                       accountIsDemo:isAccountDemo
                             version:version];
         }
@@ -189,7 +195,11 @@
     userInitiatedRemovals:(NSSet<NSString *>*)userInitiatedRemovals
           evictedRemovals:(NSSet<NSString *>*)evictedRemovals
     unknownReasonRemovals:(NSSet<NSString *>*)unknownReasonRemovals
-            accountIsDemo:(BOOL)accountIsDemo version:(NSString* _Nullable)version
+        trustedDeviceHash:(NSString * _Nullable)trustedDeviceHash
+        deletedDeviceHash:(NSString * _Nullable)deletedDeviceHash
+trustedDevicesUpdateTimestamp:(NSNumber * _Nullable)trustedDevicesUpdateTimestamp
+            accountIsDemo:(BOOL)accountIsDemo 
+                  version:(NSString* _Nullable)version
 {
     WEAKIFY(self);
     BOOL honorIDMSListChanges = accountIsDemo ? NO : YES;
@@ -204,7 +214,14 @@
                                                          evictedRemovals:evictedRemovals
                                                    unknownReasonRemovals:unknownReasonRemovals
                                                     honorIDMSListChanges:honorIDMSListChanges
-                                                                 version:version
+                                                                 version:version 
+                                                                  flowID:self.deps.flowID
+                                                         deviceSessionID:self.deps.deviceSessionID
+                                                          canSendMetrics:self.deps.permittedToSendMetrics
+                                                                 altDSID:self.deps.activeAccount.altDSID
+                                                       trustedDeviceHash:trustedDeviceHash
+                                                       deletedDeviceHash:deletedDeviceHash 
+                                           trustedDevicesUpdateTimestamp:trustedDevicesUpdateTimestamp
                                                                    reply:^(BOOL listDifferences, NSError * _Nullable error) {
         STRONGIFY(self);
 

@@ -212,13 +212,6 @@ void NetworkProcess::platformFlushCookies(PAL::SessionID sessionID, CompletionHa
         completionHandler();
 }
 
-#if ENABLE(CFPREFS_DIRECT_MODE)
-void NetworkProcess::notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue)
-{
-    preferenceDidUpdate(domain, key, encodedValue);
-}
-#endif
-
 const String& NetworkProcess::uiProcessBundleIdentifier() const
 {
     if (m_uiProcessBundleIdentifier.isNull())
@@ -255,32 +248,5 @@ void NetworkProcess::setProxyConfigData(PAL::SessionID sessionID, Vector<std::pa
     session->setProxyConfigData(WTFMove(proxyConfigurations));
 }
 #endif // HAVE(NW_PROXY_CONFIG)
-
-#if USE(RUNNINGBOARD) && USE(EXTENSIONKIT)
-bool NetworkProcess::aqcuireLockedFileGrant()
-{
-    [m_holdingLockedFileGrant invalidateGrant];
-    m_holdingLockedFileGrant = [WKProcessExtension.sharedInstance grant:@"com.apple.common" name:@"FinishTaskInterruptable"];
-    if (m_holdingLockedFileGrant)
-        RELEASE_LOG(Process, "Successfully took assertion on Network process for locked file.");
-    else
-        RELEASE_LOG_ERROR(Process, "Unable to take assertion on Network process for locked file.");
-    return !!m_holdingLockedFileGrant;
-}
-
-void NetworkProcess::invalidateGrant()
-{
-    if (!hasAcquiredGrant())
-        return;
-
-    [m_holdingLockedFileGrant invalidateGrant];
-    m_holdingLockedFileGrant = nil;
-}
-
-bool NetworkProcess::hasAcquiredGrant() const
-{
-    return !!m_holdingLockedFileGrant;
-}
-#endif
 
 } // namespace WebKit

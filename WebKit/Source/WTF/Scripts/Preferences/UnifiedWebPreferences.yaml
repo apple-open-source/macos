@@ -1104,6 +1104,20 @@ CSSInputSecurityEnabled:
     WebCore:
       default: false
 
+CSSLightDarkEnabled:
+  type: bool
+  status: stable
+  category: css
+  humanReadableName: "CSS light-dark()"
+  humanReadableDescription: "Enable support for CSS light-dark() defined in CSS Color 5"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 CSSMarginTrimEnabled:
   type: bool
   status: stable
@@ -1289,6 +1303,20 @@ CSSScrollbarWidthEnabled:
     WebCore:
       default: false
 
+CSSStartingStyleAtRuleEnabled:
+  type: bool
+  status: stable
+  category: css
+  humanReadableName: "CSS @starting-style rule"
+  humanReadableDescription: "Enable CSS @starting-style rule"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 CSSTextBoxTrimEnabled:
   type: bool
   status: preview
@@ -1375,17 +1403,17 @@ CSSTextWrapPrettyEnabled:
 
 CSSTextWrapStyleEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "CSS text-wrap-style property"
   humanReadableDescription: "Enable the property text-wrap-style, defined in CSS Text 4"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSTransformStyleOptimized3DEnabled:
   type: bool
@@ -5035,6 +5063,18 @@ PermissionsAPIEnabled:
     WebCore:
       default: false
 
+PhotoPickerPrefersOriginalImageFormat:
+  type: bool
+  status: internal
+  humanReadableName: "Photo Picker Prefers Original Image Format"
+  humanReadableDescription: "Prefer the original image format when selecting photos for file upload"
+  webcoreBinding: none
+  condition: HAVE(PHOTOS_UI)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: true
+
 PictographFontFamily:
   type: String
   status: embedder
@@ -5190,6 +5230,20 @@ PrivateClickMeasurementFraudPreventionEnabled:
     WebCore:
       "HAVE(RSA_BSSA)": true
       default: false
+
+PrivateTokenUsageByThirdPartyEnabled:
+  type: bool
+  status: stable
+  category: privacy
+  humanReadableName: "Private Token usage by third party"
+  humanReadableDescription: "Enable private token usage by third party"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 ProcessSwapOnCrossSiteNavigationEnabled:
   type: bool

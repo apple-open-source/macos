@@ -73,6 +73,15 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@interface OTMetricsSessionData : NSObject
+
+@property (readonly, atomic, strong, nullable) NSString* flowID;
+@property (readonly, atomic, strong, nullable) NSString* deviceSessionID;
+
+-(instancetype)init NS_UNAVAILABLE;
+-(instancetype)initWithFlowID:(NSString*)flowID deviceSessionID:(NSString*)deviceSessionID;
+@end
+
 @interface OTCuttlefishContext : NSObject <OctagonCuttlefishUpdateReceiver,
                                            OTAuthKitAdapterNotifier,
                                            OctagonStateMachineEngine,
@@ -97,8 +106,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable, nonatomic) CKKSNearFutureScheduler* sosConsistencyRateLimiter;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* checkMetricsTrigger;
 
-@property (nonatomic, strong, nullable) NSString* flowID;
-@property (nonatomic, strong, nullable) NSString* deviceSessionID;
+@property (atomic, strong, nullable) OTMetricsSessionData* sessionMetrics;
 @property (nonatomic) OTAccountMetadataClassC_MetricsState shouldSendMetricsForOctagon;
 
 @property (readonly, nullable) CKKSKeychainView*            ckks;
@@ -326,8 +334,6 @@ NS_ASSUME_NONNULL_BEGIN
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;
 - (TrustedPeersHelperEgoPeerStatus* _Nullable)egoPeerStatus:(NSError**)error;
-
-- (void)setAccountSettings:(OTAccountSettings*_Nullable)accountSettings;
 
 - (BOOL)fetchSendingMetricsPermitted:(NSError**)error;
 - (BOOL)persistSendingMetricsPermitted:(BOOL)sendingMetricsPermitted error:(NSError**)error;

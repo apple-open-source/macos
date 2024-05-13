@@ -1,5 +1,6 @@
 import CoreData
 import Foundation
+import CryptoKit
 
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "machineids")
 
@@ -124,12 +125,100 @@ extension Container {
         }
     }
 
+    func checkForDuplicateEntriesAndSendMetric(_ allowedMachineIDs: Set<String>,
+                                               userInitiatedRemovals: Set<String>? = nil,
+                                               evictedRemovals: Set<String>? = nil,
+                                               unknownReasonRemovals: Set<String>? = nil,
+                                               flowID: String?,
+                                               deviceSessionID: String?,
+                                               altDSID: String?,
+                                               testsAreEnabled: Bool) -> Bool {
+
+        var duplicateDetected = false
+        for allowedMachineId in allowedMachineIDs {
+            if let userInitiatedRemovals, userInitiatedRemovals.contains(allowedMachineId) {
+                duplicateDetected = true
+                break
+            }
+
+            if let evictedRemovals, evictedRemovals.contains(allowedMachineIDs) {
+                duplicateDetected = true
+                break
+            }
+
+            if let unknownReasonRemovals, unknownReasonRemovals.contains(allowedMachineId) {
+                duplicateDetected = true
+                break
+            }
+        }
+        
+        if duplicateDetected {
+            let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                   altDSID: altDSID,
+                                                   flowID: flowID,
+                                                   deviceSessionID: deviceSessionID,
+                                                   eventName: kSecurityRTCEventNameDuplicateMachineID,
+                                                   testsAreEnabled: testsAreEnabled,
+                                                   canSendMetrics: true,
+                                                   category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+
+            SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.duplicateMachineID)
+
+            return true
+        }
+
+        return false
+    }
+
+    func sendVanishedMetric(egoMachineIDVanished: Bool,
+                            altDSID: String?,
+                            flowID: String?,
+                            deviceSessionID: String?) -> Void {
+
+        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: [kSecurityRTCFieldEgoMachineIDVanishedFromTDL : egoMachineIDVanished],
+                                               altDSID: altDSID,
+                                               flowID: flowID,
+                                               deviceSessionID: deviceSessionID,
+                                               eventName: kSecurityRTCEventNameMIDVanishedFromTDL,
+                                               testsAreEnabled: false,
+                                               canSendMetrics: true,
+                                               category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+
+        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.machineIDVanishedFromTDL)
+    }
+
+    func computeHash(machineIDs: Set<String>) -> String? {
+        var machineIDSConcatenated: String = ""
+
+        let sorted = machineIDs.sorted()
+        for machineId in sorted {
+            machineIDSConcatenated += machineId
+        }
+
+        if let data = machineIDSConcatenated.data(using: .utf8) {
+            let digest = SHA256.hash(data: data)
+            let hashString = digest
+                .compactMap { String(format: "%02x", $0) }
+                .joined()
+            return hashString
+        }
+
+        return nil
+    }
+
     func setAllowedMachineIDs(_ allowedMachineIDs: Set<String>,
                               userInitiatedRemovals: Set<String>? = nil,
                               evictedRemovals: Set<String>? = nil,
                               unknownReasonRemovals: Set<String>? = nil,
                               honorIDMSListChanges: Bool,
                               version: String?,
+                              flowID: String?,
+                              deviceSessionID: String?,
+                              canSendMetrics: Bool,
+                              altDSID: String?,
+                              trustedDeviceHash: String?,
+                              deletedDeviceHash: String?,
+                              trustedDevicesUpdateTimestamp: NSNumber?,
                               reply: @escaping (Bool, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Bool, Error?) -> Void = {
@@ -145,10 +234,87 @@ extension Container {
 
         self.moc.performAndWait {
             do {
+
+                var egoMachineID: String? = nil
+                var egoIsTrusted: Bool = false
+
+                if let egoPeerID = self.containerMO.egoPeerID {
+                    let egoPeer: TPPeer?
+                    do {
+                        egoPeer = try self.model.peer(withID: egoPeerID)
+                        if egoPeer == nil {
+                            logger.warning("Couldn't find ego peer in model")
+                        }
+                    } catch {
+                        logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                        egoPeer = nil
+                    }
+                    if let egoPeer {
+                        egoMachineID = egoPeer.permanentInfo.machineID
+                        
+                        do {
+                            let status = try self.model.statusOfPeer(withID: egoPeerID)
+                            egoIsTrusted = (status != .excluded && status != .unknown && status != .ignored)
+                        } catch {
+                            logger.warning("error calling statusOfPeer: \(error, privacy: .public)")
+                        }
+                    }
+                }
+
+                var deletedList: Set<String> = Set()
+                if let userInitiatedRemovals {
+                    deletedList.formUnion(userInitiatedRemovals)
+                }
+                if let evictedRemovals {
+                    deletedList.formUnion(evictedRemovals)
+                }
+                if let unknownReasonRemovals {
+                    deletedList.formUnion(unknownReasonRemovals)
+                }
+                var hashOfDeleted: String? = ""
+                if !deletedList.isEmpty {
+                    hashOfDeleted = self.computeHash(machineIDs: deletedList)
+                    logger.info("sha256 of deleted list: \(String(describing: hashOfDeleted), privacy: .public)")
+                }
+                var hashOfAllowed: String? = ""
+                if !allowedMachineIDs.isEmpty {
+                    hashOfAllowed = self.computeHash(machineIDs: allowedMachineIDs)
+                    logger.info("sha256 of allowed list: \(String(describing: hashOfAllowed), privacy: .public)")
+                }
+
+                self.testHashMismatchDetected = false
+                if trustedDeviceHash != hashOfAllowed {
+                    let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                           altDSID: altDSID,
+                                                           flowID: flowID,
+                                                           deviceSessionID: deviceSessionID,
+                                                           eventName: kSecurityRTCEventNameAllowedMIDHashMismatch,
+                                                           testsAreEnabled: false,
+                                                           canSendMetrics: true,
+                                                           category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.allowedMIDHashMismatch)
+                    self.testHashMismatchDetected = true
+                }
+                if deletedDeviceHash != hashOfDeleted {
+                    let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                           altDSID: altDSID,
+                                                           flowID: flowID,
+                                                           deviceSessionID: deviceSessionID,
+                                                           eventName: kSecurityRTCEventNameDeletedMIDHashMismatch,
+                                                           testsAreEnabled: false,
+                                                           canSendMetrics: true,
+                                                           category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.deletedMIDHashMismatch)
+                    self.testHashMismatchDetected = true
+                }
+
+                let detectedDuplicate = self.checkForDuplicateEntriesAndSendMetric(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasonRemovals, flowID: flowID, deviceSessionID: deviceSessionID, altDSID: altDSID, testsAreEnabled: false)
+
+                var midVanishedFromTDL = false
                 var differences = false
                 self.containerMO.honorIDMSListChanges = honorIDMSListChanges ? "YES" : "NO"
 
-                var knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
+                var knownMachines = self.containerMO.machines as? Set<MachineMO> ?? Set()
                 var knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
 
                 knownMachines.forEach { machine in
@@ -211,6 +377,19 @@ extension Container {
                     }
 
                     // This machine ID is not on the allow list, user initiated list, evicted list, or unknown reason list. What, if anything, should be done?
+
+                    var egoMachineIDVanished = false
+                    self.testEgoMachineIDVanished = false
+
+                    if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                        egoMachineIDVanished = true
+                        self.testEgoMachineIDVanished = true
+                    }
+
+                    self.sendVanishedMetric(egoMachineIDVanished: egoMachineIDVanished, altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
+
+                    midVanishedFromTDL = true
+
                     if machine.status == TPMachineIDStatus.evicted.rawValue {
                         self.handleEvicted(machine: machine, listDifferences: &differences)
                     } else if machine.status == TPMachineIDStatus.unknownReason.rawValue {
@@ -252,6 +431,10 @@ extension Container {
                     }
                 }
 
+                // reload knownMachineIDs in case peerIDs end up in multiple sets
+                knownMachines = self.containerMO.machines as? Set<MachineMO> ?? Set()
+                knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
+
                 // Do we need to create any further objects?
                 allowedMachineIDs.forEach { machineID in
                     if !knownMachineIDs.contains(machineID) {
@@ -271,6 +454,7 @@ extension Container {
                 }
 
                 // reload knownMachineIDs in case peerIDs end up in multiple sets
+                knownMachines = self.containerMO.machines as? Set<MachineMO> ?? Set()
                 knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
 
                 if let removeNow = userInitiatedRemovals {
@@ -293,6 +477,7 @@ extension Container {
                 }
 
                 // reload knownMachineIDs in case peerIDs end up in multiple sets
+                knownMachines = self.containerMO.machines as? Set<MachineMO> ?? Set()
                 knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
 
                 if let evicted = evictedRemovals {
@@ -315,10 +500,11 @@ extension Container {
                 }
 
                 // reload knownMachineIDs in case peerIDs end up in multiple sets
+                knownMachines = self.containerMO.machines as? Set<MachineMO> ?? Set()
                 knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
 
-                if let unknowns = unknownReasonRemovals {
-                    unknowns.forEach { machineID in
+                if let unknownReasonRemovals = unknownReasonRemovals {
+                    unknownReasonRemovals.forEach { machineID in
                         if !knownMachineIDs.contains(machineID) {
                             // We didn't know about this machine before; it's newly removed with an unknown reason!
                             let machine = MachineMO(context: self.moc)
@@ -336,11 +522,18 @@ extension Container {
                     }
                 }
 
+                // reload knownMachineIDs in case peerIDs end up in multiple sets
+                knownMachines = self.containerMO.machines as? Set<MachineMO> ?? Set()
+                knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
+
                 if self.enforceIDMSListChanges(knownMachines: knownMachines) {
                     // Are there any machine IDs in the model that aren't in the list? If so, add them as "unknown"
-                    let modelMachineIDs = self.model.allMachineIDs()
+                    let modelMachineIDs = try self.model.allMachineIDs()
                     modelMachineIDs.forEach { peerMachineID in
-                        if !knownMachineIDs.contains(peerMachineID) && !allowedMachineIDs.contains(peerMachineID) {
+                        if !knownMachineIDs.contains(peerMachineID) && !allowedMachineIDs.contains(peerMachineID) && 
+                            !(evictedRemovals?.contains(peerMachineID) ?? false) &&
+                            !(unknownReasonRemovals?.contains(peerMachineID) ?? false) &&
+                            !(userInitiatedRemovals?.contains(peerMachineID) ?? false) {
                             logger.notice("Peer machineID is unknown, beginning grace period: \(String(describing: peerMachineID), privacy: .public)")
                             let machine = MachineMO(context: self.moc)
                             machine.machineID = peerMachineID
@@ -362,6 +555,22 @@ extension Container {
 
                 // We no longer use allowed machine IDs.
                 self.containerMO.allowedMachineIDs = NSSet()
+
+                let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
+                                                       altDSID: altDSID,
+                                                       flowID: flowID,
+                                                       deviceSessionID: deviceSessionID,
+                                                       eventName: kSecurityRTCEventNameTDLProcessingSuccess,
+                                                       testsAreEnabled: false,
+                                                       canSendMetrics: true,
+                                                       category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+                if midVanishedFromTDL == false && detectedDuplicate == false && self.testHashMismatchDetected == false {
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
+                } else {
+                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: nil)
+                }
+
+                Container.onqueueRemoveDuplicateMachineIDs(containerMO: self.containerMO, moc: self.moc)
 
                 try self.moc.save()
 
@@ -394,7 +603,7 @@ extension Container {
     func onqueueMachineIDAllowedByIDMS(machineID: String) -> Bool {
 
         // For Demo accounts, if the list is entirely empty, then everything is allowed
-        let knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
+        let knownMachines = self.containerMO.machines as? Set<MachineMO> ?? Set()
 
         if !self.enforceIDMSListChanges(knownMachines: knownMachines) {
             logger.info("not enforcing idms list changes; allowing \(String(describing: machineID), privacy: .public)")
@@ -435,7 +644,14 @@ extension Container {
         let knownMachineIDs = Set(machines.compactMap { $0.machineID })
 
         // Peers trust themselves. So if the ego peer is in Octagon, its machineID will be in this set
-        let trustedMachineIDs = Set(dynamicInfo.includedPeerIDs.compactMap { self.model.peer(withID: $0)?.permanentInfo.machineID })
+        let trustedMachineIDs = Set(dynamicInfo.includedPeerIDs.compactMap {
+            do {
+                return try self.model.peer(withID: $0)?.permanentInfo.machineID
+            } catch {
+                logger.warning("Error getting peer with machineID \($0, privacy: .public): \(String(describing: error), privacy: .public)")
+                return nil
+            }
+        })
 
         // if this account is not a demo account...
         if self.enforceIDMSListChanges(knownMachines: machines) {

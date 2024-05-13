@@ -311,7 +311,7 @@ typedef uint32_t IOHIDElementMatchOptions;
 /*!
  * @defined    kCtrlKeyboardUsageMapKey
  * @abstract   Remapping for when Ctrl Key modifier is held
- * @discussion string of comma separated uint64_t values representing (usagePage<<32) | usage pairs
+ * @discussion string of comma separated uint64_t values representing (usagePage<<16) | usage pairs
  */
 #define kCtrlKeyboardUsageMapKey "CtrlKeyboardUsageMap"
 

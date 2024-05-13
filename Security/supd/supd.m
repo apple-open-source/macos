@@ -738,7 +738,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     [self removeBlacklistedFieldsFromEvent:event];
     [self addRequiredFieldsToEvent:event];
     if (_disableClientId) {
-        event[SFAnalyticsClientId] = @(0);
+        event[SFAnalyticsClientId] = @0;
     }
     event[SFAnalyticsSplunkTopic] = self->_splunkTopicName ?: [NSNull null];
     if (linkedUUID) {
@@ -853,7 +853,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     return statistics;
 }
 
-- (NSMutableDictionary*)healthSummaryWithName:(SFAnalyticsClient*)client store:(SFAnalyticsSQLiteStore*)store uuid:(NSUUID *)uuid
+- (NSMutableDictionary*)healthSummaryWithName:(SFAnalyticsClient*)client store:(SFAnalyticsSQLiteStore*)store uuid:(NSUUID *)uuid timestamp:(NSNumber*)timestamp lastUploadTime:(NSNumber*)lastUploadTime
 {
     dispatch_assert_queue(client.queue);
     NSString *name = client.name;
@@ -864,10 +864,10 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     if ([self eventIsBlacklisted:summary]) {
         return nil;
     }
-    summary[SFAnalyticsEventTime] = @([[NSDate date] timeIntervalSince1970] * 1000);    // Splunk wants milliseconds
+    summary[SFAnalyticsEventTime] = timestamp;    // Splunk wants milliseconds
     [SFAnalytics addOSVersionToEvent:summary];
-    if (store.uploadDate) {
-        summary[SFAnalyticsAttributeLastUploadTime] = @([store.uploadDate timeIntervalSince1970] * 1000);
+    if (lastUploadTime) {
+        summary[SFAnalyticsAttributeLastUploadTime] = lastUploadTime;
     }
 
     // Process counters
@@ -1034,13 +1034,13 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
 }
 
 - (NSDictionary *)createEventDictionary:(NSArray<NSDictionary *> *)events
-                              timestamp:(NSDate *)timestamp
+                              timestamp:(NSNumber *)timestamp
                                   error:(NSError **)error
 {
     NSError *tmpError = nil;
     @autoreleasepool {
         NSDictionary *eventDictionary = @{
-            SFAnalyticsPostTime : @([timestamp timeIntervalSince1970] * 1000),
+            SFAnalyticsPostTime : timestamp,
             @"events" : events,
         };
         if (![NSJSONSerialization isValidJSONObject:eventDictionary]) {
@@ -1063,7 +1063,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
                                                 error:(NSError **)error
 {
     NSMutableArray<NSDictionary *> *jsonResults = [NSMutableArray array];
-    NSDate *now = [NSDate date];
+    NSNumber *now = @([[NSDate date] timeIntervalSince1970] * 1000);
 
     NSArray<NSArray *>* chunkedEvents;
 
@@ -1159,8 +1159,14 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
         appleUser = [self appleUser];
         carryStatus = [self carryStatus];
     }
+    
+    NSNumber* timestamp = @([[NSDate date] timeIntervalSince1970] * 1000);
     for (SFAnalyticsClient* client in self->_topicClients) {
         [client withStore:^(SFAnalyticsSQLiteStore *store) {
+            NSNumber* lastUploadTime = nil;
+            if (store.uploadDate){
+                lastUploadTime = @([store.uploadDate timeIntervalSince1970] * 1000);
+            }
             if (!force && [client requireDeviceAnalytics] && !_isDeviceAnalyticsEnabled()) {
                 // Client required device analytics, yet the user did not opt in.
                 secnotice("getLoggingJSON", "Client '%@' requires device analytics yet user did not opt in.", [client name]);
@@ -1188,7 +1194,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
                 [localClients addObject:client];
             }
 
-            NSMutableDictionary* healthSummary = [self healthSummaryWithName:client store:store uuid:linkedUUID];
+            NSMutableDictionary* healthSummary = [self healthSummaryWithName:client store:store uuid:linkedUUID timestamp:timestamp lastUploadTime:lastUploadTime];
             if (healthSummary) {
                 if (ckdeviceID) {
                     healthSummary[SFAnalyticsDeviceID] = ckdeviceID;
@@ -1200,7 +1206,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
                     [healthSummary addEntriesFromDictionary:carryStatus];
                 }
                 if (appleUser) {
-                    healthSummary[SFAnalyticsIsAppleUser] = @(appleUser != nil);
+                    healthSummary[SFAnalyticsIsAppleUser] = appleUser != nil ? @YES : @NO;
                 }
                 [healthSummaries addObject:healthSummary];
             }
@@ -1302,7 +1308,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
     [events addObjectsFromArray:healthSummaries];
     [events addObjectsFromArray:failures];
 
-    return [self createEventDictionary:events timestamp:[NSDate date] error:error];
+    return [self createEventDictionary:events timestamp:@([[NSDate date] timeIntervalSince1970] * 1000) error:error];
 }
 
 // Is at least one client eligible for data collection based on user consent? Otherwise callers should NOT reach off-device.
@@ -1768,31 +1774,31 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     }
 }
 
-- (NSArray<NSData *> *)serializeLoggingEvents:(NSArray<NSDictionary *> *)events
++ (NSData *)serializeLoggingEvent:(NSDictionary *)event
                                         error:(NSError **)error
 {
-    if (!events) {
+    if (!event) {
+        if (error){
+            *error = [NSError errorWithDomain:SupdErrorDomain code:SupdMissingParamError userInfo:nil];
+        }
         return nil;
     }
 
-    NSMutableArray<NSData *> *serializedEvents = [NSMutableArray array];
-    for (NSDictionary *event in events) {
-        NSError *serializationError = nil;
-        NSData* serializedEvent;
-        @autoreleasepool {
-            serializedEvent = [NSJSONSerialization dataWithJSONObject:event
-                                                              options:0
-                                                                error:&serializationError];
-        }
-        if (serializedEvent && !serializationError) {
-            [serializedEvents addObject:serializedEvent];
-        } else if (error) {
-            *error = serializationError;
-            return nil;
-        }
+    NSError *serializationError = nil;
+    NSData* serializedEvent;
+    @autoreleasepool {
+        serializedEvent = [NSJSONSerialization dataWithJSONObject:event
+                                                          options:0
+                                                            error:&serializationError];
+    }
+    if (serializedEvent && !serializationError) {
+        return serializedEvent;
+    } else if (error) {
+        *error = serializationError;
+        return nil;
     }
 
-    return serializedEvents;
+    return nil;
 }
 
 - (BOOL)uploadAnalyticsWithError:(NSError**)error force:(BOOL)force {
@@ -1831,26 +1837,27 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
                 continue;
             }
 
-            NSArray<NSData *> *serializedEvents = [self serializeLoggingEvents:jsonEvents error:&localError];
-            if (!serializedEvents || localError) {
-                if ([[localError domain] isEqualToString:SupdErrorDomain] && [localError code] == SupdInvalidJSONError) {
-                    // Pretend this was a success because at least we'll get rid of bad data.
-                    // If someone keeps logging bad data and we only catch it here then
-                    // this causes sustained data loss for the entire topic.
-                    [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
-                }
-                secerror("upload: failed to serialized chunked log events for logging topic %@: %@", [topic internalTopicName], localError);
-                continue;
-            }
 
             if ([topic isSampledUpload]) {
-                for (NSData *json in serializedEvents) {
-                    // make sure we don't hold on to each NSURL releated in each autorelease pool
+                for (NSDictionary* event in jsonEvents) {
+                    // make sure we don't hold on to each NSURL related in each autorelease pool
                     @autoreleasepool {
-                        if (![self->_reporter saveReport:json fileName:[topic internalTopicName]]) {
+                        NSData *serializedEvent = [supd serializeLoggingEvent:event error:&localError];
+                        if (!serializedEvent || localError) {
+                            if ([[localError domain] isEqualToString:SupdErrorDomain] && [localError code] == SupdInvalidJSONError) {
+                                // Pretend this was a success because at least we'll get rid of bad data.
+                                // If someone keeps logging bad data and we only catch it here then
+                                // this causes sustained data loss for the entire topic.
+                                [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
+                            }
+                            secerror("upload: failed to serialized chunked log events for logging topic %@: %@", [topic internalTopicName], localError);
+                            break;
+                        }
+                        
+                        if (![self->_reporter saveReport:serializedEvent fileName:[topic internalTopicName]]) {
                             secerror("upload: failed to write analytics data to log");
                         }
-                        if ([topic postJSON:json toEndpoint:endpoint error:&localError]) {
+                        if ([topic postJSON:serializedEvent toEndpoint:endpoint error:&localError]) {
                             secnotice("upload", "Successfully posted JSON for %@", [topic internalTopicName]);
                             result = YES;
                             [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];

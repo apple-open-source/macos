@@ -811,6 +811,11 @@ void AVVideoCaptureSource::setSessionSizeFrameRateAndZoom()
 
     ASSERT(m_currentPreset->format());
 
+    if (!m_isRunning) {
+        m_needsResolutionReconfiguration = true;
+        return;
+    }
+
     if (!lockForConfiguration())
         return;
 
@@ -908,6 +913,11 @@ bool AVVideoCaptureSource::lockForConfiguration()
 
 void AVVideoCaptureSource::updateWhiteBalanceMode()
 {
+    if (!m_isRunning) {
+        m_needsWhiteBalanceReconfiguration = true;
+        return;
+    }
+
     beginConfigurationForConstraintsIfNeeded();
 
     if (!lockForConfiguration())
@@ -925,6 +935,11 @@ void AVVideoCaptureSource::updateWhiteBalanceMode()
 
 void AVVideoCaptureSource::updateTorch()
 {
+    if (!m_isRunning) {
+        m_needsTorchReconfiguration = true;
+        return;
+    }
+
     beginConfigurationForConstraintsIfNeeded();
 
     if (!lockForConfiguration())
@@ -968,6 +983,7 @@ bool AVVideoCaptureSource::setupSession()
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     String mediaEnvironment = RealtimeMediaSourceCenter::singleton().currentMediaEnvironment();
+    WARNING_LOG_IF(loggerPtr() && mediaEnvironment.isEmpty(), "Media environment is empty");
     // FIXME (119325252): Remove staging code for -[AVCaptureSession initWithMediaEnvironment:]
     if (!mediaEnvironment.isEmpty() && [PAL::getAVCaptureSessionClass() instancesRespondToSelector:@selector(initWithMediaEnvironment:)])
         m_session = adoptNS([PAL::allocAVCaptureSessionInstance() initWithMediaEnvironment:mediaEnvironment]);
@@ -983,8 +999,12 @@ bool AVVideoCaptureSource::setupSession()
     }
 #endif
 
-    if (!m_session)
+    if (!m_session) {
+#if ENABLE(EXTENSION_CAPABILITIES)
+        ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "allocating AVCaptureSession without media environment nor identity");
+#endif
         m_session = adoptNS([PAL::allocAVCaptureSessionInstance() init]);
+    }
 
     if (!m_session) {
         ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "failed to allocate AVCaptureSession");
@@ -1149,6 +1169,25 @@ void AVVideoCaptureSource::captureOutputDidFinishProcessingPhoto(RetainPtr<AVCap
     resolvePendingPhotoRequest({ static_cast<const uint8_t*>(data.bytes), data.length }, "image/jpeg"_s);
 }
 
+void AVVideoCaptureSource::reconfigureIfNeeded()
+{
+    if (!m_isRunning || (!m_needsResolutionReconfiguration && !m_needsTorchReconfiguration && !m_needsWhiteBalanceReconfiguration))
+        return;
+
+    beginConfiguration();
+
+    if (std::exchange(m_needsResolutionReconfiguration, false))
+        setSessionSizeFrameRateAndZoom();
+
+    if (std::exchange(m_needsTorchReconfiguration, false))
+        updateTorch();
+
+    if (std::exchange(m_needsWhiteBalanceReconfiguration, false))
+        updateWhiteBalanceMode();
+
+    commitConfiguration();
+}
+
 void AVVideoCaptureSource::captureSessionIsRunningDidChange(bool state)
 {
     scheduleDeferredTask([this, logIdentifier = LOGIDENTIFIER, state] {
@@ -1157,6 +1196,8 @@ void AVVideoCaptureSource::captureSessionIsRunningDidChange(bool state)
             return;
 
         m_isRunning = state;
+
+        reconfigureIfNeeded();
 
         updateVerifyCapturingTimer();
         notifyMutedChange(!m_isRunning);

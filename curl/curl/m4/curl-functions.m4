@@ -46,7 +46,7 @@ curl_includes_arpa_inet="\
 #ifdef HAVE_ARPA_INET_H
 #  include <arpa/inet.h>
 #endif
-#ifdef HAVE_WINSOCK2_H
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #endif
@@ -105,35 +105,6 @@ curl_includes_ifaddrs="\
   AC_CHECK_HEADERS(
     sys/types.h sys/socket.h netinet/in.h ifaddrs.h,
     [], [], [$curl_includes_ifaddrs])
-])
-
-
-dnl CURL_INCLUDES_INTTYPES
-dnl -------------------------------------------------
-dnl Set up variable with list of headers that must be
-dnl included when inttypes.h is to be included.
-
-AC_DEFUN([CURL_INCLUDES_INTTYPES], [
-curl_includes_inttypes="\
-/* includes start */
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-#ifdef HAVE_STDINT_H
-# include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-# include <inttypes.h>
-#endif
-/* includes end */"
-  case $host_os in
-    irix*)
-      ac_cv_header_stdint_h="no"
-      ;;
-  esac
-  AC_CHECK_HEADERS(
-    sys/types.h stdint.h inttypes.h,
-    [], [], [$curl_includes_inttypes])
 ])
 
 
@@ -443,18 +414,14 @@ dnl included when winsock2.h is to be included.
 AC_DEFUN([CURL_INCLUDES_WINSOCK2], [
 curl_includes_winsock2="\
 /* includes start */
-#ifdef HAVE_WINDOWS_H
+#ifdef _WIN32
 #  ifndef WIN32_LEAN_AND_MEAN
 #    define WIN32_LEAN_AND_MEAN
 #  endif
-#  include <windows.h>
-#  ifdef HAVE_WINSOCK2_H
-#    include <winsock2.h>
-#  endif
+#  include <winsock2.h>
 #endif
 /* includes end */"
-  CURL_CHECK_HEADER_WINDOWS
-  CURL_CHECK_HEADER_WINSOCK2
+  CURL_CHECK_NATIVE_WINDOWS
 ])
 
 
@@ -466,22 +433,15 @@ dnl included when ws2tcpip.h is to be included.
 AC_DEFUN([CURL_INCLUDES_WS2TCPIP], [
 curl_includes_ws2tcpip="\
 /* includes start */
-#ifdef HAVE_WINDOWS_H
+#ifdef _WIN32
 #  ifndef WIN32_LEAN_AND_MEAN
 #    define WIN32_LEAN_AND_MEAN
 #  endif
-#  include <windows.h>
-#  ifdef HAVE_WINSOCK2_H
-#    include <winsock2.h>
-#    ifdef HAVE_WS2TCPIP_H
-#       include <ws2tcpip.h>
-#    endif
-#  endif
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
 #endif
 /* includes end */"
-  CURL_CHECK_HEADER_WINDOWS
-  CURL_CHECK_HEADER_WINSOCK2
-  CURL_CHECK_HEADER_WS2TCPIP
+  CURL_CHECK_NATIVE_WINDOWS
 ])
 
 
@@ -539,7 +499,7 @@ dnl defines function calling convention.
 AC_DEFUN([CURL_PREPROCESS_CALLCONV], [
 curl_preprocess_callconv="\
 /* preprocess start */
-#ifdef HAVE_WINDOWS_H
+#ifdef _WIN32
 #  define FUNCALLCONV __stdcall
 #else
 #  define FUNCALLCONV
@@ -1823,10 +1783,10 @@ AC_DEFUN([CURL_CHECK_FUNC_GETADDRINFO], [
         struct addrinfo *ai = 0;
         int error;
 
-        #ifdef HAVE_WINSOCK2_H
+        #ifdef _WIN32
         WSADATA wsa;
-        if (WSAStartup(MAKEWORD(2,2), &wsa))
-                exit(2);
+        if(WSAStartup(MAKEWORD(2, 2), &wsa))
+          exit(2);
         #endif
 
         memset(&hints, 0, sizeof(hints));

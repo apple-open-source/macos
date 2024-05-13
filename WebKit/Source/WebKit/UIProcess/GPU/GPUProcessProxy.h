@@ -79,6 +79,8 @@ public:
     void createGPUProcessConnection(WebProcessProxy&, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
 
     ProcessThrottler& throttler() final { return m_throttler; }
+    const ProcessThrottler& throttler() const final { return m_throttler; }
+
     void updateProcessAssertion();
 
 #if ENABLE(MEDIA_STREAM)
@@ -99,6 +101,7 @@ public:
 
 #if HAVE(SCREEN_CAPTURE_KIT)
     void promptForGetDisplayMedia(WebCore::DisplayCapturePromptType, CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&&);
+    void cancelGetDisplayMediaPrompt();
 #endif
 
     void removeSession(PAL::SessionID);

@@ -52,6 +52,11 @@
 #endif
 #endif
 
+// For use of uint64_t in HAVE_MMAP.
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
 #ifndef MAP_RESILIENT_MEDIA
 /*
  * Apple extension to allow reading past the end of an mmap-ped file without crashing.

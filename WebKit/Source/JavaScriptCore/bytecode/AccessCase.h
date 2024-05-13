@@ -112,6 +112,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AccessCase);
     macro(IntrinsicGetter) \
     macro(InHit) \
     macro(InMiss) \
+    macro(InMegamorphic) \
     macro(ArrayLength) \
     macro(StringLength) \
     macro(DirectArgumentsLength) \
@@ -202,7 +203,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AccessCase);
     macro(IndexedResizableTypedArrayFloat64InHit) \
     macro(IndexedStringInHit) \
     macro(IndexedNoIndexingInMiss) \
-
+    macro(IndexedMegamorphicIn) \
 
 class AccessCase : public ThreadSafeRefCounted<AccessCase> {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(AccessCase);
@@ -269,9 +270,7 @@ public:
     WatchpointSet* additionalSet() const;
     bool viaGlobalProxy() const { return m_viaGlobalProxy; }
 
-    // If you supply the optional vector, this will append the set of cells that this will need to keep alive
-    // past the call.
-    bool doesCalls(VM&, Vector<JSCell*>* cellsToMark = nullptr) const;
+    bool doesCalls(VM&) const;
 
     bool isCustom() const
     {
@@ -320,7 +319,6 @@ public:
 
     bool requiresIdentifierNameMatch() const;
     bool requiresInt32PropertyCheck() const;
-    bool needsScratchFPR() const;
 
     UniquedStringImpl* uid() const { return m_identifier.uid(); }
     CacheableIdentifier identifier() const { return m_identifier; }
@@ -337,6 +335,8 @@ public:
     }
 
     static bool canBeShared(const AccessCase&, const AccessCase&);
+
+    void collectDependentCells(VM&, Vector<JSCell*>&) const;
 
     template<typename Func>
     void runWithDowncast(const Func&);

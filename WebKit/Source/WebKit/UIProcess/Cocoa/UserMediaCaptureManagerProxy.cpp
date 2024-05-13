@@ -46,8 +46,10 @@
 #include <WebCore/WebAudioBufferList.h>
 #include <wtf/NativePromise.h>
 #include <wtf/UniqueRef.h>
+#include <wtf/cocoa/Entitlements.h>
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, &m_connectionProxy->connection())
+#define MESSAGE_CHECK_COMPLETION(assertion, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, &m_connectionProxy->connection(), completion)
 
 namespace WebKit {
 using namespace WebCore;
@@ -545,6 +547,10 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
         return;
     }
 
+    MESSAGE_CHECK_COMPLETION(constraints->mandatoryConstraints.isValid(), completionHandler({ "Invalid mandatoryConstraints"_s, WebCore::MediaAccessDenialReason::InvalidConstraint }, { }, { }));
+    for (const auto& advancedConstraint : constraints->advancedConstraints)
+        MESSAGE_CHECK_COMPLETION(advancedConstraint.isValid(), completionHandler({ "Invalid advancedConstraints"_s, WebCore::MediaAccessDenialReason::InvalidConstraint }, { }, { }));
+
     proxy->applyConstraints(WTFMove(const_cast<WebCore::MediaConstraints&>(*constraints)), [proxy = WTFMove(proxy), id, completionHandler = WTFMove(completionHandler), completeSetup = WTFMove(completeSetup)](auto&& result) mutable {
         if (result) {
             completionHandler({ WTFMove(result->badConstraint), WebCore::MediaAccessDenialReason::InvalidConstraint }, { }, { });
@@ -570,7 +576,12 @@ void UserMediaCaptureManagerProxy::startProducingData(RealtimeMediaSourceIdentif
     m_connectionProxy->setTCCIdentity();
 #endif
 #if ENABLE(EXTENSION_CAPABILITIES)
-    m_connectionProxy->setCurrentMediaEnvironment(pageIdentifier);
+    bool hasValidMediaEnvironmentOrIdentity = m_connectionProxy->setCurrentMediaEnvironment(pageIdentifier) || RealtimeMediaSourceCenter::singleton().hasIdentity();
+    if (!hasValidMediaEnvironmentOrIdentity && proxy->source().deviceType() == CaptureDevice::DeviceType::Camera && WTF::processHasEntitlement("com.apple.developer.web-browser-engine.rendering"_s)) {
+        RELEASE_LOG_ERROR(WebRTC, "Unable to set media environment, failing capture.");
+        proxy->source().captureFailed();
+        return;
+    }
 #endif
     m_connectionProxy->startProducingData(proxy->source().deviceType());
     proxy->start();
@@ -602,6 +613,10 @@ void UserMediaCaptureManagerProxy::applyConstraints(RealtimeMediaSourceIdentifie
         m_connectionProxy->connection().send(Messages::UserMediaCaptureManager::ApplyConstraintsFailed(id, { }, "Unknown source"_s), 0);
         return;
     }
+
+    MESSAGE_CHECK(constraints.mandatoryConstraints.isValid());
+    for (const auto& advancedConstraint : constraints.advancedConstraints)
+        MESSAGE_CHECK(advancedConstraint.isValid());
 
     proxy->applyConstraints(WTFMove(constraints), [this, weakThis = WeakPtr { *this }, id, proxy](auto&& result) {
 
@@ -714,6 +729,7 @@ bool UserMediaCaptureManagerProxy::hasSourceProxies() const
 
 }
 
+#undef MESSAGE_CHECK_COMPLETION
 #undef MESSAGE_CHECK
 
 #endif

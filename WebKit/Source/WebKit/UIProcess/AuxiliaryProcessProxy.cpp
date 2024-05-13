@@ -66,10 +66,6 @@ static Seconds adjustedTimeoutForThermalState(Seconds timeout)
 #endif
 }
 
-#if USE(EXTENSIONKIT)
-bool AuxiliaryProcessProxy::s_manageProcessesAsExtensions = false;
-#endif
-
 AuxiliaryProcessProxy::AuxiliaryProcessProxy(bool alwaysRunsAtBackgroundPriority, Seconds responsivenessTimeout)
     : m_responsivenessTimer(*this, adjustedTimeoutForThermalState(responsivenessTimeout))
     , m_alwaysRunsAtBackgroundPriority(alwaysRunsAtBackgroundPriority)
@@ -158,12 +154,6 @@ void AuxiliaryProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& lau
 
     platformGetLaunchOptions(launchOptions);
 }
-
-#if !PLATFORM(COCOA)
-void AuxiliaryProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions&)
-{
-}
-#endif
 
 void AuxiliaryProcessProxy::connect()
 {
@@ -316,7 +306,7 @@ bool AuxiliaryProcessProxy::dispatchSyncMessage(IPC::Connection& connection, IPC
     return m_messageReceiverMap.dispatchSyncMessage(connection, decoder, replyEncoder);
 }
 
-void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier connectionIdentifier)
+void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connection::Identifier connectionIdentifier)
 {
     ASSERT(!m_connection);
     ASSERT(isMainRunLoop());
@@ -556,5 +546,17 @@ bool AuxiliaryProcessProxy::runningBoardThrottlingEnabled()
     return !m_lifetimeActivity;
 }
 #endif
+
+void AuxiliaryProcessProxy::didChangeThrottleState(ProcessThrottleState state)
+{
+    bool isNowSuspended = state == ProcessThrottleState::Suspended;
+    if (m_isSuspended == isNowSuspended)
+        return;
+    m_isSuspended = isNowSuspended;
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    if (!m_isSuspended && (!m_domainlessPreferencesUpdatedWhileSuspended.isEmpty() || !m_preferencesUpdatedWhileSuspended.isEmpty()))
+        send(Messages::AuxiliaryProcess::PreferencesDidUpdate(std::exchange(m_domainlessPreferencesUpdatedWhileSuspended, { }), std::exchange(m_preferencesUpdatedWhileSuspended, { })), 0);
+#endif
+}
 
 } // namespace WebKit

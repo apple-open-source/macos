@@ -1,5 +1,7 @@
 #if OCTAGON
 
+#import <Foundation/Foundation.h>
+
 #import "OTAuthKitAdapter.h"
 #import "OTConstants.h"
 
@@ -25,6 +27,12 @@
 
 @interface OTAuthKitActualAdapter ()
 @property CKKSListenerCollection<OTAuthKitAdapterNotifier>* notifiers;
+@end
+
+@interface AKDeviceListResponse (Security)
+@property (nonatomic, copy, readonly) NSString *trustedDeviceHash;
+@property (nonatomic, copy, readonly) NSString *deletedDeviceHash;
+@property (nonatomic, copy, readonly) NSNumber *trustedDevicesUpdateTimestamp;
 @end
 
 @implementation OTAuthKitActualAdapter
@@ -155,11 +163,14 @@
                                                   NSSet<NSString*>* _Nullable evictedRemovals,
                                                   NSSet<NSString*>* _Nullable unknownReasonRemovals,
                                                   NSString* _Nullable version,
+                                                  NSString* _Nullable trustedDeviceHash,
+                                                  NSString* _Nullable deletedDeviceHash,
+                                                  NSNumber* _Nullable trustedDevicesUpdateTimestamp,
                                                   NSError* _Nullable error))complete
 {
     if([AKDeviceListRequestContext class] == nil || [AKAppleIDAuthenticationController class] == nil) {
         secnotice("authkit", "AuthKit not available");
-        complete(nil, nil, nil, nil, nil, [NSError errorWithDomain:OctagonErrorDomain
+        complete(nil, nil, nil, nil, nil, nil, nil, nil, [NSError errorWithDomain:OctagonErrorDomain
                                                code:OctagonErrorRequiredLibrariesNotPresent
                                         description:@"AKAnisette not available"]);
         return;
@@ -171,7 +182,7 @@
                                              code:OctagonErrorAuthKitAKDeviceListRequestContextClass
                                       description:@"can't get AKDeviceListRequestContextClass"];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-        complete(nil, nil, nil, nil, nil, error);
+        complete(nil, nil, nil, nil, nil, nil, nil, nil, error);
         return;
     }
 
@@ -185,7 +196,7 @@
                                              code:OctagonErrorAuthKitNoAuthenticationController
                                       description:@"can't get authController"];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
-        complete(nil, nil, nil, nil, nil, error);
+        complete(nil, nil, nil, nil, nil, nil, nil, nil, error);
         return;
     }
 
@@ -193,14 +204,14 @@
         if (error != nil) {
             [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
             secnotice("authkit", "received no device list(%@): %@", altDSID, error);
-            complete(nil, nil, nil, nil, nil, error);
+            complete(nil, nil, nil, nil, nil, nil, nil, nil, error);
             return;
         }
         if (response == nil) {
             NSError *error = [NSError errorWithDomain:OctagonErrorDomain
                                                  code:OctagonErrorBadAuthKitResponse
                                           description:@"bad response from AuthKit"];
-            complete(nil, nil, nil, nil, nil, error);
+            complete(nil, nil, nil, nil, nil, nil, nil, nil, error);
             [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
             return;
         }
@@ -239,8 +250,22 @@
                     break;
             }
         }
+        NSString* trustedDeviceHash = @"";
+        if ([response respondsToSelector:@selector(trustedDeviceHash)]) {
+            trustedDeviceHash = response.trustedDeviceHash;
+        }
 
-        complete(mids, userInitiatedRemovals, evictedMids, unknownReasonList, version, error);
+        NSString* deletedDeviceHash = @"";
+        if ([response respondsToSelector:@selector(deletedDeviceHash)]) {
+            deletedDeviceHash = response.deletedDeviceHash;
+        }
+
+        NSNumber* trustedDevicesUpdateTimestamp = nil;
+        if ([response respondsToSelector:@selector(trustedDevicesUpdateTimestamp)]) {
+            trustedDevicesUpdateTimestamp = response.trustedDevicesUpdateTimestamp;
+        }
+
+        complete(mids, userInitiatedRemovals, evictedMids, unknownReasonList, version, trustedDeviceHash, deletedDeviceHash, trustedDevicesUpdateTimestamp, error);
         [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventAuthKitDeviceList];
     }];
 }

@@ -125,6 +125,20 @@ See remaining rules for examples.
 			<key>shared</key>
 			<false/>
 		</dict>
+		<key>com.apple.DiskManagement.root.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Used by diskmanagementd.</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>authenticate-admin</string>
+			</array>
+		</dict>
 		<key>com.apple.KerberosAgent</key>
 		<dict>
 			<key>class</key>
@@ -2556,23 +2570,37 @@ See remaining rules for examples.
 			<key>timeout</key>
 			<integer>36000</integer>
 		</dict>
-        <key>psso-screensaver</key>
-        <dict>
-            <key>class</key>
-            <string>evaluate-mechanisms</string>
-            <key>comment</key>
-            <string>Do not modify. Performs unlock operations for screensaver.</string>
-            <key>mechanisms</key>
-            <array>
-                <string>builtin:authenticate-platformsso,privileged</string>
-                <string>CryptoTokenKit:login</string>
-                <string>builtin:kcunlock</string>
-            </array>
-            <key>tries</key>
-            <integer>1</integer>
-            <key>version</key>
-            <integer>3</integer>
-        </dict>
+                <key>psso-screensaver</key>
+                <dict>
+                        <key>class</key>                               
+                        <string>rule</string>
+                        <key>k-of-n</key>                              
+                        <integer>2</integer>
+                        <key>rule</key>                                
+                        <array>
+                                <string>psso-screensaver-authenticate</string>
+                                <string>authenticate-session-owner-or-admin</string>
+                        </array>
+                        <key>tries</key>                               
+                        <integer>1</integer>                           
+                        <key>version</key>                             
+                        <integer>5</integer>                           
+                </dict>
+                <key>psso-screensaver-authenticate</key>
+                <dict>
+                        <key>class</key>
+                        <string>evaluate-mechanisms</string>
+                        <key>comment</key>
+                        <string>Do not modify. Performs unlock operations for screensaver.</string>
+                        <key>mechanisms</key>
+                        <array>
+                                <string>builtin:authenticate-platformsso,privileged</string>
+                                <string>CryptoTokenKit:login</string>
+                                <string>builtin:kcunlock</string>
+                        </array>
+                        <key>tries</key>
+                        <integer>1</integer>
+                </dict>
 	</dict>
 </dict>
 </plist>

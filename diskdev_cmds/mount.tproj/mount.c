@@ -510,8 +510,7 @@ main(int argc, char *argv[])
 				setup_preboot_mounts(passno, os_env);
 
 				/* Hand the rest of the process over to apfs_boot_util */
-				if (os_variant_has_internal_content(APFS_BUNDLE_ID) &&
-					(mount_phase == MOUNT_PHASE_2)) {
+				if (mount_phase == MOUNT_PHASE_2) {
 					bootstrap_apfs(MOUNT_PHASE_2);
 				}
 #endif

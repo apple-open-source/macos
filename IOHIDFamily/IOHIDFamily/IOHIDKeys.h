@@ -490,6 +490,13 @@ typedef uint8_t IOHIDAccelerationAlgorithmType;
  */
 #define kIOHIDPointerAccelerationMinimumKey  "HIDPointerAccelerationMinimum"
 
+/*!
+ * @define kIOHIDPrimaryTrackpadCanBeDisabledKey
+ * @abstract
+ * Data property that determines whether primary trackpad can be disabled.
+ */
+#define kIOHIDPrimaryTrackpadCanBeDisabledKey "PrimaryTrackpadCanBeDisabled"
+
 __END_DECLS
 
 #endif /* !_IOKIT_HID_IOHIDKEYS_H_ */

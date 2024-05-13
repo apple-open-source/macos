@@ -204,6 +204,7 @@ String ProcessThrottler::assertionName(ProcessAssertionType type) const
             return "NearSuspended"_s;
         case ProcessAssertionType::UnboundedNetworking:
         case ProcessAssertionType::MediaPlayback:
+        case ProcessAssertionType::FinishTaskCanSleep:
         case ProcessAssertionType::FinishTaskInterruptable:
         case ProcessAssertionType::BoostedJetsam:
             ASSERT_NOT_REACHED(); // These other assertion types are not used by the ProcessThrottler.
@@ -506,6 +507,11 @@ void ProcessThrottler::numberOfPagesAllowedToRunInTheBackgroundChanged()
 bool ProcessThrottler::isSuspended() const
 {
     return m_processProxy && !m_assertion;
+}
+
+bool ProcessThrottler::canSuspendForLogging() const
+{
+    return (!m_shouldTakeNearSuspendedAssertion || m_shouldDropNearSuspendedAssertionAfterDelay) && !m_pageAllowedToRunInTheBackgroundCounter.value();
 }
 
 ProcessThrottlerTimedActivity::ProcessThrottlerTimedActivity(Seconds timeout, ProcessThrottler::ActivityVariant&& activity)

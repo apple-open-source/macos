@@ -916,7 +916,14 @@ for command in commands {
                                           evictedRemovals: evictedMachineIDs,
                                           unknownReasonRemovals: unknownReasonMachineIDs,
                                           honorIDMSListChanges: accountIsDemo,
-                                          version: nil) { listChanged, error in
+                                          version: nil,
+                                          flowID: nil,
+                                          deviceSessionID: nil,
+                                          canSendMetrics: false,
+                                          altDSID: nil,
+                                          trustedDeviceHash: nil,
+                                          deletedDeviceHash: nil,
+                                          trustedDevicesUpdateTimestamp: nil) { listChanged, error in
             guard error == nil else {
                 print("Error during allow:", error!)
                 return

@@ -180,23 +180,42 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func setAllowedMachineIDsWith(_ user: TPSpecificUser?,
+    func setAllowedMachineIDsWith(_ specificUser: TPSpecificUser?,
                                   allowedMachineIDs: Set<String>,
-                                  userInitiatedRemovals: Set<String>? = nil,
-                                  evictedRemovals: Set<String>? = nil,
-                                  unknownReasonRemovals unknownReasons: Set<String>? = nil,
-                                  honorIDMSListChanges: Bool,
+                                  userInitiatedRemovals: Set<String>?,
+                                  evictedRemovals: Set<String>?,
+                                  unknownReasonRemovals: Set<String>?,
+                                  honorIDMSListChanges: Bool, 
                                   version: String?,
-                                  reply: @escaping (Bool, Error?) -> Void) {
+                                  flowID: String?,
+                                  deviceSessionID: String?,
+                                  canSendMetrics: Bool, 
+                                  altDSID: String?,
+                                  trustedDeviceHash: String?, 
+                                  deletedDeviceHash: String?,
+                                  trustedDevicesUpdateTimestamp: NSNumber?,
+                                  reply: @escaping (Bool, (any Error)?) -> Void) {
         do {
-            logger.info("Setting allowed machineIDs for \(String(describing: user), privacy: .public) to \(allowedMachineIDs, privacy: .public)")
-            let container = try self.containerMap.findOrCreate(user: user)
-            container.setAllowedMachineIDs(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasons, honorIDMSListChanges: honorIDMSListChanges, version: version) { differences, error in
+            logger.info("Setting allowed machineIDs for \(String(describing: specificUser), privacy: .public) to \(allowedMachineIDs, privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.setAllowedMachineIDs(allowedMachineIDs,
+                                           userInitiatedRemovals: userInitiatedRemovals,
+                                           evictedRemovals: evictedRemovals,
+                                           unknownReasonRemovals: unknownReasonRemovals,
+                                           honorIDMSListChanges: honorIDMSListChanges,
+                                           version: version,
+                                           flowID: flowID,
+                                           deviceSessionID: deviceSessionID,
+                                           canSendMetrics: canSendMetrics,
+                                           altDSID: altDSID,
+                                           trustedDeviceHash: trustedDeviceHash,
+                                           deletedDeviceHash: deletedDeviceHash,
+                                           trustedDevicesUpdateTimestamp: trustedDevicesUpdateTimestamp) { differences, error in
                 self.logComplete(function: "Setting allowed machineIDs", container: container.name, error: error)
                 reply(differences, error?.sanitizeForClientXPC())
             }
         } catch {
-            logger.error("Setting allowed machineIDs failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.error("Setting allowed machineIDs failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(false, error.sanitizeForClientXPC())
         }
     }

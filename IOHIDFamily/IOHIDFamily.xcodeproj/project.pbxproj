@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -817,6 +817,8 @@
 		48F78BBB21501CF900B12224 /* IOHIDElementContainer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 48F78BB721501CEC00B12224 /* IOHIDElementContainer.cpp */; };
 		48F99B6B206ED6470029F347 /* AppleKeyboardStateManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48F99B6A206ED63E0029F347 /* AppleKeyboardStateManager.m */; };
 		49938FE528EEC2A500847F67 /* TestHIDVirtualService_NotificationTypeEnumerated.m in Sources */ = {isa = PBXBuildFile; fileRef = 49938FE428EEC2A500847F67 /* TestHIDVirtualService_NotificationTypeEnumerated.m */; };
+		499B07852ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m in Sources */ = {isa = PBXBuildFile; fileRef = 499B07842ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m */; };
+		499B07872ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m in Sources */ = {isa = PBXBuildFile; fileRef = 499B07862ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m */; };
 		49A358AD2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m in Sources */ = {isa = PBXBuildFile; fileRef = 49A358AC2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m */; };
 		49A358AF2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m in Sources */ = {isa = PBXBuildFile; fileRef = 49A358AE2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m */; };
 		49CB816A2A65DD5400E83F18 /* HIDStaccatoTestButtonServiceFilter.m in CopyFiles */ = {isa = PBXBuildFile; fileRef = 49CB81692A65DD5400E83F18 /* HIDStaccatoTestButtonServiceFilter.m */; };
@@ -3662,6 +3664,8 @@
 		48F99B69206ED63E0029F347 /* AppleKeyboardStateManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleKeyboardStateManager.h; sourceTree = "<group>"; };
 		48F99B6A206ED63E0029F347 /* AppleKeyboardStateManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppleKeyboardStateManager.m; sourceTree = "<group>"; };
 		49938FE428EEC2A500847F67 /* TestHIDVirtualService_NotificationTypeEnumerated.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDVirtualService_NotificationTypeEnumerated.m; sourceTree = "<group>"; };
+		499B07842ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDeviceAccessEntitlements.m; sourceTree = "<group>"; };
+		499B07862ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDeviceAccessNoEntitlements.m; sourceTree = "<group>"; };
 		49A358AC2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDRemapAlphaNumericEntitlement.m; sourceTree = "<group>"; };
 		49A358AE2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDRemapAlphaNumericNoEntitlement.m; sourceTree = "<group>"; };
 		49CB81692A65DD5400E83F18 /* HIDStaccatoTestButtonServiceFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDStaccatoTestButtonServiceFilter.m; sourceTree = "<group>"; };
@@ -6242,6 +6246,8 @@
 				D0C727DD29F1BFF800E878ED /* TestHIDSensorPowerLoggingFilter.m */,
 				49A358AC2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m */,
 				49A358AE2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m */,
+				499B07842ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m */,
+				499B07862ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m */,
 			);
 			path = IOHIDFamilyUnitTests;
 			sourceTree = "<group>";
@@ -9842,7 +9848,9 @@
 				D01C0A9B2A61CF500013C4D7 /* TestHID_IOHIDEventSystemClient_Properties.m in Sources */,
 				0F7E829322406C840087C8FD /* TestHIDMouseEventOptions.m in Sources */,
 				0F4349B921AC603800D6F14E /* TestHIDPointerResolution.m in Sources */,
+				499B07852ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m in Sources */,
 				D0EDCC782A5E005800966D13 /* TestHID_IOHIDEventSystemClient_ServiceClient.m in Sources */,
+				499B07872ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m in Sources */,
 				725078C9200FDFF000D33BAA /* TestHIDObsoleteDevice.m in Sources */,
 				D87145F021C1C885000BF5EC /* TestHIDVirtualService.m in Sources */,
 				D894CA772131024C005248B2 /* TestHIDIOHIDEventDriver_GCFormFittedCollection.m in Sources */,

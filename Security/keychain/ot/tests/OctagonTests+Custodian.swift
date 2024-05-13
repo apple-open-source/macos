@@ -997,6 +997,62 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertEqual(crk1, crk2, "first CRK and reconstructed should match")
     }
 
+    func testJoinWithCustodianRecoveryKeyFailsWithoutFetchRecoverableTLKShares() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        self.assertResetAndBecomeTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        OctagonSetSOSFeatureEnabled(true)
+
+        let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: establishContext)
+
+        self.putCustodianTLKSharesInCloudKit(crk: crk)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        // Now, join from a new device
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        // For this test, the fetchRecoverableTLKShares endpoint is suffering an outage. This should break custodian join.
+        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { request in
+            return NSError(domain: CKErrorDomain,
+                           code: CKError.serverRejectedRequest.rawValue,
+                           userInfo: [:])
+        }
+
+        self.sendContainerChangeWaitForUntrustedFetch(context: self.cuttlefishContext)
+
+        let preflightJoinWithCustodianRecoveryKeyExpectation = self.expectation(description: "preflightJoinWithCustodianRecoveryKey callback occurs")
+        establishContext.preflightJoin(with: otcrk) { error in
+            XCTAssertNil(error, "error should be nil")
+            preflightJoinWithCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [preflightJoinWithCustodianRecoveryKeyExpectation], timeout: 20)
+
+        let joinWithCustodianRecoveryKeyExpectation = self.expectation(description: "joinWithCustodianRecoveryKey callback occurs")
+        self.cuttlefishContext.join(with: otcrk) { error in
+            XCTAssertNotNil(error, "error should be non-nil")
+            if let error {
+                XCTAssertEqual((error as NSError).domain, CKErrorDomain, "error domain should be CloudKit")
+                XCTAssertEqual((error as NSError).code, CKError.serverRejectedRequest.rawValue, "error code should be serverRejectedRequest")
+            }
+            joinWithCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [joinWithCustodianRecoveryKeyExpectation], timeout: 20)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+    }
+
     func testRefetchOnUpgradeToCustodianCapableOS() throws {
         try self.skipOnRecoveryKeyNotSupported()
         OctagonSetSOSFeatureEnabled(false)

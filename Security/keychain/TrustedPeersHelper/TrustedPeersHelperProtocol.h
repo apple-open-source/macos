@@ -224,6 +224,13 @@ NS_ASSUME_NONNULL_BEGIN
                        unknownReasonRemovals:(NSSet<NSString *> * _Nullable)unknownReasonRemovals
                         honorIDMSListChanges:(BOOL)honorIDMSListChanges
                                      version:(NSString* _Nullable)version
+                                      flowID:(NSString * _Nullable)flowID
+                             deviceSessionID:(NSString * _Nullable)deviceSessionID
+                              canSendMetrics:(BOOL)canSendMetrics
+                                     altDSID:(NSString * _Nullable)altDSID
+                           trustedDeviceHash:(NSString * _Nullable)trustedDeviceHash
+                           deletedDeviceHash:(NSString * _Nullable)deletedDeviceHash
+               trustedDevicesUpdateTimestamp:(NSNumber * _Nullable)trustedDevicesUpdateTimestamp
                                        reply:(void (^)(BOOL listDifferences, NSError * _Nullable error))reply;
 
 - (void)fetchAllowedMachineIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser

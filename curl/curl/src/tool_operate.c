@@ -81,6 +81,7 @@
 #include "tool_help.h"
 #include "tool_hugehelp.h"
 #include "tool_progress.h"
+#include "tool_ipfs.h"
 #include "dynbuf.h"
 
 #include "memdebug.h" /* keep this as LAST include */
@@ -210,7 +211,7 @@ static curl_off_t all_pers;
 static CURLcode add_per_transfer(struct per_transfer **per)
 {
   struct per_transfer *p;
-  p = calloc(sizeof(struct per_transfer), 1);
+  p = calloc(1, sizeof(struct per_transfer));
   if(!p)
     return CURLE_OUT_OF_MEMORY;
   if(!transfers)
@@ -342,22 +343,6 @@ static CURLcode pre_transfer(struct GlobalConfig *global,
   return result;
 }
 
-#ifdef __AMIGA__
-static void AmigaSetComment(struct per_transfer *per,
-                            CURLcode result)
-{
-  struct OutStruct *outs = &per->outs;
-  if(!result && outs->s_isreg && outs->filename) {
-    /* Set the url (up to 80 chars) as comment for the file */
-    if(strlen(per->this_url) > 78)
-      per->this_url[79] = '\0';
-    SetComment(outs->filename, per->this_url);
-  }
-}
-#else
-#define AmigaSetComment(x,y) Curl_nop_stmt
-#endif
-
 /* When doing serial transfers, we use a single fixed error area */
 static char global_errorbuffer[CURL_ERROR_SIZE];
 
@@ -371,7 +356,6 @@ void single_transfer_cleanup(struct OperationConfig *config)
       state->urls = NULL;
     }
     Curl_safefree(state->outfiles);
-    Curl_safefree(state->httpgetfields);
     Curl_safefree(state->uploadfile);
     if(state->inglob) {
       /* Free list of globbed upload files */
@@ -462,7 +446,7 @@ static CURLcode post_per_transfer(struct GlobalConfig *global,
     }
   }
 
-#ifdef WIN32
+#ifdef _WIN32
   /* Discard incomplete UTF-8 sequence buffered from body */
   if(outs->utf8seq[0])
     memset(outs->utf8seq, 0, sizeof(outs->utf8seq));
@@ -653,12 +637,19 @@ noretry:
       errorf(config->global, "curl: (%d) Failed writing body", result);
     }
     if(result && config->rm_partial) {
-      notef(global, "Removing output file: %s", outs->filename);
-      unlink(outs->filename);
+      struct_stat st;
+      if(!stat(outs->filename, &st) &&
+         S_ISREG(st.st_mode)) {
+        if(!unlink(outs->filename))
+          notef(global, "Removed output file: %s", outs->filename);
+        else
+          warnf(global, "Failed removing: %s", outs->filename);
+      }
+      else
+        warnf(global, "Skipping removal; not a regular file: %s",
+              outs->filename);
     }
   }
-
-  AmigaSetComment(per, result);
 
   /* File time can only be set _after_ the file has been closed */
   if(!result && config->remote_time && outs->s_isreg && outs->filename) {
@@ -697,197 +688,6 @@ noretry:
   return result;
 }
 
-static char *ipfs_gateway(void)
-{
-  char *gateway = NULL;
-  char *ipfs_path = NULL;
-  char *gateway_composed_file_path = NULL;
-  FILE *gateway_file = NULL;
-
-  gateway = getenv("IPFS_GATEWAY");
-
-  /* Gateway is found from environment variable. */
-  if(gateway && *gateway) {
-    char *composed_gateway = NULL;
-    bool add_slash = (gateway[strlen(gateway) - 1] != '/');
-    composed_gateway = aprintf("%s%s", gateway, (add_slash) ? "/" : "");
-    if(composed_gateway) {
-      gateway = aprintf("%s", composed_gateway);
-      Curl_safefree(composed_gateway);
-    }
-    return gateway;
-  }
-  else
-    /* a blank string does not count */
-    gateway = NULL;
-
-  /* Try to find the gateway in the IPFS data folder. */
-  ipfs_path = getenv("IPFS_PATH");
-
-  if(!ipfs_path) {
-    char *home = getenv("HOME");
-    if(home && *home)
-      ipfs_path = aprintf("%s/.ipfs/", home);
-    /* fallback to "~/.ipfs", as that's the default location. */
-  }
-
-  if(!ipfs_path) {
-    Curl_safefree(gateway);
-    Curl_safefree(ipfs_path);
-    return NULL;
-  }
-
-  gateway_composed_file_path = aprintf("%sgateway", ipfs_path);
-
-  if(!gateway_composed_file_path) {
-    Curl_safefree(gateway);
-    Curl_safefree(ipfs_path);
-    return NULL;
-  }
-
-  gateway_file = fopen(gateway_composed_file_path, FOPEN_READTEXT);
-  Curl_safefree(gateway_composed_file_path);
-
-  if(gateway_file) {
-    char *buf = NULL;
-
-    if((PARAM_OK == file2string(&buf, gateway_file)) && buf && *buf) {
-      bool add_slash = (buf[strlen(buf) - 1] != '/');
-      gateway = aprintf("%s%s", buf, (add_slash) ? "/" : "");
-    }
-    Curl_safefree(buf);
-
-    if(gateway_file)
-      fclose(gateway_file);
-
-    if(!gateway) {
-      Curl_safefree(gateway);
-      Curl_safefree(ipfs_path);
-      return NULL;
-    }
-
-    Curl_safefree(ipfs_path);
-    return gateway;
-  }
-
-  Curl_safefree(gateway);
-  Curl_safefree(ipfs_path);
-  return NULL;
-}
-
-/*
- * Rewrite ipfs://<cid> and ipns://<cid> to a HTTP(S)
- * URL that can be handled by an IPFS gateway.
- */
-static CURLcode ipfs_url_rewrite(CURLU *uh, const char *protocol, char **url,
-                                 struct OperationConfig *config)
-{
-  CURLcode result = CURLE_URL_MALFORMAT;
-  CURLUcode urlGetResult;
-  char *gateway = NULL;
-  char *cid = NULL;
-  char *pathbuffer = NULL;
-  CURLU *ipfsurl = curl_url();
-
-  if(!ipfsurl) {
-    result = CURLE_FAILED_INIT;
-    goto clean;
-  }
-
-  urlGetResult = curl_url_get(uh, CURLUPART_HOST, &cid, CURLU_URLDECODE);
-
-  if(urlGetResult) {
-    goto clean;
-  }
-
-  if(!cid) {
-    goto clean;
-  }
-
-  /* We might have a --ipfs-gateway argument. Check it first and use it. Error
-   * if we do have something but if it's an invalid url.
-   */
-  if(config->ipfs_gateway) {
-    if(curl_url_set(ipfsurl, CURLUPART_URL, config->ipfs_gateway,
-                    CURLU_GUESS_SCHEME)
-                    == CURLUE_OK) {
-      gateway = strdup(config->ipfs_gateway);
-      if(!gateway) {
-        result = CURLE_URL_MALFORMAT;
-        goto clean;
-      }
-
-    }
-    else {
-      result = CURLE_BAD_FUNCTION_ARGUMENT;
-      goto clean;
-    }
-  }
-  else {
-    gateway = ipfs_gateway();
-    if(!gateway) {
-      result = CURLE_FILE_COULDNT_READ_FILE;
-      goto clean;
-    }
-
-    if(curl_url_set(ipfsurl, CURLUPART_URL, gateway, CURLU_GUESS_SCHEME
-                    | CURLU_NON_SUPPORT_SCHEME) != CURLUE_OK) {
-      goto clean;
-    }
-  }
-
-  pathbuffer = aprintf("%s/%s", protocol, cid);
-  if(!pathbuffer) {
-    goto clean;
-  }
-
-  if(curl_url_set(ipfsurl, CURLUPART_PATH, pathbuffer, CURLU_URLENCODE)
-                  != CURLUE_OK) {
-    goto clean;
-  }
-
-  /* Free whatever it has now, rewriting is next */
-  Curl_safefree(*url);
-
-  if(curl_url_get(ipfsurl, CURLUPART_URL, url, CURLU_URLENCODE)
-                  != CURLUE_OK) {
-    goto clean;
-  }
-
-  result = CURLE_OK;
-
-clean:
-  free(gateway);
-  curl_free(cid);
-  curl_free(pathbuffer);
-  curl_url_cleanup(ipfsurl);
-
-  switch(result) {
-  case CURLE_URL_MALFORMAT:
-    helpf(tool_stderr, "malformed URL. Visit https://curl.se/"
-          "docs/ipfs.html#Gateway-file-and-"
-          "environment-variable for more "
-          "information");
-    break;
-  case CURLE_FILE_COULDNT_READ_FILE:
-    helpf(tool_stderr, "IPFS automatic gateway detection "
-          "failure. Visit https://curl.se/docs/"
-          "ipfs.html#Malformed-gateway-URL for "
-          "more information");
-    break;
-  case CURLE_BAD_FUNCTION_ARGUMENT:
-    helpf(tool_stderr, "--ipfs-gateway argument results in "
-          "malformed URL. Visit https://curl.se/"
-          "docs/ipfs.html#Malformed-gateway-URL "
-          "for more information");
-    break;
-  default:
-    break;
-  }
-
-  return result;
-}
-
 /*
  * Return the protocol token for the scheme used in the given URL
  */
@@ -911,13 +711,13 @@ static CURLcode url_proto(char **url,
         if(curl_strequal(schemep, proto_ipfs) ||
            curl_strequal(schemep, proto_ipns)) {
           result = ipfs_url_rewrite(uh, schemep, url, config);
-
           /* short-circuit proto_token, we know it's ipfs or ipns */
           if(curl_strequal(schemep, proto_ipfs))
             proto = proto_ipfs;
           else if(curl_strequal(schemep, proto_ipns))
             proto = proto_ipns;
-
+          if(result)
+            config->synthetic_error = TRUE;
         }
         else
           proto = proto_token(schemep);
@@ -952,15 +752,11 @@ static CURLcode single_transfer(struct GlobalConfig *global,
     if(config->use_httpget) {
       if(!httpgetfields) {
         /* Use the postfields data for an HTTP get */
-        httpgetfields = state->httpgetfields = strdup(config->postfields);
-        Curl_safefree(config->postfields);
-        if(!httpgetfields) {
-          errorf(global, "out of memory");
-          result = CURLE_OUT_OF_MEMORY;
-        }
-        else if(SetHTTPrequest(config,
-                               (config->no_body?HTTPREQ_HEAD:HTTPREQ_GET),
-                               &config->httpreq)) {
+        httpgetfields = state->httpgetfields = config->postfields;
+        config->postfields = NULL;
+        if(SetHTTPrequest(config,
+                          (config->no_body?HTTPREQ_HEAD:HTTPREQ_GET),
+                          &config->httpreq)) {
           result = CURLE_FAILED_INIT;
         }
       }
@@ -1623,9 +1419,9 @@ static CURLcode single_transfer(struct GlobalConfig *global,
           }
           else {
             my_setopt_str(curl, CURLOPT_POSTFIELDS,
-                          config->postfields);
+                          curlx_dyn_ptr(&config->postdata));
             my_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
-                      config->postfieldsize);
+                      (curl_off_t)curlx_dyn_len(&config->postdata));
           }
           break;
         case HTTPREQ_MIMEPOST:
@@ -1776,7 +1572,8 @@ static CURLcode single_transfer(struct GlobalConfig *global,
                                   (config->proxy_capath ?
                                    config->proxy_capath :
                                    config->capath));
-          if(result == CURLE_NOT_BUILT_IN) {
+          if((result == CURLE_NOT_BUILT_IN) ||
+             (result == CURLE_UNKNOWN_OPTION)) {
             if(config->proxy_capath) {
               warnf(global,
                     "ignoring --proxy-capath, not supported by libcurl");
@@ -2825,7 +2622,7 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
 
       if(env)
         curl_free(env);
-#ifdef WIN32
+#ifdef _WIN32
       else {
         result = FindWin32CACert(config, tls_backend_info->backend,
                                  TEXT("curl-ca-bundle.crt"));

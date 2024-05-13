@@ -3576,6 +3576,9 @@ private:
             return true;
         };
 
+        if (!ArrayBufferView::verifySubRangeLength(arrayBuffer->byteLength(), byteOffset, length.value_or(0), 1))
+            return false;
+
         switch (arrayBufferViewSubtag) {
         case DataViewTag:
             return makeArrayBufferView(DataView::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
@@ -4355,7 +4358,8 @@ private:
             return JSValue();
 
         Vector<RTCCertificate::DtlsFingerprint> fingerprints;
-        fingerprints.reserveInitialCapacity(size);
+        if (!fingerprints.tryReserveInitialCapacity(size))
+            return JSValue();
         for (unsigned i = 0; i < size; i++) {
             CachedStringRef algorithm;
             if (!readStringData(algorithm))

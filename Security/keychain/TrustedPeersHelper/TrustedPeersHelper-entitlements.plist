@@ -46,7 +46,7 @@
 		<string>com.apple.mobile.usermanagerd.xpc</string>
 		<string>com.apple.security.sfkeychainserver</string>
 		<string>com.apple.securityd</string>
-                <string>com.apple.SBUserNotification</string>
+		<string>com.apple.SBUserNotification</string>
 	</array>
 	<key>com.apple.security.exception.shared-preference.read-write</key>
 	<array>
@@ -55,6 +55,8 @@
 	</array>
 	<key>com.apple.security.ts.cloudkit-client</key>
 	<true/>
+	<key>com.apple.security.ts.tmpdir</key>
+	<string>com.apple.TrustedPeersHelper</string>
 	<key>com.apple.symptom_diagnostics.report</key>
 	<true/>
 	<key>com.apple.usermanagerd.persona.fetch</key>

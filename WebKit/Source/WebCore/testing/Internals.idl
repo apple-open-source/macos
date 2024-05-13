@@ -645,6 +645,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     unsigned long imagePendingDecodePromisesCountForTesting(HTMLImageElement element);
     undefined setClearDecoderAfterAsyncFrameRequestForTesting(HTMLImageElement element, boolean enabled);
     unsigned long imageDecodeCount(HTMLImageElement element);
+    DOMString imageLastDecodingOptions(HTMLImageElement element);
     unsigned long imageCachedSubimageCreateCount(HTMLImageElement element);
     unsigned long remoteImagesCountForTesting();
     undefined setAsyncDecodingEnabledForTesting(HTMLImageElement element, boolean enabled);
@@ -729,6 +730,8 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined endSimulatedMemoryPressure();
 
     unsigned long numberOfIDBTransactions();
+
+    unsigned long scrollableAreaWidth(Node node);
 
     unsigned long numberOfLiveNodes();
     unsigned long numberOfLiveDocuments();
@@ -854,6 +857,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     undefined setUsesOverlayScrollbars(boolean enabled);
 
+    undefined forceAXObjectCacheUpdate();
     undefined forceReload(boolean endToEnd);
     undefined reloadExpiredOnly();
 

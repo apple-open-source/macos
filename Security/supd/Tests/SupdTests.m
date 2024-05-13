@@ -1052,6 +1052,30 @@ static NSInteger _reporterWrites;
     XCTAssertEqual(2, [eventSet count]);
 }
 
+- (void)testCreateChunkedLoggingJSONMemoryPerf
+{
+    int factor = 10000;
+    NSArray<NSDictionary *> *summaries = [self createRandomEventList:2*factor key:@"health" dataSize:900];
+    NSArray<NSDictionary *> *failures = @[];
+
+    SFAnalyticsTopic *topic = [self TrustTopic];
+    const size_t sizeLimit = 1000; // total size of the encoded data
+    topic.uploadSizeLimit = sizeLimit;
+
+    NSError *error = nil;
+    NSArray<NSDictionary *> *eventSet = [topic createChunkedLoggingJSON:summaries failures:failures error:&error];
+    XCTAssertNil(error);
+
+    XCTAssertEqual([summaries count], [eventSet count]);
+    
+    for (NSDictionary* event in eventSet){
+        NSError *serError = nil;
+        NSData* json = [supd serializeLoggingEvent:event error:&serError];
+        XCTAssertNil(serError);
+        XCTAssertNotNil(json);
+    }
+}
+
 
 - (void)testEventSetChunking
 {

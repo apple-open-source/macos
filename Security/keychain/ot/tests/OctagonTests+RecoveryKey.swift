@@ -1078,6 +1078,51 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
     }
 
+    func testJoiningUsingRecoveryKeyFailsWithoutFetchRecoverableTLKShares() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        self.assertResetAndBecomeTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        let recoveryKey = try XCTUnwrap(SecRKCreateRecoveryKeyString(nil))
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        let setRecoveryKeyExpectation = self.expectation(description: "setRecoveryKeyExpectation callback occurs")
+        TestsObjectiveC.setNewRecoveryKeyWithData(try self.otconfigurationContextFor(context: establishContext), recoveryKey: recoveryKey) { _, error in
+            XCTAssertNil(error, "error should be nil")
+            setRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [setRecoveryKeyExpectation], timeout: 10)
+
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
+
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        // For this test, the fetchRecoverableTLKShares endpoint is suffering an outage. This should break RK join.
+        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { request in
+            return NSError(domain: CKErrorDomain,
+                           code: CKError.serverRejectedRequest.rawValue,
+                           userInfo: [:])
+        }
+
+        XCTAssertThrowsError(try OctagonTrustCliqueBridge.recover(withRecoveryKey: self.otcliqueContext, recoveryKey: recoveryKey)) { error in
+            XCTAssertEqual((error as NSError).domain, CKErrorDomain, "error domain should be CloudKit")
+            XCTAssertEqual((error as NSError).code, CKError.serverRejectedRequest.rawValue, "error code should be serverRejectedRequest")
+        }
+
+        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+    }
+
     func testEstablishWhileUsingUnknownRecoveryKey() throws {
         try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()

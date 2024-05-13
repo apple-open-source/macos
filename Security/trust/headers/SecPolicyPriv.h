@@ -1058,18 +1058,14 @@ SecPolicyRef SecPolicyCreateAppleSMPEncryption(void);
 /*!
  @function SecPolicyCreateTestAppleSMPEncryption
  @abstract Returns a policy object for evaluating Test SMP certificate chains.
- @discussion This policy uses the Basic X.509 policy with no validity check
- and pinning options:
-    * The chain is anchored to a Test Apple Root with ECC public key certificate.
-    * There are exactly 3 certs in the chain.
-    * The intermediate has Common Name "Test Apple System Integration CA - ECC".
-    * The leaf has KeyUsage with the KeyEncipherment bit set.
-    * Revocation is checked via OCSP.
+ @discussion This policy is no longer needed. SecPolicyCreateAppleSMPEncryption
+        *  allows test SMP encryption certificates on internal builds.
  @result A policy object. The caller is responsible for calling CFRelease
      on this when it is no longer needed.
  */
 __nullable CF_RETURNS_RETAINED
-SecPolicyRef SecPolicyCreateTestAppleSMPEncryption(void);
+SecPolicyRef SecPolicyCreateTestAppleSMPEncryption(void)
+    API_DEPRECATED_WITH_REPLACEMENT("SecPolicyCreateAppleSMPEncryption", macos(10.11, 14.5), ios(9.0, 17.5), watchos(1.0, 10.5), tvos(9.0, 17.5));
 
 /*!
  @function SecPolicyCreateApplePPQSigning

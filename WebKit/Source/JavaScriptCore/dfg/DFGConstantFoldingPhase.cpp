@@ -57,10 +57,8 @@ public:
     {
         bool changed = false;
 
-        for (BasicBlock* block : m_graph.blocksInNaturalOrder()) {
-            if (block->cfaThinksShouldTryConstantFolding)
-                changed |= foldConstants(block);
-        }
+        for (BasicBlock* block : m_graph.blocksInNaturalOrder())
+            changed |= foldConstants(block);
         
         if (changed && m_graph.m_form == SSA) {
             // It's now possible that we have Upsilons pointed at JSConstants. Fix that.
@@ -678,7 +676,8 @@ private:
                 break;
             }
 
-            case InByVal: {
+            case InByVal:
+            case InByValMegamorphic: {
                 AbstractValue& property = m_state.forNode(node->child2());
                 if (JSValue constant = property.value()) {
                     if (constant.isString()) {
@@ -688,7 +687,8 @@ private:
                             RELEASE_ASSERT(impl);
                             m_graph.freezeStrong(string);
                             m_graph.identifiers().ensure(const_cast<UniquedStringImpl*>(static_cast<const UniquedStringImpl*>(impl)));
-                            node->convertToInById(CacheableIdentifier::createFromCell(string));
+                            m_insertionSet.insertCheck(indexInBlock, node->origin, m_graph.child(node, 0));
+                            node->convertToInByIdMaybeMegamorphic(m_graph, CacheableIdentifier::createFromCell(string));
                             changed = true;
                             break;
                         }
@@ -1283,6 +1283,8 @@ private:
             
             changed = true;
         }
+        if (m_graph.m_form == SSA || m_graph.m_form == ThreadedCPS)
+            m_state.endBasicBlock();
         m_state.reset();
         m_insertionSet.execute(block);
         

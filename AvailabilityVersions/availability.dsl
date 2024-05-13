@@ -348,7 +348,15 @@ version     tvos                17.4
 version     watchos             10.4
 version     bridgeos            8.4
 version     driverkit           23.4
-set         2023_SU_E           2023.15.1	23.4.0
+set         2023_SU_E           2023.15.1    23.4.0
+version     visionos            1.2
+version     macos               14.5
+version     ios                 17.5
+version     tvos                17.5
+version     watchos             10.5
+version     bridgeos            8.5
+version     driverkit           23.5
+set         2023_SU_F           2023.16.1    23.5.0
 version     visionos            2.0
 version     macos               15.0
 version     ios                 18.0

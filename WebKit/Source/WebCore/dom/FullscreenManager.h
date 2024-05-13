@@ -91,6 +91,12 @@ public:
     WEBCORE_EXPORT bool areFullscreenControlsHidden() const;
     WEBCORE_EXPORT void setFullscreenControlsHidden(bool);
 
+    enum class ResizeType : uint8_t {
+        DOMWindow           = 1 << 0,
+        VisualViewport      = 1 << 1,
+    };
+    void addPendingScheduledResize(ResizeType);
+
     void clear();
     void emptyEventQueue();
 
@@ -113,7 +119,7 @@ private:
     Document& topDocument() { return m_topDocument ? *m_topDocument : document().topDocument(); }
     Ref<Document> protectedTopDocument();
 
-    CheckedRef<Document> m_document;
+    WeakRef<Document, WeakPtrImplWithEventTargetData> m_document;
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_topDocument;
 
     RefPtr<Element> fullscreenOrPendingElement() const { return m_fullscreenElement ? m_fullscreenElement : m_pendingFullscreenElement; }
@@ -125,6 +131,8 @@ private:
     RefPtr<Element> m_fullscreenElement;
     Deque<GCReachableRef<Node>> m_fullscreenChangeEventTargetQueue;
     Deque<GCReachableRef<Node>> m_fullscreenErrorEventTargetQueue;
+
+    OptionSet<ResizeType> m_pendingScheduledResize;
 
     bool m_areKeysEnabledInFullscreen { false };
     bool m_isAnimatingFullscreen { false };

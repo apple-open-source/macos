@@ -76,6 +76,7 @@
 #import <WebCore/HistoryController.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/IOSurface.h>
+#import <WebCore/Image.h>
 #import <WebCore/ImageDecoderCG.h>
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/LocalizedDeviceModel.h>
@@ -1203,6 +1204,11 @@ void WebProcess::scrollerStylePreferenceChanged(bool useOverlayScrollbars)
 
     static_cast<ScrollbarThemeMac&>(theme).preferencesChanged();
     
+    for (auto& page : m_pageMap.values()) {
+        if (RefPtr frameView = page->localMainFrameView())
+            frameView->scrollbarStyleDidChange();
+    }
+
     NSScrollerStyle style = useOverlayScrollbars ? NSScrollerStyleOverlay : NSScrollerStyleLegacy;
     [NSScrollerImpPair _updateAllScrollerImpPairsForNewRecommendedScrollerStyle:style];
 }
@@ -1257,6 +1263,7 @@ void WebProcess::accessibilityPreferencesDidChange(const AccessibilityPreference
     FontCache::invalidateAllFontCaches();
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     m_imageAnimationEnabled = preferences.imageAnimationEnabled;
+    Image::setSystemAllowsAnimationControls(!imageAnimationEnabled());
     for (auto& page : m_pageMap.values())
         page->updateImageAnimationEnabled();
 #endif
@@ -1355,11 +1362,6 @@ void WebProcess::handlePreferenceChange(const String& domain, const String& key,
     }
 
     AuxiliaryProcess::handlePreferenceChange(domain, key, value);
-}
-
-void WebProcess::notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue)
-{
-    preferenceDidUpdate(domain, key, encodedValue);
 }
 
 void WebProcess::accessibilitySettingsDidChange()

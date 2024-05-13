@@ -60,14 +60,11 @@ messages -> GPUProcess LegacyReceiver {
 
 #if HAVE(SCREEN_CAPTURE_KIT)
     PromptForGetDisplayMedia(enum:uint8_t WebCore::DisplayCapturePromptType type) -> (std::optional<WebCore::CaptureDevice> device)
+    CancelGetDisplayMediaPrompt()
 #endif
 
 #if ENABLE(VIDEO)
     RequestBitmapImageForCurrentTime(WebCore::ProcessIdentifier processIdentifier, WebCore::MediaPlayerIdentifier playerIdentifier) -> (std::optional<WebKit::ShareableBitmap::Handle> handle)
-#endif
-
-#if ENABLE(CFPREFS_DIRECT_MODE)
-    NotifyPreferencesChanged(String domain, String key, std::optional<String> encodedValue)
 #endif
 
 #if PLATFORM(MAC)

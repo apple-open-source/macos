@@ -236,8 +236,7 @@ extension OctagonPairingTests {
 
         let rpcJoinCallbackOccurs = self.expectation(description: "rpcJoin callback occurs")
 
-        self.cuttlefishContext.flowID = "OctagonTests-flowID"
-        self.cuttlefishContext.deviceSessionID = "OctagonTests-deviceSessionID"
+        self.cuttlefishContext.sessionMetrics = OTMetricsSessionData.init(flowID:"OctagonTests-flowID", deviceSessionID:"OctagonTests-deviceSessionID")
 
         self.cuttlefishContext.rpcJoin(v, vouchSig: vS) { error in
             XCTAssertNil(error, "error should be nil")
@@ -1380,23 +1379,19 @@ extension OctagonPairingTests {
 
         /* INITIATOR FIRST RTT JOINING MESSAGE*/
         let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
-        XCTAssertNil(initiator1Context.flowID, "flowID should be nil")
-        XCTAssertNil(initiator1Context.deviceSessionID, "deviceSessionID should be nil")
+        XCTAssertNil(initiator1Context.sessionMetrics, "sendMetrics should be nil")
 
         /* ACCEPTOR FIRST RTT EPOCH*/
         let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
-        XCTAssertNil(self.cuttlefishContextForAcceptor.flowID, "flowID should be nil")
-        XCTAssertNil(self.cuttlefishContextForAcceptor.deviceSessionID, "deviceSessionID should be nil")
+        XCTAssertNil(self.cuttlefishContextForAcceptor.sessionMetrics, "sessionMetrics should be nil")
 
         /* INITIATOR SECOND RTT PREPARE*/
         let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
-        XCTAssertNil(initiator1Context.flowID, "flowID should be nil")
-        XCTAssertNil(initiator1Context.deviceSessionID, "deviceSessionID should be nil")
+        XCTAssertNil(initiator1Context.sessionMetrics, "sessionMetrics should be nil")
 
         /* ACCEPTOR SECOND RTT */
         let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
-        XCTAssertNil(self.cuttlefishContextForAcceptor.flowID, "flowID should be nil")
-        XCTAssertNil(self.cuttlefishContextForAcceptor.deviceSessionID, "deviceSessionID should be nil")
+        XCTAssertNil(self.cuttlefishContextForAcceptor.sessionMetrics, "sessionMetrics should be nil")
 
         // the tlks are in the 3rd roundtrip, but lets check here too
         XCTAssertFalse(try self.tlkInPairingChannel(packet: acceptorVoucherPacket), "pairing channel should not transport TLKs for octagon")
@@ -1443,6 +1438,64 @@ extension OctagonPairingTests {
         self.wait(for: [acceptorDumpCallback], timeout: 10)
 
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
+    }
+
+    func testStressReadingWritingMetricsData() throws {
+
+        let group1 = DispatchGroup()
+        let group2 = DispatchGroup()
+        let group3 = DispatchGroup()
+
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
+
+        clientStateMachine.startOctagonStateMachine()
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "acceptor should not be nil")
+        XCTAssertNotNil(initiator, "initiator should not be nil")
+
+        XCTAssertNotNil(acceptor.peerVersionContext.flowID, "acceptor flowID should not be nil")
+        XCTAssertNotNil(acceptor.peerVersionContext.deviceSessionID, "acceptor deviceSessionID should not be nil")
+        XCTAssertNotNil(initiator.peerVersionContext.flowID, "requestor flowID should not be nil")
+        XCTAssertNotNil(initiator.peerVersionContext.deviceSessionID, "requestor deviceSessionID should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        for _ in 0...500 {
+            let queue1 = DispatchQueue(label: "nilTheVariables")
+            let queue2 = DispatchQueue(label: "accessProperties")
+            let queue3 = DispatchQueue(label: "populateTheVariables")
+
+            queue1.async(group: group1) {
+                self.cuttlefishContextForAcceptor.sessionMetrics = nil
+            }
+            queue2.async(group: group2) {
+                _ = self.cuttlefishContextForAcceptor.operationDependencies()
+            }
+            queue3.async(group: group3) {
+                self.cuttlefishContextForAcceptor.sessionMetrics = OTMetricsSessionData.init(flowID: "testflowID", deviceSessionID: "testDeviceSessionID")
+            }
+        }
+
+        group1.wait()
+        group2.wait()
+        group3.wait()
     }
 }
 

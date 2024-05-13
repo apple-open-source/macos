@@ -21,6 +21,7 @@
 #include "Page.h"
 
 #include "ActivityStateChangeObserver.h"
+#include "AdvancedPrivacyProtections.h"
 #include "AlternativeTextClient.h"
 #include "AnimationFrameRate.h"
 #include "AppHighlightStorage.h"
@@ -871,7 +872,7 @@ bool Page::findString(const String& target, FindOptions options, DidWrap* didWra
 
     CanWrap canWrap = options.contains(WrapAround) ? CanWrap::Yes : CanWrap::No;
     CheckedRef focusController { *m_focusController };
-    RefPtr<Frame> frame = &focusController->focusedOrMainFrame();
+    RefPtr<Frame> frame = focusController->focusedOrMainFrame();
     RefPtr startFrame = dynamicDowncast<LocalFrame>(frame.get());
     do {
         RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get());
@@ -1122,7 +1123,9 @@ uint32_t Page::replaceRangesWithText(const Vector<SimpleRange>& rangesToReplace,
 
 uint32_t Page::replaceSelectionWithText(const String& replacementText)
 {
-    Ref frame = CheckedRef(focusController())->focusedOrMainFrame();
+    RefPtr frame = CheckedRef(focusController())->focusedOrMainFrame();
+    if (!frame)
+        return 0;
     auto selection = frame->selection().selection();
     if (!selection.isContentEditable())
         return 0;
@@ -1206,13 +1209,19 @@ Vector<Ref<Element>> Page::editableElementsInRect(const FloatRect& searchRectInR
     // tries to avoid creating line boxes, which are things it hit tests, for them to reduce memory. If the
     // focused element is inside the search rect it's the most likely target for future editing operations,
     // even if it's empty. So, we special case it here.
-    if (RefPtr focusedElement = CheckedRef(focusController())->focusedOrMainFrame().document()->focusedElement()) {
+    RefPtr focusedOrMainFrame = CheckedRef(focusController())->focusedOrMainFrame();
+    if (RefPtr focusedElement = focusedOrMainFrame ? focusedOrMainFrame->document()->focusedElement() : nullptr) {
         if (searchRectInRootViewCoordinates.inclusivelyIntersects(focusedElement->boundingBoxInRootViewCoordinates())) {
             if (auto* editableElement = rootEditableElement(*focusedElement))
                 rootEditableElements.add(*editableElement);
         }
     }
     return WTF::map(rootEditableElements, [](const auto& element) { return element.copyRef(); });
+}
+
+CheckedRef<FocusController> Page::checkedFocusController() const
+{
+    return *m_focusController;
 }
 
 #if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
@@ -1235,7 +1244,10 @@ void Page::setInteractionRegionsEnabled(bool enable)
 
 const VisibleSelection& Page::selection() const
 {
-    return CheckedRef(focusController())->focusedOrMainFrame().selection().selection();
+    RefPtr focusedOrMainFrame = CheckedRef(focusController())->focusedOrMainFrame();
+    if (!focusedOrMainFrame)
+        return VisibleSelection::emptySelection();
+    return focusedOrMainFrame->selection().selection();
 }
 
 void Page::setDefersLoading(bool defers)
@@ -1990,10 +2002,10 @@ void Page::doAfterUpdateRendering()
 
     DebugPageOverlays::doAfterUpdateRendering(*this);
 
-    m_renderingUpdateRemainingSteps.last().remove(RenderingUpdateStep::PrepareCanvasesForDisplay);
+    m_renderingUpdateRemainingSteps.last().remove(RenderingUpdateStep::PrepareCanvasesForDisplayOrFlush);
 
     forEachDocument([] (Document& document) {
-        document.prepareCanvasesForDisplayIfNeeded();
+        document.prepareCanvasesForDisplayOrFlushIfNeeded();
     });
 
     if (localMainFrame) {
@@ -2194,11 +2206,6 @@ void Page::setImageAnimationEnabled(bool enabled)
     m_imageAnimationEnabled = enabled;
     updatePlayStateForAllAnimations();
     chrome().client().isAnyAnimationAllowedToPlayDidChange(enabled);
-}
-
-void Page::setSystemAllowsAnimationControls(bool isAllowed)
-{
-    m_systemAllowsAnimationControls = isAllowed;
 }
 #endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 
@@ -4195,7 +4202,8 @@ bool Page::shouldDisableCorsForRequestTo(const URL& url) const
 
 void Page::revealCurrentSelection()
 {
-    CheckedRef(focusController())->focusedOrMainFrame().selection().revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded);
+    if (RefPtr frame = CheckedRef(focusController())->focusedOrMainFrame())
+        frame->selection().revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded);
 }
 
 void Page::injectUserStyleSheet(UserStyleSheet& userStyleSheet)
@@ -4286,7 +4294,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
     case RenderingUpdateStep::ScrollingTreeUpdate: ts << "ScrollingTreeUpdate"; break;
 #endif
     case RenderingUpdateStep::VideoFrameCallbacks: ts << "VideoFrameCallbacks"; break;
-    case RenderingUpdateStep::PrepareCanvasesForDisplay: ts << "PrepareCanvasesForDisplay"; break;
+    case RenderingUpdateStep::PrepareCanvasesForDisplayOrFlush: ts << "PrepareCanvasesForDisplayOrFlush"; break;
     case RenderingUpdateStep::CaretAnimation: ts << "CaretAnimation"; break;
     case RenderingUpdateStep::FocusFixup: ts << "FocusFixup"; break;
     case RenderingUpdateStep::UpdateValidationMessagePositions: ts << "UpdateValidationMessagePositions"; break;
@@ -4422,7 +4430,7 @@ ModelPlayerProvider& Page::modelPlayerProvider()
     return m_modelPlayerProvider.get();
 }
 
-void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy)
+void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy, OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections)
 {
     auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
     if (!localMainFrame)
@@ -4437,6 +4445,9 @@ void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& 
     auto originAsURL = origin->toURL();
     document->setSiteForCookies(originAsURL);
     document->setFirstPartyForCookies(originAsURL);
+
+    if (RefPtr documentLoader = localMainFrame->checkedLoader()->documentLoader())
+        documentLoader->setAdvancedPrivacyProtections(advancedPrivacyProtections);
 
     if (document->settings().storageBlockingPolicy() != StorageBlockingPolicy::BlockThirdParty)
         document->setDomainForCachePartition(String { emptyString() });

@@ -267,12 +267,19 @@ extension Container {
                                   userInitiatedRemovals: Set<String>? = nil,
                                   evictedRemovals: Set<String>? = nil,
                                   unknownReasonRemovals: Set<String>? = nil,
+                                  flowID: String? = nil,
+                                  deviceSessionID: String? = nil,
+                                  canSendMetrics: Bool = false,
+                                  altDSID: String? = nil,
                                   accountIsDemo: Bool,
+                                  trustedDeviceHash: String? = nil,
+                                  deletedDeviceHash: String? = nil,
+                                  trustedDevicesUpdateTimestamp: NSNumber? = nil,
                                   listDifference: Bool = true) -> (Error?) {
         let expectation = XCTestExpectation(description: "setAllowedMachineIDs replied")
         var reterr: Error?
         let honorIDMSListChanges = accountIsDemo ? false : true
-        self.setAllowedMachineIDs(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasonRemovals, honorIDMSListChanges: honorIDMSListChanges, version: nil) { differences, err in
+        self.setAllowedMachineIDs(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasonRemovals, honorIDMSListChanges: honorIDMSListChanges, version: nil, flowID: flowID, deviceSessionID: deviceSessionID, canSendMetrics: canSendMetrics, altDSID: altDSID, trustedDeviceHash: trustedDeviceHash, deletedDeviceHash: deletedDeviceHash, trustedDevicesUpdateTimestamp: trustedDevicesUpdateTimestamp) { differences, err in
             XCTAssertEqual(differences, listDifference, "Reported list difference should match expectation")
             reterr = err
             expectation.fulfill()
@@ -324,6 +331,8 @@ extension Container {
             expectation.fulfill()
         }
         test.wait(for: [expectation], timeout: 10.0)
+        XCTAssertNil(retstate!.peerError, "getStateSync peerError should be nil")
+        XCTAssertNil(retstate!.voucherError, "getStateSync voucherError should be nil")
         return retstate!
     }
 

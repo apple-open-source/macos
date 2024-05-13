@@ -136,6 +136,9 @@ NS_ASSUME_NONNULL_BEGIN
                                                   NSSet<NSString*>* _Nullable evictedRemovals,
                                                   NSSet<NSString*>* _Nullable unknownReasonRemovals,
                                                   NSString* _Nullable version,
+                                                  NSString* _Nullable trustedDeviceHash,
+                                                  NSString* _Nullable deletedDeviceHash,
+                                                  NSNumber* _Nullable trustedDevicesUpdateTimestamp,
                                                   NSError * _Nullable error))complete;
 - (NSString * _Nullable)machineID:(NSString* _Nullable)altDSID
                            flowID:(NSString* _Nullable)flowID

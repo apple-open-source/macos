@@ -137,7 +137,7 @@ __attribute__((__visibility__("default"))) void libSystem_init_after_boot_tasks_
 // should_enable_posix_spawn_filtering can only be used after
 // _libxpc_initializer() has run
 #define should_enable_posix_spawn_filtering() \
-	(os_variant_has_internal_content("com.apple.libsystem") && \
+	(os_variant_allows_internal_security_policies("com.apple.libsystem") && \
 	os_feature_enabled(Libsystem, posix_spawn_filtering))
 
 #if SUPPORT_ASAN

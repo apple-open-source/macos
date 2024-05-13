@@ -201,6 +201,7 @@ static bool needsScratchFPR(AccessCase::AccessType type)
     case AccessCase::Load:
     case AccessCase::LoadMegamorphic:
     case AccessCase::StoreMegamorphic:
+    case AccessCase::InMegamorphic:
     case AccessCase::Transition:
     case AccessCase::Delete:
     case AccessCase::DeleteNonConfigurable:
@@ -232,6 +233,7 @@ static bool needsScratchFPR(AccessCase::AccessType type)
     case AccessCase::IndexedProxyObjectLoad:
     case AccessCase::IndexedMegamorphicLoad:
     case AccessCase::IndexedMegamorphicStore:
+    case AccessCase::IndexedMegamorphicIn:
     case AccessCase::IndexedInt32Load:
     case AccessCase::IndexedContiguousLoad:
     case AccessCase::IndexedArrayStorageLoad:
@@ -402,6 +404,7 @@ static bool forInBy(AccessCase::AccessType type)
         return false;
     case AccessCase::InHit:
     case AccessCase::InMiss:
+    case AccessCase::InMegamorphic:
     case AccessCase::IndexedInt32InHit:
     case AccessCase::IndexedDoubleInHit:
     case AccessCase::IndexedContiguousInHit:
@@ -428,12 +431,11 @@ static bool forInBy(AccessCase::AccessType type)
     case AccessCase::IndexedResizableTypedArrayFloat64InHit:
     case AccessCase::IndexedStringInHit:
     case AccessCase::IndexedNoIndexingInMiss:
+    case AccessCase::IndexedMegamorphicIn:
         return true;
     }
     return false;
 }
-
-
 
 void InlineCacheCompiler::installWatchpoint(CodeBlock* codeBlock, const ObjectPropertyCondition& condition)
 {
@@ -1161,7 +1163,7 @@ Ref<InlineCacheHandler> InlineCacheCompiler::generateSlowPathHandler(VM& vm, Acc
     return handler;
 }
 
-void InlineCacheCompiler::generateWithGuard(AccessCase& accessCase, CCallHelpers::JumpList& fallThrough)
+void InlineCacheCompiler::generateWithGuard(unsigned index, AccessCase& accessCase, CCallHelpers::JumpList& fallThrough)
 {
     SuperSamplerScope superSamplerScope(false);
 
@@ -1322,7 +1324,7 @@ void InlineCacheCompiler::generateWithGuard(AccessCase& accessCase, CCallHelpers
     case AccessCase::ProxyObjectStore:
     case AccessCase::IndexedProxyObjectLoad: {
         ASSERT(!accessCase.viaGlobalProxy());
-        emitProxyObjectAccess(accessCase.as<ProxyObjectAccessCase>(), fallThrough);
+        emitProxyObjectAccess(index, accessCase.as<ProxyObjectAccessCase>(), fallThrough);
         return;
     }
 
@@ -2221,6 +2223,72 @@ void InlineCacheCompiler::generateWithGuard(AccessCase& accessCase, CCallHelpers
         return;
     }
 
+    case AccessCase::InMegamorphic: {
+#if USE(JSVALUE64)
+        ASSERT(!accessCase.viaGlobalProxy());
+        CCallHelpers::JumpList failAndRepatch;
+        auto* uid = accessCase.m_identifier.uid();
+
+        auto allocator = makeDefaultScratchAllocator(scratchGPR);
+        GPRReg scratch2GPR = allocator.allocateScratchGPR();
+        GPRReg scratch3GPR = allocator.allocateScratchGPR();
+
+        ScratchRegisterAllocator::PreservedState preservedState = allocator.preserveReusedRegistersByPushing(jit, ScratchRegisterAllocator::ExtraStackSpace::NoExtraSpace);
+
+        auto slowCases = jit.hasMegamorphicProperty(vm, baseGPR, InvalidGPRReg, uid, valueRegs.payloadGPR(), scratchGPR, scratch2GPR, scratch3GPR);
+
+        allocator.restoreReusedRegistersByPopping(jit, preservedState);
+        succeed();
+
+        if (allocator.didReuseRegisters()) {
+            slowCases.link(&jit);
+            allocator.restoreReusedRegistersByPopping(jit, preservedState);
+            m_failAndRepatch.append(jit.jump());
+        } else
+            m_failAndRepatch.append(slowCases);
+#endif
+        return;
+    }
+
+    case AccessCase::IndexedMegamorphicIn: {
+#if USE(JSVALUE64)
+        ASSERT(!accessCase.viaGlobalProxy());
+
+        CCallHelpers::JumpList slowCases;
+
+        auto allocator = makeDefaultScratchAllocator(scratchGPR);
+        GPRReg scratch2GPR = allocator.allocateScratchGPR();
+        GPRReg scratch3GPR = allocator.allocateScratchGPR();
+        GPRReg scratch4GPR = allocator.allocateScratchGPR();
+
+        ScratchRegisterAllocator::PreservedState preservedState = allocator.preserveReusedRegistersByPushing(jit, ScratchRegisterAllocator::ExtraStackSpace::NoExtraSpace);
+
+        CCallHelpers::JumpList notString;
+        GPRReg propertyGPR = m_stubInfo->propertyGPR();
+        if (!m_stubInfo->propertyIsString) {
+            slowCases.append(jit.branchIfNotCell(propertyGPR));
+            slowCases.append(jit.branchIfNotString(propertyGPR));
+        }
+
+        jit.loadPtr(CCallHelpers::Address(propertyGPR, JSString::offsetOfValue()), scratch4GPR);
+        slowCases.append(jit.branchIfRopeStringImpl(scratch4GPR));
+        slowCases.append(jit.branchTest32(CCallHelpers::Zero, CCallHelpers::Address(scratch4GPR, StringImpl::flagsOffset()), CCallHelpers::TrustedImm32(StringImpl::flagIsAtom())));
+
+        slowCases.append(jit.hasMegamorphicProperty(vm, baseGPR, scratch4GPR, nullptr, valueRegs.payloadGPR(), scratchGPR, scratch2GPR, scratch3GPR));
+
+        allocator.restoreReusedRegistersByPopping(jit, preservedState);
+        succeed();
+
+        if (allocator.didReuseRegisters()) {
+            slowCases.link(&jit);
+            allocator.restoreReusedRegistersByPopping(jit, preservedState);
+            m_failAndRepatch.append(jit.jump());
+        } else
+            m_failAndRepatch.append(slowCases);
+#endif
+        return;
+    }
+
     case AccessCase::IndexedMegamorphicStore: {
 #if USE(JSVALUE64)
         ASSERT(!accessCase.viaGlobalProxy());
@@ -2265,10 +2333,10 @@ void InlineCacheCompiler::generateWithGuard(AccessCase& accessCase, CCallHelpers
         break;
     }
 
-    generateImpl(accessCase);
+    generateImpl(index, accessCase);
 }
 
-void InlineCacheCompiler::generate(AccessCase& accessCase)
+void InlineCacheCompiler::generate(unsigned index, AccessCase& accessCase)
 {
     RELEASE_ASSERT(accessCase.state() == AccessCase::Committed);
     RELEASE_ASSERT(m_stubInfo->hasConstantIdentifier);
@@ -2276,10 +2344,10 @@ void InlineCacheCompiler::generate(AccessCase& accessCase)
 
     accessCase.checkConsistency(*m_stubInfo);
 
-    generateImpl(accessCase);
+    generateImpl(index, accessCase);
 }
 
-void InlineCacheCompiler::generateImpl(AccessCase& accessCase)
+void InlineCacheCompiler::generateImpl(unsigned index, AccessCase& accessCase)
 {
     SuperSamplerScope superSamplerScope(false);
     dataLogLnIf(InlineCacheCompilerInternal::verbose, "\n\nGenerating code for: ", accessCase);
@@ -2491,7 +2559,6 @@ void InlineCacheCompiler::generateImpl(AccessCase& accessCase)
             jit.store32(CCallHelpers::TrustedImm32(callSiteIndexForExceptionHandlingOrOriginal().bits()), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
 
         if (accessCase.m_type == AccessCase::Getter || accessCase.m_type == AccessCase::Setter) {
-            auto& access = accessCase.as<GetterSetterAccessCase>();
             ASSERT(baseGPR != loadedValueGPR);
             ASSERT(accessCase.m_type != AccessCase::Setter || valueRegsPayloadGPR != loadedValueGPR);
 
@@ -2513,9 +2580,8 @@ void InlineCacheCompiler::generateImpl(AccessCase& accessCase)
 
             setSpillStateForJSCall(spillState);
 
-            RELEASE_ASSERT(!access.callLinkInfo());
-            auto* callLinkInfo = m_callLinkInfos.add(stubInfo.codeOrigin, codeBlock->useDataIC() ? CallLinkInfo::UseDataIC::Yes : CallLinkInfo::UseDataIC::No, nullptr);
-            access.m_callLinkInfo = callLinkInfo;
+            m_callLinkInfos[index] = makeUnique<OptimizingCallLinkInfo>(stubInfo.codeOrigin, codeBlock->useDataIC() ? CallLinkInfo::UseDataIC::Yes : CallLinkInfo::UseDataIC::No, nullptr);
+            auto* callLinkInfo = m_callLinkInfos[index].get();
 
             // FIXME: If we generated a polymorphic call stub that jumped back to the getter
             // stub, which then jumped back to the main code, then we'd have a reachability
@@ -3006,9 +3072,11 @@ void InlineCacheCompiler::generateImpl(AccessCase& accessCase)
     case AccessCase::InstanceOfGeneric:
     case AccessCase::LoadMegamorphic:
     case AccessCase::StoreMegamorphic:
+    case AccessCase::InMegamorphic:
     case AccessCase::IndexedProxyObjectLoad:
     case AccessCase::IndexedMegamorphicLoad:
     case AccessCase::IndexedMegamorphicStore:
+    case AccessCase::IndexedMegamorphicIn:
     case AccessCase::IndexedInt32Load:
     case AccessCase::IndexedDoubleLoad:
     case AccessCase::IndexedContiguousLoad:
@@ -3230,7 +3298,7 @@ void InlineCacheCompiler::emitModuleNamespaceLoad(ModuleNamespaceAccessCase& acc
     succeed();
 }
 
-void InlineCacheCompiler::emitProxyObjectAccess(ProxyObjectAccessCase& accessCase, MacroAssembler::JumpList& fallThrough)
+void InlineCacheCompiler::emitProxyObjectAccess(unsigned index, ProxyObjectAccessCase& accessCase, MacroAssembler::JumpList& fallThrough)
 {
     CCallHelpers& jit = *m_jit;
     CodeBlock* codeBlock = jit.codeBlock();
@@ -3257,9 +3325,8 @@ void InlineCacheCompiler::emitProxyObjectAccess(ProxyObjectAccessCase& accessCas
 
     setSpillStateForJSCall(spillState);
 
-    ASSERT(!accessCase.callLinkInfo());
-    auto* callLinkInfo = m_callLinkInfos.add(stubInfo.codeOrigin, codeBlock->useDataIC() ? CallLinkInfo::UseDataIC::Yes : CallLinkInfo::UseDataIC::No, nullptr);
-    accessCase.m_callLinkInfo = callLinkInfo;
+    m_callLinkInfos[index] = makeUnique<OptimizingCallLinkInfo>(stubInfo.codeOrigin, codeBlock->useDataIC() ? CallLinkInfo::UseDataIC::Yes : CallLinkInfo::UseDataIC::No, nullptr);
+    auto* callLinkInfo = m_callLinkInfos[index].get();
 
     callLinkInfo->disallowStubs();
 
@@ -3802,6 +3869,69 @@ AccessGenerationResult InlineCacheCompiler::regenerate(const GCSafeConcurrentJSL
             }
             break;
         }
+        case AccessType::InById: {
+            auto identifier = cases.last()->m_identifier;
+            bool allAreSimpleHitOrMiss = true;
+            for (auto& accessCase : cases) {
+                if (accessCase->type() != AccessCase::InHit && accessCase->type() != AccessCase::InMiss) {
+                    allAreSimpleHitOrMiss = false;
+                    break;
+                }
+                if (accessCase->usesPolyProto()) {
+                    allAreSimpleHitOrMiss = false;
+                    break;
+                }
+                if (accessCase->viaGlobalProxy()) {
+                    allAreSimpleHitOrMiss = false;
+                    break;
+                }
+            }
+
+            // Currently, we do not apply megamorphic cache for "length" property since Array#length and String#length are too common.
+            if (!canUseMegamorphicInById(vm(), identifier.uid()))
+                allAreSimpleHitOrMiss = false;
+
+#if USE(JSVALUE32_64)
+            allAreSimpleHitOrMiss = false;
+#endif
+
+            if (allAreSimpleHitOrMiss) {
+                while (!cases.isEmpty())
+                    poly.m_list.append(cases.takeLast());
+                cases.append(AccessCase::create(vm(), codeBlock, AccessCase::InMegamorphic, identifier));
+                generatedMegamorphicCode = true;
+            }
+            break;
+        }
+        case AccessType::InByVal: {
+            bool allAreSimpleHitOrMiss = true;
+            for (auto& accessCase : cases) {
+                if (accessCase->type() != AccessCase::InHit && accessCase->type() != AccessCase::InMiss) {
+                    allAreSimpleHitOrMiss = false;
+                    break;
+                }
+                if (accessCase->usesPolyProto()) {
+                    allAreSimpleHitOrMiss = false;
+                    break;
+                }
+                if (accessCase->viaGlobalProxy()) {
+                    allAreSimpleHitOrMiss = false;
+                    break;
+                }
+            }
+
+#if USE(JSVALUE32_64)
+            allAreSimpleHitOrMiss = false;
+#endif
+
+            if (allAreSimpleHitOrMiss) {
+                while (!cases.isEmpty())
+                    poly.m_list.append(cases.takeLast());
+                cases.append(AccessCase::create(vm(), codeBlock, AccessCase::IndexedMegamorphicIn, nullptr));
+                generatedMegamorphicCode = true;
+            }
+            break;
+        }
         default:
             break;
         }
@@ -3849,10 +3979,15 @@ AccessGenerationResult InlineCacheCompiler::regenerate(const GCSafeConcurrentJSL
     bool doesJSCalls = false;
     bool canBeShared = Options::useDataICSharing();
     Vector<JSCell*> cellsToMark;
+    m_callLinkInfos.resize(cases.size());
     FixedVector<RefPtr<AccessCase>> keys(cases.size());
     unsigned index = 0;
     for (auto& entry : cases) {
-        doesCalls |= entry->doesCalls(vm(), &cellsToMark);
+        if (entry->doesCalls(vm())) {
+            doesCalls = true;
+            entry->collectDependentCells(vm(), cellsToMark);
+        }
+
         switch (entry->type()) {
         case AccessCase::Getter:
         case AccessCase::Setter:
@@ -3953,7 +4088,7 @@ AccessGenerationResult InlineCacheCompiler::regenerate(const GCSafeConcurrentJSL
                     fallThrough.link(&jit);
                     fallThrough.clear();
                     if (cases[i]->requiresInt32PropertyCheck())
-                        generateWithGuard(*cases[i], fallThrough);
+                        generateWithGuard(i, *cases[i], fallThrough);
                 }
 
                 if (needsStringPropertyCheck || needsSymbolPropertyCheck || acceptValueProperty) {
@@ -3986,7 +4121,7 @@ AccessGenerationResult InlineCacheCompiler::regenerate(const GCSafeConcurrentJSL
                     fallThrough.link(&jit);
                     fallThrough.clear();
                     if (cases[i]->requiresIdentifierNameMatch() && !cases[i]->uid()->isSymbol())
-                        generateWithGuard(*cases[i], fallThrough);
+                        generateWithGuard(i, *cases[i], fallThrough);
                 }
 
                 if (needsSymbolPropertyCheck || acceptValueProperty) {
@@ -4015,7 +4150,7 @@ AccessGenerationResult InlineCacheCompiler::regenerate(const GCSafeConcurrentJSL
                     fallThrough.link(&jit);
                     fallThrough.clear();
                     if (cases[i]->requiresIdentifierNameMatch() && cases[i]->uid()->isSymbol())
-                        generateWithGuard(*cases[i], fallThrough);
+                        generateWithGuard(i, *cases[i], fallThrough);
                 }
 
                 if (acceptValueProperty) {
@@ -4032,7 +4167,7 @@ AccessGenerationResult InlineCacheCompiler::regenerate(const GCSafeConcurrentJSL
                     fallThrough.link(&jit);
                     fallThrough.clear();
                     if (!cases[i]->requiresIdentifierNameMatch() && !cases[i]->requiresInt32PropertyCheck())
-                        generateWithGuard(*cases[i], fallThrough);
+                        generateWithGuard(i, *cases[i], fallThrough);
                 }
             }
         } else {
@@ -4041,7 +4176,7 @@ AccessGenerationResult InlineCacheCompiler::regenerate(const GCSafeConcurrentJSL
             for (unsigned i = cases.size(); i--;) {
                 fallThrough.link(&jit);
                 fallThrough.clear();
-                generateWithGuard(*cases[i], fallThrough);
+                generateWithGuard(i, *cases[i], fallThrough);
             }
         }
 
@@ -4059,7 +4194,7 @@ AccessGenerationResult InlineCacheCompiler::regenerate(const GCSafeConcurrentJSL
 
         BinarySwitch binarySwitch(m_scratchGPR, caseValues, BinarySwitch::Int32);
         while (binarySwitch.advance(jit))
-            generate(*cases[binarySwitch.caseIndex()]);
+            generate(binarySwitch.caseIndex(), *cases[binarySwitch.caseIndex()]);
         m_failAndRepatch.append(binarySwitch.fallThrough());
     }
 
@@ -4364,11 +4499,19 @@ void InlineCacheHandler::aboutToDie()
         m_stubRoutine->aboutToDie();
 }
 
+CallLinkInfo* InlineCacheHandler::callLinkInfoAt(const ConcurrentJSLocker& locker, unsigned index)
+{
+    if (!m_stubRoutine)
+        return nullptr;
+    return m_stubRoutine->callLinkInfoAt(locker, index);
+}
+
 bool InlineCacheHandler::visitWeak(VM& vm) const
 {
     if (!m_stubRoutine)
         return true;
 
+    m_stubRoutine->visitWeak(vm);
     for (StructureID weakReference : m_stubRoutine->weakStructures()) {
         Structure* structure = weakReference.decode();
         if (!vm.heap.isMarked(structure))

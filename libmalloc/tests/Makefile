@@ -99,6 +99,7 @@ malloc_type_callsite: OTHER_LDFLAGS += -lc++
 # BATS test plist handling
 #  - Modify plist (add tests) to run general tests again with xzone malloc enabled
 project_test_configs: bats.plist
+	cp ./libmalloc_pgm.plist $(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/
 	xcrun -sdk $(SDKROOT) python3 ./add_xzone_tests.py $(SYMROOT)/bats.plist --platform $(PLATFORM)
 
 .PHONY: project_test_configs

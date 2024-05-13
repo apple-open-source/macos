@@ -94,6 +94,7 @@ static void WriteCountryFallbackResults(void); // rdar://26911014
 #endif
 static void TestCountryFallback(void); // rdar://26911014
 static void TestSpanishDayPeriods(void); // rdar://72624367
+static void TestUkrainianDayNames(void); //rdar://122185743
 static void TestAbbreviationForSeptember(void); // rdar://87654639
 static void TestParseTooStrict(void); // rdar://106745488
 static void TestRgSubtag(void); // rdar://106566783
@@ -157,6 +158,7 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestRgSubtag); // rdar://106566783
     TESTCASE(TestTimeFormatInheritance); // rdar://106179361
     TESTCASE(TestRelativeDateTime); // rdar://114975916
+    TESTCASE(TestUkrainianDayNames); // rdar:122185743
 #endif  // APPLE_ICU_CHANGES
 }
 /* Testing the DateFormat API */
@@ -2519,6 +2521,8 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_SI", UDAT_LONG,   UDAT_NONE, u"25 February 2015" },
     { "en_SI", UDAT_MEDIUM, UDAT_NONE, u"25 Feb 2015" },
     { "en_SI", UDAT_SHORT,  UDAT_NONE, u"25. 2. 15" },
+    // Add tests for rdar://122185743
+    { "uk_UA", UDAT_FULL,   UDAT_NONE, u"середа, 25 лютого 2015 р." },
    // terminator
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
 };
@@ -4712,6 +4716,41 @@ static void TestRelativeDateTime(void) {
             udat_close(df);
         }
     }
+}
+
+// rdar://122185743
+static void TestUkrainianDayNames(void) {
+    UErrorCode err = U_ZERO_ERROR;
+    char* locale = "uk";
+    UDate now = 1712750400000; // WED 2024 Apr 10 12:00:00 UTC
+    UChar *pattern = u"EEEE, d MMMM";
+    UChar actualResult[50];
+
+    UChar *expectedResults[] = {
+        u"середа, 10 квітня",
+        u"четвер, 11 квітня",
+        u"пʼятниця, 12 квітня",
+        u"субота, 13 квітня",
+        u"неділя, 14 квітня",
+        u"понеділок, 15 квітня",
+        u"вівторок, 16 квітня",
+    };
+    
+    UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, locale, u"UTC", 0, pattern, -1, &err);
+    if (!assertSuccess("Formatter creation failed", &err)) {
+        return;
+    }
+
+    for (int i=0; i < 7; i++) {
+        udat_format(df, now, actualResult, 50, NULL, &err);
+        if (!assertSuccess("Date formatting failed", &err)) {
+            return;
+        }
+        assertUEquals("Wrong formatting result", expectedResults[i], actualResult);
+        now += U_MILLIS_PER_DAY;
+    }
+
+    udat_close(df);
 }
 
 #endif  // APPLE_ICU_CHANGES

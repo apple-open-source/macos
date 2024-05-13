@@ -22,8 +22,17 @@ extension Container {
             }
 
             // Ensure we have all policy versions claimed by peers, including our sponsor
-            let allPolicyVersions: Set<TPPolicyVersion> = self.moc.performAndWait {
-                self.model.allPolicyVersions()
+            let allPolicyVersions: Set<TPPolicyVersion>? = self.moc.performAndWait {
+                do {
+                    return try self.model.allPolicyVersions()
+                } catch {
+                    logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                    reply(nil, nil, error)
+                    return nil
+                }
+            }
+            guard let allPolicyVersions else {
+                return
             }
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, fetchPolicyDocumentsError in
                 guard fetchPolicyDocumentsError == nil else {
@@ -71,23 +80,46 @@ extension Container {
                     }
 
                     // Dear model: if i were to use this recovery key, what peers would I end up using?
-                    guard self.model.isRecoveryKeyEnrolled() else {
-                        logger.info("preflightRecoveryKey: recovery Key is not enrolled")
-                        reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    do {
+                        guard try self.model.isRecoveryKeyEnrolled() else {
+                            logger.info("preflightRecoveryKey: recovery Key is not enrolled")
+                            reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                            return
+                        }
+                    } catch {
+                        logger.error("preflightRecoveryKey: error determine whether Recovery Key is enrolled: \(error, privacy: .public)")
+                        reply(nil, nil, error)
                         return
                     }
 
-                    guard let sponsorPeerID = self.model.peerIDThatTrustsRecoveryKeys(TPRecoveryKeyPair(signingKeyData: recoveryKeys.peerKeys.signingKey.publicKey.keyData,
-                                                                                                        encryptionKeyData: recoveryKeys.peerKeys.encryptionKey.publicKey.keyData),
-                                                                                      canIntroducePeer: selfPermanentInfo,
-                                                                                      stableInfo: selfStableInfo) else {
+                    let sponsorPeerID: String?
+                    do {
+                        sponsorPeerID = try self.model.peerIDThatTrustsRecoveryKeys(TPRecoveryKeyPair(signingKeyData: recoveryKeys.peerKeys.signingKey.publicKey.keyData,
+                                                                                                      encryptionKeyData: recoveryKeys.peerKeys.encryptionKey.publicKey.keyData),
+                                                                                    canIntroducePeer: selfPermanentInfo,
+                                                                                    stableInfo: selfStableInfo)
+                    } catch {
+                        logger.info("preflightRecoveryKey failed to get peer that trusts RK: \(error, privacy: .public)")
+                        reply(nil, nil, error)
+                        return
+                    }
+                    guard let sponsorPeerID else {
                         logger.info("preflightRecoveryKey Untrusted recovery key set")
                         reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                         return
                     }
 
-                    guard let sponsor = self.model.peer(withID: sponsorPeerID) else {
-                        logger.info("preflightRecoveryKey Failed to find peer with ID")
+                    let sponsor: TPPeer?
+                    do {
+                        sponsor = try self.model.peer(withID: sponsorPeerID)
+                    } catch {
+                        logger.warning("preflightRecoveryKey Error finding peer with ID \(sponsorPeerID, privacy: .public): \(String(describing:error), privacy: .public)")
+                        reply(nil, nil, error)
+                        return
+                    }
+
+                    guard let sponsor else {
+                        logger.info("preflightRecoveryKey Failed to find peer with ID \(sponsorPeerID, privacy: .public)")
                         reply(nil, nil, ContainerError.sponsorNotRegistered(sponsorPeerID))
                         return
                     }
@@ -128,8 +160,17 @@ extension Container {
             }
 
             // Ensure we have all policy versions claimed by peers, including our sponsor
-            let allPolicyVersions: Set<TPPolicyVersion> = self.moc.performAndWait {
-                self.model.allPolicyVersions()
+            let allPolicyVersions: Set<TPPolicyVersion>? = self.moc.performAndWait {
+                do {
+                    return try self.model.allPolicyVersions()
+                } catch {
+                    logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                    reply(nil, nil, error)
+                    return nil
+                }
+            }
+            guard let allPolicyVersions else {
+                return
             }
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, fetchPolicyDocumentsError in
                 guard fetchPolicyDocumentsError == nil else {
@@ -188,22 +229,45 @@ extension Container {
                     }
 
                     // Dear model: if I were to use this custodian recovery key, what peers would I end up using?
-                    guard self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
-                        logger.info("preflightCustodianRecoveryKey: custodian recovery key is not trusted")
-                        reply(nil, nil, ContainerError.untrustedRecoveryKeys)
+                    do {
+                        guard try self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
+                            logger.info("preflightCustodianRecoveryKey: custodian recovery key is not trusted")
+                            reply(nil, nil, ContainerError.untrustedRecoveryKeys)
+                            return
+                        }
+                    } catch {
+                        logger.error("preflightCustodianRecoveryKey: error determining whether custodian recovery key is trusted: \(error, privacy: .public)")
+                        reply(nil, nil, error)
                         return
                     }
 
-                    guard let sponsorPeerID = self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
-                                                                                               canIntroducePeer: selfPermanentInfo,
-                                                                                               stableInfo: selfStableInfo) else {
+                    let sponsorPeerID: String?
+                    do {
+                        sponsorPeerID = try self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
+                                                                                           canIntroducePeer: selfPermanentInfo,
+                                                                                           stableInfo: selfStableInfo)
+                    } catch {
+                        logger.error("preflightCustodianRecoveryKey error getting peer that trusts CRK: \(error, privacy: .public)")
+                        reply(nil, nil, ContainerError.untrustedRecoveryKeys)
+                        return
+                    }
+                    guard let sponsorPeerID  else {
                         logger.info("preflightCustodianRecoveryKey Untrusted custodian recovery key")
                         reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                         return
                     }
 
-                    guard let sponsor = self.model.peer(withID: sponsorPeerID) else {
-                        logger.info("preflightCustodianRecoveryKey Failed to find peer with ID")
+                    let sponsor: TPPeer?
+                    do {
+                        sponsor = try self.model.peer(withID: sponsorPeerID)
+                    } catch {
+                        logger.warning("preflightCustodianRecoveryKey Error finding peer with ID \(sponsorPeerID, privacy: .public): \(String(describing:error), privacy: .public)")
+                        reply(nil, nil, error)
+                        return
+                    }
+
+                    guard let sponsor else {
+                        logger.info("preflightCustodianRecoveryKey Failed to find peer with ID \(sponsorPeerID, privacy: .public)")
                         reply(nil, nil, ContainerError.sponsorNotRegistered(sponsorPeerID))
                         return
                     }
@@ -262,8 +326,14 @@ extension Container {
                 }
 
                 // is a RK enrolled and trusted?
-                guard self.model.isRecoveryKeyEnrolled() else {
-                    logger.info("preflightRecoverOctagonWithRecoveryKey: recovery Key is not enrolled")
+                do {
+                    guard try self.model.isRecoveryKeyEnrolled() else {
+                        logger.info("preflightRecoverOctagonWithRecoveryKey: recovery Key is not enrolled")
+                        reply(false, ContainerError.recoveryKeysNotEnrolled)
+                        return
+                    }
+                } catch {
+                    logger.error("preflightRecoverOctagonWithRecoveryKey: error determining whether Recovery Key is enrolled: \(error, privacy: .public)")
                     reply(false, ContainerError.recoveryKeysNotEnrolled)
                     return
                 }

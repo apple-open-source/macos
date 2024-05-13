@@ -172,12 +172,14 @@
 #include "WebViewDidMoveToWindowObserver.h"
 #include "WebWheelEventCoalescer.h"
 #include "WebsiteDataStore.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <WebCore/AlternativeTextClient.h>
 #include <WebCore/AppHighlight.h>
 #include <WebCore/ArchiveError.h>
 #include <WebCore/BitmapImage.h>
 #include <WebCore/CompositionHighlight.h>
 #include <WebCore/CrossSiteNavigationDataTransfer.h>
+#include <WebCore/CryptoKey.h>
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/DiagnosticLoggingClient.h>
@@ -2781,11 +2783,15 @@ void WebPageProxy::updateThrottleState()
             WEBPAGEPROXY_RELEASE_LOG(ProcessSuspension, "updateThrottleState: UIProcess is taking a foreground assertion because we are playing audio");
             m_processActivityState.takeAudibleActivity();
         }
-        internals().audibleActivityTimer.stop();
+        if (internals().audibleActivityTimer.isActive()) {
+            WEBPAGEPROXY_RELEASE_LOG(ProcessSuspension, "updateThrottleState: Cancelling timer to release foreground assertion");
+            internals().audibleActivityTimer.stop();
+        }
     } else if (m_processActivityState.hasValidAudibleActivity()) {
-        WEBPAGEPROXY_RELEASE_LOG(ProcessSuspension, "updateThrottleState: UIProcess will release a foreground assertion in %g seconds because we are no longer playing audio", audibleActivityClearDelay.seconds());
-        if (!internals().audibleActivityTimer.isActive())
+        if (!internals().audibleActivityTimer.isActive()) {
+            WEBPAGEPROXY_RELEASE_LOG(ProcessSuspension, "updateThrottleState: UIProcess starting timer to release a foreground assertion in %g seconds if audio doesn't start to play", audibleActivityClearDelay.seconds());
             internals().audibleActivityTimer.startOneShot(audibleActivityClearDelay);
+        }
     }
 
     bool isCapturingMedia = internals().activityState.contains(ActivityState::IsCapturingMedia);
@@ -2803,8 +2809,16 @@ void WebPageProxy::updateThrottleState()
 
 void WebPageProxy::clearAudibleActivity()
 {
-    WEBPAGEPROXY_RELEASE_LOG(ProcessSuspension, "updateThrottleState: UIProcess is releasing a foreground assertion because we are no longer playing audio");
+    WEBPAGEPROXY_RELEASE_LOG(ProcessSuspension, "clearAudibleActivity: UIProcess is releasing a foreground assertion because we are no longer playing audio");
     m_processActivityState.dropAudibleActivity();
+#if ENABLE(EXTENSION_CAPABILITIES)
+    updateMediaCapability();
+#endif
+}
+
+bool WebPageProxy::hasValidAudibleActivity() const
+{
+    return m_processActivityState.hasValidAudibleActivity();
 }
 
 void WebPageProxy::updateHiddenPageThrottlingAutoIncreases()
@@ -6214,7 +6228,7 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     if (frame->isMainFrame())
-        updateMediaCapability();
+        resetMediaCapability();
 #endif
 }
 
@@ -6499,11 +6513,8 @@ void WebPageProxy::didChangeMainDocument(FrameIdentifier frameID)
         }
 #endif
     }
-
-#else
-    UNUSED_PARAM(frameID);
 #endif
-    
+
     m_isQuotaIncreaseDenied = false;
 
     m_speechRecognitionPermissionManager = nullptr;
@@ -6524,6 +6535,9 @@ void WebPageProxy::viewIsBecomingVisible()
     if (m_userMediaPermissionRequestManager)
         m_userMediaPermissionRequestManager->viewIsBecomingVisible();
 #endif
+
+    PageClientProtector protector(pageClient());
+    pageClient().viewIsBecomingVisible();
 }
 
 void WebPageProxy::processIsNoLongerAssociatedWithPage(WebProcessProxy& process)
@@ -7036,11 +7050,23 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
         RELEASE_ASSERT(processSwapRequestedByClient == ProcessSwapRequestedByClient::No);
         ASSERT_UNUSED(safeBrowsingWarning, !safeBrowsingWarning);
 
-        Ref sender = PolicyDecisionSender::create(WTFMove(completionHandler));
+        bool shouldForceDownload = [&] {
+            if (policyAction != PolicyAction::Use || process->lockdownMode() != WebProcessProxy::LockdownMode::Enabled)
+                return false;
+            if (MIMETypeRegistry::isPDFOrPostScriptMIMEType(navigationResponse->response().mimeType()))
+                return true;
+            if (MIMETypeRegistry::isSupportedModelMIMEType(navigationResponse->response().mimeType()))
+                return true;
 #if USE(QUICK_LOOK)
-        if (policyAction == PolicyAction::Use && process->lockdownMode() == WebProcessProxy::LockdownMode::Enabled && (MIMETypeRegistry::isPDFOrPostScriptMIMEType(navigationResponse->response().mimeType()) || MIMETypeRegistry::isSupportedModelMIMEType(navigationResponse->response().mimeType()) || PreviewConverter::supportsMIMEType(navigationResponse->response().mimeType())))
-            policyAction = PolicyAction::Download;
+            if (PreviewConverter::supportsMIMEType(navigationResponse->response().mimeType()))
+                return true;
 #endif
+            return false;
+        }();
+        if (shouldForceDownload)
+            policyAction = PolicyAction::Download;
+
+        Ref sender = PolicyDecisionSender::create(WTFMove(completionHandler));
         receivedPolicyDecision(policyAction, navigation.get(), nullptr, WTFMove(navigationResponse), WTFMove(sender), WillContinueLoadInNewProcess::No, std::nullopt);
     }, ShouldExpectSafeBrowsingResult::No, ShouldExpectAppBoundDomainResult::No, ShouldWaitForInitialLinkDecorationFilteringData::No);
 
@@ -8077,9 +8103,32 @@ void WebPageProxy::setIsNeverRichlyEditableForTouchBar(bool isNeverRichlyEditabl
 
 #endif
 
-void WebPageProxy::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completionHandler)
+void WebPageProxy::requestDOMPasteAccess(DOMPasteAccessCategory pasteAccessCategory, FrameIdentifier frameID, const IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(DOMPasteAccessResponse)>&& completionHandler)
 {
     MESSAGE_CHECK_COMPLETION(m_process, !originIdentifier.isEmpty(), completionHandler(DOMPasteAccessResponse::DeniedForGesture));
+
+    if (auto origin = SecurityOrigin::createFromString(originIdentifier); !origin->isOpaque()) {
+        RefPtr frame = WebFrameProxy::webFrame(frameID);
+        MESSAGE_CHECK_COMPLETION(m_process, frame && frame->page() == this, completionHandler(DOMPasteAccessResponse::DeniedForGesture));
+
+        auto originFromFrame = SecurityOrigin::create(frame->url());
+        MESSAGE_CHECK_COMPLETION(m_process, origin->isSameOriginDomain(originFromFrame), completionHandler(DOMPasteAccessResponse::DeniedForGesture));
+
+        static constexpr auto recentlyRequestedDOMPasteOriginDelay = 1_s;
+        static constexpr auto recentlyRequestedDOMPasteOriginLimit = 10;
+
+        auto currentTime = ApproximateTime::now();
+        m_recentlyRequestedDOMPasteOrigins.removeAllMatching([&](auto& identifierAndTimestamp) {
+            auto& [identifier, lastRequestTime] = identifierAndTimestamp;
+            return identifier == originIdentifier || currentTime - lastRequestTime > recentlyRequestedDOMPasteOriginDelay;
+        });
+        m_recentlyRequestedDOMPasteOrigins.append({ originIdentifier, currentTime });
+
+        if (m_recentlyRequestedDOMPasteOrigins.size() > recentlyRequestedDOMPasteOriginLimit) {
+            completionHandler(DOMPasteAccessResponse::DeniedForGesture);
+            return;
+        }
+    }
 
     m_pageClient->requestDOMPasteAccess(pasteAccessCategory, elementRect, originIdentifier, WTFMove(completionHandler));
 }
@@ -9389,6 +9438,8 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 #endif
     internals().firstLayerTreeTransactionIdAfterDidCommitLoad = { };
 #endif
+
+    m_recentlyRequestedDOMPasteOrigins = { };
 
     if (m_drawingArea) {
 #if PLATFORM(COCOA)
@@ -10983,7 +11034,7 @@ void WebPageProxy::wrapCryptoKey(const Vector<uint8_t>& key, CompletionHandler<v
     completionHandler(succeeded, WTFMove(wrappedKey));
 }
 
-void WebPageProxy::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, CompletionHandler<void(bool, Vector<uint8_t>&&)>&& completionHandler)
+void WebPageProxy::unwrapCryptoKey(const struct WebCore::WrappedCryptoKey& wrappedKey, CompletionHandler<void(bool, Vector<uint8_t>&&)>&& completionHandler)
 {
     PageClientProtector protector(pageClient());
 
@@ -10992,9 +11043,12 @@ void WebPageProxy::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Completion
     if (auto keyData = m_navigationClient->webCryptoMasterKey(*this))
         masterKey = Vector(keyData->dataReference());
 
-    Vector<uint8_t> key;
-    bool succeeded = unwrapSerializedCryptoKey(masterKey, wrappedKey, key);
-    completionHandler(succeeded, WTFMove(key));
+    auto key = WebCore::unwrapCryptoKey(masterKey, wrappedKey);
+    if (!key) {
+        completionHandler(false, { });
+        return;
+    }
+    completionHandler(true, WTFMove(*key));
 }
 
 void WebPageProxy::addMIMETypeWithCustomContentProvider(const String& mimeType)
@@ -11881,7 +11935,7 @@ void WebPageProxy::requestAttachmentIcon(const String& identifier, const String&
     };
 
 #if PLATFORM(MAC)
-    if (RefPtr attachment = attachmentForIdentifier(identifier); attachment && attachment->contentType() == "public.directory"_s) {
+    if (RefPtr attachment = attachmentForIdentifier(identifier); attachment && attachment->shouldUseFileWrapperIconForDirectory()) {
         attachment->doWithFileWrapper([&, updateAttachmentIcon = WTFMove(updateAttachmentIcon)] (NSFileWrapper *fileWrapper) {
             if (updateIconForDirectory(fileWrapper, attachment->identifier()))
                 return;
@@ -11890,7 +11944,7 @@ void WebPageProxy::requestAttachmentIcon(const String& identifier, const String&
         });
         return;
     }
-#endif
+#endif // PLATFORM(MAC)
 
     updateAttachmentIcon();
 }
@@ -12118,16 +12172,6 @@ void WebPageProxy::getTextFragmentMatch(CompletionHandler<void(const String&)>&&
 {
     sendWithAsyncReply(Messages::WebPage::GetTextFragmentMatch(), WTFMove(callback));
 }
-
-#if ENABLE(APP_HIGHLIGHTS)
-void WebPageProxy::storeAppHighlight(const WebCore::AppHighlight& highlight)
-{
-    MESSAGE_CHECK(m_process, !highlight.highlight->isEmpty());
-
-    pageClient().storeAppHighlight(highlight);
-
-}
-#endif
 
 namespace {
 enum class CompletionCondition {
@@ -13512,6 +13556,11 @@ void WebPageProxy::renderTreeAsText(WebCore::FrameIdentifier frameID, size_t bas
 
     auto [result] = sendResult.takeReply();
     completionHandler(WTFMove(result));
+}
+
+void WebPageProxy::addConsoleMessage(FrameIdentifier frameID, MessageSource messageSource, MessageLevel messageLevel, const String& message, std::optional<ResourceLoaderIdentifier> coreIdentifier)
+{
+    send(Messages::WebPage::AddConsoleMessage { frameID, messageSource, messageLevel, message, coreIdentifier });
 }
 
 } // namespace WebKit

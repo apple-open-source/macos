@@ -216,11 +216,10 @@ _FUNCNAME(stdenc_mbtocsn)(struct _citrus_stdenc * __restrict ce,
 			break;
 
 		/* The NUL byte takes one character. */
-		if (accum == 0)
-			accum = 1;
 		assert(accum <= n);
-		n -= accum;
 		*nresult += accum;
+		assert(*s >= last);
+		n -= *s - last;
 		delta[i] = *s - first;
 
 		if ((hooks != NULL) && (hooks->uc_hook != NULL))

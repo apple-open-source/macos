@@ -130,7 +130,9 @@
 
         if(error) {
             secerror("octagon: Error fetching TLKShares to recover: %@", error);
-            // recovering these is best-effort, so fall through.
+            self.error = error;
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
         }
 
         NSMutableArray<CKKSTLKShare*>* filteredTLKShares = [NSMutableArray array];

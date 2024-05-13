@@ -121,6 +121,10 @@ public enum ContainerError: Error {
     case custodianRecoveryKeyUUIDExists
     case generatingRandomFailed(errorCode: Int)
     case unableToCreateDirectory
+    case duplicateMachineID
+    case machineIDVanishedFromTDL
+    case allowedMIDHashMismatch
+    case deletedMIDHashMismatch
 }
 
 extension ContainerError: LocalizedError {
@@ -242,6 +246,14 @@ extension ContainerError: LocalizedError {
             return "generating random failed: \(errorCode)"
         case .unableToCreateDirectory:
             return "unable to create directory"
+        case .duplicateMachineID:
+            return "duplicateMachineIDDetected"
+        case .machineIDVanishedFromTDL:
+            return "machineIDVanishedFromTDL"
+        case .allowedMIDHashMismatch:
+            return "allowedMIDHashMismatch"
+        case .deletedMIDHashMismatch:
+            return "deletedMIDHashMismatch"
         }
     }
 }
@@ -370,7 +382,15 @@ extension ContainerError: CustomNSError {
         case .generatingRandomFailed:
             return 59
         case .unableToCreateDirectory:
-            return 60            
+            return 60
+        case .duplicateMachineID:
+            return 61
+        case .machineIDVanishedFromTDL:
+            return 62
+        case .allowedMIDHashMismatch:
+            return 63
+        case .deletedMIDHashMismatch:
+            return 64
         }
     }
 
@@ -483,6 +503,7 @@ func loadSecret(label: String) throws -> Data? {
         kSecReturnAttributes: true,
         kSecReturnData: true,
         kSecAttrSynchronizable: false,
+        kSecUseDataProtectionKeychain: true,
         kSecMatchLimit: kSecMatchLimitOne,
         ]
 
@@ -682,7 +703,14 @@ func extract(tlkShares: [CKKSTLKShare],
 
     var recoveryErrors: [String: [Error]] = [:]
 
-    if let egoPeer = model.peer(withID: sponsorPeerID ?? peer.peerID) {
+    let egoPeer: TPPeer?
+    do {
+        egoPeer = try model.peer(withID: sponsorPeerID ?? peer.peerID)
+    } catch {
+        logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+        egoPeer = nil
+    }
+    if let egoPeer {
         // We should accept TLKShares from any peer that this peer trusts, either via direct link or voucher.
         // Calculate a new dynamic info from the model for that peer (possibly with the wrong signature, but we don't need it to validate)
         do {
@@ -695,7 +723,14 @@ func extract(tlkShares: [CKKSTLKShare],
             logger.info("Using computed dynamic info for share recovery: \(computedSponsorDynamicInfo, privacy: .public)")
 
             computedSponsorDynamicInfo.includedPeerIDs.forEach { trustedPeerID in
-                if let peer = model.peer(withID: trustedPeerID) {
+                let peer: TPPeer?
+                do {
+                    peer = try model.peer(withID: trustedPeerID)
+                } catch {
+                    logger.warning("Error getting included peer (\(trustedPeerID)) from model: \(String(describing: error), privacy: .public)")
+                    peer = nil
+                }
+                if let peer {
                     let peerObj = CKKSActualPeer(peerID: trustedPeerID,
                                                  encryptionPublicKey: (peer.permanentInfo.encryptionPubKey as! _SFECPublicKey),
                                                  signing: (peer.permanentInfo.signingPubKey as! _SFECPublicKey),
@@ -789,7 +824,9 @@ struct ContainerState {
 
     var egoPeerID: String?
     var peers: [String: TPPeer] = [:]
+    var peerError: Error?
     var vouchers: [TPVoucher] = []
+    var voucherError: Error?
     var bottles = Set<Bottle>()
     var escrowRecords = Set<EscrowRecord>()
     var recoverySigningKey: Data?
@@ -899,6 +936,10 @@ class Container: NSObject, ConfiguredCloudKit {
 
     var tlkSharesBatch = 1000
 
+    // test variables
+    var testEgoMachineIDVanished: Bool = false
+    var testHashMismatchDetected: Bool = false
+
     // If you add a new field to the Cuttlefish Changes protocol, such that
     // old devices will ignore it silently, but still persist a change tag
     // beyond the data they ignored, consider increasing this level to cause
@@ -1001,7 +1042,7 @@ class Container: NSObject, ConfiguredCloudKit {
             return self.hmacKey
         }
 
-        func allPeerIDs() -> [String] {
+        func allPeerIDs() throws -> [String] {
             let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
             fetch.predicate = NSPredicate(format: "container == %@", self.containerMO)
             fetch.propertiesToFetch = ["peerID"]
@@ -1011,52 +1052,100 @@ class Container: NSObject, ConfiguredCloudKit {
                 return peerIDs
             } catch {
                 logger.error("Failed to fetch peers: \(String(describing: error), privacy: .public)")
-                return []
+                throw error
             }
         }
 
-        func hasAnyPeers() -> Bool {
+        func peerCount(_ errorOut: NSErrorPointer) -> UInt {
             let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
             fetch.predicate = NSPredicate(format: "container == %@", self.containerMO)
-            fetch.propertiesToFetch = ["peerID"]
-            fetch.fetchLimit = 1
             do {
-                let peers = try self.moc.fetch(fetch)
-                return peers.count > 0
-            } catch {
-                logger.error("Failed to calculate hasAnyPeers: \(String(describing: error), privacy: .public)")
-                return false
+                return UInt(try self.moc.count(for: fetch))
+            } catch let error as NSError {
+                logger.error("Failed to fetch peer count: \(String(describing: error), privacy: .public)")
+                errorOut?.pointee = error
+                return 0
             }
         }
 
-        func peer(withID peerID: String) -> TPPeer? {
+        func saveIfNeeded() {
+            if moc.hasChanges {
+                do {
+                    try moc.save()
+                } catch {
+                    logger.error("Failed to save: \(String(describing: error), privacy: .public)")
+                }
+            }
+        }
+
+        func peer(withID peerID: String, error errorOut: NSErrorPointer) -> TPPeer? {
             do {
-                return peerFromMO(peerMO: try fetchPeerMO(peerID: peerID))
-            } catch {
+                let ret = peerFromMO(peerMO: try fetchPeerMO(peerID: peerID))
+                self.saveIfNeeded()
+                return ret
+            } catch let error as NSError {
                 logger.error("Failed to fetch peerID \(peerID, privacy: .public): \(String(describing: error), privacy: .public)")
+                errorOut?.pointee = error
                 return nil
             }
         }
 
-        func enumeratePeers(_ block: @escaping (_ peer: TPPeer, _ stop: UnsafeMutablePointer<ObjCBool>) -> Void) {
+        func enumeratePeers(_ block: @escaping (TPPeer, UnsafeMutablePointer<ObjCBool>) -> Void) throws {
             let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
             fetch.predicate = NSPredicate(format: "container == %@", self.containerMO)
-            fetch.fetchBatchSize = 25
+            let batchSize = 25
+            fetch.fetchBatchSize = batchSize
             do {
                 var stop = ObjCBool(false)
+                var i = 0
                 for peer in try self.moc.fetch(fetch) {
                     autoreleasepool {
                         guard let peer = peerFromMO(peerMO: peer as? PeerMO) else {
                             return
                         }
                         block(peer, &stop)
+                        i += 1
+                        if i == batchSize {
+                            self.saveIfNeeded()
+                            i = 0
+                        }
                     }
                     if stop.boolValue {
                         break
                     }
                 }
+                self.saveIfNeeded()
             } catch {
                 logger.error("Failed to fetch peers for enumeration: \(String(describing: error), privacy: .public)")
+                throw error
+            }
+        }
+
+        internal static func allMachineIDs(containerMO: ContainerMO, moc: NSManagedObjectContext) throws -> Set<String> {
+            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Machine")
+            fetch.predicate = NSPredicate(format: "container == %@", containerMO)
+            fetch.propertiesToFetch = ["machineID"]
+            do {
+                let machines = try moc.fetch(fetch)
+                let machineIDs = Set(machines.compactMap { ($0 as? MachineMO)?.machineID })
+                return machineIDs
+            } catch {
+                logger.error("Failed to fetch machineIDs: \(String(describing: error), privacy: .public)")
+                throw error
+            }
+        }
+
+        internal static func allMachineModifiedDatesFor(containerMO: ContainerMO, moc: NSManagedObjectContext, machineID: String) throws -> Set<MachineMO> {
+            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Machine")
+            fetch.predicate = NSPredicate(format: "machineID == %@ && container == %@", machineID, containerMO)
+            fetch.propertiesToFetch = ["modified"]
+            do {
+                let machines = try moc.fetch(fetch)
+                let modifiedDates = Set(machines.compactMap { ($0 as? MachineMO) })
+                return modifiedDates
+            } catch {
+                logger.error("Failed to fetch modifiedDates: \(String(describing: error), privacy: .public)")
+                throw error
             }
         }
 
@@ -1121,10 +1210,25 @@ class Container: NSObject, ConfiguredCloudKit {
                 return nil
             }
 
+            var updateHmac = true
+            let hmacKey = self.getHmacKey()
+            if let hmacSig = peerMO.hmacSig, let hmacKey {
+                if TPPeer.verifyHMAC(withPermanentInfoData: permanentInfoData,
+                                     permanentInfoSig: permanentInfoSig,
+                                     stableInfoData: peerMO.stableInfo,
+                                     stableInfoSig: peerMO.stableInfoSig,
+                                     dynamicInfoData: peerMO.dynamicInfo,
+                                     dynamicInfoSig: peerMO.dynamicInfoSig,
+                                     hmacKey: hmacKey,
+                                     hmacSig: hmacSig) {
+                    updateHmac = false
+                }
+            }
             guard let permanentInfo = TPPeerPermanentInfo(peerID: peerID,
                                                           data: permanentInfoData,
                                                           sig: permanentInfoSig,
-                                                          keyFactory: keyFactory) else {
+                                                          keyFactory: keyFactory,
+                                                          checkSig: updateHmac) else {
                 logger.error("DBAdapter unable to construct permanent info for peerID \(peerID, privacy: .public)")
                 return nil
             }
@@ -1132,29 +1236,11 @@ class Container: NSObject, ConfiguredCloudKit {
             let stableInfo = DBAdapter.stableInfoFromPeerMO(peerMO: peerMO)
             let dynamicInfo = DBAdapter.dynamicInfoFromPeerMO(peerMO: peerMO)
 
-            var updateHmac: Bool = false
-            var ret: TPPeer?
-            let hmacKey = self.getHmacKey()
-            if let hmacSig = peerMO.hmacSig, let hmacKey {
-                do {
-                    ret = try TPPeer(permanentInfo: permanentInfo, stableInfo: stableInfo, dynamicInfo: dynamicInfo, hmacKey: hmacKey, hmacSig: hmacSig)
-                    updateHmac = false
-                } catch {
-                    logger.error("Failed to verify hmac")
-                    updateHmac = true
-                }
-            }
-            if ret == nil {
-                do {
-                    ret = try TPPeer(permanentInfo: permanentInfo, stableInfo: stableInfo, dynamicInfo: dynamicInfo)
-                    updateHmac = true
-                } catch {
-                    logger.error("DBAdapter unable to init for peerID \(peerID, privacy: .public)): \(String(describing: error), privacy: .public)")
-                    return nil
-                }
-            }
-
-            guard let ret else {
+            let ret: TPPeer
+            do {
+                ret = try TPPeer(permanentInfo: permanentInfo, stableInfo: stableInfo, dynamicInfo: dynamicInfo, checkSig: updateHmac)
+            } catch {
+                logger.error("DBAdapter unable to init for peerID \(peerID, privacy: .public)): \(String(describing: error), privacy: .public)")
                 return nil
             }
 
@@ -1170,7 +1256,7 @@ class Container: NSObject, ConfiguredCloudKit {
             return ret
         }
 
-        func enumerateVouchers(_ block: @escaping (_ voucher: TPVoucher, _ stop: UnsafeMutablePointer<ObjCBool>) -> Void) {
+        func enumerateVouchers(_ block: @escaping (TPVoucher, UnsafeMutablePointer<ObjCBool>) -> Void) throws {
             let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Voucher")
             fetch.predicate = NSPredicate(format: "beneficiary.container == %@", self.containerMO)
             fetch.fetchBatchSize = 50
@@ -1189,6 +1275,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 }
             } catch {
                 logger.error("Failed to fetch vouchers for enumeration: \(String(describing: error), privacy: .public)")
+                throw error
             }
         }
 
@@ -1200,14 +1287,15 @@ class Container: NSObject, ConfiguredCloudKit {
             return TPVoucher(infoWith: data, sig: sig)
         }
 
-        func voucherCount() -> UInt {
+        func voucherCount(_ errorOut: NSErrorPointer) -> UInt {
             let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Voucher")
             fetch.predicate = NSPredicate(format: "beneficiary.container == %@", self.containerMO)
             do {
                 let count = try self.moc.count(for: fetch)
                 return UInt(count)
-            } catch {
+            } catch let error as NSError {
                 logger.error("Failed to fetch vouchers for count: \(String(describing: error), privacy: .public)")
+                errorOut?.pointee = error
                 return 0
             }
         }
@@ -1308,9 +1396,13 @@ class Container: NSObject, ConfiguredCloudKit {
 
                 // remove duplicate vouchers on all the peers
                 Container.onqueueRemoveDuplicateVouchers(container: containerMO, moc: moc)
+                
+                // remove duplicate machineMOs
+                Container.onqueueRemoveDuplicateMachineIDs(containerMO: containerMO, moc: moc)
 
                 (model, dbAdapter) = Container.loadModel(moc: moc, containerMO: containerMO, hmacKey: nil)
                 Container.ensureEgoConsistency(from: containerMO, model: model)
+
                 try moc.save()
             } catch {
                 initError = error
@@ -1329,6 +1421,32 @@ class Container: NSObject, ConfiguredCloudKit {
         self.dbAdapter = dbAdapter
         self.escrowCacheTimeout = 60.0 * 15.0 // 15 minutes
         super.init()
+    }
+
+    internal static func onqueueRemoveDuplicateMachineIDs(containerMO: ContainerMO, moc: NSManagedObjectContext) {
+        do {
+            let allMachineIDs = try DBAdapter.allMachineIDs(containerMO: containerMO, moc: moc)
+            for machineID in allMachineIDs {
+                var machines = try DBAdapter.allMachineModifiedDatesFor(containerMO: containerMO, moc: moc, machineID: machineID)
+                if var highest = machines.first {
+                    for machine in machines {
+                        if machine.modifiedDate() > highest.modifiedDate() {
+                            highest = machine
+                        }
+                    }
+
+                    machines.remove(highest)
+
+                    logger.info("onqueueRemoveDuplicateMachineIDs removing: \(machines)")
+
+                    for machine in machines {
+                        moc.delete(machine)
+                    }
+                }
+            }
+        } catch {
+            logger.error("onqueueRemoveDuplicateMachineIDs error removing duplicate machineIDs: \(error, privacy: .public)")
+        }
     }
 
     func getHmacKey() -> Data? {
@@ -1376,8 +1494,18 @@ class Container: NSObject, ConfiguredCloudKit {
             }
         }
 
-        logger.info("loadModel: loaded \(model.peerCount()) peers")
-        logger.info("loadModel: loaded \(model.voucherCount()) vouchers")
+        do {
+            let peerCount = try model.peerCount();
+            logger.info("loadModel: loaded \(peerCount) peers")
+        } catch {
+            logger.error("loadModel error getting peerCount: \(error, privacy: .public)")
+        }
+        do {
+            let voucherCount = try model.voucherCount()
+            logger.info("loadModel: loaded \(voucherCount) vouchers")
+        } catch {
+            logger.error("loadModel error getting voucherCount: \(error, privacy: .public)")
+        }
         logger.info("loadModel: loaded \(model.allCustodianRecoveryKeys().count) CRKs")
 
         // Note: the containerMO objects are misnamed; they are key data, and not SPKI.
@@ -1416,9 +1544,17 @@ class Container: NSObject, ConfiguredCloudKit {
         let knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
         let allowedMachineIDs = Set(knownMachines.filter { $0.status == TPMachineIDStatus.allowed.rawValue }.compactMap { $0.machineID })
         let disallowedMachineIDs = Set(knownMachines.filter { $0.status == TPMachineIDStatus.disallowed.rawValue }.compactMap { $0.machineID })
+        let ghostedMachineIDs = Set(knownMachines.filter { $0.status == TPMachineIDStatus.ghostedFromTDL.rawValue }.compactMap { $0.machineID })
+        let evictedMachineIDs = Set(knownMachines.filter { $0.status == TPMachineIDStatus.evicted.rawValue }.compactMap { $0.machineID })
+        let unknownReasonMachineIDs = Set(knownMachines.filter { $0.status == TPMachineIDStatus.unknownReason.rawValue }.compactMap { $0.machineID })
+        let unknownMachineIDs = Set(knownMachines.filter { $0.status == TPMachineIDStatus.unknown.rawValue }.compactMap { $0.machineID })
 
         logger.info("loadModel: allowedMachineIDs: \(allowedMachineIDs, privacy: .public)")
         logger.info("loadModel: disallowedMachineIDs: \(disallowedMachineIDs, privacy: .public)")
+        logger.info("loadModel: ghostedMachineIDs: \(ghostedMachineIDs, privacy: .public)")
+        logger.info("loadModel: evictedMachineIDs: \(evictedMachineIDs, privacy: .public)")
+        logger.info("loadModel: unknownReasonMachineIDs: \(unknownReasonMachineIDs, privacy: .public)")
+        logger.info("loadModel: unknownMachineIDs: \(unknownMachineIDs, privacy: .public)")
 
         if allowedMachineIDs.isEmpty {
             logger.info("loadModel: no allowedMachineIDs?")
@@ -1449,7 +1585,14 @@ class Container: NSObject, ConfiguredCloudKit {
             return
         }
 
-        guard let modelStableInfo = model.getStableInfoForPeer(withID: egoPeerID) else {
+        let modelStableInfo: TPPeerStableInfo?
+        do {
+            modelStableInfo = try model.getStableInfoForPeer(withID: egoPeerID)
+        } catch {
+            logger.error("ensureEgoConsistency failed to create TPPeerStableInfo from model: \(error, privacy: .public)")
+            return
+        }
+        guard let modelStableInfo else {
             logger.error("ensureEgoConsistency failed to create TPPeerStableInfo from model")
             return
         }
@@ -1495,12 +1638,62 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func onQueueDetermineLocalTrustStatus(reply: @escaping (TrustedPeersHelperEgoPeerStatus, Error?) -> Void) {
-        let viablePeerCountsByModelID = self.model.viablePeerCountsByModelID()
-        let peerCountsByMachineID = self.model.peerCountsByMachineID()
-        if let egoPeerID = self.containerMO.egoPeerID {
-            let egoPermanentInfo = self.model.peer(withID: egoPeerID)?.permanentInfo
+        func logErrorAndReplyEarly(error: Error, whichFunc: String, viablePeerCountsByModelID: [String:NSNumber]) {
+            logger.error("error calling \(whichFunc): \(error, privacy: .public)")
+            reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                  egoPeerMachineID: nil,
+                                                  status: TPPeerStatus.unknown,
+                                                  viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                  peerCountsByMachineID: [:],
+                                                  isExcluded: false,
+                                                  isLocked: false),
+                  error)
+        }
 
-            var status = self.model.statusOfPeer(withID: egoPeerID)
+        let viablePeerCountsByModelID: [String:NSNumber]
+        do {
+            viablePeerCountsByModelID = try self.model.viablePeerCountsByModelID()
+        } catch {
+            logErrorAndReplyEarly(error: error, whichFunc: "viablePeerCountsByModelID", viablePeerCountsByModelID: [:])
+            return
+        }
+
+        let peerCountsByMachineID: [String:NSNumber]
+        do {
+            peerCountsByMachineID = try self.model.peerCountsByMachineID()
+        } catch {
+            logErrorAndReplyEarly(error: error, whichFunc: "peerCountsByMachineID", viablePeerCountsByModelID: viablePeerCountsByModelID)
+            return
+        }
+
+        if let egoPeerID = self.containerMO.egoPeerID {
+            let egoPeer: TPPeer?
+            do {
+                egoPeer = try self.model.peer(withID: egoPeerID)
+                if egoPeer == nil {
+                    logger.warning("Couldn't find ego peer in model")
+                }
+            } catch {
+                logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                egoPeer = nil
+            }
+            let egoPermanentInfo = egoPeer?.permanentInfo
+
+            var status: TPPeerStatus
+            do {
+                status = try self.model.statusOfPeer(withID: egoPeerID)
+            } catch {
+                logger.error("error calling statusOfPeer: \(error, privacy: .public)")
+                let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
+                                                                egoPeerMachineID: egoPermanentInfo?.machineID,
+                                                                status: .unknown,
+                                                                viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                                peerCountsByMachineID: peerCountsByMachineID,
+                                                                isExcluded: false,
+                                                                isLocked: false)
+                reply(egoStatus, error)
+                return
+            }
             var isExcluded: Bool = (status == .excluded)
 
             loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, loadError in
@@ -1559,27 +1752,40 @@ class Container: NSObject, ConfiguredCloudKit {
             }
         } else {
             // With no ego peer ID, either return 'excluded' if there are extant peers, or 'unknown' to signal no peers at all
-            if self.model.hasAnyPeers() {
-                logger.info("Existing peers in account, but we don't have a peer ID. We are excluded.")
-                let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
-                                                                egoPeerMachineID: nil,
-                                                                status: .excluded,
-                                                                viablePeerCountsByModelID: viablePeerCountsByModelID,
-                                                                peerCountsByMachineID: peerCountsByMachineID,
-                                                                isExcluded: true,
-                                                                isLocked: false)
-                reply(egoStatus, nil)
-                return
-            } else {
-                logger.info("No existing peers in account")
-                let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
-                                                                egoPeerMachineID: nil,
-                                                                status: .unknown,
-                                                                viablePeerCountsByModelID: viablePeerCountsByModelID,
-                                                                peerCountsByMachineID: peerCountsByMachineID,
-                                                                isExcluded: false,
-                                                                isLocked: false)
-                reply(egoStatus, nil)
+            do {
+                if try self.model.hasAnyPeers() {
+                    logger.info("Existing peers in account, but we don't have a peer ID. We are excluded.")
+                    let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                                    egoPeerMachineID: nil,
+                                                                    status: .excluded,
+                                                                    viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                                    peerCountsByMachineID: peerCountsByMachineID,
+                                                                    isExcluded: true,
+                                                                    isLocked: false)
+                    reply(egoStatus, nil)
+                    return
+                } else {
+                    logger.info("No existing peers in account")
+                    let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                                    egoPeerMachineID: nil,
+                                                                    status: .unknown,
+                                                                    viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                                    peerCountsByMachineID: peerCountsByMachineID,
+                                                                    isExcluded: false,
+                                                                    isLocked: false)
+                    reply(egoStatus, nil)
+                    return
+                }
+            } catch {
+                logger.error("error calling hasAnyPeers: \(error, privacy: .public)")
+                reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                      egoPeerMachineID: nil,
+                                                      status: TPPeerStatus.unknown,
+                                                      viablePeerCountsByModelID: [:],
+                                                      peerCountsByMachineID: [:],
+                                                      isExcluded: false,
+                                                      isLocked: false),
+                      error)
                 return
             }
         }
@@ -1642,14 +1848,36 @@ class Container: NSObject, ConfiguredCloudKit {
                     return
                 }
 
-                let isPreapproved = self.model.hasPotentiallyTrustedPeerPreapprovingKey(permanentInfo.signingPubKey.spki())
+                let isPreapproved: Bool
+                do {
+                    isPreapproved = try self.model.hasPotentiallyTrustedPeerPreapprovingKey(permanentInfo.signingPubKey.spki())
+                } catch {
+                    logger.error("fetchTrustState: error calling hasPotentiallyTrustedPeerPreapprovingKey \(error, privacy: .public)")
+                    reply(nil, nil, error)
+                    return
+                }
                 logger.info("fetchTrustState: ego peer is \(isPreapproved ? "preapproved" : "not yet preapproved", privacy: .public)")
 
-                let egoStableInfo = self.model.getStableInfoForPeer(withID: egoPeerID)
+                let egoStableInfo: TPPeerStableInfo?
+                do {
+                    egoStableInfo = try self.model.getStableInfoForPeer(withID: egoPeerID)
+                } catch {
+                    logger.error("fetchTrustState: error calling getStableInfoForPeer \(egoPeerID): \(error, privacy: .public)")
+                    reply(nil, nil, error)
+                    return
+                }
 
+                let status: TPPeerStatus
+                do {
+                    status = try self.model.statusOfPeer(withID: egoPeerID)
+                } catch {
+                    logger.error("fetchTrustState error calling statusOfPeer: \(error, privacy: .public)")
+                    reply(nil, nil, error)
+                    return
+                }
                 let egoPeerStatus = TrustedPeersHelperPeerState(peerID: egoPeerID,
                                                                 isPreapproved: isPreapproved,
-                                                                status: self.model.statusOfPeer(withID: egoPeerID),
+                                                                status: status,
                                                                 memberChanges: false,
                                                                 unknownMachineIDs: self.onqueueFullIDMSListWouldBeHelpful(),
                                                                 osVersion: egoStableInfo?.osVersion,
@@ -1658,9 +1886,23 @@ class Container: NSObject, ConfiguredCloudKit {
 
                 var tphPeers: [TrustedPeersHelperPeer] = []
 
-                if let egoPeer = self.model.peer(withID: egoPeerID) {
+                let egoPeer: TPPeer?
+                do {
+                    egoPeer = try self.model.peer(withID: egoPeerID)
+                } catch {
+                    logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                    egoPeer = nil
+                }
+                if let egoPeer {
                     egoPeer.trustedPeerIDs.forEach { trustedPeerID in
-                        if let peer = self.model.peer(withID: trustedPeerID) {
+                        let peer: TPPeer?
+                        do {
+                            peer = try self.model.peer(withID: trustedPeerID)
+                        } catch {
+                            logger.warning("Error getting trusted peer \(trustedPeerID) from model: \(String(describing: error), privacy: .public)")
+                            peer = nil
+                        }
+                        if let peer {
                             let peerViews = try? self.model.getViewsForPeer(peer.permanentInfo,
                                                                             stableInfo: peer.stableInfo)
 
@@ -1727,7 +1969,14 @@ class Container: NSObject, ConfiguredCloudKit {
             var d: [AnyHashable: Any] = [:]
 
             if let egoPeerID = self.containerMO.egoPeerID {
-                if let peer = self.model.peer(withID: egoPeerID) {
+                let peer: TPPeer?
+                do {
+                    peer = try self.model.peer(withID: egoPeerID)
+                } catch {
+                    logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                    peer = nil
+                }
+                if let peer {
                     d["self"] = Container.peerdictionaryRepresentation(peer: peer)
                 } else {
                     d["self"] = ["peerID": egoPeerID]
@@ -1738,16 +1987,26 @@ class Container: NSObject, ConfiguredCloudKit {
 
             autoreleasepool {
                 var otherPeers: [[String: Any]] = []
-                self.model.enumeratePeers { peer, _ in
-                    if peer.peerID != self.containerMO.egoPeerID {
-                        otherPeers.append(Container.peerdictionaryRepresentation(peer: peer))
+                do {
+                    try self.model.enumeratePeers { peer, _ in
+                        if peer.peerID != self.containerMO.egoPeerID {
+                            otherPeers.append(Container.peerdictionaryRepresentation(peer: peer))
+                        }
                     }
+                } catch {
+                    logger.error("Error enumerating peers: \(error, privacy: .public)")
+                    d["errorEnumeratingPeers"] = "\(error)"
                 }
                 d["peers"] = otherPeers
 
                 var vouchers: [[String: Any]] = []
-                self.model.enumerateVouchers { voucher, _ in
-                    vouchers.append(voucher.dictionaryRepresentation())
+                do {
+                    try self.model.enumerateVouchers { voucher, _ in
+                        vouchers.append(voucher.dictionaryRepresentation())
+                    }
+                } catch {
+                    logger.error("Error enumerating vouchers: \(error, privacy: .public)")
+                    d["errorEnumeratingVouchers"] = "\(error)"
                 }
                 d["vouchers"] = vouchers
 
@@ -1785,7 +2044,15 @@ class Container: NSObject, ConfiguredCloudKit {
                 return
             }
 
-            guard let peer = self.model.peer(withID: egoPeerID) else {
+            let peer: TPPeer?
+            do {
+                peer = try self.model.peer(withID: egoPeerID)
+            } catch {
+                logger.error("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                reply(egoPeerID, nil, nil, nil, error)
+                return
+            }
+            guard let peer else {
                 reply(egoPeerID, nil, nil, nil, nil)
                 return
             }
@@ -1973,10 +2240,14 @@ class Container: NSObject, ConfiguredCloudKit {
                             var webAccess: TPPBPeerStableInfoSetting?
 
                             if let accountSetting = setting {
-                                walrusSetting = TPPBPeerStableInfoSetting()
-                                walrusSetting?.value = accountSetting.walrus.enabled
-                                webAccess = TPPBPeerStableInfoSetting()
-                                webAccess?.value = accountSetting.webAccess.enabled
+                                if let walrusAccountSetting = accountSetting.walrus {
+                                    walrusSetting = TPPBPeerStableInfoSetting()
+                                    walrusSetting?.value = walrusAccountSetting.enabled
+                                }
+                                if let webAccessSetting = accountSetting.webAccess {
+                                    webAccess = TPPBPeerStableInfoSetting()
+                                    webAccess?.value = webAccessSetting.enabled
+                                }
                             }
 
                             let stableInfo = try TPPeerStableInfo(clock: 1,
@@ -2069,12 +2340,17 @@ class Container: NSObject, ConfiguredCloudKit {
                 return
             }
 
-            guard self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
-                logger.info("Custodian Recovery Key is not trusted")
-                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
+            do {
+                guard try self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
+                    logger.info("Custodian Recovery Key is not trusted")
+                    reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
+                    return
+                }
+            } catch {
+                logger.error("Error determining whether Custodian Recovery Key is trusted: \(error, privacy: .public)")
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
                 return
             }
-
             guard let recoveryKeyString = crk.recoveryString, let recoverySalt = crk.salt else {
                 logger.info("Bad format CRK: recovery string or salt not set")
                 reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.custodianRecoveryKeyMalformed)
@@ -2259,7 +2535,15 @@ class Container: NSObject, ConfiguredCloudKit {
                 reply(0, ContainerError.noPreparedIdentity)
                 return
             }
-            guard let egoPeer = self.model.peer(withID: egoPeerID) else {
+            let egoPeer: TPPeer?
+            do {
+                egoPeer = try self.model.peer(withID: egoPeerID)
+            } catch {
+                logger.error("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                reply(0, error)
+                return
+            }
+            guard let egoPeer else {
                 reply(0, ContainerError.noPreparedIdentity)
                 return
             }
@@ -2324,9 +2608,15 @@ class Container: NSObject, ConfiguredCloudKit {
                             reply(nil, [], nil, ContainerError.noPreparedIdentity)
                             return
                     }
-                    guard self.model.hasPeer(withID: egoPeerID) else {
-                        logger.info("fetchAfterEstablish: did not find peer \(egoPeerID, privacy: .public) in model")
-                        reply(nil, [], nil, ContainerError.invalidPeerID)
+                    do {
+                        guard try self.model.hasPeer(withID: egoPeerID) else {
+                            logger.info("fetchAfterEstablish: did not find peer \(egoPeerID, privacy: .public) in model")
+                            reply(nil, [], nil, ContainerError.invalidPeerID)
+                            return
+                        }
+                    } catch {
+                        logger.info("fetchAfterEstablish: error finding peer \(egoPeerID, privacy: .public) in model: \(error, privacy: .public)")
+                        reply(nil, [], nil, error)
                         return
                     }
                     let keyFactory = TPECPublicKeyFactory()
@@ -2556,7 +2846,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 var recoveryKeys: RecoveryKey
                 do {
                     recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
-                    guard self.model.anyTrustedPeerDistrustsOtherPeer(recoveryKeys.peerKeys.peerID) == false else {
+                    guard try self.model.anyTrustedPeerDistrustsOtherPeer(recoveryKeys.peerKeys.peerID) == false else {
                         logger.error("Recovery key is distrusted!")
                         reply(nil, ContainerError.untrustedRecoveryKeys)
                         return
@@ -2899,9 +3189,15 @@ class Container: NSObject, ConfiguredCloudKit {
                 return
             }
 
-            guard self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
-                logger.debug("CRK \(tpcrk.peerID) is not trusted")
-                reply(nil, ContainerError.untrustedRecoveryKeys)
+            do {
+                guard try self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
+                    logger.debug("CRK \(tpcrk.peerID) is not trusted")
+                    reply(nil, ContainerError.untrustedRecoveryKeys)
+                    return
+                }
+            } catch {
+                logger.error("error determine whether CRK is trusted: \(error, privacy: .public)")
+                reply(nil, error)
                 return
             }
 
@@ -2961,7 +3257,7 @@ class Container: NSObject, ConfiguredCloudKit {
 
             // verify bottle signature using peer
             do {
-                guard let sponsorPeer = self.model.peer(withID: sponsorPeerID) else {
+                guard let sponsorPeer = try self.model.peer(withID: sponsorPeerID) else {
                     logger.info("vouchWithBottle: Unable to find peer that created the bottle")
                     reply(nil, nil, nil, nil, ContainerError.bottleCreatingPeerNotFound)
                     return
@@ -3150,17 +3446,31 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.info("vouchWithRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
                 logger.info("vouchWithRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
 
-                guard self.model.isRecoveryKeyEnrolled() else {
-                    logger.info("Recovery Key is not enrolled")
-                    reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                do {
+                    guard try self.model.isRecoveryKeyEnrolled() else {
+                        logger.info("Recovery Key is not enrolled")
+                        reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                        return
+                    }
+                } catch {
+                    logger.warning("Error determining whether Recovery Key is enrolled: \(error, privacy: .public)")
+                    reply(nil, nil, nil, nil, error)
                     return
                 }
 
                 // find matching peer containing recovery keys
-                guard let sponsorPeerID = self.model.peerIDThatTrustsRecoveryKeys(TPRecoveryKeyPair(signingKeyData: signingPublicKey,
+                let sponsorPeerID: String?
+                do {
+                    sponsorPeerID = try self.model.peerIDThatTrustsRecoveryKeys(TPRecoveryKeyPair(signingKeyData: signingPublicKey,
                                                                                                     encryptionKeyData: encryptionPublicKey),
                                                                                   canIntroducePeer: beneficiaryPermanentInfo,
-                                                                                  stableInfo: beneficiaryStableInfo) else {
+                                                                                  stableInfo: beneficiaryStableInfo)
+                } catch {
+                    logger.error("Failed to get peer that trusts RK: \(error, privacy: .public)")
+                    reply(nil, nil, nil, nil, error)
+                    return
+                }
+                guard let sponsorPeerID else {
                     logger.info("Untrusted recovery key set")
                     reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
                     return
@@ -3246,9 +3556,15 @@ class Container: NSObject, ConfiguredCloudKit {
                     return
                 }
 
-                guard self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
-                    logger.info("Custodian Recovery Key is not trusted")
-                    reply(nil, nil, ContainerError.untrustedRecoveryKeys)
+                do {
+                    guard try self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
+                        logger.info("Custodian Recovery Key is not trusted")
+                        reply(nil, nil, ContainerError.untrustedRecoveryKeys)
+                        return
+                    }
+                } catch {
+                    logger.info("error determining whether Custodian Recovery Key is trusted: \(error, privacy: .public)")
+                    reply(nil, nil, error)
                     return
                 }
 
@@ -3272,9 +3588,17 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.info("recoverTLKSharesForInheritor encryptionPubKey: \(recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
 
                 // find matching peer trusting custodian recovery keys
-                guard let sponsorPeerID = self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
-                                                                                           canIntroducePeer: beneficiaryPermanentInfo,
-                                                                                           stableInfo: nil) else {
+                let sponsorPeerID: String?
+                do {
+                    sponsorPeerID = try self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
+                                                                                         canIntroducePeer: beneficiaryPermanentInfo,
+                                                                                         stableInfo: nil)
+                } catch {
+                    logger.error("Error getting peer that trusts CRK: \(error, privacy: .public)")
+                    reply(nil, nil, error)
+                    return
+                }
+                guard let sponsorPeerID else {
                     logger.info("Untrusted custodian recovery key set")
                     reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                     return
@@ -3366,9 +3690,15 @@ class Container: NSObject, ConfiguredCloudKit {
                     return
                 }
 
-                guard self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
-                    logger.info("Custodian Recovery Key is not trusted")
-                    reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
+                do {
+                    guard try self.model.isCustodianRecoveryKeyTrusted(tpcrk) else {
+                        logger.info("Custodian Recovery Key is not trusted")
+                        reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
+                        return
+                    }
+                } catch {
+                    logger.info("Error determining whether Custodian Recovery Key is trusted: \(error, privacy: .public)")
+                    reply(nil, nil, nil, nil, error)
                     return
                 }
 
@@ -3392,9 +3722,17 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.info("vouchWithCustodianRecoveryKey encryptionPubKey: \(recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
 
                 // find matching peer trusting custodian recovery keys
-                guard let sponsorPeerID = self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
-                                                                                           canIntroducePeer: beneficiaryPermanentInfo,
-                                                                                           stableInfo: beneficiaryStableInfo) else {
+                let sponsorPeerID: String?
+                do {
+                    sponsorPeerID = try self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
+                                                                                         canIntroducePeer: beneficiaryPermanentInfo,
+                                                                                         stableInfo: beneficiaryStableInfo)
+                } catch {
+                    logger.info("Error getting peer that trusts CRK: \(error, privacy: .public)")
+                    reply(nil, nil, nil, nil, error)
+                    return
+                }
+                guard let sponsorPeerID else {
                     logger.info("Untrusted custodian recovery key set")
                     reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
                     return
@@ -4290,7 +4628,14 @@ class Container: NSObject, ConfiguredCloudKit {
             }
 
             // We should know about all policy versions that peers might use before trying to find the best one
-            let allPolicyVersions = self.model.allPolicyVersions()
+            let allPolicyVersions: Set<TPPolicyVersion>
+            do {
+                allPolicyVersions = try self.model.allPolicyVersions()
+            } catch {
+                logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                reply(nil, .UNKNOWN, error)
+                return
+            }
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
                 if let error = policyFetchError {
                     logger.info("join: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
@@ -4299,7 +4644,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 do {
                     let syncingPolicy = try self.syncingPolicyFor(modelID: modelIDOverride ?? permanentInfo.modelID, stableInfo: stableInfo)
 
-                    guard let peer = self.model.peer(withID: permanentInfo.peerID), let dynamicInfo = peer.dynamicInfo else {
+                    guard let peer = try self.model.peer(withID: permanentInfo.peerID), let dynamicInfo = peer.dynamicInfo else {
                         logger.error("fetchCurrentPolicy with no dynamic info")
                         reply(syncingPolicy, .UNKNOWN, nil)
                         return
@@ -4540,7 +4885,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                                toAccessView: keyset.tlk.zoneID.zoneName)
                 logger.info("Planning to share \(String(describing: keyset.tlk), privacy: .public) with peers \(peerIDsWithAccess, privacy: .public)")
 
-                let peers = peerIDsWithAccess.compactMap { self.model.peer(withID: $0) }
+                let peers = try peerIDsWithAccess.compactMap { try self.model.peer(withID: $0) }
                 let viewPeerShares = try peers.map { receivingPeer in
                     TLKShare.convert(ckksTLKShare: try CKKSTLKShare(keyset.tlk,
                                                                     as: egoPeerKeys,
@@ -4662,8 +5007,17 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                      canSendMetrics: canSendMetrics,
                                                                      category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
             // To join, you must know all policies that exist
-            let allPolicyVersions: Set<TPPolicyVersion> = self.moc.performAndWait {
-                self.model.allPolicyVersions()
+            let allPolicyVersions: Set<TPPolicyVersion>? = self.moc.performAndWait {
+                do {
+                    return try self.model.allPolicyVersions()
+                } catch {
+                    logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                    reply(nil, [], nil, error)
+                    return nil
+                }
+            }
+            guard let allPolicyVersions else {
+                return
             }
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
                 if let error = policyFetchError {
@@ -4678,7 +5032,15 @@ class Container: NSObject, ConfiguredCloudKit {
                         reply(nil, [], nil, ContainerError.invalidVoucherOrSig)
                         return
                     }
-                    guard let sponsor = self.model.peer(withID: voucher.sponsorID) else {
+                    let sponsor: TPPeer?
+                    do {
+                        sponsor = try self.model.peer(withID: voucher.sponsorID)
+                    } catch {
+                        logger.error("Error getting sponsor (\(voucher.sponsorID)): \(String(describing: error), privacy: .public)")
+                        reply(nil, [], nil, error)
+                        return
+                    }
+                    guard let sponsor else {
                         reply(nil, [], nil, ContainerError.sponsorNotRegistered(voucher.sponsorID))
                         return
                     }
@@ -4992,10 +5354,10 @@ class Container: NSObject, ConfiguredCloudKit {
             }
 
             self.moc.performAndWait {
-                if let count = self.model.countOfTrustedPeers() {
-                    reply(count, nil)
-                } else {
-                    reply(nil, ContainerError.cannotDetermineTrustedPeerCount)
+                do {
+                    reply(NSNumber(value: try self.model.trustedPeerCount()), nil)
+                } catch {
+                    reply(nil, error)
                 }
                 return
             }
@@ -5017,7 +5379,14 @@ class Container: NSObject, ConfiguredCloudKit {
             }
 
             self.moc.performAndWait {
-               let containsDistrusted = self.model.doesOctagonContainsDistrustedRecoveryKeys()
+                let containsDistrusted: Bool
+                do {
+                    containsDistrusted = try self.model.doesOctagonContainDistrustedRecoveryKeys()
+                } catch {
+                    logger.error("error determining whether octagon contains distrusted RKs: \(error, privacy: .public)")
+                    reply(false, error)
+                    return
+                }
                 logger.info("distrusted recovery keys exist: \(containsDistrusted)")
                 reply(containsDistrusted, nil)
                 return
@@ -5073,8 +5442,22 @@ class Container: NSObject, ConfiguredCloudKit {
                 return
             }
             self.moc.performAndWait {
-                let bestWalrus = self.model.bestWalrusAcrossTrustedPeers()
-                let bestWebAccess = self.model.bestWebAccessAcrossTrustedPeers()
+                let bestWalrus: TPPBPeerStableInfoSetting?
+                do {
+                    bestWalrus = try self.model.bestWalrusAcrossTrustedPeers()
+                } catch {
+                    logger.error("fetchAccountSettings unable to find best ADP: \(String(describing: error), privacy: .public)")
+                    reply(nil, error)
+                    return
+                }
+                let bestWebAccess: TPPBPeerStableInfoSetting?
+                do {
+                    bestWebAccess = try self.model.bestWebAccessAcrossTrustedPeers()
+                } catch {
+                    logger.error("fetchAccountSettings unable to find best web access: \(String(describing: error), privacy: .public)")
+                    reply(nil, error)
+                    return
+                }
 
                 var settings: [String: TPPBPeerStableInfoSetting] = [:]
                 if let walrus = bestWalrus {
@@ -5111,8 +5494,17 @@ class Container: NSObject, ConfiguredCloudKit {
             }
 
             // We need to try to have all policy versions that our peers claim to behave
-            let allPolicyVersions: Set<TPPolicyVersion> = self.moc.performAndWait {
-                self.model.allPolicyVersions()
+            let allPolicyVersions: Set<TPPolicyVersion>? = self.moc.performAndWait {
+                do {
+                    return try self.model.allPolicyVersions()
+                } catch {
+                    logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                    reply(false, error)
+                    return nil
+                }
+            }
+            guard let allPolicyVersions else {
+                return
             }
 
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
@@ -5123,9 +5515,15 @@ class Container: NSObject, ConfiguredCloudKit {
                 // We explicitly ignore the machine ID list here; we're only interested in the peer states: do they preapprove us?
 
                 self.moc.performAndWait {
-                    guard self.model.hasAnyPeers() else {
-                        // If, after fetch and handle changes, there's no peers, then we can likely establish.
-                        reply(true, nil)
+                    do {
+                        guard try self.model.hasAnyPeers() else {
+                            // If, after fetch and handle changes, there's no peers, then we can likely establish.
+                            reply(true, nil)
+                            return
+                        }
+                    } catch {
+                        logger.error("error calling hasAnyPeers: \(error, privacy: .public)")
+                        reply(false, error)
                         return
                     }
 
@@ -5145,14 +5543,27 @@ class Container: NSObject, ConfiguredCloudKit {
                         return
                     }
 
-                    guard self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPermanentInfo.signingPubKey.spki()) else {
-                        logger.info("preflightPreapprovedJoin: no peers preapprove our key")
-                        reply(false, ContainerError.noPeersPreapprovePreparedIdentity)
+                    do {
+                        guard try self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPermanentInfo.signingPubKey.spki()) else {
+                            logger.info("preflightPreapprovedJoin: no peers preapprove our key")
+                            reply(false, ContainerError.noPeersPreapprovePreparedIdentity)
+                            return
+                        }
+                    } catch {
+                        logger.info("preflightPreapprovedJoin: error calling hasPotentiallyTrustedPeerPreapprovingKey \(error, privacy: .public)")
+                        reply(false, error)
                         return
                     }
 
-                    let keysApprovingPeers = preapprovedKeys?.filter { key in
-                        self.model.hasPotentiallyTrustedPeer(withSigningKey: key)
+                    let keysApprovingPeers: [Data]?
+                    do {
+                        keysApprovingPeers = try preapprovedKeys?.filter { key in
+                            try self.model.hasPotentiallyTrustedPeer(withSigningKey: key)
+                        }
+                    } catch {
+                        logger.error("preflightPreapprovedJoin: error calling hasPotentiallyTrustedPeerWithSigningKey \(error, privacy: .public)")
+                        reply(false, error)
+                        return
                     }
 
                     guard (keysApprovingPeers?.count ?? 0) > 0 else {
@@ -5189,13 +5600,19 @@ class Container: NSObject, ConfiguredCloudKit {
                 // If, after fetch and handle changes, there's no peers, then fire off an establish
                 // Note that if the establish fails, retrying this call might work.
                 // That's up to the caller.
-                if self.model.peerCount() == 0 {
-                    logger.info("preapprovedJoin but no existing peers, attempting establish")
+                do {
+                    if try self.model.peerCount() == 0 {
+                        logger.info("preapprovedJoin but no existing peers, attempting establish")
 
-                    self.onqueueEstablish(ckksKeys: ckksKeys,
-                                          tlkShares: tlkShares,
-                                          preapprovedKeys: preapprovedKeys,
-                                          reply: reply)
+                        self.onqueueEstablish(ckksKeys: ckksKeys,
+                                              tlkShares: tlkShares,
+                                              preapprovedKeys: preapprovedKeys,
+                                              reply: reply)
+                        return
+                    }
+                } catch {
+                    logger.error("preapprovedJoin: error getting peerCount: \(error, privacy: .public)")
+                    reply(nil, [], nil, error)
                     return
                 }
 
@@ -5234,9 +5651,15 @@ class Container: NSObject, ConfiguredCloudKit {
                         return
                     }
 
-                    guard self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPeerKeys.signingKey.publicKey().spki()) else {
-                        logger.info("preapprovedJoin: no peers preapprove our key")
-                        reply(nil, [], nil, ContainerError.noPeersPreapprovePreparedIdentity)
+                    do {
+                        guard try self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPeerKeys.signingKey.publicKey().spki()) else {
+                            logger.info("preapprovedJoin: no peers preapprove our key")
+                            reply(nil, [], nil, ContainerError.noPeersPreapprovePreparedIdentity)
+                            return
+                        }
+                    } catch {
+                        logger.info("preapprovedJoin: error calling hasPotentiallyTrustedPeerPreapprovingKey \(error, privacy: .public)")
+                        reply(nil, [], nil, error)
                         return
                     }
 
@@ -5423,7 +5846,14 @@ class Container: NSObject, ConfiguredCloudKit {
 
                     logger.info("setPreapprovedKeys: produced a dynamicInfo: \(dynamicInfo, privacy: .public)")
 
-                    if dynamicInfo == self.model.peer(withID: egoPeerID)?.dynamicInfo {
+                    let egoPeer: TPPeer?
+                    do {
+                        egoPeer = try self.model.peer(withID: egoPeerID)
+                    } catch {
+                        logger.warning("setPreapprovedKeys: error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                        egoPeer = nil
+                    }
+                    if dynamicInfo == egoPeer?.dynamicInfo {
                         logger.info("setPreapprovedKeys: no change; nothing to do.")
 
                         // Calling this will fill in the peer status
@@ -5558,7 +5988,15 @@ class Container: NSObject, ConfiguredCloudKit {
                 return
             }
             self.moc.performAndWait {
-                guard let egoPeerDynamicInfo = self.model.getDynamicInfoForPeer(withID: egoPeerID) else {
+                let egoPeerDynamicInfo: TPPeerDynamicInfo?
+                do {
+                    egoPeerDynamicInfo = try self.model.getDynamicInfoForPeer(withID: egoPeerID)
+                } catch {
+                    logger.info("Unable to fetch dynamic info for self: \(error, privacy: .public)")
+                    reply(nil, error)
+                    return
+                }
+                guard let egoPeerDynamicInfo else {
                     logger.info("Unable to fetch dynamic info for self")
                     reply(nil, ContainerError.missingDynamicInfo)
                     return
@@ -5623,12 +6061,22 @@ class Container: NSObject, ConfiguredCloudKit {
                 }
             }
 
-            self.model.enumeratePeers { peer, _ in
-                state.peers[peer.peerID] = peer
+            do {
+                try self.model.enumeratePeers { peer, _ in
+                    state.peers[peer.peerID] = peer
+                }
+            } catch {
+                logger.error("getState: error enumerating peers: \(error, privacy: .public)")
+                state.peerError = error
             }
 
-            self.model.enumerateVouchers { voucher, _ in
-                state.vouchers.append(voucher)
+            do {
+                try self.model.enumerateVouchers { voucher, _ in
+                    state.vouchers.append(voucher)
+                }
+            } catch {
+                logger.error("getState: error enumerating vouchers: \(error, privacy: .public)")
+                state.voucherError = error
             }
 
             reply(state)
@@ -5654,7 +6102,14 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.info("Forcing a full refetch: by request")
                 causeRefetch = true
             } else {
-                let modelRefetch = self.model.currentStatePossiblyMissingData()
+                let modelRefetch: Bool
+                do {
+                    modelRefetch = try self.model.currentStatePossiblyMissingData()
+                } catch {
+                    logger.error("currentStatePossiblyMissingData error: \(error, privacy: .public)")
+                    reply(error)
+                    return
+                }
 
                 if modelRefetch && (self.containerMO.refetchLevel < Container.currentRefetchLevel) {
                     logger.info("Forcing a full refetch due to model: last refetch level: \(self.containerMO.refetchLevel)")
@@ -5799,26 +6254,49 @@ class Container: NSObject, ConfiguredCloudKit {
                           error)
                     return
                 }
-                guard let currentSelfInModel = self.model.peer(withID: egoPeerID) else {
+                let currentSelfInModel: TPPeer?
+                do {
+                    currentSelfInModel = try self.model.peer(withID: egoPeerID)
+                } catch {
+                    logger.warning("Failed to get (current self) ego peer from model: \(String(describing: error), privacy: .public)")
+                    currentSelfInModel = nil
+                }
+                guard let currentSelfInModel else {
                     // Not in circle, nothing to do
-                    let isPreapproved = self.model.hasPotentiallyTrustedPeerPreapprovingKey(signingKeyPair.publicKey().spki())
-                    logger.info("updateTrustIfNeeded: ego peer is not in model, is \(isPreapproved ? "preapproved" : "not yet preapproved", privacy: .public)")
-                    reply(TrustedPeersHelperPeerState(peerID: egoPeerID,
-                                                      isPreapproved: isPreapproved,
-                                                      status: .unknown,
-                                                      memberChanges: peerChanges,
-                                                      unknownMachineIDs: false,
-                                                      osVersion: nil,
-                                                      walrus: nil,
-                                                      webAccess: nil),
-                          nil,
-                          nil)
+                    do {
+                        let isPreapproved = try self.model.hasPotentiallyTrustedPeerPreapprovingKey(signingKeyPair.publicKey().spki())
+                        logger.info("updateTrustIfNeeded: ego peer is not in model, is \(isPreapproved ? "preapproved" : "not yet preapproved", privacy: .public)")
+                        reply(TrustedPeersHelperPeerState(peerID: egoPeerID,
+                                                          isPreapproved: isPreapproved,
+                                                          status: .unknown,
+                                                          memberChanges: peerChanges,
+                                                          unknownMachineIDs: false,
+                                                          osVersion: nil,
+                                                          walrus: nil,
+                                                          webAccess: nil),
+                              nil,
+                              nil)
+                    } catch {
+                        logger.error("updateTrustIfNeeded: error calling hasPotentiallyTrustedPeerPreapprovingKey \(error, privacy: .public)")
+                        reply(nil, nil, error)
+                    }
                     return
                 }
                 let oldDynamicInfo = currentSelfInModel.dynamicInfo
 
                 // We need to try to have all policy versions that our peers claim to behave
-                let allPolicyVersions = self.model.allPolicyVersions()
+                let allPolicyVersions: Set<TPPolicyVersion>? = self.moc.performAndWait {
+                    do {
+                        return try self.model.allPolicyVersions()
+                    } catch {
+                        logger.error("Error fetching all policy versions: \(error, privacy: .public)")
+                        reply(nil, nil, error)
+                        return nil
+                    }
+                }
+                guard let allPolicyVersions else {
+                    return
+                }
                 self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
                     if let error = policyFetchError {
                         logger.info("updateTrustIfNeeded: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
@@ -5847,9 +6325,16 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                               vouchers: nil)
                         } catch {
                             logger.info("updateTrustIfNeeded: couldn't calculate dynamic info: \(String(describing: error), privacy: .public)")
+                            let status: TPPeerStatus
+                            do {
+                                status = try self.model.statusOfPeer(withID: egoPeerID)
+                            } catch {
+                                logger.warning("updateTrustIfNeeded: ignoring additional error calling statusOfPeer: \(error, privacy: .public)")
+                                status = .unknown
+                            }
                             reply(TrustedPeersHelperPeerState(peerID: egoPeerID,
                                                               isPreapproved: false,
-                                                              status: self.model.statusOfPeer(withID: egoPeerID),
+                                                              status: status,
                                                               memberChanges: peerChanges,
                                                               unknownMachineIDs: false,
                                                               osVersion: nil,
@@ -5863,7 +6348,13 @@ class Container: NSObject, ConfiguredCloudKit {
                         logger.info("updateTrustIfNeeded: produced a stableInfo: \(String(describing: stableInfo), privacy: .public)")
                         logger.info("updateTrustIfNeeded: produced a dynamicInfo: \(String(describing: dynamicInfo), privacy: .public)")
 
-                        let peer = self.model.peer(withID: egoPeerID)
+                        let peer: TPPeer?
+                        do {
+                            peer = try self.model.peer(withID: egoPeerID)
+                        } catch {
+                            logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                            peer = nil
+                        }
                         if (stableInfo == nil || stableInfo == peer?.stableInfo) &&
                             dynamicInfo == peer?.dynamicInfo {
                             logger.info("updateTrustIfNeeded: complete.")
@@ -5877,7 +6368,7 @@ class Container: NSObject, ConfiguredCloudKit {
 
                             let syncingPolicy: TPSyncingPolicy?
                             do {
-                                if let peer = self.model.peer(withID: egoPeerID), let stableInfo = peer.stableInfo {
+                                if let peer, let stableInfo = peer.stableInfo {
                                     syncingPolicy = try self.syncingPolicyFor(modelID: peer.permanentInfo.modelID, stableInfo: stableInfo)
                                 } else {
                                     syncingPolicy = nil
@@ -5887,9 +6378,17 @@ class Container: NSObject, ConfiguredCloudKit {
                                 syncingPolicy = nil
                             }
 
+                            let status: TPPeerStatus
+                            do {
+                                status = try self.model.statusOfPeer(withID: egoPeerID)
+                            } catch {
+                                logger.warning("updateTrustIfNeeded: ignoring additional error calling statusOfPeer: \(error, privacy: .public)")
+                                status = .unknown
+                            }
+
                             reply(TrustedPeersHelperPeerState(peerID: egoPeerID,
                                                               isPreapproved: false,
-                                                              status: self.model.statusOfPeer(withID: egoPeerID),
+                                                              status: status,
                                                               memberChanges: peerChanges,
                                                               unknownMachineIDs: self.onqueueFullIDMSListWouldBeHelpful(),
                                                               osVersion: peer?.stableInfo?.osVersion,
@@ -6042,7 +6541,12 @@ class Container: NSObject, ConfiguredCloudKit {
 
         // Don't print this if there's more changes coming; the logs will be very confusing
         if !changes.more {
-            logger.info("Currently know about \(self.model.peerCount()) peers")
+            do {
+                let peerCount = try self.model.peerCount()
+                logger.info("Currently know about \(peerCount) peers")
+            } catch {
+                logger.error("Error getting peerCount: \(error, privacy: .public)")
+            }
         }
     }
 
@@ -6085,7 +6589,13 @@ class Container: NSObject, ConfiguredCloudKit {
             throw error
         }
 
-        logger.info("Saved model with \(self.model.peerCount()) peers")
+        do {
+            let peerCount = try self.model.peerCount()
+            logger.info("Saved model with \(peerCount) peers")
+        } catch {
+            logger.error("error getting peerCount: \(error, privacy: .public)")
+            throw error
+        }
     }
 
     // Must be on moc queue to call this.
@@ -6114,7 +6624,7 @@ class Container: NSObject, ConfiguredCloudKit {
     // Must be on moc queue to call this.
     private func addOrUpdate(peer: Peer) throws {
         let peerID = peer.peerID
-        if !self.model.hasPeer(withID: peerID) {
+        if try !self.model.hasPeer(withID: peerID) {
             // Add:
             guard let permanentInfo = peer.permanentInfoAndSig.toPermanentInfo(peerID: peerID) else {
                 if peer.hasCustodianRecoveryKeyAndSig {
@@ -6246,18 +6756,18 @@ class Container: NSObject, ConfiguredCloudKit {
         // Determine which recovery key we'd like to be using, given our current idea of who to trust
         let tpVouchers = vouchers?.compactMap { TPVoucher(infoWith: $0.voucher, sig: $0.sig) }.filter { $0.beneficiaryID == permanentInfo.peerID }
 
-        let optimalRecoveryKey = self.model.bestRecoveryKey(for: existingStableInfo, vouchers: tpVouchers)
+        let optimalRecoveryKey = try self.model.bestRecoveryKey(for: existingStableInfo, vouchers: tpVouchers)
 
         // Determine which walrus setting we'd like to be using, given our current idea of who to trust
         var optimalWalrusSetting: TPPBPeerStableInfoSetting?
         if self.testDontSetAccountSetting == false {
-            optimalWalrusSetting = self.model.bestWalrus(for: existingStableInfo, walrusStableChanges: stableChanges?.walrusSetting)
+            optimalWalrusSetting = try self.model.bestWalrus(for: existingStableInfo, walrusStableChanges: stableChanges?.walrusSetting)
         }
 
         // Determine which web access setting we'd like to be using, given our current idea of who to trust
         var optimalWebAccessSetting: TPPBPeerStableInfoSetting?
         if self.testDontSetAccountSetting == false {
-            optimalWebAccessSetting = self.model.bestWebAccess(for: existingStableInfo, webAccessStableChanges: stableChanges?.webAccess)
+            optimalWebAccessSetting = try self.model.bestWebAccess(for: existingStableInfo, webAccessStableChanges: stableChanges?.webAccess)
         }
 
         let intendedSyncUserControllableViews = stableChanges?.setSyncUserControllableViews?.sanitizeForPlatform(permanentInfo: permanentInfo)
@@ -6385,8 +6895,17 @@ class Container: NSObject, ConfiguredCloudKit {
                 return
             }
             self.moc.performAndWait {
-                let isSet: Bool = self.model.isRecoveryKeyEnrolled()
-                logger.info("recoveryKey is enrolled \(isSet), privacy: .public)")
+                let isSet: Bool
+                do {
+                    isSet = try self.model.isRecoveryKeyEnrolled()
+                } catch {
+                    logger.error("Error determining whether Recovery Key is enrolled: \(error, privacy: .public)")
+
+                    reply(false, error)
+                    return
+                }
+
+                logger.info("recoveryKey is enrolled \(isSet, privacy: .public)")
 
                 reply(isSet, nil)
                 return
@@ -6458,9 +6977,15 @@ class Container: NSObject, ConfiguredCloudKit {
                     return
                 }
 
-                if self.model.isRecoveryKeyEnrolled() == false {
-                    logger.info("recovery key is not registered, nothing to remove.")
-                    reply(true, nil)
+                do {
+                    if try self.model.isRecoveryKeyEnrolled() == false {
+                        logger.info("recovery key is not registered, nothing to remove.")
+                        reply(true, nil)
+                        return
+                    }
+                } catch {
+                    logger.error("error determining whether Recovery Key is enrolled: \(error, privacy: .public)")
+                    reply(false, error)
                     return
                 }
 

@@ -236,11 +236,6 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     , m_audibleActivityTimer(RunLoop::main(), this, &WebProcessPool::clearAudibleActivity)
     , m_webProcessWithMediaStreamingCounter([this](RefCounterEvent) { updateMediaStreamingActivity(); })
 {
-#if USE(EXTENSIONKIT)
-    bool manageProcessesAsExtensions = !CFPreferencesGetAppBooleanValue(CFSTR("disableProcessesAsExtensions"), kCFPreferencesCurrentApplication, nullptr);
-    AuxiliaryProcessProxy::setManageProcessesAsExtensions(manageProcessesAsExtensions);
-#endif
-
     static auto s_needsGlobalStaticInitialization = NeedsGlobalStaticInitialization::Yes;
     auto needsGlobalStaticInitialization = std::exchange(s_needsGlobalStaticInitialization, NeedsGlobalStaticInitialization::No);
     if (needsGlobalStaticInitialization == NeedsGlobalStaticInitialization::Yes) {
@@ -937,6 +932,10 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     parameters.presentingApplicationPID = m_configuration->presentingApplicationPID();
 
     parameters.timeZoneOverride = m_configuration->timeZoneOverride();
+
+    parameters.memoryFootprintPollIntervalForTesting = m_configuration->memoryFootprintPollIntervalForTesting();
+
+    parameters.memoryFootprintNotificationThresholds = m_configuration->memoryFootprintNotificationThresholds();
 
     // Add any platform specific parameters
     platformInitializeWebProcess(process, parameters);
@@ -2218,6 +2217,7 @@ WebProcessWithAudibleMediaToken WebProcessPool::webProcessWithAudibleMediaToken(
 
 void WebProcessPool::clearAudibleActivity()
 {
+    WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "clearAudibleActivity: The number of processes playing audible media is now zero. Releasing UI process assertion.");
     ASSERT(!m_webProcessWithAudibleMediaCounter.value());
     m_audibleMediaActivity = std::nullopt;
 }
@@ -2225,7 +2225,7 @@ void WebProcessPool::clearAudibleActivity()
 void WebProcessPool::updateAudibleMediaAssertions()
 {
     if (!m_webProcessWithAudibleMediaCounter.value()) {
-        WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "updateAudibleMediaAssertions: The number of processes playing audible media now zero. Releasing UI process assertion.");
+        WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "updateAudibleMediaAssertions: Starting timer to clear audible activity in %g seconds because we are no longer playing audio", audibleActivityClearDelay.seconds());
         // We clear the audible activity on a timer for 2 reasons:
         // 1. Media may start playing shortly after (e.g. switching from one track to another)
         // 2. It minimizes the risk of the GPUProcess getting suspended while shutting down the media stack.

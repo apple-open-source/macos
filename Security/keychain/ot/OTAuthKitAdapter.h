@@ -29,6 +29,9 @@ NS_ASSUME_NONNULL_BEGIN
                                                   NSSet<NSString*>* _Nullable evictedRemovals,
                                                   NSSet<NSString*>* _Nullable unknownReasonRemovals,
                                                   NSString* _Nullable version,
+                                                  NSString* _Nullable trustedDeviceHash,
+                                                  NSString* _Nullable deletedDeviceHash,
+                                                  NSNumber* _Nullable trustedDevicesUpdateTimestamp,
                                                   NSError* _Nullable error))complete;
 
 - (void)registerNotification:(id<OTAuthKitAdapterNotifier>)notifier;

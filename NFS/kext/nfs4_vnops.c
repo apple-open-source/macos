@@ -2936,10 +2936,7 @@ nfs4_open(
 	    (((dvp = np->n_parent)) && (error = vnode_get(dvp)))) {
 		dvp = NULL;
 	}
-	if (!dvp) {
-		dvp = vnode_getparent(vp);
-	}
-	vname = vnode_getname(vp);
+	vnode_getparent_and_name(vp, dvp ? NULL : &dvp, &vname);
 	if (!dvp || !vname) {
 		if (!error) {
 			error = EIO;
@@ -5117,10 +5114,7 @@ nfs4_reopen(struct nfs_open_file *nofp, thread_t thd)
 		    (((dvp = np->n_parent)) && (error = vnode_get(dvp)))) {
 			dvp = NULL;
 		}
-		if (!dvp) {
-			dvp = vnode_getparent(vp);
-		}
-		vname = vnode_getname(vp);
+		vnode_getparent_and_name(vp, dvp ? NULL : &dvp, &vname);
 		if (!dvp || !vname) {
 			if (!error) {
 				error = EIO;
@@ -5811,10 +5805,7 @@ nfs4_claim_delegated_open_rpc(
 		    (((dvp = np->n_parent)) && (error = vnode_get(dvp)))) {
 			dvp = NULL;
 		}
-		if (!dvp) {
-			dvp = vnode_getparent(NFSTOV(np));
-		}
-		vname = vnode_getname(NFSTOV(np));
+		vnode_getparent_and_name(NFSTOV(np), dvp ? NULL : &dvp, &vname);
 		if (!dvp || !vname) {
 			if (!error) {
 				error = EIO;

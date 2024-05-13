@@ -886,15 +886,15 @@
                                                                error:&ckmeError];
 
             if(ckmeError) {
-                ckksnotice("ckksincoming", viewState.zoneID, "Unable to fetch ckme: %@", ckmeError);
+                ckksnotice("ckksincoming", viewState.zoneID, "Unable to fetch ckme for old item %@: %@", olditem, ckmeError);
                 // We'll just have to assume that there is a CKME, and let the comparison analysis below win
             }
 
             CFComparisonResult compare = CFStringCompare(itemUUID, olditemUUID, 0);
             CKKSOutgoingQueueEntry* oqe = nil;
             if (compare == kCFCompareGreaterThan && (ckme || ckmeError)) {
-                // olditem wins; don't change olditem; delete item
-                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; dropping CK item " SECDBITEM_FMT, item);
+                // olditem wins; don't change olditem; delete incoming item; re-affirm existence of olditem
+                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; deleting incoming CK item (%@)" SECDBITEM_FMT "in favor of old item (%@)" SECDBITEM_FMT , itemUUID, item, olditemUUID, olditem);
                 oqe = [CKKSOutgoingQueueEntry withItem:item
                                                 action:SecCKKSActionDelete
                                              contextID:self.deps.contextID
@@ -905,9 +905,16 @@
                 self.newOutgoingEntries = true;
                 moddate = nil;
 
+                CKKSOutgoingQueueEntry* oldItemOQE = [CKKSOutgoingQueueEntry withItem:olditem
+                                                                               action:SecCKKSActionAdd
+                                                                            contextID:self.deps.contextID
+                                                                               zoneID:viewState.zoneID
+                                                                             keyCache:keyCache
+                                                                                error:&error];
+                [oldItemOQE saveToDatabase: &error];
                 keptOldItem = YES;
             } else {
-                // item wins, either due to the UUID winning or the item not being in CKKS yet
+                // item wins, either due to the new UUID winning or the olditem not being in CKKS yet
                 ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; replacing %@ with CK item",
                            ckme ? @"" : @"non-onboarded");
                 if(replace) {
@@ -916,6 +923,7 @@
                 }
                 // delete olditem if UUID differs (same UUID is the normal update case)
                 if (compare != kCFCompareEqualTo) {
+                    ckksnotice("ckksincoming", viewState.zoneID, "UUID of olditem (%@) is higher than UUID of incoming item (%@), issuing deletion of olditem: " SECDBITEM_FMT, olditemUUID, itemUUID, olditem);
                     oqe = [CKKSOutgoingQueueEntry withItem:olditem
                                                     action:SecCKKSActionDelete
                                                  contextID:self.deps.contextID

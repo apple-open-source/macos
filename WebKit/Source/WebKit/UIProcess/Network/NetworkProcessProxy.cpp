@@ -192,6 +192,8 @@ void NetworkProcessProxy::sendCreationParametersToNewProcess()
     parameters.websiteDataStoreParameters = WebsiteDataStore::parametersFromEachWebsiteDataStore();
     WebsiteDataStore::forEachWebsiteDataStore([&](auto& websiteDataStore) {
         addSession(websiteDataStore, SendParametersToNetworkProcess::No);
+        // Notify WebsiteDataStore that they have been added to the network process.
+        websiteDataStore.setNetworkProcess(*this);
     });
 #endif
 
@@ -579,6 +581,10 @@ void NetworkProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Con
     
 #if USE(RUNNINGBOARD)
     m_throttler.didConnectToProcess(*this);
+#if USE(EXTENSIONKIT)
+    if (launcher)
+        launcher->releaseLaunchGrant();
+#endif
 #endif
 }
 
@@ -677,6 +683,12 @@ void NetworkProcessProxy::resourceLoadDidCompleteWithError(WebPageProxyIdentifie
         return;
 
     page->resourceLoadDidCompleteWithError(WTFMove(loadInfo), WTFMove(response), WTFMove(error));
+}
+
+void NetworkProcessProxy::didAllowPrivateTokenUsageByThirdPartyForTesting(PAL::SessionID sessionID, bool wasAllowed, URL&& resourceURL)
+{
+    if (auto* store = websiteDataStoreFromSessionID(sessionID))
+        store->didAllowPrivateTokenUsageByThirdPartyForTesting(wasAllowed, WTFMove(resourceURL));
 }
 
 void NetworkProcessProxy::dumpResourceLoadStatistics(PAL::SessionID sessionID, CompletionHandler<void(String)>&& completionHandler)

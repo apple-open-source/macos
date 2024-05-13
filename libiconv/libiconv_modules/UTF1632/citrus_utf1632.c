@@ -219,6 +219,16 @@ skipbom:
 				needlen = 4;
 				goto refetch;
 			}
+#ifdef __APPLE__
+			/*
+			 * GNU libiconv also forbids a high surrogate not
+			 * followed by a low surrogate (below), but it also
+			 * forbids a low surrogate not proceeded by a high
+			 * surrogate (this one).
+			 */
+			if (wc >= 0xDC00 && wc <= 0xDFFF)
+				goto ilseq;
+#endif
 		} else {
 			/* surrogate low */
 			wc -= 0xD800; /* wc : surrogate high (see above) */

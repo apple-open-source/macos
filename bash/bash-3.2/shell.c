@@ -329,7 +329,7 @@ is_rootless_restricted_environment(void)
 	uint32_t flags;
 	if (csops(0, CS_OPS_STATUS, &flags, sizeof(flags)))
 		return -1;
-	return (flags & CS_INSTALLER) ? 1 : 0;
+	return ((flags & CS_INSTALLER) || getenv("APPLE_PKGKIT_ESCALATING_ROOT")) ? 1 : 0;
 }
 #endif /* __APPLE__ */
 

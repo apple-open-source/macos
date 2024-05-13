@@ -573,11 +573,22 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         self.tphClient.setAllowedMachineIDsWith(user,
                                                 allowedMachineIDs: self.mockAuthKit.currentDeviceList(),
+                                                userInitiatedRemovals: nil,
+                                                evictedRemovals: nil,
+                                                unknownReasonRemovals: nil,
                                                 honorIDMSListChanges: honorIDMSListChanges,
-                                                version: nil) { _, error in
+                                                version: nil,
+                                                flowID: "test-flowID",
+                                                deviceSessionID: "test-deviceSessionID",
+                                                canSendMetrics: false,
+                                                altDSID: user.altDSID,
+                                                trustedDeviceHash: nil,
+                                                deletedDeviceHash: nil,
+                                                trustedDevicesUpdateTimestamp: nil) { _, error in
             XCTAssertNil(error, "Should be no error setting allow list")
             allowListExpectation.fulfill()
         }
+
         self.wait(for: [allowListExpectation], timeout: 10)
     }
 

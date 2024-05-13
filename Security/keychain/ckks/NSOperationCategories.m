@@ -78,18 +78,37 @@
 }
 
 -(NSString*)pendingDependenciesString:(NSString*)prefix {
-    NSArray* dependencies = [self.dependencies copy];
-    dependencies = [dependencies objectsAtIndexes: [dependencies indexesOfObjectsPassingTest: ^BOOL (id obj,
-                                                                                                     NSUInteger idx,
-                                                                                                     BOOL* stop) {
-        return [obj isFinished] ? NO : YES;
-    }]];
+    static __thread unsigned __descriptionRecursion = 0;
 
-    if(dependencies.count == 0u) {
-        return @"";
+    @autoreleasepool {
+        NSArray* dependencies = [self.dependencies copy];
+        dependencies = [dependencies objectsAtIndexes: [dependencies indexesOfObjectsPassingTest: ^BOOL (id obj,
+                                                                                                         NSUInteger idx,
+                                                                                                         BOOL* stop) {
+            return [obj isFinished] ? NO : YES;
+        }]];
+
+        if(dependencies.count == 0u) {
+            return @"";
+        }
+
+        if(__descriptionRecursion > 20) {
+            return [NSString stringWithFormat: @"<recursion too deep>"];
+        }
+        __descriptionRecursion++;
+
+        // Clear the autoreleasepool for each individual depedency.
+        NSMutableArray<NSString*>* dependenciesStrings = [NSMutableArray array];
+        for(NSOperation* dep in dependencies) {
+            @autoreleasepool {
+                [dependenciesStrings addObject:[dep description]];
+            }
+        }
+
+        __descriptionRecursion--;
+
+        return [NSString stringWithFormat: @"%@%@", prefix, [dependenciesStrings componentsJoinedByString: @", "]];
     }
-
-    return [NSString stringWithFormat: @"%@%@", prefix, [dependencies componentsJoinedByString: @", "]];
 }
 
 - (NSString*)description {

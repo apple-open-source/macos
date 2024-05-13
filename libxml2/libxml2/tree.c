@@ -1338,6 +1338,8 @@ xmlStringLenGetNodeList(const xmlDoc *doc, const xmlChar *value, int len) {
 			charval = 0;
 			break;
 		    }
+                    if (charval > 0x110000)
+                        charval = 0x110000;
 		    cur++;
 		    if (cur < end)
 			tmp = *cur;
@@ -1354,7 +1356,6 @@ xmlStringLenGetNodeList(const xmlDoc *doc, const xmlChar *value, int len) {
 		else
 		    tmp = 0;
 		while (tmp != ';') { /* Non input consuming loops */
-                    /* Don't check for integer overflow, see above. */
 		    if ((tmp >= '0') && (tmp <= '9'))
 			charval = charval * 10 + (tmp - '0');
 		    else {
@@ -1363,6 +1364,8 @@ xmlStringLenGetNodeList(const xmlDoc *doc, const xmlChar *value, int len) {
 			charval = 0;
 			break;
 		    }
+                    if (charval > 0x110000)
+                        charval = 0x110000;
 		    cur++;
 		    if (cur < end)
 			tmp = *cur;
@@ -1453,12 +1456,14 @@ xmlStringLenGetNodeList(const xmlDoc *doc, const xmlChar *value, int len) {
 		xmlChar buffer[10];
 		int l;
 
+                if (charval >= 0x110000)
+                    charval = 0xFFFD; /* replacement character */
+
 		l = xmlCopyCharMultiByte(buffer, charval);
 		buffer[l] = 0;
 
 		if (xmlBufCat(buf, buffer))
 		    goto out;
-		charval = 0;
 	    }
 	} else
 	    cur++;
@@ -1547,6 +1552,8 @@ xmlStringGetNodeList(const xmlDoc *doc, const xmlChar *value) {
 			charval = 0;
 			break;
 		    }
+                    if (charval > 0x110000)
+                        charval = 0x110000;
 		    cur++;
 		    tmp = *cur;
 		}
@@ -1557,7 +1564,6 @@ xmlStringGetNodeList(const xmlDoc *doc, const xmlChar *value) {
 		cur += 2;
 		tmp = *cur;
 		while (tmp != ';') { /* Non input consuming loops */
-                    /* Don't check for integer overflow, see above. */
 		    if ((tmp >= '0') && (tmp <= '9'))
 			charval = charval * 10 + (tmp - '0');
 		    else {
@@ -1566,6 +1572,8 @@ xmlStringGetNodeList(const xmlDoc *doc, const xmlChar *value) {
 			charval = 0;
 			break;
 		    }
+                    if (charval > 0x110000)
+                        charval = 0x110000;
 		    cur++;
 		    tmp = *cur;
 		}
@@ -1653,12 +1661,14 @@ xmlStringGetNodeList(const xmlDoc *doc, const xmlChar *value) {
 		xmlChar buffer[10];
 		int len;
 
+                if (charval >= 0x110000)
+                    charval = 0xFFFD; /* replacement character */
+
 		len = xmlCopyCharMultiByte(buffer, charval);
 		buffer[len] = 0;
 
 		if (xmlBufCat(buf, buffer))
 		    goto out;
-		charval = 0;
 	    }
 	} else
 	    cur++;

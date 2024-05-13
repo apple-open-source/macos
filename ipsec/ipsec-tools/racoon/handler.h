@@ -120,7 +120,6 @@ struct phase1handle {
     
 #ifndef HAVE_OPENSSL
 	SecDHContext dhC;		/* Context for Security Framework Diffie-Hellman calculations */
-	size_t publicKeySize;
 #endif
 	vchar_t *dhpriv;		/* DH; private value */
 	vchar_t *dhpub;			/* DH; public value */
@@ -251,7 +250,6 @@ struct phase2handle {
     
 #ifndef HAVE_OPENSSL
 	SecDHContext dhC;		/* Context for Security Framework Diffie-Hellman calculations */
-	size_t publicKeySize;
 #endif	
 	struct dhgroup *pfsgrp;		/* DH; prime number */
 	vchar_t *dhpriv;		/* DH; private value */

@@ -77,6 +77,7 @@ class WebCoreOpaqueRoot;
 }
 
 WTF_ALLOW_COMPACT_POINTERS_TO_INCOMPLETE_TYPE(WebCore::RenderObject);
+WTF_ALLOW_COMPACT_POINTERS_TO_INCOMPLETE_TYPE(WebCore::Node);
 WTF_ALLOW_COMPACT_POINTERS_TO_INCOMPLETE_TYPE(WebCore::NodeRareData);
 
 namespace WebCore {
@@ -91,7 +92,7 @@ const int initialNodeVectorSize = 11; // Covers 99.5%. See webkit.org/b/80706
 typedef Vector<Ref<Node>, initialNodeVectorSize> NodeVector;
 
 class Node : public EventTarget {
-    WTF_MAKE_ISO_ALLOCATED(Node);
+    WTF_MAKE_COMPACT_ISO_ALLOCATED(Node);
 
     friend class Document;
     friend class TreeScope;
@@ -146,6 +147,7 @@ public:
     inline Element* parentElement() const;
     Node* previousSibling() const { return m_previous; }
     RefPtr<Node> protectedPreviousSibling() const { return m_previous; }
+
     static ptrdiff_t previousSiblingMemoryOffset() { return OBJECT_OFFSETOF(Node, m_previous); }
     Node* nextSibling() const { return m_next; }
     RefPtr<Node> protectedNextSibling() const { return m_next; }
@@ -280,6 +282,10 @@ public:
     bool isFailedOrPrecustomizedCustomElement() const { return customElementState() == CustomElementState::FailedOrPrecustomized; }
     bool isPrecustomizedCustomElement() const { return customElementState() == CustomElementState::FailedOrPrecustomized && !isUnknownElement(); }
     bool isPrecustomizedOrDefinedCustomElement() const { return isPrecustomizedCustomElement() || isDefinedCustomElement(); }
+
+    bool isInCustomElementReactionQueue() const { return hasStateFlag(StateFlag::IsInCustomElementReactionQueue); }
+    void setIsInCustomElementReactionQueue() { setStateFlag(StateFlag::IsInCustomElementReactionQueue); }
+    void clearIsInCustomElementReactionQueue() { clearStateFlag(StateFlag::IsInCustomElementReactionQueue); }
 
     // Returns null, a child of ShadowRoot, or a legacy shadow root.
     Node* nonBoundaryShadowTreeRootNode();
@@ -575,6 +581,9 @@ public:
     static auto flagIsParsingChildren() { return enumToUnderlyingType(StateFlag::IsParsingChildren); }
 #endif // ENABLE(JIT)
 
+    bool containsSelectionEndPoint() const { return hasStateFlag(StateFlag::ContainsSelectionEndPoint); }
+    void setContainsSelectionEndPoint(bool value) { setStateFlag(StateFlag::ContainsSelectionEndPoint, value); }
+
 protected:
     enum class TypeFlag : uint16_t {
         IsCharacterData = 1 << 0,
@@ -614,6 +623,8 @@ protected:
         ContainsOnlyASCIIWhitespace = 1 << 11, // Only used on CharacterData.
         ContainsOnlyASCIIWhitespaceIsValid = 1 << 12, // Only used on CharacterData.
         HasHeldBackChildrenChanged = 1 << 13,
+        ContainsSelectionEndPoint = 1 << 14,
+        IsInCustomElementReactionQueue = 1 << 15,
     };
 
     enum class TabIndexState : uint8_t {
@@ -756,7 +767,7 @@ private:
     mutable OptionSet<StateFlag> m_stateFlags;
 
     ContainerNode* m_parentNode { nullptr };
-    CheckedPtr<TreeScope> m_treeScope;
+    TreeScope* m_treeScope { nullptr };
     Node* m_previous { nullptr };
     Node* m_next { nullptr };
     CompactPointerTuple<RenderObject*, uint16_t> m_rendererWithStyleFlags;

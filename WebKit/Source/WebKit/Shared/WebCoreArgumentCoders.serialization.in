@@ -1872,6 +1872,7 @@ header: <WebCore/ResourceRequest.h>
     [BitField] bool m_privacyProxyFailClosedForUnreachableNonMainHosts;
     [BitField] bool m_useAdvancedPrivacyProtections;
     [BitField] bool m_didFilterLinkDecoration;
+    [BitField] bool m_isPrivateTokenUsageByThirdPartyAllowed;
 };
 
 #if USE(SOUP)
@@ -2392,8 +2393,7 @@ struct WebCore::PromisedAttachmentInfo {
 #if ENABLE(ATTACHMENT_ELEMENT)
     String attachmentIdentifier;
 #endif
-    Vector<String> additionalTypes;
-    Vector<RefPtr<WebCore::SharedBuffer>> additionalData;
+    Vector<std::pair<String, RefPtr<WebCore::SharedBuffer>>> additionalTypesAndData;
 }
 
 header: <WebCore/SearchPopupMenu.h>
@@ -3769,6 +3769,7 @@ header: <WebCore/ScrollingStateNode.h>
     MouseActivityState
     ScrollbarHoverState
     ScrollbarEnabledState
+    ScrollbarLayoutDirection
     FrameScaleFactor
     EventTrackingRegion
     RootContentsLayer
@@ -4749,6 +4750,7 @@ struct WebCore::ServiceWorkerClientData {
     std::optional<WebCore::PageIdentifier> pageIdentifier;
     std::optional<WebCore::FrameIdentifier> frameIdentifier;
     WebCore::LastNavigationWasAppInitiated lastNavigationWasAppInitiated;
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
     bool isVisible;
     bool isFocused;
     uint64_t focusOrder;
@@ -4918,24 +4920,24 @@ header: <WebCore/MediaConstraints.h>
     std::optional<int> m_min;
     std::optional<int> m_max;
     std::optional<int> m_exact;
-    std::optional<int> m_ideal;
+    [Validator='*dataType == WebCore::MediaConstraint::DataType::Integer'] std::optional<int> m_ideal;
 };
 
 [CustomHeader] class WebCore::DoubleConstraint : WebCore::MediaConstraint {
     std::optional<double> m_min;
     std::optional<double> m_max;
     std::optional<double> m_exact;
-    std::optional<double> m_ideal;
+    [Validator='*dataType == WebCore::MediaConstraint::DataType::Double'] std::optional<double> m_ideal;
 };
 
 [CustomHeader] class WebCore::BooleanConstraint : WebCore::MediaConstraint {
     std::optional<bool> m_exact;
-    std::optional<bool> m_ideal;
+    [Validator='*dataType == WebCore::MediaConstraint::DataType::Boolean'] std::optional<bool> m_ideal;
 };
 
 [CustomHeader] class WebCore::StringConstraint : WebCore::MediaConstraint {
     Vector<String> m_exact;
-    Vector<String> m_ideal;
+    [Validator='*dataType == WebCore::MediaConstraint::DataType::String'] Vector<String> m_ideal;
 };
 
 header: <WebCore/VideoPreset.h>
@@ -5442,6 +5444,7 @@ struct WebCore::WorkerOptions {
 struct WebCore::WorkerInitializationData {
     std::optional<WebCore::ServiceWorkerData> serviceWorkerData;
     std::optional<WebCore::ScriptExecutionContextIdentifier> clientIdentifier;
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
     String userAgent;
 };
 
@@ -5602,7 +5605,7 @@ struct WebCore::InteractionRegion {
 
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::Region {
     WebCore::IntRect bounds();
-    std::unique_ptr<WebCore::Region::Shape> copyShape();
+    [Validator='!*copyShape || (*copyShape)->isValid()'] std::unique_ptr<WebCore::Region::Shape> copyShape();
 }
 
 header: <WebCore/ISOVTTCue.h>
@@ -7229,4 +7232,11 @@ enum class WebCore::PredefinedColorSpace : uint8_t {
 #if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
     , DisplayP3
 #endif
+};
+
+header: <WebCore/CryptoKey.h>
+[CustomHeader] struct WebCore::WrappedCryptoKey {
+    std::array<uint8_t, 24> wrappedKEK;
+    Vector<uint8_t> encryptedKey;
+    std::array<uint8_t, 16> tag;
 };

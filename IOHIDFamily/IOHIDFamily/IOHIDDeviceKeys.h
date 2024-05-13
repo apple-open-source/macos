@@ -225,4 +225,13 @@
  */
 #define kIOHIDPhysicalDeviceUniqueIDKey "PhysicalDeviceUniqueID"
 
+/*!
+ * @defined    kIOHIDDeviceAccessEntitlementKey
+ * @abstract
+ * Defines a string or array of entitlements
+ * If the property defines a string, that entitlement is required
+ * If the property defines an array, only one entitlement from that array is required
+ */
+#define kIOHIDDeviceAccessEntitlementKey "HIDDeviceAccessEntitlement"
+
 #endif /* IOHIDDeviceKeys_h */

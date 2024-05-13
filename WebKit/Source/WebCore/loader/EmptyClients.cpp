@@ -285,7 +285,7 @@ private:
     void didEndUserTriggeredSelectionChanges() final { }
     void willWriteSelectionToPasteboard(const std::optional<SimpleRange>&) final { }
     void didWriteSelectionToPasteboard() final { }
-    void getClientPasteboardData(const std::optional<SimpleRange>&, Vector<String>&, Vector<RefPtr<SharedBuffer>>&) final { }
+    void getClientPasteboardData(const std::optional<SimpleRange>&, Vector<std::pair<String, RefPtr<SharedBuffer>>>&) final { }
     void requestCandidatesForSelection(const VisibleSelection&) final { }
     void handleAcceptedCandidateWithSoftSpaces(TextCheckingResult) final { }
 
@@ -293,7 +293,7 @@ private:
     void registerRedoStep(UndoStep&) final;
     void clearUndoRedoOperations() final { }
 
-    DOMPasteAccessResponse requestDOMPasteAccess(DOMPasteAccessCategory, const String&) final { return DOMPasteAccessResponse::DeniedForGesture; }
+    DOMPasteAccessResponse requestDOMPasteAccess(DOMPasteAccessCategory, FrameIdentifier, const String&) final { return DOMPasteAccessResponse::DeniedForGesture; }
 
     bool canCopyCut(LocalFrame*, bool defaultValue) const final { return defaultValue; }
     bool canPaste(LocalFrame*, bool defaultValue) const final { return defaultValue; }
@@ -564,14 +564,6 @@ std::unique_ptr<DataListSuggestionPicker> EmptyChromeClient::createDataListSugge
 std::unique_ptr<DateTimeChooser> EmptyChromeClient::createDateTimeChooser(DateTimeChooserClient&)
 {
     return nullptr;
-}
-
-#endif
-
-#if ENABLE(APP_HIGHLIGHTS)
-
-void EmptyChromeClient::storeAppHighlight(AppHighlight&&) const
-{
 }
 
 #endif

@@ -170,6 +170,7 @@
 		D047076E29CCCEEB00292F46 /* cfilters.h in Headers */ = {isa = PBXBuildFile; fileRef = D0DF9E48298AF1270034627E /* cfilters.h */; };
 		D047076F29CCD0F200292F46 /* dynbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = D388561E261FD6E500465252 /* dynbuf.c */; };
 		D047077229CCD17800292F46 /* tool_stderr.c in Sources */ = {isa = PBXBuildFile; fileRef = D047077129CCD17800292F46 /* tool_stderr.c */; };
+		D04745AA2B6AAF540088D272 /* tool_ipfs.c in Sources */ = {isa = PBXBuildFile; fileRef = D04745A92B6AAF540088D272 /* tool_ipfs.c */; };
 		D0504BF12ACC8817004ECA8D /* base64.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A64F12455686007EDB1C /* base64.c */; };
 		D055D6AD2ACB3F5200707481 /* curl_trc.c in Sources */ = {isa = PBXBuildFile; fileRef = D055D6AB2ACB3F3500707481 /* curl_trc.c */; };
 		D055D6B02ACC705700707481 /* macos.c in Sources */ = {isa = PBXBuildFile; fileRef = D055D6AE2ACC705700707481 /* macos.c */; };
@@ -1595,6 +1596,7 @@
 		D047076A29CCCD7B00292F46 /* cf-https-connect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cf-https-connect.h"; sourceTree = "<group>"; };
 		D047077029CCD17800292F46 /* tool_stderr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tool_stderr.h; sourceTree = "<group>"; };
 		D047077129CCD17800292F46 /* tool_stderr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tool_stderr.c; sourceTree = "<group>"; };
+		D04745A92B6AAF540088D272 /* tool_ipfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tool_ipfs.c; sourceTree = "<group>"; };
 		D055D6AA2ACB3F3500707481 /* curl_trc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = curl_trc.h; sourceTree = "<group>"; };
 		D055D6AB2ACB3F3500707481 /* curl_trc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = curl_trc.c; sourceTree = "<group>"; };
 		D055D6AE2ACC705700707481 /* macos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = macos.c; sourceTree = "<group>"; };
@@ -1610,8 +1612,8 @@
 		D06D276829B699680098F98B /* curl_msh3.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = curl_msh3.h; sourceTree = "<group>"; };
 		D06D276C29B699A00098F98B /* cf-socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cf-socket.h"; sourceTree = "<group>"; };
 		D06D276D29B699A00098F98B /* cf-socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cf-socket.c"; sourceTree = "<group>"; };
-		D0A62E89288F297000D3789A /* fopen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = fopen.c; path = curl/lib/fopen.c; sourceTree = "<group>"; };
-		D0A62E8B288F299600D3789A /* fopen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = fopen.h; path = curl/lib/fopen.h; sourceTree = "<group>"; };
+		D0A62E89288F297000D3789A /* fopen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fopen.c; sourceTree = "<group>"; };
+		D0A62E8B288F299600D3789A /* fopen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fopen.h; sourceTree = "<group>"; };
 		D0ADD3212ACE05910022E131 /* CURLINFO_XFER_ID.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = CURLINFO_XFER_ID.3; path = opts/CURLINFO_XFER_ID.3; sourceTree = "<group>"; };
 		D0ADD3222ACE05910022E131 /* CURLSHOPT_SHARE.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = CURLSHOPT_SHARE.3; path = opts/CURLSHOPT_SHARE.3; sourceTree = "<group>"; };
 		D0ADD3232ACE05910022E131 /* CURLSHOPT_UNLOCKFUNC.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = CURLSHOPT_UNLOCKFUNC.3; path = opts/CURLSHOPT_UNLOCKFUNC.3; sourceTree = "<group>"; };
@@ -2532,8 +2534,6 @@
 		FC0A9E99124554EE00173580 = {
 			isa = PBXGroup;
 			children = (
-				D0A62E8B288F299600D3789A /* fopen.h */,
-				D0A62E89288F297000D3789A /* fopen.c */,
 				FD07CC40149AAED0004DE255 /* curl */,
 				FD07CC42149AAEEF004DE255 /* xcconfigs */,
 				FC9968D61245562A00BCBD38 /* Products */,
@@ -2582,10 +2582,12 @@
 				D0B7457D2A2E55A1005C6A8A /* cf-h1-proxy.c */,
 				D0B7457A2A2E5547005C6A8A /* cf-haproxy.c */,
 				D0B745752A2E54EF005C6A8A /* bufq.c */,
+				D0A62E8B288F299600D3789A /* fopen.h */,
 				D0DF9E43298AF0380034627E /* setup-win32.h */,
 				D0DF9E42298AF0370034627E /* system_win32.c */,
 				D0DF9E44298AF0380034627E /* system_win32.h */,
 				D0D7BE60291ACC630080062D /* functypes.h */,
+				D0A62E89288F297000D3789A /* fopen.c */,
 				D0D7BE5F291ACC630080062D /* noproxy.c */,
 				D0DF9E40298AEFFC0034627E /* easy_lock.h */,
 				D0DF9E3E298AEFFC0034627E /* idn.c */,
@@ -2837,6 +2839,7 @@
 		FC41A72A12455686007EDB1C /* src */ = {
 			isa = PBXGroup;
 			children = (
+				D04745A92B6AAF540088D272 /* tool_ipfs.c */,
 				D055D6B32ACC70E700707481 /* var.c */,
 				D055D6B22ACC70E700707481 /* var.h */,
 				D0B7458A2A2E5840005C6A8A /* tool_stderr.c */,
@@ -3765,17 +3768,17 @@
 			projectRoot = "";
 			targets = (
 				FDC61BC014982F47005BBE36 /* All */,
+				FD0DFE5D14A1771300D0DD1C /* libtest */,
+				FD0DFDB914A1672700D0DD1C /* tests */,
 				FC41A7DC1245569C007EDB1C /* libcurl */,
 				FC9968D41245562A00BCBD38 /* curl */,
-				FD0DFDB914A1672700D0DD1C /* tests */,
+				FD0DFDED14A1679900D0DD1C /* fake_ntlm */,
 				FD0DFDC014A1673B00D0DD1C /* getpart */,
 				FD0DFDCA14A1678B00D0DD1C /* resolve */,
 				FD0DFDD114A1679000D0DD1C /* rtspd */,
 				FD0DFDD814A1679200D0DD1C /* sockfilt */,
 				FD0DFDDF14A1679700D0DD1C /* sws */,
 				FD0DFDE614A1679800D0DD1C /* tftpd */,
-				FD0DFDED14A1679900D0DD1C /* fake_ntlm */,
-				FD0DFE5D14A1771300D0DD1C /* libtest */,
 			);
 		};
 /* End PBXProject section */
@@ -4034,6 +4037,7 @@
 				D055D6B42ACC70E700707481 /* var.c in Sources */,
 				D06D277E29B69DB20098F98B /* tool_formparse.c in Sources */,
 				FDC61C24149833D2005BBE36 /* tool_getparam.c in Sources */,
+				D04745AA2B6AAF540088D272 /* tool_ipfs.c in Sources */,
 				FDC61C25149833D2005BBE36 /* tool_getpass.c in Sources */,
 				FDC61C26149833D2005BBE36 /* tool_help.c in Sources */,
 				FDC61C27149833D2005BBE36 /* tool_helpers.c in Sources */,

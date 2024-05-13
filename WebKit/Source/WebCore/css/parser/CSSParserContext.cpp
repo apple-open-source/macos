@@ -57,6 +57,7 @@ CSSParserContext::CSSParserContext(CSSParserMode mode, const URL& baseURL)
     if (mode == UASheetMode) {
         colorMixEnabled = true;
         focusVisibleEnabled = true;
+        lightDarkEnabled = true;
         popoverAttributeEnabled = true;
         propertySettings.cssContainmentEnabled = true;
         propertySettings.cssInputSecurityEnabled = true;
@@ -69,6 +70,11 @@ CSSParserContext::CSSParserContext(CSSParserMode mode, const URL& baseURL)
     }
 
     StaticCSSValuePool::init();
+}
+
+CSSParserContext::CSSParserContext(const Document& document)
+{
+    *this = document.cssParserContext();
 }
 
 CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBaseURL, const String& charset)
@@ -100,6 +106,7 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
     , cssPaintingAPIEnabled { document.settings().cssPaintingAPIEnabled() }
 #endif
     , cssScopeAtRuleEnabled { document.settings().cssScopeAtRuleEnabled() }
+    , cssStartingStyleAtRuleEnabled { document.settings().cssStartingStyleAtRuleEnabled() }
     , cssTextUnderlinePositionLeftRightEnabled { document.settings().cssTextUnderlinePositionLeftRightEnabled() }
     , cssWordBreakAutoPhraseEnabled { document.settings().cssWordBreakAutoPhraseEnabled() }
     , popoverAttributeEnabled { document.settings().popoverAttributeEnabled() }
@@ -112,6 +119,7 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
 #if ENABLE(SERVICE_CONTROLS)
     , imageControlsEnabled { document.settings().imageControlsEnabled() }
 #endif
+    , lightDarkEnabled { document.settings().cssLightDarkEnabled() }
     , propertySettings { CSSPropertySettings { document.settings() } }
 {
 }
@@ -153,7 +161,8 @@ void add(Hasher& hasher, const CSSParserContext& context)
 #if ENABLE(SERVICE_CONTROLS)
         | context.imageControlsEnabled                      << 30
 #endif
-        | (uint64_t)context.mode                            << 31; // This is multiple bits, so keep it last.
+        | context.lightDarkEnabled                          << 31
+        | (uint64_t)context.mode                            << 32; // This is multiple bits, so keep it last.
     add(hasher, context.baseURL, context.charset, context.propertySettings, bits);
 }
 

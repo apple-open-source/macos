@@ -1808,6 +1808,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/audio/PlatformMediaSessionManager.h
     platform/audio/PlatformRawAudioData.h
     platform/audio/PushPullFIFO.h
+    platform/audio/SharedAudioDestination.h
 
     platform/calc/CalcExpressionNode.h
     platform/calc/CalculationValue.h
@@ -2379,6 +2380,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/GridArea.h
     rendering/style/GridLength.h
     rendering/style/GridPosition.h
+    rendering/style/GridPositionsResolver.h
     rendering/style/GridTrackSize.h
     rendering/style/LineClampValue.h
     rendering/style/ListStyleType.h

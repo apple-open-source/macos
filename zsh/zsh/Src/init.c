@@ -1336,8 +1336,13 @@ run_init_scripts(void)
 	    source("/etc/suid_profile");
 #endif // __APPLE__ && TARGET_OS_OSX
     } else {
-int restrict_source = 0;
+	int restrict_source = 0;
 #ifdef __APPLE__
+	char *restricted_env = getenv("APPLE_PKGKIT_ESCALATING_ROOT");
+	if (restricted_env) {
+	    restrict_source = 1;
+	}
+
 	uint32_t flags = 0;
 	if (!csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags))) {
 		if (flags & CS_INSTALLER) {

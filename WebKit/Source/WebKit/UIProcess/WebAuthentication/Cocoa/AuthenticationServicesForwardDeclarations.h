@@ -188,6 +188,12 @@ typedef NS_ENUM(NSInteger, ASPublicKeyCredentialClientDataCrossOriginValue) {
 
 @end
 
+@interface ASAuthorizationPlatformPublicKeyCredentialDescriptor : NSObject <ASAuthorizationPublicKeyCredentialDescriptor>
+
+- (instancetype)initWithCredentialID:(NSData *)credentialID NS_DESIGNATED_INITIALIZER;
+
+@end
+
 @protocol ASAuthorizationPublicKeyCredentialAssertionRequest <NSObject, NSSecureCoding, NSCopying>
 
 @property (nonatomic, copy) NSData *challenge;
@@ -200,10 +206,13 @@ typedef NS_ENUM(NSInteger, ASPublicKeyCredentialClientDataCrossOriginValue) {
 
 @end
 
-@interface ASAuthorizationPlatformPublicKeyCredentialDescriptor : NSObject <ASAuthorizationPublicKeyCredentialDescriptor>
+@protocol ASAuthorizationWebBrowserPlatformPublicKeyCredentialRegistrationRequest
+@property (nonatomic, readonly, nullable) ASPublicKeyCredentialClientData *clientData;
+@property (nonatomic, nullable, copy) NSArray<ASAuthorizationPlatformPublicKeyCredentialDescriptor *> *excludedCredentials;
+@property (nonatomic) BOOL shouldShowHybridTransport;
+@end
 
-- (instancetype)initWithCredentialID:(NSData *)credentialID NS_DESIGNATED_INITIALIZER;
-
+@interface ASAuthorizationPlatformPublicKeyCredentialRegistrationRequest () <ASAuthorizationWebBrowserPlatformPublicKeyCredentialRegistrationRequest>
 @end
 
 typedef NS_ENUM(NSInteger, ASAuthorizationPublicKeyCredentialLargeBlobAssertionOperation) {
@@ -284,6 +293,7 @@ typedef NSString *ASAuthorizationSecurityKeyPublicKeyCredentialDescriptorTranspo
 @end
 
 @interface ASAuthorizationSecurityKeyPublicKeyCredentialRegistration : NSObject <ASAuthorizationPublicKeyCredentialRegistration>
+@property (nonatomic, readonly) NSArray<ASAuthorizationSecurityKeyPublicKeyCredentialDescriptorTransport> *transports;
 @end
 
 typedef NSInteger ASCOSEAlgorithmIdentifier NS_TYPED_EXTENSIBLE_ENUM;
@@ -312,11 +322,13 @@ typedef NSString *ASAuthorizationPublicKeyCredentialResidentKeyPreference;
 @end
 
 @interface ASAuthorizationSecurityKeyPublicKeyCredentialAssertion : NSObject <ASAuthorizationPublicKeyCredentialAssertion>
+@property (nonatomic, readonly) BOOL appID;
 @end
 
 @interface ASAuthorizationSecurityKeyPublicKeyCredentialAssertionRequest : ASAuthorizationRequest <ASAuthorizationPublicKeyCredentialAssertionRequest>
 
 @property (nonatomic, copy) NSArray<ASAuthorizationSecurityKeyPublicKeyCredentialDescriptor *> *allowedCredentials;
+@property (nonatomic, nullable, copy) NSString *appID;
 
 @end
 

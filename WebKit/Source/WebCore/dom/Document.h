@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include "CanvasObserver.h"
 #include "Color.h"
 #include "ContainerNode.h"
 #include "ContextDestructionObserverInlines.h"
@@ -99,6 +98,7 @@ class CachedCSSStyleSheet;
 class CachedFrameBase;
 class CachedResourceLoader;
 class CachedScript;
+class CanvasRenderingContext;
 class CanvasRenderingContext2D;
 class CharacterData;
 class Comment;
@@ -259,6 +259,7 @@ class AcceleratedTimeline;
 
 struct ApplicationManifest;
 struct BoundaryPoint;
+struct CSSParserContext;
 struct ClientOrigin;
 struct FocusOptions;
 struct IntersectionObserverData;
@@ -390,15 +391,13 @@ private:
 };
 
 class Document
-    : public CanMakeCheckedPtr
-    , public ContainerNode
+    : public ContainerNode
     , public TreeScope
     , public ScriptExecutionContext
     , public FontSelectorClient
     , public FrameDestructionObserver
     , public Supplementable<Document>
     , public Logger::Observer
-    , public CanvasObserver
     , public ReportingClient {
     WTF_MAKE_ISO_ALLOCATED_EXPORT(Document, WEBCORE_EXPORT);
 public:
@@ -411,16 +410,6 @@ public:
     static Ref<Document> create(Document&);
 
     virtual ~Document();
-
-    // Resolve ambiguity for CanMakeCheckedPtr.
-    using CanMakeCheckedPtr::incrementPtrCount;
-    using CanMakeCheckedPtr::decrementPtrCount;
-#if CHECKED_POINTER_DEBUG
-    using CanMakeCheckedPtr::registerCheckedPtr;
-    using CanMakeCheckedPtr::copyCheckedPtr;
-    using CanMakeCheckedPtr::moveCheckedPtr;
-    using CanMakeCheckedPtr::unregisterCheckedPtr;
-#endif // CHECKED_POINTER_DEBUG
 
     // Nodes belonging to this document increase referencingNodeCount -
     // these are enough to keep the document from being destroyed, but
@@ -451,7 +440,7 @@ public:
 
     void removedLastRef();
 
-    using DocumentsMap = HashMap<ScriptExecutionContextIdentifier, CheckedRef<Document>>;
+    using DocumentsMap = HashMap<ScriptExecutionContextIdentifier, WeakRef<Document, WeakPtrImplWithEventTargetData>>;
     WEBCORE_EXPORT static DocumentsMap::ValuesIteratorRange allDocuments();
     WEBCORE_EXPORT static DocumentsMap& allDocumentsMap();
 
@@ -668,6 +657,9 @@ public:
     const Style::CustomPropertyRegistry& customPropertyRegistry() const;
     const CSSCounterStyleRegistry& counterStyleRegistry() const;
     CSSCounterStyleRegistry& counterStyleRegistry();
+
+    CSSParserContext cssParserContext() const;
+    void invalidateCachedCSSParserContext();
 
     bool gotoAnchorNeededAfterStylesheetsLoad() { return m_gotoAnchorNeededAfterStylesheetsLoad; }
     void setGotoAnchorNeededAfterStylesheetsLoad(bool b) { m_gotoAnchorNeededAfterStylesheetsLoad = b; }
@@ -1379,6 +1371,8 @@ public:
     WEBCORE_EXPORT void exitPointerLock();
 #endif
 
+    OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections() const final;
+
     std::optional<uint64_t> noiseInjectionHashSalt() const final;
     NoiseInjectionPolicy noiseInjectionPolicy() const;
 
@@ -1848,11 +1842,9 @@ public:
     void setFragmentDirective(const String& fragmentDirective) { m_fragmentDirective = fragmentDirective; }
     const String& fragmentDirective() const { return m_fragmentDirective; }
 
-    void prepareCanvasesForDisplayIfNeeded();
-    void clearCanvasPreparation(HTMLCanvasElement&);
-    void canvasChanged(CanvasBase&, const std::optional<FloatRect>&) final;
-    void canvasResized(CanvasBase&) final { };
-    void canvasDestroyed(CanvasBase&) final;
+    void prepareCanvasesForDisplayOrFlushIfNeeded();
+    void addCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext&);
+    void removeCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext&);
 
     bool contains(const Node& node) const { return this == &node.treeScope() && node.isConnected(); }
     bool contains(const Node* node) const { return node && contains(*node); }
@@ -2170,10 +2162,10 @@ private:
 
     std::unique_ptr<SVGDocumentExtensions> m_svgExtensions;
 
-    // Collection of canvas objects that need to do work after they've
-    // rendered but before compositing, for the next frame. The set is
-    // cleared after they've been called.
-    WeakHashSet<HTMLCanvasElement, WeakPtrImplWithEventTargetData> m_canvasesNeedingDisplayPreparation;
+    // Collection of canvas contexts that need periodic work in "PrepareCanvasesForDisplayOrFlush" phase of
+    // render update. Hold canvases via rendering context, since there is no common base class that
+    // would be managed.
+    WeakHashSet<CanvasRenderingContext> m_canvasContextsToPrepare;
 
     HashMap<String, RefPtr<HTMLCanvasElement>> m_cssCanvasElements;
 
@@ -2564,6 +2556,8 @@ private:
     RefPtr<ResizeObserver> m_resizeObserverForContainIntrinsicSize;
 
     const std::optional<FrameIdentifier> m_frameIdentifier;
+
+    mutable std::unique_ptr<CSSParserContext> m_cachedCSSParserContext;
 };
 
 Element* eventTargetElementForDocument(Document*);

@@ -695,36 +695,39 @@ nfsmout:
 #endif /* CONFIG_NFS4 */
 
 /*
- * Return an NFS volume name from the mntfrom name.
+ * Return the volume name from mnfromname (or from mntonname when "/" is mounted).
  */
-static void
-nfs_get_volname(struct mount *mp, char *volname, size_t len, __unused vfs_context_t ctx)
+static int
+nfs_get_volname(const char *mntname, char *volname, size_t len)
 {
 	const char *ptr, *cptr;
-	const char *mntfrom = vfs_statfs(mp)->f_mntfromname;
 	size_t mflen;
 
-	mflen = strnlen(mntfrom, MAXPATHLEN + 1);
+	mflen = strnlen(mntname, MAXPATHLEN + 1);
 
 	if (mflen > MAXPATHLEN || mflen == 0) {
-		strlcpy(volname, "Bad volname", len);
-		return;
+		return EINVAL;
 	}
 
 	/* Move back over trailing slashes */
-	for (ptr = &mntfrom[mflen - 1]; ptr != mntfrom && *ptr == '/'; ptr--) {
+	for (ptr = &mntname[mflen - 1]; ptr != mntname && *ptr == '/'; ptr--) {
 		mflen--;
+	}
+
+	/* Return error for the root directory */
+	if (mflen > 0 && mntname[mflen - 1] == ':') {
+		return EINVAL;
 	}
 
 	/* Find first character after the last slash */
 	cptr = ptr = NULL;
 	for (size_t i = 0; i < mflen; i++) {
-		if (cptr && mntfrom[i] == '/') {
-			ptr = &mntfrom[i + 1];
+		if (mntname[i] == '/') {
+			ptr = &mntname[i + 1];
 		}
 		/* And the first character after the first colon */
-		else if (cptr == NULL && mntfrom[i] == ':') {
-			cptr = &mntfrom[i + 1];
+		else if (cptr == NULL && mntname[i] == ':') {
+			cptr = &mntname[i + 1];
 		}
 	}
 
@@ -737,19 +740,14 @@ nfs_get_volname(struct mount *mp, char *volname, size_t len, __unused vfs_contex
 	}
 	/* Otherwise use the mntfrom name */
 	if (ptr == NULL) {
-		ptr = mntfrom;
+		ptr = mntname;
 	}
 
-	mflen = &mntfrom[mflen] - ptr;
-
-	/* Handle the scenario were "/" is being exported */
-	if (mflen == 0 && *ptr == '/') {
-		mflen = 1;
-	}
-
+	mflen = &mntname[mflen] - ptr;
 	len = mflen + 1 < len ? mflen + 1 : len;
 
 	strlcpy(volname, ptr, len);
+	return 0;
 }
 
 /*
@@ -843,7 +841,10 @@ nfs_vfs_getattr(mount_t mp, struct vfs_attr *fsap, vfs_context_t ctx)
 
 	if (VFSATTR_IS_ACTIVE(fsap, f_vol_name)) {
 		/*%%% IF fail over support is implemented we may need to take nm_lock */
-		nfs_get_volname(mp, fsap->f_vol_name, MAXPATHLEN, ctx);
+		if ((nfs_get_volname(vfs_statfs(mp)->f_mntfromname, fsap->f_vol_name, MAXPATHLEN) != 0) &&
+		    nfs_get_volname(vfs_statfs(mp)->f_mntonname, fsap->f_vol_name, MAXPATHLEN) != 0) {
+			strlcpy(fsap->f_vol_name, "Bad volname", MAXPATHLEN);
+		}
 		VFSATTR_SET_SUPPORTED(fsap, f_vol_name);
 	}
 	if (VFSATTR_IS_ACTIVE(fsap, f_capabilities)) {

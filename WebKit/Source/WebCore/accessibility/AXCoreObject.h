@@ -1383,7 +1383,7 @@ public:
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    virtual int accessibilitySecureFieldLength() = 0;
+    virtual unsigned accessibilitySecureFieldLength() = 0;
     virtual bool hasTouchEventListener() const = 0;
     virtual bool isInputTypePopupButton() const = 0;
 #endif
@@ -1711,6 +1711,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, AccessibilitySearchKey);
 WTF::TextStream& operator<<(WTF::TextStream&, const AccessibilitySearchCriteria&);
 WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityObjectInclusion);
 WTF::TextStream& operator<<(WTF::TextStream&, const AXCoreObject&);
+WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityText);
 WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityTextSource);
 WTF::TextStream& operator<<(WTF::TextStream&, AXRelationType);
 

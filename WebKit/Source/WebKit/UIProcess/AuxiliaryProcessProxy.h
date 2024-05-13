@@ -37,6 +37,7 @@
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/ProcessID.h>
+#include <wtf/Seconds.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueRef.h>
@@ -53,6 +54,8 @@ class ProcessAssertion;
 class SandboxExtensionHandle;
 
 struct AuxiliaryProcessCreationParameters;
+
+enum class ProcessThrottleState : uint8_t;
 
 using ExtensionCapabilityGrantMap = HashMap<String, ExtensionCapabilityGrant>;
 
@@ -76,6 +79,7 @@ public:
     virtual void terminate();
 
     virtual ProcessThrottler& throttler() = 0;
+    virtual const ProcessThrottler& throttler() const = 0;
 
     template<typename T> bool send(T&& message, uint64_t destinationID, OptionSet<IPC::SendOption> sendOptions = { });
 
@@ -187,13 +191,27 @@ public:
 #endif
 
 #if USE(EXTENSIONKIT)
-    RetainPtr<_SEExtensionProcess> extensionProcess() const;
-    static void setManageProcessesAsExtensions(bool manageProcessesAsExtensions) { s_manageProcessesAsExtensions = manageProcessesAsExtensions; }
-    static bool manageProcessesAsExtensions() { return s_manageProcessesAsExtensions; }
+    std::optional<ExtensionProcess> extensionProcess() const;
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     ExtensionCapabilityGrantMap& extensionCapabilityGrants() { return m_extensionCapabilityGrants; }
+#endif
+
+#if PLATFORM(COCOA)
+    struct TaskInfo {
+        ProcessID pid;
+        ProcessThrottleState state;
+        Seconds totalUserCPUTime;
+        Seconds totalSystemCPUTime;
+        size_t physicalFootprint;
+    };
+
+    std::optional<TaskInfo> taskInfo() const;
+#endif
+
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    void notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue);
 #endif
 
 protected:
@@ -205,9 +223,10 @@ protected:
 
     void logInvalidMessage(IPC::Connection&, IPC::MessageName);
     virtual ASCIILiteral processName() const = 0;
+    void didChangeThrottleState(ProcessThrottleState) override;
 
     virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&);
-    virtual void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&);
+    virtual void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&) { }
 
     struct PendingMessage {
         UniqueRef<IPC::Encoder> encoder;
@@ -247,6 +266,7 @@ private:
     bool m_alwaysRunsAtBackgroundPriority { false };
     bool m_didBeginResponsivenessChecks { false };
     WebCore::ProcessIdentifier m_processIdentifier { WebCore::ProcessIdentifier::generate() };
+    bool m_isSuspended { false };
     std::optional<UseLazyStop> m_delayedResponsivenessCheck;
     MonotonicTime m_processStart;
 #if USE(RUNNINGBOARD)
@@ -259,8 +279,9 @@ private:
 #if ENABLE(EXTENSION_CAPABILITIES)
     ExtensionCapabilityGrantMap m_extensionCapabilityGrants;
 #endif
-#if USE(EXTENSIONKIT)
-    static bool s_manageProcessesAsExtensions;
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    HashMap<String, std::optional<String>> m_domainlessPreferencesUpdatedWhileSuspended;
+    HashMap<std::pair<String /* domain */, String /* key */>, std::optional<String>> m_preferencesUpdatedWhileSuspended;
 #endif
 };
 

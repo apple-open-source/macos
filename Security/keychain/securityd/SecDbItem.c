@@ -1653,6 +1653,7 @@ bool SecDbItemInsertOrReplace(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
                 SecDbItemRef replace = NULL;
                 if (is_corrupt) {
                     // If old_item is corrupted pretend it's not there and just replace it.
+                    secnotice("item", "replacing corrupted item " SECDBITEM_FMT " with " SECDBITEM_FMT, old_item, item);
                     replace = item;
                     CFRetain(replace);
                     if(error)

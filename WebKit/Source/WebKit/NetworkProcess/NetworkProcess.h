@@ -71,10 +71,6 @@
 typedef struct OpaqueCFHTTPCookieStorage*  CFHTTPCookieStorageRef;
 #endif
 
-#if USE(EXTENSIONKIT)
-OBJC_CLASS WKGrant;
-#endif
-
 namespace IPC {
 class FormDataReference;
 }
@@ -294,6 +290,7 @@ public:
     void setPrivateClickMeasurementDebugMode(PAL::SessionID, bool);
 
     void setBlobRegistryTopOriginPartitioningEnabled(PAL::SessionID, bool) const;
+    void setShouldSendPrivateTokenIPCForTesting(PAL::SessionID, bool) const;
 
     void preconnectTo(PAL::SessionID, WebPageProxyIdentifier, WebCore::PageIdentifier, WebCore::ResourceRequest&&, WebCore::StoredCredentialsPolicy, std::optional<NavigatingToAppBoundDomain>);
 
@@ -387,10 +384,6 @@ public:
 
 #if ENABLE(WEB_RTC)
     RTCDataChannelRemoteManagerProxy& rtcDataChannelProxy();
-#endif
-
-#if ENABLE(CFPREFS_DIRECT_MODE)
-    void notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue);
 #endif
 
     bool ftpEnabled() const { return m_ftpEnabled; }
@@ -520,11 +513,6 @@ private:
 
 #if USE(RUNNINGBOARD)
     void setIsHoldingLockedFiles(bool);
-#if USE(EXTENSIONKIT)
-    bool aqcuireLockedFileGrant();
-    void invalidateGrant();
-    bool hasAcquiredGrant() const;
-#endif
 #endif
     void stopRunLoopIfNecessary();
 
@@ -561,9 +549,6 @@ private:
 
 #if USE(RUNNINGBOARD)
     WebSQLiteDatabaseTracker m_webSQLiteDatabaseTracker;
-#if USE(EXTENSIONKIT)
-    RetainPtr<WKGrant> m_holdingLockedFileGrant;
-#endif
     RefPtr<ProcessAssertion> m_holdingLockedFileAssertion;
 #endif
     

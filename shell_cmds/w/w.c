@@ -110,9 +110,6 @@ static const char sccsid[] = "@(#)w.c	8.4 (Berkeley) 4/16/94";
 #ifndef nitems
 #define	nitems(x)	(sizeof((x)) / sizeof((x)[0]))
 #endif
-#ifndef CLOCK_UPTIME
-#define CLOCK_UPTIME CLOCK_UPTIME_RAW
-#endif
 #endif
 
 static struct utmpx *utmp;
@@ -580,6 +577,11 @@ pr_header(time_t *nowp, int nusers)
 	char buf[64];
 	struct sbuf upbuf;
 	double avenrun[3];
+#ifdef __APPLE__
+	struct timeval boottime, realtime;
+	size_t size = sizeof(boottime);
+	int mib[2] = { CTL_KERN, KERN_BOOTTIME };
+#endif
 	struct timespec tp;
 	unsigned long days, hrs, mins, secs;
 	unsigned int i;
@@ -594,7 +596,35 @@ pr_header(time_t *nowp, int nusers)
 	 * Print how long system has been up.
 	 */
 	(void)sbuf_new(&upbuf, buf, sizeof(buf), SBUF_FIXEDLEN);
+#ifdef __APPLE__
+	/*
+	 * FreeBSD uses CLOCK_UPTIME to report uptime.  However,
+	 *
+	 * 1) Darwin does not have CLOCK_UPTIME.
+	 *
+	 * 2) It does have CLOCK_UPTIME_RAW, but we actually want the
+	 * uptime to include time spent suspended.
+	 *
+	 * 3) CLOCK_MONOTONIC actually counts up from power-on, which is
+	 * not the same thing as boot, and may change in the future.
+	 *
+	 * Instead, we get the boot wall time from the kern.boottime
+	 * sysctl and subtract it from the current wall time.
+	 */
+	if (sysctl(mib, nitems(mib), &boottime, &size, NULL, 0) == 0 &&
+	    size == sizeof(boottime) &&
+	    gettimeofday(&realtime, NULL) == 0 &&
+	    realtime.tv_sec > boottime.tv_sec) {
+		tp.tv_sec = realtime.tv_sec - boottime.tv_sec;
+		tp.tv_nsec = realtime.tv_usec - boottime.tv_usec;
+		if (tp.tv_nsec < 0) {
+			tp.tv_sec -= 1;
+			tp.tv_nsec += 1000000;
+		}
+		tp.tv_nsec *= 1000;
+#else
 	if (clock_gettime(CLOCK_UPTIME, &tp) != -1) {
+#endif
 		xo_emit(" up");
 		secs = tp.tv_sec;
 		xo_emit("{e:uptime/%lu}", secs);

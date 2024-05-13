@@ -29,6 +29,7 @@
 #include "InlineLineBuilder.h"
 #include "RenderStyleInlines.h"
 #include <limits>
+#include <wtf/MathExtras.h>
 
 namespace WebCore {
 namespace Layout {
@@ -110,8 +111,17 @@ InlineContentBalancer::InlineContentBalancer(InlineFormattingContext& inlineForm
 
 void InlineContentBalancer::initialize()
 {
+    auto lineClamp = m_inlineFormattingContext.layoutState().parentBlockLayoutState().lineClamp();
+    auto numberOfVisibleLinesAllowed = lineClamp ? std::make_optional(lineClamp->allowedLineCount()) : std::nullopt;
+
     if (!m_inlineFormattingContext.layoutState().placedFloats().isEmpty()) {
         m_cannotBalanceContent = true;
+        return;
+    }
+
+    // if we have a single line content, we don't have anything to be balanced.
+    if (numberOfVisibleLinesAllowed == 1) {
+        m_hasSingleLineVisibleContent = true;
         return;
     }
 
@@ -153,6 +163,10 @@ void InlineContentBalancer::initialize()
         auto textIndent = m_inlineFormattingContext.formattingUtils().computedTextIndent(InlineFormattingUtils::IsIntrinsicWidthMode::No, previousLineEndsWithLineBreak, m_maximumLineWidth);
         m_originalLineWidths.append(textIndent + lineSlidingWidth.width());
 
+        // If next line count would match (or exceed) the number of visible lines due to line-clamp, we can bail out early.
+        if (numberOfVisibleLinesAllowed && (lineIndex + 1 >= numberOfVisibleLinesAllowed))
+            break;
+
         layoutRange.start = InlineFormattingUtils::leadingInlineItemPositionForNextLine(lineLayoutResult.inlineItemRange.end, previousLineEnd, layoutRange.end);
         previousLineEnd = layoutRange.start;
         previousLine = PreviousLine { lineIndex, lineLayoutResult.contentGeometry.trailingOverflowingContentWidth, !lineLayoutResult.inlineContent.isEmpty() && lineLayoutResult.inlineContent.last().isLineBreak(), !lineLayoutResult.inlineContent.isEmpty(), lineLayoutResult.directionality.inlineBaseDirection, WTFMove(lineLayoutResult.floatContent.suspendedFloats) };
@@ -164,7 +178,7 @@ void InlineContentBalancer::initialize()
 
 std::optional<Vector<LayoutUnit>> InlineContentBalancer::computeBalanceConstraints()
 {
-    if (m_cannotBalanceContent)
+    if (m_cannotBalanceContent || m_hasSingleLineVisibleContent)
         return std::nullopt;
 
     // If forced line breaks exist, then we can balance each forced-break-delimited
@@ -187,16 +201,19 @@ std::optional<Vector<LayoutUnit>> InlineContentBalancer::computeBalanceConstrain
     for (auto chunkSize : chunkSizes) {
         bool isFirstChunk = !startLine;
         auto rangeToBalance = InlineItemRange { m_originalLineInlineItemRanges[startLine].startIndex(), m_originalLineInlineItemRanges[startLine + chunkSize - 1].endIndex() };
-        InlineLayoutUnit totalWidth = 0;
-        for (size_t i = 0; i < chunkSize; i++)
-            totalWidth += m_originalLineWidths[startLine + i];
-        InlineLayoutUnit idealLineWidth = totalWidth / chunkSize;
-
         std::optional<Vector<LayoutUnit>> balancedLineWidthsForChunk;
-        if (m_numberOfLinesInOriginalLayout <= maximumLinesToBalanceWithLineRequirement)
-            balancedLineWidthsForChunk = balanceRangeWithLineRequirement(rangeToBalance, idealLineWidth, chunkSize, isFirstChunk);
-        else
-            balancedLineWidthsForChunk = balanceRangeWithNoLineRequirement(rangeToBalance, idealLineWidth, isFirstChunk);
+
+        if (rangeToBalance.startIndex() < rangeToBalance.endIndex()) {
+            InlineLayoutUnit totalWidth = 0;
+            for (size_t i = 0; i < chunkSize; i++)
+                totalWidth += m_originalLineWidths[startLine + i];
+            InlineLayoutUnit idealLineWidth = totalWidth / chunkSize;
+
+            if (m_numberOfLinesInOriginalLayout <= maximumLinesToBalanceWithLineRequirement)
+                balancedLineWidthsForChunk = balanceRangeWithLineRequirement(rangeToBalance, idealLineWidth, chunkSize, isFirstChunk);
+            else
+                balancedLineWidthsForChunk = balanceRangeWithNoLineRequirement(rangeToBalance, idealLineWidth, isFirstChunk);
+        }
 
         if (!balancedLineWidthsForChunk) {
             for (size_t i = 0; i < chunkSize; i++)
@@ -214,6 +231,8 @@ std::optional<Vector<LayoutUnit>> InlineContentBalancer::computeBalanceConstrain
 
 std::optional<Vector<LayoutUnit>> InlineContentBalancer::balanceRangeWithLineRequirement(InlineItemRange range, InlineLayoutUnit idealLineWidth, size_t numberOfLines, bool isFirstChunk)
 {
+    ASSERT(range.startIndex() < range.endIndex());
+
     // breakOpportunities holds the indices i such that a line break can occur before m_inlineItemList[i].
     auto breakOpportunities = computeBreakOpportunities(m_inlineItemList, range);
 
@@ -279,7 +298,8 @@ std::optional<Vector<LayoutUnit>> InlineContentBalancer::balanceRangeWithLineReq
             // Compute the cost of this line based on the line index
             for (size_t lineIndex = 1; lineIndex <= numberOfLines; lineIndex++) {
                 auto accumulatedCost = candidateLineCost + state[startIndex][lineIndex - 1].accumulatedCost;
-                if (accumulatedCost < state[breakIndex][lineIndex].accumulatedCost) {
+                auto currentAccumulatedCost = state[breakIndex][lineIndex].accumulatedCost;
+                if (accumulatedCost < currentAccumulatedCost || WTF::areEssentiallyEqual(accumulatedCost, currentAccumulatedCost)) {
                     state[breakIndex][lineIndex].accumulatedCost = accumulatedCost;
                     state[breakIndex][lineIndex].previousBreakIndex = startIndex;
                 }
@@ -314,6 +334,8 @@ std::optional<Vector<LayoutUnit>> InlineContentBalancer::balanceRangeWithLineReq
 
 std::optional<Vector<LayoutUnit>> InlineContentBalancer::balanceRangeWithNoLineRequirement(InlineItemRange range, InlineLayoutUnit idealLineWidth, bool isFirstChunk)
 {
+    ASSERT(range.startIndex() < range.endIndex());
+
     // breakOpportunities holds the indices i such that a line break can occur before m_inlineItemList[i].
     auto breakOpportunities = computeBreakOpportunities(m_inlineItemList, range);
 

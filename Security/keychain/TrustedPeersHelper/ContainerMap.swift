@@ -63,6 +63,38 @@ func ~= (pattern: CKUnderlyingErrorMatcher, value: Error?) -> Bool {
     }
 }
 
+struct CKErrorNSURLErrorMatcher {
+    let code: CKError.Code
+    let underlyingCode: Int
+}
+
+// Match a CKError/NSError
+func ~= (pattern: CKErrorNSURLErrorMatcher, value: Error?) -> Bool {
+    guard let value else {
+        return false
+    }
+    switch value {
+    case let error as CKError:
+        guard error.code == pattern.code else {
+            return false
+        }
+        guard let underlyingError = error.userInfo[NSUnderlyingErrorKey] else {
+            return false
+        }
+        guard let underlyingError = underlyingError as? NSError else {
+            return false
+        }
+        switch underlyingError {
+        case NSURLErrorMatcher(code: pattern.underlyingCode):
+            return true
+        default:
+            return false
+        }
+    default:
+        return false
+    }
+}
+
 struct CKErrorMatcher {
     let code: CKError.Code
 }
@@ -124,6 +156,8 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
              NSURLErrorMatcher(code: NSURLErrorNotConnectedToInternet):
             return true
         case CKErrorMatcher(code: CKError.networkFailure):
+            return true
+        case CKErrorNSURLErrorMatcher(code: CKError.networkUnavailable, underlyingCode: NSURLErrorNetworkConnectionLost):
             return true
         case CKUnderlyingErrorMatcher(code: CKError.serverRejectedRequest, underlyingCode: CKUnderlyingError.serverInternalError, noL3Error: false):
             return true

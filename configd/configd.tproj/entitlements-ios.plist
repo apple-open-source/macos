@@ -97,5 +97,7 @@
 	<array>
 		<string>com.apple.DriverKit-AppleBCMWLAN</string>
 	</array>
+	<key>com.apple.private.route.iflist.include-clat46</key>
+	<true/>
 </dict>
 </plist>

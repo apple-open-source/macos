@@ -159,6 +159,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case GetTypedArrayByteOffsetAsInt52:
         case GetVectorLength:
         case InByVal:
+        case InByValMegamorphic:
         case PutByValDirect:
         case PutByVal:
         case PutByValAlias:
@@ -773,9 +774,11 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case ToPrimitive:
     case ToPropertyKey:
     case InByVal:
+    case InByValMegamorphic:
     case EnumeratorInByVal:
     case EnumeratorHasOwnProperty:
     case InById:
+    case InByIdMegamorphic:
     case HasPrivateName:
     case HasPrivateBrand:
     case HasOwnProperty:
@@ -1095,6 +1098,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case Array::Uint32Array:
         case Array::Float32Array:
         case Array::Float64Array:
+            // Even if we hit out-of-bounds, this is fine. TypedArray does not propagate access to its [[Prototype]] when out-of-bounds access happens.
             read(TypedArrayProperties);
             read(MiscFields);
             if (mode.mayBeResizableOrGrowableSharedTypedArray()) {

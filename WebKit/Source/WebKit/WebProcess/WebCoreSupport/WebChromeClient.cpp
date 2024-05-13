@@ -77,6 +77,7 @@
 #include <WebCore/ColorChooser.h>
 #include <WebCore/ContentRuleListResults.h>
 #include <WebCore/CookieConsentDecisionResult.h>
+#include <WebCore/CryptoKey.h>
 #include <WebCore/DataListSuggestionPicker.h>
 #include <WebCore/DatabaseTracker.h>
 #include <WebCore/DocumentLoader.h>
@@ -99,6 +100,7 @@
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
+#include <WebCore/SerializedCryptoKeyWrap.h>
 #include <WebCore/Settings.h>
 #include <WebCore/TextIndicator.h>
 #include <WebCore/TextRecognitionOptions.h>
@@ -1481,7 +1483,10 @@ bool WebChromeClient::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>&
 
 bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key) const
 {
-    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::UnwrapCryptoKey(wrappedKey), page().identifier());
+    auto ipcCryptoKey = WebCore::readSerializedCryptoKey(wrappedKey);
+    if (!ipcCryptoKey)
+        return false;
+    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::UnwrapCryptoKey(*ipcCryptoKey), page().identifier());
     if (!sendResult.succeeded())
         return false;
 
@@ -1489,16 +1494,6 @@ bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<
     std::tie(succeeded, key) = sendResult.takeReply();
     return succeeded;
 }
-
-#if ENABLE(APP_HIGHLIGHTS)
-void WebChromeClient::storeAppHighlight(WebCore::AppHighlight&& highlight) const
-{
-    auto page = protectedPage();
-    highlight.isNewGroup = page->highlightIsNewGroup();
-    highlight.requestOriginatedInApp = page->highlightRequestOriginatedInApp();
-    page->send(Messages::WebPageProxy::StoreAppHighlight(highlight));
-}
-#endif
 
 void WebChromeClient::setTextIndicator(const WebCore::TextIndicatorData& indicatorData) const
 {

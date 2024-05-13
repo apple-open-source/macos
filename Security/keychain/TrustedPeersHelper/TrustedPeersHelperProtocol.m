@@ -38,7 +38,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(trustStatusWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(resetWithSpecificUser:resetReason:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:internalAccount:demoAccount:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(localResetWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(setAllowedMachineIDsWithSpecificUser:allowedMachineIDs:userInitiatedRemovals:evictedRemovals:unknownReasonRemovals:honorIDMSListChanges:version:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(setAllowedMachineIDsWithSpecificUser:allowedMachineIDs:userInitiatedRemovals:evictedRemovals:unknownReasonRemovals:honorIDMSListChanges:version:flowID:deviceSessionID:canSendMetrics:altDSID:trustedDeviceHash:deletedDeviceHash:trustedDevicesUpdateTimestamp:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchAllowedMachineIDsWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchEgoEpochWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(prepareWithSpecificUser:epoch:machineID:bottleSalt:bottleID:modelID:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:setting:signingPrivKeyPersistentRef:encPrivKeyPersistentRef:reply:) argumentIndex:6 ofReply:YES];

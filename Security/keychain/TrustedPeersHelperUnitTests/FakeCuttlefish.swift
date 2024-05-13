@@ -286,6 +286,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
     var joinListener: ((JoinWithVoucherRequest) -> NSError?)?
     var healthListener: ((GetRepairActionRequest) -> NSError?)?
     var fetchViableBottlesListener: ((FetchViableBottlesRequest) -> NSError?)?
+    var fetchRecoverableTLKSharesListener: ((FetchRecoverableTLKSharesRequest) -> NSError?)?
     var resetListener: ((ResetRequest) -> NSError?)?
     var setRecoveryKeyListener: ((SetRecoveryKeyRequest) -> NSError?)?
     var removeRecoveryKeyListener: ((RemoveRecoveryKeyRequest) -> NSError?)?
@@ -730,29 +731,46 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         do {
             let model = try self.state.model(updating: peer)
 
-            guard model.hasPotentiallyTrustedPeer() else {
-                completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers)))
+            do {
+                guard try model.hasPotentiallyTrustedPeerTestingOnly() else {
+                    completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers)))
+                    return
+                }
+            } catch {
+                print("FakeCuttlefish: updateTrust model error determining whether there is a potentially trusted peer: \(error)")
+                completion(.failure(error))
                 return
             }
 
             if self.state.recoverySigningPubKey != nil && self.state.recoveryEncryptionPubKey != nil {
                 if let recoverySigningPubKey = self.state.recoverySigningPubKey {
-                    if !model.isRecoveryKeyExcluded(recoverySigningPubKey) {
-                        // if the RK hasn't been explicitly excluded, ensure the resulting model has one trusted peer left
-                        guard model.allTrustedPeersWithCurrentRecoveryKey().isEmpty == false else {
-                            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeersWithRecoveryKey)))
-                            return
+                    do {
+                        if try !model.isRecoveryKeyExcluded(recoverySigningPubKey) {
+                            // if the RK hasn't been explicitly excluded, ensure the resulting model has one trusted peer left
+                            guard try model.allTrustedPeersWithCurrentRecoveryKey().isEmpty == false else {
+                                completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeersWithRecoveryKey)))
+                                return
+                            }
                         }
+                    } catch {
+                        completion(.failure(error))
+                        return
                     }
                 }
             }
 
             if self.state.custodianRecoveryKeys.isEmpty == false && peer.hasCustodianRecoveryKeyAndSig {
-                for crk in (self.state.custodianRecoveryKeys.values.filter { !model.isCustodianRecoveryKeyTrusted($0.toCustodianRecoveryKey()!) }) {
-                    guard model.untrustedPeerIDs().contains(crk.toCustodianRecoveryKey()!.peerID) else {
-                        completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable)))
-                        return
+                do {
+                    let untrustedPeerIDs = try model.untrustedPeerIDs()
+                    for crk in (try self.state.custodianRecoveryKeys.values.filter { try !model.isCustodianRecoveryKeyTrusted($0.toCustodianRecoveryKey()!) }) {
+                        guard untrustedPeerIDs.contains(crk.toCustodianRecoveryKey()!.peerID) else {
+                            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable)))
+                            return
+                        }
                     }
+                } catch {
+                    completion(.failure(error))
+                    return
                 }
             }
         } catch {
@@ -836,7 +854,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
 
         // Will Cuttlefish reject this due to peer graph issues?
         do {
-            guard try self.state.model(updating: peer).hasPotentiallyTrustedPeer() else {
+            guard try self.state.model(updating: peer).hasPotentiallyTrustedPeerTestingOnly() else {
                 completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphHasNoPotentiallyTrustedPeers)))
                 return
             }
@@ -951,6 +969,14 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
     func fetchRecoverableTlkshares(_ request: FetchRecoverableTLKSharesRequest,
                                    completion: @escaping (Result<FetchRecoverableTLKSharesResponse, Error>) -> Void) {
         print("FakeCuttlefish: fetchRecoverableTlkshares called")
+
+        if let fetchRecoverableTLKSharesListener = self.fetchRecoverableTLKSharesListener {
+            let possibleError = fetchRecoverableTLKSharesListener(request)
+            guard possibleError == nil else {
+                completion(.failure(possibleError!))
+                return
+            }
+        }
 
         let views: [FetchRecoverableTLKSharesResponse.View] = self.fakeCKZones.keyEnumerator().compactMap {
             let zoneID: CKRecordZone.ID = $0 as! CKRecordZone.ID

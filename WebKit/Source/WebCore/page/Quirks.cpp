@@ -71,6 +71,10 @@
 #include <JavaScriptCore/SourceProvider.h>
 #include <JavaScriptCore/StackVisitor.h>
 
+#if PLATFORM(IOS_FAMILY)
+#include <pal/system/ios/UserInterfaceIdiom.h>
+#endif
+
 #if PLATFORM(COCOA)
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
@@ -375,20 +379,6 @@ bool Quirks::shouldAvoidUsingIOS13ForGmail() const
 #endif
 }
 
-bool Quirks::shouldAvoidUsingIOS17UserAgentForFacebook() const
-{
-#if PLATFORM(IOS_FAMILY)
-    if (!needsQuirks())
-        return false;
-
-    if (!m_shouldAvoidUsingIOS17UserAgentForFacebook)
-        m_shouldAvoidUsingIOS17UserAgentForFacebook = isDomain("facebook.com"_s);
-    return m_shouldAvoidUsingIOS17UserAgentForFacebook.value();
-#else
-    return false;
-#endif
-}
-
 void Quirks::updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&& userAgentStringQuirks)
 {
     auto& quirks = updatableStorageAccessUserAgentStringQuirks();
@@ -424,10 +414,13 @@ bool Quirks::shouldDisableElementFullscreenQuirk() const
     // Twitter.com video embeds have controls that are too tiny and
     // show page behind fullscreen.
     // (Ref: rdar://121473410)
+    // YouTube.com does not provide AirPlay controls in fullscreen
+    // (Ref: rdar://121471373)
     if (!m_shouldDisableElementFullscreen) {
         m_shouldDisableElementFullscreen = isDomain("vimeo.com"_s)
             || isDomain("instagram.com"_s)
-            || isEmbedDomain("twitter.com"_s);
+            || isEmbedDomain("twitter.com"_s)
+            || (PAL::currentUserInterfaceIdiomIsSmallScreen() && (isDomain("youtube.com"_s) || isEmbedDomain("youtube.com"_s)));
     }
 
     return m_shouldDisableElementFullscreen.value();
@@ -1486,6 +1479,17 @@ bool Quirks::allowLayeredFullscreenVideos() const
 }
 #endif
 
+#if PLATFORM(VISION)
+// twitter.com: rdar://124180748
+bool Quirks::shouldDisableFullscreenVideoAspectRatioAdaptiveSizing() const
+{
+    if (!needsQuirks())
+        return false;
+
+    return isDomain("twitter.com"_s);
+}
+#endif
+
 // mail.google.com rdar://97351877
 bool Quirks::shouldEnableApplicationCacheQuirk() const
 {
@@ -1729,6 +1733,17 @@ bool Quirks::shouldDisableNavigatorStandaloneQuirk() const
         return true;
 #endif
     return false;
+}
+
+// This quirk has intentionally limited exposure to increase the odds of being able to remove it
+// again within a reasonable timeframe as the impacted apps are being updated. <rdar://122548304>
+bool Quirks::needsGetElementsByNameQuirk() const
+{
+#if PLATFORM(IOS)
+    return needsQuirks() && !PAL::currentUserInterfaceIdiomIsSmallScreen() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoGetElementsByNameQuirk);
+#else
+    return false;
+#endif
 }
 
 }

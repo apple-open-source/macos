@@ -282,6 +282,7 @@
 		94099C752087E7D50004B6BC /* RegisterTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RegisterTests.m; sourceTree = "<group>"; };
 		94099C772087E7D50004B6BC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parallel_register_cancel.c; sourceTree = "<group>"; };
+		950AE1D72B22831500C9874D /* notify_loopback.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_loopback.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		9571628629CE7250008428A8 /* rnserver.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; path = rnserver.defs; sourceTree = "<group>"; };
 		9571628729D1F6E0008428A8 /* notify_register_mach_port.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = notify_register_mach_port.entitlements; sourceTree = "<group>"; };
 		9B71D22F206AB52200BB9574 /* notify_qos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_qos.c; sourceTree = "<group>"; };
@@ -523,6 +524,7 @@
 		727C902F1B9A372700D5B754 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				950AE1D72B22831500C9874D /* notify_loopback.c */,
 				1864C88123F216CB00A383C1 /* notify_exec.c */,
 				1864C88223F2174E00A383C1 /* notify_test_helper.c */,
 				C0FF3C23234516ED00ABBA89 /* notify_matching.c */,

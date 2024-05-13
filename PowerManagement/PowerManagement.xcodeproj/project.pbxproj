@@ -194,12 +194,22 @@
 		19F2D66126D95AEB00EF44FA /* AppleSmartBatteryUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 18488DC126740CD800A95BD5 /* AppleSmartBatteryUserClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		19F2D66226D95AED00EF44FA /* AppleSmartBatteryUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 18488DC126740CD800A95BD5 /* AppleSmartBatteryUserClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		19FCB62D21B0A32B003CAFE2 /* AppleBatteryAuthKeys.h in Headers */ = {isa = PBXBuildFile; fileRef = 19FCB62C21B0A32B003CAFE2 /* AppleBatteryAuthKeys.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		1E0F2DF32B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E0F2DF22B4E231D0051EA70 /* BatteryCapacityMonitor.m */; };
+		1E0F2DF42B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E0F2DF22B4E231D0051EA70 /* BatteryCapacityMonitor.m */; };
+		1E0F2DF52B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E0F2DF22B4E231D0051EA70 /* BatteryCapacityMonitor.m */; };
+		1E0F2DF62B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E0F2DF22B4E231D0051EA70 /* BatteryCapacityMonitor.m */; };
+		1E0F2DF72B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E0F2DF22B4E231D0051EA70 /* BatteryCapacityMonitor.m */; };
 		1E1E059E28496F570002A043 /* BatteryCapacityCalibration.m in Sources */ = {isa = PBXBuildFile; fileRef = 72352E3B2824800B00AAAFEC /* BatteryCapacityCalibration.m */; };
 		1E7A412429A34F8F00D943EE /* BatteryAuth.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A411E29A34F8F00D943EE /* BatteryAuth.m */; };
 		1E7A412529A34F8F00D943EE /* BatteryAuth.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A411E29A34F8F00D943EE /* BatteryAuth.m */; };
 		1E7A412629A34F8F00D943EE /* BatteryAuth.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A411E29A34F8F00D943EE /* BatteryAuth.m */; };
 		1E7A412729A34F8F00D943EE /* BatteryAuth.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A411E29A34F8F00D943EE /* BatteryAuth.m */; };
 		1E7A412829A34F8F00D943EE /* BatteryAuth.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A411E29A34F8F00D943EE /* BatteryAuth.m */; };
+		1EB4D3942B4F64E500F4F270 /* MGWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = 1EB4D3932B4F64E500F4F270 /* MGWrapper.m */; };
+		1EB4D3952B4F64E500F4F270 /* MGWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = 1EB4D3932B4F64E500F4F270 /* MGWrapper.m */; };
+		1EB4D3962B4F64E500F4F270 /* MGWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = 1EB4D3932B4F64E500F4F270 /* MGWrapper.m */; };
+		1EB4D3972B4F64E500F4F270 /* MGWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = 1EB4D3932B4F64E500F4F270 /* MGWrapper.m */; };
+		1EB4D3982B4F64E500F4F270 /* MGWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = 1EB4D3932B4F64E500F4F270 /* MGWrapper.m */; };
 		1ED44A0925E5B3E30006AE96 /* prefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 1ED44A0725E5B3E30006AE96 /* prefs.h */; };
 		1ED44A0A25E5B3E30006AE96 /* prefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 1ED44A0725E5B3E30006AE96 /* prefs.h */; };
 		1ED44A0B25E5B3E30006AE96 /* prefs.m in Sources */ = {isa = PBXBuildFile; fileRef = 1ED44A0825E5B3E30006AE96 /* prefs.m */; };
@@ -1327,8 +1337,12 @@
 		19E47EE12729B6C9003F4C75 /* AppleCallbackPowerSourcePrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleCallbackPowerSourcePrivate.h; sourceTree = "<group>"; };
 		19E47EE22729B6C9003F4C75 /* AppleCallbackPowerSourcePrivate.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleCallbackPowerSourcePrivate.cpp; sourceTree = "<group>"; };
 		19FCB62C21B0A32B003CAFE2 /* AppleBatteryAuthKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleBatteryAuthKeys.h; sourceTree = "<group>"; };
+		1E0F2DF22B4E231D0051EA70 /* BatteryCapacityMonitor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BatteryCapacityMonitor.m; sourceTree = "<group>"; };
 		1E7A411D29A34F8F00D943EE /* BatteryAuth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BatteryAuth.h; sourceTree = "<group>"; };
 		1E7A411E29A34F8F00D943EE /* BatteryAuth.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BatteryAuth.m; sourceTree = "<group>"; };
+		1EB4D3932B4F64E500F4F270 /* MGWrapper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MGWrapper.m; sourceTree = "<group>"; };
+		1EB4D3992B4F66C900F4F270 /* MGWrapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MGWrapper.h; sourceTree = "<group>"; };
+		1EB4D39A2B4F66C900F4F270 /* BatteryCapacityMonitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryCapacityMonitor.h; sourceTree = "<group>"; };
 		1ED44A0725E5B3E30006AE96 /* prefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prefs.h; sourceTree = "<group>"; };
 		1ED44A0825E5B3E30006AE96 /* prefs.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = prefs.m; sourceTree = "<group>"; };
 		220D605F1828511000E98262 /* PMAssertionLog.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.objc; fileEncoding = 4; path = PMAssertionLog.c; sourceTree = "<group>"; };
@@ -2052,9 +2066,11 @@
 		08FB7795FE84155DC02AAC07 /* powerd */ = {
 			isa = PBXGroup;
 			children = (
+				1EB4D3932B4F64E500F4F270 /* MGWrapper.m */,
 				7275EE7329A988100064E857 /* FeatureFlag_osx */,
 				1E7A411D29A34F8F00D943EE /* BatteryAuth.h */,
 				1E7A411E29A34F8F00D943EE /* BatteryAuth.m */,
+				1E0F2DF22B4E231D0051EA70 /* BatteryCapacityMonitor.m */,
 				72B108E4293FCE4500B0403B /* PMCoreSmartPowerNap */,
 				B3051FB226FBC56000742B0C /* PMSmartPowerNap */,
 				800F7AE32637858A00D7C3CD /* PMPowerModeAnalytics.m */,
@@ -2078,6 +2094,8 @@
 				72352E3D2824804800AAAFEC /* BatteryCapacityCalibration.h */,
 				40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.m */,
 				40BE9CF3031ECBBC0ACA28D7 /* BatteryTimeRemaining.h */,
+				1EB4D39A2B4F66C900F4F270 /* BatteryCapacityMonitor.h */,
+				1EB4D3992B4F66C900F4F270 /* MGWrapper.h */,
 				727593FC125555EA00C59A8E /* ExternalMedia.c */,
 				48CE389E1E6375B2001563E6 /* adaptiveDisplay.h */,
 				727593FD125555EA00C59A8E /* ExternalMedia.h */,
@@ -3772,6 +3790,7 @@
 				119B32401E41504800EB0780 /* AutoWakeScheduler.c in Sources */,
 				119B323F1E41504400EB0780 /* RepeatingAutoWake.c in Sources */,
 				119B32511E4150D500EB0780 /* ioupspluginmig.defs in Sources */,
+				1EB4D3962B4F64E500F4F270 /* MGWrapper.m in Sources */,
 				1E7A412629A34F8F00D943EE /* BatteryAuth.m in Sources */,
 				119B32441E41505700EB0780 /* Platform.c in Sources */,
 				119B325A1E4164A200EB0780 /* IOUPSPrivate.c in Sources */,
@@ -3784,6 +3803,7 @@
 				119B324A1E41507000EB0780 /* UPSLowPower.c in Sources */,
 				119B32421E41505000EB0780 /* ExternalMedia.c in Sources */,
 				119B32461E41506100EB0780 /* PMAssertionLog.c in Sources */,
+				1E0F2DF52B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				13B3011A22B8584100FDC1B9 /* PMDisplay.m in Sources */,
 				119B32471E41506400EB0780 /* PMAssertions.c in Sources */,
 				119B324C1E41507900EB0780 /* PMStore.c in Sources */,
@@ -3852,6 +3872,8 @@
 			files = (
 				1E1E059E28496F570002A043 /* BatteryCapacityCalibration.m in Sources */,
 				954B6A9B26F2CDBA008FD6A7 /* iOSBatteryHealthUnitTests.m in Sources */,
+				1E0F2DF62B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
+				1EB4D3972B4F64E500F4F270 /* MGWrapper.m in Sources */,
 				4817EC2A21B6071C0049B606 /* BatteryTimeRemaining.m in Sources */,
 				1E7A412729A34F8F00D943EE /* BatteryAuth.m in Sources */,
 				956BC9DE2704E2920083F359 /* BatteryHealthUnitTestsStubs.m in Sources */,
@@ -3890,10 +3912,12 @@
 				80AFE3F426277928002C31D9 /* PMPowerModeHandler.m in Sources */,
 				4878DC621E77686900CF1891 /* Platform.c in Sources */,
 				4878DC631E77686900CF1891 /* PMConnection.m in Sources */,
+				1EB4D3942B4F64E500F4F270 /* MGWrapper.m in Sources */,
 				1E7A412429A34F8F00D943EE /* BatteryAuth.m in Sources */,
 				4878DC641E77686900CF1891 /* PMAssertionLog.c in Sources */,
 				4878DC651E77686900CF1891 /* PMAssertions.c in Sources */,
 				4878DC661E77686900CF1891 /* PMSystemEvents.c in Sources */,
+				1E0F2DF32B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				1ED44A0B25E5B3E30006AE96 /* prefs.m in Sources */,
 				4878DC671E77686900CF1891 /* PMSettings.c in Sources */,
 				4878DC681E77686900CF1891 /* UPSLowPower.c in Sources */,
@@ -3942,10 +3966,12 @@
 				48A48D5E1EF42F8F0016FE7B /* powermanagement.defs in Sources */,
 				48A48D601EF42F8F0016FE7B /* RepeatingAutoWake.c in Sources */,
 				B30EE96627BC6AC200CE2DD6 /* PMSmartPowerNapLocationMonitor.m in Sources */,
+				1EB4D3952B4F64E500F4F270 /* MGWrapper.m in Sources */,
 				48A48D611EF42F8F0016FE7B /* AutoWakeScheduler.c in Sources */,
 				48A48D621EF42F8F0016FE7B /* BatteryTimeRemaining.m in Sources */,
 				7297A8AA293FDD3C008B9D8E /* PMCoreSmartPowerNapService.m in Sources */,
 				48A48D641EF42F8F0016FE7B /* HIDEventWatcher.c in Sources */,
+				1E0F2DF42B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				48A48D661EF42F8F0016FE7B /* PMConnection.m in Sources */,
 				48A48D671EF42F8F0016FE7B /* PMAssertionLog.c in Sources */,
 				48A48D681EF42F8F0016FE7B /* PMAssertions.c in Sources */,
@@ -4113,7 +4139,9 @@
 				95E33A662565E5FD00DF678F /* BatteryTimeRemaining.m in Sources */,
 				95E33A1D2565E33500DF678F /* macOSBatteryHealthUnitTests.m in Sources */,
 				956BC9DF2704E2920083F359 /* BatteryHealthUnitTestsStubs.m in Sources */,
+				1E0F2DF72B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				19E8117B2989A533006692DC /* CommonLib.c in Sources */,
+				1EB4D3982B4F64E500F4F270 /* MGWrapper.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

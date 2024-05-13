@@ -2712,6 +2712,7 @@
     <ClCompile Include="..\..\..\..\src\tool_help.c" />
     <ClCompile Include="..\..\..\..\src\tool_helpers.c" />
     <ClCompile Include="..\..\..\..\src\tool_hugehelp.c" />
+    <ClCompile Include="..\..\..\..\src\tool_ipfs.c" />
     <ClCompile Include="..\..\..\..\src\tool_libinfo.c" />
     <ClCompile Include="..\..\..\..\src\tool_listhelp.c" />
     <ClCompile Include="..\..\..\..\src\tool_main.c" />
@@ -2765,6 +2766,7 @@
     <ClInclude Include="..\..\..\..\src\tool_helpers.h" />
     <ClInclude Include="..\..\..\..\src\tool_help.h" />
     <ClInclude Include="..\..\..\..\src\tool_hugehelp.h" />
+    <ClInclude Include="..\..\..\..\src\tool_ipfs.h" />
     <ClInclude Include="..\..\..\..\src\tool_libinfo.h" />
     <ClInclude Include="..\..\..\..\src\tool_main.h" />
     <ClInclude Include="..\..\..\..\src\tool_msgs.h" />

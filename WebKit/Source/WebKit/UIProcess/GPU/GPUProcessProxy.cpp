@@ -142,13 +142,9 @@ GPUProcessProxy* GPUProcessProxy::singletonIfCreated()
 }
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
-static String gpuProcessCachesDirectory(bool isExtension)
+static String gpuProcessCachesDirectory()
 {
-    ASCIILiteral cacheDirectory;
-    if (isExtension)
-        cacheDirectory = "/Library/Caches/com.apple.WebKit.GPUExtension/"_s;
-    else
-        cacheDirectory = "/Library/Caches/com.apple.WebKit.GPU/"_s;
+    constexpr ASCIILiteral cacheDirectory = "/Library/Caches/com.apple.WebKit.GPU/"_s;
 
     String path = WebsiteDataStore::cacheDirectoryInContainerOrHomeDirectory(cacheDirectory);
 
@@ -186,15 +182,11 @@ GPUProcessProxy::GPUProcessProxy()
     parameters.parentPID = getCurrentProcessID();
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
-    bool isExtension = false;
-#if USE(EXTENSIONKIT)
-    isExtension = !!extensionProcess();
-#endif
-    auto containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory(isExtension));
+    parameters.containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory());
     auto containerTemporaryDirectory = WebsiteDataStore::defaultResolvedContainerTemporaryDirectory();
 
-    if (!containerCachesDirectory.isEmpty()) {
-        if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(containerCachesDirectory, SandboxExtension::Type::ReadWrite))
+    if (!parameters.containerCachesDirectory.isEmpty()) {
+        if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(parameters.containerCachesDirectory, SandboxExtension::Type::ReadWrite))
             parameters.containerCachesDirectoryExtensionHandle = WTFMove(*handle);
     }
 
@@ -460,6 +452,11 @@ void GPUProcessProxy::promptForGetDisplayMedia(WebCore::DisplayCapturePromptType
 {
     sendWithAsyncReply(Messages::GPUProcess::PromptForGetDisplayMedia { type }, WTFMove(completionHandler));
 }
+
+void GPUProcessProxy::cancelGetDisplayMediaPrompt()
+{
+    send(Messages::GPUProcess::CancelGetDisplayMediaPrompt { }, 0);
+}
 #endif
 
 void GPUProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
@@ -590,6 +587,12 @@ void GPUProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
     
 #if USE(RUNNINGBOARD)
     m_throttler.didConnectToProcess(*this);
+#if USE(EXTENSIONKIT)
+    // FIXME: this should be moved to AuxiliaryProcessProxy::didFinishLaunching along with m_throttler.didConnectToProcess.
+    // This FIXME applies to all process proxy subclasses.
+    if (launcher)
+        launcher->releaseLaunchGrant();
+#endif
 #endif
 
 #if PLATFORM(COCOA)

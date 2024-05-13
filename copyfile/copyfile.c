@@ -92,7 +92,9 @@ enum cfInternalFlags {
 	cfDstSupportsCProtect     = 1 << 6, /* set if dst supports MNT_CPROTECT */
 	cfSrcFdOpenedByUs         = 1 << 7, /* set if src_fd opened by copyfile_open() */
 	cfDstFdOpenedByUs         = 1 << 8, /* set if dst_fd opened by copyfile_open() */
+	cfDstCheckExistingSlinks  = 1 << 16, /* set if we should check for existing symlinks at the destination */
 	cfCheckFtsInfo            = 1 << 17, /* set if we should check our source file type against an FTSENT * */
+	cfCheckFtsInfoAsLink      = 1 << 18, /* set if cfCheckFtsInfo is set and the source is actually known to be a symlink */
 };
 
 #define COPYFILE_MNT_CPROTECT_MASK (cfSrcProtSupportValid | cfSrcSupportsCProtect | cfDstProtSupportValid | cfDstSupportsCProtect)
@@ -636,6 +638,7 @@ copytree(copyfile_state_t s)
 	int (*sfunc)(const char *, struct stat *);
 	copyfile_callback_t status = NULL;
 	char srcisdir = 0, dstisdir = 0, dstexists = 0;
+	bool srcislinktodir = false;
 	struct stat sbuf;
 	char *src, *dst;
 	const char *dstpathsep = "";
@@ -677,6 +680,19 @@ copytree(copyfile_state_t s)
 	}
 	if ((sbuf.st_mode & S_IFMT) == S_IFDIR) {
 		srcisdir = 1;
+		// Also check if this directory is actually a link on disk;
+		// this matters when we do file-type checking later on.
+		if (sfunc == stat) {
+			struct stat sbuf_logical;
+
+			if (lstat(src, &sbuf_logical) == -1) {
+				retval = -1;
+				goto done;
+			}
+			if ((sbuf_logical.st_mode & S_IFMT) == S_IFLNK) {
+				srcislinktodir = true;
+			}
+		}
 	}
 
 	sfunc = (flags & COPYFILE_NOFOLLOW_DST) ? lstat : stat;
@@ -731,7 +747,12 @@ copytree(copyfile_state_t s)
 		offset = strlen(src);
 	}
 
-	// COPYFILE_RECURSIVE is always done physically: see 11717978.
+	/*
+	 * COPYFILE_RECURSIVE is always done physically: see 11717978.
+	 * (This does not mean we copy symlinks physically every time -
+	 * that is still determined by the presence/absence of COPYFILE_NOFOLLOW_SRC
+	 * and COPYFILE_CLONE. We just do our FTS iterations physically.)
+	 */
 	fts_flags |= FTS_PHYSICAL;
 	if (!(s->flags & (COPYFILE_NOFOLLOW_SRC|COPYFILE_CLONE))) {
 		// Follow 'src', even if it's a symlink, unless instructed not to
@@ -743,172 +764,221 @@ copytree(copyfile_state_t s)
 		fts_flags |= FTS_XDEV;
 	}
 
-	fts = fts_open((char * const *)paths, fts_flags, NULL);
-
+	/*
+	 * When symlinks are present, we'll skip copying them initially.
+	 * After we copy all other files, we'll go through the hierarchy
+	 * again, and only copy symlinks we see.
+	 * (If no symlinks are found, we only need one pass here.)
+	 * This makes sure we properly handle the case that a symlink and
+	 * a directory have names that conflict on the destination.
+	 * (It's possible that we may see different symlinks in the second
+	 * pass than we would've seen earlier, or none at all.)
+	*/
 	status = s->statuscb;
-	while ((ftsent = fts_read(fts)) != NULL) {
-		int rv = 0;
-		char *dstfile = NULL;
-		int cmd = 0;
-		copyfile_state_t tstate = copyfile_state_alloc();
-		if (tstate == NULL) {
-			errno = ENOMEM;
-			retval = -1;
+	bool need_second_pass = false;
+	for (int directory_pass = 0; directory_pass < 2; directory_pass++) {
+
+		if (directory_pass && !need_second_pass) {;
 			break;
 		}
-		tstate->statuscb = s->statuscb;
-		tstate->ctx = s->ctx;
-		if (last_dev == ftsent->fts_dev) {
-			tstate->internal_flags |= (s->internal_flags & COPYFILE_MNT_CPROTECT_MASK);
-		} else {
-			last_dev = ftsent->fts_dev;
-		}
-		asprintf(&dstfile, "%s%s%s", dst, dstpathsep, ftsent->fts_path + offset);
-		if (dstfile == NULL) {
-			copyfile_state_free(tstate);
-			errno = ENOMEM;
-			retval = -1;
-			break;
-		}
-		tstate->recurse_entry = ftsent;
-		tstate->internal_flags |= cfCheckFtsInfo;
-		switch (ftsent->fts_info) {
-			case FTS_D:
-				tstate->internal_flags |= cfDelayAce;
-				cmd = COPYFILE_RECURSE_DIR;
-				break;
-			case FTS_SL:
-			case FTS_SLNONE:
-			case FTS_DEFAULT:
-			case FTS_F:
-				cmd = COPYFILE_RECURSE_FILE;
-				break;
-			case FTS_DP:
-				cmd = COPYFILE_RECURSE_DIR_CLEANUP;
-				break;
-			case FTS_DNR:
-			case FTS_ERR:
-			case FTS_NS:
-			case FTS_NSOK:
-			default:
-				errno = ftsent->fts_errno;
-				if (status) {
-					rv = (*status)(COPYFILE_RECURSE_ERROR, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
-					if (rv == COPYFILE_SKIP || rv == COPYFILE_CONTINUE) {
-						errno = 0;
-						goto skipit;
-					}
-					if (rv == COPYFILE_QUIT) {
-						retval = -1;
-						goto stopit;
-					}
-				} else {
-					retval = -1;
-					goto stopit;
-				}
-			case FTS_DOT:
-				goto skipit;
 
+		if (fts) {
+			fts_close(fts);
 		}
+		fts = fts_open((char * const *)paths, fts_flags, NULL);
 
-		if (cmd == COPYFILE_RECURSE_DIR || cmd == COPYFILE_RECURSE_FILE) {
-			if (status) {
-				rv = (*status)(cmd, COPYFILE_START, tstate, ftsent->fts_path, dstfile, s->ctx);
-				if (rv == COPYFILE_SKIP) {
-					if (cmd == COPYFILE_RECURSE_DIR) {
-						rv = fts_set(fts, ftsent, FTS_SKIP);
-						if (rv == -1) {
-							rv = (*status)(0, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
-							if (rv == COPYFILE_QUIT)
-								retval = -1;
-						}
-					}
-					goto skipit;
+		while ((ftsent = fts_read(fts)) != NULL) {
+			if (ftsent->fts_info == FTS_SL || ftsent->fts_info == FTS_SLNONE) {
+				if (directory_pass == 0) {
+					// We saw at least one symlink,
+					// so we'll need to iterate this directory again
+					// to copy it over.
+					// (Note that this may be triggered if the root directory
+					// is a symlink and we did not set FTS_COMFOLLOW above.)
+					need_second_pass = true;
+					continue;
 				}
-				if (rv == COPYFILE_QUIT) {
-					retval = -1; errno = 0;
-					goto stopit;
-				}
+			} else if (directory_pass) {
+				// Our second time around,
+				// we do not need to copy anything but symlinks.
+				continue;
 			}
-			// Since we don't support cloning directories this code depends on copyfile()
-			// falling back to a regular directory copy.
-			int tmp_flags = (cmd == COPYFILE_RECURSE_DIR) ? (flags & ~COPYFILE_STAT) : flags;
-			rv = copyfile(ftsent->fts_path, dstfile, tstate, tmp_flags);
-			if (rv < 0) {
-				if (status) {
-					rv = (*status)(cmd, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
-					if (rv == COPYFILE_QUIT) {
-						retval = -1;
-						goto stopit;
-					} else
-						rv = 0;
-					goto skipit;
-				} else {
-					retval = -1;
-					goto stopit;
-				}
+
+			int rv = 0;
+			char *dstfile = NULL;
+			int cmd = 0;
+			copyfile_state_t tstate = copyfile_state_alloc();
+			if (tstate == NULL) {
+				errno = ENOMEM;
+				retval = -1;
+				goto done;
 			}
-			if (status) {
-				rv = (*status)(cmd, COPYFILE_FINISH, tstate, ftsent->fts_path, dstfile, s->ctx);
-				if (rv == COPYFILE_QUIT) {
-					retval = -1; errno = 0;
-					goto stopit;
-				}
-			}
-		} else if (cmd == COPYFILE_RECURSE_DIR_CLEANUP) {
-			if (status) {
-				rv = (*status)(cmd, COPYFILE_START, tstate, ftsent->fts_path, dstfile, s->ctx);
-				if (rv == COPYFILE_QUIT) {
-					retval = -1; errno = 0;
-					goto stopit;
-				} else if (rv == COPYFILE_SKIP) {
-					rv = 0;
-					goto skipit;
-				}
-			}
-			rv = copyfile(ftsent->fts_path, dstfile, tstate, (flags & COPYFILE_NOFOLLOW) | COPYFILE_STAT);
-			if (rv < 0) {
-				if (status) {
-					rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
-					if (rv == COPYFILE_QUIT) {
-						retval = -1;
-						goto stopit;
-					} else if (rv == COPYFILE_SKIP || rv == COPYFILE_CONTINUE) {
-						if (rv == COPYFILE_CONTINUE)
-							errno = 0;
-						retval = 0;
-						goto skipit;
-					}
-				} else {
-					retval = -1;
-					goto stopit;
-				}
+			tstate->statuscb = s->statuscb;
+			tstate->ctx = s->ctx;
+			// If asked to by our caller, make sure that we check for
+			// an already existing destination that is a symlink.
+			if (s->internal_flags & cfDstCheckExistingSlinks)
+				tstate->internal_flags |= cfDstCheckExistingSlinks;
+			if (last_dev == ftsent->fts_dev) {
+				tstate->internal_flags |= (s->internal_flags & COPYFILE_MNT_CPROTECT_MASK);
 			} else {
+				last_dev = ftsent->fts_dev;
+			}
+			asprintf(&dstfile, "%s%s%s", dst, dstpathsep, ftsent->fts_path + offset);
+			if (dstfile == NULL) {
+				copyfile_state_free(tstate);
+				errno = ENOMEM;
+				retval = -1;
+				goto done;
+			}
+			tstate->recurse_entry = ftsent;
+			tstate->internal_flags |= cfCheckFtsInfo;
+			switch (ftsent->fts_info) {
+				case FTS_D:
+					tstate->internal_flags |= cfDelayAce;
+					cmd = COPYFILE_RECURSE_DIR;
+					if (srcislinktodir && !strcmp(src, ftsent->fts_path)) {
+						tstate->internal_flags |= cfCheckFtsInfoAsLink;
+					}
+					break;
+				case FTS_SL:
+				case FTS_SLNONE:
+				case FTS_DEFAULT:
+				case FTS_F:
+					cmd = COPYFILE_RECURSE_FILE;
+					break;
+				case FTS_DP:
+					cmd = COPYFILE_RECURSE_DIR_CLEANUP;
+					if (srcislinktodir && !strcmp(src, ftsent->fts_path)) {
+						tstate->internal_flags |= cfCheckFtsInfoAsLink;
+					}
+					break;
+				case FTS_DNR:
+				case FTS_ERR:
+				case FTS_NS:
+				case FTS_NSOK:
+				default:
+					errno = ftsent->fts_errno;
+					if (status) {
+						rv = (*status)(COPYFILE_RECURSE_ERROR, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
+						if (rv == COPYFILE_SKIP || rv == COPYFILE_CONTINUE) {
+							errno = 0;
+							goto skipit;
+						}
+						if (rv == COPYFILE_QUIT) {
+							retval = -1;
+							goto stopit;
+						}
+					} else {
+						retval = -1;
+						goto stopit;
+					}
+				case FTS_DOT:
+					goto skipit;
+
+			}
+
+			if (cmd == COPYFILE_RECURSE_DIR || cmd == COPYFILE_RECURSE_FILE) {
 				if (status) {
-					rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_FINISH, tstate, ftsent->fts_path, dstfile, s->ctx);
+					rv = (*status)(cmd, COPYFILE_START, tstate, ftsent->fts_path, dstfile, s->ctx);
+					if (rv == COPYFILE_SKIP) {
+						if (cmd == COPYFILE_RECURSE_DIR) {
+							rv = fts_set(fts, ftsent, FTS_SKIP);
+							if (rv == -1) {
+								rv = (*status)(0, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
+								if (rv == COPYFILE_QUIT)
+									retval = -1;
+							}
+						}
+						goto skipit;
+					}
 					if (rv == COPYFILE_QUIT) {
 						retval = -1; errno = 0;
 						goto stopit;
 					}
 				}
+				// Since we don't support cloning directories this code depends on copyfile()
+				// falling back to a regular directory copy.
+				int tmp_flags = (cmd == COPYFILE_RECURSE_DIR) ? (flags & ~COPYFILE_STAT) : flags;
+				rv = copyfile(ftsent->fts_path, dstfile, tstate, tmp_flags);
+				if (rv < 0) {
+					if (status) {
+						rv = (*status)(cmd, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
+						if (rv == COPYFILE_QUIT) {
+							retval = -1;
+							goto stopit;
+						} else
+							rv = 0;
+						goto skipit;
+					} else {
+						retval = -1;
+						goto stopit;
+					}
+				}
+				if (status) {
+					rv = (*status)(cmd, COPYFILE_FINISH, tstate, ftsent->fts_path, dstfile, s->ctx);
+					if (rv == COPYFILE_QUIT) {
+						retval = -1; errno = 0;
+						goto stopit;
+					}
+				}
+			} else if (cmd == COPYFILE_RECURSE_DIR_CLEANUP) {
+				if (status) {
+					rv = (*status)(cmd, COPYFILE_START, tstate, ftsent->fts_path, dstfile, s->ctx);
+					if (rv == COPYFILE_QUIT) {
+						retval = -1; errno = 0;
+						goto stopit;
+					} else if (rv == COPYFILE_SKIP) {
+						rv = 0;
+						goto skipit;
+					}
+				}
+				rv = copyfile(ftsent->fts_path, dstfile, tstate, (flags & COPYFILE_NOFOLLOW) | COPYFILE_STAT);
+				if (rv < 0) {
+					if (status) {
+						rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
+						if (rv == COPYFILE_QUIT) {
+							retval = -1;
+							goto stopit;
+						} else if (rv == COPYFILE_SKIP || rv == COPYFILE_CONTINUE) {
+							if (rv == COPYFILE_CONTINUE)
+								errno = 0;
+							retval = 0;
+							goto skipit;
+						}
+					} else {
+						retval = -1;
+						goto stopit;
+					}
+				} else {
+					if (status) {
+						rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_FINISH, tstate, ftsent->fts_path, dstfile, s->ctx);
+						if (rv == COPYFILE_QUIT) {
+							retval = -1; errno = 0;
+							goto stopit;
+						}
+					}
+				}
+
+				rv = 0;
 			}
+		skipit:
+		stopit:
+			s->internal_flags &= ~COPYFILE_MNT_CPROTECT_MASK;
+			s->internal_flags |= (tstate->internal_flags & COPYFILE_MNT_CPROTECT_MASK);
 
-			rv = 0;
+			copyfile_state_free(tstate);
+			free(dstfile);
+			if (retval == -1)
+				goto done;
 		}
-	skipit:
-	stopit:
-		s->internal_flags &= ~COPYFILE_MNT_CPROTECT_MASK;
-		s->internal_flags |= (tstate->internal_flags & COPYFILE_MNT_CPROTECT_MASK);
-
-		copyfile_state_free(tstate);
-		free(dstfile);
-		if (retval == -1)
-			break;
 	}
 
 done:
-	if (fts)
+	if (fts) {
 		fts_close(fts);
+		fts = NULL;
+	}
 
 	copyfile_debug(1, "returning: %d errno %d\n", retval, errno);
 	return retval;
@@ -1826,6 +1896,9 @@ static int copyfile_open(copyfile_state_t s)
 			 * This is useful for COPYFILE_RECURSIVE, where arbitrarily
 			 * long periods of time can pass between a file was initially
 			 * discovered by our FTS iteration and when it arrives here.
+			 * Note that here we use lstat(2) regardless of COPYFILE_NOFOLLOW_SRC
+			 * because our caller is expected to have the real file type
+			 * of the source, not whatever it points to.
 			 */
 			struct stat repeat_sb;
 
@@ -1833,7 +1906,7 @@ static int copyfile_open(copyfile_state_t s)
 				s->err = errno = ENOENT;
 				copyfile_warn("missing FTS entry during recursive copy\n");
 				return -1;
-			} else if (fstat(s->src_fd, &repeat_sb)) {
+			} else if (lstat(s->src, &repeat_sb)) {
 				copyfile_warn("repeat stat on %s\n", s->src);
 				return -1;
 			}
@@ -1855,6 +1928,15 @@ static int copyfile_open(copyfile_state_t s)
 				default:
 					/* No verification possible. */
 					break;
+			}
+			if (s->internal_flags & cfCheckFtsInfoAsLink) {
+				// Our caller told us that the file type passed here
+				// should be ignored and we should instead expect a symbolic link.
+				// (This is useful if our caller already followed the symbolic link
+				// and passed us the stat buffer after following that link -
+				// the flag is necessary because we may need to use that stat buffer
+				// for callback-functions that need to see the destination of the symlink.)
+				expected_type = S_IFLNK;
 			}
 
 			if (expected_type && ((repeat_sb.st_mode & S_IFMT) != expected_type)) {
@@ -1975,6 +2057,25 @@ static int copyfile_open(copyfile_state_t s)
 				if (errno != EEXIST || (s->flags & COPYFILE_EXCL)) {
 					copyfile_warn("Cannot make directory %s", s->dst);
 					return -1;
+				}
+
+				/*
+				 * A file already exists at the destination.
+				 * If we're checking for existing symlinks and it's a symlink,
+				 * it's time to bail out.
+				 */
+				if (s->internal_flags & cfDstCheckExistingSlinks) {
+					struct stat dst_sb;
+					if (lstat(s->dst, &dst_sb) == -1) {
+						copyfile_warn("Cannot lstat destination %s", s->dst);
+						return -1;
+					}
+
+					if (S_ISLNK(dst_sb.st_mode)) {
+						s->err = errno = EBADF;
+						copyfile_warn("Destination %s already exists as a symlink, refusing to copy", s->dst);
+						return -1;
+					}
 				}
 			}
 			s->dst_fd = open(s->dst, O_RDONLY | dsrc);
@@ -3443,6 +3544,9 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 		case COPYFILE_STATE_RECURSIVE_SRC_FTSENT:
 			*(const FTSENT **)ret = s->recurse_entry;
 			break;
+		case COPYFILE_STATE_FORBID_DST_EXISTING_SYMLINKS:
+			*(uint32_t*)ret = (s->internal_flags & cfDstCheckExistingSlinks) ? 1 : 0;
+			break;
 		default:
 			errno = EINVAL;
 			ret = NULL;
@@ -3521,6 +3625,13 @@ int copyfile_state_set(copyfile_state_t s, uint32_t flag, const void * thing)
 			break;
 		case COPYFILE_STATE_FORBID_CROSS_MOUNT:
 			s->forbid_cross_mount = *(bool*)thing;
+			break;
+		case COPYFILE_STATE_FORBID_DST_EXISTING_SYMLINKS:
+			if ((*(uint32_t *)thing) > 0) {
+				s->internal_flags |= cfDstCheckExistingSlinks;
+			} else {
+				s->internal_flags &= ~cfDstCheckExistingSlinks;
+			}
 			break;
 		default:
 			errno = EINVAL;

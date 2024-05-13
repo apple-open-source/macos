@@ -1561,9 +1561,9 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 
     // rdar://8131388 WebKit should expose the same info as UIKit for its password fields.
     if (backingObject->isSecureField() && ![self _accessibilityIsStrongPasswordField]) {
-        int secureTextLength = backingObject->accessibilitySecureFieldLength();
+        unsigned secureTextLength = backingObject->accessibilitySecureFieldLength();
         NSMutableString* string = [NSMutableString string];
-        for (int k = 0; k < secureTextLength; ++k)
+        for (unsigned k = 0; k < secureTextLength; ++k)
             [string appendString:@"•"];
         return string;
     }
@@ -1711,7 +1711,8 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return;
 
-    self.axBackingObject->axObjectCache()->relayNotification({ notificationName }, notificationData);
+    if (auto* cache = self.axBackingObject->axObjectCache())
+        cache->relayNotification({ notificationName }, notificationData);
 }
 
 - (CGRect)_accessibilityRelativeFrame
@@ -2017,14 +2018,15 @@ static NSArray *accessibleElementsForObjects(const AXCoreObject::AccessibilityCh
 {
     if (![self _prepareAccessibilityCall])
         return NO;
+    RefPtr<AccessibilityObject> backingObject = self.axBackingObject;
 
-    if (self.axBackingObject->press())
+    if (backingObject->press())
         return true;
 
     // On iOS, only the static text within a <summary> is exposed, not the <summary> itself.
     // So if this activation was for <summary> text, we should toggle the expanded state of the containing <details>.
-    if (self.axBackingObject->isStaticText())
-        return self.axBackingObject->toggleDetailsAncestor();
+    if (backingObject->isStaticText())
+        return backingObject->toggleDetailsAncestor();
 
     return false;
 }

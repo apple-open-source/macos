@@ -109,9 +109,9 @@ struct mfm_header {
 	size_t                  mfm_bump_hwm;
 	size_t                  mfm_alloc_count;
 	struct mfm_block        mfm_freelist[MFM_SIZE_CLASSES];
-#if MALLOC_TARGET_EXCLAVES
+#if MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 	plat_map_t              mfm_map;
-#endif // MALLOC_TARGET_EXCLAVES
+#endif // MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 };
 
 struct mfm_arena {
@@ -639,26 +639,9 @@ mfm_initialize(void)
 	plat_map_t map = {0};
 #endif // MALLOC_TARGET_EXCLAVES
 
-	// FIXME: rdar://115739995
-	// On exclaves, we initialize the early allocator first, so probe addresses
-	// above the reserved 4GB region to map it. This will block the subsequent
-	// xzone data/pointer regions from landing in the reserved region as well.
-	// Note that we cannot exhaustively map the reserved region because the
-	// PMM may run out of untyped memory, and on ASAN, the shadow already
-	// occupies the reserved region
 #if MALLOC_TARGET_EXCLAVES
-#if !__LIBLIBC_F_ASAN_INSTRUMENTATION
-	arena = NULL;
-	for (uintptr_t probe_addr = GiB(4); !arena; probe_addr += MFM_ARENA_SIZE) {
-		arena = mvm_allocate_plat(probe_addr, MFM_ARENA_SIZE, 0,
-				VM_FLAGS_FIXED, DISABLE_ASLR | MALLOC_NO_POPULATE,
-				VM_MEMORY_MALLOC, mvm_plat_map(map));
-	}
-#else
-	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0,
-			DISABLE_ASLR | MALLOC_NO_POPULATE, VM_MEMORY_MALLOC,
-			mvm_plat_map(map));
-#endif // !__LIBLIBC_F_ASAN_INSTRUMENTATION
+	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0, MALLOC_NO_POPULATE,
+			VM_MEMORY_MALLOC, mvm_plat_map(map));
 #else
 	/* this is called early, which means the address space _does_ have 8M */
 	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0,

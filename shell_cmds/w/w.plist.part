@@ -11,6 +11,7 @@
 		<array>
 			<string>w.c: Dropped libkvm support (4928955)</string>
 			<string>w.1, w.c: Dropped -d option (4928955)</string>
+			<string>w.c: Use CLOCK_MONOTONIC_RAW for uptime (124394495)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

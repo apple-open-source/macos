@@ -26,6 +26,7 @@
 #import "WKBaseScrollView.h"
 #import "WKWebViewInternal.h"
 #import "_WKTapHandlingResult.h"
+#import <wtf/spi/cocoa/NSObjCRuntimeSPI.h>
 
 #if PLATFORM(IOS_FAMILY)
 
@@ -211,6 +212,13 @@ enum class TapHandlingResult : uint8_t;
 - (void)_resetContentOffset;
 - (void)_resetUnobscuredSafeAreaInsets;
 - (void)_resetObscuredInsets;
+
+- (void)_overrideZoomScaleParametersWithMinimumZoomScale:(CGFloat)minimumZoomScale maximumZoomScale:(CGFloat)maximumZoomScale allowUserScaling:(BOOL)allowUserScaling;
+- (void)_clearOverrideZoomScaleParameters;
+
+#if ENABLE(PAGE_LOAD_OBSERVER)
+- (void)_updatePageLoadObserverState NS_DIRECT;
+#endif
 
 @end
 

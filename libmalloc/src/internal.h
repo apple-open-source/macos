@@ -110,6 +110,9 @@ typedef struct {
 # if !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 typedef void plat_map_t;
 # else
+#  if !defined(__x86_64__)
+#   include <l4/l4.h>
+#  endif // !defined(__x86_64__)
 typedef plat_map_exclaves_t plat_map_t;
 # endif // !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 #else
@@ -214,6 +217,7 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 # define roundup(x, y) ((((x) % (y)) == 0) ? \
 					   (x) : ((x) + ((y) - ((x) % (y)))))
 #endif // !MALLOC_TARGET_EXCLAVES
+#define rounddown(x,y)  (((x)/(y))*(y))
 #include <sys/types.h>
 #if !MALLOC_TARGET_EXCLAVES
 # include <sys/ulock.h>
@@ -284,7 +288,9 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 #endif // !MALLOC_TARGET_EXCLAVES && MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 #include "xzone/xzone_introspect.h"
 #include "xzone/xzone_malloc.h"
-#include "xzone/xzone_inline_internal.h"
+#if !(MALLOC_TARGET_EXCLAVES_INTROSPECTOR && defined(__x86_64__))
+# include "xzone/xzone_inline_internal.h"
+#endif // !(MALLOC_TARGET_EXCLAVES_INTROSPECTOR && defined(__x86_64__))
 #if !MALLOC_TARGET_EXCLAVES
 # include "stack_logging.h"
 # include "stack_trace.h"

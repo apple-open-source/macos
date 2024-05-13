@@ -1116,8 +1116,14 @@ bool Internals::isImageAnimating(HTMLImageElement& element)
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 void Internals::setImageAnimationEnabled(bool enabled)
 {
-    if (auto* page = contextDocument() ? contextDocument()->page() : nullptr)
+    if (auto* page = contextDocument() ? contextDocument()->page() : nullptr) {
+        if (!page->settings().imageAnimationControlEnabled())
+            return;
+
+        // We need to set this here to mimic the behavior of the AX preference changing
+        Image::setSystemAllowsAnimationControls(!enabled);
         page->setImageAnimationEnabled(enabled);
+    }
 }
 
 void Internals::resumeImageAnimation(HTMLImageElement& element)
@@ -1146,6 +1152,27 @@ unsigned Internals::imageDecodeCount(HTMLImageElement& element)
 {
     auto* bitmapImage = bitmapImageFromImageElement(element);
     return bitmapImage ? bitmapImage->decodeCountForTesting() : 0;
+}
+
+AtomString Internals::imageLastDecodingOptions(HTMLImageElement& element)
+{
+    auto* bitmapImage = bitmapImageFromImageElement(element);
+    if (!bitmapImage)
+        return { };
+
+    auto options = bitmapImage->lastDecodingOptions();
+    StringBuilder builder;
+    builder.append("{ decodingMode : ");
+    builder.append(options.decodingMode() == DecodingMode::Asynchronous ? "Asynchronous" : "Synchronous");
+    if (auto sizeForDrawing = options.sizeForDrawing()) {
+        builder.append(", sizeForDrawing : { ");
+        builder.append(sizeForDrawing->width());
+        builder.append(", ");
+        builder.append(sizeForDrawing->height());
+        builder.append(" }");
+    }
+    builder.append(" }");
+    return builder.toAtomString();
 }
 
 unsigned Internals::imageCachedSubimageCreateCount(HTMLImageElement& element)
@@ -3170,6 +3197,15 @@ ExceptionOr<uint64_t> Internals::scrollingNodeIDForNode(Node* node)
     return scrollableArea->scrollingNodeID();
 }
 
+ExceptionOr<unsigned> Internals::scrollableAreaWidth(Node& node)
+{
+    auto areaOrException = scrollableAreaForNode(&node);
+    if (areaOrException.hasException())
+        return areaOrException.releaseException();
+    auto* scrollableArea = areaOrException.releaseReturnValue();
+    return scrollableArea->contentsSize().width();
+}
+
 static OptionSet<PlatformLayerTreeAsTextFlags> toPlatformLayerTreeFlags(unsigned short flags)
 {
     OptionSet<PlatformLayerTreeAsTextFlags> platformLayerTreeFlags = { };
@@ -4161,6 +4197,12 @@ void Internals::setUsesOverlayScrollbars(bool enabled)
     WebCore::DeprecatedGlobalSettings::setUsesOverlayScrollbars(enabled);
 }
 #endif
+
+void Internals::forceAXObjectCacheUpdate() const
+{
+    if (RefPtr document = contextDocument())
+        document->axObjectCache()->performDeferredCacheUpdate(ForceLayout::Yes);
+}
 
 void Internals::forceReload(bool endToEnd)
 {

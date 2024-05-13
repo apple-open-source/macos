@@ -381,7 +381,9 @@ bool FrameSelection::setSelectionWithoutUpdatingAppearance(const VisibleSelectio
         }
 
         if (!document || (!document->frame() && !newSelection.document())) {
+            setNodeFlags(m_selection, false);
             m_selection = newSelection;
+            setNodeFlags(m_selection, true);
             updateAssociatedLiveRange();
             return false;
         }
@@ -402,7 +404,9 @@ bool FrameSelection::setSelectionWithoutUpdatingAppearance(const VisibleSelectio
             clearTypingStyle();
 
         m_granularity = granularity;
+        setNodeFlags(m_selection, false);
         m_selection = newSelection;
+        setNodeFlags(m_selection, true);
         updateAssociatedLiveRange();
     }
 
@@ -576,6 +580,53 @@ void DragCaretController::clearCaretPositionWithoutUpdatingStyle()
     clearCaretRect();
 }
 
+static void setNodeContainsSelectionEndPoint(const Position& position, bool value)
+{
+    // We use anchorNode instead of containerNode() because nodeWillBeRemoved must update position when anchored node is removed.
+    for (Node* currentNode = position.anchorNode(); currentNode; currentNode = currentNode->parentOrShadowHostNode()) {
+        if (currentNode->containsSelectionEndPoint() == value) {
+#if ASSERT_ENABLED
+            for (Node* ancestor = currentNode; ancestor; ancestor = ancestor->parentOrShadowHostNode())
+                ASSERT(ancestor->containsSelectionEndPoint() == value);
+#endif
+            break;
+        }
+        currentNode->setContainsSelectionEndPoint(value);
+    }
+#if ASSERT_ENABLED
+    for (Node* ancestor = position.anchorNode(); ancestor; ancestor = ancestor->parentOrShadowHostNode())
+        ASSERT(ancestor->containsSelectionEndPoint() == value);
+#endif
+}
+
+void FrameSelection::setNodeFlags(VisibleSelection& selection, bool value)
+{
+    if (!m_document)
+        return; // Ignore local FrameSelection created in TypingCommand::deleteKeyPressed and TypingCommand::forwardDeleteKeyPressed.
+#if ASSERT_ENABLED
+    for (RefPtr<Node> node = selection.document(); node; node = NodeTraversal::next(*node)) {
+        if (node->containsSelectionEndPoint()) {
+            for (Node* ancestor = node.get(); ancestor; ancestor = ancestor->parentOrShadowHostNode())
+                ASSERT(ancestor->containsSelectionEndPoint());
+        }
+    }
+#endif
+    setNodeContainsSelectionEndPoint(selection.anchor(), value);
+    setNodeContainsSelectionEndPoint(selection.focus(), value);
+    setNodeContainsSelectionEndPoint(selection.base(), value);
+    setNodeContainsSelectionEndPoint(selection.extent(), value);
+    setNodeContainsSelectionEndPoint(selection.start(), value);
+    setNodeContainsSelectionEndPoint(selection.end(), value);
+#if ASSERT_ENABLED
+    for (RefPtr<Node> node = selection.document(); node; node = NodeTraversal::next(*node)) {
+        if (node->containsSelectionEndPoint()) {
+            for (Node* ancestor = node.get(); ancestor; ancestor = ancestor->parentOrShadowHostNode())
+                ASSERT(ancestor->containsSelectionEndPoint());
+        }
+    }
+#endif
+}
+
 void FrameSelection::nodeWillBeRemoved(Node& node)
 {
     // There can't be a selection inside a fragment, so if a fragment's node is being removed,
@@ -583,10 +634,20 @@ void FrameSelection::nodeWillBeRemoved(Node& node)
     if ((isNone() && !m_document->settings().liveRangeSelectionEnabled()) || !node.isConnected())
         return;
 
+    if (!node.containsSelectionEndPoint()) {
+        ASSERT(!removingNodeRemovesPosition(node, m_selection.anchor()));
+        ASSERT(!removingNodeRemovesPosition(node, m_selection.focus()));
+        ASSERT(!removingNodeRemovesPosition(node, m_selection.base()));
+        ASSERT(!removingNodeRemovesPosition(node, m_selection.extent()));
+        ASSERT(!removingNodeRemovesPosition(node, m_selection.start()));
+        ASSERT(!removingNodeRemovesPosition(node, m_selection.end()));
+        return;
+    }
+
     respondToNodeModification(node, removingNodeRemovesPosition(node, m_selection.anchor()), removingNodeRemovesPosition(node, m_selection.focus()),
         removingNodeRemovesPosition(node, m_selection.base()), removingNodeRemovesPosition(node, m_selection.extent()),
         removingNodeRemovesPosition(node, m_selection.start()), removingNodeRemovesPosition(node, m_selection.end()));
-        
+
     if (UNLIKELY(node.contains(m_previousCaretNode.get()))) {
         m_previousCaretNode = m_selection.start().anchorNode();
         setCaretRectNeedsUpdate();
@@ -606,9 +667,11 @@ void FrameSelection::respondToNodeModification(Node& node, bool anchorRemoved, b
         if (focusRemoved)
             updatePositionForNodeRemoval(focus, node);
 
-        if (anchor.isNotNull() && focus.isNotNull())
+        if (anchor.isNotNull() && focus.isNotNull()) {
+            setNodeFlags(m_selection, false);
             m_selection.setWithoutValidation(anchor, focus);
-        else
+            setNodeFlags(m_selection, true);
+        } else
             clearDOMTreeSelection = true;
 
         clearRenderTreeSelection = true;
@@ -621,10 +684,12 @@ void FrameSelection::respondToNodeModification(Node& node, bool anchorRemoved, b
             updatePositionForNodeRemoval(end, node);
 
         if (start.isNotNull() && end.isNotNull()) {
+            setNodeFlags(m_selection, false);
             if (m_selection.isBaseFirst())
                 m_selection.setWithoutValidation(start, end);
             else
                 m_selection.setWithoutValidation(end, start);
+            setNodeFlags(m_selection, true);
         } else
             clearDOMTreeSelection = true;
 
@@ -634,10 +699,12 @@ void FrameSelection::respondToNodeModification(Node& node, bool anchorRemoved, b
         // Change the base and extent to the start and end, but don't re-validate the
         // selection, since doing so could move the start and end into the node
         // that is about to be removed.
+        setNodeFlags(m_selection, false);
         if (m_selection.isBaseFirst())
             m_selection.setWithoutValidation(m_selection.start(), m_selection.end());
         else
             m_selection.setWithoutValidation(m_selection.end(), m_selection.start());
+        setNodeFlags(m_selection, true);
     } else if (isRange()) {
         if (auto range = m_selection.firstRange(); range && intersects<ComposedTree>(*range, node)) {
             // If we did nothing here, when this node's renderer was destroyed, the rect that it
@@ -787,6 +854,7 @@ void FrameSelection::willBeModified(Alteration alter, SelectionDirection directi
             break;
         }
     }
+    setNodeFlags(m_selection, false);
     if (baseIsStart) {
         m_selection.setBase(start);
         m_selection.setExtent(end);
@@ -794,6 +862,7 @@ void FrameSelection::willBeModified(Alteration alter, SelectionDirection directi
         m_selection.setBase(end);
         m_selection.setExtent(start);
     }
+    setNodeFlags(m_selection, true);
     if (selectionIsOrphanedOrBelongsToWrongDocument(m_selection, m_document.get()))
         clear();
 }
@@ -2072,7 +2141,7 @@ void FrameSelection::selectFrameElementInParentIfFullySelected()
     // Focus on the parent frame, and then select from before this element to after.
     VisibleSelection newSelection(beforeOwnerElement, afterOwnerElement);
     if (parent->selection().shouldChangeSelection(newSelection) && page) {
-        CheckedRef(page->focusController())->setFocusedFrame(parent.get());
+        page->checkedFocusController()->setFocusedFrame(parent.get());
         // Previous focus can trigger DOM events, ensure the selection did not become orphan.
         if (newSelection.isOrphan())
             parent->selection().clear();
@@ -2379,7 +2448,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
                 FocusOptions focusOptions;
                 if (options & SetSelectionOption::ForBindings)
                     focusOptions.trigger = FocusTrigger::Bindings;
-                CheckedRef(m_document->page()->focusController())->setFocusedElement(target.get(), *m_document->frame(), focusOptions);
+                m_document->page()->checkedFocusController()->setFocusedElement(target.get(), *m_document->frame(), focusOptions);
                 return;
             }
             target = target->parentOrShadowHostElement();
@@ -2388,7 +2457,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
     }
 
     if (caretBrowsing)
-        CheckedRef(m_document->page()->focusController())->setFocusedElement(nullptr, *m_document->frame());
+        m_document->page()->checkedFocusController()->setFocusedElement(nullptr, *m_document->frame());
 }
 
 void DragCaretController::paintDragCaret(LocalFrame* frame, GraphicsContext& p, const LayoutPoint& paintOffset) const
@@ -2893,12 +2962,12 @@ void FrameSelection::setCaretColor(const Color& caretColor)
 
 #endif // PLATFORM(IOS_FAMILY)
 
-static bool containsEndpoints(const CheckedPtr<Document>& document, const std::optional<SimpleRange>& range)
+static bool containsEndpoints(const WeakPtr<Document, WeakPtrImplWithEventTargetData>& document, const std::optional<SimpleRange>& range)
 {
     return document && range && document->contains(range->start.container) && document->contains(range->end.container);
 }
 
-static bool containsEndpoints(const CheckedPtr<Document>& document, const Range& liveRange)
+static bool containsEndpoints(const WeakPtr<Document, WeakPtrImplWithEventTargetData>& document, const Range& liveRange)
 {
     // Only need to check the start container because live ranges enforce the invariant that start and end have a common ancestor.
     return document && document->contains(liveRange.startContainer());

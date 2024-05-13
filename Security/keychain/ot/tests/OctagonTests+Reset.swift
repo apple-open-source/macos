@@ -987,8 +987,10 @@ class OctagonResetTests: OctagonTestsBase {
         let container = try self.tphClient.getContainer(with: self.cuttlefishContext.activeAccount)
         container.getState { state in
             XCTAssertTrue(state.peers.isEmpty, "peers should be empty")
+            XCTAssertNil(state.peerError, "peerError should be nil")
             XCTAssertNil(state.egoPeerID, "egoPeerID should be nil")
             XCTAssertTrue(state.vouchers.isEmpty, "vouchers should be empty")
+            XCTAssertNil(state.voucherError, "voucherError should be nil")
             XCTAssertTrue(state.bottles.isEmpty, "bottles should be empty")
             XCTAssertTrue(state.escrowRecords.isEmpty, "escrowRecords should be empty")
             XCTAssertNil(state.recoverySigningKey, "recoverySigningKey should be nil")

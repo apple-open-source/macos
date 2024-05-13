@@ -401,6 +401,13 @@ void StructureStubInfo::propagateTransitions(Visitor& visitor)
 template void StructureStubInfo::propagateTransitions(AbstractSlotVisitor&);
 template void StructureStubInfo::propagateTransitions(SlotVisitor&);
 
+CallLinkInfo* StructureStubInfo::callLinkInfoAt(const ConcurrentJSLocker& locker, unsigned index)
+{
+    if (!m_handler)
+        return nullptr;
+    return m_handler->callLinkInfoAt(locker, index);
+}
+
 StubInfoSummary StructureStubInfo::summary(VM& vm) const
 {
     StubInfoSummary takesSlowPath = StubInfoSummary::TakesSlowPath;
@@ -421,6 +428,8 @@ StubInfoSummary StructureStubInfo::summary(VM& vm) const
             case AccessCase::IndexedMegamorphicLoad:
             case AccessCase::StoreMegamorphic:
             case AccessCase::IndexedMegamorphicStore:
+            case AccessCase::InMegamorphic:
+            case AccessCase::IndexedMegamorphicIn:
                 return StubInfoSummary::Megamorphic;
             default:
                 break;
@@ -796,6 +805,8 @@ RefPtr<PolymorphicAccessJITStubRoutine> SharedJITStubSet::getMegamorphic(AccessT
     case AccessType::PutByValStrict:
     case AccessType::PutByValSloppy:
         return m_putByValMegamorphic;
+    case AccessType::InByVal:
+        return m_inByValMegamorphic;
     default:
         return nullptr;
     }
@@ -813,6 +824,9 @@ void SharedJITStubSet::setMegamorphic(AccessType type, Ref<PolymorphicAccessJITS
     case AccessType::PutByValStrict:
     case AccessType::PutByValSloppy:
         m_putByValMegamorphic = WTFMove(stub);
+        break;
+    case AccessType::InByVal:
+        m_inByValMegamorphic = WTFMove(stub);
         break;
     default:
         break;

@@ -4989,18 +4989,18 @@ Node* ByteCodeParser::load(
 
 ObjectPropertyCondition ByteCodeParser::presenceConditionIfConsistent(JSObject* knownBase, UniquedStringImpl* uid, PropertyOffset offset, const StructureSet& set)
 {
-    if (set.isEmpty())
-        return ObjectPropertyCondition();
+    Structure* structure = knownBase->structure();
     unsigned attributes;
-    PropertyOffset firstOffset = set[0]->getConcurrently(uid, attributes);
-    if (firstOffset != offset)
+    PropertyOffset baseOffset = structure->getConcurrently(uid, attributes);
+    if (offset != baseOffset)
         return ObjectPropertyCondition();
-    for (unsigned i = 1; i < set.size(); ++i) {
-        unsigned otherAttributes;
-        PropertyOffset otherOffset = set[i]->getConcurrently(uid, otherAttributes);
-        if (otherOffset != offset || otherAttributes != attributes)
-            return ObjectPropertyCondition();
-    }
+
+    // We need to check set contains knownBase's structure because knownBase's GetOwnPropertySlot could normally prevent access
+    // to this property, for example via a cross-origin restriction check. So unless we've executed this access before we can't assume
+    // just because knownBase has a property uid at offset we're allowed to access.
+    if (!set.contains(structure))
+        return ObjectPropertyCondition();
+
     return ObjectPropertyCondition::presenceWithoutBarrier(knownBase, uid, offset, attributes);
 }
 
@@ -5584,6 +5584,11 @@ void ByteCodeParser::handleInById(VirtualRegister destination, Node* base, Cache
 {
     if (handleInByAsMatchStructure(destination, base, status))
         return;
+
+    if (status.isMegamorphic() && canUseMegamorphicInById(*m_vm, identifier.uid())) {
+        set(destination, addToGraph(InByIdMegamorphic, OpInfo(identifier), base));
+        return;
+    }
 
     set(destination, addToGraph(InById, OpInfo(identifier), base));
 }
@@ -9054,14 +9059,12 @@ void ByteCodeParser::parseBlock(unsigned limit)
             Node* property = get(bytecode.m_property);
             bool compiledAsInById = false;
 
+            InByStatus status = InByStatus::computeFor(
+                m_inlineStackTop->m_profiledBlock, m_inlineStackTop->m_baselineMap,
+                m_icContextStack, currentCodeOrigin());
             if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIdent)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)) {
-
-                InByStatus status = InByStatus::computeFor(
-                    m_inlineStackTop->m_profiledBlock, m_inlineStackTop->m_baselineMap,
-                    m_icContextStack, currentCodeOrigin());
-
                 if (CacheableIdentifier identifier = status.singleIdentifier()) {
                     UniquedStringImpl* uid = identifier.uid();
                     m_graph.identifiers().ensure(uid);
@@ -9081,7 +9084,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
             if (!compiledAsInById) {
                 ArrayMode arrayMode = getArrayMode(bytecode.metadata(codeBlock).m_arrayProfile, Array::Read);
-                set(bytecode.m_dst, addToGraph(InByVal, OpInfo(arrayMode.asWord()), base, property));
+                set(bytecode.m_dst, addToGraph(status.isMegamorphic() ? InByValMegamorphic : InByVal, OpInfo(arrayMode.asWord()), base, property));
             }
             NEXT_OPCODE(op_in_by_val);
         }
@@ -9282,8 +9285,17 @@ void ByteCodeParser::parseBlock(unsigned limit)
             auto& metadata = bytecode.metadata(codeBlock);
             ArrayMode arrayMode = getArrayMode(metadata.m_arrayProfile, Array::Read);
 
-            addVarArgChild(get(bytecode.m_base));
-            addVarArgChild(get(bytecode.m_propertyName));
+            Node* base = get(bytecode.m_base);
+            Node* property = get(bytecode.m_propertyName);
+
+            InByStatus inByStatus = InByStatus::computeFor(m_inlineStackTop->m_profiledBlock, m_inlineStackTop->m_baselineMap, m_icContextStack, currentCodeOrigin());
+            if (inByStatus.isMegamorphic()) {
+                set(bytecode.m_dst, addToGraph(InByValMegamorphic, OpInfo(arrayMode.asWord()), base, property));
+                NEXT_OPCODE(op_enumerator_in_by_val);
+            }
+
+            addVarArgChild(base);
+            addVarArgChild(property);
             addVarArgChild(get(bytecode.m_index));
             addVarArgChild(get(bytecode.m_mode));
             addVarArgChild(get(bytecode.m_enumerator));

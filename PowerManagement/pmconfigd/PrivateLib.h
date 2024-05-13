@@ -115,6 +115,7 @@
 #define USBDEVICEMODE_LOG           "usbdevicemode"
 #define BATTERY_AUTH_LOG            "batteryAuth"
 #define WAKE_PERF_LOG               "wakePerfLog"
+#define BATTERY_CAPACITY_MONITOR_LOG    "batteryCapacityMonitor"
 
 #ifndef LOG_STREAM
 #define LOG_STREAM OS_LOG_DEFAULT

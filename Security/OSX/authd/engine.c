@@ -548,11 +548,11 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
     
     Boolean apUsed = auth_items_exist(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
     const char *uname = NULL;
-    int uid = -1;
+    uid_t uid = (uid_t)-1;
     
     if (auth_items_exist(engine->context, "sheet-uid")) {
         uid = auth_items_get_uint(engine->context, "sheet-uid");
-    } else if (uid == -1) {
+    } else if (uid == (uid_t)-1) {
         if (apUsed) {
             uname = auth_items_get_string(engine->context, AGENT_CONTEXT_AP_USER_NAME);
         } else {
@@ -560,7 +560,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
         }
     }
     
-    if (!uname && uid > -1) {
+    if (!uname && uid != (uid_t)-1) {
         // we did not get user from Username or AHP username field but we have UID so try it
         struct passwd *pw = getpwuid(uid);
         if (pw) {

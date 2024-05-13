@@ -67,6 +67,11 @@ extern NSString *const kSecurityRTCEventNameInitiatorImportsInitialSyncData;
 extern NSString *const kSecurityRTCEventNameAcceptorCreatesVoucher;
 extern NSString *const kSecurityRTCEventNameAcceptorFetchesInitialSyncData;
 extern NSString *const kSecurityRTCEventNameNumberOfTrustedOctagonPeers;
+extern NSString *const kSecurityRTCEventNameDuplicateMachineID;
+extern NSString *const kSecurityRTCEventNameMIDVanishedFromTDL;
+extern NSString *const kSecurityRTCEventNameTDLProcessingSuccess;
+extern NSString *const kSecurityRTCEventNameAllowedMIDHashMismatch;
+extern NSString *const kSecurityRTCEventNameDeletedMIDHashMismatch;
 
 // MARK: RTC Fields
 
@@ -84,6 +89,7 @@ extern NSString *const kSecurityRTCFieldNumberOfTrustedPeers;
 extern NSString *const kSecurityRTCFieldSecurityLevel;
 extern NSString *const kSecurityRTCFieldRetryAttemptCount;
 extern NSString *const kSecurityRTCFieldTotalRetryDuration;
+extern NSString *const kSecurityRTCFieldEgoMachineIDVanishedFromTDL;
 
 extern NSString *const kSecurityRTCEventNameLaunchStart;
 extern NSString *const kSecurityRTCEventNameSyncingPolicySet;

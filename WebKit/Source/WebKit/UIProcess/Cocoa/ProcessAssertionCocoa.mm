@@ -43,6 +43,12 @@
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/WorkQueue.h>
 
+#if USE(EXTENSIONKIT)
+#import <BrowserEngineKit/BENetworkingProcess.h>
+#import <BrowserEngineKit/BERenderingProcess.h>
+#import <BrowserEngineKit/BEWebContentProcess.h>
+#endif
+
 #if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIApplication.h>
 
@@ -336,6 +342,8 @@ static ASCIILiteral runningBoardNameForAssertionType(ProcessAssertionType assert
         return "Foreground"_s;
     case ProcessAssertionType::MediaPlayback:
         return "MediaPlayback"_s;
+    case ProcessAssertionType::FinishTaskCanSleep:
+        return "FinishTaskCanSleep"_s;
     case ProcessAssertionType::FinishTaskInterruptable:
         return "FinishTaskInterruptable"_s;
     case ProcessAssertionType::BoostedJetsam:
@@ -353,6 +361,7 @@ static ASCIILiteral runningBoardDomainForAssertionType(ProcessAssertionType asse
     case ProcessAssertionType::MediaPlayback:
     case ProcessAssertionType::BoostedJetsam:
         return "com.apple.webkit"_s;
+    case ProcessAssertionType::FinishTaskCanSleep:
     case ProcessAssertionType::FinishTaskInterruptable:
         return "com.apple.common"_s;
     }
@@ -397,7 +406,7 @@ ProcessAssertion::ProcessAssertion(AuxiliaryProcessProxy& process, const String&
         };
         m_capability = AssertionCapability { process.environmentIdentifier(), runningBoardDomain, runningBoardAssertionName, WTFMove(willInvalidateBlock), WTFMove(didInvalidateBlock) };
         m_process = process.extensionProcess();
-        if (m_capability && m_capability->platformCapability())
+        if (m_capability && m_capability->hasPlatformCapability())
             return;
         RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() Failed to create capability %s", this, runningBoardAssertionName.characters());
     }
@@ -469,16 +478,17 @@ void ProcessAssertion::acquireSync()
 {
     RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion::acquireSync Trying to take RBS assertion '%{public}s' for process with PID=%d", this, m_reason.utf8().data(), m_pid);
 #if USE(EXTENSIONKIT)
-    Locker locker { s_capabilityLock };
-    if (m_process && m_capability) {
-        NSError *error = nil;
-        m_grant = [m_process grantCapability:m_capability->platformCapability().get() error:&error];
-        if (m_grant) {
+    if (m_process && m_capability && m_capability->hasPlatformCapability()) {
+        auto capability = m_capability->platformCapability();
+        Locker locker { s_capabilityLock };
+        auto grant = m_process->grantCapability(capability);
+        m_grant.setPlatformGrant(WTFMove(grant));
+        if (m_grant.isValid()) {
             RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() Successfully granted capability", this);
             return;
         }
         ASCIILiteral runningBoardAssertionName = runningBoardNameForAssertionType(m_assertionType);
-        RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() Failed to grant capability %s with error %@", this, runningBoardAssertionName.characters(), error);
+        RELEASE_LOG(ProcessSuspension, "%p - ProcessAssertion() Failed to grant capability %s", this, runningBoardAssertionName.characters());
     }
 #endif
     NSError *acquisitionError = nil;
@@ -506,7 +516,7 @@ ProcessAssertion::~ProcessAssertion()
 
 #if USE(EXTENSIONKIT)
     Locker locker { s_capabilityLock };
-    [m_grant invalidateWithError:nil];
+    m_grant.invalidate();
 #endif
 }
 

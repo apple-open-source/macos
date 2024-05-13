@@ -2390,8 +2390,7 @@ restart:
 		NACCESSINVALIDATE(np);
 		nfs_node_unlock(np);
 		if (!namedattrs) {
-			dvp = vnode_getparent(vp);
-			vname = vnode_getname(vp);
+			vnode_getparent_and_name(vp, &dvp, &vname);
 			dnp = (dvp && vname) ? VTONFS(dvp) : NULL;
 			if (dnp) {
 				if (nfs_node_set_busy(dnp, vfs_context_thread(ctx))) {
@@ -4624,7 +4623,7 @@ nfs_vnop_remove(
 	struct componentname *cnp = ap->a_cnp;
 	nfsnode_t dnp = VTONFS(dvp);
 	nfsnode_t np = NULL;
-	int error = 0, nfsvers, namedattrs, inuse, gotattr = 0, flushed = 0, cleanup = 0;
+	int error = 0, nfsvers, namedattrs, inuse, gotattr = 0, flushed = 0, cleanup = 0, did_again = 0;
 	struct nfs_vattr *nvattr;
 	struct nfsmount *nmp = NFSTONMP(dnp);
 	struct nfs_dulookup *dul;
@@ -4693,11 +4692,14 @@ again:
 		error = EBUSY;
 		goto out;
 	}
-	if (inuse && !gotattr) {
+	if (!gotattr) {
 		if (nfs_getattr(np, nvattr, ctx, NGA_CACHED)) {
 			nvattr->nva_nlink = 1;
 		}
 		gotattr = 1;
+	}
+	if (inuse && !did_again) {
+		did_again = 1;
 		goto again;
 	}
 	if (!inuse || (np->n_sillyrename && (nvattr->nva_nlink > 1))) {
@@ -4758,7 +4760,7 @@ again:
 			error = 0;
 		}
 
-		if (!error && !inuse && !np->n_sillyrename) {
+		if (!error && !inuse && !np->n_sillyrename && nvattr->nva_nlink <= 1) {
 			/*
 			 * removal succeeded, it's not in use, and not silly renamed so
 			 * remove nfsnode from hash now so we can't accidentally find it
@@ -4783,6 +4785,18 @@ again:
 		} else {
 			nfs_node_lock_force(np);
 			NATTRINVALIDATE(np);
+			if (nvattr->nva_nlink > 1) {
+				/*
+				 * We just changed the attributes and we want to make sure that we
+				 * see the latest attributes.  Get the next XID.  If it's not the
+				 * next XID after the REMOVE XID, then it's possible that another
+				 * RPC was in flight at the same time and it might put stale attributes
+				 * in the cache.  In that case, we invalidate the attributes and set
+				 * the attribute cache XID to guarantee that newer attributes will
+				 * get loaded next.
+				 */
+				nfs_get_xid(&np->n_xid);
+			}
 			nfs_node_unlock(np);
 		}
 	} else if (!np->n_sillyrename) {

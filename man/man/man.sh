@@ -1077,10 +1077,10 @@ search_whatis() {
 		if [ -f "$path/$f" -a -r "$path/$f" ]; then
 			decho "Found whatis: $path/$f"
 #ifdef __APPLE__
-			wlist="$wlist:$path/$f"
+			wlist="$wlist%$path/$f"
 		else
 			decho "Using makewhatis.local: $path"
-			localwlist="$localwlist:$path"
+			localwlist="$localwlist%$path"
 #else
 #			wlist="$wlist $path/$f"
 #endif
@@ -1090,7 +1090,7 @@ search_whatis() {
 			if [ -f "$path/$loc/$f" -a -r "$path/$loc/$f" ]; then
 				decho "Found whatis: $path/$loc/$f"
 #ifdef __APPLE__
-				wlist="$wlist:$path/$loc/$f"
+				wlist="$wlist%$path/$loc/$f"
 #else
 #				wlist="$wlist $path/$loc/$f"
 #endif
@@ -1110,15 +1110,15 @@ search_whatis() {
 
 #ifdef __APPLE__
 	if [ -n "$MANSECT" ]; then
-		sectfilter="$GREP -E "
+		sectfilter=""
 		IFS=:
 		for sect in $MANSECT; do
-			sectfilter="${sectfilter} -e '\\(${sect}\\).*[[:space:]]-[[:space:]]'"
+			sectfilter="${sectfilter}|${sect}"
 		done
 		unset IFS
-		sectfilter="${sectfilter}"
+		sectfilter="\\((${sectfilter#|})\\).*[[:space:]]-[[:space:]]"
 	else
-		sectfilter="$CAT"
+		sectfilter="."
 	fi
 
 	decho "${sectfilter}"
@@ -1133,10 +1133,10 @@ search_whatis() {
 		# Apple systems frequently won't have any directories in manpath
 		# with a whatis database.
 		if [ -n "$wlist" ]; then
-			wlist=${wlist##:}
-			IFS=:
+			wlist=${wlist#%}
+			IFS=%
 			out=$($GREP -Ehi $opt -- "$key" $wlist | \
-			    eval ${sectfilter} | $SED -e 's/\\n/\\\\n/g')
+			    $GREP -E "${sectfilter}" | $SED -e 's/\\n/\\\\n/g')
 			unset IFS
 			if [ -n "$out" ]; then
 				good="$good\n$out"
@@ -1154,11 +1154,12 @@ search_whatis() {
 #endif
 
 #ifdef __APPLE__
-		IFS=:
+		localwlist=${localwlist#%}
+		IFS=%
 		for path in $localwlist; do
 			out=$(/usr/libexec/makewhatis.local "-o /dev/fd/1" \
-			    "$path" | $GREP -Ehi $opt -- "$key" | eval ${sectfilter} | \
-			    $SED -e 's/\\n/\\\\n/g')
+			    "$path" | $GREP -Ehi $opt -- "$key" | \
+			    $GREP -E "${sectfilter}" | $SED -e 's/\\n/\\\\n/g')
 			if [ -n "$out" ]; then
 				good="$good\\n$out"
 				found=1

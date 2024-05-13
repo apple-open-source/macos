@@ -893,10 +893,8 @@
     [self.keychainZone addToZone:ckr];
     [self.keychainZone addToZone:ckr2];
 
-    // We expect a delete operation with the "higher" UUID.
-    [self expectCKDeleteItemRecords:1
-                             zoneID:self.keychainZoneID
-         expectedOperationGroupName:@"incoming-queue-response"];
+    // We expect an operation to delete the item with the "higher" UUID and re-add the item with the "lower" UUID.
+    [self expectCKModifyItemRecords:1 deletedRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID checkItem:nil expectedOperationGroupName:@"incoming-queue-response"];
 
     // Trigger a notification (with hilariously fake data)
     [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
@@ -909,6 +907,53 @@
 
     // And the local item should have ckr's UUID
     [self checkGenericPasswordStoredUUID:ckr.recordID.recordName account:@"account-delete-me"];
+}
+
+- (void)testReceiveIncomingItemConflictsWithExistingItemAtLowerUUID {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+    [self startCKKSSubsystem];
+
+    NSDictionary *query = @{(id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                            (id)kSecAttrAccount : @"account-delete-me",
+                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                            (id)kSecMatchLimit : (id)kSecMatchLimitOne,
+    };
+
+    CFTypeRef item = NULL;
+    XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should not yet exist");
+
+    // Add first item at lower UUID
+    CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName: @"11111111-1111-1111-1111-111111111111"];
+    [self.keychainZone addToZone:ckr];
+
+    // Trigger a notification (with hilariously fake data)
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should exist now");
+    [self waitForCKModifications];
+
+    // Add second item at higher UUID into CloudKit
+    CKRecord* ckr2 = [self createFakeRecord:self.keychainZoneID recordName: @"F9C58D31-7B59-481E-98AC-5A507ACB2D85"];
+    [self.keychainZone addToZone:ckr2];
+
+    // Trigger a notification (with hilariously fake data)
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+
+    // Set expectation that incoming item is deleted and existing item is re-affirmed
+    [self expectCKModifyItemRecords:1 deletedRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID checkItem:nil expectedOperationGroupName:@"incoming-queue-response"];
+
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+
+    // Verify that incoming item is also deleted from CloudKit and existing item is retained
+    XCTAssertNil(self.keychainZone.currentDatabase[ckr2.recordID], "Correct record was deleted from CloudKit");
+    XCTAssertNotNil(self.keychainZone.currentDatabase[ckr.recordID], "Correct record should have been retained in CloudKit");
+
+    // And the local item should have ckr's UUID
+    [self checkGenericPasswordStoredUUID:ckr.recordID.recordName account:@"account-delete-me"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testReceiveCorruptedItem {

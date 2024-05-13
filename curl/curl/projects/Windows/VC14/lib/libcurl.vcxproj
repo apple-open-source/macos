@@ -2532,8 +2532,10 @@
     <ClCompile Include="..\..\..\..\lib\vauth\vauth.c" />
     <ClCompile Include="..\..\..\..\lib\vquic\curl_msh3.c" />
     <ClCompile Include="..\..\..\..\lib\vquic\curl_ngtcp2.c" />
+    <ClCompile Include="..\..\..\..\lib\vquic\curl_osslq.c" />
     <ClCompile Include="..\..\..\..\lib\vquic\curl_quiche.c" />
     <ClCompile Include="..\..\..\..\lib\vquic\vquic.c" />
+    <ClCompile Include="..\..\..\..\lib\vquic\vquic-tls.c" />
     <ClCompile Include="..\..\..\..\lib\vssh\libssh2.c" />
     <ClCompile Include="..\..\..\..\lib\vssh\libssh.c" />
     <ClCompile Include="..\..\..\..\lib\vssh\wolfssh.c" />
@@ -2691,9 +2693,11 @@
     <ClInclude Include="..\..\..\..\lib\vauth\vauth.h" />
     <ClInclude Include="..\..\..\..\lib\vquic\curl_msh3.h" />
     <ClInclude Include="..\..\..\..\lib\vquic\curl_ngtcp2.h" />
+    <ClInclude Include="..\..\..\..\lib\vquic\curl_osslq.h" />
     <ClInclude Include="..\..\..\..\lib\vquic\curl_quiche.h" />
     <ClInclude Include="..\..\..\..\lib\vquic\vquic.h" />
     <ClInclude Include="..\..\..\..\lib\vquic\vquic_int.h" />
+    <ClInclude Include="..\..\..\..\lib\vquic\vquic-tls.h" />
     <ClInclude Include="..\..\..\..\lib\vssh\ssh.h" />
     <ClInclude Include="..\..\..\..\lib\vtls\bearssl.h" />
     <ClInclude Include="..\..\..\..\lib\vtls\gtls.h" />

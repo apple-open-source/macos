@@ -12,9 +12,9 @@ CURL_PREFIX = /usr/local
 CURL_PREFIX[sdk=macosx*] = /usr
 
 // May need to be updated.
-CURL_CONFIGURE_OPTIONS[sdk=iphone*] = --enable-hidden-symbols --enable-threaded-resolver --disable-ldap --with-darwinssl
-CURL_CONFIGURE_OPTIONS[sdk=macosx*] = --enable-hidden-symbols --enable-threaded-resolver --with-gssapi --with-ssl=/usr/local/libressl --with-secure-transport
-CURL_SUPPORT_FEATURES[sdk=iphone*] = SSL IPv6 UnixSockets libz AsynchDNS NTLM NTLM_WB HTTP2
-CURL_SUPPORT_FEATURES[sdk=macosx*] = AsynchDNS GSS-API HTTPS-proxy IPv6 Kerberos Largefile MultiSSL NTLM NTLM_WB SPNEGO SSL UnixSockets alt-svc libz
-CURL_SUPPORT_PROTOCOLS[sdk=iphone*] = DICT FILE FTP FTPS GOPHER HTTP HTTPS IMAP IMAPS POP3 POP3S RTSP SMB SMBS SMTP SMTPS TELNET TFTP
+CURL_CONFIGURE_OPTIONS[sdk=iphone*] = --enable-threaded-resolver --disable-ldap --with-darwinssl
+CURL_CONFIGURE_OPTIONS[sdk=macosx*] = --enable-threaded-resolver --with-gssapi --with-ssl=/usr/local/libressl --with-secure-transport
+CURL_SUPPORT_FEATURES[sdk=iphone*] = AsynchDNS HSTS HTTP2 HTTPS-proxy Largefile NTLM SSL UnixSockets alt-svc libz threadsafe
+CURL_SUPPORT_FEATURES[sdk=macosx*] = AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy Kerberos Largefile MultiSSL NTLM SPNEGO SSL UnixSockets alt-svc libz threadsafe
+CURL_SUPPORT_PROTOCOLS[sdk=iphone*] = DICT FILE FTP FTPS GOPHER GOPHERS HTTP HTTPS IMAP IMAPS MQTT POP3 POP3S RTSP SMB SMBS SMTP SMTPS TELNET TFTP
 CURL_SUPPORT_PROTOCOLS[sdk=macosx*] = DICT FILE FTP FTPS GOPHER GOPHERS HTTP HTTPS IMAP IMAPS LDAP LDAPS MQTT POP3 POP3S RTSP SMB SMBS SMTP SMTPS TELNET TFTP

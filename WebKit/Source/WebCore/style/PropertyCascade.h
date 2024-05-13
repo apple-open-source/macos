@@ -44,9 +44,11 @@ public:
         Inherited = 1 << 1,
         ExplicitlyInherited = 1 << 2,
         AfterAnimation = 1 << 3,
-        AfterTransition = 1 << 4
+        AfterTransition = 1 << 4,
+        StartingStyle = 1 << 5,
     };
-    static constexpr OptionSet<PropertyType> allProperties() { return { PropertyType::NonInherited,  PropertyType::Inherited }; }
+    static constexpr OptionSet<PropertyType> normalProperties() { return { PropertyType::NonInherited,  PropertyType::Inherited }; }
+    static constexpr OptionSet<PropertyType> startingStyleProperties() { return normalProperties() | PropertyType::StartingStyle; }
 
     PropertyCascade(const MatchResult&, CascadeLevel, OptionSet<PropertyType> includedProperties, const HashSet<AnimatableCSSProperty>* = nullptr);
     PropertyCascade(const PropertyCascade&, CascadeLevel, std::optional<ScopeOrdinal> rollbackScope = { }, std::optional<CascadeLayerPriority> maximumCascadeLayerPriorityForRollback = { });

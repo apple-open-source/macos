@@ -509,6 +509,7 @@ static Boolean __DARequestMount( DARequestRef request )
             status = kDAReturnUnsupported;
         }
 
+       
         /*
          * Determine whether the disk is mounted.
          */
@@ -527,9 +528,12 @@ static Boolean __DARequestMount( DARequestRef request )
         }
         else
         {
-            if ( arguments != NULL && DAMountContainsArgument( arguments, kDAFileSystemMountArgumentSnapshot ) == TRUE)
+            if ( arguments != NULL )
             {
-                status = EINVAL;
+                if ( DAMountContainsArgument( arguments, kDAFileSystemMountArgumentSnapshot ) == TRUE)
+                {
+                    status = EINVAL;
+                }
             }
         }
 

@@ -38,6 +38,7 @@
 #import "NativeWebKeyboardEvent.h"
 #import "NativeWebTouchEvent.h"
 #import "PageClient.h"
+#import "PickerDismissalReason.h"
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreeViews.h"
 #import "RemoteScrollingCoordinatorProxyIOS.h"
@@ -1580,19 +1581,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [self _unregisterPreview];
 #endif
 
-    if (_fileUploadPanel) {
-        [_fileUploadPanel setDelegate:nil];
-        [_fileUploadPanel dismiss];
-        _fileUploadPanel = nil;
-    }
-
-#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
-    if (_shareSheet) {
-        [_shareSheet setDelegate:nil];
-        [_shareSheet dismiss];
-        _shareSheet = nil;
-    }
-#endif
+    [self dismissPickersIfNeededWithReason:WebKit::PickerDismissalReason::ProcessExited];
 
     [self stopDeferringInputViewUpdatesForAllSources];
     _focusedElementInformation = { };
@@ -4279,15 +4268,28 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
         return result;
 
     auto typingAttributes = _page->editorState().postLayoutData->typingAttributes;
-    
-    UIFont *font = _autocorrectionData.font.get();
+
+    RetainPtr font = _autocorrectionData.font.get();
     double zoomScale = self._contentZoomScale;
     if (std::abs(zoomScale - 1) > FLT_EPSILON)
-        font = [font fontWithSize:font.pointSize * zoomScale];
+        font = [font fontWithSize:[font pointSize] * zoomScale];
 
-    if (font)
-        [result setObject:font forKey:NSFontAttributeName];
-    
+    if (font) {
+        auto originalTraits = [font fontDescriptor].symbolicTraits;
+        auto newTraits = originalTraits;
+        if (typingAttributes.contains(WebKit::TypingAttribute::Bold))
+            newTraits |= UIFontDescriptorTraitBold;
+
+        if (typingAttributes.contains(WebKit::TypingAttribute::Italics))
+            newTraits |= UIFontDescriptorTraitItalic;
+
+        if (originalTraits != newTraits) {
+            RetainPtr descriptor = [[font fontDescriptor] ?: adoptNS([UIFontDescriptor new]) fontDescriptorWithSymbolicTraits:newTraits];
+            font = [UIFont fontWithDescriptor:descriptor.get() size:[font pointSize]];
+        }
+        [result setObject:font.get() forKey:NSFontAttributeName];
+    }
+
     if (typingAttributes.contains(WebKit::TypingAttribute::Underline))
         [result setObject:@(NSUnderlineStyleSingle) forKey:NSUnderlineStyleAttributeName];
 
@@ -6559,6 +6561,9 @@ static WebKit::WritingDirection coreWritingDirection(NSWritingDirection directio
 
 - (BOOL)hasText
 {
+    if (_isFocusingElementWithKeyboard || _page->waitingForPostLayoutEditorStateUpdateAfterFocusingElement())
+        return _focusedElementInformation.hasPlainText;
+
     auto& editorState = _page->editorState();
     return editorState.hasPostLayoutData() && editorState.postLayoutData->hasPlainText;
 }
@@ -7377,7 +7382,7 @@ inline static WKSEKeyModifierFlags shiftKeyState(UIKeyModifierFlags flags)
 
 - (void)dismissFilePicker
 {
-    [_fileUploadPanel dismiss];
+    [_fileUploadPanel dismissIfNeededWithReason:WebKit::PickerDismissalReason::Testing];
 }
 
 - (BOOL)isScrollableForKeyboardScrollViewAnimator:(WKKeyboardScrollViewAnimator *)animator
@@ -9088,12 +9093,20 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
         && [uiDelegate _webView:webView.get() fileUploadPanelContentIsManagedWithInitiatingFrame:wrapper(API::FrameInfo::create(WTFMove(_frameInfoForFileUploadPanel), _page.get())).get()];
 }
 
+#if HAVE(PHOTOS_UI)
+- (BOOL)fileUploadPanelPhotoPickerPrefersOriginalImageFormat:(WKFileUploadPanel *)fileUploadPanel
+{
+    ASSERT(_fileUploadPanel.get() == fileUploadPanel);
+    return _page->preferences().photoPickerPrefersOriginalImageFormat();
+}
+#endif
+
 - (void)_showShareSheet:(const WebCore::ShareDataWithParsedURL&)data inRect:(std::optional<WebCore::FloatRect>)rect completionHandler:(CompletionHandler<void(bool)>&&)completionHandler
 {
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     if (_shareSheet)
-        [_shareSheet dismiss];
-    
+        [_shareSheet dismissIfNeededWithReason:WebKit::PickerDismissalReason::ResetState];
+
     _shareSheet = adoptNS([[WKShareSheet alloc] initWithView:self.webView]);
     [_shareSheet setDelegate:self];
 
@@ -9159,6 +9172,22 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     [_webView _didDismissContactPicker];
 }
 #endif
+
+- (void)dismissPickersIfNeededWithReason:(WebKit::PickerDismissalReason)reason
+{
+    if ([_fileUploadPanel dismissIfNeededWithReason:reason])
+        _fileUploadPanel = nil;
+
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+    if ([_shareSheet dismissIfNeededWithReason:reason])
+        _shareSheet = nil;
+#endif
+
+#if HAVE(CONTACTSUI)
+    if ([_contactPicker dismissIfNeededWithReason:reason])
+        _contactPicker = nil;
+#endif
+}
 
 - (NSString *)inputLabelText
 {
@@ -10147,9 +10176,6 @@ static NSArray<NSItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
         return;
     }
 
-    auto numberOfAdditionalTypes = info.additionalTypes.size();
-    ASSERT(numberOfAdditionalTypes == info.additionalData.size());
-
     RELEASE_LOG(DragAndDrop, "Drag session: %p preparing to drag with attachment identifier: %s", session.get(), info.attachmentIdentifier.utf8().data());
 
     NSString *utiType = nil;
@@ -10163,11 +10189,9 @@ static NSArray<NSItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
     [registrationList setPreferredPresentationStyle:WebPreferredPresentationStyleAttachment];
     if ([fileName length])
         [registrationList setSuggestedName:fileName];
-    if (numberOfAdditionalTypes == info.additionalData.size() && numberOfAdditionalTypes) {
-        for (size_t index = 0; index < numberOfAdditionalTypes; ++index) {
-            auto nsData = info.additionalData[index]->createNSData();
-            [registrationList addData:nsData.get() forType:info.additionalTypes[index]];
-        }
+    for (size_t index = 0; index < info.additionalTypesAndData.size(); ++index) {
+        auto nsData = info.additionalTypesAndData[index].second->createNSData();
+        [registrationList addData:nsData.get() forType:info.additionalTypesAndData[index].first];
     }
 
     [registrationList addPromisedType:utiType fileCallback:[session = WTFMove(session), weakSelf = WeakObjCPtr<WKContentView>(self), info] (WebItemProviderFileCallback callback) {
@@ -11641,8 +11665,6 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
 
 static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& page, const WebCore::PromisedAttachmentInfo& info)
 {
-    auto numberOfAdditionalTypes = info.additionalTypes.size();
-    ASSERT(numberOfAdditionalTypes == info.additionalData.size());
 
     auto attachment = page.attachmentForIdentifier(info.attachmentIdentifier);
     if (!attachment)
@@ -11662,14 +11684,12 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     if ([fileName length])
         [item setSuggestedName:fileName];
 
-    if (numberOfAdditionalTypes == info.additionalData.size() && numberOfAdditionalTypes) {
-        for (size_t index = 0; index < numberOfAdditionalTypes; ++index) {
-            auto nsData = info.additionalData[index]->createNSData();
-            [item registerDataRepresentationForTypeIdentifier:info.additionalTypes[index] visibility:NSItemProviderRepresentationVisibilityAll loadHandler:[nsData](void (^completionHandler)(NSData *, NSError *)) -> NSProgress * {
-                completionHandler(nsData.get(), nil);
-                return nil;
-            }];
-        }
+    for (size_t index = 0; index < info.additionalTypesAndData.size(); ++index) {
+        auto nsData = info.additionalTypesAndData[index].second->createNSData();
+        [item registerDataRepresentationForTypeIdentifier:info.additionalTypesAndData[index].first visibility:NSItemProviderRepresentationVisibilityAll loadHandler:[nsData](void (^completionHandler)(NSData *, NSError *)) -> NSProgress * {
+            completionHandler(nsData.get(), nil);
+            return nil;
+        }];
     }
 
     [item registerDataRepresentationForTypeIdentifier:utiType visibility:NSItemProviderRepresentationVisibilityAll loadHandler:[attachment](void (^completionHandler)(NSData *, NSError *)) -> NSProgress * {
@@ -12394,29 +12414,20 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
     bool updated = false;
     [self.contextMenuInteraction updateVisibleMenuWithBlock:makeBlockPtr([&](UIMenu *menu) -> UIMenu * {
         updated = true;
-        __block auto indexOfPlaceholder = NSNotFound;
-        __block BOOL foundCopyItem = NO;
+        __block BOOL foundRevealImageItem = NO;
+        __block BOOL foundShowTextItem = NO;
         auto revealImageIdentifier = elementActionTypeToUIActionIdentifier(_WKElementActionTypeRevealImage);
-        auto copyIdentifier = elementActionTypeToUIActionIdentifier(_WKElementActionTypeCopy);
+        auto showTextIdentifier = elementActionTypeToUIActionIdentifier(_WKElementActionTypeImageExtraction);
         [menu.children enumerateObjectsUsingBlock:^(UIMenuElement *child, NSUInteger index, BOOL* stop) {
             auto *action = dynamic_objc_cast<UIAction>(child);
-            if ([action.identifier isEqualToString:revealImageIdentifier] && (action.attributes & UIMenuElementAttributesHidden))
-                indexOfPlaceholder = index;
-            else if ([action.identifier isEqualToString:copyIdentifier])
-                foundCopyItem = YES;
+            if ([action.identifier isEqualToString:revealImageIdentifier])
+                foundRevealImageItem = YES;
+            else if ([action.identifier isEqualToString:showTextIdentifier])
+                foundShowTextItem = YES;
         }];
 
-        if (indexOfPlaceholder == NSNotFound)
-            return menu;
-
         auto adjustedChildren = adoptNS(menu.children.mutableCopy);
-        auto replacements = adoptNS([NSMutableArray<UIMenuElement *> new]);
-
-        auto *elementInfo = [_WKActivatedElementInfo activatedElementInfoWithInteractionInformationAtPosition:_positionInformation userInfo:nil];
-        auto addAction = [&](_WKElementActionType action) {
-            auto *elementAction = [_WKElementAction _elementActionWithType:action info:elementInfo assistant:_actionSheetAssistant.get()];
-            [replacements addObject:[elementAction uiActionForElementInfo:elementInfo]];
-        };
+        auto newItems = adoptNS([NSMutableArray<UIMenuElement *> new]);
 
         for (UIMenuElement *child in adjustedChildren.get()) {
             UIAction *action = dynamic_objc_cast<UIAction>(child);
@@ -12424,7 +12435,7 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
                 continue;
 
             if ([action.identifier isEqual:elementActionTypeToUIActionIdentifier(_WKElementActionTypeCopyCroppedImage)]) {
-                if (foundCopyItem && self.copySubjectResultForImageContextMenu)
+                if (self.copySubjectResultForImageContextMenu)
                     action.attributes &= ~UIMenuElementAttributesDisabled;
 
                 continue;
@@ -12438,14 +12449,24 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
             }
         }
 
-        if (self.hasSelectableTextForImageContextMenu)
-            addAction(_WKElementActionTypeImageExtraction);
+        if (!foundShowTextItem && self.hasSelectableTextForImageContextMenu) {
+            // Dynamically insert the "Show Text" menu item, if it wasn't already inserted.
+            // FIXME: This should probably be inserted unconditionally, and enabled if needed
+            // like Look Up or Copy Subject.
+            auto *elementInfo = [_WKActivatedElementInfo activatedElementInfoWithInteractionInformationAtPosition:_positionInformation userInfo:nil];
+            auto *elementAction = [_WKElementAction _elementActionWithType:_WKElementActionTypeImageExtraction info:elementInfo assistant:_actionSheetAssistant.get()];
+            [newItems addObject:[elementAction uiActionForElementInfo:elementInfo]];
+        }
 
-        if (UIMenu *subMenu = self.machineReadableCodeSubMenuForImageContextMenu)
-            [replacements addObject:subMenu];
+        if (foundRevealImageItem) {
+            // Only dynamically insert machine-readable code items if the client didn't explicitly
+            // remove the Look Up ("reveal image") item.
+            if (UIMenu *subMenu = self.machineReadableCodeSubMenuForImageContextMenu)
+                [newItems addObject:subMenu];
+        }
 
-        RELEASE_LOG(ImageAnalysis, "Dynamically inserting %zu context menu action(s)", [replacements count]);
-        [adjustedChildren replaceObjectsInRange:NSMakeRange(indexOfPlaceholder, 1) withObjectsFromArray:replacements.get()];
+        RELEASE_LOG(ImageAnalysis, "Dynamically inserting %zu context menu action(s)", [newItems count]);
+        [adjustedChildren addObjectsFromArray:newItems.get()];
         return [menu menuByReplacingChildren:adjustedChildren.get()];
     }).get()];
 

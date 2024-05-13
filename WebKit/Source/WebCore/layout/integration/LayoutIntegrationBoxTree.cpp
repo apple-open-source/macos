@@ -361,6 +361,19 @@ Layout::ElementBox& BoxTree::layoutBoxForRenderer(const RenderElement& renderer)
     return downcast<Layout::ElementBox>(layoutBoxForRenderer(static_cast<const RenderObject&>(renderer)));
 }
 
+bool BoxTree::contains(const RenderElement& rendererToFind) const
+{
+    if (!rendererToFind.layoutBox())
+        return false;
+    if (m_boxToRendererMap.contains(*rendererToFind.layoutBox()))
+        return true;
+    for (auto& renderer : m_renderers) {
+        if (renderer.get() == &rendererToFind)
+            return true;
+    }
+    return false;
+}
+
 RenderObject& BoxTree::rendererForLayoutBox(const Layout::Box& box)
 {
     if (&box == &rootLayoutBox())
@@ -379,19 +392,6 @@ RenderObject& BoxTree::rendererForLayoutBox(const Layout::Box& box)
             m_boxToRendererMap.add(*renderer->layoutBox(), renderer);
     }
     return *m_boxToRendererMap.get(&box);
-}
-
-bool BoxTree::contains(const RenderElement& rendererToFind) const
-{
-    if (!rendererToFind.layoutBox())
-        return false;
-    if (m_boxToRendererMap.contains(*rendererToFind.layoutBox()))
-        return true;
-    for (auto& renderer : m_renderers) {
-        if (renderer.get() == &rendererToFind)
-            return true;
-    }
-    return false;
 }
 
 const RenderObject& BoxTree::rendererForLayoutBox(const Layout::Box& box) const

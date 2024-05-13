@@ -176,18 +176,16 @@ void AsyncScrollingCoordinator::frameViewVisualViewportChanged(LocalFrameView& f
         return;
     
     // If the root layer does not have a ScrollingStateNode, then we should create one.
-    auto node = m_scrollingStateTree->stateNodeForID(frameView.scrollingNodeID());
-    if (!node)
+    RefPtr frameScrollingNode = dynamicDowncast<ScrollingStateFrameScrollingNode>(m_scrollingStateTree->stateNodeForID(frameView.scrollingNodeID()));
+    if (!frameScrollingNode)
         return;
-
-    auto& frameScrollingNode = downcast<ScrollingStateFrameScrollingNode>(*node);
 
     auto visualViewportIsSmallerThanLayoutViewport = [](const LocalFrameView& frameView) {
         auto layoutViewport = frameView.layoutViewportRect();
         auto visualViewport = frameView.visualViewportRect();
         return visualViewport.width() < layoutViewport.width() || visualViewport.height() < layoutViewport.height();
     };
-    frameScrollingNode.setVisualViewportIsSmallerThanLayoutViewport(visualViewportIsSmallerThanLayoutViewport(frameView));
+    frameScrollingNode->setVisualViewportIsSmallerThanLayoutViewport(visualViewportIsSmallerThanLayoutViewport(frameView));
 }
 
 void AsyncScrollingCoordinator::frameViewWillBeDetached(LocalFrameView& frameView)
@@ -264,6 +262,7 @@ void AsyncScrollingCoordinator::frameViewRootLayerDidChange(LocalFrameView& fram
     node->setScrollBehaviorForFixedElements(frameView.scrollBehaviorForFixedElements());
     node->setVerticalScrollbarLayer(frameView.layerForVerticalScrollbar());
     node->setHorizontalScrollbarLayer(frameView.layerForHorizontalScrollbar());
+    node->setScrollbarLayoutDirection(frameView.shouldPlaceVerticalScrollbarOnLeft() ? UserInterfaceLayoutDirection::RTL : UserInterfaceLayoutDirection::LTR);
 }
 
 bool AsyncScrollingCoordinator::requestStartKeyboardScrollAnimation(ScrollableArea& scrollableArea, const KeyboardScroll& scrollData)
@@ -371,6 +370,21 @@ void AsyncScrollingCoordinator::stopAnimatedScroll(ScrollableArea& scrollableAre
     stateNode->setRequestedScrollData({ ScrollRequestType::CancelAnimatedScroll, { } });
     // FIXME: This should schedule a rendering update
     commitTreeStateIfNeeded();
+}
+
+void AsyncScrollingCoordinator::setScrollbarLayoutDirection(ScrollableArea& scrollableArea, UserInterfaceLayoutDirection scrollbarLayoutDirection)
+{
+    ASSERT(isMainThread());
+    ASSERT(m_page);
+    auto scrollingNodeID = scrollableArea.scrollingNodeID();
+    if (!scrollingNodeID)
+        return;
+
+    RefPtr stateNode = dynamicDowncast<ScrollingStateScrollingNode>(m_scrollingStateTree->stateNodeForID(scrollingNodeID));
+    if (!stateNode)
+        return;
+
+    stateNode->setScrollbarLayoutDirection(scrollbarLayoutDirection);
 }
 
 void AsyncScrollingCoordinator::setMouseIsOverScrollbar(Scrollbar* scrollbar, bool isOverScrollbar)
@@ -782,6 +796,7 @@ void AsyncScrollingCoordinator::scrollableAreaScrollbarLayerDidChange(Scrollable
             scrollingNode.setVerticalScrollbarLayer(scrollableArea.layerForVerticalScrollbar());
         else
             scrollingNode.setHorizontalScrollbarLayer(scrollableArea.layerForHorizontalScrollbar());
+        scrollingNode.setScrollbarLayoutDirection(scrollableArea.shouldPlaceVerticalScrollbarOnLeft() ? UserInterfaceLayoutDirection::RTL : UserInterfaceLayoutDirection::LTR);
     }
 
     if (orientation == ScrollbarOrientation::Vertical)
@@ -876,6 +891,10 @@ void AsyncScrollingCoordinator::setNodeLayers(ScrollingNodeID nodeID, const Node
         scrollingNode.setScrolledContentsLayer(nodeLayers.scrolledContentsLayer);
         scrollingNode.setHorizontalScrollbarLayer(nodeLayers.horizontalScrollbarLayer);
         scrollingNode.setVerticalScrollbarLayer(nodeLayers.verticalScrollbarLayer);
+        if (RefPtr frameView = frameViewForScrollingNode(nodeID)) {
+            if (CheckedPtr scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
+                scrollingNode.setScrollbarLayoutDirection(scrollableArea->shouldPlaceVerticalScrollbarOnLeft() ? UserInterfaceLayoutDirection::RTL : UserInterfaceLayoutDirection::LTR);
+        }
 
         if (is<ScrollingStateFrameScrollingNode>(node)) {
             auto& frameScrollingNode = downcast<ScrollingStateFrameScrollingNode>(*node);
@@ -903,7 +922,7 @@ void AsyncScrollingCoordinator::setFrameScrollingNodeState(ScrollingNodeID nodeI
     frameScrollingNode.setLayoutViewport(frameView.layoutViewportRect());
     frameScrollingNode.setAsyncFrameOrOverflowScrollingEnabled(settings.asyncFrameScrollingEnabled() || settings.asyncOverflowScrollingEnabled());
     frameScrollingNode.setScrollingPerformanceTestingEnabled(settings.scrollingPerformanceTestingEnabled());
-    frameScrollingNode.setOverlayScrollbarsEnabled(WebCore::DeprecatedGlobalSettings::usesOverlayScrollbars());
+    frameScrollingNode.setOverlayScrollbarsEnabled(ScrollbarTheme::theme().usesOverlayScrollbars());
     frameScrollingNode.setWheelEventGesturesBecomeNonBlocking(settings.wheelEventGesturesBecomeNonBlocking());
 
     frameScrollingNode.setMinLayoutViewportOrigin(frameView.minStableLayoutViewportOrigin());
@@ -976,13 +995,13 @@ void AsyncScrollingCoordinator::setViewportConstraintedNodeConstraints(Scrolling
 
     switch (constraints.constraintType()) {
     case ViewportConstraints::FixedPositionConstraint: {
-        auto& fixedNode = downcast<ScrollingStateFixedNode>(*node);
-        fixedNode.updateConstraints((const FixedPositionViewportConstraints&)constraints);
+        if (RefPtr fixedNode = dynamicDowncast<ScrollingStateFixedNode>(node))
+            fixedNode->updateConstraints((const FixedPositionViewportConstraints&)constraints);
         break;
     }
     case ViewportConstraints::StickyPositionConstraint: {
-        auto& stickyNode = downcast<ScrollingStateStickyNode>(*node);
-        stickyNode.updateConstraints((const StickyPositionViewportConstraints&)constraints);
+        if (RefPtr stickyNode = dynamicDowncast<ScrollingStateStickyNode>(node))
+            stickyNode->updateConstraints((const StickyPositionViewportConstraints&)constraints);
         break;
     }
     }

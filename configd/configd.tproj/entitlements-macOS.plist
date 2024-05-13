@@ -35,5 +35,7 @@
 	<array>
 		<string>com.apple.private.wifi.driverkit</string>
 	</array>
+	<key>com.apple.private.route.iflist.include-clat46</key>
+	<true/>
 </dict>
 </plist>

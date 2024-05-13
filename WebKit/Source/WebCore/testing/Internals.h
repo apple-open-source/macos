@@ -240,6 +240,7 @@ public:
     unsigned imagePendingDecodePromisesCountForTesting(HTMLImageElement&);
     void setClearDecoderAfterAsyncFrameRequestForTesting(HTMLImageElement&, bool enabled);
     unsigned imageDecodeCount(HTMLImageElement&);
+    AtomString imageLastDecodingOptions(HTMLImageElement&);
     unsigned imageCachedSubimageCreateCount(HTMLImageElement&);
     unsigned remoteImagesCountForTesting() const;
     void setAsyncDecodingEnabledForTesting(HTMLImageElement&, bool enabled);
@@ -401,6 +402,7 @@ public:
 
     ExceptionOr<unsigned> wheelEventHandlerCount();
     ExceptionOr<unsigned> touchEventHandlerCount();
+    ExceptionOr<unsigned> scrollableAreaWidth(Node&);
 
     ExceptionOr<Ref<DOMRectList>> touchEventRectsForEvent(const String&);
     ExceptionOr<Ref<DOMRectList>> passiveTouchEventListenerRects();
@@ -673,6 +675,7 @@ public:
 
     String toolTipFromElement(Element&) const;
 
+    void forceAXObjectCacheUpdate() const;
     void forceReload(bool endToEnd);
     void reloadExpiredOnly();
 

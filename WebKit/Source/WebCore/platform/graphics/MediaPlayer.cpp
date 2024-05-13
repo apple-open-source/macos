@@ -51,6 +51,7 @@
 #include "VideoFrameMetadata.h"
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/Lock.h>
+#include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 #include "InbandTextTrackPrivate.h"
@@ -640,7 +641,11 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
                 m_private->startVideoFrameMetadataGathering();
             if (m_processIdentity)
                 m_private->setResourceOwner(m_processIdentity);
-            m_private->prepareForPlayback(m_privateBrowsing, m_preload, m_preservesPitch, m_shouldPrepareToRender);
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(ENCRYPTED_MEDIA)
+            if (m_shouldContinueAfterKeyNeeded)
+                m_private->setShouldContinueAfterKeyNeeded(m_shouldContinueAfterKeyNeeded);
+#endif
+            m_private->prepareForPlayback(m_privateBrowsing, m_preload, m_preservesPitch, m_shouldPrepareToPlay, m_shouldPrepareToRender);
         }
     }
 
@@ -700,6 +705,7 @@ void MediaPlayer::prepareToPlay()
 {
     Ref<MediaPlayer> protectedThis(*this);
 
+    m_shouldPrepareToPlay = true;
     m_private->prepareToPlay();
 }
 
@@ -765,7 +771,7 @@ void MediaPlayer::attemptToDecryptWithInstance(CDMInstance& instance)
 void MediaPlayer::setShouldContinueAfterKeyNeeded(bool should)
 {
     m_shouldContinueAfterKeyNeeded = should;
-    m_private->setShouldContinueAfterKeyNeeded(should);
+    m_private->setShouldContinueAfterKeyNeeded(m_shouldContinueAfterKeyNeeded);
 }
 #endif
 
@@ -1709,6 +1715,14 @@ std::optional<VideoPlaybackQualityMetrics> MediaPlayer::videoPlaybackQualityMetr
         return std::nullopt;
 
     return m_private->videoPlaybackQualityMetrics();
+}
+
+Ref<MediaPlayer::VideoPlaybackQualityMetricsPromise> MediaPlayer::asyncVideoPlaybackQualityMetrics()
+{
+    if (!m_private)
+        return VideoPlaybackQualityMetricsPromise::createAndReject(PlatformMediaError::Cancelled);
+
+    return m_private->asyncVideoPlaybackQualityMetrics();
 }
 
 String MediaPlayer::sourceApplicationIdentifier() const

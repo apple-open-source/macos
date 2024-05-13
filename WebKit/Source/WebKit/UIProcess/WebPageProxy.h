@@ -29,6 +29,7 @@
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include <WebCore/FrameIdentifier.h>
+#include <wtf/ApproximateTime.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/OptionSet.h>
@@ -81,6 +82,11 @@ class SharedBufferReference;
 template<typename> struct ConnectionSendSyncResult;
 using DataReference = std::span<const uint8_t>;
 }
+
+namespace JSC {
+enum class MessageSource : uint8_t;
+enum class MessageLevel : uint8_t;
+};
 
 namespace PAL {
 class SessionID;
@@ -274,6 +280,7 @@ struct ViewportAttributes;
 struct ViewportArguments;
 struct WheelEventHandlingResult;
 struct WindowFeatures;
+struct WrappedCryptoKey;
 
 template<typename> class ProcessQualified;
 template<typename> class RectEdges;
@@ -1683,7 +1690,7 @@ public:
 #endif
 
     void wrapCryptoKey(const Vector<uint8_t>&, CompletionHandler<void(bool, Vector<uint8_t>&&)>&&);
-    void unwrapCryptoKey(const Vector<uint8_t>&, CompletionHandler<void(bool, Vector<uint8_t>&&)>&&);
+    void unwrapCryptoKey(const WebCore::WrappedCryptoKey&, CompletionHandler<void(bool, Vector<uint8_t>&&)>&&);
 
     void takeSnapshot(WebCore::IntRect, WebCore::IntSize bitmapSize, SnapshotOptions, CompletionHandler<void(std::optional<ShareableBitmapHandle>&&)>&&);
 
@@ -2122,7 +2129,6 @@ public:
 
 #if ENABLE(APP_HIGHLIGHTS)
     void createAppHighlightInSelectedRange(WebCore::CreateNewGroupForHighlight, WebCore::HighlightRequestOriginatedInApp);
-    void storeAppHighlight(const WebCore::AppHighlight&);
     void restoreAppHighlightsAndScrollToIndex(const Vector<Ref<SharedMemory>>& highlights, const std::optional<unsigned> index);
     void setAppHighlightsVisibility(const WebCore::HighlightVisibility);
     bool appHighlightsVisibility();
@@ -2311,8 +2317,13 @@ public:
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     const std::optional<MediaCapability>& mediaCapability() const;
+    void resetMediaCapability();
     void updateMediaCapability();
 #endif
+
+    void addConsoleMessage(WebCore::FrameIdentifier, JSC::MessageSource, JSC::MessageLevel, const String&, std::optional<WebCore::ResourceLoaderIdentifier> = std::nullopt);
+
+    bool hasValidAudibleActivity() const;
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2534,7 +2545,7 @@ private:
     void setIsNeverRichlyEditableForTouchBar(bool);
 #endif
 
-    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::FrameIdentifier, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
     void willPerformPasteCommand(WebCore::DOMPasteAccessCategory);
 
     // Back/Forward list management
@@ -2881,6 +2892,7 @@ private:
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     void setMediaCapability(std::optional<MediaCapability>&&);
+    void deactivateMediaCapability(MediaCapability&);
     bool shouldActivateMediaCapability() const;
     bool shouldDeactivateMediaCapability() const;
 #endif
@@ -3060,6 +3072,8 @@ private:
 #if ENABLE(CONTEXT_MENUS)
     RefPtr<WebContextMenuProxy> m_activeContextMenu;
 #endif
+
+    Vector<std::pair<String, ApproximateTime>> m_recentlyRequestedDOMPasteOrigins;
 
 #if PLATFORM(MAC)
     RefPtr<API::HitTestResult> m_lastMouseMoveHitTestResult;

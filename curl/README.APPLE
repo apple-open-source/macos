@@ -28,11 +28,16 @@ Update xcscripts/install_libtest.sh (see comment at top) -- NOTE: This hasn't be
 
 == Configuration ==
 
+If you have tools installed via brew or other means you should consider adding somehting similiar to: PATH='/bin:/usr/bin/:/usr/local/bin:/usr/sbin' to the below commands
+to avoid picking up those binaries and configurations unintentionally.
+
 macOS:
-SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --with-gssapi --with-ssl=$(xcrun --show-sdk-path)/usr/local/libressl --with-secure-transport
+SDKROOT=macosx.internal ./configure --enable-threaded-resolver --with-gssapi --with-ssl=$(xcrun --show-sdk-path)/usr/local/libressl --with-secure-transport --without-libpsl
 
 iOS (etc):
-SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --disable-ldap --with-secure-transport
+SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --disable-ldap --with-secure-transport --without-libpsl
+
+Remember to check that the man pages are built and up to date when importing a new version now that they're not included in the dst tarball.
 
 Changes to curl_config.h post-configure:
   (1) Add #ifdef __LP64__ for SIZEOF_LONG, SIZEOF_SIZE_T, SIZEOF_TIME_T, SIZEOF_VOIDP

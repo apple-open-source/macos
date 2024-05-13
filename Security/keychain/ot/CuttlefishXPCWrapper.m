@@ -212,6 +212,13 @@ enum {NUM_RETRIES = 5};
                        unknownReasonRemovals:(NSSet<NSString *> *)unknownReasonRemovals
                         honorIDMSListChanges:(BOOL)accountIsDemo
                                      version:(NSString*_Nullable)version
+                                      flowID:(NSString * _Nullable)flowID
+                             deviceSessionID:(NSString * _Nullable)deviceSessionID
+                              canSendMetrics:(BOOL)canSendMetrics
+                                     altDSID:(NSString * _Nullable)altDSID
+                           trustedDeviceHash:(NSString * _Nullable)trustedDeviceHash
+                           deletedDeviceHash:(NSString * _Nullable)deletedDeviceHash 
+               trustedDevicesUpdateTimestamp:(NSNumber * _Nullable)trustedDevicesUpdateTimestamp
                                        reply:(void (^)(BOOL listDifferences, NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -234,6 +241,13 @@ enum {NUM_RETRIES = 5};
          unknownReasonRemovals:unknownReasonRemovals
          honorIDMSListChanges:accountIsDemo
          version:version
+         flowID:flowID
+         deviceSessionID:deviceSessionID
+         canSendMetrics:canSendMetrics
+         altDSID:altDSID
+         trustedDeviceHash:trustedDeviceHash
+         deletedDeviceHash:deletedDeviceHash
+         trustedDevicesUpdateTimestamp:trustedDevicesUpdateTimestamp
          reply:reply];
     } while (retry);
 }

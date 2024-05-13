@@ -31,6 +31,7 @@
 #include "SVGImageCache.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/WeakRef.h>
 
 namespace WebCore {
 
@@ -62,7 +63,7 @@ public:
     bool hasSVGImage() const;
     bool currentFrameKnownToBeOpaque(const RenderElement*);
 
-    std::pair<Image*, float> brokenImage(float deviceScaleFactor) const; // Returns an image and the image's resolution scale factor.
+    std::pair<WeakPtr<Image>, float> brokenImage(float deviceScaleFactor) const; // Returns an image and the image's resolution scale factor.
     bool willPaintBrokenImage() const;
 
     bool canRender(const RenderElement* renderer, float multiplier) { return !errorOccurred() && !imageSizeForRenderer(renderer, multiplier).isEmpty(); }
@@ -153,6 +154,7 @@ private:
         // ImageObserver API
         URL sourceUrl() const override { return !m_cachedImages.isEmptyIgnoringNullReferences() ? (*m_cachedImages.begin()).url() : URL(); }
         String mimeType() const override { return !m_cachedImages.isEmptyIgnoringNullReferences() ? (*m_cachedImages.begin()).mimeType() : emptyString(); }
+        unsigned numberOfClients() const override { return !m_cachedImages.isEmptyIgnoringNullReferences() ? (*m_cachedImages.begin()).numberOfClients() : 0; }
         long long expectedContentLength() const override { return !m_cachedImages.isEmptyIgnoringNullReferences() ? (*m_cachedImages.begin()).expectedContentLength() : 0; }
 
         void encodedDataStatusChanged(const Image&, EncodedDataStatus) final;
@@ -188,7 +190,7 @@ private:
         URL imageURL;
     };
 
-    using ContainerContextRequests = HashMap<const CachedImageClient*, ContainerContext>;
+    using ContainerContextRequests = HashMap<SingleThreadWeakRef<const CachedImageClient>, ContainerContext>;
     ContainerContextRequests m_pendingContainerContextRequests;
 
     SingleThreadWeakHashSet<CachedImageClient> m_clientsWaitingForAsyncDecoding;
