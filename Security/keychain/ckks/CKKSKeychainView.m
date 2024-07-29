@@ -1299,7 +1299,7 @@
                                                                                                            eventName:kSecurityRTCEventNameLocalSyncFinish
                                                                                                      testsAreEnabled:SecCKKSTestsEnabled()
                                                                                                             category:kSecurityRTCEventCategoryAccountDataAccessRecovery
-                                                                                                          sendMetric:YES];
+                                                                                                          sendMetric:self.operationDependencies.sendMetric];
             [SecurityAnalyticsReporterRTC sendMetricWithEvent:localSyncFinishEvent success:YES error:nil];
 
             for(CKKSKeychainViewState* viewState in viewsOfInterest) {
@@ -1447,11 +1447,22 @@
                                                                                                              eventName:kSecurityRTCEventNameContentSyncFinish
                                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
                                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery
-                                                                                                            sendMetric:YES];
+                                                                                                            sendMetric:self.operationDependencies.sendMetric];
             [SecurityAnalyticsReporterRTC sendMetricWithEvent:contentSyncFinishEvent success:YES error:nil];
-
             op.nextState = newState;
         }];
+
+        // Turn off Sending Events
+        if (self.operationDependencies.sendMetric && !SecCKKSTestsEnabled()) {
+            NSError* localError = nil;
+            BOOL result = [[OTManager manager] persistSendingMetricsPermitted:[[OTControlArguments alloc] initWithAltDSID:self.operationDependencies.activeAccount.altDSID] sendingMetricsPermitted:NO error:&localError];
+            if (result == NO || localError) {
+                ckkserror_global("ckks", "Error persisting sendingMetricsPermitted value: %@", localError);
+            } else {
+                secnotice("ckks", "Successfully persisted state to disable metrics");
+            }
+        }
+
     }];
 }
 
@@ -2369,8 +2380,7 @@
             complete(data, NULL);
             return;
         }];
-        
-        // Turn off RTC Reporting
+
         if (retrievedCurrentItemPointer && !self.firstManateeKeyFetched && [viewHint isEqualToString:(id)kSecAttrViewHintManatee]) {
             // Regardless of whether we send a metric or not, at least mark that our firstManateeKeyFetch has happened
             self.firstManateeKeyFetched = true;
@@ -2397,15 +2407,6 @@
                                                                                           category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                         sendMetric:self.operationDependencies.sendMetric];
         [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
-
-        // turn off sending the events
-        NSError* localError = nil;
-        BOOL result = [[OTManager manager] persistSendingMetricsPermitted:[[OTControlArguments alloc] initWithAltDSID:self.operationDependencies.activeAccount.altDSID] sendingMetricsPermitted:NO error:&localError];
-        if (result == NO || localError) {
-            ckkserror_global("ckks", "Error persisting sendingMetricsPermitted value: %@", localError);
-        } else {
-            secnotice("ckks", "Successfully persisted state to disable metrics");
-        }
     }
 }
 

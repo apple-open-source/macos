@@ -23,7 +23,8 @@
  */
 
 #include <AssertMacros.h>
-#import <XCTest/XCTest.h>
+#include <XCTest/XCTest.h>
+#include <Foundation/Foundation.h>
 #include <Security/SecCertificatePriv.h>
 #include <utilities/SecCFRelease.h>
 #include "../TestMacroConversions.h"
@@ -114,5 +115,120 @@ errOut:
 
     CFReleaseNull(leaf);
 }
+
+// NSTask is only supported on these platforms
+#if TARGET_OS_OSX || (defined(TARGET_OS_MACCATALYST) && TARGET_OS_MACCATALYST)
+#define PLATFORM_HAS_NS_TASK 1
+#endif
+#if PLATFORM_HAS_NS_TASK
+
+static int _runTask(NSTask *task, NSString **result) {
+    NSPipe *outPipe = [NSPipe pipe];
+    task.standardOutput = outPipe;
+    task.standardError = outPipe;
+    [task launch];
+    [task waitUntilExit];
+
+    int status = task.terminationStatus;
+    NSFileHandle *read = [outPipe fileHandleForReading];
+    NSString *output = [[NSString alloc] initWithData:[read readDataToEndOfFile] encoding:NSUTF8StringEncoding];
+    [read closeFile];
+    if (result) { *result = output; } else { output = nil; }
+    return status;
+}
+
+static int _runLogModeCommand(NSString *mode, NSString **result) {
+    NSTask *task = [[NSTask alloc] init];
+    task.launchPath = @"/usr/bin/log";
+    task.arguments = @[ @"config", @"--mode", mode ];
+    return _runTask(task, result);
+}
+
+static int _runLogLookupCommand(NSString *query, NSString **result) {
+    NSTask *task = [[NSTask alloc] init];
+    NSString *predicate = [NSString stringWithFormat:@"subsystem==\"%@\" and eventMessage contains \"%@\"", @"com.apple.securityd", query];
+    // note: we do not use the --process argument since it acts as OR
+    // with the predicate, returning everything logged by the process
+    task.launchPath = @"/usr/bin/log";
+    task.arguments = @[ @"show", @"--debug", @"--info", @"--predicate", predicate, @"--last", @"1m" ];
+    return _runTask(task, result);
+}
+
+static int _runEvaluateCommand(NSString *path, NSString **result) {
+    NSTask *task = [[NSTask alloc] init];
+#if TARGET_OS_OSX
+    task.launchPath = @"/usr/bin/security";
+#else
+    task.launchPath = @"/usr/local/bin/security";
+#endif
+    task.arguments = @[ @"verify-cert", @"-c", path ];
+    return _runTask(task, result);
+}
+
+static void _evaluateTrustForCertificate(NSURL *certURL, bool local) {
+    // run security command to evaluate with installed trustd
+    XCTAssertTrue(_runEvaluateCommand([certURL path], nil));
+    if (!local) { return; }
+    // perform local evaluation with libtrustd in the test app
+    // (this logging seems unaffected by our private_data:off call!)
+    SecCertificateRef cert = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    XCTAssert(cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)[NSData dataWithContentsOfURL:certURL]), "Unable to create cert from %@", certURL);
+    XCTAssert(policy = SecPolicyCreateBasicX509());
+    XCTAssert(errSecSuccess == SecTrustCreateWithCertificates(cert, policy, &trust), "Unable to create trust");
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "Got wrong trust result for cert");
+    CFReleaseNull(trust);
+    CFReleaseNull(policy);
+    CFReleaseNull(cert);
+}
+
+#endif // PLATFORM_HAS_NS_TASK
+
+- (void)testPathLogPrivacy {
+#if !PLATFORM_HAS_NS_TASK
+    XCTSkip("Does not have NSTask");
+#else
+    // Test must run as root to enable/disable private logging
+    XCTSkipIf(geteuid() != 0, @"Not running as root");
+
+    NSString *output = nil;
+    NSString *VIEWABLE_NAME = @"Leaf serial invalid policyssl complete smime"; // name we expect to find in the log
+    NSString *REDACTED_NAME = @"Leaf serial invalid policyssl complete ssl"; // name we expect to NOT find in the log
+    NSURL *cert1URL = [[NSBundle bundleForClass:[self class]] URLForResource:@"Valid-leaf-serial+invalid+policyssl+complete-smime" withExtension:@".cer" subdirectory:@"si-20-sectrust-policies-data"];
+    NSURL *cert2URL = [[NSBundle bundleForClass:[self class]] URLForResource:@"Valid-leaf-serial+invalid+policyssl+complete-ssl" withExtension:@".cer" subdirectory:@"si-20-sectrust-policies-data"];
+
+    // enable private data logging (expect command to return 0)
+    XCTAssertFalse(_runLogModeCommand(@"private_data:on", nil));
+
+    // evaluate first certificate, whose name is VIEWABLE_NAME
+    _evaluateTrustForCertificate(cert1URL, 0);
+
+    // expect to find VIEWABLE_NAME in the log within the past minute since we just evaluated it
+    XCTAssertFalse(_runLogLookupCommand(VIEWABLE_NAME, &output));
+#if RUNNING_IN_XCODE
+    // expected log output is found when running this xctest in Xcode
+    XCTAssertTrue(output && [output containsString:VIEWABLE_NAME]);
+#endif
+    output = nil;
+
+    // disable private data logging (expect command to return 0)
+    XCTAssertFalse(_runLogModeCommand(@"private_data:off", nil));
+
+    // evaluate second certificate, whose name is REDACTED_NAME
+    _evaluateTrustForCertificate(cert2URL, 0);
+
+    // expect to NOT find REDACTED_NAME in the log within the past minute after we have evaluated it with private logging off
+    XCTAssertFalse(_runLogLookupCommand(REDACTED_NAME, &output));
+    XCTAssertFalse(output && [output containsString:REDACTED_NAME]);
+    output = nil;
+
+    // re-enable private data logging (expect command to return 0)
+    XCTAssertFalse(_runLogModeCommand(@"private_data:on", nil));
+
+#endif
+    return;
+}
+
 
 @end

@@ -679,7 +679,7 @@ static bool SecPathBuilderIsPartial(SecPathBuilderRef builder,
     });
 
     if (!builder->considerRejected && parentChecksFail) {
-        secdebug("trust", "Found rejected path %@", path);
+        secdebug("trust", "Found rejected path %{private}@", path);
 		CFArrayAppendValue(builder->rejectedPaths, path);
 		return false;
 	}
@@ -687,7 +687,7 @@ static bool SecPathBuilderIsPartial(SecPathBuilderRef builder,
 	SecPathVerifyStatus vstatus = SecCertificatePathVCVerify(path);
 	/* Candidate paths with failed signatures are discarded. */
 	if (vstatus == kSecPathVerifyFailed) {
-        secdebug("trust", "Verify failed for path %@", path);
+        secdebug("trust", "Verify failed for path %{private}@", path);
 		return false;
 	}
 
@@ -695,7 +695,7 @@ static bool SecPathBuilderIsPartial(SecPathBuilderRef builder,
 		/* The signature chain verified successfully, now let's find
 		   out if we have an anchor for path.  */
 		if (SecCertificatePathVCIsAnchored(path)) {
-            secdebug("trust", "Adding candidate %@", path);
+            secdebug("trust", "Adding candidate %{private}@", path);
 			CFArrayAppendValue(builder->candidatePaths, path);
 		}
         /* The path is not partial if the last cert is self-signed.
@@ -705,12 +705,12 @@ static bool SecPathBuilderIsPartial(SecPathBuilderRef builder,
             (SecCertificatePathVCSelfSignedIndex(path) == SecCertificatePathVCGetCount(path)-1)) ||
             SecCertificatePathVCIsCycleInGraph(path)) {
             if (!builder->considerRejected) {
-                secdebug("trust", "Adding non-partial non-anchored reject %@", path);
+                secdebug("trust", "Adding non-partial non-anchored reject %{private}@", path);
                 CFArrayAppendValue(builder->rejectedPaths, path);
             } else {
                 /* This path was previously rejected as unanchored non-partial, but now that
                  * we're considering rejected paths, this is a candidate. */
-                secdebug("trust", "Adding non-partial non-anchored candidate %@", path);
+                secdebug("trust", "Adding non-partial non-anchored candidate %{private}@", path);
                 CFArrayAppendValue(builder->candidatePaths, path);
             }
             return false;
@@ -798,7 +798,7 @@ static void SecPathBuilderAddPinningPolicies(SecPathBuilderRef builder) {
             CFArrayRef newRules = CFDictionaryGetValue(results, kSecPinningDbKeyRules);
             CFStringRef dbPolicyName = CFDictionaryGetValue(results, kSecPinningDbKeyPolicyName);
             CFNumberRef transparentConnection = CFDictionaryGetValue(results, kSecPinningDbKeyTransparentConnection);
-            secinfo("SecPinningDb", "found pinning %lu %@ policies for hostname %@, policyName %@",
+            secinfo("SecPinningDb", "found pinning %lu %@ policies for hostname %{private}@, policyName %{public}@",
                     (unsigned long)CFArrayGetCount(newRules), dbPolicyName, hostname, policyName);
             /* If, applicable, add transparent connection rules to the new rules */
             newRules = addTransparentConnectionsRules(newRules, transparentConnection);
@@ -917,10 +917,10 @@ static void SecPathBuilderProcessParents(SecPathBuilderRef builder,
                    candiate partial. */
                 CFArrayInsertValueAtIndex(builder->partialPaths,
                     ++builder->partialIX, path);
-                secdebug("trust", "Adding partial for parent %" PRIdCFIndex "/%" PRIdCFIndex " %@",
+                secdebug("trust", "Adding partial for parent %" PRIdCFIndex "/%" PRIdCFIndex " %{private}@",
                     parentIX + 1, num_parents, path);
             }
-            secdebug("trust", "found new path %@", path);
+            secdebug("trust", "found new path %{private}@", path);
         }
         CFRelease(path);
     }
@@ -932,7 +932,7 @@ static void SecPathBuilderExtendPaths(void *context, CFArrayRef parents) {
     SecPathBuilderRef builder = (SecPathBuilderRef)context;
     SecCertificatePathVCRef partial = (SecCertificatePathVCRef)
         CFArrayGetValueAtIndex(builder->partialPaths, builder->partialIX);
-    secdebug("async", "%@ parents %@", partial, parents);
+    secdebug("async", "%{private}@ parents %{private}@", partial, parents);
     SecPathBuilderProcessParents(builder, partial, parents);
 
     builder->state = SecPathBuilderGetNext;
@@ -945,7 +945,7 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
         SecCertificatePathVCRef path = (SecCertificatePathVCRef)
             CFArrayGetValueAtIndex(builder->candidatePaths, 0);
         CFArrayRemoveValueAtIndex(builder->candidatePaths, 0);
-        secdebug("trust", "SecPathBuilderGetNext returning candidate %@",
+        secdebug("trust", "SecPathBuilderGetNext returning candidate %{private}@",
             path);
         SecPathBuilderSetPath(builder, path);
         builder->state = SecPathBuilderValidatePath;
@@ -1033,7 +1033,7 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
 
     /* Attempt to extend this partial path with another certificate. This
        should give us a list of potential parents to consider. */
-    secdebug("trust", "looking for parents of partial %" PRIdCFIndex "/%" PRIdCFIndex ": %@",
+    secdebug("trust", "looking for parents of partial %" PRIdCFIndex "/%" PRIdCFIndex ": %{private}@",
         builder->partialIX + 1, CFArrayGetCount(builder->partialPaths),
         partial);
 
@@ -1093,19 +1093,19 @@ static void SecPathBuilderReject(SecPathBuilderRef builder) {
     if (!builder->bestPath || score > bestPathScore) {
         if (builder->bestPath) {
             secinfo("reject",
-                "replacing %sev %s score: %ld with %sev score: %" PRIdCFIndex " %@",
+                "replacing %sev %s score: %ld with %sev score: %" PRIdCFIndex " %{private}@",
                 (bestPathIsEV ? "" : "non "),
                 (bestPathScore > ACCEPT_PATH_SCORE ? "accept" : "reject"),
                 bestPathScore,
                 (isEV ? "" : "non "), (long)score, builder->path);
         } else {
-            secinfo("reject", "%sev score: %" PRIdCFIndex " %@",
+            secinfo("reject", "%sev score: %" PRIdCFIndex " %{private}@",
                 (isEV ? "" : "non "), score, builder->path);
         }
 
         builder->bestPath = builder->path;
     } else {
-        secinfo("reject", "%sev score: %" PRIdCFIndex " lower than %" PRIdCFIndex " %@",
+        secinfo("reject", "%sev score: %" PRIdCFIndex " lower than %" PRIdCFIndex " %{private}@",
             (isEV ? "" : "non "), score, bestPathScore, builder->path);
     }
 }
@@ -1126,7 +1126,7 @@ static void SecPathBuilderAccept(SecPathBuilderRef builder) {
     SecCertificatePathVCSetScore(builder->path, currScore);
     if (currScore > bestScore) {
         // current path is better than existing best path
-        secinfo("accept", "replacing %sev %s score: %ld with %sev score: %" PRIdCFIndex " %@",
+        secinfo("accept", "replacing %sev %s score: %ld with %sev score: %" PRIdCFIndex " %{private}@",
                  (SecCertificatePathVCIsEV(builder->bestPath) ? "" : "non "),
                  (bestScore > ACCEPT_PATH_SCORE ? "accept" : "reject"),
                  bestScore,
@@ -1420,7 +1420,7 @@ bool SecPathBuilderStep(SecPathBuilderRef builder) {
         result = kSecTrustResultProceed;
     }
 
-    secinfo("trust", "completed: %@ details: %@ result: %d",
+    secinfo("trust", "completed: %{private}@ details: %{public}@ result: %d",
         builder->bestPath, pvc->details, result);
 
     if (builder->completed) {

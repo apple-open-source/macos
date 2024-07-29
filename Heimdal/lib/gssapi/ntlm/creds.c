@@ -34,6 +34,7 @@
  */
 
 #include "ntlm.h"
+#include <heimbase.h>
 #include "heimcred.h"
 
 OM_uint32 _gss_ntlm_inquire_cred
@@ -350,8 +351,81 @@ _gss_ntlm_cred_label_get(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 	return GSS_S_FAILURE;
     }
 #else /* GSSCred */
-	_gss_mg_log(1, "_gss_ntlm_cred_label_get (GSSCred) -  GSS_S_UNAVAILABLE");
-	return GSS_S_UNAVAILABLE;
+    krb5_error_code ret;
+    ntlm_cred cred = (ntlm_cred)cred_handle;
+    
+    CFUUIDBytes cfuuid;
+    CFUUIDRef uuid_cfuuid = NULL;
+    memcpy(&cfuuid, &cred->uuid, sizeof(cred->uuid));
+    uuid_cfuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, cfuuid);
+    if (!uuid_cfuuid) {
+	ret = KRB5_CC_IO;
+	*minor_status = ret;
+	return GSS_S_FAILURE;
+    } else {
+	*minor_status = 0;
+    }
+    
+    CFDictionaryRef query = NULL;
+    CFArrayRef query_result = NULL;
+    CFStringRef label_cfstr = NULL;
+    
+    label_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, label, kCFStringEncodingUTF8);
+    if (label_cfstr == NULL) {
+	CFRELEASE_NULL(uuid_cfuuid);
+	return GSS_S_FAILURE;
+    }
+    
+    const void *add_keys[] = {
+	(void *)kHEIMObjectType,
+	kHEIMAttrType,
+	kHEIMAttrParentCredential,
+	kHEIMAttrServerName,
+    };
+    const void *add_values[] = {
+	(void *)kHEIMObjectNTLM,
+	kHEIMTypeNTLM,
+	uuid_cfuuid,
+	label_cfstr,
+    };
+
+    query = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (query == NULL)
+	errx(1, "out of memory");
+
+    query_result = HeimCredCopyQuery(query);
+    CFRELEASE_NULL(query);
+    
+    if (CFArrayGetCount(query_result) < 1) {
+	CFRELEASE_NULL(query_result);
+	return 0;
+    }
+    
+    HeimCredRef result_cred = (HeimCredRef)CFArrayGetValueAtIndex(query_result, 0);
+    if (!result_cred) {
+	CFRELEASE_NULL(query_result);
+	return GSS_S_FAILURE;
+    }
+    CFRetain(result_cred);
+    CFRELEASE_NULL(query_result);
+    
+    CFDataRef cfdata = HeimCredCopyAttribute(result_cred, kHEIMAttrLabelValue);
+    CFRELEASE_NULL(result_cred);
+    if (!cfdata) {
+	return GSS_S_FAILURE;
+    }
+    
+    value->value = malloc(CFDataGetLength(cfdata));
+    if (value->value == NULL) {
+	CFRELEASE_NULL(cfdata);
+	return GSS_S_FAILURE;
+    }
+    memcpy(value->value, CFDataGetBytePtr(cfdata), CFDataGetLength(cfdata));
+    value->length = CFDataGetLength(cfdata);
+    
+    CFRELEASE_NULL(cfdata);
+    
+    return GSS_S_COMPLETE;
 #endif
     return GSS_S_COMPLETE;
 }
@@ -428,8 +502,113 @@ _gss_ntlm_cred_label_set(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 	return GSS_S_FAILURE;
     }
 #else /* GSSCred */
-	_gss_mg_log(1, "_gss_ntlm_cred_label_set (GSSCred) -  GSS_S_UNAVAILABLE");
-	return GSS_S_UNAVAILABLE;
+    krb5_error_code ret;
+    ntlm_cred cred = (ntlm_cred)cred_handle;
+
+    if ((cred->flags & NTLM_UUID) == 0)
+	return GSS_S_FAILURE;
+    
+    CFUUIDBytes cfuuid;
+    CFUUIDRef uuid_cfuuid = NULL;
+    memcpy(&cfuuid, &cred->uuid, sizeof(cred->uuid));
+    uuid_cfuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, cfuuid);
+    if (!uuid_cfuuid) {
+	ret = KRB5_CC_IO;
+	*minor_status = ret;
+	return GSS_S_FAILURE;
+    } else {
+	*minor_status = 0;
+    }
+
+    HeimCredRef credential_cfcred = NULL;
+    CFErrorRef cferr = NULL;
+    CFStringRef user_cfstr = NULL;
+    CFStringRef domain_cfstr = NULL;
+    CFStringRef label_cfstr = NULL;
+    CFDataRef dref = NULL;
+    CFDictionaryRef attrs = NULL;
+    
+    CFDictionaryRef query;
+    
+    label_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, label, kCFStringEncodingUTF8);
+    if (label_cfstr == NULL) {
+	ret = GSS_S_FAILURE;
+	goto out;
+    }
+    
+    //remove the existing value, if it exists
+    
+    const void *keys[] = { (const void *)kHEIMAttrParentCredential, kHEIMAttrType, kHEIMAttrServerName };
+    const void *values[] = { (const void *)uuid_cfuuid, kHEIMTypeNTLM, label_cfstr };
+    
+    query = CFDictionaryCreate(NULL, keys, values, sizeof(keys)/sizeof(keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    heim_assert(query != NULL, "Failed to create dictionary");
+
+    HeimCredDeleteQuery(query, NULL);
+    CFRELEASE_NULL(query);
+    
+    if (value != NULL) {
+	
+	user_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, cred->user,kCFStringEncodingUTF8);
+	if (user_cfstr == NULL) {
+	    ret = GSS_S_FAILURE;
+	    goto out;
+	}
+	
+	domain_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, cred->domain,kCFStringEncodingUTF8);
+	if (domain_cfstr == NULL) {
+	    ret = GSS_S_FAILURE;
+	    goto out;
+	}
+	
+	dref = CFDataCreateWithBytesNoCopy(NULL, value->value, value->length, kCFAllocatorNull);
+	if (dref == NULL) {
+	    ret = GSS_S_FAILURE;
+	    goto out;
+	}
+	
+	const void *add_keys[] = {
+	    (void *)kHEIMObjectType,
+	    kHEIMAttrType,
+	    kHEIMAttrParentCredential,
+	    kHEIMAttrNTLMUsername,
+	    kHEIMAttrNTLMDomain,
+	    kHEIMAttrServerName,
+	    kHEIMAttrLabelValue,  // the label value is used because the data attr is write only
+	};
+	const void *add_values[] = {
+	    (void *)kHEIMObjectNTLM,
+	    kHEIMTypeNTLM,
+	    uuid_cfuuid,
+	    user_cfstr,
+	    domain_cfstr,
+	    label_cfstr,
+	    dref,
+	};
+	
+	attrs = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	heim_assert(attrs != NULL, "Failed to create dictionary");
+	
+	// TODO check for duplicate in GSSCred? HeimCredCopyQuery <OR>  handled in _gss_ntlm_have_cred
+	credential_cfcred = HeimCredCreate(attrs, &cferr);
+	if (credential_cfcred == NULL){
+	    ret = GSS_S_FAILURE;
+	    goto out;
+	}
+    }
+    
+    ret = GSS_S_COMPLETE;
+    
+out:
+    CFRELEASE_NULL(credential_cfcred);
+    CFRELEASE_NULL(uuid_cfuuid);
+    CFRELEASE_NULL(user_cfstr);
+    CFRELEASE_NULL(domain_cfstr);
+    CFRELEASE_NULL(label_cfstr);
+    CFRELEASE_NULL(dref);
+    CFRELEASE_NULL(attrs);
+    
+    return ret;
 #endif
 
     return GSS_S_COMPLETE;

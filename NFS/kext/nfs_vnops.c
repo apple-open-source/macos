@@ -461,12 +461,13 @@ nfs_rdirplus_update_node_attrs(nfsnode_t dnp, struct direntry *dp, fhandle_t *fh
 {
 	nfsnode_t np;
 	struct componentname cn;
+	int path_sep = NFS_DIRENT_PATH_SEPARATOR(dp);
 	int isdot = (dp->d_namlen == 1) && (dp->d_name[0] == '.');
 	int isdotdot = (dp->d_namlen == 2) && (dp->d_name[0] == '.') && (dp->d_name[1] == '.');
 	int should_update_fileid = nvattrp->nva_flags & NFS_FFLAG_FILEID_CONTAINS_XID;
 	uint64_t xid = 0;
 
-	if (isdot || isdotdot) {
+	if (isdot || isdotdot || path_sep) {
 		return;
 	}
 
@@ -6901,9 +6902,15 @@ nextbuffer:
 				dp->d_reclen = reclen;
 				nfs_rdirplus_update_node_attrs(dnp, dp, fh, nvattrp, &savedxid);
 			}
+
+			lastcookie = cookie;
+			/* readdir should sanitize filenames returned over the network with path separators */
+			if (NFS_DIRENT_PATH_SEPARATOR(dp)) {
+				NP(dnp, "%s got entry with path separator %.*s", __FUNCTION__, dp->d_namlen, dp->d_name);
+				goto skip_entry;
+			}
 			padstart = dp->d_name + dp->d_namlen + 1 + xlen;
 			ndbhp->ndbh_count++;
-			lastcookie = cookie;
 			/* advance to next direntry in buffer */
 			dp = NFS_DIRENTRY_NEXT(dp);
 			ndbhp->ndbh_entry_end = (char*)dp - bp->nb_data;
@@ -6912,6 +6919,8 @@ nextbuffer:
 			if (padlen > 0) {
 				bzero(padstart, padlen);
 			}
+
+skip_entry:
 			/* check for more entries */
 			nfsm_chain_get_32(error, &nmrep, more_entries);
 			nfsmout_if(error);

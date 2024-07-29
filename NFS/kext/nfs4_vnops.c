@@ -1054,6 +1054,12 @@ nextbuffer:
 				lastcookie = cookie;
 				continue;
 			}
+			/* readdir should sanitize filenames returned over the network with path separators */
+			if (NFS_DIRENT_PATH_SEPARATOR(dp)) {
+				NP(dnp, "%s got entry with path separator %.*s", __FUNCTION__, dp->d_namlen, dp->d_name);
+				lastcookie = cookie;
+				continue;
+			}
 
 			if (NFS_BITMAP_ISSET(nvattrp->nva_bitmap, NFS_FATTR_TYPE)) {
 				dp->d_type = IFTODT(VTTOIF(nvattrp->nva_type));

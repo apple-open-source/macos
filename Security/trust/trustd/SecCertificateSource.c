@@ -479,7 +479,7 @@ static bool SecMemoryCertificateSourceCopyParents(SecCertificateSourceRef source
                                                                    normalizedIssuer) : NULL;
     /* FIXME filter parents by subjectID if certificate has an
      authorityKeyIdentifier. */
-    secdebug("trust", "%@ parents -> %@", certificate, parents);
+    secdebug("trust", "%{private}@ parents -> %{private}@", certificate, parents);
     callback(context, parents);
     return true;
 }

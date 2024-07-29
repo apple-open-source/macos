@@ -276,7 +276,17 @@ parseArgs(int argc,char *argv[])
           }
           else if (streql(argv[0], "-mach_msg2"))
             UseMachMsg2 = TRUE;
-          else
+	  else if (streql(argv[0], "-max_descrs")) {
+            --argc; ++argv;
+            if (argc == 0)
+              fatal("missing count for -max_descrs option");
+            MaxServerDescrs = atoi(argv[0]);
+	  } else if (streql(argv[0], "-max_reply_descrs")) {
+            --argc; ++argv;
+            if (argc == 0)
+              fatal("missing count for -max_reply_descrs option");
+            MaxServerReplyDescrs = atoi(argv[0]);
+	  } else
             fatal("unknown flag: '%s'", argv[0]);
           break;
 

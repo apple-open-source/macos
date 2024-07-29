@@ -1062,6 +1062,10 @@ mangle(char *options, int *argcp, const char **argv)
 	for (s = options; (p = strsep(&s, ",")) != NULL;)
 		if (*p != '\0') {
 			if (*p == '-') {
+				if (*(p+1) == '-' && *(p+2) == '\0') {
+					// reject "--" which could lead to early termination of option arguments
+					continue;
+				}
 				argv[argc++] = p;
 				p = strchr(p, '=');
 				if (p) {

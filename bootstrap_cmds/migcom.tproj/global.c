@@ -75,6 +75,8 @@ boolean_t UseSpecialReplyPort = FALSE;
 boolean_t HasUseSpecialReplyPort = FALSE;
 boolean_t HasConsumeOnSendError = FALSE;
 u_int ConsumeOnSendError = 0;
+int MaxServerDescrs = -1;
+int MaxServerReplyDescrs = -1;
 
 string_t RCSId = strNULL;
 

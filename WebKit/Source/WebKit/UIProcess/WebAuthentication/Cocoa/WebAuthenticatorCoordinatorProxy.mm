@@ -326,11 +326,20 @@ static inline bool isCrossPlatformRequest(const Vector<AuthenticatorTransport>& 
     });
 }
 
+
+static inline bool allowsHybrid(const Vector<AuthenticatorTransport>& transports)
+{
+    return transports.isEmpty() || transports.containsIf([](auto transport) {
+        return transport == AuthenticatorTransport::Hybrid || transport == AuthenticatorTransport::Cable;
+    });
+}
+
 RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const PublicKeyCredentialRequestOptions& options, const WebCore::SecurityOriginData& callerOrigin, const std::optional<WebCore::SecurityOriginData>& parentOrigin)
 {
     RetainPtr<NSMutableArray<ASAuthorizationRequest *>> requests = adoptNS([[NSMutableArray alloc] init]);
     RetainPtr<NSMutableArray<ASAuthorizationPlatformPublicKeyCredentialDescriptor *>> platformAllowedCredentials = adoptNS([[NSMutableArray alloc] init]);
     RetainPtr<NSMutableArray<ASAuthorizationSecurityKeyPublicKeyCredentialDescriptor *>> crossPlatformAllowedCredentials = adoptNS([[NSMutableArray alloc] init]);
+    bool allowHybrid = options.allowCredentials.isEmpty();
     for (auto credential : options.allowCredentials) {
         if (isPlatformRequest(credential.transports))
             [platformAllowedCredentials addObject:adoptNS([allocASAuthorizationPlatformPublicKeyCredentialDescriptorInstance() initWithCredentialID:toNSData(credential.id).get()]).get()];
@@ -342,6 +351,9 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const 
             }
             [crossPlatformAllowedCredentials addObject:adoptNS([allocASAuthorizationSecurityKeyPublicKeyCredentialDescriptorInstance() initWithCredentialID:toNSData(credential.id).get() transports:transports.get()]).get()];
         }
+
+        if (!allowHybrid && allowsHybrid(credential.transports))
+            allowHybrid = true;
     }
     RetainPtr clientData = adoptNS([allocASPublicKeyCredentialClientDataInstance() initWithChallenge:toNSData(options.challenge).get() origin:callerOrigin.toString()]);
     if (parentOrigin) {
@@ -361,6 +373,12 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const 
             if (largeBlob->write)
                 request.get().largeBlob.dataToWrite = WebCore::toNSData(*largeBlob->write).get();
         }
+
+        request.get().userVerificationPreference = toASUserVerificationPreference(options.userVerification).get();
+
+        if (!allowHybrid)
+            request.get().shouldShowHybridTransport = false;
+
         [requests addObject:request.leakRef()];
     }
 
@@ -394,8 +412,9 @@ void WebAuthenticatorCoordinatorProxy::pauseConditionalAssertion(CompletionHandl
         completionHandler();
         return;
     }
-    m_paused = true;
+
     if (m_isConditionalAssertion) {
+        m_paused = true;
         m_cancelHandler = WTFMove(completionHandler);
         [m_controller cancel];
     } else
@@ -406,8 +425,10 @@ void WebAuthenticatorCoordinatorProxy::unpauseConditionalAssertion()
 {
     if (!m_paused)
         return;
-    if (m_controller && m_isConditionalAssertion)
+    if (m_controller && m_isConditionalAssertion) {
+        activeConditionalMediationProxy() = *this;
         [m_controller performAutoFillAssistedRequests];
+    }
 
     m_paused = false;
 }
@@ -415,14 +436,16 @@ void WebAuthenticatorCoordinatorProxy::unpauseConditionalAssertion()
 void WebAuthenticatorCoordinatorProxy::makeActiveConditionalAssertion()
 {
     if (auto& activeProxy = activeConditionalMediationProxy()) {
-        if (activeProxy == this)
+        if (activeProxy == this && !m_paused)
             return;
         activeProxy->pauseConditionalAssertion([weakThis = WeakPtr { *this }] () {
             if (!weakThis)
                 return;
             weakThis->unpauseConditionalAssertion();
         });
+        return;
     }
+    unpauseConditionalAssertion();
 }
 
 inline static Vector<AuthenticatorTransport> toTransports(NSArray<ASAuthorizationSecurityKeyPublicKeyCredentialDescriptorTransport> *asTransports)

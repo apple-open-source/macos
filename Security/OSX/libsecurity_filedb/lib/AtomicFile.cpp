@@ -338,7 +338,7 @@ AtomicFile::ropen(const char *const name, int flags, mode_t mode)
             int result = sandbox_check(getpid(), "file-read-data", (sandbox_filter_type) (SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), name);
             if (result != 0)
             {
-                secdebug("atomicfile", "sandboxing rejected read access to %s", name);
+                secinfo("atomicfile", "sandboxing rejected read access to %s", name);
                 return -1;
             }
         }
@@ -348,7 +348,7 @@ AtomicFile::ropen(const char *const name, int flags, mode_t mode)
             int result = sandbox_check(getpid(), "file-write-data", (sandbox_filter_type) (SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), name);
             if (result != 0)
             {
-                secdebug("atomicfile", "sandboxing rejected write access to %s", name);
+                secinfo("atomicfile", "sandboxing rejected write access to %s", name);
                 return -1;
             }
         }

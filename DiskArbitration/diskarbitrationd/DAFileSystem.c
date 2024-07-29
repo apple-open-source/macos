@@ -112,6 +112,7 @@ static CFTypeID __kDAFileSystemTypeID = _kCFRuntimeNotATypeID;
 
 const CFStringRef kDAFileSystemMountArgumentForce       = CFSTR( "force"    );
 const CFStringRef kDAFileSystemMountArgumentNoDevice    = CFSTR( "nodev"    );
+const CFStringRef kDAFileSystemMountArgumentDevice      = CFSTR( "dev"    );
 const CFStringRef kDAFileSystemMountArgumentNoExecute   = CFSTR( "noexec"   );
 const CFStringRef kDAFileSystemMountArgumentNoOwnership = CFSTR( "noowners" );
 const CFStringRef kDAFileSystemMountArgumentOwnership   = CFSTR( "owners" );

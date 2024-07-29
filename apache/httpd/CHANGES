@@ -1,5 +1,125 @@
                                                          -*- coding: utf-8 -*-
+Changes with Apache 2.4.59
+
+  *) mod_deflate: Fixes and better logging for handling various
+     error and edge cases. [Eric Covener, Yann Ylavic, Joe Orton,
+     Eric Norris <enorris etsy.com>]
+
+  *) Add CGIScriptTimeout to mod_cgi. [Eric Covener]
+
+  *) mod_xml2enc: Tolerate libxml2 2.12.0 and later.  PR 68610
+     [ttachi <tachihara AT hotmail.com>]
+
+  *) mod_slotmem_shm: Use ap_os_is_path_absolute() to make it portable.
+     [Jean-Frederic Clere]
+
+  *) mod_ssl: Use OpenSSL-standard functions to assemble CA
+     name lists for SSLCACertificatePath/SSLCADNRequestPath.
+     Names will now be consistently sorted. PR 61574.
+     [Joe Orton]
+
+  *) mod_xml2enc: Update check to accept any text/ media type
+     or any XML media type per RFC 7303, avoiding
+     corruption of Microsoft OOXML formats.  PR 64339.
+     [Joseph Heenan <joseph.heenan fintechlabs.io>, Joe Orton]
+
+  *) mod_http2: v2.0.26 with the following fixes:
+     - Fixed `Date` header on requests upgraded from HTTP/1.1 (h2c). Fixes
+       <https://github.com/icing/mod_h2/issues/272>.
+     - Fixed small memory leak in h2 header bucket free. Thanks to
+       Michael Kaufmann for finding this and providing the fix.
+
+  *) htcacheclean: In -a/-A mode, list all files per subdirectory
+     rather than only one. PR 65091.
+     [Artem Egorenkov <aegorenkov.91 gmail.com>]
+
+  *) mod_ssl: SSLProxyMachineCertificateFile/Path may reference files
+     which include CA certificates; those CA certs are treated as if
+     configured with SSLProxyMachineCertificateChainFile.  [Joe Orton]
+
+  *) htpasswd, htdbm, dbmmanage: Update help&docs to refer to
+     "hashing", rather than "encrypting" passwords.
+     [Michele Preziuso <mpreziuso kaosdynamics.com>]
+
+  *) mod_ssl: Fix build with LibreSSL 2.0.7+. PR 64047.
+     [Giovanni Bechis, Yann Ylavic]
+
+  *) htpasswd: Add support for passwords using SHA-2.  [Joe Orton,
+     Yann Ylavic]
+
+  *) core: Allow mod_env to override system environment vars. [Joe Orton]
+
+  *) Allow mod_dav_fs to tolerate race conditions between PROPFIND and an
+     operation which removes a directory/file between apr_dir_read() and
+     apr_stat(). Current behaviour is to abort the connection which seems
+     inferior to tolerating (and logging) the error. [Joe Orton]
+
+  *) mod_ldap: HTML-escape data in the ldap-status handler.
+     [Eric Covener, Chamal De Silva]
+
+  *) mod_ssl: Disable the OpenSSL ENGINE API when OPENSSL_NO_ENGINE is set.
+     Allow for "SSLCryptoDevice builtin" if the ENGINE API is not available,
+     notably with OpenSSL >= 3.  PR 68080.  [Yann Ylavic, Joe Orton]
+
+  *) mod_ssl: Improve compatibility with OpenSSL 3, fix build warnings about
+     deprecated ENGINE_ API, honor OPENSSL_API_COMPAT setting while defaulting
+     to compatibitily with version 1.1.1 (including ENGINEs / SSLCryptoDevice).
+     [Yann Ylavic]
+
+  *) mod_ssl: release memory to the OS when needed. [Giovanni Bechis]
+
+  *) mod_proxy: Ignore (and warn about) enablereuse=on for ProxyPassMatch when
+     some dollar substitution (backreference) happens in the hostname or port
+     part of the URL.  [Yann Ylavic]
+
+  *) mod_proxy: Allow to set a TTL for how long DNS resolutions to backend
+     systems are cached. [Yann Ylavic]
+
+  *) mod_proxy: Add optional third argument for ProxyRemote, which
+     configures Basic authentication credentials to pass to the remote
+     proxy.  PR 37355.  [Joe Orton]
+
 Changes with Apache 2.4.58
+
+  *) SECURITY: CVE-2023-45802: Apache HTTP Server: HTTP/2 stream
+     memory not reclaimed right away on RST (cve.mitre.org)
+     When a HTTP/2 stream was reset (RST frame) by a client, there
+     was a time window were the request's memory resources were not
+     reclaimed immediately. Instead, de-allocation was deferred to
+     connection close. A client could send new requests and resets,
+     keeping the connection busy and open and causing the memory
+     footprint to keep on growing. On connection close, all resources
+     were reclaimed, but the process might run out of memory before
+     that.
+     This was found by the reporter during testing of CVE-2023-44487
+     (HTTP/2 Rapid Reset Exploit) with their own test client. During
+     "normal" HTTP/2 use, the probability to hit this bug is very
+     low. The kept memory would not become noticeable before the
+     connection closes or times out.
+     Users are recommended to upgrade to version 2.4.58, which fixes
+     the issue.
+     Credits: Will Dormann of Vul Labs
+
+  *) SECURITY: CVE-2023-43622: Apache HTTP Server: DoS in HTTP/2 with
+     initial windows size 0 (cve.mitre.org)
+     An attacker, opening a HTTP/2 connection with an initial window
+     size of 0, was able to block handling of that connection
+     indefinitely in Apache HTTP Server. This could be used to
+     exhaust worker resources in the server, similar to the well
+     known "slow loris" attack pattern.
+     This has been fixed in version 2.4.58, so that such connection
+     are terminated properly after the configured connection timeout.
+     This issue affects Apache HTTP Server: from 2.4.55 through
+     2.4.57.
+     Users are recommended to upgrade to version 2.4.58, which fixes
+     the issue.
+     Credits: Prof. Sven Dietrich (City University of New York)
+
+  *) SECURITY: CVE-2023-31122: mod_macro buffer over-read
+     (cve.mitre.org)
+     Out-of-bounds Read vulnerability in mod_macro of Apache HTTP
+     Server.This issue affects Apache HTTP Server: through 2.4.57.
+     Credits: David Shoon (github/davidshoon)
 
   *) mod_ssl: Silence info log message "SSL Library Error: error:0A000126:
      SSL routines::unexpected eof while reading" when using

@@ -28,6 +28,7 @@
 #include <dlfcn.h>
 #include <sysexits.h>
 #include <Security/Security.h>
+#include <Security/SecKeychainPriv.h>
 #include <stdlib.h>
 #include <libgen.h>
 #include <string.h>
@@ -36,16 +37,14 @@
 #include <sys/types.h>
 #include <pwd.h>
 
+#import "utilities/debugging.h"
+#import "utilities/SecCFRelease.h"
+
 struct connection_info {
     xpc_connection_t peer;
     int processed;
     int done;
 };
-
-typedef typeof(SecKeychainCopyDomainSearchList) SecKeychainCopyDomainSearchListType;
-SecKeychainCopyDomainSearchListType *SecKeychainCopyDomainSearchListFunctionPointer = NULL;
-typedef typeof(SecKeychainGetPath) SecKeychainGetPathType;
-SecKeychainGetPathType *SecKeychainGetPathFunctionPointer = NULL;
 
 // prior to 8723022 we have to do our own idle timeout work
 #ifndef XPC_HANDLES_IDLE_TIMEOUT
@@ -65,9 +64,12 @@ xpc_object_t create_keychain_search_list_for(xpc_connection_t peer, SecPreferenc
 {
     CFArrayRef keychains = NULL;
     pid_t peer_pid = xpc_connection_get_pid(peer);
-    OSStatus status = SecKeychainCopyDomainSearchListFunctionPointer(domain, &keychains);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    OSStatus status = SecKeychainCopyDomainSearchList(domain, &keychains);
+#pragma clang diagnostic pop
     if (errSecSuccess != status) {
-        syslog(LOG_ERR, "Unable to get keychain search list (domain=%d) on behalf of %d, status=0x%lx", domain, peer_pid, (unsigned long)status);
+        secerror("Unable to get keychain search list (domain=%d) on behalf of %d, status=0x%lx", domain, peer_pid, (unsigned long)status);
         return NULL;
     }
     
@@ -79,9 +81,12 @@ xpc_object_t create_keychain_search_list_for(xpc_connection_t peer, SecPreferenc
 		
         SecKeychainRef keychain = (SecKeychainRef)CFArrayGetValueAtIndex(keychains, i);
         UInt32 length = MAXPATHLEN;
-        OSStatus status = SecKeychainGetPathFunctionPointer(keychain, &length, path);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        OSStatus status = SecKeychainGetPath(keychain, &length, path);
+#pragma clang diagnostic pop
         if (errSecSuccess != status) {
-            syslog(LOG_ERR, "Unable to get path for keychain#%ld of %ld on behalf of %d, status=0x%lx", i, n_keychains, peer_pid, (unsigned long)status);
+            secerror("Unable to get path for keychain#%ld of %ld on behalf of %d, status=0x%lx", i, n_keychains, peer_pid, (unsigned long)status);
             continue;
         }
         xpc_object_t path_as_xpc_string = xpc_string_create(path);
@@ -106,7 +111,7 @@ void _set_keychain_search_lists_for_domain(xpc_connection_t peer, xpc_object_t a
         xpc_dictionary_set_value(all_domains, domain_name, keychains_for_domain);
         xpc_release(keychains_for_domain);
     } else {
-        syslog(LOG_ERR, "Can't discover keychain paths for domain %s on behalf of %d", domain_name, xpc_connection_get_pid(peer));
+        secerror("Can't discover keychain paths for domain %s on behalf of %d", domain_name, xpc_connection_get_pid(peer));
     }
 }
 
@@ -133,13 +138,13 @@ xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t 
 	char *assembly_queue_label = NULL;
     asprintf(&assembly_queue_label, "assembly-for-%d", peer_pid);
     if (!assembly_queue_label) {
-        syslog(LOG_ERR, "Unable to create assembly queue label for %d", peer_pid);
+        secerror("Unable to create assembly queue label for %d", peer_pid);
         return NULL;
     }
     dispatch_queue_t assembly_queue = dispatch_queue_create(assembly_queue_label, 0);
     free(assembly_queue_label);
     if (!assembly_queue) {
-        syslog(LOG_ERR, "Unable to create assembly queue for %d", peer_pid);
+        secerror("Unable to create assembly queue for %d", peer_pid);
         return NULL;
     }
 	xpc_object_t return_paths_dict = xpc_dictionary_create(NULL, NULL, 0);
@@ -148,6 +153,41 @@ xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t 
 		xpc_object_t return_paths_array = xpc_array_create(NULL, 0);
 		dispatch_apply(xpc_array_get_count(keychain_path_array), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(size_t i) {
 			xpc_object_t path_as_xpc_string = xpc_array_get_value(keychain_path_array, i);
+
+            // We should not return sandbox exceptions for non-keychain files. Check the file before returning the path.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            SecKeychainRef purportedKeychain = NULL;
+            OSStatus openStatus = SecKeychainOpen(xpc_string_get_string_ptr(path_as_xpc_string), &purportedKeychain);
+
+            // Try to fetch the 'keychain version', which will force the file to be opened and parsed as a keychain.
+            // If the file doesn't exist, we will get the errSecNoSuchKeychain error. In that case, return a sandbox exception: 
+            //     the file might be added later on.
+            // If XPCKeychainSandboxCheck does not have sandbox access to the file, we will get errSecNoSuchKeychain. In that case,
+            //     add the file as before, and rely on the creation of the sandbox exception to fail later on.
+            // If the file exists, is readable, and is not a keychain, we will get an error (usually errSecInvalidKeychain).
+            UInt32 keychainVersion = 0xffffffff;
+            OSStatus versionStatus = SecKeychainGetKeychainVersion(purportedKeychain, &keychainVersion);
+
+            secinfo("keychain_xpc_sandbox", "after opening %s: openStatus: %d versionStatus: %d keychain version: %d",
+                    xpc_string_get_string_ptr(path_as_xpc_string),
+                    openStatus,
+                    versionStatus,
+                    keychainVersion);
+
+            CFReleaseNull(purportedKeychain);
+#pragma clang diagnostic pop
+
+            bool returnSandboxExceptionForPath = openStatus == errSecSuccess && (versionStatus == errSecSuccess || versionStatus == errSecNoSuchKeychain);
+            if(!returnSandboxExceptionForPath) {
+                secnotice("keychain_xpc_sandbox", "Not returning sandbox extension for non-keychain file %s: openStatus: %d versionStatus: %d keychain version: %d",
+                          xpc_string_get_string_ptr(path_as_xpc_string),
+                          openStatus,
+                          versionStatus,
+                          keychainVersion);
+                return;
+            }
+
 			dispatch_sync(assembly_queue, ^{
 				xpc_array_append_value(return_paths_array, path_as_xpc_string);
 			});
@@ -183,7 +223,7 @@ xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t 
             }
 
             if (!(path && dir && base)) {
-                syslog(LOG_ERR, "Can't get dir or base (likely out of memory) for %s", xpc_array_get_string(keychain_path_array, i));
+                secerror("Can't get dir or base (likely out of memory) for %s", xpc_array_get_string(keychain_path_array, i));
                 return;
             }
 			
@@ -220,13 +260,15 @@ static
 xpc_object_t create_one_sandbox_extension(xpc_object_t path, bool read_only)
 {
 	const char * extension_class = read_only ? APP_SANDBOX_READ : APP_SANDBOX_READ_WRITE;
+
+    secinfo("keychain_xpc_sandbox", "Returning sandbox extension for %s", xpc_string_get_string_ptr(path));
 	char *sandbox_extension = sandbox_extension_issue_file(extension_class, xpc_string_get_string_ptr(path), SANDBOX_EXTENSION_CANONICAL);
 	if (sandbox_extension) {
 		xpc_object_t sandbox_extension_as_xpc_string = xpc_string_create(sandbox_extension);
         free(sandbox_extension);
         return sandbox_extension_as_xpc_string;
 	} else {
-		syslog(LOG_ERR, "Can't get sandbox fs extension for %s", xpc_string_get_string_ptr(path));
+		secerror("Can't get sandbox fs extension for %s", xpc_string_get_string_ptr(path));
 	}
 	return NULL;
 }
@@ -267,7 +309,7 @@ void handle_request_event(struct connection_info *info, xpc_object_t event)
     xpc_connection_t peer = xpc_dictionary_get_remote_connection(event);
     xpc_type_t xtype = xpc_get_type(event);
     if (info->done) {
-        syslog(LOG_ERR, "event %p while done", event);
+        secerror("event %p while done", event);
         return;
     }
 	if (xtype == XPC_TYPE_ERROR) {
@@ -295,10 +337,11 @@ void handle_request_event(struct connection_info *info, xpc_object_t event)
             // one request.   Nothing intresting to log.
             return;
         }
-		syslog(LOG_ERR, "listener event error (connection %p): %s", peer, xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
+		secerror("listener event error (connection %p): %s", peer, xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
 	} else if (xtype == XPC_TYPE_DICTIONARY) {
         const char *operation = xpc_dictionary_get_string(event, "op");
         if (operation && !strcmp(operation, "GrantKeychainPaths")) {
+            secinfo("xpc_keychain_sandbox", "granting keychain sandbox extensions for %@", peer);
             xpc_object_t keychain_paths = create_keychain_search_lists(peer);
 			xpc_object_t all_paths = create_keychain_and_lock_paths(peer, keychain_paths);
             xpc_object_t sandbox_extensions = NULL;
@@ -323,10 +366,10 @@ void handle_request_event(struct connection_info *info, xpc_object_t event)
                 info->processed++;
             }
         } else {
-            syslog(LOG_ERR, "Unknown op=%s request from pid %d", operation, xpc_connection_get_pid(peer));
+            secerror("Unknown op=%s request from pid %d", operation, xpc_connection_get_pid(peer));
         }
     } else {
-		syslog(LOG_ERR, "Unhandled request event=%p type=%p", event, xtype);
+		secerror("Unhandled request event=%p type=%p", event, xtype);
     }
 }
 
@@ -395,24 +438,7 @@ int main(int argc, const char *argv[])
     strlcat(buffer, g_path_to_plist, sizeof(buffer));
     keychain_prefs_path = xpc_string_create(buffer);
     home = xpc_string_create(home_dir);
-    
-    void *security_framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
-    if (security_framework) {
-        SecKeychainCopyDomainSearchListFunctionPointer = dlsym(security_framework, "SecKeychainCopyDomainSearchList");
-        if (!SecKeychainCopyDomainSearchListFunctionPointer) {
-            syslog(LOG_ERR, "Can't lookup SecKeychainCopyDomainSearchList in %p: %s", security_framework, dlerror());
-            return EX_OSERR;
-        }
-        SecKeychainGetPathFunctionPointer = dlsym(security_framework, "SecKeychainGetPath");
-        if (!SecKeychainGetPathFunctionPointer) {
-            syslog(LOG_ERR, "Can't lookup SecKeychainGetPath in %p: %s", security_framework, dlerror());
-            return EX_OSERR;
-        }
-    } else {
-        syslog(LOG_ERR, "Failed to open Security framework: %s", dlerror());
-        return EX_OSERR;
-    }
-    
+
     xpc_main(handle_connection_event);
     
     return EX_OSERR;

@@ -760,6 +760,7 @@ HeimCredDoSCRAM
 &kHEIMAttrLeadCredential
 &kHEIMAttrParentCredential
 &kHEIMAttrData
+&kHEIMAttrLabelValue
 &kHEIMAttrTransient
 &kHEIMAttrAllowedDomain
 &kHEIMAttrStatus

@@ -2096,6 +2096,14 @@ fail_change_next_allocation:
 		}
 
 		hfs_lock_mount(hfsmp);
+		if ((hfsmp->hfs_flags & HFS_HAS_SPARSE_DEVICE) || hfsmp->hfs_backingvp) {
+			// We lost the race here, just return an error.
+			(void)vnode_put(di_vp);
+			file_drop(bsdata->backingfd);
+			(void)vnode_rele(di_vp);
+			hfs_unlock_mount(hfsmp);
+			return (EALREADY);
+		}
 		hfsmp->hfs_backingvp = di_vp;
 		hfsmp->hfs_flags |= HFS_HAS_SPARSE_DEVICE;
 		hfsmp->hfs_sparsebandblks = bsdata->bandsize / hfsmp->blockSize * 4;
@@ -2152,6 +2160,15 @@ fail_change_next_allocation:
 		    hfsmp->hfs_backingvp) {
 
 			hfs_lock_mount(hfsmp);
+			//re-check flags now that we have the lock
+			//did we just race someone else to get in here?
+			if (((hfsmp->hfs_flags & HFS_HAS_SPARSE_DEVICE) == 0) ||
+			   (hfsmp->hfs_backingvp == NULL)) {
+				//we lost the race, just return.
+				hfs_unlock_mount(hfsmp);
+				return 0;
+			}
+
 			hfsmp->hfs_flags &= ~HFS_HAS_SPARSE_DEVICE;
 			tmpvp = hfsmp->hfs_backingvp;
 			hfsmp->hfs_backingvp = NULLVP;

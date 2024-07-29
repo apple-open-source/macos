@@ -61,6 +61,9 @@ xmlFuzzDataHash(void);
 void
 xmlFuzzDataCleanup(void);
 
+const char *
+xmlFuzzReadBytes(size_t *size, char stopByte);
+
 int
 xmlFuzzReadInt(void);
 
@@ -88,6 +91,12 @@ xmlFuzzEntityLoader(const char *URL, const char *ID, xmlParserCtxtPtr ctxt);
 size_t
 xmlFuzzExtractStrings(const char *data, size_t size, char **strings,
                       size_t numStrings);
+
+unsigned int
+xmlFuzzRnd(void);
+
+void
+xmlFuzzRndSetSeed(unsigned int seed);
 
 char *
 xmlSlurpFile(const char *path, size_t *size);

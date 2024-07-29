@@ -31,9 +31,9 @@ fi
 
 PREFIX=${PREFIX:-$HOME/build/httpd-root}
 
-# For trunk, "make check" is sufficient to run the test suite.
-# For 2.4.x, the test suite must be run manually
-if test ! -v SKIP_TESTING; then
+# If perl-framework testing is required it is checked out here by
+# _before_linux.sh:
+if test -d test/perl-framework; then
     CONFIG="$CONFIG --enable-load-all-modules"
     if grep -q ^check: Makefile.in; then
         CONFIG="--with-test-suite=test/perl-framework $CONFIG"
@@ -54,16 +54,9 @@ else
     CONFIG="$CONFIG --with-apr-util=/usr"
 fi
 
-# Since librustls is not a package (yet) on any platform, we
-# build the version we want from source
-if test -v TEST_MOD_TLS; then
-  RUSTLS_HOME="$HOME/build/rustls-ffi"
-  RUSTLS_VERSION="v0.10.0"
-  git clone -b "$RUSTLS_VERSION" https://github.com/rustls/rustls-ffi.git "$RUSTLS_HOME"
-  pushd "$RUSTLS_HOME"
-    make install DESTDIR="$PREFIX"
-  popd
-  CONFIG="$CONFIG --with-tls --with-rustls=$PREFIX"
+# Pick up the rustls install built previously.
+if test -v TEST_MOD_TLS -a RUSTLS_VERSION; then
+  CONFIG="$CONFIG --with-tls --with-rustls=$HOME/root/rustls"
 fi
 
 if test -v TEST_OPENSSL3; then
@@ -106,11 +99,15 @@ if ! test -v SKIP_TESTING; then
     fi
 
     if test -v TEST_ASAN; then
-        export ASAN_OPTIONS="log_path=$PWD/asan.log"
+        export ASAN_OPTIONS="log_path=$PWD/asan.log:detect_leaks=0"
     fi
 
     # Try to keep all potential coredumps from all processes
     sudo sysctl -w kernel.core_uses_pid=1 2>/dev/null || true
+    # Systemd based systems might process core dumps via systemd-coredump.
+    # But we want to have local unprocessed files.
+    sudo sysctl -w kernel.core_pattern=core || true
+    ulimit -c unlimited 2>/dev/null || true
 
     if test -v WITH_TEST_SUITE; then
         make check TESTS="${TESTS}" TEST_CONFIG="${TEST_ARGS}"
@@ -259,7 +256,7 @@ if ! test -v SKIP_TESTING; then
         fi
     fi
 
-    for core in `ls test/perl-framework/t/core{,.*} 2>/dev/null`; do
+    for core in `ls test/perl-framework/t/core{,.*} test/gen/apache/core{,.*} 2>/dev/null`; do
         gdb -ex 'thread apply all backtrace full' -batch ./httpd "$core"
         RV=5
     done

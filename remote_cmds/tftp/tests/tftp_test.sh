@@ -23,15 +23,16 @@ start_tftpd() {
 		t=$((t+s))
 	done
 	echo "starting ${tftp_label} for $(atf_get ident)" >&2
-	rm -rf "${tftp_dir}"
-	mkdir "${tftp_dir}"
-	sed -E \
-	    -e "s/>-[is]</>-li</" \
-	    -e "s@>/private/tftpboot<@>${tftp_dir}<@" \
-	    </System/Library/LaunchDaemons/tftp.plist \
-	    >"${tftp_plist}"
+	atf_check rm -rf "${tftp_dir}"
+	atf_check mkdir "${tftp_dir}"
+	# 1) enable logging and force secure mode
+	# 2) append trailing slash to chroot dir to verify that tftpd strips it
+	atf_check -o save:"${tftp_plist}" sed -E \
+	    -e "s/>-[is]</>-ls</" \
+	    -e "s@>/private/tftpboot<@>${tftp_dir}/<@" \
+	    </System/Library/LaunchDaemons/tftp.plist
 	# launchctl load always succeeds, so we can't rely on its exit code
-	launchctl load -F "${tftp_plist}"
+	atf_check launchctl load -F "${tftp_plist}"
 	sleep 1
 	# check that the tftpd service was successfully loaded
 	atf_check -o ignore -e ignore \
@@ -536,6 +537,26 @@ tftp_url_ipv6_cleanup() {
 	stop_tftpd
 }
 
+atf_test_case tftp_chroot_prefix cleanup
+tftp_chroot_prefix_head() {
+	atf_set "descr" "Absolute path including chroot prefix"
+	atf_set "require.user" "root"
+}
+tftp_chroot_prefix_body() {
+	start_tftpd
+	atf_check mkdir -m 0755 "${tftp_dir}/subdir"
+	local remote_file="${tftp_dir}/subdir/hello.txt"
+	echo "Hello, $$!" >"${remote_file}"
+	local local_file="${remote_file##*/}"
+	echo "get ${remote_file} ${local_file}" >client-script
+	atf_check -o match:"Received [0-9]+ bytes" \
+	    tftp localhost <client-script
+	atf_check cmp -s "${local_file}" "${remote_file}"
+}
+tftp_chroot_prefix_cleanup() {
+	stop_tftpd
+}
+
 atf_init_test_cases() {
 	atf_add_test_case tftp_get_big
 	atf_add_test_case tftp_get_host
@@ -556,4 +577,5 @@ atf_init_test_cases() {
 	atf_add_test_case tftp_url_host
 	atf_add_test_case tftp_url_ipv4
 	atf_add_test_case tftp_url_ipv6
+	atf_add_test_case tftp_chroot_prefix
 }

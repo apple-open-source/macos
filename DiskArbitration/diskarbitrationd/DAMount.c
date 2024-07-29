@@ -344,6 +344,17 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
                 {
                     CFStringLowercase( tmpArg, NULL );
                     arg = CFStringCreateCopy( kCFAllocatorDefault, tmpArg );
+                    if ( arg && CFStringHasPrefix( arg, CFSTR( "-o" ) ) )
+                    {
+                        int index = 2;
+                        if ( CFStringHasPrefix( arg, CFSTR( "-o=" ) ) )
+                        {
+                            index = 3;
+                        }
+                        CFStringRef lowArg = arg;
+                        arg = CFStringCreateWithSubstring( kCFAllocatorDefault, lowArg, CFRangeMake( index, CFStringGetLength( lowArg ) - index ) );
+                        CFRelease( lowArg);
+                    }
                     CFRelease( tmpArg );
                 }
 

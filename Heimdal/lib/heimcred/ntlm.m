@@ -489,6 +489,7 @@ _HeimCredRegisterNTLM(void)
 	CFDictionarySetValue(schema, kHEIMAttrTransient, CFSTR("b"));
 	CFDictionarySetValue(schema, kHEIMAttrAllowedDomain, CFSTR("as"));
 	CFDictionarySetValue(schema, kHEIMAttrStatus, CFSTR("n"));
+	CFDictionarySetValue(schema, kHEIMAttrLabelValue, CFSTR("d"));
 
 	CFSetAddValue(set, schema);
 	CFRELEASE_NULL(schema);

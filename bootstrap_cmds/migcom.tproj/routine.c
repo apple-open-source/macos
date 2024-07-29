@@ -1631,6 +1631,10 @@ rtAddByReference(routine_t *rt)
           akCheck(arg->argKind, akbSendRcv)))
         && it->itStruct) {
       arg->argByReferenceServer = TRUE;
+      if (IsKernelServer && IS_KERN_PROC_DATA(it)) {
+        /* because of PAC we can't take the address of a signed pointer */
+        arg->argKind = akAddFeature(arg->argKind, akbVarNeeded);
+      }
     }
   }
 }

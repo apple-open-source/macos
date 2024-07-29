@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include "fuzz.h"
 
 static bool gPrintRepro = false;
@@ -715,6 +716,75 @@ static readerFuzzFunctionType readerFuzzFunctions[] = {
 
 const unsigned readerFuzzFunctionsCount = sizeof(readerFuzzFunctions) / sizeof(readerFuzzFunctionType);
 
+const char instructionStopByte = 0xff;
+
+extern size_t LLVMFuzzerMutate(uint8_t *data, size_t size, size_t maxSize);
+extern size_t LLVMFuzzerCustomMutator(uint8_t *data, size_t size, size_t maxSize, unsigned int seed);
+
+size_t
+LLVMFuzzerCustomMutator(uint8_t *data, size_t size, size_t maxSize, unsigned int seed) {
+    xmlFuzzRndSetSeed(seed);
+
+    const size_t optionsSize = sizeof(int);
+    if (size < optionsSize + 2) // instruction byte, stop byte, empty document
+        return LLVMFuzzerMutate(data, size, maxSize);
+
+    // Mutate libxml2 parsing options in first byte of input (10% chance).
+    if (xmlFuzzRnd() % 10 == 1)
+        *((int *)&data[0]) = (int)xmlFuzzRnd();
+
+    // Mutate "virtual instructions" read by xmlFuzzReadBytes().
+    // Find length of instructions up to instructionStopByte.
+    uint8_t *dataEnd = &data[0] + size;
+    uint8_t *instrStart = &data[0] + optionsSize;
+    uint8_t *instrEnd = (uint8_t *)memchr(instrStart, instructionStopByte, dataEnd - instrStart);
+    if (instrEnd == NULL)
+        return LLVMFuzzerMutate(data, size, maxSize);
+
+    // Change instructions by adding, changing or removing an instruction (10% chance each).
+    // TODO: Use (xmlFuzzRnd() % N) to add/modify/delete 1 to N instructions.
+    switch (xmlFuzzRnd() % 10) {
+    case 0: { // Change random byte instruction.
+        if (instrEnd > instrStart) {
+            size_t instrOffset = xmlFuzzRnd() % (instrEnd - instrStart);
+            instrStart[instrOffset] = (uint8_t)(xmlFuzzRnd() % readerFuzzFunctionsCount);
+        }
+        break;
+    }
+    case 1: { // Remove random byte instruction.
+        if (instrEnd > instrStart + 1) {
+            size_t instrOffset = xmlFuzzRnd() % (instrEnd - instrStart);
+            memmove(instrStart + instrOffset, instrStart + instrOffset + 1, dataEnd - (instrStart + instrOffset + 1));
+            --size;
+            dataEnd -= 1;
+            instrEnd -= 1;
+        }
+        break;
+    }
+    case 2: { // Add random byte instruction.
+        if (maxSize > size) {
+            size_t instrOffset = (instrStart < instrEnd) ? xmlFuzzRnd() % (instrEnd - instrStart) : 0;
+            memmove(instrStart + instrOffset + 1, instrStart + instrOffset, dataEnd - (instrStart + instrOffset));
+            instrStart[instrOffset] = (uint8_t)(xmlFuzzRnd() % readerFuzzFunctionsCount);
+            ++size;
+            dataEnd += 1;
+            instrEnd += 1;
+        }
+        break;
+    }
+    default:  // Do nothing.
+        break;
+    }
+
+    // Mutate the XML content as normal.
+    uint8_t *xmlStart = instrEnd + 1;
+    assert(xmlStart <= dataEnd);
+
+    size_t xmlSize = dataEnd - xmlStart;
+    size_t xmlSizeNew = LLVMFuzzerMutate(xmlStart, xmlSize, xmlSize + (maxSize - size));
+    return (xmlStart - &data[0]) + xmlSizeNew;
+}
+
 int
 LLVMFuzzerInitialize(int *argc ATTRIBUTE_UNUSED,
                      char ***argv ATTRIBUTE_UNUSED) {
@@ -735,7 +805,8 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
     xmlDocPtr preservedReaderDoc = NULL;
     xmlTextReaderPtr reader;
     const char *docBuffer;
-    size_t maxSize, docSize;
+    const char *instrBuffer;
+    size_t maxSize, docSize, instrSize;
     int opts;
 
     xmlFuzzDataInit(data, size);
@@ -746,7 +817,12 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
     if (size > maxSize)
         goto exit;
 
+    instrBuffer = xmlFuzzReadBytes(&instrSize, instructionStopByte);
+    if (instrBuffer == NULL)
+        goto exit;
+
     xmlFuzzReadEntities();
+
     docBuffer = xmlFuzzMainEntity(&docSize);
     if (docBuffer == NULL)
         goto exit;
@@ -779,10 +855,13 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
     xmlFuzzDataInit(data, size);\n\
     opts = xmlFuzzReadInt();\n\
     \n\
+    instrBuffer = xmlFuzzReadBytes(&instrSize, (char)0x%02x);\n\
+    \n\
     xmlFuzzReadEntities();\n\
+    \n\
     docBuffer = xmlFuzzMainEntity(&docSize);\n\
     \n\
-    reader = xmlReaderForMemory((const char *)docBuffer, docSize, NULL, NULL, opts);\n", size);
+    reader = xmlReaderForMemory((const char *)docBuffer, docSize, NULL, NULL, opts);\n", size, instructionStopByte);
         fflush(stderr);
     }
 
@@ -808,21 +887,9 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
     (void)xmlTextReaderRead(reader);\n");
         fflush(stderr);
     }
-    for (unsigned i = 0; xmlTextReaderRead(reader) == 1; i = (i + 1) % docSize) {
-        unsigned charValue = (unsigned)docBuffer[i];
-        // Run 1 to 3 functions for each node.
-        switch (((unsigned)docBuffer[i]) % 3) {
-        case 2:
-            (*readerFuzzFunctions[charValue % readerFuzzFunctionsCount])(reader, charValue);
-            i = (i + 1) % docSize;
-            // Fall through.
-        case 1:
-            (*readerFuzzFunctions[charValue % readerFuzzFunctionsCount])(reader, charValue);
-            i = (i + 1) % docSize;
-            // Fall through.
-        case 0:
-            (*readerFuzzFunctions[charValue % readerFuzzFunctionsCount])(reader, charValue);
-        }
+    for (unsigned i = 0; i < instrSize && xmlTextReaderRead(reader) == 1; ++i) {
+        unsigned charValue = (unsigned)instrBuffer[i];
+        (*readerFuzzFunctions[charValue % readerFuzzFunctionsCount])(reader, charValue);
 
         if (xmlTextReaderNodeType(reader) == XML_ELEMENT_NODE) {
             if (gPrintRepro) {

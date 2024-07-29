@@ -865,6 +865,21 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
         /*
          * A console user is not logged in.
          */
+        
+///w:start
+        const char * suInstallCookieFile = "/var/db/.SoftwareUpdateAtLogout";
+        struct statfs fs     = { 0 };
+        int status = statfs( suInstallCookieFile, &fs );
+        if (status == 0 )
+        {
+            DALogInfo( " SU install cookie is present. Ignoring console user logout." );
+            goto done;
+        }
+        else
+        {
+            DALogInfo( " No console users logged in." );
+        }
+///w:stop
 
         DAPreferenceListRefresh( );
 
@@ -973,6 +988,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
         }
     }
 
+done:
     if ( previousUser )
     {
         CFRelease( previousUser );
@@ -2283,7 +2299,9 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                             status = kDAReturnNotPrivileged;
                                         }
                                     }
-                                    if ( DAMountContainsArgument( argument3, kDAFileSystemMountArgumentSetUserID ) == TRUE &&  DAMountGetPreference( disk, kDAMountPreferenceTrust ) == FALSE )
+                                    if ( ( ( DAMountContainsArgument( argument3, kDAFileSystemMountArgumentSetUserID ) == TRUE ) ||
+                                           ( DAMountContainsArgument( argument3, kDAFileSystemMountArgumentDevice ) == TRUE ) )
+                                            &&  DAMountGetPreference( disk, kDAMountPreferenceTrust ) == FALSE )
                                     {
                                         if ( audit_token_to_euid( _token ) )
                                         {

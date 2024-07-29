@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 53;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -205,6 +205,7 @@
 		2A9399D31BE2C06800FB075B /* test-uncached-io.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399D21BE2C06000FB075B /* test-uncached-io.c */; };
 		2A9399D51BE2C17800FB075B /* test-unicode-file-names.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399D41BE2C14800FB075B /* test-unicode-file-names.c */; };
 		2ABDCEA71BF3DAA100CFC70C /* test-journal-toggle.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399CB1BE2BB1600FB075B /* test-journal-toggle.c */; };
+		41FEC6282BC9DDCE00418FFA /* test-fsctls.c in Sources */ = {isa = PBXBuildFile; fileRef = 41FEC6272BC9DDCE00418FFA /* test-fsctls.c */; };
 		4D07DCC41538EF92002B57CB /* fstyp_hfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DCC31538EF92002B57CB /* fstyp_hfs.c */; };
 		4D07DCC51538EFB7002B57CB /* fstyp_hfs.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4D07DCC21538EF92002B57CB /* fstyp_hfs.8 */; };
 		4D0E89AA1534FF48004CD678 /* mount_hfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E89A71534FF48004CD678 /* mount_hfs.c */; };
@@ -983,6 +984,7 @@
 		2A9399D01BE2BFF400FB075B /* test-throttled-io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-throttled-io.c"; sourceTree = "<group>"; };
 		2A9399D21BE2C06000FB075B /* test-uncached-io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-uncached-io.c"; sourceTree = "<group>"; };
 		2A9399D41BE2C14800FB075B /* test-unicode-file-names.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-unicode-file-names.c"; sourceTree = "<group>"; };
+		41FEC6272BC9DDCE00418FFA /* test-fsctls.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "test-fsctls.c"; sourceTree = "<group>"; };
 		4D07DCB81538EF3A002B57CB /* fstyp_hfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fstyp_hfs; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D07DCC21538EF92002B57CB /* fstyp_hfs.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fstyp_hfs.8; sourceTree = "<group>"; };
 		4D07DCC31538EF92002B57CB /* fstyp_hfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fstyp_hfs.c; sourceTree = "<group>"; };
@@ -1964,6 +1966,7 @@
 		FB55AE551B7CD89600701D03 /* cases */ = {
 			isa = PBXGroup;
 			children = (
+				41FEC6272BC9DDCE00418FFA /* test-fsctls.c */,
 				2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */,
 				07C2BF881CB43F5E00D8327D /* test-renamex.c */,
 				2A386A3A1C221E67007FEDAC /* test-list-ids.c */,
@@ -3354,6 +3357,7 @@
 				2A9399B61BE131A400FB075B /* test-resize.m in Sources */,
 				2A9399B41BE12DE900FB075B /* test-fsinfo.c in Sources */,
 				2A9399B21BE12A6E00FB075B /* test-fsinfo-cprotect.c in Sources */,
+				41FEC6282BC9DDCE00418FFA /* test-fsctls.c in Sources */,
 				2A9399AA1BE0402600FB075B /* test-hard-links.m in Sources */,
 				2A9399A81BE03A6800FB075B /* test-getattrlist-dprotect.m in Sources */,
 				2A9399A61BE0366E00FB075B /* test-fsync.c in Sources */,

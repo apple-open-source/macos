@@ -37,6 +37,7 @@ typedef struct __DAFileSystem * DAFileSystemRef;
 typedef struct __DAFileSystemContext __DAFileSystemContext;
 extern const CFStringRef kDAFileSystemMountArgumentForce;
 extern const CFStringRef kDAFileSystemMountArgumentNoDevice;
+extern const CFStringRef kDAFileSystemMountArgumentDevice;
 extern const CFStringRef kDAFileSystemMountArgumentNoExecute;
 extern const CFStringRef kDAFileSystemMountArgumentNoOwnership;
 extern const CFStringRef kDAFileSystemMountArgumentOwnership;

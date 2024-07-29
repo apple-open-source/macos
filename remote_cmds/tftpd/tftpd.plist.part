@@ -11,6 +11,7 @@
 		<array>
 			<string>tftp-options.c: adjust type of net.inet.udp.maxdgram</string>
 			<string>tftpd.c: add -i option for backward compatibility</string>
+			<string>tftpd.c: in secure mode, strip a prefix that matches the chroot dir (125565246)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

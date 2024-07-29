@@ -842,7 +842,8 @@ HeimCredAddNTLMChallenge(uint8_t challenge[8])
     xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(request, "command", "add-challenge");
     xpc_dictionary_set_data(request, "challenge", CFDataGetBytePtr(data), CFDataGetLength(data));
-
+    CFRELEASE_NULL(data);
+    
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
     if (reply == NULL) {

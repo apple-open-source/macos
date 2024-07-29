@@ -2580,7 +2580,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         op.nextState = op.intendedState;
         
         // updating the property to halt sending metrics for Octagon
-        // metadata should only be updated to DISABLED by CKKS when the first Manatee key is downloaded.
+        // metadata should only be updated to DISABLED by CKKS when initial sync is finished
         self.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_NOTPERMITTED;
     }];
 }
@@ -2695,7 +2695,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         op.nextState = op.intendedState;
 
         // updating the property to halt sending metrics for Octagon
-        // metadata should only be updated to DISABLED by CKKS when the first Manatee key is downloaded.
+        // metadata should only be updated to DISABLED by CKKS when initial sync is finished
         self.shouldSendMetricsForOctagon = OTAccountMetadataClassC_MetricsState_NOTPERMITTED;
 
         NSError* fetchError = nil;
@@ -5031,7 +5031,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [self canSendMetricsUsingAccountState:[self.accountMetadataStore fetchSendingMetricsPermitted:error]];
 }
 
-// to be called when the device has fetched it's first Manatee key.
+// to be called when CKKS finishes initial sync
 - (BOOL)persistSendingMetricsPermitted:(BOOL)sendingMetricsPermitted error:(NSError**)error
 {
     if (sendingMetricsPermitted) {

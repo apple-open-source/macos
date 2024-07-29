@@ -9,7 +9,7 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/libexec/tftpd</string>
-		<string>-s</string>
+		<string>-i</string>
 		<string>/private/tftpboot</string>
 	</array>
 	<key>inetdCompatibility</key>

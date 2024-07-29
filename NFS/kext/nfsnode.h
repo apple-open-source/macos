@@ -290,6 +290,8 @@ struct nfs_dir_buf_header {
 	((C) && ((((C) >> 32) == 0) || (((C) & 0x80000000ULL) && (((C) >> 32) == 0xffffffff))))
 #define NFS_DIR_COOKIE_SAME32(C1, C2) \
 	(((C1) & 0xffffffffULL) == ((C2) & 0xffffffffULL))
+#define NFS_DIRENT_PATH_SEPARATOR(DP) \
+    (memchr((DP)->d_name, '/', (DP)->d_namlen) != NULL)
 
 /*
  * NFS directory cookie cache

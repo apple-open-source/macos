@@ -55,6 +55,24 @@ static xmlSAXHandler xmlSAXHandlerStruct = {
     NULL  /* serror */
 };
 
+extern size_t LLVMFuzzerMutate(uint8_t *data, size_t size, size_t maxSize);
+extern size_t LLVMFuzzerCustomMutator(uint8_t *data, size_t size, size_t maxSize, unsigned int seed);
+
+size_t
+LLVMFuzzerCustomMutator(uint8_t *data, size_t size, size_t maxSize, unsigned int seed) {
+    xmlFuzzRndSetSeed(seed);
+
+    const size_t optionsSize = sizeof(int);
+    if (size < optionsSize)
+        return LLVMFuzzerMutate(data, size, maxSize);
+
+    // Mutate libxml2 parsing options in first byte of input (10% chance).
+    if (xmlFuzzRnd() % 10 == 1)
+        *((int *)&data[0]) = (int)xmlFuzzRnd();
+
+    return optionsSize + LLVMFuzzerMutate(data + optionsSize, size - optionsSize, maxSize - optionsSize);
+}
+
 int
 LLVMFuzzerInitialize(int *argc ATTRIBUTE_UNUSED,
                      char ***argv ATTRIBUTE_UNUSED) {
@@ -82,7 +100,7 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
     xmlCharEncoding encoding;
 
     xmlFuzzDataInit(data, size);
-    encoding = (xmlCharEncoding)(xmlFuzzDataHash() % 23); /* 0-22 */
+    encoding = (xmlCharEncoding)(xmlFuzzDataHash() % 23); /* See <libxml/encoding.h>. */
     opts = xmlFuzzReadInt() | XML_PARSE_NONET;
 
     /* Lower maximum size when processing entities for now. */
@@ -101,7 +119,8 @@ LLVMFuzzerTestOneInput(const char *data, size_t size) {
 
     /* Pull parser */
 
-    doc = xmlReadMemory(docBuffer, docSize, docUrl, xmlGetCharEncodingName(encoding), opts);
+    /* Recovery mode allows more input to be fuzzed. */
+    doc = xmlReadMemory(docBuffer, docSize, docUrl, xmlGetCharEncodingName(encoding), opts | XML_PARSE_RECOVER);
     if (opts & XML_PARSE_XINCLUDE)
         xmlXIncludeProcessFlags(doc, opts);
     /* Also test the serializer. */

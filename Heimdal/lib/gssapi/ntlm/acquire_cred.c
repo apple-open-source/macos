@@ -110,12 +110,14 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 		goto out;
 
 	const void *add_keys[] = {
-	(void *)kHEIMObjectType,
-		kHEIMAttrType,
+	    (void *)kHEIMObjectType,
+	    kHEIMAttrType,
+	    kHEIMAttrParentCredential,
 	};
 	const void *add_values[] = {
-	(void *)kHEIMObjectNTLM,
-		kHEIMTypeNTLM,
+	    (void *)kHEIMObjectNTLM,
+	    kHEIMTypeNTLM,
+	    kCFNull,  // do not return labels as creds
 	};
 
 	CFDictionaryRef baseQuery = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);

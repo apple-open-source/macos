@@ -33,10 +33,16 @@
 #import <Foundation/Foundation.h>
 #import <WebCore/PushMessageCrypto.h>
 #import <WebCore/SecurityOrigin.h>
+#import <notify.h>
 #import <wtf/OSObjectPtr.h>
+#import <wtf/RunLoop.h>
 #import <wtf/WorkQueue.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 #import <wtf/text/Base64.h>
+
+#if HAVE(MOBILE_KEY_BAG)
+#import <pal/spi/ios/MobileKeyBagSPI.h>
+#endif
 
 namespace WebPushD {
 using namespace WebKit;
@@ -55,6 +61,67 @@ static void updateTopicLists(PushServiceConnection& connection, PushDatabase& da
 
 #if HAVE(APPLE_PUSH_SERVICE_URL_TOKEN_SUPPORT)
 
+#if !HAVE(MOBILE_KEY_BAG)
+
+static void performAfterFirstUnlock(Function<void()>&& function)
+{
+    function();
+}
+
+#else
+
+static bool hasUnlockedAtLeastOnce()
+{
+    // This function returns -1 on error, 0 on if the device has never unlocked, or 1 if the device has unlocked at least once.
+    return MKBDeviceUnlockedSinceBoot() == 1;
+}
+
+static void performAfterFirstUnlock(Function<void()>&& function)
+{
+    static NeverDestroyed<Vector<Function<void()>>> functions;
+    static int notifyToken = NOTIFY_TOKEN_INVALID;
+
+    RELEASE_ASSERT(RunLoop::isMain());
+
+    auto runFunctions = []() {
+        RELEASE_LOG(Push, "Device has unlocked. Running initialization.");
+
+        for (auto& function : functions.get())
+            WorkQueue::main().dispatch(WTFMove(function));
+        functions->clear();
+
+        if (notifyToken != NOTIFY_TOKEN_INVALID) {
+            notify_cancel(notifyToken);
+            notifyToken = NOTIFY_TOKEN_INVALID;
+        }
+    };
+
+    if (hasUnlockedAtLeastOnce()) {
+        functions->append(WTFMove(function));
+        runFunctions();
+        return;
+    }
+
+    RELEASE_LOG(Push, "Device is locked. Delaying init until it unlocks for the first time.");
+
+    if (notifyToken == NOTIFY_TOKEN_INVALID) {
+        notify_register_dispatch(kMobileKeyBagLockStatusNotifyToken, &notifyToken, dispatch_get_main_queue(), ^(int token) {
+            if (!notify_is_valid_token(token) || !hasUnlockedAtLeastOnce())
+                return;
+            runFunctions();
+        });
+    }
+
+    functions->append(WTFMove(function));
+
+    // Re-check the lock state after registering the notification. This covers the case where the
+    // device unlocked in the time between the initial check and notification registration.
+    if (hasUnlockedAtLeastOnce())
+        runFunctions();
+}
+
+#endif
+
 void PushService::create(const String& incomingPushServiceName, const String& databasePath, IncomingPushMessageHandler&& messageHandler, CompletionHandler<void(std::unique_ptr<PushService>&&)>&& creationHandler)
 {
     auto transaction = adoptOSObject(os_transaction_create("com.apple.webkit.webpushd.push-service-init"));
@@ -62,25 +129,27 @@ void PushService::create(const String& incomingPushServiceName, const String& da
     // Create the connection ASAP so that we bootstrap_check_in to the service in a timely manner.
     auto connection = makeUniqueRef<ApplePushServiceConnection>(incomingPushServiceName);
 
-    PushDatabase::create(databasePath, [transaction = WTFMove(transaction), connection = WTFMove(connection), messageHandler = WTFMove(messageHandler), creationHandler = WTFMove(creationHandler)](auto&& databaseResult) mutable {
-        if (!databaseResult) {
-            RELEASE_LOG_ERROR(Push, "Push service initialization failed with database error");
-            creationHandler(std::unique_ptr<PushService>());
-            return;
-        }
+    performAfterFirstUnlock([databasePath, transaction = WTFMove(transaction), connection = WTFMove(connection), messageHandler = WTFMove(messageHandler), creationHandler = WTFMove(creationHandler)]() mutable {
+        PushDatabase::create(databasePath, [transaction, connection = WTFMove(connection), messageHandler = WTFMove(messageHandler), creationHandler = WTFMove(creationHandler)](auto&& databaseResult) mutable {
+            if (!databaseResult) {
+                RELEASE_LOG_ERROR(Push, "Push service initialization failed with database error");
+                creationHandler(std::unique_ptr<PushService>());
+                return;
+            }
 
-        auto database = makeUniqueRefFromNonNullUniquePtr(WTFMove(databaseResult));
-        UniqueRef<PushService> service(*new PushService(WTFMove(connection), WTFMove(database), WTFMove(messageHandler)));
+            auto database = makeUniqueRefFromNonNullUniquePtr(WTFMove(databaseResult));
+            UniqueRef<PushService> service(*new PushService(WTFMove(connection), WTFMove(database), WTFMove(messageHandler)));
 
-        auto& connectionRef = service->connection();
-        auto& databaseRef = service->database();
+            auto& connectionRef = service->connection();
+            auto& databaseRef = service->database();
 
-        // Only provide the service object back to the caller after we've synced the topic lists in
-        // the database with the PushServiceConnection/APSConnection. This ensures that we won't
-        // service any calls to subscribe/unsubscribe/etc. until after the topic lists are up to
-        // date, which APSConnection cares about.
-        updateTopicLists(connectionRef, databaseRef, [transaction = WTFMove(transaction), service = WTFMove(service), creationHandler = WTFMove(creationHandler)]() mutable {
-            creationHandler(service.moveToUniquePtr());
+            // Only provide the service object back to the caller after we've synced the topic lists in
+            // the database with the PushServiceConnection/APSConnection. This ensures that we won't
+            // service any calls to subscribe/unsubscribe/etc. until after the topic lists are up to
+            // date, which APSConnection cares about.
+            updateTopicLists(connectionRef, databaseRef, [transaction, service = WTFMove(service), creationHandler = WTFMove(creationHandler)]() mutable {
+                creationHandler(service.moveToUniquePtr());
+            });
         });
     });
 }

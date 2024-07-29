@@ -2144,7 +2144,7 @@ void SecPVCDelete(SecPVCRef pvc) {
 }
 
 void SecPVCSetPath(SecPVCRef pvc, SecCertificatePathVCRef path) {
-    secdebug("policy", "%@", path);
+    secdebug("policy", "%{private}@", path);
     pvc->policyIX = 0;
     pvc->result = kSecTrustResultUnspecified;
     CFReleaseNull(pvc->details);
@@ -3259,7 +3259,7 @@ static CFArrayRef CF_RETURNS_RETAINED SecPVCCopyDetailsArray(SecPVCRef pvc) {
    been checked.
  */
 void SecPVCPathChecks(SecPVCRef pvc) {
-    secdebug("policy", "begin path: %@", SecPathBuilderGetPath(pvc->builder));
+    secdebug("policy", "begin path: %{private}@", SecPathBuilderGetPath(pvc->builder));
     SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
     /* This needs to be initialized before we call any function that might call
        SecPVCSetResultForced(). */
@@ -3331,7 +3331,7 @@ void SecPVCPathChecks(SecPVCRef pvc) {
     /* Check that this path meets known-intermediate constraints. */
     SecPathBuilderCheckKnownIntermediateConstraints(pvc->builder);
 
-    secdebug("policy", "end %strusted path: %@",
+    secdebug("policy", "end %strusted path: %{private}@",
         (SecPVCIsOkResult(pvc) ? "" : "not "), SecPathBuilderGetPath(pvc->builder));
 
     return;

@@ -114,6 +114,7 @@ HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMClientTargetName);
 HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMClientFlags);
 HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMSessionKey);
 HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMKCMFlags);
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrLabelValue); /* CFDataRef */
 
 /* SCRAM */
 HEIMCRED_CONST(CFStringRef, kHEIMAttrSCRAMUsername);

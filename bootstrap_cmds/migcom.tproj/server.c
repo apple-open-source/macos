@@ -288,6 +288,15 @@ WriteRoutineEntries(FILE *file, statement_t *stats)
       routine_t *rt = stat->stRoutine;
       size_t       rtNameLen = strlen(rt->rtName);
 
+      if (MaxServerReplyDescrs >= 0 && rt->rtReplyKPDs > MaxServerReplyDescrs) {
+        fatal("WriteRoutine(): method %s uses %d reply descriptors (larger than %d)",
+          rt->rtName, rt->rtReplyKPDs, MaxServerReplyDescrs);
+      }
+      if (MaxServerDescrs >= 0 && rt->rtRequestKPDs > MaxServerDescrs) {
+        fatal("WriteRoutine(): method %s uses %d descriptors (larger than %d)",
+          rt->rtName, rt->rtRequestKPDs, MaxServerDescrs);
+      }
+
       // Include length of rt->rtName in calculation of necessary buffer size, since that string
       // is actually written into the buffer along with the Server Subsystem name.
       sig_array = (char *) malloc(serverSubsysNameLen + rtNameLen + 80);

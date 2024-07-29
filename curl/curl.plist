@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>8.6.0</string>
+	<string>8.7.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.se/</string>
 	<key>OpenSourceURL</key>
-	<string>https://curl.se/download/curl-8.6.0.tar.xz</string>
+	<string>https://curl.se/download/curl-8.7.1.tar.xz</string>
 	<key>OpenSourceSHA256</key>
-	<string>3ccd55d91af9516539df80625f818c734dc6f2ecf9bada33c76765e99121db15</string>
+	<string>6fea2aac6a4610fbd0400afb0bcddbe7258a64c63f1f68e5855ebc0c659710cd</string>
 	<key>OpenSourceImportDate</key>
-	<string>2024-03-13</string>
+	<string>2024-04-30</string>
 	<key>OpenSourceModifications</key>
 	<array>
 	  <string>include/curl/curl.h: Moved CURLE_SSL_CACERT back to being an enum value instead of a macro. (#43091584)</string>

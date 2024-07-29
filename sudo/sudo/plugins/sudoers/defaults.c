@@ -358,7 +358,7 @@ set_default(const char *var, const char *val, int op, const char *file,
         pid_t pid = getpid();
         rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
         if (rv == 0 && (csflags & CS_INSTALLER) != 0) {
-            /* Suppress SUDO_CONF_PLUGINS when CS_INSTALLER is set. */
+            /* Suppress secure_path when CS_INSTALLER is set. */
             sudo_warnx(U_("%s: %s"), __func__, U_("ignoring secure_path due to CS_INSTALLER"));
             debug_return_bool(true);
         }

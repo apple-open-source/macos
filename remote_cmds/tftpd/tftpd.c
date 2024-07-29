@@ -97,8 +97,16 @@ static void	tftp_rrq(int peer, char *, ssize_t);
 #define MAXDIRS	20
 static struct dirlist {
 	const char	*name;
+#ifndef __APPLE__
 	int	len;
+#else
+	size_t	len;
+#endif
 } dirs[MAXDIRS+1];
+#ifdef __APPLE__
+static char	*chroot_dir;
+static size_t	chroot_dir_len;
+#endif
 static int	suppress_naks;
 static int	logging;
 static int	ipchroot;
@@ -132,7 +140,9 @@ main(int argc, char *argv[])
 	socklen_t	peerlen, len;
 	ssize_t		n;
 	int		ch;
+#ifndef __APPLE__
 	char		*chroot_dir = NULL;
+#endif
 	struct passwd	*nobody;
 	const char	*chuser = "nobody";
 	char		recvbuffer[MAXPKTSIZE];
@@ -210,6 +220,14 @@ main(int argc, char *argv[])
 				"ignoring unknown option -%c", ch);
 		}
 	}
+#ifdef __APPLE__
+	/* Trim trailing slashes from chroot dir */
+	if (chroot_dir != NULL) {
+		chroot_dir_len = strlen(chroot_dir);
+		while (chroot_dir_len > 1 && chroot_dir[chroot_dir_len - 1] == '/')
+			chroot_dir[--chroot_dir_len] = '\0';
+	}
+#endif
 	if (optind < argc) {
 		struct dirlist *dirp;
 
@@ -464,7 +482,11 @@ parse_header(int peer, char *recvbuffer, ssize_t size,
 	char **filename, char **mode)
 {
 	char	*cp;
+#ifndef __APPLE__
 	int	i;
+#else
+	ssize_t	i;
+#endif
 	struct formats *pf;
 
 	*mode = NULL;
@@ -692,6 +714,20 @@ validate_access(int peer, char **filep, int mode)
 		return (EACCESS);
 
 	if (*filename == '/') {
+#ifdef __APPLE__
+		/*
+		 * If we are chrooted, and the filename starts with a
+		 * prefix that matches chroot_dir followed by a slash, and
+		 * there is not a directory matching that name inside our
+		 * chroot, strip the prefix from the filename.
+		 */
+		if (chroot_dir != NULL && chroot_dir_len > 1 &&
+		    strncmp(filename, chroot_dir, chroot_dir_len) == 0 &&
+		    filename[chroot_dir_len] == '/' &&
+		    !(stat(chroot_dir, &stbuf) == 0 && S_ISDIR(stbuf.st_mode))) {
+			*filep = filename += chroot_dir_len;
+		}
+#endif
 		/*
 		 * Allow the request if it's in one of the approved locations.
 		 * Special case: check the null prefix ("/") by looking

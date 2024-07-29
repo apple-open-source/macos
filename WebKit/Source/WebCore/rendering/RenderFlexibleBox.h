@@ -199,6 +199,7 @@ private:
     void maybeCacheChildMainIntrinsicSize(RenderBox& child, bool relayoutChildren);
     void adjustAlignmentForChild(RenderBox& child, LayoutUnit);
     ItemPosition alignmentForChild(const RenderBox& child) const;
+    inline OverflowAlignment overflowAlignmentForChild(const RenderBox& child) const;
     bool canComputePercentageFlexBasis(const RenderBox& child, const Length& flexBasis, UpdatePercentageHeightDescendants);
     bool childMainSizeIsDefinite(const RenderBox&, const Length& flexBasis);
     bool childCrossSizeIsDefinite(const RenderBox&, const Length& flexBasis);
@@ -289,6 +290,9 @@ private:
         SingleThreadWeakHashSet<const RenderBox> m_itemsOnFirstFlexLine;
         SingleThreadWeakHashSet<const RenderBox> m_itemsOnLastFlexLine;
     } m_marginTrimItems;
+
+    LayoutUnit m_alignContentStartOverflow { 0 };
+    LayoutUnit m_justifyContentStartOverflow { 0 };
 
     // This is SizeIsUnknown outside of layoutBlock()
     SizeDefiniteness m_hasDefiniteHeight { SizeDefiniteness::Unknown };

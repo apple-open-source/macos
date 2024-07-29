@@ -112,6 +112,11 @@ PlatformMediaSessionManager::PlatformMediaSessionManager()
 {
 }
 
+PlatformMediaSessionManager::~PlatformMediaSessionManager()
+{
+    m_taskGroup.cancel();
+}
+
 static inline unsigned indexFromMediaType(PlatformMediaSession::MediaType type)
 {
     return static_cast<unsigned>(type);
@@ -478,7 +483,7 @@ void PlatformMediaSessionManager::sessionCanProduceAudioChanged()
         return;
 
     m_alreadyScheduledSessionStatedUpdate = true;
-    callOnMainThread([this] {
+    enqueueTaskOnMainThread([this] {
         m_alreadyScheduledSessionStatedUpdate = false;
         maybeActivateAudioSession();
         updateSessionState();
@@ -642,7 +647,7 @@ void PlatformMediaSessionManager::scheduleUpdateSessionState()
         return;
 
     m_hasScheduledSessionStateUpdate = true;
-    callOnMainThread([this] {
+    enqueueTaskOnMainThread([this] {
         updateSessionState();
         m_hasScheduledSessionStateUpdate = false;
     });
@@ -839,9 +844,10 @@ WeakPtr<PlatformMediaSession> PlatformMediaSessionManager::bestEligibleSessionFo
     Vector<WeakPtr<PlatformMediaSession>> eligibleAudioVideoSessions;
     Vector<WeakPtr<PlatformMediaSession>> eligibleWebAudioSessions;
     forEachMatchingSession(filterFunction, [&](auto& session) {
-        if (eligibleAudioVideoSessions.isEmpty() && session.presentationType() == PlatformMediaSession::MediaType::WebAudio)
-            eligibleWebAudioSessions.append(session);
-        else
+        if (session.presentationType() == PlatformMediaSession::MediaType::WebAudio) {
+            if (eligibleAudioVideoSessions.isEmpty())
+                eligibleWebAudioSessions.append(session);
+        } else
             eligibleAudioVideoSessions.append(session);
     });
 
@@ -852,6 +858,13 @@ WeakPtr<PlatformMediaSession> PlatformMediaSessionManager::bestEligibleSessionFo
     }
 
     return eligibleAudioVideoSessions[0]->selectBestMediaSession(eligibleAudioVideoSessions, purpose);
+}
+
+void PlatformMediaSessionManager::enqueueTaskOnMainThread(Function<void()>&& task)
+{
+    callOnMainThread(CancellableTask(m_taskGroup, [task = WTFMove(task)] () mutable {
+        task();
+    }));
 }
 
 #if !RELEASE_LOG_DISABLED

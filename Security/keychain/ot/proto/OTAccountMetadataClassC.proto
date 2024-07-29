@@ -93,7 +93,7 @@ message AccountMetadataClassC {
 
     // reserved 21 (was account settings)
 
-    // True when the device is untrusted up until the point of the first Manatee key fetch
+    // True when the device is untrusted up until the point of CKKS finishing initial sync
     optional MetricsState sendingMetricsPermitted = 22;
 
     optional string oldPeerID = 23;

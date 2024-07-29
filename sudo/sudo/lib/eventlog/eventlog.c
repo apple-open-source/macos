@@ -58,6 +58,10 @@
 #include "sudo_queue.h"
 #include "sudo_util.h"
 
+#ifdef __APPLE__
+#include <System/sys/codesign.h>
+#endif /* __APPLE__ */
+
 #define IS_SESSID(s) ( \
     isalnum((unsigned char)(s)[0]) && isalnum((unsigned char)(s)[1]) && \
     (s)[2] == '/' && \
@@ -297,6 +301,24 @@ exec_mailer(int pipein)
 	NULL
     };
     debug_decl(exec_mailer, SUDO_DEBUG_UTIL);
+	
+#ifdef __APPLE__
+    // only if mailer path was changed in prefs
+    if ((strcmp(_PATH_SENDMAIL, mpath) != 0)
+	||
+	(strcmp("-t", evl_conf->mailerflags) != 0))
+    {
+	int csflags = 0;
+	int rv = 0;
+	pid_t pid = getpid();
+	rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+	if (rv != 0 ||  (rv == 0 && (csflags & CS_INSTALLER) != 0)) {
+	    syslog(LOG_ERR, "Mail exec disallowed due to CS_INSTALLER, rv %d", rv);
+	    sudo_debug_printf(SUDO_DEBUG_ERROR, "Mail exec disallowed due to CS_INSTALLER, rv %d", rv);
+	    _exit(127);;
+	}
+    }
+#endif // __APPLE__
 
     /* Set stdin to read side of the pipe. */
     if (dup3(pipein, STDIN_FILENO, 0) == -1) {

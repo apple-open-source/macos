@@ -1,1 +1,0 @@
-../../../OSX/libsecurity_mds/lib/mds_schema.h

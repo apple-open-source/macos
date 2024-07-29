@@ -24,7 +24,7 @@ fuzz_dir = ./libxml2/fuzz
 fuzz_old_dir = ./libxml2/fuzz-old
 top_srcdir = ./..
 
-XCODEBUILD_CONFIGURATION ?= Debug
+XCODEBUILD_CONFIGURATION ?= Release
 XCODEBUILD_FUZZER_FLAGS = ENABLE_LIBFUZZER=YES ENABLE_ADDRESS_SANITIZER=YES ENABLE_UNDEFINED_BEHAVIOR_SANITIZER=YES
 
 # <https://stackoverflow.com/questions/2004760/get-makefile-directory>
@@ -113,7 +113,7 @@ merge-corpus: merge-html-corpus merge-reader-corpus merge-regexp-corpus merge-sc
 
 # XML fuzzer
 
-XML_MAX_LEN = 80000
+XML_MAX_LEN = 10000
 # Single quotes to avoid wildcard expansion by the shell
 XML_SEED_CORPUS_SRC = \
     '$(top_srcdir)/test/*' \
@@ -139,7 +139,7 @@ fuzz-xml: $(fuzz_dir)/xml $(fuzz_dir)/seed/xml.stamp
 	    -dict=xml.dict \
 	    -max_len=$(XML_MAX_LEN) \
 	    -rss_limit_mb=8192 \
-	    -timeout=20 \
+	    -timeout=10 \
 	    -ignore_timeouts=1 \
 	    corpus/xml seed/xml
 
@@ -163,7 +163,7 @@ fuzz-html: $(fuzz_dir)/html $(fuzz_dir)/seed/html.stamp
 	mkdir -p corpus/html; \
 	DYLD_LIBRARY_PATH=$(build_dir) ./html \
 	    -dict=html.dict \
-	    -max_len=1000000 \
+	    -max_len=10000 \
 	    -timeout=10 \
 	    -ignore_timeouts=1 \
 	    corpus/html seed/html
@@ -184,7 +184,7 @@ fuzz-reader: $(fuzz_dir)/reader $(fuzz_dir)/seed/reader.stamp
 	    -dict=reader.dict \
 	    -max_len=$(XML_MAX_LEN) \
 	    -rss_limit_mb=8192 \
-	    -timeout=20 \
+	    -timeout=10 \
 	    -ignore_timeouts=1 \
 	    corpus/reader seed/reader
 
@@ -232,7 +232,7 @@ fuzz-schema: $(fuzz_dir)/schema $(fuzz_dir)/seed/schema.stamp
 	DYLD_LIBRARY_PATH=$(build_dir) ./schema \
 	    -dict=schema.dict \
 	    -max_len=$(XML_MAX_LEN) \
-	    -timeout=20 \
+	    -timeout=10 \
 	    -ignore_timeouts=1 \
 	    corpus/schema seed/schema
 
@@ -251,7 +251,7 @@ fuzz-xpath: $(fuzz_dir)/xpath $(fuzz_dir)/seed/xpath.stamp
 	    -dict=xpath.dict \
 	    -max_len=10000 \
 	    -rss_limit_mb=8192 \
-	    -timeout=20 \
+	    -timeout=10 \
 	    -ignore_timeouts=1 \
 	    corpus/xpath seed/xpath
 

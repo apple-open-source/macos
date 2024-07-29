@@ -864,13 +864,19 @@ removeDuplicates(struct peer *peer, CFDictionaryRef attributes, CFErrorRef *erro
     } else if (CFEqual(objectType, kHEIMObjectNTLM)) {
 	CFStringRef name = CFDictionaryGetValue(attributes, kHEIMAttrNTLMUsername);
 	CFStringRef domain = CFDictionaryGetValue(attributes, kHEIMAttrNTLMDomain);
-
+	CFUUIDRef parentCredential = CFDictionaryGetValue(attributes, kHEIMAttrParentCredential);
+	
 	query = [@{
 	    (id)kHEIMObjectType:(__bridge id)objectType,
 	    (id)kHEIMAttrNTLMUsername:(__bridge id)name,
 	    (id)kHEIMAttrNTLMDomain:(__bridge id)domain,
 	    (id)kHEIMAttrData:(__bridge id)kHEIMObjectAny,
 	} mutableCopy];
+	
+	if (parentCredential) {
+	    query[(id)kHEIMAttrParentCredential] = (__bridge id)parentCredential;
+	}
+	
     } else if (CFEqual(objectType, kHEIMObjectSCRAM)) {
 	CFStringRef name = CFDictionaryGetValue(attributes, kHEIMAttrSCRAMUsername);
 

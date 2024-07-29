@@ -183,6 +183,12 @@
 		D06D277B29B69D540098F98B /* warnless.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A72612455686007EDB1C /* warnless.c */; };
 		D06D277C29B69D670098F98B /* curl_multibyte.c in Sources */ = {isa = PBXBuildFile; fileRef = FD7F96DC169E6FE3000707BF /* curl_multibyte.c */; };
 		D06D277E29B69DB20098F98B /* tool_formparse.c in Sources */ = {isa = PBXBuildFile; fileRef = FDC61BE5149833D2005BBE36 /* tool_formparse.c */; };
+		D0A26E3E2BE1A3D600C6B4DF /* cw-out.h in Headers */ = {isa = PBXBuildFile; fileRef = D0A26E3D2BE1A3D600C6B4DF /* cw-out.h */; };
+		D0A26E402BE1A3E700C6B4DF /* cw-out.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A26E3F2BE1A3E700C6B4DF /* cw-out.c */; };
+		D0A26E472BE1A47000C6B4DF /* curl_sha512_256.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A26E452BE1A47000C6B4DF /* curl_sha512_256.c */; };
+		D0A26E482BE1A47000C6B4DF /* curl_sha512_256.h in Headers */ = {isa = PBXBuildFile; fileRef = D0A26E462BE1A47000C6B4DF /* curl_sha512_256.h */; };
+		D0A26E4B2BE1A5FE00C6B4DF /* request.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A26E492BE1A5FE00C6B4DF /* request.c */; };
+		D0A26E4C2BE1A5FE00C6B4DF /* request.h in Headers */ = {isa = PBXBuildFile; fileRef = D0A26E4A2BE1A5FE00C6B4DF /* request.h */; };
 		D0A62E8A288F297000D3789A /* fopen.c in Sources */ = {isa = PBXBuildFile; fileRef = D0A62E89288F297000D3789A /* fopen.c */; };
 		D0A62E8C288F299600D3789A /* fopen.h in Headers */ = {isa = PBXBuildFile; fileRef = D0A62E8B288F299600D3789A /* fopen.h */; };
 		D0ADD3312ACE05AA0022E131 /* curl_global_trace.3 in Install man3 (491 items) */ = {isa = PBXBuildFile; fileRef = D0ADD3252ACE05920022E131 /* curl_global_trace.3 */; };
@@ -1612,6 +1618,12 @@
 		D06D276829B699680098F98B /* curl_msh3.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = curl_msh3.h; sourceTree = "<group>"; };
 		D06D276C29B699A00098F98B /* cf-socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cf-socket.h"; sourceTree = "<group>"; };
 		D06D276D29B699A00098F98B /* cf-socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cf-socket.c"; sourceTree = "<group>"; };
+		D0A26E3D2BE1A3D600C6B4DF /* cw-out.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "cw-out.h"; sourceTree = "<group>"; };
+		D0A26E3F2BE1A3E700C6B4DF /* cw-out.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "cw-out.c"; sourceTree = "<group>"; };
+		D0A26E452BE1A47000C6B4DF /* curl_sha512_256.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = curl_sha512_256.c; sourceTree = "<group>"; };
+		D0A26E462BE1A47000C6B4DF /* curl_sha512_256.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = curl_sha512_256.h; sourceTree = "<group>"; };
+		D0A26E492BE1A5FE00C6B4DF /* request.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = request.c; sourceTree = "<group>"; };
+		D0A26E4A2BE1A5FE00C6B4DF /* request.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = request.h; sourceTree = "<group>"; };
 		D0A62E89288F297000D3789A /* fopen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fopen.c; sourceTree = "<group>"; };
 		D0A62E8B288F299600D3789A /* fopen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fopen.h; sourceTree = "<group>"; };
 		D0ADD3212ACE05910022E131 /* CURLINFO_XFER_ID.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = CURLINFO_XFER_ID.3; path = opts/CURLINFO_XFER_ID.3; sourceTree = "<group>"; };
@@ -2571,6 +2583,8 @@
 		FC41A5F312455686007EDB1C /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				D0A26E3F2BE1A3E700C6B4DF /* cw-out.c */,
+				D0A26E3D2BE1A3D600C6B4DF /* cw-out.h */,
 				D055D6AE2ACC705700707481 /* macos.c */,
 				D055D6AF2ACC705700707481 /* macos.h */,
 				D055D6AB2ACB3F3500707481 /* curl_trc.c */,
@@ -2815,12 +2829,16 @@
 				FC41A71A12455686007EDB1C /* tftp.c */,
 				FC41A71B12455686007EDB1C /* tftp.h */,
 				D3469A4C2857C329006E340F /* timediff.c */,
+				D0A26E492BE1A5FE00C6B4DF /* request.c */,
+				D0A26E4A2BE1A5FE00C6B4DF /* request.h */,
 				D3469A4A2857C329006E340F /* timediff.h */,
 				FC41A71C12455686007EDB1C /* timeval.c */,
 				FC41A71D12455686007EDB1C /* timeval.h */,
 				FC41A71E12455686007EDB1C /* transfer.c */,
 				FC41A71F12455686007EDB1C /* transfer.h */,
 				FC41A72012455686007EDB1C /* url.c */,
+				D0A26E452BE1A47000C6B4DF /* curl_sha512_256.c */,
+				D0A26E462BE1A47000C6B4DF /* curl_sha512_256.h */,
 				FC41A72112455686007EDB1C /* url.h */,
 				3FC5D9E2225AA24700C3059F /* urlapi-int.h */,
 				3FC5D9E3225AA24700C3059F /* urlapi.c */,
@@ -3574,6 +3592,8 @@
 				D055D6B12ACC705700707481 /* macos.h in Headers */,
 				3FC5D9F4225AA8F100C3059F /* urlapi.h in Headers */,
 				D388563B261FD81D00465252 /* options.h in Headers */,
+				D0A26E4C2BE1A5FE00C6B4DF /* request.h in Headers */,
+				D0A26E482BE1A47000C6B4DF /* curl_sha512_256.h in Headers */,
 				D3885629261FD72400465252 /* hsts.h in Headers */,
 				D0C51D0C2919DBE1001021D6 /* websockets.h in Headers */,
 				D3918415267409650089F3E1 /* curl_krb5.h in Headers */,
@@ -3585,6 +3605,7 @@
 				3E3D1EBB1D2C5FB90007C4BE /* vauth.h in Headers */,
 				D3469A5D2857C396006E340F /* hostcheck.h in Headers */,
 				3E3D1EB11D2C5FB90007C4BE /* digest.h in Headers */,
+				D0A26E3E2BE1A3D600C6B4DF /* cw-out.h in Headers */,
 				D047076E29CCCEEB00292F46 /* cfilters.h in Headers */,
 				D3885634261FD77B00465252 /* mqtt.h in Headers */,
 				FDC61C8214983BDE005BBE36 /* typecheck-gcc.h in Headers */,
@@ -3949,6 +3970,7 @@
 				D3885626261FD72400465252 /* rename.c in Sources */,
 				FC41A82E12455ACC007EDB1C /* rtsp.c in Sources */,
 				FC41A83012455ACC007EDB1C /* select.c in Sources */,
+				D0A26E472BE1A47000C6B4DF /* curl_sha512_256.c in Sources */,
 				FC41A83112455ACC007EDB1C /* sendf.c in Sources */,
 				3FC5D9DF225AA21900C3059F /* setopt.c in Sources */,
 				3FC5D9F2225AA88400C3059F /* sha256.c in Sources */,
@@ -3978,6 +4000,7 @@
 				3FC5D9E5225AA24700C3059F /* urlapi.c in Sources */,
 				FC41A84312455ACC007EDB1C /* warnless.c in Sources */,
 				D0D7BE68291ACCD60080062D /* ws.c in Sources */,
+				D0A26E4B2BE1A5FE00C6B4DF /* request.c in Sources */,
 				FC41A84212455ACC007EDB1C /* version.c in Sources */,
 				D39183F5267408D60089F3E1 /* bearssl.c in Sources */,
 				FDB9BB8D1981B6C800195172 /* gtls.c in Sources */,
@@ -4002,6 +4025,7 @@
 				3E3D1EB21D2C5FB90007C4BE /* krb5_gssapi.c in Sources */,
 				3E3D1EB31D2C5FB90007C4BE /* krb5_sspi.c in Sources */,
 				3E3D1EB51D2C5FB90007C4BE /* ntlm.c in Sources */,
+				D0A26E402BE1A3E700C6B4DF /* cw-out.c in Sources */,
 				3E3D1EB41D2C5FB90007C4BE /* ntlm_sspi.c in Sources */,
 				3E3D1EB71D2C5FB90007C4BE /* oauth2.c in Sources */,
 				3E3D1EB81D2C5FB90007C4BE /* spnego_gssapi.c in Sources */,
